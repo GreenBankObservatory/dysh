@@ -4,6 +4,8 @@ import argparse
 import logging
 from pathlib import Path
 
+import pyspeckit
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ def init_logging(verbosity):
 
 def astrodysh(input_path: Path, output_path: Path):
     logger.info("hello world")
+    pyspeckit.__file__
     return True
 
 

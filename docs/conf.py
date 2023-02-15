@@ -22,7 +22,7 @@ import astrodysh
 
 project = "astrodysh"
 copyright = "2023, Green Bank Observatory"
-author = "Thomas Chamberlin"
+author = "Green Bank Observatory"
 
 # The short X.Y version
 version = astrodysh.__version__
@@ -186,7 +186,7 @@ texinfo_documents = [
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"https://docs.python.org/": None}
+# intersphinx_mapping = {"https://docs.python.org/": None}
 
 # -- Options for todo extension ----------------------------------------------
 

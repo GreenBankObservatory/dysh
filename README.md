@@ -4,34 +4,56 @@ astrodysh!
 
 ## Installation
 
-astrodysh requires Python 3.11+. Once you are in a suitable environment, simply:
+astrodysh requires Python 3.8+. Once you are in a suitable environment, simply:
 
 ```bash
-# Currently available only via GBO's private PyPI repository
-$ pip install pyspeckit --extra-index-url http://pypi.gb.nrao.edu/simple
+$ pip install -e .
 ```
+
 
 ## Development
 
 If you are working on astrodysh itself, here's how to get your environment set up
 
+First, you'll need `hatch` installed. The "proper" way to do that is via pipx:
+
 ```bash
-$ python3.11 -m venv /path/to/venvs/astrodysh-3.11
-$ source /path/to/venvs/astrodysh-3.11/bin/activate
-$ pip install -U pip setuptools wheel pdm
-# pyspeckit must be manually installed via pip to avoid errors :(
-$ pip install pyspeckit
-$ pdm install
+$ pipx install hatch
 ```
 
-To validate your virtual environment, you can run the tests:
+But you can also manage your virtual environment entirely yourself:
+
+```bash
+$ python3.8 -m venv /path/to/venvs/astrodysh-3.8
+$ source /path/to/venvs/astrodysh-3.8/bin/activate
+$ pip install hatch
+```
+
+Once you have `hatch`, simply:
+
+```
+$ pip install -e .
+```
+
+To validate the install, you can run astrodysh CLI via:
+
+
+```bash
+$ astrodysh --help
+```
+
+## Testing
+
+Simply:
 
 ```bash
 $ pytest
 ```
 
-And run the CLI directly, via:
+### pre-commit
 
-```bash
-$ astrodysh --help
-```
+This repository provides pre-commit hooks that enforce some code formatting/quality checks. To use them:
+
+1. Install [pre-commit](https://pre-commit.com/)
+2. Install the hooks via `pre-commit install`
+3. Future commits will run these hooks prior to allowing the commit
