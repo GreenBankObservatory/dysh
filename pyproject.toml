@@ -1,0 +1,24 @@
+[project]
+name = "astrodysh"
+version = "0.1.0a1"
+description = ""
+authors = [
+    {name = "Thomas Chamberlin", email = "tchamber@nrao.edu"},
+]
+dependencies = [
+    "pyspeckit>=1.0.1",
+    "astropy>=5.2.1",
+]
+requires-python = ">=3.11"
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.scripts]
+astrodysh = "astrodysh.astrodysh:main"
+
+[tool.pdm.build]
+includes = []
+
+[build-system]
+requires = ["pdm-pep517>=1.0"]
+build-backend = "pdm.pep517.api"
