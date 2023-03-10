@@ -123,6 +123,7 @@ class SDFITSLoad(object):
         print("==SDFITSLoad %s" % filename)
         cds.enable()  # to get mmHg
         kwargs_opts = {'fix':False}
+        kwargs_opts = {'wcs':False}
         kwargs_opts.update(kwargs)
         self._filename = filename
         self._bintable = []
@@ -133,7 +134,7 @@ class SDFITSLoad(object):
         self._hdu = fits.open(filename)  
         self._header = self._hdu[0].header
         self.load(hdu,**kwargs_opts)
-        self.load_pandas()
+        #self.load_pandas()
         #self._hdu.close()  # can't access hdu[i].data member of you do this.
     @property 
     def filename(self):
@@ -168,11 +169,13 @@ class SDFITSLoad(object):
         """
 
         self._bintable = []
+        self._ptable = []
         self._binheader = []
         self._data = []
         self._nrows = []
         source = kwargs.get('source',None)
         fix = kwargs.get('fix',False)
+        wcs = kwargs.get('wcs',False)
 
         if hdu is not None:
             ldu = list([hdu])
@@ -181,51 +184,70 @@ class SDFITSLoad(object):
         for i in ldu:
             j=i-1
 
-            self._bintable.append(Table.read((self._hdu[i])))
+            t = Table.read(self._hdu[i]) 
+            t.remove_column('DATA')
+            self.stripT(t)
+            self._ptable.append(t.to_pandas())
+            del t
+            self._bintable.append(self._hdu[i]) 
             self._binheader.append(self._hdu[i].header)
             # TODO: don't allow preselection here, it just screws bookkeepingu p.
             # All selection must happen in obsblocks.
-            if source is None:
-                self._data.append(self._bintable[j]["DATA"])
-            else:
-                wh1 = np.char.strip(self._bintable[j]['OBJECT']) == source # true/false array
-                if wh1.sum() == 0: #all False none found
-                    srcs = np.unique(self._bintable[j]['OBJECT'])
-                    raise Exception(f"Source name {source} not found in HDU {i}. Sources present are {srcs}")
-                self._data.append(self._bintable[j]["DATA"][wh1])
-                mask = np.where(wh1)[0]
-                self._bintable[j] = self._bintable[j][mask]  # header will be wrong?
-            self._nrows.append(len(self._data[j]))
+            #if source is None:
+            #    self._data.append(self._bintable[j].data[:]["DATA"])
+            #else:
+            #    wh1 = np.char.strip(self._bintable[j]['OBJECT']) == source # true/false array
+            #    if wh1.sum() == 0: #all False none found
+            #        srcs = np.unique(self._bintable[j]['OBJECT'])
+            #        raise Exception(f"Source name {source} not found in HDU {i}. Sources present are {srcs}")
+            #    self._data.append(self._bintable[j]["DATA"][wh1])
+            #    mask = np.where(wh1)[0]
+            #    self._bintable[j] = self._bintable[j][mask]  # header will be wrong?
+            self._nrows.append(self._binheader[j]["NAXIS2"])
 
-        self.strip()
-        self.load_pandas()
+        #self.strip()
+        #self.load_pandas()
+
+    def stripT(self,b):
+        # remove leading and trailing chars from all strings in table 
+        for n in b.colnames:
+            if np.issubdtype(b.dtype[n],str):
+                b[n] = np.char.strip(b[n])
 
     def strip(self):
         # remove leading and trailing chars from all strings in table 
-        for b in self._bintable:
+        for b in self._ptable:
             for n in b.colnames:
                 if np.issubdtype(b.dtype[n],str):
                     b[n] = np.char.strip(b[n])
 
-    def _loadlists(self,fix=True):
+    def _loadlists(self,fix=False,wcs=False):
         self._obsblock = []
         i=0
-        for b in self._bintable:
+        k = -1
+        for b in self._ptable:
             sl = SpectrumList()
+            print(f"Creating {self.nrows(i)} Spectrum1D in bintable {i}",file=sys.stderr)
             for j in range(self.nrows(i)):
+                k = k+1
                 # need extra [[]] because we have 1x1 spatial NAXIS
                 # otherwise, slicing the spectrum won't work.
-                sp = np.array([[self.rawspectra(i)[j]]])*u.K
+                if wcs: 
+                    sp = np.array([[self.rawspectrum(i,j)]])*u.K
+                else:
+                    sp = self.rawspectrum(i,j)*u.K
+                naxis1 =  sp.shape[0]#self.nchan(i)
+                if (k%500) == 0: 
+                    print(f"Row {k} nchan {naxis1}", file=sys.stderr)
+                    #print(f"NAXIS1 is {naxis1}",file=sys.stderr)
                 crval1  = b['CRVAL1'][j]
                 cdelt1  = b['CDELT1'][j]
                 crpix1  = b['CRPIX1'][j]
                 ctype1  = b['CTYPE1'][j]
-                naxis1 =  self.nchan(i)
-                #print("NAXIS1 is ",naxis1)
                 # Ensure rest frequency is in Hertz
                 # CUNIT1 is not always present
                 restfrq = b['RESTFREQ'][j]
-                if "CUNIT1" in b.colnames:
+                if "CUNIT1" in b.columns:
                     cunit1  = b['CUNIT1'][j]
                     rfq = restfrq * u.Unit(cunit1)
                     restfreq = rfq.to("Hz").value
@@ -237,37 +259,49 @@ class SDFITSLoad(object):
                 # 'FREQ-OBS' to 'FREQ'; assuming SPECSYS='TOPOCENT'
                 #if ctype1 == 'FREQ-OBS': ctype1  = 'FREQ'
                 # only axis1 needs a full description, axis2,3,4 are all single points
-                wcs = WCS(header={'CDELT1': cdelt1, 'CRVAL1': crval1, 'CUNIT1': cunit1,
-                                  'CTYPE1': 'FREQ', 'CRPIX1': crpix1, 'RESTFRQ': restfrq,
-                                  'CTYPE2': ctype2, 'CRVAL2': crval2, 'CRPIX2': 1,
-                                  'CTYPE3': ctype3, 'CRVAL3': crval3, 'CRPIX3': 1,
-                                  'CUNIT2': 'deg', 'CUNIT3':'deg',
-                                  'NAXIS1': naxis1, 'NAXIS2':1, 'NAXIS3':1
-                                 },
-                         fix=fix)
-                meta = {}
+                if wcs:
+                    wcs = WCS(header={'CDELT1': cdelt1, 'CRVAL1': crval1, 'CUNIT1': cunit1,
+                                      'CTYPE1': 'FREQ', 'CRPIX1': crpix1, 'RESTFRQ': restfrq,
+                                      'CTYPE2': ctype2, 'CRVAL2': crval2, 'CRPIX2': 1,
+                                      'CTYPE3': ctype3, 'CRVAL3': crval3, 'CRPIX3': 1,
+                                      'CUNIT2': 'deg', 'CUNIT3':'deg',
+                                      'NAXIS1': naxis1, 'NAXIS2':1, 'NAXIS3':1
+                                     },
+                             fix=fix)
+                else:
+                    wcs = None
                 # GBT really fucks up FREQ/VELDEF/VELFRAME
-                if False:
-                    if "VELFRAME" in b.colnames:
-                        vframe = b['VELFRAME'][j]
-                    elif "VFRAME" in b.colnames:
-                        vframe = b['VFRAME'][j]
-                    else:
-                        vframe = None
-                    if "VELDEF" in b.colnames:
-                        vdef = b['VELDEF'][j]
-                    else:
-                        vdef = None
+                #if False:
+                if "VELFRAME" in b.columns:
+                    vframe = b['VELFRAME'][j]
+                elif "VFRAME" in b.columns:
+                    vframe = b['VFRAME'][j]
+                else:
+                    vframe = None
+                if "VELDEF" in b.columns:
+                    vdef = b['VELDEF'][j]
+                else:
+                    vdef = None
 
-                    convention = self.velocity_convention(vdef,vframe)
-                meta = dict(b[j])
+                meta={'CDELT1': cdelt1, 'CRVAL1': crval1, 'CUNIT1': cunit1,
+                      'CTYPE1': 'FREQ', 'CRPIX1': crpix1, 'RESTFRQ': restfrq,
+                      'CTYPE2': ctype2, 'CRVAL2': crval2, 'CRPIX2': 1,
+                      'CTYPE3': ctype3, 'CRVAL3': crval3, 'CRPIX3': 1,
+                      'CUNIT2': 'deg', 'CUNIT3':'deg',
+                      'NAXIS1': naxis1, 'NAXIS2':1, 'NAXIS3':1,
+                      'VELDEF': vdef, 'VELFRAME': vframe
+                     }
+
+                convention = self.velocity_convention(vdef,vframe)
+                #meta = dict(b.loc[j])# Necessary? Since we are sending whole pandas table to Obsblock
                 if fix:
                     self.fix_meta(meta)
-                try:
-                    convention = self.velocity_convention(meta['VELDEF'],meta['VELFRAME'])
-                except Exception:
-                    #print("WARNING: insufficient veldef/velframe, assuming convention is 'doppler_radio'")
-                    convention="doppler_radio"
+                if False:
+                    try:
+                        convention = self.velocity_convention(meta['VELDEF'],meta['VELFRAME'])
+                    except Exception:
+                        #print("WARNING: insufficient veldef/velframe, assuming convention is 'doppler_radio'")
+                        convention="doppler_radio"
                 sl.append(Spectrum1D(flux=sp,wcs=wcs,  meta=meta, velocity_convention=convention))
             self._obsblock.append(Obsblock(sl,self._ptable[i]))
             i=i+1
@@ -303,13 +337,16 @@ class SDFITSLoad(object):
         return nint
 
     def rawspectra(self,bintable):
-        return self._data[bintable]
+        return self._bintable[bintable].data[:]["DATA"]
+
+    def rawspectrum(self,bintable,i):
+        return self._bintable[bintable].data[:]["DATA"][i]
     
     def nrows(self,bintable):
         return self._nrows[bintable]
 
     def nchan(self,bintable):
-        return np.shape(self.rawspectra(bintable))[1]
+        return np.shape(self.rawspectrum(bintable,1))[0]
     
     def npol(self,bintable):
         return len(self.udata(bintable,'CRVAL4'))
