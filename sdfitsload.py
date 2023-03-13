@@ -1,19 +1,28 @@
 #!/usr/bin/env python
-from astropy.io import fits
-import numpy as np
-import matplotlib 
+import sys
 import copy
-from matplotlib import pyplot as plt
+import numpy as np
+from astropy.wcs import WCS
+from astropy.units import cds
+from astropy.modeling.models import Gaussian1D
+from astropy.modeling.polynomial import Polynomial1D
+from astropy.io import fits
 from astropy.modeling import models, fitting
-from specutils import Spectrum1D, SpectrumList
 import astropy.units as u
 from astropy.table import Table
+from specutils import Spectrum1D, SpectrumList,SpectralRegion
+from specutils.fitting import fit_continuum
 import pandas as pd
-from astropy.wcs import WCS
-import sys
-from astropy.units import cds
+import matplotlib.pyplot as plt
 
-
+def baseline(speclist,order,exclude=None,plot=False):
+    for p in speclist:
+        fc = fit_continuum(p,Polynomial1D(degree=order),exclude_regions=[exclude])
+    if plot:
+        fig,ax = plt.subplots()
+        ax.plot(x,p.flux)
+        ax.plot(x,fc(x))
+        plt.show()
 
 def get_size(obj, seen=None):
     #https://goshippo.com/blog/measure-real-size-any-python-object/
@@ -98,6 +107,9 @@ class Obsblock():
     def __init__(self,speclist,index):
         self._speclist = speclist
         self._index = index # pandas dataframe
+
+    def __getitem__(self,i):
+        return self._speclist[i]
 
     def __op__(self,opname):
         pass
