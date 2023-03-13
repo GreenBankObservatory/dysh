@@ -194,7 +194,7 @@ class SDFITSLoad(object):
             # TODO: don't allow preselection here, it just screws bookkeepingu p.
             # All selection must happen in obsblocks.
             #if source is None:
-            #    self._data.append(self._bintable[j].data[:]["DATA"])
+            #self._data.append(self._bintable[j].data[:]["DATA"])
             #else:
             #    wh1 = np.char.strip(self._bintable[j]['OBJECT']) == source # true/false array
             #    if wh1.sum() == 0: #all False none found
@@ -226,6 +226,7 @@ class SDFITSLoad(object):
         i=0
         k = -1
         for b in self._ptable:
+            rawspect = self._bintable[i].data["DATA"]
             sl = SpectrumList()
             print(f"Creating {self.nrows(i)} Spectrum1D in bintable {i}",file=sys.stderr)
             for j in range(self.nrows(i)):
@@ -235,10 +236,12 @@ class SDFITSLoad(object):
                 if wcs: 
                     sp = np.array([[self.rawspectrum(i,j)]])*u.K
                 else:
-                    sp = self.rawspectrum(i,j)*u.K
+                    #sp = self.rawspectrum(i,j)*u.K
+                    sp = np.copy(rawspect[j])#*u.K
+                    #sp = np.random.rand(32768)*u.K
                 naxis1 =  sp.shape[0]#self.nchan(i)
                 if (k%500) == 0: 
-                    print(f"Row {k} nchan {naxis1}", file=sys.stderr)
+                    print(f"Row {k} nchan {naxis1} {type(sp)}", file=sys.stderr)
                     #print(f"NAXIS1 is {naxis1}",file=sys.stderr)
                 crval1  = b['CRVAL1'][j]
                 cdelt1  = b['CDELT1'][j]
@@ -302,7 +305,8 @@ class SDFITSLoad(object):
                     except Exception:
                         #print("WARNING: insufficient veldef/velframe, assuming convention is 'doppler_radio'")
                         convention="doppler_radio"
-                sl.append(Spectrum1D(flux=sp,wcs=wcs,  meta=meta, velocity_convention=convention))
+                meta = {}
+                sl.append(Spectrum1D(flux=sp*u.K,wcs=wcs,  meta=meta, velocity_convention=convention))
             self._obsblock.append(Obsblock(sl,self._ptable[i]))
             i=i+1
 

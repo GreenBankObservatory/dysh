@@ -57,8 +57,8 @@ if __name__ == "__main__":
 
         #s = io.StringIO()
         #sortby = (SortKey.TIME,SortKey.CUMULATIVE)
-        ps = pstats.Stats(pr).sort_stats(SortKey.TIME,SortKey.CUMULATIVE)
-        ps.print_stats(25)
+        ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE)
+        ps.print_stats(200)
         i+=1
 
 #        timestr+=f'   {size:.0f}\t{nhdu}\t{nrows}\t{(t1-t0)/1E6:.1f}\t{(t2-t1)/1E6:.1f}\t{(t2-t0)/1E6:.1f}\n'
