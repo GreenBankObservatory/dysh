@@ -15,7 +15,9 @@ from specutils.fitting import fit_continuum
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def baseline(speclist,order,exclude=None,plot=False):
+def baseline(speclist,order,exclude=None,plot=False,maxspec=1000):
+    #last = min(len(speclist),maxspec)
+    #for p in speclist[0:last]:
     for p in speclist:
         fc = fit_continuum(p,Polynomial1D(degree=order),exclude_regions=[exclude])
     if plot:

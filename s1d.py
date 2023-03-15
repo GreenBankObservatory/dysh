@@ -43,7 +43,7 @@ def baseline(speclist,order,exclude=None,plot=False):
         plt.show()
 
 if __name__ == "__main__":
-    sl=testit(nchan=32768,num=6040)
+    sl=testit(nchan=2048,num=2000)
     print(f'Memory usage: %s (Gb) {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/(1024*1024)}')
     gc.collect()
     print(f'Post-GC Memory usage: %s (Gb) {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/(1024*1024)}')
@@ -55,5 +55,9 @@ if __name__ == "__main__":
     center = x[nchan // 2]
     width = 0.25*nchan*cdelt
     exclude = SpectralRegion.from_center(center,width)
+    i=0
     for sp in sl:
+        if (i%500) == 0:
+            print("baseline ",i)
         baseline(sp,1,exclude)
+        i=1+i
