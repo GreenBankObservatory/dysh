@@ -95,7 +95,7 @@ if __name__ == "__main__":
             #s.summary()
             nhdu[i] = len(s._hdu)-1
             nrows[i] = s.nrows(h-1)
-            load = (t0-t0a)/1E6
+            load = (t0a-t0)/1E6
             obs  = (t2-t1)/1E6
             base1  = (tb1-t2)/1E6
             base2  = (tb2-tb1)/1E6
