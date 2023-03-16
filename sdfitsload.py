@@ -201,6 +201,7 @@ class SDFITSLoad(object):
             t = Table.read(self._hdu[i]) 
             t.remove_column('DATA')
             self.stripT(t)
+            print("doing pandas")
             self._ptable.append(t.to_pandas())
             del t
             self._bintable.append(self._hdu[i]) 
@@ -235,26 +236,29 @@ class SDFITSLoad(object):
                 if np.issubdtype(b.dtype[n],str):
                     b[n] = np.char.strip(b[n])
 
-    def _loadlists(self,fix=False,wcs=False):
+    def _loadlists(self,hdu,fix=False,wcs=False):
         self._obsblock = []
         i=0
         k = -1
-        for b in self._ptable:
+        print("HDU = ",hdu)
+        if hdu is not None:
+            b = self._ptable[hdu-1]
             rawspect = self._bintable[i].data["DATA"]
             sl = SpectrumList()
-            print(f"Creating {self.nrows(i)} Spectrum1D in bintable {i}",file=sys.stderr)
+            print(f"Creating {self.nrows(i)} Spectrum1D in bintable {i} HDU {hdu}",file=sys.stderr)
             for j in range(self.nrows(i)):
                 k = k+1
                 # need extra [[]] because we have 1x1 spatial NAXIS
                 # otherwise, slicing the spectrum won't work.
                 if wcs: 
-                    sp = np.array([[self.rawspectrum(i,j)]])*u.K
+                    sp = np.array([[self.rawspectrum(i,j)]])
                 else:
                     #sp = self.rawspectrum(i,j)*u.K
                     sp = np.copy(rawspect[j])#*u.K
                     #sp = np.random.rand(32768)*u.K
                 naxis1 =  sp.shape[0]#self.nchan(i)
-                if (k%500) == 0: 
+                printme = int(0.1*len(b))
+                if (k%printme) == 0: 
                     print(f"Row {k} nchan {naxis1} {type(sp)}", file=sys.stderr)
                     #print(f"NAXIS1 is {naxis1}",file=sys.stderr)
                 crval1  = b['CRVAL1'][j]
