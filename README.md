@@ -1,10 +1,10 @@
-# astrodysh
+# Dysh
 
-astrodysh!
+Dysh will be a replacement for GBTIDL. It is currently under development in collaboration with The Laboratory for Millimeter-Wave Astronomy (LMA) at University of Maryland (UMD).
 
 ## Installation
 
-astrodysh requires Python 3.8+. Once you are in a suitable environment, simply:
+Dysh requires Python 3.8+. Once you are in a suitable environment, simply:
 
 ```bash
 $ pip install -e .
@@ -13,7 +13,7 @@ $ pip install -e .
 
 ## Development
 
-If you are working on astrodysh itself, here's how to get your environment set up
+If you are working on Dysh itself, here's how to get your environment set up
 
 First, you'll need `hatch` installed. The "proper" way to do that is via pipx:
 
@@ -24,8 +24,8 @@ $ pipx install hatch
 But you can also manage your virtual environment entirely yourself:
 
 ```bash
-$ python3.8 -m venv /path/to/venvs/astrodysh-3.8
-$ source /path/to/venvs/astrodysh-3.8/bin/activate
+$ python3.8 -m venv /path/to/venvs/dysh-3.8
+$ source /path/to/venvs/dysh-3.8/bin/activate
 $ pip install hatch
 ```
 
@@ -35,11 +35,11 @@ Once you have `hatch`, simply:
 $ pip install -e .
 ```
 
-To validate the install, you can run astrodysh CLI via:
+To validate the install, you can run Dysh CLI via:
 
 
 ```bash
-$ astrodysh --help
+$ dysh --help
 ```
 
 ## Testing
