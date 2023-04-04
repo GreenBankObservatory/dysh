@@ -13,18 +13,42 @@ from astropy.table import Table
 from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from specutils.fitting import fit_continuum
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 
 def baseline(speclist,order,exclude=None,plot=False,maxspec=1000):
     #last = min(len(speclist),maxspec)
+    print(f"BL {order} for {len(speclist)} spectra")
     #for p in speclist[0:last]:
-    for p in speclist:
-        fc = fit_continuum(p,Polynomial1D(degree=order),exclude_regions=[exclude])
+    i=0
+    bad = 0
+    try:
+        if exclude is not None:
+            for p in speclist:
+                if np.isnan(p.data).all():
+                    bad+=1
+                    continue
+                fc = fit_continuum(p,Polynomial1D(degree=order),exclude_regions=[exclude])
+                i=i+1
+        else:
+            for p in speclist:
+                if np.isnan(p.data).all():
+                    bad+=1
+                    continue
+                fc = fit_continuum(p,Polynomial1D(degree=order))
+                i=i+1
+    except Exception as e:
+        print(f"At spectrum {i}, Exception was {e}")
+        print(p)
+        print("DATA MEAN: ",np.nanmean(p.data))
+        return p
     if plot:
         fig,ax = plt.subplots()
         ax.plot(x,p.flux)
         ax.plot(x,fc(x))
         plt.show()
+    print(f"NUMBER OF BAD SPECTRA: {bad}")
+    return None
 
 def get_size(obj, seen=None):
     #https://goshippo.com/blog/measure-real-size-any-python-object/
@@ -112,6 +136,9 @@ class Obsblock():
 
     def __getitem__(self,i):
         return self._speclist[i]
+
+    def __len__(self):
+        return len(self._speclist)
 
     def __op__(self,opname):
         pass
@@ -236,7 +263,7 @@ class SDFITSLoad(object):
                 if np.issubdtype(b.dtype[n],str):
                     b[n] = np.char.strip(b[n])
 
-    def _loadlists(self,hdu,fix=False,wcs=False):
+    def _loadlists(self,hdu,fix=False,wcs=False,maxspect=1E16):
         self._obsblock = []
         i=0
         k = -1
@@ -245,8 +272,9 @@ class SDFITSLoad(object):
             b = self._ptable[hdu-1]
             rawspect = self._bintable[i].data["DATA"]
             sl = SpectrumList()
-            print(f"Creating {self.nrows(i)} Spectrum1D in bintable {i} HDU {hdu}",file=sys.stderr)
-            for j in range(self.nrows(i)):
+            maxload = int(np.min([maxspect,self.nrows(i)]))
+            print(f"Creating {maxload} Spectrum1D in bintable {i} HDU {hdu}",file=sys.stderr)
+            for j in range(maxload):
                 k = k+1
                 # need extra [[]] because we have 1x1 spatial NAXIS
                 # otherwise, slicing the spectrum won't work.
