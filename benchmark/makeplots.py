@@ -29,45 +29,64 @@ def lineplots(file):
     size_col = 'Size'
     df[time_cols] /= 1000.0
     df[size_col] = np.rint(df[size_col]).astype(int)
-    fig,ax = plt.subplots(6,1)
+    fig,ax = plt.subplots(2,3,figsize=(12,8))
     df = df.sort_values('Load')
     axf = ax.flatten()
     axf[0].plot(df['Load'],df[size_col],
         marker='o',markersize=12,linewidth=2,label='Load File')
-    df = df.sort_values('N_rows')
-    #axf[1].plot(df['Create_Obsblocks'],df['N_rows'],
-    #    marker='<',markersize=12,linewidth=2,label='Create Obsblocks')
+    axf[0].set_ylabel("File Size (MB)")
     #df = df.sort_values('N_chan')
     #axf[2].plot(df['Create_Obsblocks'],df['N_chan'],
     #    marker='>',markersize=12,linewidth=2,label='Create Obsblocks')
     df['multi'] = df['N_chan']*df['N_rows']/1E8
     df = df.sort_values('multi')
-    axf[1].plot(df['Create_Obsblocks'],df['multi'],
-        marker='^',markersize=12,linewidth=2,label='Create Obsblocks')
-    axf[2].plot(df['Baseline_1'],df['multi'],
-        marker='>',markersize=12,linewidth=2,label='Baseline 1')
-    axf[3].plot(df['Baseline_2'],df['multi'],
-        marker='>',markersize=12,linewidth=2,label='Baseline 2')
-    axf[4].plot(df['Baseline_3'],df['multi'],
-        marker='>',markersize=12,linewidth=2,label='Baseline 3')
-    axf[0].set_xlabel("Time (s)")
-    axf[1].set_xlabel("Time (s)")
-    axf[2].set_xlabel("Time (s)")
-#    ax[0].set_xlabel("Time (s)")
-    axf[0].set_ylabel("File Size (MB)")
-    #ax[1].set_ylabel(r"$N_{rows}$")
-    #ax[1][0].set_ylabel(r"$N_{chans}$")
+    l1 = axf[1].plot(df['Create_Obsblocks'],df['multi'],
+        marker='^',markersize=12,linewidth=2,
+        label='Create Obsblocks (scaled)')
     axf[1].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
-    #ax[2][0].set_ylabel(r"$N_{chans}$")
-    axf[2].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
-    #ax[2][1].set_ylabel(r"$N_{chans}$")
-    axf[3].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
-    #ax[2][2].set_ylabel(r"$N_{chans}$")
-    axf[2].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
+    ax2 = axf[1].twinx()
+    ax2.set_ylabel(r"$N_{rows}$")
+    l2 = ax2.plot(df['Create_Obsblocks'],df['N_rows'],
+        marker='o',markersize=12,linewidth=2,color='orange',
+        label='Create Obsblocks (row)')
+    lines = l1+l2
+    labels = [l.get_label() for l in lines]
+    df = df.sort_values('N_chan')
+    axf[2].set_ylabel(r"$N_{chans}$")
+    axf[2].plot(df['Create_Obsblocks']/df['N_rows'],df['N_chan'],
+        marker='<',markersize=12,linewidth=2,label='Create Obsblocks per spectrum')
+    axf[3].plot(df['Baseline_1']/df['N_rows'],df['N_chan'],
+        marker='>',markersize=12,linewidth=2,label='Baseline 1 per spectrum')
+    axf[3].set_ylabel(r"$N_{chans}$")
+    axf[4].plot(df['Baseline_2']/df['N_rows'],df['N_chan'],
+        marker='>',markersize=12,linewidth=2,label='Baseline 2 per spectrum')
+    axf[4].set_ylabel(r"$N_{chans}$")
+    axf[5].plot(df['Baseline_3']/df['N_rows'],df['N_chan'],
+        marker='>',markersize=12,linewidth=2,label='Baseline 3 per spectrum')
+    axf[5].set_ylabel(r"$N_{chans}$")
+    #axf[0].set_xlabel("Time (s)")
+    #axf[1].set_xlabel("Time (s)")
+    #axf[2].set_xlabel("Time (s)")
+#    ax[0].set_xlabel("Time (s)")
+    #axf[2].set_ylabel(r"$N_{chans}$")
+    #axf[3].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
+    #axf[4].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
+    #axf[5].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
+    ax2.ticklabel_format(axis='y',style='sci',useMathText=True,scilimits=(0,0))
     for j in axf:
-        j.legend()
+        j.set_xlabel("Elapsed Time (s)")
+        j.ticklabel_format(axis='y',style='sci',useMathText=True,scilimits=(0,0))
+        if j == axf[1]:
+            j.legend(lines,labels,loc="upper left")
+        else:
+            j.legend(loc="upper left")
         #j.set_xscale('log')
         #j.set_yscale('log')
+    plt.subplots_adjust(wspace=0.35,hspace=0.25)
+    fontdict = {'fontsize':14,'fontweight':'bold'}
+    plt.title(args.title,pad=20,fontdict=fontdict)
+    if args.outfile:
+        plt.savefig(args.outfile,dpi=300)
     plt.show()
     
 
@@ -104,7 +123,8 @@ def barplots(file,x_col='N_rows'):
     legend = add_patch(legend,fc=['blue','gray'],
              label=['File Size (MB)','# Channels'])
     ax.set_title("Timing for SDFITSLoad operations")
-    plt.show()
+    plt.subplot_tool(targetfig=fig)
+    #plt.show()
     #plt.savefig("sdfitsload_timing_short.png",dpi=300)
 
 #ax.tick_params(axis='x',rotation=0)
@@ -116,6 +136,8 @@ if __name__ == "__main__":
     parser.add_argument('--file','-f', action='store', help='input filename')
     parser.add_argument('--barplots','-b', action='store_true', help='show barplots',default=False)
     parser.add_argument('--lineplots','-l', action='store_true', help='show lineplots',default=True)
+    parser.add_argument('--title','-t', action='store', help='Plot title',default="Timing for Load/Obsblocks/Baseline")
+    parser.add_argument('--outfile','-o', action='store', help='output file',default=None)
     args = parser.parse_args()
     print("ARGS ",args)
     if args.lineplots:
