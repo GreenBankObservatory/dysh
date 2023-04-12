@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-from sdfitsload import SDFITSLoad, get_size, Obsblock,baseline
+from dysh.sdfitsload import SDFITSLoad, get_size, Obsblock,baseline
 import os
 import sys
 import time

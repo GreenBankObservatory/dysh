@@ -1,10 +1,10 @@
-"""astrodysh entry point"""
+"""dysh entry point"""
 
 import argparse
 import logging
 from pathlib import Path
 
-import pyspeckit
+import specutils
 
 
 logger = logging.getLogger(__name__)
@@ -31,16 +31,18 @@ def init_logging(verbosity):
     root_logger.addHandler(console_handler)
 
 
-def astrodysh(input_path: Path, output_path: Path):
+def dysh(input_path: Path, output_path: Path):
     logger.info("hello world")
-    pyspeckit.__file__
+    specutils.__file__
     return True
 
 
 def main():
-    args = parse_args()
-    init_logging(args.verbosity)
-    astrodysh(input_path=args.input_path, output_path=args.output_path)
+    if False:
+        args = parse_args()
+        init_logging(args.verbosity)
+        dysh(input_path=args.input_path, output_path=args.output_path)
+    print(version())
 
 
 def parse_args():

@@ -1,5 +1,5 @@
 """Main module."""
 
-from astrodysh.astrodysh import main
+from dysh.dysh import main
 
 main()

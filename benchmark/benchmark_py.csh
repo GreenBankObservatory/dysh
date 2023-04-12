@@ -22,5 +22,5 @@ foreach f ($files)
     set infile=$root$f
     set size=`du -s -BM $infile`
     echo $size
-    python ../revisedstructure.py -b -f $infile >> $outfile
+    python revisedstructure.py -b -f $infile >> $outfile
 end
