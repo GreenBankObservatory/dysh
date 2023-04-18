@@ -75,7 +75,7 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/foo"]
+packages = ["src/dysh"]
 
 
 [tool.coverage.run]
