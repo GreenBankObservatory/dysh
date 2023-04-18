@@ -1,6 +1,7 @@
 pip
 wheel
 watchdog
+hatch
 tox
 coverage
 Sphinx
