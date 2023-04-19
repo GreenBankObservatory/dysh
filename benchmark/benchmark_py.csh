@@ -16,11 +16,12 @@ set files = ( \
 "mixed-fs-ps/data/AGBT16B_225_05/AGBT16B_225_05.raw.vegas/AGBT16B_225_05.raw.vegas.B.fits" \
 )
 
-set outfile = "stats-wcs-meta.2022-04-02-OMPunset"
+set date=`date +'%Y-%m-%d'`
+set outfile = "stats-wcs-meta.$date-OMPunset"
 rm -rf tab.out $outfile
 foreach f ($files)
     set infile=$root$f
     set size=`du -s -BM $infile`
     echo $size
-    python revisedstructure.py -b -f $infile >> $outfile
+    "python revisedstructure.py -f $infile >> $outfile"
 end
