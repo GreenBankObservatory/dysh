@@ -25,45 +25,54 @@ def lineplots(file):
     t = Table.read(file,format='ipac')
     colors = ['red', 'tan', 'lime']
     df = t.to_pandas()#.sort_values('N_rows')
-    time_cols = ['Load','Create_Obsblocks' ,'Baseline_1','Baseline_2','Baseline_3']
+    time_cols = ['Load','Index', 'Create_Obsblocks' ,'Baseline_1','Baseline_2','Baseline_3']
     size_col = 'Size'
     df[time_cols] /= 1000.0
     df[size_col] = np.rint(df[size_col]).astype(int)
-    fig,ax = plt.subplots(2,3,figsize=(12,8))
-    df = df.sort_values('Load')
+    fig,ax = plt.subplots(3,2,figsize=(10,10))
+    df = df.sort_values('Size')
     axf = ax.flatten()
-    axf[0].plot(df['Load'],df[size_col],
+    axindex = 0
+    axf[axindex].plot(df['Load'],df[size_col],
         marker='o',markersize=12,linewidth=2,label='Load File')
-    axf[0].set_ylabel("File Size (MB)")
+    axf[axindex].set_ylabel("File Size (MB)")
+    axindex+=1
+    axf[axindex].plot(df['Index'],df[size_col],
+        marker='+',markersize=12,linewidth=2,label='Index File')
+    axf[axindex].set_ylabel("File Size (MB)")
     #df = df.sort_values('N_chan')
     #axf[2].plot(df['Create_Obsblocks'],df['N_chan'],
     #    marker='>',markersize=12,linewidth=2,label='Create Obsblocks')
     df['multi'] = df['N_chan']*df['N_rows']/1E8
     df = df.sort_values('multi')
-    l1 = axf[1].plot(df['Create_Obsblocks'],df['multi'],
+    axindex+=1
+    l1 = axf[axindex].plot(df['Create_Obsblocks'],df['multi'],
         marker='^',markersize=12,linewidth=2,
         label='Create Obsblocks (scaled)')
-    axf[1].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
-    ax2 = axf[1].twinx()
+    axf[axindex].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
+    ax2 = axf[axindex].twinx()
     ax2.set_ylabel(r"$N_{rows}$")
     l2 = ax2.plot(df['Create_Obsblocks'],df['N_rows'],
         marker='o',markersize=12,linewidth=2,color='orange',
         label='Create Obsblocks (row)')
     lines = l1+l2
     labels = [l.get_label() for l in lines]
+    axsecond = axindex
     df = df.sort_values('N_chan')
-    axf[2].set_ylabel(r"$N_{chans}$")
-    axf[2].plot(df['Create_Obsblocks']/df['N_rows'],df['N_chan'],
+    axindex+=1
+    axf[axindex].set_ylabel(r"$N_{chans}$")
+    axf[axindex].plot(df['Create_Obsblocks']/df['N_rows'],df['N_chan'],
         marker='<',markersize=12,linewidth=2,label='Create Obsblocks per spectrum')
-    axf[3].plot(df['Baseline_1']/df['N_rows'],df['N_chan'],
+    axindex+=1
+    axf[axindex].plot(df['Baseline_1']/df['N_rows'],df['N_chan'],
         marker='>',markersize=12,linewidth=2,label='Baseline 1 per spectrum')
-    axf[3].set_ylabel(r"$N_{chans}$")
-    axf[4].plot(df['Baseline_2']/df['N_rows'],df['N_chan'],
-        marker='>',markersize=12,linewidth=2,label='Baseline 2 per spectrum')
-    axf[4].set_ylabel(r"$N_{chans}$")
-    axf[5].plot(df['Baseline_3']/df['N_rows'],df['N_chan'],
-        marker='>',markersize=12,linewidth=2,label='Baseline 3 per spectrum')
-    axf[5].set_ylabel(r"$N_{chans}$")
+    axf[axindex].set_ylabel(r"$N_{chans}$")
+    axf[axindex].plot(df['Baseline_2']/df['N_rows'],df['N_chan'],
+        marker='+',markersize=12,linewidth=2,label='Baseline 2 per spectrum')
+    axf[axindex].set_ylabel(r"$N_{chans}$")
+    axf[axindex].plot(df['Baseline_3']/df['N_rows'],df['N_chan'],
+        marker='o',markersize=12,linewidth=2,label='Baseline 3 per spectrum')
+    axf[axindex].set_ylabel(r"$N_{chans}$")
     #axf[0].set_xlabel("Time (s)")
     #axf[1].set_xlabel("Time (s)")
     #axf[2].set_xlabel("Time (s)")
@@ -73,18 +82,21 @@ def lineplots(file):
     #axf[4].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
     #axf[5].set_ylabel(r"$N_{chans} \times * N_{rows}$ (scaled)")
     ax2.ticklabel_format(axis='y',style='sci',useMathText=True,scilimits=(0,0))
-    for j in axf:
-        j.set_xlabel("Elapsed Time (s)")
-        j.ticklabel_format(axis='y',style='sci',useMathText=True,scilimits=(0,0))
-        if j == axf[1]:
-            j.legend(lines,labels,loc="upper left")
+    axindex+=1
+    for j in range(axindex):
+        axf[j].set_xlabel("Elapsed Time (s)")
+        axf[j].ticklabel_format(axis='y',style='sci',useMathText=True,scilimits=(0,0))
+        if j == axsecond:
+            axf[j].legend(lines,labels,loc="upper left")
         else:
-            j.legend(loc="upper left")
+            axf[j].legend(loc="upper left")
         #j.set_xscale('log')
         #j.set_yscale('log')
+    for j in range(axindex,len(axf)):
+        axf[j].axis('off')
     plt.subplots_adjust(wspace=0.35,hspace=0.25)
-    fontdict = {'fontsize':14,'fontweight':'bold'}
-    plt.title(args.title,pad=20,fontdict=fontdict)
+    fontdict = {'size':14,'fontweight':'bold'}
+    fig.suptitle(args.title,size=14,weight='bold')
     if args.outfile:
         plt.savefig(args.outfile,dpi=300)
     plt.show()
