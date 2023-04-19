@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument('--profile', '-p',  action='store_true', help='run the profiler')
     parser.add_argument('--baseline','-b', action='store_true', help='remove baselines')
     parser.add_argument('--obsblocks','-o', action='store_true', help='create obsblocks')
-    parser.add_argument('--pandas','-i', action='store_true', help='create pandas table (index)')
+    parser.add_argument('--index','-i', action='store_true', help='create index table (pandas)')
     parser.add_argument('--maxload','-m', action='store', help='maximum number of spectra to load (create obsblocks)',default=1E16)
 #    parser.add_argument('--baseline','-b', action='store', help='remove baselines',default=None)
     args = parser.parse_args()
@@ -68,9 +68,9 @@ if __name__ == "__main__":
         size[i] = os.path.getsize(fn)/1048576
         t0[i] = time.perf_counter_ns()
         pr.enable()
-        s = SDFITSLoad(fn)
+        s = SDFITSLoad(fn,index=False)
         t0a[i] = time.perf_counter_ns()
-        if args.pandas:
+        if args.index:
             for h in range(1,len(s._hdu)):
                 t1p[i] = time.perf_counter_ns()
                 s.load_pandas(hdu=h)
@@ -109,13 +109,13 @@ if __name__ == "__main__":
             nhdu[i] = len(s._hdu)-1
             nrows[i] = s.nrows(h-1)
             load = (t0a-t0)/1E6
-            pandas = (t2p-t1p)/1E6
+            index = (t2p-t1p)/1E6
             obs  = (t2-t1)/1E6
             base1  = (tb1-t2)/1E6
             base2  = (tb2-tb1)/1E6
             base3  = (tb3-tb2)/1E6
             total = (t3-t0)/1E6
-            table.add_row([basename,size,nhdu,hdu,nrows,nchanl,load,pandas,obs,base1,base2,base3,total])
+            table.add_row([basename,size,nhdu,hdu,nrows,nchanl,load,index,obs,base1,base2,base3,total])
         del s
 
         #s = io.StringIO()

@@ -199,9 +199,12 @@ class SDFITSLoad(object):
             ldu = range(1,len(self._hdu))
         self._ptable = []
         for i in ldu:
-            x=self._bintable[i-1].copy()
-            x.remove_column("DATA")
-            self._ptable.append(x.to_pandas())
+            t = Table.read(self._hdu[i]) 
+            t.remove_column('DATA')
+            self.stripT(t)
+            print(f"doing pandas for HDU {i}")
+            self._ptable.append(t.to_pandas())
+            del t
             
     def load(self, hdu=None, **kwargs):
         """
@@ -224,13 +227,6 @@ class SDFITSLoad(object):
             ldu = range(1,len(self._hdu))
         for i in ldu:
             j=i-1
-
-            t = Table.read(self._hdu[i]) 
-            t.remove_column('DATA')
-            self.stripT(t)
-            print("doing pandas")
-            self._ptable.append(t.to_pandas())
-            del t
             self._bintable.append(self._hdu[i]) 
             self._binheader.append(self._hdu[i].header)
             # TODO: don't allow preselection here, it just screws bookkeepingu p.
@@ -247,8 +243,8 @@ class SDFITSLoad(object):
             #    self._bintable[j] = self._bintable[j][mask]  # header will be wrong?
             self._nrows.append(self._binheader[j]["NAXIS2"])
 
-        #self.strip()
-        #self.load_pandas()
+        if kwargs.get("index",False):
+            self.load_pandas(hdu)
 
     def stripT(self,b):
         # remove leading and trailing chars from all strings in table 
