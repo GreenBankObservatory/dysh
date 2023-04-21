@@ -1,55 +1,49 @@
 
-# Dysh
+## Dysh
 =======
 
-Dysh will be a replacement for GBTIDL. It is currently under development in collaboration with The Laboratory for Millimeter-Wave Astronomy (LMA) at University of Maryland (UMD).
+Dysh is a Python spectral line data reduction and analysis program for singledish data with specific emphasis on data from the Green Bank Telescope.  It is currently under development in collaboration between the Green Bank Observatory and the Laboratory for Millimeter-Wave Astronomy (LMA) at University of Maryland (UMD).  It is intended to be a full replacement for the GBO's current reduction package GBTIDL.
 
 ## Installation
 
 Dysh requires Python 3.8+. Once you are in a suitable environment, simply:
 
 ```bash
-$ pip install -e .
+    $ pip install dysh
 ```
 
 
 ## Development
 
-If you are working on Dysh itself, here's how to get your environment set up
+Here are the steps if you want to develop code for dysh.  We use hatch {href} to manage the build environment.
 
-First, you'll need `hatch` installed. The "proper" way to do that is via pipx:
+1. Clone the repo and install hatch.
 
-```bash
-$ pipx install hatch
-```
+    ```bash
+    $ git clone xx
+    $ cd dysh
+    $ pip install hatch  # or pipx if you prefer
+    ```
 
-But you can also manage your virtual environment entirely yourself:
+2. Create and activate a virtual environment with hatch and install the packages required for development.
+The virtual environment will be created the first time; subsequent invoking ``hatch shell`` will simply load the created environment.
 
-```bash
-$ python3.8 -m venv /path/to/venvs/dysh-3.8
-$ source /path/to/venvs/dysh-3.8/bin/activate
-$ pip install hatch
-```
+    ```bash
+    $ hatch shell
+    $ pip install -r requirements_dev.txt
+    ```
 
-Once you have `hatch`, simply:
+3. Build and install the package
 
-```
-$ pip install -e .
-```
+    ```bash
+    $ hatch build
+    ```
 
-To validate the install, you can run Dysh CLI via:
-
-
-```bash
-$ dysh --help
-```
 
 ## Testing
 
-Simply:
-
 ```bash
-$ pytest
+    $ pytest
 ```
 
 ### pre-commit
