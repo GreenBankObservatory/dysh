@@ -1,4 +1,6 @@
-dysh: dysh
+.. include:: ../README.md
+
+DYSH
 ==========================
 
 
