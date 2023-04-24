@@ -130,6 +130,7 @@ def sonoff(scan, procseqn):
 
 
 class Obsblock():
+    '''Class that holds a series of spectra on which bulk operations can be performed'''
     def __init__(self,speclist,index):
         self._speclist = speclist
         self._index = index # pandas dataframe
@@ -154,10 +155,9 @@ class Obsblock():
 
 
 class SDFITSLoad(object):
-    """
-    container for a bintable from a selected HDU
-    normally not used by users
-    """
+    '''
+    Container for a bintable(s) from selected HDU(s)
+    '''
     def __init__(self, filename, source=None, hdu=None, **kwargs):
         """
         """
