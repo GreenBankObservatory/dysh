@@ -12,22 +12,25 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../src/dysh'))
+sys.path.insert(0, os.path.abspath('../src'))
 # sys.path.insert(0, os.path.abspath('.'))
 
 
 # -- Project information -----------------------------------------------------
-import astrodysh
 
-project = "astrodysh"
+from dysh import __version__
+
+project = "dysh"
 copyright = "2023, Green Bank Observatory"
 author = "Green Bank Observatory"
 
 # The short X.Y version
-version = astrodysh.__version__
+version = __version__
 # The full version, including alpha/beta/rc tags
-release = astrodysh.__version__
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -65,8 +68,12 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-# source_suffix = ['.rst', '.md']
-source_suffix = ".rst"
+source_suffix = ['.rst', '.md']
+#source_suffix = {
+#    '.rst': 'restructuredtext',
+#    '.txt': 'markdown',
+#    '.md': 'markdown',
+#}
 
 # The master toctree document.
 master_doc = "index"
@@ -122,7 +129,7 @@ html_static_path = ["static"]
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "astrodyshDoc"
+htmlhelp_basename = "dyshDoc"
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -148,9 +155,9 @@ latex_elements = {
 latex_documents = [
     (
         master_doc,
-        "astrodysh.tex",
-        "astrodysh Documentation",
-        "Thomas Chamberlin",
+        "dysh.tex",
+        "dysh Documentation",
+        ["Marc Pound","Victoria Catlett", "Peter Teuben"],
         "manual",
     )
 ]
@@ -160,7 +167,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "astrodysh", "astrodysh Documentation", [author], 1)]
+man_pages = [(master_doc, "dysh", "dysh Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -171,10 +178,10 @@ man_pages = [(master_doc, "astrodysh", "astrodysh Documentation", [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        "astrodysh",
-        "astrodysh Documentation",
+        "dysh",
+        "dysh Documentation",
         author,
-        "astrodysh",
+        "dysh",
         "One line description of project.",
         "Miscellaneous",
     )

@@ -3,13 +3,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "astrodysh"
+name = "dysh"
 description = ''
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
 keywords = []
 authors = [
+  { name = "Marc Pound", email = "mpound@umd.edu" },
+  { name = "Victoria Catlett", email = "vcatlett@nrao.edu" },
+  { name = "Peter Teuben", email = "teuben@umd.edu" },
   { name = "Thomas Chamberlin", email = "tchamber@nrao.edu" },
 ]
 classifiers = [
@@ -21,37 +24,65 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["pyspeckit"]
+dependencies = ["astropy>=5.2", 
+                "matplotlib>=3.5.2", 
+                "numpy>=1.22.9", 
+                "pandas>=1.4", 
+                "scipy>=1.8.1", 
+                "specutils>=1.10",
+                "sphinx>=6.1.3",
+                "myst-parser"
+               ]
+
 dynamic = ["version"]
 
 [project.urls]
-Documentation = "https://github.com/GreenBankObservatory/astrodysh#readme"
-Issues = "https://github.com/GreenBankObservatory/astrodysh/issues"
-Source = "https://github.com/GreenBankObservatory/astrodysh"
+Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
+Issues = "https://github.com/GreenBankObservatory/dysh/issues"
+Source = "https://github.com/GreenBankObservatory/dysh"
 
-[project.scripts]
-astrodysh = "astrodysh.astrodysh:main"
+#[project.scripts]
+#dysh = "dysh.dysh:main"
 
 [tool.hatch.version]
-path = "src/astrodysh/__init__.py"
+path = "src/dysh/__init__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
   "pytest",
   "pytest-cov",
 ]
+
 [tool.hatch.envs.default.scripts]
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/astrodysh --cov=tests {args}"
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/dysh --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "sphinx",
+  "myst-parser"
+]
 
 [[tool.hatch.envs.test.matrix]]
 python = ["38", "39", "310", "311"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests"]
+exclude = [
+  "/.github",
+  "/docs",
+  "/benchmark"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dysh"]
+
 
 [tool.coverage.run]
 branch = true
 parallel = true
 omit = [
-  "src/astrodysh/__about__.py",
+  "src/dysh/__about__.py",
 ]
 
 [tool.coverage.report]

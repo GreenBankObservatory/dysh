@@ -1,0 +1,352 @@
+using Namespace(file='/lma1/mpound/GBT/examples/rxco-W/data/TSCAL_220105_W.raw.vegas/TSCAL_220105_W.raw.vegas.E.fits', wcs=False, fix=False, profile=False, baseline=True, maxload=1e+16)
+==SDFITSLoad /lma1/mpound/GBT/examples/rxco-W/data/TSCAL_220105_W.raw.vegas/TSCAL_220105_W.raw.vegas.E.fits
+doing pandas
+HDU =  1
+BL 1 for 864 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 2 for 864 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 3 for 864 spectra
+NUMBER OF BAD SPECTRA: 0
+         392375026 function calls (389500027 primitive calls) in 160.675 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1632 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        3    0.032    0.011  157.915   52.638 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:19(baseline)
+     2592    0.005    0.000  156.812    0.060 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/continuum.py:59(fit_continuum)
+     2592    0.017    0.000  156.807    0.060 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:261(fit_lines)
+     2592    0.034    0.000  156.082    0.060 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:369(_fit_lines)
+     2592    0.027    0.000  155.198    0.060 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:176(wrapper)
+     2592    0.012    0.000  152.319    0.059 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1173(__call__)
+     2592    0.017    0.000  150.115    0.058 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1276(_run_fitter)
+     2592    0.059    0.000  149.747    0.058 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:279(leastsq)
+     2592    1.394    0.001  143.334    0.055 {built-in method scipy.optimize._minpack._lmder}
+    63287    2.674    0.000  132.367    0.002 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1096(_wrap_deriv)
+    63287   22.465    0.000  115.492    0.002 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1143(<listcomp>)
+ 48675478   18.589    0.000   93.239    0.000 <__array_function__ internals>:2(ravel)
+49201317/49188347   15.721    0.000   72.476    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+ 48675478   23.251    0.000   55.129    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1718(ravel)
+ 49128504   23.581    0.000   23.581    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+    71062    0.524    0.000   16.193    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1053(objective_function)
+  1351726   13.573    0.000   13.639    0.000 {built-in method numpy.array}
+    71926    0.150    0.000    8.981    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/core.py:372(__call__)
+    71926    0.340    0.000    8.831    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/core.py:1061(__call__)
+    71062    0.106    0.000    8.614    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/core.py:394(__call__)
+    73654    0.310    0.000    6.506    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1812(fitter_to_model_params)
+     5184    0.017    0.000    6.127    0.001 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:22(_check_func)
+ 50775403    4.971    0.000    5.135    0.000 {built-in method builtins.isinstance}
+    71926    0.139    0.000    4.549    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/core.py:924(_pre_evaluate)
+2455748/16664    2.094    0.000    4.471    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/copy.py:128(deepcopy)
+
+
+using Namespace(file='/lma1/mpound/GBT/examples/misc/IC1481.fits', wcs=False, fix=False, profile=False, baseline=True, maxload=1e+16)
+==SDFITSLoad /lma1/mpound/GBT/examples/misc/IC1481.fits
+doing pandas
+HDU =  1
+BL 1 for 512 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 2 for 512 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 3 for 512 spectra
+NUMBER OF BAD SPECTRA: 0
+         250489001 function calls (248845800 primitive calls) in 101.747 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1586 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        3    0.034    0.011   98.206   32.735 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:19(baseline)
+     1536    0.003    0.000   97.537    0.064 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/continuum.py:59(fit_continuum)
+     1536    0.011    0.000   97.534    0.063 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:261(fit_lines)
+     1536    0.021    0.000   97.045    0.063 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:369(_fit_lines)
+     1536    0.016    0.000   96.488    0.063 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:176(wrapper)
+     1536    0.007    0.000   94.789    0.062 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1173(__call__)
+     1536    0.011    0.000   93.442    0.061 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1276(_run_fitter)
+     1536    0.032    0.000   93.225    0.061 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:279(leastsq)
+     5407    2.164    0.000   90.394    0.017 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1096(_wrap_deriv)
+     5407   15.818    0.003   79.332    0.015 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1143(<listcomp>)
+     1536    0.505    0.000   66.920    0.044 {built-in method scipy.optimize._minpack._lmder}
+ 33230623   12.792    0.000   63.548    0.000 <__array_function__ internals>:2(ravel)
+33349097/33341411   10.644    0.000   48.754    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+ 33230623   15.457    0.000   37.367    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1718(ravel)
+     3072    0.012    0.000   26.146    0.009 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:22(_check_func)
+ 33305371   16.364    0.000   16.364    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+   221025    8.899    0.000    8.940    0.000 {built-in method numpy.array}
+ 34029846    3.186    0.000    3.255    0.000 {built-in method builtins.isinstance}
+ 33230623    2.880    0.000    2.880    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1714(_ravel_dispatcher)
+     5120    0.061    0.000    2.787    0.001 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/spectra/spectrum1d.py:73(__init__)
+1455272/9884    1.235    0.000    2.747    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/copy.py:128(deepcopy)
+        1    0.010    0.010    2.701    2.701 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:266(_loadlists)
+52784/9776    0.237    0.000    2.685    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/copy.py:258(_reconstruct)
+77826/9730    0.327    0.000    2.593    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/copy.py:226(_deepcopy_dict)
+ 33259093    2.527    0.000    2.527    0.000 {built-in method numpy.asanyarray}
+
+
+using Namespace(file='/lma1/mpound/GBT/examples/misc/W3OH.fits', wcs=False, fix=False, profile=False, baseline=True, maxload=1e+16)
+==SDFITSLoad /lma1/mpound/GBT/examples/misc/W3OH.fits
+doing pandas
+HDU =  1
+BL 1 for 480 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 2 for 480 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 3 for 480 spectra
+NUMBER OF BAD SPECTRA: 0
+         538841007 function calls (537297774 primitive calls) in 210.113 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1586 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        3    0.055    0.018  205.930   68.643 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:19(baseline)
+     1440    0.004    0.000  205.276    0.143 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/continuum.py:59(fit_continuum)
+     1440    0.011    0.000  205.272    0.143 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:261(fit_lines)
+     1440    0.020    0.000  204.721    0.142 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:369(_fit_lines)
+     1440    0.017    0.000  204.164    0.142 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:176(wrapper)
+     1440    0.007    0.000  202.549    0.141 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1173(__call__)
+     1440    0.011    0.000  201.135    0.140 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1276(_run_fitter)
+     1440    0.036    0.000  200.931    0.140 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:279(leastsq)
+     6064    4.047    0.001  197.185    0.033 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1096(_wrap_deriv)
+     6064   33.998    0.006  173.324    0.029 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1143(<listcomp>)
+     1440    1.141    0.001  153.435    0.107 {built-in method scipy.optimize._minpack._lmder}
+ 74524816   27.603    0.000  139.360    0.000 <__array_function__ internals>:2(ravel)
+74641737/74634531   23.104    0.000  106.354    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+ 74524816   34.820    0.000   82.370    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1718(ravel)
+     2880    0.011    0.000   47.311    0.016 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:22(_check_func)
+ 74600612   35.008    0.000   35.008    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+   224631   19.766    0.000   19.804    0.000 {built-in method numpy.array}
+ 75289328    7.066    0.000    7.133    0.000 {built-in method builtins.isinstance}
+ 74524816    6.446    0.000    6.446    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1714(_ravel_dispatcher)
+ 74552503    5.645    0.000    5.645    0.000 {built-in method numpy.asanyarray}
+     4800    0.059    0.000    3.887    0.001 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/spectra/spectrum1d.py:73(__init__)
+        1    0.009    0.009    3.793    3.793 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:266(_loadlists)
+      480    0.002    0.000    3.085    0.006 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/utils/wcs_utils.py:214(pixel_to_world)
+      480    0.002    0.000    3.074    0.006 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/api.py:94(pixel_to_world_values)
+      480    0.003    0.000    3.041    0.006 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/wcs.py:332(__call__)
+
+
+using Namespace(file='/lma1/mpound/GBT/examples/misc/ngc5291.fits', wcs=False, fix=False, profile=False, baseline=True, maxload=1e+16)
+==SDFITSLoad /lma1/mpound/GBT/examples/misc/ngc5291.fits
+doing pandas
+HDU =  1
+BL 1 for 352 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 2 for 352 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 3 for 352 spectra
+NUMBER OF BAD SPECTRA: 0
+         739298978 function calls (738164543 primitive calls) in 287.872 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1586 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        3    0.069    0.023  282.565   94.188 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:19(baseline)
+     1056    0.004    0.000  282.031    0.267 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/continuum.py:59(fit_continuum)
+     1056    0.011    0.000  282.027    0.267 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:261(fit_lines)
+     1056    0.019    0.000  281.467    0.267 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:369(_fit_lines)
+     1056    0.014    0.000  281.003    0.266 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:176(wrapper)
+     1056    0.007    0.000  279.769    0.265 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1173(__call__)
+     1056    0.010    0.000  278.721    0.264 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1276(_run_fitter)
+     1056    0.044    0.000  278.564    0.264 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:279(leastsq)
+     4224    5.666    0.001  274.729    0.065 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1096(_wrap_deriv)
+     4224   48.518    0.011  241.118    0.057 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1143(<listcomp>)
+     1056    1.549    0.001  209.029    0.198 {built-in method scipy.optimize._minpack._lmder}
+103816416   39.237    0.000  192.626    0.000 <__array_function__ internals>:2(ravel)
+103900655/103895369   30.652    0.000  145.547    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+103816416   48.723    0.000  113.971    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1718(ravel)
+     2112    0.011    0.000   69.312    0.033 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:22(_check_func)
+103870272   47.921    0.000   47.921    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+   159983   27.869    0.000   27.897    0.000 {built-in method numpy.array}
+104380546    9.689    0.000    9.744    0.000 {built-in method builtins.isinstance}
+103816416    8.948    0.000    8.948    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1714(_ravel_dispatcher)
+103836503    7.780    0.000    7.780    0.000 {built-in method numpy.asanyarray}
+     3520    0.047    0.000    4.960    0.001 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/spectra/spectrum1d.py:73(__init__)
+        1    0.007    0.007    4.876    4.876 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:266(_loadlists)
+      352    0.001    0.000    4.315    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/utils/wcs_utils.py:214(pixel_to_world)
+      352    0.002    0.000    4.305    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/api.py:94(pixel_to_world_values)
+      352    0.002    0.000    4.277    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/wcs.py:332(__call__)
+
+
+using Namespace(file='/lma1/mpound/GBT/examples/onoff-L/data/TGBT21A_501_11.raw.vegas.fits', wcs=False, fix=False, profile=False, baseline=True, maxload=1e+16)
+==SDFITSLoad /lma1/mpound/GBT/examples/onoff-L/data/TGBT21A_501_11.raw.vegas.fits
+doing pandas
+HDU =  1
+BL 1 for 6040 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 2 for 6040 spectra
+NUMBER OF BAD SPECTRA: 0
+BL 3 for 6040 spectra
+NUMBER OF BAD SPECTRA: 0
+         6431049338 function calls (6411846347 primitive calls) in 2580.103 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1632 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        3    1.119    0.373 2494.469  831.490 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:19(baseline)
+    18120    0.319    0.000 2485.488    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/continuum.py:59(fit_continuum)
+    18120    0.163    0.000 2485.168    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:261(fit_lines)
+    18120    0.290    0.000 2476.029    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:369(_fit_lines)
+    18120    0.242    0.000 2468.043    0.136 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:176(wrapper)
+    18120    0.103    0.000 2447.025    0.135 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1173(__call__)
+    18120    0.161    0.000 2429.180    0.134 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1276(_run_fitter)
+    18120    0.550    0.000 2426.511    0.134 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:279(leastsq)
+    36240   50.678    0.001 2389.728    0.066 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1096(_wrap_deriv)
+    36240  418.842    0.012 2097.471    0.058 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1143(<listcomp>)
+890724840  332.434    0.000 1678.955    0.000 <__array_function__ internals>:2(ravel)
+891951135/891860525  274.866    0.000 1287.832    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+    18120    9.341    0.001 1219.833    0.067 {built-in method scipy.optimize._minpack._lmder}
+    36240    0.167    0.000 1203.733    0.033 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:22(_check_func)
+890724840  419.661    0.000  997.996    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1718(ravel)
+891431520  425.355    0.000  425.355    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+  2090231  241.650    0.000  242.124    0.000 {built-in method numpy.array}
+899470401   85.403    0.000   86.228    0.000 {built-in method builtins.isinstance}
+    60400    0.780    0.000   84.974    0.001 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/spectra/spectrum1d.py:73(__init__)
+        1    0.123    0.123   83.512   83.512 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:266(_loadlists)
+890724840   76.302    0.000   76.302    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1714(_ravel_dispatcher)
+     6040    0.023    0.000   73.827    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/utils/wcs_utils.py:214(pixel_to_world)
+     6040    0.027    0.000   73.665    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/api.py:94(pixel_to_world_values)
+     6040    0.034    0.000   73.181    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/wcs.py:332(__call__)
+891032918   69.838    0.000   69.838    0.000 {built-in method numpy.asanyarray}
+
+
+using Namespace(file='/lma1/mpound/GBT/examples/mapping-L/data/TGBT17A_506_11.raw.vegas/TGBT17A_506_11.raw.vegas.A.fits', wcs=False, fix=False, profile=False, baseline=True, maxload=1e+16)
+==SDFITSLoad /lma1/mpound/GBT/examples/mapping-L/data/TGBT17A_506_11.raw.vegas/TGBT17A_506_11.raw.vegas.A.fits
+doing pandas
+doing pandas
+HDU =  1
+BL 1 for 15680 spectra
+NUMBER OF BAD SPECTRA: 40
+BL 2 for 15680 spectra
+NUMBER OF BAD SPECTRA: 40
+BL 3 for 15680 spectra
+NUMBER OF BAD SPECTRA: 40
+HDU =  2
+BL 1 for 15680 spectra
+NUMBER OF BAD SPECTRA: 40
+BL 2 for 15680 spectra
+NUMBER OF BAD SPECTRA: 40
+BL 3 for 15680 spectra
+NUMBER OF BAD SPECTRA: 40
+         16652229901 function calls (16602517389 primitive calls) in 6693.675 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1634 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        3    2.971    0.990 6467.703 2155.901 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:19(baseline)
+    46920    0.154    0.000 6444.062    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/continuum.py:59(fit_continuum)
+    46920    0.442    0.000 6443.908    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:261(fit_lines)
+    46920    0.805    0.000 6419.462    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:369(_fit_lines)
+    46920    0.596    0.000 6398.598    0.136 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:176(wrapper)
+    46920    0.289    0.000 6343.361    0.135 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1173(__call__)
+    46920    0.429    0.000 6296.769    0.134 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1276(_run_fitter)
+    46920    1.560    0.000 6289.775    0.134 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:279(leastsq)
+    93840  140.241    0.001 6185.555    0.066 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1096(_wrap_deriv)
+    93840 1081.302    0.012 5418.688    0.058 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1143(<listcomp>)
+2306446440  863.237    0.000 4338.281    0.000 <__array_function__ internals>:2(ravel)
+2309622749/2309388129  713.651    0.000 3325.091    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+    46920   24.885    0.001 3160.659    0.067 {built-in method scipy.optimize._minpack._lmder}
+    93840    0.478    0.000 3120.605    0.033 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:22(_check_func)
+2306446440 1082.091    0.000 2571.411    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1718(ravel)
+2308276320 1105.202    0.000 1105.202    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+  5413046  627.390    0.000  628.588    0.000 {built-in method numpy.array}
+   156440    2.122    0.000  223.320    0.001 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/spectra/spectrum1d.py:73(__init__)
+        1    0.327    0.327  219.594  219.594 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:266(_loadlists)
+2329073088  217.187    0.000  219.532    0.000 {built-in method builtins.isinstance}
+2306446440  197.263    0.000  197.263    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1714(_ravel_dispatcher)
+    15680    0.065    0.000  194.841    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/utils/wcs_utils.py:214(pixel_to_world)
+    15680    0.070    0.000  194.416    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/api.py:94(pixel_to_world_values)
+    15680    0.089    0.000  193.165    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/wcs.py:332(__call__)
+2307244636  172.631    0.000  172.631    0.000 {built-in method numpy.asanyarray}
+
+
+using Namespace(file='/lma1/mpound/GBT/examples/nod-KFPA/data/TGBT22A_503_02.raw.vegas/TGBT22A_503_02.raw.vegas.F.fits', wcs=False, fix=False, profile=False, baseline=True, maxload=1e+16)
+==SDFITSLoad /lma1/mpound/GBT/examples/nod-KFPA/data/TGBT22A_503_02.raw.vegas/TGBT22A_503_02.raw.vegas.F.fits
+doing pandas
+HDU =  1
+BL 1 for 18864 spectra
+NUMBER OF BAD SPECTRA: 288
+BL 2 for 18864 spectra
+NUMBER OF BAD SPECTRA: 288
+BL 3 for 18864 spectra
+NUMBER OF BAD SPECTRA: 288
+         19790568093 function calls (19731056996 primitive calls) in 7939.888 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1634 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        3    3.943    1.314 7672.833 2557.611 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:19(baseline)
+    55728    0.200    0.000 7644.604    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/continuum.py:59(fit_continuum)
+    55728    0.713    0.000 7644.404    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:261(fit_lines)
+    55728    1.247    0.000 7609.833    0.137 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:369(_fit_lines)
+    55728    0.734    0.000 7572.254    0.136 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:176(wrapper)
+    55728    0.366    0.000 7506.995    0.135 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1173(__call__)
+    55728    0.542    0.000 7451.706    0.134 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1276(_run_fitter)
+    55728    1.961    0.000 7443.317    0.134 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:279(leastsq)
+   111456  160.630    0.001 7321.085    0.066 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1096(_wrap_deriv)
+   111456 1268.298    0.011 6437.263    0.058 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1143(<listcomp>)
+2739309840 1027.431    0.000 5169.983    0.000 <__array_function__ internals>:2(ravel)
+2743311341/2742921235  869.326    0.000 3970.114    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+    55728   29.558    0.001 3733.677    0.067 {built-in method scipy.optimize._minpack._lmder}
+   111456    0.562    0.000 3699.364    0.033 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:22(_check_func)
+2739309840 1275.844    0.000 3046.582    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1718(ravel)
+2741483232 1310.134    0.000 1310.134    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+  6619174  725.109    0.000  726.553    0.000 {built-in method numpy.array}
+   186048    2.551    0.000  266.540    0.001 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/spectra/spectrum1d.py:73(__init__)
+2767584327  260.951    0.000  263.564    0.000 {built-in method builtins.isinstance}
+        1    0.390    0.390  261.745  261.745 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:266(_loadlists)
+2739309840  235.556    0.000  235.556    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1714(_ravel_dispatcher)
+    18864    0.077    0.000  231.350    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/utils/wcs_utils.py:214(pixel_to_world)
+    18864    0.087    0.000  230.840    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/api.py:94(pixel_to_world_values)
+    18864    0.110    0.000  229.312    0.012 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/wcs.py:332(__call__)
+2740260710  206.611    0.000  206.611    0.000 {built-in method numpy.asanyarray}
+
+
+using Namespace(file='/lma1/mpound/GBT/examples/mixed-fs-ps/data/AGBT16B_225_05/AGBT16B_225_05.raw.vegas/AGBT16B_225_05.raw.vegas.B.fits', wcs=False, fix=False, profile=False, baseline=True, maxload=1e+16)
+==SDFITSLoad /lma1/mpound/GBT/examples/mixed-fs-ps/data/AGBT16B_225_05/AGBT16B_225_05.raw.vegas/AGBT16B_225_05.raw.vegas.B.fits
+doing pandas
+HDU =  1
+BL 1 for 92032 spectra
+NUMBER OF BAD SPECTRA: 1680
+BL 2 for 92032 spectra
+NUMBER OF BAD SPECTRA: 1680
+BL 3 for 92032 spectra
+NUMBER OF BAD SPECTRA: 1680
+         189460618050 function calls (189173349187 primitive calls) in 80187.897 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1634 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        3   33.312   11.104 77783.191 25927.730 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:19(baseline)
+   271056    1.388    0.000 77623.860    0.286 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/continuum.py:59(fit_continuum)
+   271056    3.404    0.000 77622.472    0.286 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:261(fit_lines)
+   271056    6.226    0.000 77404.741    0.286 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/fitting/fitmodels.py:369(_fit_lines)
+   271056    4.089    0.000 77257.311    0.285 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:176(wrapper)
+   271056    2.186    0.000 76920.033    0.284 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1173(__call__)
+   271056    3.250    0.000 76602.363    0.283 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1276(_run_fitter)
+   271056   13.014    0.000 76559.128    0.282 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:279(leastsq)
+   542112 2452.834    0.005 75251.127    0.139 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1096(_wrap_deriv)
+   542112 13310.459    0.025 64614.935    0.119 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/astropy/modeling/fitting.py:1143(<listcomp>)
+26647244304 10003.541    0.000 51310.701    0.000 <__array_function__ internals>:2(ravel)
+26665629615/26664274325 8414.064    0.000 39398.361    0.000 {built-in method numpy.core._multiarray_umath.implement_array_function}
+   271056  323.310    0.001 38541.721    0.142 {built-in method scipy.optimize._minpack._lmder}
+   542112    5.861    0.000 37950.537    0.070 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/scipy/optimize/_minpack_py.py:22(_check_func)
+26647244304 12683.743    0.000 30602.808    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1718(ravel)
+26657815488 13352.538    0.000 13352.538    0.000 {method 'ravel' of 'numpy.ndarray' objects}
+ 31295800 8186.945    0.000 8193.836    0.000 {built-in method numpy.array}
+26778236460 2554.232    0.000 2571.050    0.000 {built-in method builtins.isinstance}
+   905200   13.594    0.000 2381.283    0.003 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/spectra/spectrum1d.py:73(__init__)
+        1    2.335    2.335 2357.477 2357.477 /an/algol_lupus2/mpound/src/astrodysh/sdfitsload.py:266(_loadlists)
+26647244304 2353.780    0.000 2353.780    0.000 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/numpy/core/fromnumeric.py:1714(_ravel_dispatcher)
+    92032    0.399    0.000 2177.327    0.024 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/specutils/utils/wcs_utils.py:214(pixel_to_world)
+    92032    0.477    0.000 2174.092    0.024 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/api.py:94(pixel_to_world_values)
+    92032    0.579    0.000 2164.603    0.024 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/wcs.py:332(__call__)
+26651872454 2053.948    0.000 2053.948    0.000 {built-in method numpy.asanyarray}
+
+
