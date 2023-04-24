@@ -27,8 +27,7 @@ the [github issue tracker](https://github.com/GreenBankObservatory/dysh/issues).
 
 Here are the steps if you want to develop code for dysh.  We use [hatch](https://hatch.pypa.io/) to manage the build environment.
 
-1. 
-Clone the repo and install hatch.
+1.  Clone the repo and install hatch.
 
 ```bash
     $ git clone git@github.com:GreenBankObservatory/dysh.git
@@ -36,8 +35,7 @@ Clone the repo and install hatch.
     $ pip install hatch  # or pipx if you prefer
 ```
 
-2.
-Create and activate a virtual environment with hatch and install the packages required for development.
+2.  Create and activate a virtual environment with hatch and install the packages required for development.
 The virtual environment will be created the first time; subsequent invoking ``hatch shell`` will simply load the created environment.cdi
 
 ```bash
@@ -45,8 +43,7 @@ The virtual environment will be created the first time; subsequent invoking ``ha
     $ pip install -r requirements_dev.txt
 ```
 
-3.
-Build and install the package
+3.  Build and install the package
 
 ```bash
     $ hatch build
