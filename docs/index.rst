@@ -1,8 +1,5 @@
 .. include:: ../README.md
-
-DYSH
-==========================
-
+    :parser: myst_parser.sphinx_
 
 .. toctree::
     :maxdepth: 2
