@@ -103,6 +103,12 @@ def lineplots(file):
     
 
 def barplots(file,x_col='N_rows'):
+    plt.rcParams["xtick.major.size"] = 7
+    plt.rcParams["xtick.minor.size"] = 4
+    plt.rcParams["ytick.major.size"] = 7
+    plt.rcParams["ytick.minor.size"] = 4
+    plt.rcParams['font.size'] = 14
+    plt.rcParams['axes.linewidth'] =1.5
     t_python = Table.read(file[0],format='ipac')
     t_idl    = Table.read(file[1],format='ipac')
     colors = ['red', 'tan', 'lime']
@@ -110,18 +116,29 @@ def barplots(file,x_col='N_rows'):
     df = dict()
     df["p"] = t_python.to_pandas().sort_values(size_col)
     df["i"] = t_idl.to_pandas().sort_values(size_col)
-    time_cols = ['Load','Index', 'Create_Obsblocks' , 'Baseline_1','Baseline_2','Baseline_3','Total']
+    time_cols = ['Load','Index', 'Create_Obsblocks' , 'Baseline_1','Baseline_2','Baseline_3']
     #df[time_cols] /= 1000.0
     for key in df:
         df[key][size_col] = np.rint(df[key][size_col]).astype(int)
-        df[key][time_cols] /= df[key]['N_rows']
+        for j in time_cols:
+            df[key][j] = df[key][j]/df[key]['N_rows']
 
-    ax = df["p"].plot.bar(x=size_col, y=time_cols,
-            stacked=False, logy=False, 
-            xlabel='File Size', ylabel = 'Time per spectrum (ms)',rot=0)#figsize=(15,12),rot=0)
-    fig = ax.get_figure()
-    ax2 = df["i"].plot.bar(x=size_col, y=time_cols,
-            stacked=False, logy=False, ax=ax,rot=0)#figsize=(15,12),rot=0)
+    fig,ax = plt.subplots()
+    print("TIME ",list(df["p"][time_cols].mean()))
+    print(df["p"])
+    ind = np.arange(len(time_cols))
+    width = 0.25
+    ax.bar(ind,list(df["p"][time_cols].mean()),width,log=args.logy,label="dysh")
+    ax.bar(ind+width,list(df["i"][time_cols].mean()),width,log=args.logy,label="GBTIDL")
+    ax.set_xticks(ind+width/2,labels=time_cols)
+    ax.set_ylabel("Time per spectrum (ms)")
+    ax.legend()
+    #ax = df["p"].plot.bar(x=size_col, y=time_cols,
+    #        stacked=False, logy=False, 
+    #        xlabel='File Size', ylabel = 'Time per spectrum (ms)',rot=0)#figsize=(15,12),rot=0)
+    #fig = ax.get_figure()
+    #ax2 = df["i"].plot.bar(x=size_col, y=time_cols,
+    #        stacked=False, logy=False, ax=ax,rot=0)#figsize=(15,12),rot=0)
 #    print(ax.containers)
 #    ax.bar_label(ax.containers[2],labels=df[size_col],backgroundcolor='blue',color='white',padding=-30)
 #    ax.bar_label(ax.containers[2],labels=df['N_chan'],backgroundcolor='gray',color='white',padding=-50)
@@ -160,6 +177,8 @@ if __name__ == "__main__":
     parser.add_argument('--lineplots','-l', action='store_true', help='show lineplots',default=False)
     parser.add_argument('--title','-t', action='store', help='Plot title',default="Timing for Load/Obsblocks/Baseline")
     parser.add_argument('--outfile','-o', action='store', help='output file',default=None)
+    parser.add_argument('--logy', action='store_true', help='log y axis',default=False)
+    parser.add_argument('--logx', action='store_true', help='log x axis',default=False)
     args = parser.parse_args()
     print("ARGS ",args)
     if args.lineplots:
