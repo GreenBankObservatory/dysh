@@ -22,13 +22,14 @@ def baseline(speclist,order,exclude=None,plot=False,maxspec=1000):
     #for p in speclist[0:last]:
     i=0
     bad = 0
+    model = Polynomial1D(degree=order)
     try:
         if exclude is not None:
             for p in speclist:
                 if np.isnan(p.data).all():
                     bad+=1
                     continue
-                fc = fit_continuum(p,Polynomial1D(degree=order),exclude_regions=[exclude])
+                fc = fit_continuum(p,model,exclude_regions=[exclude])
                 i=i+1
         else:
             for p in speclist:
