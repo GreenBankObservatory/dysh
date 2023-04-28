@@ -26,6 +26,7 @@ def lineplots(file):
     colors = ['red', 'tan', 'lime']
     df = t.to_pandas()#.sort_values('N_rows')
     time_cols = ['Load','Index', 'Create_Obsblocks' ,'Baseline_1','Baseline_2','Baseline_3']
+    tc = [ s.replace('_',' ') for s in time_cols ]
     size_col = 'Size'
     df[time_cols] /= 1000.0
     df[size_col] = np.rint(df[size_col]).astype(int)
@@ -107,32 +108,55 @@ def barplots(file,x_col='N_rows'):
     plt.rcParams["xtick.minor.size"] = 4
     plt.rcParams["ytick.major.size"] = 7
     plt.rcParams["ytick.minor.size"] = 4
-    plt.rcParams['font.size'] = 14
+    plt.rcParams['font.size'] = 22
     plt.rcParams['axes.linewidth'] =1.5
     t_python = Table.read(file[0],format='ipac')
     t_idl    = Table.read(file[1],format='ipac')
-    colors = ['red', 'tan', 'lime']
+    colors =  ['#377eb8', '#ff7f00','#4daf4a',
+               '#f781bf', '#a65628', '#984ea3',
+               '#999999', '#e41a1c', '#dede00', '#595959',
+               '#5F9ED1', '#C85200', '#898989', 
+               '#A2C8EC', '#FFBC79', '#CFCFCF']
+
     size_col = 'Size'
     df = dict()
     df["p"] = t_python.to_pandas().sort_values(size_col)
     df["i"] = t_idl.to_pandas().sort_values(size_col)
     time_cols = ['Load','Index', 'Create_Obsblocks' , 'Baseline_1','Baseline_2','Baseline_3']
+    tc = [ s.replace('_','\n') for s in time_cols ]
+    tc[2] = 'Create\nSpectra'
     #df[time_cols] /= 1000.0
     for key in df:
         df[key][size_col] = np.rint(df[key][size_col]).astype(int)
         for j in time_cols:
             df[key][j] = df[key][j]/df[key]['N_rows']
 
-    fig,ax = plt.subplots()
-    print("TIME ",list(df["p"][time_cols].mean()))
-    print(df["p"])
+    fig,ax = plt.subplots(figsize=(12,10))
+   # print("TIME ",list(df["p"][time_cols].mean()))
+   # print(df["p"])
     ind = np.arange(len(time_cols))
     width = 0.25
-    ax.bar(ind,list(df["p"][time_cols].mean()),width,log=args.logy,label="dysh")
-    ax.bar(ind+width,list(df["i"][time_cols].mean()),width,log=args.logy,label="GBTIDL")
-    ax.set_xticks(ind+width/2,labels=time_cols)
-    ax.set_ylabel("Time per spectrum (ms)")
-    ax.legend()
+    ax.bar(ind,list(df["p"][time_cols].mean()),width,log=args.logy,label="dysh prototype",color=colors[6])
+    ax.bar(ind+width,list(df["i"][time_cols].mean()),width,log=args.logy,label="GBTIDL",color=colors[4])
+    ax.set_xticks(ind+width/2,labels=tc)
+    ax.set_ylabel("Operation Time per spectrum (ms)",fontweight="demibold",labelpad=6)
+    ax.set_xlabel("Operation",fontweight="demibold",labelpad=6)
+    pure_numpy = 2.5
+    ax.hlines(pure_numpy,2.75,5.5,lw=3,color=colors[0],label="pure numpy")
+    handles, labels = ax.get_legend_handles_labels()
+    #print(handles)
+    #print(sorted(labels))
+    # sort both labels and handles by labels
+    #print(sorted(zip(labels,handles),key=lambda t: t[0].lower()))
+    #labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+    ax.legend([handles[1],handles[2],handles[0]], [labels[1],labels[2],labels[0]])
+    ax.set_title(args.title,weight='bold')
+    plt.tight_layout()
+    if args.show:
+        plt.show()
+    if args.outfile:
+        plt.savefig(args.outfile,dpi=150)
+#--------------------------------------------
     #ax = df["p"].plot.bar(x=size_col, y=time_cols,
     #        stacked=False, logy=False, 
     #        xlabel='File Size', ylabel = 'Time per spectrum (ms)',rot=0)#figsize=(15,12),rot=0)
@@ -159,10 +183,6 @@ def barplots(file,x_col='N_rows'):
 #    legend = add_patch(legend,fc=['blue','gray'],
 #             label=['File Size (MB)','# Channels'])
 #    #plt.subplot_tool(targetfig=fig)
-    fig.suptitle(args.title,size=14,weight='bold')
-    if args.outfile:
-        plt.savefig(args.outfile,dpi=300)
-    plt.show()
     #plt.savefig("sdfitsload_timing_short.png",dpi=300)
 
 #ax.tick_params(axis='x',rotation=0)
@@ -179,6 +199,7 @@ if __name__ == "__main__":
     parser.add_argument('--outfile','-o', action='store', help='output file',default=None)
     parser.add_argument('--logy', action='store_true', help='log y axis',default=False)
     parser.add_argument('--logx', action='store_true', help='log x axis',default=False)
+    parser.add_argument('--show', action='store_true', help='show plot',default=False)
     args = parser.parse_args()
     print("ARGS ",args)
     if args.lineplots:
