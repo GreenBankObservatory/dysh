@@ -1,0 +1,9 @@
+|                         File|  Size|N_hdu| HDU|N_rows|N_chan|  Load| Index|Create_Obsblocks|Baseline_1|Baseline_2|Baseline_3|    Total|
+|                         char|double| long|long|  long|  long|double|double|          double|    double|    double|    double|   double|
+|                             | Mbyte|     |    |      |      |    ms|    ms|              ms|        ms|        ms|        ms|       ms|
+|                         null|  null| null|null|  null|  null|  null|  null|            null|      null|      null|      null|     null|
+                   IC1481.fits   16.2     1    1    512   8192  177.0  178.9           4421.8    57833.0    61867.8    73540.0  198018.6 
+                     W3OH.fits   30.2     1    1    480  16384  171.4  188.5           6152.6   132448.9   134729.0   154549.9  428240.3 
+                  ngc5291.fits   44.1     1    1    352  32768  170.4  203.0           7693.4   199499.7   195887.2   196708.8  600162.6 
+ TGBT21A_501_11.raw.vegas.fits  758.6     1    1   6040  32768  246.4 8242.2         126248.1  1692866.0  1712327.7  1742733.0 5282663.5 
+ TGBT22A_503_02.raw.vegas.F.fits 2369.3     1    1  18864  32768  247.8 26737.3         373916.9  5438939.2  5551911.8  5537855.9 16929609.1 
