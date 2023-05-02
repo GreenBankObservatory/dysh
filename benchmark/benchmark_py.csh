@@ -18,7 +18,7 @@ set files = ( \
 )
 
 set date=`date +'%Y-%m-%d'`
-set outfile = "stats-wcs-meta.$date-OMPunset"
+set outfile = "stats.$date-OMPunset"
 rm -rf tab.out $outfile
 foreach f ($files)
     set infile=$root$f
