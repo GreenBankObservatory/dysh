@@ -10,7 +10,7 @@ from astropy.io import fits
 from astropy.modeling import models, fitting
 import astropy.units as u
 from astropy.table import Table
-from astropy.model.fitting import LevMarLSQFitter,LinearLSQFitter
+from astropy.modeling.fitting import LevMarLSQFitter,LinearLSQFitter
 from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from specutils.fitting import fit_continuum
 import pandas as pd
@@ -26,6 +26,8 @@ def baseline(speclist,order,exclude=None,plot=False,maxspec=1000,scipy=False):
     bad = 0
     model = Polynomial1D(degree=order)
     fitter = LinearLSQFitter(calc_uncertainties=True)
+    #fitter = LevMarLSQFitter(calc_uncertainties=True)
+    print(f"MODEL {model} FITTER {fitter}")
     try:
         if exclude is not None:
             for p in speclist:
@@ -288,7 +290,6 @@ class SDFITSLoad(object):
                 else:
                     #sp = self.rawspectrum(i,j)*u.K
                     sp = np.copy(rawspect[j])#*u.K
-                    print(type(sp))
                     #sp = np.random.rand(32768)*u.K
                 naxis1 =  sp.shape[0]#self.nchan(i)
                 printme = int(0.1*len(b))
