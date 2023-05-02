@@ -1,0 +1,10 @@
+|                           File|  Size|N_hdu| HDU|N_rows|N_chan|  Load| Index|Create_Obsblocks|Baseline_1|Baseline_2|Baseline_3|    Total|
+|                           char|double| long|long|  long|  long|double|double|          double|    double|    double|    double|   double|
+|                               | Mbyte|     |    |      |      |    ms|    ms|              ms|        ms|        ms|        ms|       ms|
+|                           null|  null| null|null|  null|  null|  null|  null|            null|      null|      null|      null|     null|
+ TSCAL_220105_W.raw.vegas.E.fits    3.9     1    1    864   1024  173.4  303.8           4516.4     4564.3     5389.0     5220.1   20167.0 
+                     IC1481.fits   16.2     1    1    512   8192  173.5  180.5           4445.9     3840.8     2995.4     3478.0   15114.2 
+                       W3OH.fits   30.2     1    1    480  16384  169.9  195.2           6063.8     4804.2     3116.3     3614.2   17963.8 
+                    ngc5291.fits   44.1     1    1    352  32768  170.6  204.1           7010.6     5443.4     2716.5     3213.6   18758.9 
+   TGBT21A_501_11.raw.vegas.fits  758.6     1    1   6040  32768  175.4 1278.2         129796.0    90870.0    47973.4    57034.9  327127.9 
+ TGBT22A_503_02.raw.vegas.F.fits 2369.3     1    1  18864  32768  171.7 3542.6         376636.5   288639.3   157153.2   186018.7 1012162.1 
