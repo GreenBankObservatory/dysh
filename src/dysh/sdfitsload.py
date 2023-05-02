@@ -10,33 +10,41 @@ from astropy.io import fits
 from astropy.modeling import models, fitting
 import astropy.units as u
 from astropy.table import Table
+from astropy.model.fitting import LevMarLSQFitter,LinearLSQFitter
 from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from specutils.fitting import fit_continuum
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import leastsq
 
-def baseline(speclist,order,exclude=None,plot=False,maxspec=1000):
+def baseline(speclist,order,exclude=None,plot=False,maxspec=1000,scipy=False):
     #last = min(len(speclist),maxspec)
     print(f"BL {order} for {len(speclist)} spectra")
     #for p in speclist[0:last]:
     i=0
     bad = 0
     model = Polynomial1D(degree=order)
+    fitter = LinearLSQFitter(calc_uncertainties=True)
     try:
         if exclude is not None:
             for p in speclist:
                 if np.isnan(p.data).all():
                     bad+=1
                     continue
-                fc = fit_continuum(p,model,exclude_regions=[exclude])
+                fc = fit_continuum(spectrum=p,
+                        model=model,
+                        fitter=fitter,
+                        exclude_regions=[exclude])
                 i=i+1
         else:
             for p in speclist:
                 if np.isnan(p.data).all():
                     bad+=1
                     continue
-                fc = fit_continuum(p,Polynomial1D(degree=order))
+                fc = fit_continuum(spectrum=p,
+                        model=model,
+                        fitter=fitter)
                 i=i+1
     except Exception as e:
         print(f"At spectrum {i}, Exception was {e}")
@@ -280,6 +288,7 @@ class SDFITSLoad(object):
                 else:
                     #sp = self.rawspectrum(i,j)*u.K
                     sp = np.copy(rawspect[j])#*u.K
+                    print(type(sp))
                     #sp = np.random.rand(32768)*u.K
                 naxis1 =  sp.shape[0]#self.nchan(i)
                 printme = int(0.1*len(b))
