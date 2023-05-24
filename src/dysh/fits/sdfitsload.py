@@ -12,8 +12,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
-from ..spectra.obsblock import obsblock
-#import ..utils as utils
+from ..spectra.obsblock import Obsblock
+from ..spectra import dcmeantsys
+from ..util import uniq
 
 
 def sonoff(scan, procseqn):

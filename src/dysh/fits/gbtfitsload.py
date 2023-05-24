@@ -11,10 +11,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .spectra.spectrum import Spectrum
-from .spectra.obsblock import obsblock
-from .sdfitsload import SDFITLoad
-import ..utils as utils
+from ..spectra.spectrum import Spectrum
+from ..spectra.obsblock import Obsblock
+from ..spectra import dcmeantsys
+from .sdfitsload import SDFITSLoad
+from ..util import uniq
 
 class GBTFITSLoad(SDFITSLoad):
     def __init__(self, filename, src=None,hdu=None):

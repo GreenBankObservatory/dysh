@@ -7,14 +7,14 @@ from astropy.io import fits
 #from astropy.modeling import models, fitting
 import astropy.units as u
 from astropy.table import Table
-from astropy.modeling.polynomial import Polynomial1D,ChebyShev1D
+from astropy.modeling.polynomial import Polynomial1D,Chebyshev1D
 from astropy.modeling.fitting import LevMarLSQFitter,LinearLSQFitter
 from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from specutils.fitting import fit_continuum
 import matplotlib.pyplot as plt
 #from scipy.optimize import leastsq
 
-def baseline_all(speclist,order,exclude=None,**kwargs)
+def baseline_all(speclist,order,exclude=None,**kwargs):
     kwargs_opts = {
         'remove': False,
         'show': False,
@@ -27,7 +27,7 @@ def baseline_all(speclist,order,exclude=None,**kwargs)
     for p in speclist:
         p.baseline(order,exclude,**kwargs)
 
-def baseline(spectrum,order,exclude=None,**kwargs)
+def baseline(spectrum,order,exclude=None,**kwargs):
     kwargs_opts = {
         #'remove': False,
         #'show': False,
@@ -38,9 +38,8 @@ def baseline(spectrum,order,exclude=None,**kwargs)
 
     _valid_models = ["polynomial", "chebyshev"]
     # @todo replace with minimum_string_match
-    if kwargs["model"] not in _valid_models:
+    if kwargs_opts["model"] not in _valid_models:
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
-    print(f"BL {order} for {len(speclist)} spectra")
     if kwargs_opts['model'] == "polynomial":
         model = Polynomial1D(degree=order)
     elif kwargs_opts['model'] == "chebyshev":
@@ -49,9 +48,10 @@ def baseline(spectrum,order,exclude=None,**kwargs)
         # should never get here
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
     fitter = kwargs_opts['fitter']
-    print(f"MODEL {model} FITTER {fitter}")
+    #print(f"MODEL {model} FITTER {fitter}")
     p = spectrum
     if np.isnan(p.data).all():
+        print('returning none')
         return None # or raise exception
     if exclude is not None:
         return fit_continuum(spectrum=p,
@@ -63,7 +63,7 @@ def baseline(spectrum,order,exclude=None,**kwargs)
                 model=model,
                 fitter=fitter)
 
-def baseline_old(speclist,order,exclude=None,**kwargs)
+def baseline_old(speclist,order,exclude=None,**kwargs):
     kwargs_opts = {
         'remove': True,
         'show': False,
