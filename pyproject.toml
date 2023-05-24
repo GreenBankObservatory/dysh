@@ -70,8 +70,11 @@ python = ["38", "39", "310", "311"]
 include = ["/src", "/tests"]
 exclude = [
   "/.github",
+  "/.gitignore",
+  "*.swp",
   "/docs",
   "/benchmark"
+#"/tests"?
 ]
 
 [tool.hatch.build.targets.wheel]
