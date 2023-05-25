@@ -4,7 +4,9 @@
 .. toctree::
     :maxdepth: 2
 
-    dysh.sdfitsload
+    dysh.fits
+    dysh.spectra
+    dysh.util
 
 
 Indices and tables
