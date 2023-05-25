@@ -1,4 +1,4 @@
-
+"""Load SDFITS files produced by the Green Bank Telescope"""
 import sys
 import copy
 from astropy.wcs import WCS
@@ -18,11 +18,9 @@ from .sdfitsload import SDFITSLoad
 from ..util import uniq
 
 class GBTFITSLoad(SDFITSLoad):
-    def __init__(self, filename, src=None,hdu=None):
-        """
-        Holds a raw "unstructured" series of scans, normally not used by users
-        """       
-        SDFITSLoad.__init__(self,filename,src,hdu,fix=False)
+    """GBT-specific container for bintables from selected HDU(s)"""
+    def __init__(self, filename, source=None,hdu=None):
+        SDFITSLoad.__init__(self,filename,source,hdu)#,fix=False)
         print("==GBTLoad %s" % filename)
 
         self.ushow(0,'OBJECT')

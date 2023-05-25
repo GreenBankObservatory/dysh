@@ -6,10 +6,18 @@ from astropy.wcs import WCS
 from . import baseline
 
 class Spectrum(Spectrum1D):
-    """basic spectrum builts on Spectrum1D added stuff like baseline model"""
+    """basic spectrum built on `~specutils.Spectrum1D`
+     with added attributes like baseline model
+
+    """
+
     def __init__(self, *args,**kwargs):
         Spectrum1D.__init__(self,*args,**kwargs)
         self._baseline_model = None
+
+    @property
+    def baseline_model(self):
+        return self._baseline_model
 
     def baseline(self,order,exclude=None,**kwargs):
         """compute and optionally remove a baseline"""

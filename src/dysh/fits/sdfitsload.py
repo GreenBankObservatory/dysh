@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+"""Load generic SDFITS files
+    - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
+"""
 import sys
 import copy
 from astropy.wcs import WCS
@@ -17,35 +19,20 @@ from ..spectra import dcmeantsys
 from ..util import uniq
 
 
-def sonoff(scan, procseqn):
-    """
-    return the list of On and Off scan numbers
-    there must be a more elegant python way to do this....
-    """
-    sp = {}
-    for (i,j) in zip(scan, procseqn):
-        sp[i] = j
-    
-    us1 = utils.uniq(scan)
-    up1 = utils.uniq(procseqn)
-    
-    sd = {}
-    for i in up1:
-        sd[i] = []
-        
-    for s in us1:
-        sd[sp[s]].append(s)
-
-    return sd
-
-
 class SDFITSLoad(object):
     '''
-    Container for a bintable(s) from selected HDU(s)
+    Generic Container for a bintable(s) from selected HDU(s)
+
+    Parameters
+    -----------
+    filename: - str 
+        input file name
+    source: - str
+        target source to select from input file. Default: all sources
+    hdu: - int or list
+        Header Data Unit to select from input file. Default: all HDUs
     '''
     def __init__(self, filename, source=None, hdu=None, **kwargs):
-        """
-        """
         print("==SDFITSLoad %s" % filename)
         cds.enable()  # to get mmHg
         kwargs_opts = {'fix':False}
@@ -308,9 +295,32 @@ class SDFITSLoad(object):
         print("Nint:    ",self.nintegrations(j))
         
     def summary(self):
+        """Print a summary of each record of the data"""
         print("File:     %s"%self._filename)
         for i in range(len(self._bintable)):
             self._summary(i)
     
     def __repr__(self):
         return self._filename    
+
+def sonoff(scan, procseqn):
+    """
+    return the list of On and Off scan numbers
+    there must be a more elegant python way to do this....
+    """
+    sp = {}
+    for (i,j) in zip(scan, procseqn):
+        sp[i] = j
+    
+    us1 = utils.uniq(scan)
+    up1 = utils.uniq(procseqn)
+    
+    sd = {}
+    for i in up1:
+        sd[i] = []
+        
+    for s in us1:
+        sd[sp[s]].append(s)
+
+    return sd
+

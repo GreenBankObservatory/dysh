@@ -2,11 +2,12 @@
 Utility classes and functions
 =============================
 
-
-lorem ipsum
----------------------
-
 .. automodule:: dysh.util
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: dysh.util.core
    :members:
    :undoc-members:
    :show-inheritance:
