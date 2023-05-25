@@ -4,3 +4,8 @@ numpy
 pandas
 scipy
 specutils
+myst_parser
+hatch
+pytest
+sphinx_rtd_theme
+sphinxcontrib_mermaid
