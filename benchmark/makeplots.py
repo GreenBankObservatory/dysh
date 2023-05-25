@@ -135,21 +135,30 @@ def barplots(file,x_col='N_rows'):
    # print("TIME ",list(df["p"][time_cols].mean()))
    # print(df["p"])
     ind = np.arange(len(time_cols))
-    width = 0.25
+    width = 0.2
     ax.bar(ind,list(df["p"][time_cols].mean()),width,log=args.logy,label="dysh prototype",color=colors[6])
     ax.bar(ind+width,list(df["i"][time_cols].mean()),width,log=args.logy,label="GBTIDL",color=colors[4])
-    ax.set_xticks(ind+width/2,labels=tc)
+    ax.set_xticks(ind+width,labels=tc)
     ax.set_ylabel("Operation Time per spectrum (ms)",fontweight="demibold",labelpad=6)
     ax.set_xlabel("Operation",fontweight="demibold",labelpad=6)
     pure_numpy = 2.5
-    ax.hlines(pure_numpy,2.75,5.5,lw=3,color=colors[0],label="pure numpy")
+    pure_numpy = { 0: 0.0, 1: 0, 2:0, 3:3.6, 4:7.2, 5:10.86}
+    ax.bar(ind+2*width,list(pure_numpy.values()),width,log=args.logy,label="pure numpy",color=colors[0])
+    # from peter
+    pure_c = { 0: 0.6, 1: 0, 2:0, 3:0.58, 4:0.81, 5:1.16}
+    pure_c = { 0: 0.0, 1: 0, 2:0, 3:0.58, 4:0.81, 5:1.16}
+    # take 0.75 because peter did the whole spectrum
+    ax.bar(ind+3*width,0.75*np.array(list(pure_c.values())),width,log=args.logy,label="pure C",color=colors[8])
+    
+    #ax.hlines(pure_numpy,2.75,4.,lw=3,color=colors[0],label="pure numpy")
     handles, labels = ax.get_legend_handles_labels()
     #print(handles)
     #print(sorted(labels))
     # sort both labels and handles by labels
     #print(sorted(zip(labels,handles),key=lambda t: t[0].lower()))
     #labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
-    ax.legend([handles[1],handles[2],handles[0]], [labels[1],labels[2],labels[0]])
+#    ax.legend([handles[1],handles[2],handles[3],handles[0]], [labels[1],labels[2],labels[3],labels[0]])
+    ax.legend()
     ax.set_title(args.title,weight='bold')
     plt.tight_layout()
     if args.show:
