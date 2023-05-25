@@ -1,3 +1,4 @@
+myst_parser
 numpydoc
 sphinx
 sphinx-automodapi
@@ -8,4 +9,5 @@ sphinxcontrib-jsmath
 sphinxcontrib-qthelp
 sphinxcontrib-serializinghtml
 sphinxcontrib-websupport
-myst_parser
+sphinx_rtd_theme
+sphinxcontrib_mermaid
