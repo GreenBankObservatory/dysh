@@ -47,13 +47,17 @@ class SDFITSLoad(object):
         self._hdu = fits.open(filename)  
         self._header = self._hdu[0].header
         self.load(hdu,**kwargs_opts)
-        #self.create_index()
+        self.create_index()
         #self._hdu.close()  # can't access hdu[i].data member of you do this.
 
     @property 
     def filename(self):
         return self._filename
     
+    @property
+    def index(self,hdu):
+        return self._ptable[hdu]
+
     def reset(self,hdu=None):
         self._bintable = []
         self._binheader = []
@@ -239,7 +243,7 @@ class SDFITSLoad(object):
         return "doppler_radio"
     
     def udata(self,bintable,key):
-        return utils.uniq(self._data[bintable][key])
+        return uniq(self._ptable[bintable][key])
                                   
     def ushow(self,bintable,key):
         print(f'{bintable} {key}: {self.udata(bintable,key)}')
@@ -283,7 +287,7 @@ class SDFITSLoad(object):
         j=bintable
         nrows = self.naxis(j,2)
         nflds = self._binheader[j]['TFIELDS']
-        restfreq = np.unique(self._data[j]['RESTFREQ'])/1.0E9
+        restfreq = np.unique(self._ptable['RESTFREQ'])/1.0E9
     #
         print("HDU       %d" %  (j+1))
         print("BINTABLE: %d rows x %d cols with %d chans" % (self._nrows[j],nflds,self.nchan(j)))
@@ -298,6 +302,7 @@ class SDFITSLoad(object):
         """Print a summary of each record of the data"""
         print("File:     %s"%self._filename)
         for i in range(len(self._bintable)):
+            print("i=",i)
             self._summary(i)
     
     def __repr__(self):
@@ -312,8 +317,8 @@ def sonoff(scan, procseqn):
     for (i,j) in zip(scan, procseqn):
         sp[i] = j
     
-    us1 = utils.uniq(scan)
-    up1 = utils.uniq(procseqn)
+    us1 = uniq(scan)
+    up1 = uniq(procseqn)
     
     sd = {}
     for i in up1:

@@ -1,18 +1,16 @@
-import sys
-import copy
+#import sys
+#import copy
 import numpy as np
 from astropy.wcs import WCS
-#from astropy.modeling.models import Gaussian1D
 from astropy.io import fits
-#from astropy.modeling import models, fitting
 import astropy.units as u
-from astropy.table import Table
+#from astropy.table import Table
 from astropy.modeling.polynomial import Polynomial1D,Chebyshev1D
 from astropy.modeling.fitting import LevMarLSQFitter,LinearLSQFitter
 from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from specutils.fitting import fit_continuum
 import matplotlib.pyplot as plt
-#from scipy.optimize import leastsq
+from ..util import uniq
 
 def baseline_all(speclist,order,exclude=None,**kwargs):
     kwargs_opts = {
@@ -45,7 +43,7 @@ def baseline(spectrum,order,exclude=None,**kwargs):
     elif kwargs_opts['model'] == "chebyshev":
         model = Chebyshev1D(degree=order)
     else:
-        # should never get here
+        # should never get here, unless we someday allow user to input a astropy.model
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
     fitter = kwargs_opts['fitter']
     #print(f"MODEL {model} FITTER {fitter}")
@@ -123,15 +121,37 @@ def baseline_old(speclist,order,exclude=None,**kwargs):
 
 def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     """
-    following the GBTIDL routine with same name, get the tsys from 
-    the neighboring calon and caloff we define an extra way to set 
-    the edge size, nedge, if you prefer to use number of edge channels
-    instead of the inverse fraction
+    Following the GBTIDL routine with same name, get the system temperature from 
+    the neighboring calon and caloff, which reflect the state of the noise diode.
+    We define an extra way to set the edge size, nedge, if you prefer to use 
+    number of edge channels instead of the inverse fraction.
     
-    calon/caloff is meant to reflect the state of the noise diode
-    
-    mode=0     do the mean before the division
-    mode=1     do the mean after the division
+    Parameters
+    ----------
+        calon : `~numpy.ndarray`-like 
+            ON calibration
+
+        caloff  :  `~numpy.ndarray`-like
+            OFF calibration
+
+        tcal  :  `~numpy.ndarray`-like
+            calibration temperature
+        
+        mode : int 
+            mode=0  Do the mean before the division
+            mode=1  Do the mean after the division
+            TODO: Ask PJT why the options?
+
+        fedge : int
+            Fraction of edge channels to exclude, in percent. Default: 10
+
+        nedge : int
+            Number of edge channels to exclude. Default: None, meaning use `fedge`
+
+    Returns
+    -------
+        meanTsys : `~numpy.ndarray`-like 
+            The mean system temperature
     """
     nchan = len(calon)
     if nedge == None:
@@ -144,3 +164,39 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         meanTsys = np.mean( caloff[nedge:-nedge] / (calon[nedge:-nedge] - caloff[nedge:-nedge]) )
         meanTsys = meanTsys * tcal + tcal/2.0
     return meanTsys
+
+def sonoff(scan, procseqn):
+    """
+    @PJT - how does this work?
+    Return the list of On and Off scan numbers
+    there must be a more elegant python way to do this....
+
+    Parameters
+    ---------
+        scan : `~numpy.ndarray`-like
+            List of metadata SCAN values.
+        procseqn: `~numpy.ndarray`-like
+            List of metadata PROCSEQN values.
+
+    Returns
+    -------
+        sd : dict
+            Dict of ON and OFF scan numbers
+    """
+    sp = {}
+    for (i,j) in zip(scan, procseqn):
+        sp[i] = j
+
+    us1 = uniq(scan)
+    up1 = uniq(procseqn)
+
+    sd = {}
+    for i in up1:
+        sd[i] = []
+
+    for s in us1:
+        sd[sp[s]].append(s)
+
+    return sd
+
+
