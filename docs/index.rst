@@ -11,8 +11,6 @@ Module Descriptions and APIs
    dysh.spectra
    dysh.util
 
-.. automodapi:: dysh.fits
-
 Indices and tables
 ==================
 
