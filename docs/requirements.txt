@@ -11,7 +11,7 @@ sphinxcontrib-serializinghtml
 sphinxcontrib-websupport
 sphinx_rtd_theme
 sphinxcontrib_mermaid
+dysh
 numpy
 astropy
 specutils
-dysh
