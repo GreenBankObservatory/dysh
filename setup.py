@@ -31,7 +31,7 @@ setup(
     author_email = "mpound@umd.edu",
 #    description = pdrtpy.DESCRIPTION,
 #    keywords = pdrtpy.KEYWORDS,
-     description="Dysh is a Python spectral line data reduction and analysis program for singledish data with specific emphasis on data from the Green Bank Telescope."
+     description="Dysh is a Python spectral line data reduction and analysis program for singledish data with specific emphasis on data from the Green Bank Telescope.",
     long_description=long_description, 
     long_description_content_type="text/markdown",
     packages = find_packages(exclude=excludelist),
