@@ -14,3 +14,4 @@ sphinxcontrib_mermaid
 numpy
 astropy
 specutils
+dysh
