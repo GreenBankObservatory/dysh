@@ -212,6 +212,7 @@ intersphinx_mapping = {
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),
     'astropy': ('https://docs.astropy.org/en/stable/', None),
     'matplotib': ('https://matplotlib.org/stable',None),
+    'pandas': ('https://pandas.pydata.org/docs/', None),
     'specutils': ('https://specutils.readthedocs.io/en/stable/',None),
 }
 
