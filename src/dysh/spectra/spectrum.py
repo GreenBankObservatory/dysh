@@ -1,4 +1,3 @@
-
 from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from astropy.modeling.polynomial import Polynomial1D,Chebyshev1D
 from astropy.modeling.fitting import LevMarLSQFitter,LinearLSQFitter
@@ -13,7 +12,6 @@ class Spectrum(Spectrum1D):
     have only one spectral axis conflicts with slight Doppler shifts.
     See `~specutils.Spectrum1D` for the instantiation arguments.
     """
-
     def __init__(self, *args,**kwargs):
         Spectrum1D.__init__(self,*args,**kwargs)
         self._baseline_model = None
@@ -25,8 +23,9 @@ class Spectrum(Spectrum1D):
 
     def baseline(self,degree,exclude=None,**kwargs):
         """Compute and optionally remove a baseline.  The model for the
-        baseline can be either a :ref:`1D polynomial model <~astropy.modeling.Polynomial1D>` or a 1D Chebyshev
-        polynomial of the first kind.  The code uses `astropy.modeling`
+        baseline can be either a 
+        `1D polynomial model <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html>`_ or a 
+        `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.  The code uses `astropy.modeling`
         and `astropy.fitter` to compute the baseline.  See the documentation for those modules.  This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
         
         Parameters

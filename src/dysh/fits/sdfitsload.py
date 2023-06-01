@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from ..spectra.spectrum import Spectrum
 from ..spectra.obsblock import Obsblock
 from ..spectra import dcmeantsys
-from ..util import uniq
+from ..util import uniq, stripTable
 
 
 class SDFITSLoad(object):
@@ -24,13 +24,13 @@ class SDFITSLoad(object):
     Generic Container for a bintable(s) from selected HDU(s)
 
     Parameters
-    -----------
-    filename: - str 
-        input file name
-    source: - str
-        target source to select from input file. Default: all sources
-    hdu: - int or list
-        Header Data Unit to select from input file. Default: all HDUs
+    ----------
+        filename : str 
+            input file name
+        source  : str
+            target source to select from input file. Default: all sources
+        hdu : int or list
+            Header Data Unit to select from input file. Default: all HDUs
     '''
     def __init__(self, filename, source=None, hdu=None, **kwargs):
         print("==SDFITSLoad %s" % filename)
@@ -43,7 +43,6 @@ class SDFITSLoad(object):
         self._ptable = []
         self._binheader = []
         self._data = []
-        self._obsblock = [] # list of SpecList
         self._hdu = fits.open(filename)  
         self._header = self._hdu[0].header
         self.load(hdu,**kwargs_opts)
@@ -51,14 +50,25 @@ class SDFITSLoad(object):
         #self._hdu.close()  # can't access hdu[i].data member of you do this.
 
     @property 
+    def bintable(self):
+        """The list of bintables"""
+        return self._bintable
+
+    def binheader(self):
+        """The list of bintable headers"""
+        return self._binheader
+
+    @property 
     def filename(self):
+        """The input SDFITS filename"""
         return self._filename
     
-    @property
     def index(self,hdu):
+        """The index table"""
         return self._ptable[hdu]
 
     def reset(self,hdu=None):
+        """Reset all attributes"""
         self._bintable = []
         self._binheader = []
         self._ptable = []
@@ -70,6 +80,13 @@ class SDFITSLoad(object):
          #   self.load(src,hdu)
     
     def create_index(self,hdu=None):
+        """Create the index of the SDFITS file.
+
+        Parameters
+        ----------
+            hdu : int or list
+                Header Data Unit to select from input file. Default: all HDUs
+        """
         if hdu is not None:
             ldu = list([hdu])
         else:
@@ -78,17 +95,21 @@ class SDFITSLoad(object):
         for i in ldu:
             t = Table.read(self._hdu[i]) 
             t.remove_column('DATA')
-            self.stripT(t)
+            stripTable(t)
             print(f"doing pandas for HDU {i}")
             self._ptable.append(t.to_pandas())
             del t
             
     def load(self, hdu=None, **kwargs):
         """
-        for given hdu make this bintable available
+        Load the bintable for given hdu.
         Note mmHg and UTC are unrecognized units.  mmHg is in astropy.units.cds but UTC is just wrong.
-        """
 
+        Parameters
+        ----------
+            hdu : int or list
+                Header Data Unit to select from input file. Default: all HDUs
+        """
         self._bintable = []
         self._ptable = []
         self._binheader = []
@@ -123,20 +144,8 @@ class SDFITSLoad(object):
         if kwargs.get("index",False):
             self.create_index(hdu)
 
-    def stripT(self,b):
-        # remove leading and trailing chars from all strings in table 
-        for n in b.colnames:
-            if np.issubdtype(b.dtype[n],str):
-                b[n] = np.char.strip(b[n])
-
-    def strip(self):
-        # remove leading and trailing chars from all strings in table 
-        for b in self._ptable:
-            for n in b.colnames:
-                if np.issubdtype(b.dtype[n],str):
-                    b[n] = np.char.strip(b[n])
-
     def _loadlists(self,hdu,fix=False,wcs=False,maxspect=1E16):
+        '''Create an obsblock from all rows in bintable.  For debug/performance testing only'''
         self._obsblock = []
         i=0
         k = -1
@@ -231,57 +240,212 @@ class SDFITSLoad(object):
 
 
     def fix_meta(self,meta):
-        """Do any repair to the meta/header for peculariaties in definitions from a particular observatory
+        """Do any repair to the meta/header for peculariaties in definitions 
+        from a particular observatory
         The passed-in dictionary will be repaired in place.
         At minimum this method must populate meta['VELDEF'] and meta['VELFRAME']
+
+        Parameters
+        ----------
+            meta : dict
+                The header of the `~Spectrum` to be fixed, corresponding to the `meta` attribute of the Spectrum.
         """
         pass
     
     def velocity_convention(self,veldef,velframe):
-        # sub-classes must implement this so I can keep this class generic.
-        # GBT uses VELDEF and VELFRAME incorrectly. 
+        '''Compute the velocity convention string use for velocity conversions, 
+        given the VELDEF and VELFRAME values. 
+        Return value must be a recognized string of `~specutils.Spectrum1D`, one of
+        {"doppler_relativistic", "doppler_optical", "doppler_radio"}
+        Sub-classes should implement, because different observatories use VELDEF and 
+        VELFRAME inconsistently. This base class method hard-coded to return "doppler_radio."
+            
+        Parameters
+        ----------
+            veldef : str
+                The velocity definition string (`VELDEF` FITS keyword)
+            velframe : str
+                The velocity frame string (`VELFRAME` FITS keyword)
+        '''
         return "doppler_radio"
     
     def udata(self,bintable,key):
+        """The unique list of values of a given header keyword
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+            key : str
+                The keyword to retrieve
+        Returns
+        -------
+            udata : list
+                The unique set of values for the input keyword.
+        """
         return uniq(self._ptable[bintable][key])
                                   
     def ushow(self,bintable,key):
+        """Print the unique list of values of a given header keyword
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+            key : str
+                The keyword to retrieve
+        """
         print(f'{bintable} {key}: {self.udata(bintable,key)}')
         
     def naxis(self,bintable,naxis):
+        '''The NAXISn value of the input bintable.
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+            naxis : int
+                The NAXIS whose length is requested
+
+        Returns
+        -------
+            naxis : the length of the NAXIS
+        '''
         nax = f'NAXIS{naxis}'
         return self._binheader[bintable][nax]
     
     def nintegrations(self,bintable,source=None):
+        '''The number of integrations on a given source
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+            source: str
+                The source name (OBJECT keyword) or None for all sources. Default: None
+
+        Returns
+        -------
+            nintegrations : the number of integrations 
+        '''
+        
+        data = self.rawspectra(bintable)
         if source is not None:
-            nint = np.shape(np.char.strip(self._data[bintable]['OBJECT']) == source)[0]//self.npol(bintable)
+            nint = np.shape(np.char.strip(data['OBJECT']) == source)[0]//self.npol(bintable)
         else:
-            nint = np.shape(self._data[bintable])[0]//self.npol(bintable)
+            nint = np.shape(data[0]//self.npol(bintable))
         return nint
 
     def rawspectra(self,bintable):
+        '''Get the raw (unprocessed) spectra from the input bintable.
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            rawspectra : ~numpy.ndarray
+                The DATA column of the input bintable
+        '''
         return self._bintable[bintable].data[:]["DATA"]
 
     def rawspectrum(self,bintable,i):
+        '''Get a single raw (unprocessed) spectrum from the input bintable.
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+            i :  int
+                The row index to retrieve
+
+        Returns
+        -------
+            rawspectrum : ~numpy.ndarray
+                The i-th row of DATA column of the input bintable
+        '''
         return self._bintable[bintable].data[:]["DATA"][i]
+
+    def getrow(self,i,bintable=0):
+        return self._bintable[bintable].data[i]
     
     def nrows(self,bintable):
+        '''The number of rows of the input bintable
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            nrows : int
+                Number of rows, i.e., the length of the input bintable
+        '''
         return self._nrows[bintable]
 
     def nchan(self,bintable):
+        '''The number of channels per row of the input bintable. Assumes all rows have same length.
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            nchan : int
+                Number channels in the first spectrum of the input bintbale
+        '''
         return np.shape(self.rawspectrum(bintable,1))[0]
     
     def npol(self,bintable):
+        '''The number of polarizations present in the input bintable. 
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            npol: int
+                Number of polarizations as given by `CRVAL4` FITS header keyword.
+        '''
         return len(self.udata(bintable,'CRVAL4'))
     
     def sources(self,bintable):
+        '''The number of sources present in the input bintable. 
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            sources: int
+                Number of sources as given by `OBJECT` FITS header keyword.
+        '''
         return self.udata(bintable,'OBJECT')
     
     def scans(self,bintable):
+        #@TODO move this to GBTFISLoad?
+        '''The number of scans resent in the input bintable. 
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            scans: int
+                Number of scans as given by `SCAN` FITS header keyword.
+        '''
         return self.ushow(bintable,'SCAN')
-    
-    def __len__(self):
-        return self.nrows
     
     def _summary(self,bintable):
         j=bintable
@@ -305,27 +469,9 @@ class SDFITSLoad(object):
             print("i=",i)
             self._summary(i)
     
+    def __len__(self):
+        return self.nrows
+    
     def __repr__(self):
         return self._filename    
-
-def sonoff(scan, procseqn):
-    """
-    return the list of On and Off scan numbers
-    there must be a more elegant python way to do this....
-    """
-    sp = {}
-    for (i,j) in zip(scan, procseqn):
-        sp[i] = j
-    
-    us1 = uniq(scan)
-    up1 = uniq(procseqn)
-    
-    sd = {}
-    for i in up1:
-        sd[i] = []
-        
-    for s in us1:
-        sd[sp[s]].append(s)
-
-    return sd
 

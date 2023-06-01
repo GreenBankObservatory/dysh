@@ -172,7 +172,7 @@ def sonoff(scan, procseqn):
     there must be a more elegant python way to do this....
 
     Parameters
-    ---------
+    ----------
         scan : `~numpy.ndarray`-like
             List of metadata SCAN values.
         procseqn: `~numpy.ndarray`-like

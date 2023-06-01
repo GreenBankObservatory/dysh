@@ -79,17 +79,97 @@ class GBTFITSLoad(SDFITSLoad):
         if self._ptable is None:
             self._create_index()
         for df in self._ptable:
-            _df = df[df.columns & show]
-            # Don't use /= here because SettingWithCopyWarning: 
-            #    A value is trying to be set on a copy of a slice from a DataFrame.
-            #    Try using .loc[row_indexer,col_indexer] = value instead
-            _df.loc[:,"VELOCITY"] = _df["VELOCITY"]/1E3   # convert to km/s
+            # make a copy here because we can't guarantee if this is a 
+            # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+            _df = df[df.columns & show].copy()
+            _df.loc[:,"VELOCITY"] /= 1E3   # convert to km/s
             _df["RESTFREQ"] = _df["RESTFREQ"]/1.0E9 # convert to GHz
             if scans is not None:
-                _df = _df[(_df["SCAN"]>=scans[0]) & ( _df["SCAN"] <= scans[1])].reindex(columns=show)
+                _df = self.select_scans(scans,_df).reindex(columns=show)
+                #_df = _df[(_df["SCAN"]>=scans[0]) & ( _df["SCAN"] <= scans[1])].reindex(columns=show)
                 summary.append(_df)
             else:
                 summary.append(_df.reindex(columns=show))
 
         return summary
+
+    def velocity_convention(self,veldef,velframe):
+        # GBT uses VELDEF and VELFRAME incorrectly. 
+        return "doppler_radio"
+
+    def select_scans(self,scans,df):
+        return df[(df["SCAN"]>=scans[0]) & ( df["SCAN"] <= scans[1])]
+
+    def select_onoff(self,df):
+        return df[(df["PROC"]=="OnOff") | ( df["PROC"] == "OffOn")]
+
+    def select(self,key,value,df):
+        return df[(df[key]==value) | ( df[key] == value)]
+
+    def getps(self,scans=None,**kwargs):
+        '''Get the rows that contain position-switched data.  These include ONs and OFFs.
+
+        Parameters
+        ----------
+            scans : 2-tuple
+                The beginning and ending scan to use. Default: show all scans.
+        '''
+        if self._ptable is None:
+            self._create_index()
+        #for df in self._ptable:
+
+    def sonoff2(self):
+        s = {"ON": [], "OFF" :[]}
+        for df in self._ptable:
+            #OnOff lowest scan number is on
+            #dfonoff = self.select(df,"PROC","OnOff"))
+            #OffOn lowest scan number is off
+            #dfoffon = self.select(df,"PROC","OffOn"))
+            dfon  = self.select("_OBSTYPE","PSWITCHON",df)
+            dfoff = self.select("_OBSTYPE","PSWITCHOFF",df)
+            onscans = uniq(list(dfon["SCAN"]))
+            #print("ON: ",onscans)
+            s["ON"].extend(onscans)
+            offscans = uniq(list(dfoff["SCAN"]))
+            #print("OFF: ",offscans)
+            s["OFF"].extend(offscans)
+
+        s["ON"] = uniq(s["ON"])
+        s["OFF"] = uniq(s["OFF"])
+        return s
+
+    def sonoffrows(self,scans=None,bintable=0): #@TODO deal with mulitple bintables
+        rows = {"ON": [], "OFF" :[]}
+        if not scans:
+            scans = self.sonoff2()
+        df = self._ptable[bintable]
+        for k in scans:
+            rows[k] = list(df[df["SCAN"].isin(scans[k])].index)
+        return rows
+        
+    def getscans(self,scans,bintable=0):
+        df = self._ptable[bintable]
+        df[df["SCAN"].isin(scans)]
+
+# @This only works if the FITS FILE contains ONLY ons and offs
+def sonoff(scan, procseqn):
+    """
+    return the list of On and Off scan numbers
+    there must be a more elegant python way to do this....
+    """
+    sp = {}
+    for (i,j) in zip(scan, procseqn):
+        sp[i] = j
+    
+    us1 = uniq(scan)
+    up1 = uniq(procseqn)
+    
+    sd = {}
+    for i in up1:
+        sd[i] = []
+        
+    for s in us1:
+        sd[sp[s]].append(s)
+
+    return sd
 
