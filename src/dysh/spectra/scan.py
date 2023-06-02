@@ -1,4 +1,5 @@
 import astropy.units as u
+from copy import deepcopy
 from .spectrum import Spectrum
 
 class PSScan(object):
@@ -25,7 +26,7 @@ class PSScan(object):
         return self.nrows
     
 class GBTPSScan(PSScan):
-    def __init__(self, gbtfits, scans,scanrows,bintable=0):
+    def __init__(self, gbtfits, scans, scanrows, bintable=0):
         PSScan.__init__(self,gbtfits,scans['ON'],scans['OFF'])
         # The rows of the original bintable corresponding to ON and OFF
         self._scanrows = scanrows
@@ -45,3 +46,38 @@ class GBTPSScan(PSScan):
             meta = dict(gbtfits.index(bintable).iloc[i])
             #@TODO allow WCS? big performance hit
             self.off[i] = Spectrum(data*u.K,wcs=None,meta=meta,velocity_convention=vc)
+
+    def calibrate(self, **kwargs):
+        """
+        special PS calibration
+        There are some arguments how *exactly* this is done
+        """
+        kwargs_opts = {
+            'verbose': False
+        }
+        kwargs_opts.update(kwargs)
+
+        self.status = 1
+        npolint = self.npol * self.nint
+        self.calibrated = np.empty(npolint, dtype=Spectrum)
+        for i in range(npolint):
+            tcal = self.off[2*i].meta['TCAL']
+            tcal2= self.on[2*i].meta['TCAL']
+            tsys = dcmeantsys(self.off[2*i].data,  self.off[2*i+1].data,tcal)
+            tsys2= dcmeantsys(self.on[2*i].data,  self.on[2*i+1].data,tcal2)
+            if kwargs_opts['verbose']: 
+                print(i,tcal,tsys,tsys2)
+            #                 2*i is the CalON     2*i+1 the CalOFF
+            #
+            sig = 0.5*(self.on[2*i].data + self.on[2*i+1].data)
+            ref = 0.5*(self.off[2*i].data + self.off[2*i+1].data)
+            #kr = self.on[2*i].gbt['row'] 
+            #if True:
+            self.calibrated[i] = deepcopy(self.on[2*i])
+            #else:
+            #    self.calibrated[i] = Spectrum(self.sdfits.data2[kr])
+            self.calibrated[i].data = tsys * (sig-ref) / ref
+            #self.calibrated[i].gbt['row'] = kr
+            self.calibrated[i].meta['tsys'] = tsys
+            # fix the meta data ; most of it is ok
+

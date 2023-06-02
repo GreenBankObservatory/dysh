@@ -26,8 +26,29 @@ def baseline_all(speclist,order,exclude=None,**kwargs):
         p.baseline(order,exclude,**kwargs)
 
 def baseline(spectrum,order,exclude=None,**kwargs):
+    """Fit a baseline for a spectrum
+
+       Parameters
+       ----------        
+            spectrum : ~Spectrum
+                The input spectrum
+            order : int
+                The order of the polynomial series, a.k.a. baseline order
+            exclude : list of 2-tuples
+                List of regions to exclude from the fit, in channel units.  The tuple(s) are in the form [lower,upper], inclusive.  Examples: One region: [11,51], Two regions: [(11,51),(99,123)]. Default: no exclude region
+            model : str
+                One of 'polynomial' or 'chebyshev', Default: 'polynomial'
+            fitter  :  `~astropy.fitting._FitterMeta`
+                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+
+        Returns
+        -------
+           models : list of `~astropy.modeling.Model`
+                The list of models that contain the fitted model parameters.
+                See `~specutuls.fitting.fit_continuum`.
+            
+    """
     kwargs_opts = {
-        #'remove': False,
         #'show': False,
         'model':'polynomial',
         'fitter':  LinearLSQFitter(calc_uncertainties=True),
@@ -52,10 +73,16 @@ def baseline(spectrum,order,exclude=None,**kwargs):
         print('returning none')
         return None # or raise exception
     if exclude is not None:
+        regionlist = []
+        unit = p._spectral_axis.unit
+        if type(exclude[0] == int): #ugh, klugy
+            exclude = [exclude]
+        for pair in exclude:
+            regionlist.append(SpectralRegion(pair[0]*unit,pair[1]*unit))
         return fit_continuum(spectrum=p,
                 model=model,
                 fitter=fitter,
-                exclude_regions=[exclude])
+                exclude_regions=regionlist)
     else:
         return fit_continuum(spectrum=p,
                 model=model,

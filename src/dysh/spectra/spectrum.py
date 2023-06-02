@@ -33,8 +33,9 @@ class Spectrum(Spectrum1D):
             degree : int
                 The degree of the polynomial series, a.k.a. baseline order
             exclude: list of 2-tuples
-                List of regions to exclude in the fitting. Default: None
-                TODO: Are these OR'd with the existing mask?
+                List of channel-based regions to exclude in the fitting in form [lower,upper]. Default: None
+                TODO: Are these OR'd with the existing mask? make that an option
+                TODO: Allow these to be Quantities (spectral axis units or equivalent). See list_to_spectral_region()
             model : str
                 One of 'polynomial' or 'chebyshev', Default: 'polynomial'
             fitter  :  `~astropy.fitting._FitterMeta`
@@ -72,6 +73,11 @@ class Spectrum(Spectrum1D):
                 Array where values in the flux to be masked are those that
                 astype(bool) converts to True.  
         """
+        pass
+
+    def list_to_spectral_region(self,inlist):
+        #todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit. This could go in core.py
+        # combine this with _set_exclude_regions
         pass
 
     def bshow(self):

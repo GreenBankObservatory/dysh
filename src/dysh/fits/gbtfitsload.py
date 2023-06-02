@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
+from ..spectra.scan import GBTPSScan
 from ..spectra.obsblock import Obsblock
 from ..spectra import dcmeantsys
 from .sdfitsload import SDFITSLoad
@@ -106,51 +107,96 @@ class GBTFITSLoad(SDFITSLoad):
     def select(self,key,value,df):
         return df[(df[key]==value) | ( df[key] == value)]
 
-    def getps(self,scans=None,**kwargs):
-        '''Get the rows that contain position-switched data.  These include ONs and OFFs.
-
-        Parameters
-        ----------
-            scans : 2-tuple
-                The beginning and ending scan to use. Default: show all scans.
-        '''
+    def _create_index_if_needed(self):
         if self._ptable is None:
             self._create_index()
-        #for df in self._ptable:
 
-    def sonoff2(self):
+    def getps(self,scans=None,bintable=0,**kwargs):
+        '''Get the rows that contain position-switched data.  These include ONs and OFFs.
+
+            kwargs: pol, feed, ifnum, integration, calibrate=T/F, average=T/F, tsys, weights
+            [sampler], ap_eff [if requested units are Jy]
+            
+        Parameters
+        ----------
+            scans : int or 2-tuple
+                Single scan number or list of scan numbers to use. Default: all scans.
+                Scan numbers can be Ons or Offs
+        TODO: figure how to allow [startscan, endscan]
+        Returns 
+        -------
+                ? ScanBlock
+        '''
+        #self._create_index_if_needed() #honestly we don't need to call this all the time.
+        #probably don't need to sort
+        ssort = set(sorted(scans))
+        # all ON/OFF scans
+        scanlist = self.onoff_scan_list()
+        # check that the requested scans are either ON or OFF
+        allscans = set(sorted(scanlist["ON"] + scanlist["OFF"])) #careful if these ever become ndarrays!
+        check = allscans.intersection(ssort)
+        if len(check) == 0:
+            missing = ssort.difference(allscans)
+            raise ValueError(f"Scans {missing} not found in bintable {bintable}")
+        # Now cull entries from full scan list that aren't requested.
+        # Since the requested could be either on or off or both we check both and drop in pairs
+        rows = self.onoff_rows(scans,bintable=bintable)
+        g = GBTPSScan(self,scanlist,rows,bintable)
+        return g
+
+
+    def onoff_scan_list(self,bintable=0):
+        self._create_index_if_needed()
         s = {"ON": [], "OFF" :[]}
-        for df in self._ptable:
-            #OnOff lowest scan number is on
-            #dfonoff = self.select(df,"PROC","OnOff"))
-            #OffOn lowest scan number is off
-            #dfoffon = self.select(df,"PROC","OffOn"))
-            dfon  = self.select("_OBSTYPE","PSWITCHON",df)
-            dfoff = self.select("_OBSTYPE","PSWITCHOFF",df)
-            onscans = uniq(list(dfon["SCAN"]))
-            #print("ON: ",onscans)
-            s["ON"].extend(onscans)
-            offscans = uniq(list(dfoff["SCAN"]))
-            #print("OFF: ",offscans)
-            s["OFF"].extend(offscans)
+        if False: # this does all bintables.
+            for df in self._ptable:
+                #OnOff lowest scan number is on
+                #dfonoff = self.select(df,"PROC","OnOff"))
+                #OffOn lowest scan number is off
+                #dfoffon = self.select(df,"PROC","OffOn"))
+                dfon  = self.select("_OBSTYPE","PSWITCHON",df)
+                dfoff = self.select("_OBSTYPE","PSWITCHOFF",df)
+                onscans = uniq(list(dfon["SCAN"]))
+                #print("ON: ",onscans)
+                s["ON"].extend(onscans)
+                offscans = uniq(list(dfoff["SCAN"]))
+                #print("OFF: ",offscans)
+                s["OFF"].extend(offscans)
 
-        s["ON"] = uniq(s["ON"])
-        s["OFF"] = uniq(s["OFF"])
+        df = self._ptable[bintable]
+        dfon  = self.select("_OBSTYPE","PSWITCHON",df)
+        dfoff = self.select("_OBSTYPE","PSWITCHOFF",df)
+        onscans = uniq(list(dfon["SCAN"]))
+        offscans = uniq(list(dfoff["SCAN"]))
+
+        s["ON"] = uniq(onscans)
+        s["OFF"] = uniq(offscans)
         return s
 
-    def sonoffrows(self,scans=None,bintable=0): #@TODO deal with mulitple bintables
+    def onoff_rows(self,scans=None,bintable=0): 
+    #@TODO deal with mulitple bintables
+    # keep the bintable keyword and allow iteration over bintables if requested (bintable=None) 
+        self._create_index_if_needed()
         rows = {"ON": [], "OFF" :[]}
         if not scans:
-            scans = self.sonoff2()
+            scans = self.onoff_scan_list()
         df = self._ptable[bintable]
         for k in scans:
-            rows[k] = list(df[df["SCAN"].isin(scans[k])].index)
+            rows[k] = self.scan_rows(scans[k])
         return rows
         
-    def getscans(self,scans,bintable=0):
+    def scan_rows(self,scans,bintable=0):
+        self._create_index_if_needed()
+        if scans is None:
+            raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
         df = self._ptable[bintable]
-        df[df["SCAN"].isin(scans)]
+        rows = list(df[df["SCAN"].isin(scans)].index)
+        if len(rows) == 0:
+            raise Exception(f"Scans {scans} not found in bintable {bintable}")
+        return rows
+        
 
+# OLD PJT method
 # @This only works if the FITS FILE contains ONLY ons and offs
 def sonoff(scan, procseqn):
     """
