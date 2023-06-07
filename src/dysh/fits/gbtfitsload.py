@@ -130,16 +130,29 @@ class GBTFITSLoad(SDFITSLoad):
         #self._create_index_if_needed() #honestly we don't need to call this all the time.
         #probably don't need to sort
         # all ON/OFF scans
+        kwargs_opts = {
+            'ifnum': 0,
+            'plnum' : 0,
+            'fdnum' : 0,
+            'calibrate': True,
+            'average': False,
+            'tsys': None,
+            'weights': None,
+        }
+        kwargs_opts.update(kwargs)
+
         scanlist = self.onoff_scan_list(scans)
+        # add ifnum,plnum
         rows = self.onoff_rows(scans,bintable=bintable)
         # do not pass scan list here. We need all the cal rows. They will 
         # be intersected with scan rows in GBTPSScan
+        # add ifnum,plnum
         calrows = self.calonoff_rows(scans=None,bintable=bintable)
         g = GBTPSScan(self,scanlist,rows,calrows,bintable)
         return g
 
 
-    def onoff_scan_list(self,scans=None,bintable=0):
+    def onoff_scan_list(self,scans=None,ifnum=0,plnum=0,bintable=0):
         self._create_index_if_needed()
         s = {"ON": [], "OFF" :[]}
         if type(scans) == int:
@@ -160,6 +173,7 @@ class GBTFITSLoad(SDFITSLoad):
                 s["OFF"].extend(offscans)
 
         df    = self._ptable[bintable]
+        df = df[(df["PLNUM"] == plnum) & (df["IFNUM"] == ifnum)]
         dfon  = self.select("_OBSTYPE","PSWITCHON",df)
         dfoff = self.select("_OBSTYPE","PSWITCHOFF",df)
         onscans = uniq(list(dfon["SCAN"])) # wouldn't set() do this too?
@@ -223,7 +237,7 @@ class GBTFITSLoad(SDFITSLoad):
         s["OFF"] = list(dfoff.index)
         return s
 
-    def onoff_rows(self,scans=None,bintable=0): 
+    def onoff_rows(self,scans=None,ifnum=0,plnum=0,bintable=0): 
     #@TODO deal with mulitple bintables
     #@TODO rename this sigref_rows?
     # keep the bintable keyword and allow iteration over bintables if requested (bintable=None) 
@@ -232,9 +246,9 @@ class GBTFITSLoad(SDFITSLoad):
         if type(scans) is int:
             scans = [scans]
         if scans is not None:
-            scans = self.onoff_scan_list()
+            scans = self.onoff_scan_list(None,ifnum,plnum,bintable)
         else:
-            scans = self.onoff_scan_list(scans)
+            scans = self.onoff_scan_list(scans,ifnum,plnum,bintable)
         #scans is now a dict of "ON" "OFF
         for key in scans: 
             rows[key] = self.scan_rows(scans[key])
@@ -242,11 +256,14 @@ class GBTFITSLoad(SDFITSLoad):
         
     def scan_rows(self,scans,bintable=0):
         #scans is a list
+        ifnum = 0
+        plnum = 0
         self._create_index_if_needed()
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
         df = self._ptable[bintable]
-        rows = list(df[df["SCAN"].isin(scans)].index)
+        df = df[df["SCAN"].isin(scans) & (df["IFNUM"] == ifnum) & (df["PLNUM"] == plnum)]
+        rows = list(df.index)
         if len(rows) == 0:
             raise Exception(f"Scans {scans} not found in bintable {bintable}")
         return rows
