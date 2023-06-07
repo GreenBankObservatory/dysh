@@ -331,9 +331,10 @@ class SDFITSLoad(object):
         
         data = self.rawspectra(bintable)
         if source is not None:
-            nint = np.shape(np.char.strip(data['OBJECT']) == source)[0]//self.npol(bintable)
+            numsources = len(self.select('OBJECT','NGC2415',self._ptable[0]))
+            nint = numsources//self.npol(bintable)[0]
         else:
-            nint = np.shape(data[0]//self.npol(bintable))
+            nint = self.nrows(bintable)//self.npol(bintable)
         return nint
 
     def rawspectra(self,bintable):

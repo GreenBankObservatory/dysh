@@ -49,7 +49,7 @@ class GBTFITSLoad(SDFITSLoad):
             self._ptable[i]["_OBSTYPE"] = df[1]
             self._ptable[i]["_SUBOBSMODE"] = df[2]
 
-    def summary(self, scans=None, verbose=True):
+    def summary(self, scans=None, verbose=True, bintable=0):
 #  From GBTIDL 
 #Intended to work with un-calibrated GBT data and is
 # likely to give confusing results for other data.  For other data,
@@ -129,25 +129,21 @@ class GBTFITSLoad(SDFITSLoad):
         '''
         #self._create_index_if_needed() #honestly we don't need to call this all the time.
         #probably don't need to sort
-        ssort = set(sorted(scans))
         # all ON/OFF scans
-        scanlist = self.onoff_scan_list()
-        # check that the requested scans are either ON or OFF
-        allscans = set(sorted(scanlist["ON"] + scanlist["OFF"])) #careful if these ever become ndarrays!
-        check = allscans.intersection(ssort)
-        if len(check) == 0:
-            missing = ssort.difference(allscans)
-            raise ValueError(f"Scans {missing} not found in bintable {bintable}")
-        # Now cull entries from full scan list that aren't requested.
-        # Since the requested could be either on or off or both we check both and drop in pairs
+        scanlist = self.onoff_scan_list(scans)
         rows = self.onoff_rows(scans,bintable=bintable)
-        g = GBTPSScan(self,scanlist,rows,bintable)
+        # do not pass scan list here. We need all the cal rows. They will 
+        # be intersected with scan rows in GBTPSScan
+        calrows = self.calonoff_rows(scans=None,bintable=bintable)
+        g = GBTPSScan(self,scanlist,rows,calrows,bintable)
         return g
 
 
-    def onoff_scan_list(self,bintable=0):
+    def onoff_scan_list(self,scans=None,bintable=0):
         self._create_index_if_needed()
         s = {"ON": [], "OFF" :[]}
+        if type(scans) == int:
+            scans = [scans]
         if False: # this does all bintables.
             for df in self._ptable:
                 #OnOff lowest scan number is on
@@ -163,29 +159,89 @@ class GBTFITSLoad(SDFITSLoad):
                 #print("OFF: ",offscans)
                 s["OFF"].extend(offscans)
 
-        df = self._ptable[bintable]
+        df    = self._ptable[bintable]
         dfon  = self.select("_OBSTYPE","PSWITCHON",df)
         dfoff = self.select("_OBSTYPE","PSWITCHOFF",df)
-        onscans = uniq(list(dfon["SCAN"]))
+        onscans = uniq(list(dfon["SCAN"])) # wouldn't set() do this too?
         offscans = uniq(list(dfoff["SCAN"]))
+        if scans is not None:
+        # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF)
+        # First check the requested scan number(s) are even in the ONs or OFFs of this bintable
+            seton = set(onscans)
+            setoff = set(offscans)
+            onrequested = seton.intersection(scans)
+            #print("ON REQUESTED ",onrequested)
+            offrequested = setoff.intersection(scans)
+            #print("OFF REQUESTED ",offrequested)
+            if len(onrequested) == 0 and len(offrequested) == 0:
+                raise ValueError(f"Scans {scans} not found in ONs or OFFs of bintable {bintable}")
+        # Then check that for each requested ON/OFF there is a matching OFF/ON
+        # and build the final matched list of ONs and OFfs.
+            sons = list(onrequested.copy())
+            soffs = list(offrequested.copy())
+            missingoff = []
+            missingon = []
+            for i in onrequested:
+                expectedoff = i+1
+                #print(f"DOING ONQUESTED {i}, looking for off {expectedoff}")
+                if len(setoff.intersection([expectedoff])) == 0:
+                    missingoff.append(expectedoff)
+                else:
+                    soffs.append(expectedoff)
+            for i in offrequested:
+                expectedon = i-1
+                #print(f"DOING OFFEQUESTED {i}, looking for on {expectedon}")
+                if len(seton.intersection([expectedon])) == 0:
+                    missingon.append(expectedon)
+                else:
+                    sons.append(expectedon)
+            if len(missingoff) > 0:
+                raise ValueError(f"For the requested ON scans {onrequested}, the OFF scans {missingoff} were not present in bintable {bintable}")
+            if len(missingon) > 0:
+                raise ValueError(f"For the requested OFF scans {offrequested}, the ON scans {missingon} were not present in bintable {bintable}")
+            #print("ON",sorted(sons))
+            #print("OFF",sorted(soffs))
+            s["ON"] = sorted(set(sons))
+            s["OFF"] = sorted(set(soffs))
+        else:
+            s["ON"] = uniq(list(dfon["SCAN"]))
+            s["OFF"] = uniq(list(dfoff["SCAN"]))
 
-        s["ON"] = uniq(onscans)
-        s["OFF"] = uniq(offscans)
+        return s
+
+    def calonoff_rows(self,scans=None,bintable=0):
+        self._create_index_if_needed()
+        s = {"ON": [], "OFF" :[]}
+        if type(scans) == int:
+            scans = [scans]
+        df    = self._ptable[bintable]
+        if scans is not None:
+            df = df[df["SCAN"].isin(scans)]
+        dfon  = self.select("CAL","T",df)
+        dfoff = self.select("CAL","F",df)
+        s["ON"]  = list(dfon.index)
+        s["OFF"] = list(dfoff.index)
         return s
 
     def onoff_rows(self,scans=None,bintable=0): 
     #@TODO deal with mulitple bintables
+    #@TODO rename this sigref_rows?
     # keep the bintable keyword and allow iteration over bintables if requested (bintable=None) 
         self._create_index_if_needed()
         rows = {"ON": [], "OFF" :[]}
-        if not scans:
+        if type(scans) is int:
+            scans = [scans]
+        if scans is not None:
             scans = self.onoff_scan_list()
-        df = self._ptable[bintable]
-        for k in scans:
-            rows[k] = self.scan_rows(scans[k])
+        else:
+            scans = self.onoff_scan_list(scans)
+        #scans is now a dict of "ON" "OFF
+        for key in scans: 
+            rows[key] = self.scan_rows(scans[key])
         return rows
         
     def scan_rows(self,scans,bintable=0):
+        #scans is a list
         self._create_index_if_needed()
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")

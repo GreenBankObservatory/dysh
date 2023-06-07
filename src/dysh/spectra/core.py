@@ -170,7 +170,7 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
             TODO: Ask PJT why the options?
 
         fedge : int
-            Fraction of edge channels to exclude, in percent. Default: 10
+            Fraction of edge channels to exclude at each end, in percent. Default: 10, meaning the central 80% bandwidth is used
 
         nedge : int
             Number of edge channels to exclude. Default: None, meaning use `fedge`
@@ -191,39 +191,4 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         meanTsys = np.mean( caloff[nedge:-nedge] / (calon[nedge:-nedge] - caloff[nedge:-nedge]) )
         meanTsys = meanTsys * tcal + tcal/2.0
     return meanTsys
-
-def sonoff(scan, procseqn):
-    """
-    @PJT - how does this work?
-    Return the list of On and Off scan numbers
-    there must be a more elegant python way to do this....
-
-    Parameters
-    ----------
-        scan : `~numpy.ndarray`-like
-            List of metadata SCAN values.
-        procseqn: `~numpy.ndarray`-like
-            List of metadata PROCSEQN values.
-
-    Returns
-    -------
-        sd : dict
-            Dict of ON and OFF scan numbers
-    """
-    sp = {}
-    for (i,j) in zip(scan, procseqn):
-        sp[i] = j
-
-    us1 = uniq(scan)
-    up1 = uniq(procseqn)
-
-    sd = {}
-    for i in up1:
-        sd[i] = []
-
-    for s in us1:
-        sd[sp[s]].append(s)
-
-    return sd
-
 
