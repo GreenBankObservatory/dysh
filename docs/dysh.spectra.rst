@@ -21,6 +21,13 @@ Spectrum
    :undoc-members:
    :show-inheritance:
 
+Scan
+-----
+.. automodule:: dysh.spectra.scan
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Obsblock
 --------
 .. automodule:: dysh.spectra.obsblock
