@@ -114,7 +114,7 @@ class GBTFITSLoad(SDFITSLoad):
     def getps(self,scans=None,bintable=0,**kwargs):
         '''Get the rows that contain position-switched data.  These include ONs and OFFs.
 
-            kwargs: pol, feed, ifnum, integration, calibrate=T/F, average=T/F, tsys, weights
+            kwargs: plnum, feed, ifnum, integration, calibrate=T/F, average=T/F, tsys, weights
             [sampler], ap_eff [if requested units are Jy]
             
         Parameters
@@ -127,12 +127,10 @@ class GBTFITSLoad(SDFITSLoad):
         -------
                 ? ScanBlock
         '''
-        #self._create_index_if_needed() #honestly we don't need to call this all the time.
-        #probably don't need to sort
         # all ON/OFF scans
         kwargs_opts = {
             'ifnum': 0,
-            'plnum' : 0,
+            'plnum' : 0, # I prefer "pol"
             'fdnum' : 0,
             'calibrate': True,
             'average': False,
@@ -141,9 +139,11 @@ class GBTFITSLoad(SDFITSLoad):
         }
         kwargs_opts.update(kwargs)
 
-        scanlist = self.onoff_scan_list(scans)
+        ifnum = kwargs_opts['ifnum']
+        plnum = kwargs_opts['plnum']
+        scanlist = self.onoff_scan_list(scans,ifnum=ifnum,plnum=plnum,bintable=bintable)
         # add ifnum,plnum
-        rows = self.onoff_rows(scans,bintable=bintable)
+        rows = self.onoff_rows(scans,ifnum=ifnum,plnum=plnum,bintable=bintable)
         # do not pass scan list here. We need all the cal rows. They will 
         # be intersected with scan rows in GBTPSScan
         # add ifnum,plnum
@@ -154,6 +154,7 @@ class GBTFITSLoad(SDFITSLoad):
 
     def onoff_scan_list(self,scans=None,ifnum=0,plnum=0,bintable=0):
         self._create_index_if_needed()
+        #print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum})")
         s = {"ON": [], "OFF" :[]}
         if type(scans) == int:
             scans = [scans]
@@ -241,6 +242,7 @@ class GBTFITSLoad(SDFITSLoad):
     #@TODO deal with mulitple bintables
     #@TODO rename this sigref_rows?
     # keep the bintable keyword and allow iteration over bintables if requested (bintable=None) 
+        #print(f"onoff_rows(scans={scans},if={ifnum},pl={plnum})")
         self._create_index_if_needed()
         rows = {"ON": [], "OFF" :[]}
         if type(scans) is int:
@@ -251,13 +253,12 @@ class GBTFITSLoad(SDFITSLoad):
             scans = self.onoff_scan_list(scans,ifnum,plnum,bintable)
         #scans is now a dict of "ON" "OFF
         for key in scans: 
-            rows[key] = self.scan_rows(scans[key])
+            rows[key] = self.scan_rows(scans[key],ifnum,plnum,bintable)
         return rows
         
-    def scan_rows(self,scans,bintable=0):
+    def scan_rows(self,scans,ifnum=0,plnum=0,bintable=0):
         #scans is a list
-        ifnum = 0
-        plnum = 0
+        #print(f"scan_rows(scans={scans},if={ifnum},pl={plnum})")
         self._create_index_if_needed()
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")

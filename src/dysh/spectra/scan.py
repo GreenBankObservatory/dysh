@@ -37,21 +37,37 @@ class PSScan(object):
         
     @property
     def status(self):
+        """Status flag, will be used later for undo"""
         return self._status
 
     @property
     def nrows(self):
+        """The number of rows in this Scan"""
         return self._nrows
 
     @property
     def npol(self):
+        """The number of polarizations in this Scan"""
         return self._npol
 
     def __len__(self):
         return self._nrows
     
 class GBTPSScan(PSScan):
-    """GBT specific version of Position Switch Scan (PSScan)"""
+    """GBT specific version of Position Switch Scan (PSScan)
+    Parameters
+    ----------
+        sdfits : ~GBFITSLoad
+            input GBFITSLoad object 
+        scans : dict
+            dictionary with keys 'ON' and 'OFF' containing unique list of ON (sig) and OFF (ref) scan numbers
+        scanrows : dict
+            dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (sig) and OFF (ref) integrations
+        calrows : dict
+            dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations. 
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans
+    """
     def __init__(self, gbtfits, scans, scanrows, calrows, bintable=0):
         PSScan.__init__(self,gbtfits,scans,scanrows,bintable)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
@@ -59,6 +75,7 @@ class GBTPSScan(PSScan):
         #print(f"scanrows ON {self._scanrows['ON']}")
         #print(f"scanrows OFF {self._scanrows['OFF']}")
         
+        # calrows perhaps not needed as input since we can get it from gbtfits object?
         #calrows['ON'] are rows with noise diode was on, regardless of sig or ref
         #calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
         self._calrows = calrows
@@ -67,8 +84,6 @@ class GBTPSScan(PSScan):
         # todo use gbtfits.velocity_convention(veldef,velframe)
         vc = "doppler_radio"
         # so quick with slicing!
-        #self._on = gbtfits.rawspectra(bintable)[self._scanrows["ON"]]
-        #self._off = gbtfits.rawspectra(bintable)[self._scanrows["OFF"]]
         self._sigonrows = list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"])))
         self._sigoffrows = list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"])))
         self._refonrows = list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"])))
@@ -77,15 +92,34 @@ class GBTPSScan(PSScan):
         self._sigcaloff = gbtfits.rawspectra(bintable)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(bintable)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(bintable)[self._refoffrows]
+        self._tsys = None
 
     @property
     def tsys(self):
+        """The system temperature array. This will be `None` until 
+           calibration is done
+
+        Returns
+        -------
+            tsys : ~numpy.ndarray 
+                System temperature values in K
+        """
         return self._tsys
 
     #TODO something clever 
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self,i):
-        """return the calibrated Spectrum"""
+        """Return the calibrated Spectrum
+        
+        Parameters
+        ---------
+            i : int
+                The index into the calibrated array
+
+        Returns
+        -------
+            spectrum : ~Spectrum
+        """
         meta = dict(self._sdfits.index(self._bintable_index).iloc[self._scanrows["ON"][i]])
         meta['TSYS'] = self._tsys[i]
         naxis1 = len(self._calibrated[i])
@@ -123,8 +157,7 @@ class GBTPSScan(PSScan):
 
     def calibrate(self, **kwargs):
         """
-        special PS calibration
-        There are some arguments how *exactly* this is done
+        Position switch calibration, following equations 1 and 2 in the GBTIDL clibration manual
         """
         kwargs_opts = {
             'verbose': False
