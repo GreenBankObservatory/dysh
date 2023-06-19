@@ -13,6 +13,8 @@ class SpectrumPlot():
             'ymax': None,
             'xlabel':None,
             'ylabel':None,
+            'xaxis_unit': None,
+            'yaxis_unit': None,
             'grid' :False,
             'figsize':None,
             #'capsize':3,
@@ -20,12 +22,14 @@ class SpectrumPlot():
             'linestyle': 'steps-mid',
             'markersize': 8,
             'color':None,
+            'title':None,
             #'axis':None,
             #'label':None,
             'aspect': 'auto',
             'bbox_to_anchor':None,
             'loc':"best",
             'legend':None,
+            'show_baseline':True,
             'test': False
         }
         kwargs_opts.update(kwargs)
@@ -34,6 +38,7 @@ class SpectrumPlot():
         self._figure = None
         self._axis = None
         self._spectrum = spectrum
+        self._title = self._plot_kwargs['title']
 
 # def __call__ (see pyspeckit)
 
@@ -49,9 +54,12 @@ class SpectrumPlot():
 
     def plot(self,**kwargs):
         """Plot the spectrum"""
+        # xtype = 'velocity, 'frequency', 'wavelength'
         self._plot_kwargs.update(kwargs)
         if self._figure is None:
             self._figure,self._axis = self._plt.subplots(figsize=self._plot_kwargs['figsize'])
+        #else:
+        #    self._axis.cla()
 
         s = self._spectrum
         lw =  self._plot_kwargs['linewidth']
@@ -65,10 +73,43 @@ class SpectrumPlot():
             self._axis.grid(visible=True,which='minor',axis='both',lw=lw/2,
                                 color='k',alpha=0.22,linestyle='--')
 
-        self._set_labels()
+        self._set_labels(self._plot_kwargs['title'],self._plot_kwargs['xlabel'],self._plot_kwargs['ylabel'])
+        self.refresh()
 
-    def _set_labels(self):
+    def _set_labels(self,title=None,xlabel=None,ylabel=None,**kwargs):
         """set x and y labels according to spectral units"""
-        pass
+        if title is not None:
+            self._title = title
+        if hasattr(self.spectrum.wcs,'wcs'):
+           ctype = self.spectrum.wcs.wcs.ctype
+        elif self.spectrum.meta is not None:
+           ctype = []
+           ctype.append(self.spectrum.meta.get('CTYPE1',None))
+           ctype.append(self.spectrum.meta.get('CTYPE2',None))
+           ctype.append(self.spectrum.meta.get('CTYPE3',None))
+        print('ctype is ',ctype)
+        xunit = self.spectrum.spectral_axis.unit
+        yunit = self.spectrum.unit
+        if xlabel is not None:
+            self.axis.set_xlabel(xlabel)
+        elif ctype[0] in ['FREQ']:
+            xlabel = f'Frequency ({xunit})'
+            self.axis.set_xlabel(xlabel)
+        if ylabel is not None:
+            self.axis.set_ylabel(ylabel)
+        elif yunit in ['K']:
+            self.axis.set_ylabel(r"Brightness Temperature $T$ (K)")
+        elif self.Spectrum.unit == 'mJy':
+            self.axis.set_ylabel(r"$S_\\nu$ (mJy)")
+        elif self.Spectrum.unit == 'Jy':
+            self.axis.set_ylabel(r"$S_\\nu$ (Jy)")
+
+
+    def refresh(self):
+        if self.axis is not None:
+            self.axis.figure.canvas.draw()
+            print('redrawing')
+            #self.axis.figure.canvas.draw_idle()
+            self._plt.show()
 
 
