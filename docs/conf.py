@@ -14,11 +14,13 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../src/dysh'))
+sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../src'))
+sys.path.insert(0, os.path.abspath('../src/dysh'))
+#sys.path.insert(0, os.path.abspath('../src'))
 # sys.path.insert(0, os.path.abspath('.'))
 
-
+import dysh
 # -- Project information -----------------------------------------------------
 
 from dysh import __version__
@@ -45,6 +47,7 @@ release = __version__
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
+    "sphinx.ext.doctest",
     "sphinx.ext.graphviz",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
@@ -54,7 +57,12 @@ extensions = [
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
     "sphinxcontrib.mermaid",
+    "numpydoc",
+#    "sphinx_automodapi.automodapi",
 ]
+
+numpydoc_show_class_members = True
+autosummary_generate = True
 
 # TODO: These appear to have no effect
 mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:false});"
@@ -187,6 +195,10 @@ texinfo_documents = [
     )
 ]
 
+# The reST default role (used for this markup: `text`) to use for all
+# documents. Set to the "smart" one.
+# This lets e.g, `~astropy.Foo` link without using :class:
+default_role = 'obj'
 
 # -- Extension configuration -------------------------------------------------
 
@@ -194,15 +206,24 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 # intersphinx_mapping = {"https://docs.python.org/": None}
+intersphinx_mapping = { 
+    'python': ('https://docs.python.org/3/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/', None),
+    'astropy': ('https://docs.astropy.org/en/stable/', None),
+    'matplotib': ('https://matplotlib.org/stable',None),
+    'pandas': ('https://pandas.pydata.org/docs/', None),
+    'specutils': ('https://specutils.readthedocs.io/en/stable/',None),
+}
 
 # -- Options for todo extension ----------------------------------------------
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = True
+#todo_include_todos = True
 
 
 # These paths are either relative to html_static_path
 # or fully qualified paths (eg. https://...)
-html_css_files = [
-    "css/custom.css",
-]
+#html_css_files = [
+#    "css/custom.css",
+#]

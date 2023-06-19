@@ -1,0 +1,13 @@
+myst_parser
+numpydoc
+sphinx
+sphinx-automodapi
+sphinxcontrib-applehelp
+sphinxcontrib-devhelp
+sphinxcontrib-htmlhelp
+sphinxcontrib-jsmath
+sphinxcontrib-qthelp
+sphinxcontrib-serializinghtml
+sphinxcontrib-websupport
+sphinx_rtd_theme
+sphinxcontrib_mermaid

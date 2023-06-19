@@ -51,7 +51,7 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 ```
 
 
-#### pre-commit
+### pre-commit
 
 This repository provides pre-commit hooks that enforce some code formatting/quality checks. To use them:
 
