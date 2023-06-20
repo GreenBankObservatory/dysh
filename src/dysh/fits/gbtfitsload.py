@@ -67,6 +67,8 @@ class GBTFITSLoad(SDFITSLoad):
             concat : bool
                 If true concatenate summaries of multiple HDUs, otherwise return list of summaries.
 
+            bintable : int or list
+                Which bintable to summarize, zero-based. Default:0
         Returns
         -------
             summary - list of `~pandas.DataFrame`
@@ -268,28 +270,3 @@ class GBTFITSLoad(SDFITSLoad):
         if len(rows) == 0:
             raise Exception(f"Scans {scans} not found in bintable {bintable}")
         return rows
-        
-
-# OLD PJT method
-# @This only works if the FITS FILE contains ONLY ons and offs
-def sonoff(scan, procseqn):
-    """
-    return the list of On and Off scan numbers
-    there must be a more elegant python way to do this....
-    """
-    sp = {}
-    for (i,j) in zip(scan, procseqn):
-        sp[i] = j
-    
-    us1 = uniq(scan)
-    up1 = uniq(procseqn)
-    
-    sd = {}
-    for i in up1:
-        sd[i] = []
-        
-    for s in us1:
-        sd[sp[s]].append(s)
-
-    return sd
-
