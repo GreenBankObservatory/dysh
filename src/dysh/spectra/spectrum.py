@@ -18,6 +18,7 @@ class Spectrum(Spectrum1D):
     def __init__(self, *args,**kwargs):
         Spectrum1D.__init__(self,*args,**kwargs)
         self._baseline_model = None
+        self._subtracted = False
 
     @property
     def baseline_model(self):
@@ -63,6 +64,7 @@ in channel units.
         if kwargs_opts['remove']:
             s=self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
+            self._subtracted = True
 
     def _undo_baseline(self):
         """Undo the most recently computed baseline.  If the baseline
@@ -71,9 +73,10 @@ in channel units.
         """
         if self._baseline_model is None:
             return
-        s=self.add(self._baseline_model(self.spectral_axis))
-        self._data = s._data
-        self._baseline_model = None
+        if self._subtracted:
+            s=self.add(self._baseline_model(self.spectral_axis))
+            self._data = s._data
+            self._baseline_model = None
 
     def _set_exclude_regions(self, exclude):
         """Set the mask for the regions to exclude.
