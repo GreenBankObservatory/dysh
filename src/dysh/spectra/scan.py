@@ -148,10 +148,7 @@ class GBTPSScan(PSScan):
                                       'NAXIS1': naxis1, 'NAXIS2':1, 'NAXIS3':1
                                      },
                              )
-
-
-        
-        vc = "doppler_radio"
+        vc = veldef_to_convention(meta['VELDEF'])
         
         return Spectrum(self._calibrated[i]*u.K,wcs=wcs,meta=meta,velocity_convention=vc)
 
