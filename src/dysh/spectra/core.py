@@ -11,6 +11,7 @@ from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from specutils.fitting import fit_continuum
 import matplotlib.pyplot as plt
 from ..util import uniq
+import warnings
 
 def baseline_all(speclist,order,exclude=None,**kwargs):
     kwargs_opts = {
@@ -91,9 +92,16 @@ in channel units.
             # have to do this.
             if len(np.shape(exclude[0])) == 0:
                 exclude = [exclude]
+            #NB: we are assuming that a SpectralAxis is always [lower...upper].  Is this true???
             for pair in exclude:
                 if type(pair[0]) == int:
                 # convert channel to spectral axis units
+                    lastchan = len(p.spectral_axis)-1
+                    if pair[1] > lastchan:
+                        msg = f"Exclude limits {pair} are not fully within the spectral axis [0,{lastchan}]. Setting upper limit to {lastchan}."
+                        warnings.warn(msg) 
+                        pair[1] = lastchan
+                    #if pair[0] is < 0, let the Exception be raised
                     pair = [p.spectral_axis[pair[0]],p.spectral_axis[pair[1]]]
                 # if it is already a spectral region no additional
                 # work is needed
@@ -107,9 +115,13 @@ in channel units.
                     pair[0] = offset + pair[0].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
                     pair[1] = offset + pair[1].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
                     pair = sorted(pair) # SpectralRegion requires sorted [lower,upper]
+                    if pair[0] < p.spectral_axis[0] or pair[1] > p.spectral_axis[-1]:
+                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[p.spectral_axis[0],p.spectral_axis[-1]]}. Setting upper limit to {p.spectral_axis[-1]}"
+                        warnings.warn(msg) 
+                        pair[1] = p.spectral_axis[-1]
                     sr = SpectralRegion(pair[0],pair[1])
                     print(f"EXCLUDING {sr}")
-                    regionlist.append(SpectralRegion(pair[0],pair[1]))
+                    regionlist.append(sr)
         return fit_continuum(spectrum=p,
                 model=model,
                 fitter=fitter,
