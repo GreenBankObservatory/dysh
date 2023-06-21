@@ -106,7 +106,7 @@ in channel units.
                         offset = 0
                     pair[0] = offset + pair[0].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
                     pair[1] = offset + pair[1].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
-                    pair = sorted(pair)
+                    pair = sorted(pair) # SpectralRegion requires sorted [lower,upper]
                     sr = SpectralRegion(pair[0],pair[1])
                     print(f"EXCLUDING {sr}")
                     regionlist.append(SpectralRegion(pair[0],pair[1]))
@@ -223,3 +223,27 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         meanTsys = meanTsys * tcal + tcal/2.0
     return meanTsys
 
+
+def veldef_to_convention(veldef):
+    """given a VELDEF, return the velocity convention expected by Spectrum(1D)
+
+        Parameters
+        ----------
+            veldef : str
+                velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'
+        
+        Returns
+        -------
+            convention : str
+            velocity convention string, one of {'radio', 'optical', 'relativistic'}  or None if `velframe` can't be parsed
+    """
+
+    #@TODO GBT defines these wrong.  Need to sort out and have special version for GBT
+    prefix = veldef[0:4].lower()
+    if prefix == "opti":
+        return 'optical'
+    if prefix == "velo" or prefix == "radi":
+        return 'radio'
+    if prefix == "rela":
+        return 'relativistic'
+    return None
