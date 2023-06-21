@@ -46,33 +46,9 @@ class SpectrumPlot():
                 sa = np.arange(len(sa))
             else:
                 # convert the x axis to the requested 
-                # @todo encapsulate this in a core method that takes into account velframe and veldef
-                equiv = u.spectral()
-                convention=None
-                if sa.doppler_rest is not None:
-                    rfq = sa.doppler_rest
-                elif "RESTFREQ" in s.meta:
-                    cunit1 = s.meta.get("CUNIT1",s.wcs.wcs.cunit[0])
-                    #@todo this could be done with a dict str->function
-                    rfq = s.meta["RESTFREQ"]*cunit1
-                else:
-                    rfq = None
-                #print("RESTFREQ is ",rfq)
-                if rfq is not None:
-                    if s.velocity_convention == "doppler_radio":
-                        # Yeesh, the doppler_convention parameter for SpectralAxis.to does not match the doppler_convention list for Spectrum1D!
-                        convention="radio"
-                        equiv.extend(u.doppler_radio(rfq))
-                    elif s.velocity_convention == "doppler_optical":
-                        convention="optical"
-                        equiv.extend(u.doppler_optical(rfq))
-                    elif s.velocity_convention == "doppler_relativistic":
-                        convention="relativistic"
-                        equiv.extend(u.doppler_relativistic(rfq))
-                    elif s.velocity_convention == "doppler_redshift":
-                        equiv.extend(u.doppler_redshift())
                 #print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
-                sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
+                #sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
+                sa = s.velocity.to( self._plot_kwargs["xaxis_unit"], equivalencies=s.equivalencies)
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)

@@ -34,11 +34,17 @@ def baseline(spectrum,order,exclude=None,**kwargs):
                 The input spectrum
             order : int
                 The order of the polynomial series, a.k.a. baseline order
-            exclude : list of 2-tuples
-                List of regions to exclude from the fit, in channel units.  The tuple(s) are in the form [lower,upper], inclusive.  Examples: One region: [11,51], Two regions: [(11,51),(99,123)]. Default: no exclude region
+            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  
+in channel units.  
+
+                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+
+                Default: no exclude region
+
             model : str
                 One of 'polynomial' or 'chebyshev', Default: 'polynomial'
-            fitter  :  `~astropy.fitting._FitterMeta`
+            fitter : `~astropy.fitting._FitterMeta`
                 The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.
 
         Returns
@@ -74,11 +80,36 @@ def baseline(spectrum,order,exclude=None,**kwargs):
         return None # or raise exception
     if exclude is not None:
         regionlist = []
-        unit = p._spectral_axis.unit
-        if type(exclude[0] == int): #ugh, klugy
-            exclude = [exclude]
-        for pair in exclude:
-            regionlist.append(SpectralRegion(pair[0]*unit,pair[1]*unit))
+        # a single SpectralRegion was given
+        if isinstance(exclude,SpectralRegion):
+            regionlist.append(exclude)
+        # list of int or Quantity or SpectralRegion was given
+        else:
+            # if user provided a single list, we have to
+            # add another set of brackets so we an iterate.
+            # If SpectralRegion took a list argument, we wouldn't
+            # have to do this.
+            if len(np.shape(exclude[0])) == 0:
+                exclude = [exclude]
+            for pair in exclude:
+                if type(pair[0]) == int:
+                # convert channel to spectral axis units
+                    pair = [p.spectral_axis[pair[0]],p.spectral_axis[pair[1]]]
+                # if it is already a spectral region no additional
+                # work is needed
+                if isinstance(pair[0],SpectralRegion):
+                    regionlist.append(pair)
+                else: # it is a Quantity that may need conversion to spectral_axis units
+                    if pair[0].unit.is_equivalent("km/s"):
+                        offset = p.rest_value - p.radial_velocity.to(p.spectral_axis.unit,equivalencies = p.equivalencies)
+                    else:
+                        offset = 0
+                    pair[0] = offset + pair[0].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
+                    pair[1] = offset + pair[1].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
+                    pair = sorted(pair)
+                    sr = SpectralRegion(pair[0],pair[1])
+                    print(f"EXCLUDING {sr}")
+                    regionlist.append(SpectralRegion(pair[0],pair[1]))
         return fit_continuum(spectrum=p,
                 model=model,
                 fitter=fitter,
