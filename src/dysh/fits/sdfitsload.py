@@ -526,7 +526,7 @@ class SDFITSLoad(object):
 
         rows: int or list-like
             Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. Default: None, meaning all rows
-            Note: Currently `rows`, if given, must be contained in a single bintable
+            Note: Currently `rows`, if given, must be contained in a single bintable and bintable must be given
 
         bintable :  int
             The index of the `bintable` attribute or None for all bintables. Default: None
@@ -547,10 +547,13 @@ class SDFITSLoad(object):
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
             to the headers of all HDU's written to the file.
         """
-        if rows is None and bintable is None:
-            # write out everything 
-            self._hdu.writeto(fileobj,output_verify=output_verify,overwrite=overwrite,checksum=checksum)
-        if bintable is not None:
+        if bintable is None:
+            if rows is None:
+                # write out everything 
+                self._hdu.writeto(fileobj,output_verify=output_verify,overwrite=overwrite,checksum=checksum)
+            else:
+                raise ValueError("You must specify bintable if you specify rows")
+        else:
             if rows is None:
                 # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
                 self._hdu[0:bintable+2]._hdu.writeto(fileobj,
