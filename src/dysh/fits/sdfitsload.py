@@ -17,6 +17,7 @@ from ..spectra.spectrum import Spectrum
 from ..spectra.obsblock import Obsblock
 from ..spectra import dcmeantsys, veldef_to_convention
 from ..util import uniq, stripTable
+#from .. import version
 
 
 class SDFITSLoad(object):
@@ -513,3 +514,56 @@ class SDFITSLoad(object):
     def __repr__(self):
         return self._filename    
 
+    def write(self,fileobj,rows=None,bintable=None,output_verify="exception",overwrite=False,checksum=False):
+        """
+        Write the `HDUList` to a new file.
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+
+        rows: int or list-like
+            Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. Default: None, meaning all rows
+            Note: Currently `rows`, if given, must be contained in a single bintable
+
+        bintable :  int
+            The index of the `bintable` attribute or None for all bintables. Default: None
+
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+        """
+        if rows is None and bintable is None:
+            # write out everything 
+            self._hdu.writeto(fileobj,output_verify=output_verify,overwrite=overwrite,checksum=checksum)
+        if bintable is not None:
+            if rows is None:
+                # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
+                self._hdu[0:bintable+2]._hdu.writeto(fileobj,
+                    output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            else:
+                # ensure it is a list if int was given and make np array so we can slice bintabl easilty
+                select = np.array(list(rows)) 
+                hdu0 = self._hdu[0].copy()
+                # need to get imports correct first
+                #hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
+                outhdu = fits.HDUList(hdu0)
+                outbintable = self._bintable[bintable].copy()
+                outbintable.data = outbintable.data[rows]
+                outbintable.update()
+                outhdu.append(outbintable)
+                outhdu.writeto(fileobj,output_verify=output_verify,overwrite=overwrite,checksum=checksum)
