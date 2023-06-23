@@ -2,7 +2,10 @@ from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from astropy.modeling.polynomial import Polynomial1D,Chebyshev1D
 from astropy.modeling.fitting import LevMarLSQFitter,LinearLSQFitter
 from astropy.wcs import WCS
+from astropy.io import fits,registry
+from astropy.table import Table
 import astropy.units as u
+import numpy as np
 from . import baseline
 
 class Spectrum(Spectrum1D):
@@ -17,6 +20,10 @@ class Spectrum(Spectrum1D):
     """
     def __init__(self, *args,**kwargs):
         Spectrum1D.__init__(self,*args,**kwargs)
+        # if mask is not set via the flux input (NaNs in flux or flux.mask),
+        # then set the mask to all False == good
+        if self.mask is None:
+            self._mask = np.full(np.shape(self.flux),False)
         self._baseline_model = None
         self._subtracted = False
 
@@ -154,4 +161,44 @@ in channel units.
                 convention="redshift"
                 equiv.extend(u.doppler_redshift())
         return equiv
-    
+
+    def _write_table(self,filename,format,**kwargs):
+        flux = self.flux
+        axis = self.spectral_axis
+        mask = self.mask
+        t = Table([axis, flux, mask],
+                  names=["spectral_axis", "flux", "mask"],
+                  meta = self.meta)
+        if self.uncertainty is not None:
+            t.add_column(self.uncertainty._array, name="uncertainty")
+        #f=kwargs.pop("format")
+        t.write(filename,format=format,**kwargs)
+
+####################################################################
+# There is probably a less brute-force way to do this but I haven't
+# been able to figure it out.  astropy.io.registry tools are not
+# well explained.  register_writer 'consumes' the format keyword, so
+# it cannot be passed along via a single overaarching write method,
+# e.g., spectrum_writer()
+####################################################################
+def ascii_spectrum_writer_basic(spectrum,filename,**kwargs):
+    spectrum._write_table(filename,format='ascii.basic',**kwargs)
+def ascii_spectrum_writer_commented_header(spectrum,filename,**kwargs):
+    spectrum._write_table(filename,format='ascii.commented_header',**kwargs)
+def ascii_spectrum_writer_fixed_width(spectrum,filename,**kwargs):
+    spectrum._write_table(filename,format='ascii.fixed_width',**kwargs)
+def ascii_spectrum_writer_ipac(spectrum,filename,**kwargs):
+    spectrum._write_table(filename,format='ascii.ipac',**kwargs)
+def spectrum_writer_votable(spectrum,filename,**kwargs):
+    spectrum._write_table(filename,format='votable',**kwargs)
+
+with registry.delay_doc_updates(Spectrum):
+    registry.register_writer('ascii.basic', Spectrum, ascii_spectrum_writer_basic)
+    registry.register_writer('basic', Spectrum, ascii_spectrum_writer_basic)
+    registry.register_writer('ascii.commented_header', Spectrum, ascii_spectrum_writer_commented_header)
+    registry.register_writer('commented_header', Spectrum, ascii_spectrum_writer_commented_header)
+    registry.register_writer('ascii.fixed_width', Spectrum, ascii_spectrum_writer_fixed_width)
+    registry.register_writer('fixed_width', Spectrum, ascii_spectrum_writer_fixed_width)
+    registry.register_writer('ascii.ipac', Spectrum, ascii_spectrum_writer_ipac)
+    registry.register_writer('ipac', Spectrum, ascii_spectrum_writer_ipac)
+    registry.register_writer('votable', Spectrum, spectrum_writer_votable)
