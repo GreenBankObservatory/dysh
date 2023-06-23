@@ -249,10 +249,7 @@ class GBTFITSLoad(SDFITSLoad):
         rows = {"ON": [], "OFF" :[]}
         if type(scans) is int:
             scans = [scans]
-        if scans is not None:
-            scans = self.onoff_scan_list(None,ifnum,plnum,bintable)
-        else:
-            scans = self.onoff_scan_list(scans,ifnum,plnum,bintable)
+        scans = self.onoff_scan_list(scans,ifnum,plnum,bintable)
         #scans is now a dict of "ON" "OFF
         for key in scans: 
             rows[key] = self.scan_rows(scans[key],ifnum,plnum,bintable)
@@ -289,6 +286,8 @@ class GBTFITSLoad(SDFITSLoad):
         df_out = []
         rows = []
         for pt in self._ptable:
+            #print(f"doing {scans} in {pt}")
+            #_df = pt["SCAN"].isin(scans)
             df_out.append(pt[pt["SCAN"].isin(scans)])
         for df in df_out:
             rows.append(list(df.index))
@@ -325,12 +324,18 @@ class GBTFITSLoad(SDFITSLoad):
         """
         # get the rows that contain the scans in all bintables
         rows = self._scan_rows_all(scans)
+        #print("Using rows",rows)
         hdu0 = self._hdu[0].copy()
         outhdu = fits.HDUList(hdu0)
         # get the bintables rows as new bintables.
         for i in range(len(rows)):
-            outhdu.append(self._bintable_from_rows(rows[i],i))
+            ob = self._bintable_from_rows(rows[i],i)
+            #print(f"bintable {i} #rows {len(rows[i])} data length {len(ob.data)}")
+            if len(ob.data) > 0:
+                outhdu.append(ob)
+        #print(outhdu.info())
         # write it out!
+        outhdu.update_extend() # possibly unneeded
         outhdu.writeto(fileobj,
             output_verify=output_verify,
             overwrite=overwrite, checksum=checksum)
