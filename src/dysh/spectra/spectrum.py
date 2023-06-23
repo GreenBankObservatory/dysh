@@ -26,6 +26,18 @@ class Spectrum(Spectrum1D):
             self._mask = np.full(np.shape(self.flux),False)
         self._baseline_model = None
         self._subtracted = False
+        self._exclude_regions = None
+    
+    @property
+    def exclude_regions(self):
+        return self._exclude_regions
+
+    ##@todo
+    # def exclude_region(self,region):
+    # where region is SpectralRegion, channels, velocity, etc.  See core.py baseline method.
+    #
+    # def region_to_mask():
+    #  set spectrum mask to True inside exclude_regions. normally we don't do this for baselining
 
     @property
     def baseline_model(self):
