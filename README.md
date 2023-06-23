@@ -10,7 +10,6 @@ Dysh requires Python 3.8+ and recent versions of [astropy]( https://astropy.org)
     $ pip install dysh
 ```
 
-
 ## Getting Help & Giving Feedback
 
 more here
@@ -26,13 +25,14 @@ the [github issue tracker](https://github.com/GreenBankObservatory/dysh/issues).
 ## Development
 
 Here are the steps if you want to develop code for dysh.  We use [hatch](https://hatch.pypa.io/) to manage the build environment.
+The usual caveats apply how you set up your python development environment.
 
 1.  Clone the repo and install hatch.
 
 ```bash
     $ git clone git@github.com:GreenBankObservatory/dysh.git
     $ cd dysh
-    $ pip install hatch  # or pipx if you prefer
+    $ pip install hatch
 ```
 
 2.  Create and activate a virtual environment with hatch and install the packages required for development.
@@ -40,24 +40,30 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 
 ```bash
     $ hatch shell
-    $ pip install -r requirements_dev.txt
+    (dysh) $ pip install -r requirements_dev.txt
 ```
 
 3.  Build and install the package
 
 ```bash
-    $ hatch build
-    $ pip install -e .
+    (dysh) $ hatch build
+    (dysh) $ pip install -e .
 ```
 
+4.  You can exit this environment (which effectively had started a new shell) just exit:
 
-### pre-commit
+```bash
+    (dysh) $ exit
+    $ 
+```
 
-This repository provides pre-commit hooks that enforce some code formatting/quality checks. To use them:
+4.  Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment
 
-1. Install [pre-commit](https://pre-commit.com/)
-2. Install the hooks via <font size="5">`pre-commit install`</font>
-3. Future commits will run these hooks prior to allowing the commit
+```bash
+    $ hatch shell
+```
+    Notice you can ONLY do that from this directory
+
 
 ## Testing
 

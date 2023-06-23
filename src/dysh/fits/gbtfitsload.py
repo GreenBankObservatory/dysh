@@ -84,7 +84,7 @@ class GBTFITSLoad(SDFITSLoad):
         for df in self._ptable:
             # make a copy here because we can't guarantee if this is a 
             # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-            _df = df[df.columns & show].copy()
+            _df = df[show].copy()
             _df.loc[:,"VELOCITY"] /= 1E3   # convert to km/s
             _df["RESTFREQ"] = _df["RESTFREQ"]/1.0E9 # convert to GHz
             if scans is not None:
