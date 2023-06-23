@@ -270,3 +270,67 @@ class GBTFITSLoad(SDFITSLoad):
         if len(rows) == 0:
             raise Exception(f"Scans {scans} not found in bintable {bintable}")
         return rows
+
+    def _scan_rows_all(self,scans):
+        """get scan rows regardless of ifnum,plnum, bintable.
+        
+        Parameters
+        ----------
+            scans : int or list-like
+                The scan numbers to find the rows of
+
+        Returns
+        -------
+            rows : list
+                Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
+        """
+        if scans is None:
+            raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
+        df_out = []
+        rows = []
+        for pt in self._ptable:
+            df_out.append(pt[pt["SCAN"].isin(scans)])
+        for df in df_out:
+            rows.append(list(df.index))
+        return rows
+
+    def write_scans(self,fileobj,scans,output_verify="exception",overwrite=False,checksum=False):
+        """
+        Write specific scans of the `GBTFITSLoad` to a new file.
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+
+        scans: int or list-like
+            Range of scans to write out. e.g. 0, [14,25,32]. 
+
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+        """
+        # get the rows that contain the scans in all bintables
+        rows = self._scan_rows_all(scans)
+        hdu0 = self._hdu[0].copy()
+        outhdu = fits.HDUList(hdu0)
+        # get the bintables rows as new bintables.
+        for i in range(len(rows)):
+            outhdu.append(self._bintable_from_rows(rows[i],i))
+        # write it out!
+        outhdu.writeto(fileobj,
+            output_verify=output_verify,
+            overwrite=overwrite, checksum=checksum)
