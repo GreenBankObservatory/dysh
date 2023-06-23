@@ -3,7 +3,7 @@ from copy import deepcopy
 import numpy as np
 from astropy.wcs import WCS
 from .spectrum import Spectrum
-from . import dcmeantsys
+from . import dcmeantsys, veldef_to_convention
 
 class PSScan(object):
     """
@@ -49,6 +49,9 @@ class PSScan(object):
     def npol(self):
         """The number of polarizations in this Scan"""
         return self._npol
+
+    #@TODO write calibrated data to a FITS? file.
+    #def write(self,filename,format,**kwargs):
 
     def __len__(self):
         return self._nrows
