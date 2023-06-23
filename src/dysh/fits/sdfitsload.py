@@ -536,7 +536,9 @@ class SDFITSLoad(object):
         if type(rows) == int:
             rows = [rows]
         outbintable = self._bintable[bintable].copy()
+        #print(f"bintable copy data length {len(outbintable.data)}")
         outbintable.data = outbintable.data[rows]
+        #print(f"bintable rows data length {len(outbintable.data)}")
         outbintable.update()
         return outbintable
 
