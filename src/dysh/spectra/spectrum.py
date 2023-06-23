@@ -162,7 +162,20 @@ in channel units.
                 equiv.extend(u.doppler_redshift())
         return equiv
 
-    def _write_table(self,filename,format,**kwargs):
+    def _write_table(self,fileobj,format,**kwargs):
+        """Write this `Spectrum` as an ~astropy.table.Table.
+        
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+        format : str
+            The output format. Must be a format supported by ~astropy.table.Table.write
+        kwargs : variable
+            Additional keyword arguments supported by ~astropy.table.Table.write
+        """
+                
         flux = self.flux
         axis = self.spectral_axis
         mask = self.mask
@@ -172,8 +185,9 @@ in channel units.
         if self.uncertainty is not None:
             t.add_column(self.uncertainty._array, name="uncertainty")
         #f=kwargs.pop("format")
-        t.write(filename,format=format,**kwargs)
+        t.write(fileobj,format=format,**kwargs)
 
+#@TODO figure how how to document write()
 ####################################################################
 # There is probably a less brute-force way to do this but I haven't
 # been able to figure it out.  astropy.io.registry tools are not
@@ -181,16 +195,16 @@ in channel units.
 # it cannot be passed along via a single overaarching write method,
 # e.g., spectrum_writer()
 ####################################################################
-def ascii_spectrum_writer_basic(spectrum,filename,**kwargs):
-    spectrum._write_table(filename,format='ascii.basic',**kwargs)
-def ascii_spectrum_writer_commented_header(spectrum,filename,**kwargs):
-    spectrum._write_table(filename,format='ascii.commented_header',**kwargs)
-def ascii_spectrum_writer_fixed_width(spectrum,filename,**kwargs):
-    spectrum._write_table(filename,format='ascii.fixed_width',**kwargs)
-def ascii_spectrum_writer_ipac(spectrum,filename,**kwargs):
-    spectrum._write_table(filename,format='ascii.ipac',**kwargs)
-def spectrum_writer_votable(spectrum,filename,**kwargs):
-    spectrum._write_table(filename,format='votable',**kwargs)
+def ascii_spectrum_writer_basic(spectrum,fileobj,**kwargs):
+    spectrum._write_table(fileobj,format='ascii.basic',**kwargs)
+def ascii_spectrum_writer_commented_header(spectrum,fileobj,**kwargs):
+    spectrum._write_table(fileobj,format='ascii.commented_header',**kwargs)
+def ascii_spectrum_writer_fixed_width(spectrum,fileobj,**kwargs):
+    spectrum._write_table(fileobj,format='ascii.fixed_width',**kwargs)
+def ascii_spectrum_writer_ipac(spectrum,fileobj,**kwargs):
+    spectrum._write_table(fileobj,format='ascii.ipac',**kwargs)
+def spectrum_writer_votable(spectrum,fileobj,**kwargs):
+    spectrum._write_table(fileobj,format='votable',**kwargs)
 
 with registry.delay_doc_updates(Spectrum):
     registry.register_writer('ascii.basic', Spectrum, ascii_spectrum_writer_basic)
