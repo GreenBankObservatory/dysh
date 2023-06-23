@@ -514,9 +514,35 @@ class SDFITSLoad(object):
     def __repr__(self):
         return self._filename    
 
+    def _bintable_from_rows(self,rows=None,bintable=None):
+        """extract a bintable from an existing 
+           bintable in this SDFITSLoad object
+            
+        Parameters
+        ----------
+
+            rows: int or list-like
+                Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. 
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            outbintable : ~astropy.iofits.BinTableHDU
+                The binary table HDU created containing the selected rows
+
+        """
+        # ensure it is a list if int was given 
+        if type(rows) == int:
+            rows = [rows]
+        outbintable = self._bintable[bintable].copy()
+        outbintable.data = outbintable.data[rows]
+        outbintable.update()
+        return outbintable
+
     def write(self,fileobj,rows=None,bintable=None,output_verify="exception",overwrite=False,checksum=False):
         """
-        Write the `HDUList` to a new file.
+        Write the `SDFITSLoad` to a new file, potentially sub-selecting rows or bintables.
 
         Parameters
         ----------
@@ -550,23 +576,24 @@ class SDFITSLoad(object):
         if bintable is None:
             if rows is None:
                 # write out everything 
-                self._hdu.writeto(fileobj,output_verify=output_verify,overwrite=overwrite,checksum=checksum)
+                self._hdu.writeto(fileobj,
+                    output_verify=output_verify,
+                    overwrite=overwrite,checksum=checksum)
             else:
                 raise ValueError("You must specify bintable if you specify rows")
         else:
             if rows is None:
                 # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
                 self._hdu[0:bintable+2]._hdu.writeto(fileobj,
-                    output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+                    output_verify=output_verify, 
+                    overwrite=overwrite, checksum=checksum)
             else:
-                # ensure it is a list if int was given and make np array so we can slice bintabl easilty
-                select = np.array(list(rows)) 
                 hdu0 = self._hdu[0].copy()
                 # need to get imports correct first
                 #hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
                 outhdu = fits.HDUList(hdu0)
-                outbintable = self._bintable[bintable].copy()
-                outbintable.data = outbintable.data[rows]
-                outbintable.update()
+                outbintable = self._bintable_from_rows(rows,bintable)
                 outhdu.append(outbintable)
-                outhdu.writeto(fileobj,output_verify=output_verify,overwrite=overwrite,checksum=checksum)
+                outhdu.writeto(fileobj,
+                    output_verify=output_verify,
+                    overwrite=overwrite, checksum=checksum)
