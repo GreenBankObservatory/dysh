@@ -67,18 +67,18 @@ class GBTFITSLoad(SDFITSLoad):
             concat : bool
                 If true concatenate summaries of multiple HDUs, otherwise return list of summaries.
 
-            bintable : int or list
-                Which bintable to summarize, zero-based. Default:0
         Returns
         -------
-            summary - list of `~pandas.DataFrame`
-                Summary of the data as a DataFrame, one per HDU
+            summary - `~pandas.DataFrame`
+                Summary of the data as a DataFrame.
             
         """
+        #@todo allow user to change show list
         show = ["SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
                 "RESTFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", "FDNUM"] 
-        summary = []
-        #alternative use df.concatenate and make one big df for all HDUs
+        comp_colnames = ["SCAN", "OBJECT", "VELOCITY", "PROC", "SEQ", 
+                "RESTFREQ", "# IF","# INT" "# FEED", "AZ", "EL"]
+        uncompressed_df = None
         if self._ptable is None:
             self._create_index()
         for df in self._ptable:
@@ -90,11 +90,41 @@ class GBTFITSLoad(SDFITSLoad):
             if scans is not None:
                 _df = self.select_scans(scans,_df).reindex(columns=show)
                 #_df = _df[(_df["SCAN"]>=scans[0]) & ( _df["SCAN"] <= scans[1])].reindex(columns=show)
-                summary.append(_df)
+                if uncompressed_df is None:
+                    uncompressed_df = _df
+                else:
+                    uncompressed_df.append(_df)
             else:
-                summary.append(_df.reindex(columns=show))
-
-        return summary
+                if uncompressed_df is None:
+                    uncompressed_df = _df.reindex(columns=show)
+                else:
+                uncompressed_df.append(_df.reindex(columns=show))
+        
+        if verbose:
+            return uncompressed_df
+        # do the work to compress the info in the dataframe on a scan basis
+        compressed_df = DataFrame(columns = comp_colnames)
+        scanset = set(uncompressed_df["SCAN"])
+        avg_cols = ["SCAN", "VELOCITY", "PROCSEQN", 
+                    "RESTFREQ", "AZ", "EL"]
+        for s in scanset:
+            uf = self.select("SCAN",s,uncompressed_df)
+            # for some columns we will display the mean value
+            ser = uf.filter(avg_cols).mean(numeric_only=True)
+            # for others we will count how many there are
+            nint  = len(uf)
+            #@TODO at NPOL
+            nIF = uf["IFNUM"].nunique()
+            nfeed = uf["FEED"].nunique()
+            obj = uf["OBJECT"][0] # We assume they are all the same!
+            proc = uf["PROC"][0] # We assume they are all the same!
+            s2 = pd.Series([obj,proc,nIF,nint,nfeed],
+                    name=["OBJECT","PROC","IFNUM","# IF","# INT","# FEED"])
+            ser.append(s2)
+            compressed_df.append(ser)
+        # may not be necessary
+        #compressed_df.reindex(columns=comp_colnames)
+        return compressed_df
 
     def velocity_convention(self,veldef,velframe):
         # GBT uses VELDEF and VELFRAME incorrectly. 
@@ -107,7 +137,7 @@ class GBTFITSLoad(SDFITSLoad):
         return df[(df["PROC"]=="OnOff") | ( df["PROC"] == "OffOn")]
 
     def select(self,key,value,df):
-        return df[(df[key]==value) | ( df[key] == value)]
+        return df[(df[key]==value)]
 
     def _create_index_if_needed(self):
         if self._ptable is None:
