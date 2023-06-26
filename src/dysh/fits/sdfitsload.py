@@ -34,7 +34,8 @@ class SDFITSLoad(object):
             Header Data Unit to select from input file. Default: all HDUs
     '''
     def __init__(self, filename, source=None, hdu=None, **kwargs):
-        print("==SDFITSLoad %s" % filename)
+        if kwargs.get("verbose",None):
+            print("==SDFITSLoad %s" % filename)
         cds.enable()  # to get mmHg
         kwargs_opts = {'fix':False}
         kwargs_opts = {'wcs':False}
@@ -97,7 +98,6 @@ class SDFITSLoad(object):
             t = Table.read(self._hdu[i]) 
             t.remove_column('DATA')
             stripTable(t)
-            print(f"doing pandas for HDU {i}")
             self._ptable.append(t.to_pandas())
             del t
             
