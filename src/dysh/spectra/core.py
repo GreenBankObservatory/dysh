@@ -59,6 +59,7 @@ in channel units.
         #'show': False,
         'model':'polynomial',
         'fitter':  LinearLSQFitter(calc_uncertainties=True),
+        'fix_exclude': False,
     }
     kwargs_opts.update(kwargs)
 
@@ -97,14 +98,18 @@ in channel units.
                 if type(pair[0]) == int:
                 # convert channel to spectral axis units
                     lastchan = len(p.spectral_axis)-1
-                    if pair[1] > lastchan:
-                        msg = f"Exclude limits {pair} are not fully within the spectral axis [0,{lastchan}]. Setting upper limit to {lastchan}."
-                        warnings.warn(msg) 
-                        pair[1] = lastchan
-                    #if pair[0] is < 0, let the Exception be raised
+                    msg = f"Exclude limits {pair} are not fully within the spectral axis [0,{lastchan}]." 
+                    if pair[0] < 0 or pair[1] > lastchan:
+                        if kwargs_opts['fix_exclude']:
+                            msg += f" Setting upper limit to {lastchan}."
+                            pair[1] = lastchan
+                            warnings.warn(msg) 
+                        else:
+                            raise Exception(msg)
                     pair = [p.spectral_axis[pair[0]],p.spectral_axis[pair[1]]]
                 # if it is already a spectral region no additional
                 # work is needed
+                #@TODO we should test that the SpectralRegion is not out of bounds
                 if isinstance(pair[0],SpectralRegion):
                     regionlist.append(pair)
                 else: # it is a Quantity that may need conversion to spectral_axis units
@@ -116,9 +121,13 @@ in channel units.
                     pair[1] = offset + pair[1].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
                     pair = sorted(pair) # SpectralRegion requires sorted [lower,upper]
                     if pair[0] < p.spectral_axis[0] or pair[1] > p.spectral_axis[-1]:
-                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[p.spectral_axis[0],p.spectral_axis[-1]]}. Setting upper limit to {p.spectral_axis[-1]}"
-                        warnings.warn(msg) 
-                        pair[1] = p.spectral_axis[-1]
+                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[p.spectral_axis[0],p.spectral_axis[-1]]}."
+                        if kwargs_opts['fix_exclude']:
+                            msg += f" Setting upper limit to {p.spectral_axis[-1]}."
+                            pair[1] = p.spectral_axis[-1]
+                            warnings.warn(msg) 
+                        else:
+                            raise Exception(msg)
                     sr = SpectralRegion(pair[0],pair[1])
                     print(f"EXCLUDING {sr}")
                     regionlist.append(sr)
