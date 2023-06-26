@@ -127,10 +127,10 @@ class GBTFITSLoad(SDFITSLoad):
             ser = uf.filter(avg_cols).mean(numeric_only=True)
             ser.rename("filtered ser")
             # for others we will count how many there are
-            nint  = len(uf)
             nIF = uf["IFNUM"].nunique()
             nPol = uf["PLNUM"].nunique()
             nfeed = uf["FEED"].nunique()
+            nint  = len(uf)//(nPol*nIF*nfeed) #@TODO still off by factor of 2. sig/ref?
             obj = list(set(uf["OBJECT"]))[0] # We assume they are all the same!
             proc = list(set(uf["PROC"]))[0] # We assume they are all the same!
             #print(f"Uniq data for scan {s}: {nint} {nIF} {nPol} {nfeed} {obj} {proc}")
