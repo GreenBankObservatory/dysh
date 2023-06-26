@@ -49,9 +49,9 @@ class GBTFITSLoad(SDFITSLoad):
             self._ptable[i]["_OBSTYPE"] = df[1]
             self._ptable[i]["_SUBOBSMODE"] = df[2]
 
-    def summary(self, scans=None, verbose=True, bintable=0):
-#  From GBTIDL 
-#Intended to work with un-calibrated GBT data and is
+    def summary(self, scans=None, verbose=False, bintable=0):
+# From GBTIDL:
+# Intended to work with un-calibrated GBT data and is
 # likely to give confusing results for other data.  For other data,
 # list is usually more useful.
         """Create a summary list of the input dataset.  
@@ -75,9 +75,12 @@ class GBTFITSLoad(SDFITSLoad):
         """
         #@todo allow user to change show list
         show = ["SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
-                "RESTFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", "FDNUM"] 
-        comp_colnames = ["SCAN", "OBJECT", "VELOCITY", "PROC", "SEQ", 
-                "RESTFREQ", "# IF","# INT" "# FEED", "AZ", "EL"]
+                "RESTFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", 
+                "FDNUM"] 
+        comp_colnames = [
+                "SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
+                "RESTFREQ", "# IF","# INT", "# FEED", "AZIMUTH", 
+                "ELEVATIO"]
         uncompressed_df = None
         if self._ptable is None:
             self._create_index()
@@ -98,30 +101,42 @@ class GBTFITSLoad(SDFITSLoad):
                 if uncompressed_df is None:
                     uncompressed_df = _df.reindex(columns=show)
                 else:
-                uncompressed_df.append(_df.reindex(columns=show))
+                    uncompressed_df.append(_df.reindex(columns=show))
         
         if verbose:
             return uncompressed_df
         # do the work to compress the info in the dataframe on a scan basis
-        compressed_df = DataFrame(columns = comp_colnames)
+        compressed_df = pd.DataFrame(columns = comp_colnames)
         scanset = set(uncompressed_df["SCAN"])
         avg_cols = ["SCAN", "VELOCITY", "PROCSEQN", 
-                    "RESTFREQ", "AZ", "EL"]
+                    "RESTFREQ", "AZIMUTH", "ELEVATIO"]
         for s in scanset:
             uf = self.select("SCAN",s,uncompressed_df)
             # for some columns we will display the mean value
             ser = uf.filter(avg_cols).mean(numeric_only=True)
+            ser.rename("filtered ser")
+            print("UF index ",uf.columns)
             # for others we will count how many there are
             nint  = len(uf)
             #@TODO at NPOL
             nIF = uf["IFNUM"].nunique()
             nfeed = uf["FEED"].nunique()
-            obj = uf["OBJECT"][0] # We assume they are all the same!
-            proc = uf["PROC"][0] # We assume they are all the same!
+            obj = list(set(uf["OBJECT"]))[0] # We assume they are all the same!
+            proc = list(set(uf["PROC"]))[0] # We assume they are all the same!
+            print(f"Uniq data for scan {s}: {nint} {nIF} {nfeed} {obj} {proc}")
             s2 = pd.Series([obj,proc,nIF,nint,nfeed],
-                    name=["OBJECT","PROC","IFNUM","# IF","# INT","# FEED"])
-            ser.append(s2)
-            compressed_df.append(ser)
+                    name = "uniqued data",
+                    index=["OBJECT","PROC",
+                           "# IF","# INT","# FEED"])
+            print("SER ",ser)
+            print("S2", s2)
+            ser=ser.append(s2).reindex(comp_colnames)
+            ser.rename("appended ser")
+            print("append series data",ser)
+            print("append series index ",ser.index)
+            print("df cols",compressed_df.columns)
+            print("SAME? ",all(ser.index == compressed_df.columns))
+            compressed_df = compressed_df.append(ser,ignore_index=True)
         # may not be necessary
         #compressed_df.reindex(columns=comp_colnames)
         return compressed_df
