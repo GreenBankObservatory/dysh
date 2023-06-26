@@ -23,22 +23,23 @@ _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 class GBTFITSLoad(SDFITSLoad):
     """GBT-specific container for bintables from selected HDU(s)"""
-    def __init__(self, filename, source=None,hdu=None):
+    def __init__(self, filename, source=None,hdu=None,**kwargs):
         SDFITSLoad.__init__(self,filename,source,hdu)#,fix=False)
-        print("==GBTLoad %s" % filename)
 
         self._compute_proc()
-        self.ushow(0,'OBJECT')
-        self.ushow(0,'SCAN')
-        self.ushow(0,'SAMPLER')
-        #ushow('PLNUM')
-        #ushow('IFNUM')
-        self.ushow(0,'SIG')
-        self.ushow(0,'CAL')
-        self.ushow(0,'PROCSEQN')
-        self.ushow(0,'PROCSIZE')
-        self.ushow(0,'OBSMODE')  
-        self.ushow(0,'SIDEBAND')
+        if kwargs.get("verbose",None):
+            print("==GBTLoad %s" % filename)
+            self.ushow(0,'OBJECT')
+            self.ushow(0,'SCAN')
+            self.ushow(0,'SAMPLER')
+            self.ushow('PLNUM')
+            self.ushow('IFNUM')
+            self.ushow(0,'SIG')
+            self.ushow(0,'CAL')
+            self.ushow(0,'PROCSEQN')
+            self.ushow(0,'PROCSIZE')
+            self.ushow(0,'OBSMODE')  
+            self.ushow(0,'SIDEBAND')
 
     def _compute_proc(self):
         """Compute the procedure string from obsmode and add to index"""
@@ -54,18 +55,20 @@ class GBTFITSLoad(SDFITSLoad):
 # Intended to work with un-calibrated GBT data and is
 # likely to give confusing results for other data.  For other data,
 # list is usually more useful.
-        """Create a summary list of the input dataset.  
+#
+# @TODO perhaps return as a astropy.Table then we can have units
+        """Create a summary list of the input dataset.   
+            If `verbose=False` (default), some numeric data 
+            (e.g., RESTFREQ, AZIMUTH, ELEVATION) are 
+            averaged over the records with the same scan number.
 
         Parameters
         ----------
-            scans : 2-tuple
-                The beginning and ending scan  to use. Default: show all scans
+            scans : int or 2-tuple
+                The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
 
             verbose: bool
-                If True, list every record, otherwise list compact summary
-                TODO : make compact work ala gbtidl
-            concat : bool
-                If true concatenate summaries of multiple HDUs, otherwise return list of summaries.
+                If True, list every record, otherwise return a compact summary
 
         Returns
         -------
@@ -74,13 +77,15 @@ class GBTFITSLoad(SDFITSLoad):
             
         """
         #@todo allow user to change show list
+        #@todo set individual format options on output by
+        # changing these to dicts(?)
         show = ["SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
                 "RESTFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", 
-                "FDNUM"] 
+                "FDNUM", "PLNUM"] 
         comp_colnames = [
                 "SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
-                "RESTFREQ", "# IF","# INT", "# FEED", "AZIMUTH", 
-                "ELEVATIO"]
+                "RESTFREQ", "# IF","# POL", "# INT", "# FEED", 
+                "AZIMUTH", "ELEVATIO"]
         uncompressed_df = None
         if self._ptable is None:
             self._create_index()
@@ -91,54 +96,57 @@ class GBTFITSLoad(SDFITSLoad):
             _df.loc[:,"VELOCITY"] /= 1E3   # convert to km/s
             _df["RESTFREQ"] = _df["RESTFREQ"]/1.0E9 # convert to GHz
             if scans is not None:
-                _df = self.select_scans(scans,_df).reindex(columns=show)
-                #_df = _df[(_df["SCAN"]>=scans[0]) & ( _df["SCAN"] <= scans[1])].reindex(columns=show)
+                if type(scans) == int:
+                    scans = [scans]
+                if len(scans) == 1:
+                    scans = [scans[0],scans[0]]
+                _df = self.select_scans(scans,_df).filter(show)
                 if uncompressed_df is None:
                     uncompressed_df = _df
                 else:
-                    uncompressed_df.append(_df)
+                    uncompressed_df =pd.concat([uncompressed_df,_df])
             else:
                 if uncompressed_df is None:
-                    uncompressed_df = _df.reindex(columns=show)
+                    uncompressed_df = _df.filter(show)
                 else:
-                    uncompressed_df.append(_df.reindex(columns=show))
+                    uncompressed_df = pd.concat([uncompressed_df,_df.filter(show)])
         
         if verbose:
             return uncompressed_df
-        # do the work to compress the info in the dataframe on a scan basis
+        # do the work to compress the info 
+        # in the dataframe on a scan basis
         compressed_df = pd.DataFrame(columns = comp_colnames)
         scanset = set(uncompressed_df["SCAN"])
         avg_cols = ["SCAN", "VELOCITY", "PROCSEQN", 
-                    "RESTFREQ", "AZIMUTH", "ELEVATIO"]
+                    "RESTFREQ", 
+                    "AZIMUTH", "ELEVATIO"]
         for s in scanset:
             uf = self.select("SCAN",s,uncompressed_df)
-            # for some columns we will display the mean value
+            # for some columns we will display 
+            # the mean value
             ser = uf.filter(avg_cols).mean(numeric_only=True)
             ser.rename("filtered ser")
-            print("UF index ",uf.columns)
             # for others we will count how many there are
             nint  = len(uf)
-            #@TODO at NPOL
             nIF = uf["IFNUM"].nunique()
+            nPol = uf["PLNUM"].nunique()
             nfeed = uf["FEED"].nunique()
             obj = list(set(uf["OBJECT"]))[0] # We assume they are all the same!
             proc = list(set(uf["PROC"]))[0] # We assume they are all the same!
-            print(f"Uniq data for scan {s}: {nint} {nIF} {nfeed} {obj} {proc}")
-            s2 = pd.Series([obj,proc,nIF,nint,nfeed],
+            #print(f"Uniq data for scan {s}: {nint} {nIF} {nPol} {nfeed} {obj} {proc}")
+            s2 = pd.Series([obj,proc,nIF,nPol,nint,nfeed],
                     name = "uniqued data",
                     index=["OBJECT","PROC",
-                           "# IF","# INT","# FEED"])
-            print("SER ",ser)
-            print("S2", s2)
-            ser=ser.append(s2).reindex(comp_colnames)
+                           "# IF","# POL", "# INT","# FEED"])
+            ser=pd.concat([ser,s2]).reindex(comp_colnames)
             ser.rename("appended ser")
-            print("append series data",ser)
-            print("append series index ",ser.index)
-            print("df cols",compressed_df.columns)
-            print("SAME? ",all(ser.index == compressed_df.columns))
-            compressed_df = compressed_df.append(ser,ignore_index=True)
-        # may not be necessary
-        #compressed_df.reindex(columns=comp_colnames)
+            #print("append series data",ser)
+            #print("append series index ",ser.index)
+            #print("df cols",compressed_df.columns)
+            #print("SAME? ",all(ser.index == compressed_df.columns))
+            compressed_df = pd.concat(
+                    [compressed_df,ser.to_frame().T],
+                    ignore_index=True)
         return compressed_df
 
     def velocity_convention(self,veldef,velframe):
