@@ -1,0 +1,28 @@
+
+import os
+import pytest
+
+from astropy.utils.data import (
+                    get_pkg_data_filenames,
+                    )
+
+from dysh.fits import gbtfitsload
+
+
+class TestGBTFITSLoad():
+    """
+    """
+
+    def setup_method(self):
+        self._file_list = list(get_pkg_data_filenames("data/", pattern="*.fits"))
+
+    def test_load(self):
+
+        expected = {"TGBT21A_501_11.raw.vegas.fits": 6}
+
+        for fnm in self._file_list:
+
+            filename = os.path.basename(fnm)
+            sdf = gbtfitsload.GBTFITSLoad(os.path.join("data", filename))
+            assert len(sdf._ptable[0]) == expected[filename]
+
