@@ -3,7 +3,7 @@ from copy import deepcopy
 import numpy as np
 from astropy.wcs import WCS
 from .spectrum import Spectrum
-from . import dcmeantsys
+from . import dcmeantsys, veldef_to_convention
 
 class PSScan(object):
     """
@@ -49,6 +49,9 @@ class PSScan(object):
     def npol(self):
         """The number of polarizations in this Scan"""
         return self._npol
+
+    #@TODO write calibrated data to a FITS? file.
+    #def write(self,filename,format,**kwargs):
 
     def __len__(self):
         return self._nrows
@@ -148,10 +151,7 @@ class GBTPSScan(PSScan):
                                       'NAXIS1': naxis1, 'NAXIS2':1, 'NAXIS3':1
                                      },
                              )
-
-
-        
-        vc = "doppler_radio"
+        vc = veldef_to_convention(meta['VELDEF'])
         
         return Spectrum(self._calibrated[i]*u.K,wcs=wcs,meta=meta,velocity_convention=vc)
 
