@@ -60,10 +60,12 @@ in channel units.
         'model':'polynomial',
         'fitter':  LinearLSQFitter(calc_uncertainties=True),
         'fix_exclude': False,
+        'exclude_action': 'replace', # {'replace','append',None}
     }
     kwargs_opts.update(kwargs)
 
     _valid_models = ["polynomial", "chebyshev"]
+    _valid_exclude_actions = ['replace','append',None]
     # @todo replace with minimum_string_match
     if kwargs_opts["model"] not in _valid_models:
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
@@ -74,16 +76,23 @@ in channel units.
     else:
         # should never get here, unless we someday allow user to input a astropy.model
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
+
+    if kwargs_opts['exclude_action'] not in _valid_exclude_actions:
+        raise ValueError(f'Unrecognized exclude region action {kwargs["exclude_region"]}. Must be one of {_valid_exclude_actions}')
     fitter = kwargs_opts['fitter']
     #print(f"MODEL {model} FITTER {fitter}")
     p = spectrum
     if np.isnan(p.data).all():
-        print('returning none')
+        #print('returning none')
         return None # or raise exception
     if exclude is not None:
-        regionlist = []
+        regionlist = [] 
         # a single SpectralRegion was given
         if isinstance(exclude,SpectralRegion):
+            b = exclude.bounds
+            if b[0]<p.spectral_axis[0] or b[1]>p.spectral_axis[1]:
+                msg = f"Exclude limits {pair} are not fully within the spectral axis {p.spectral_axis}"
+                raise Exception(msg)
             regionlist.append(exclude)
         # list of int or Quantity or SpectralRegion was given
         else:
@@ -111,6 +120,10 @@ in channel units.
                 # work is needed
                 #@TODO we should test that the SpectralRegion is not out of bounds
                 if isinstance(pair[0],SpectralRegion):
+                    b = pair[0].bounds
+                    if b[0]<p.spectral_axis[0] or b[1]>p.spectral_axis[1]:
+                        msg = f"Exclude limits {pair} are not fully within the spectral axis {p.spectral_axis}"
+                        raise Exception(msg)
                     regionlist.append(pair)
                 else: # it is a Quantity that may need conversion to spectral_axis units
                     if pair[0].unit.is_equivalent("km/s"):
@@ -131,11 +144,16 @@ in channel units.
                     sr = SpectralRegion(pair[0],pair[1])
                     print(f"EXCLUDING {sr}")
                     regionlist.append(sr)
+        if kwargs_opts['exclude_action'] == 'replace':
+            p._exclude_regions = regionlist
+        elif kwargs_opts['exclude_action'] == 'append':
+            p._exclude_regions.extend(regionlist)
+            region_list = p._exclude_regions
         return fit_continuum(spectrum=p,
                 model=model,
                 fitter=fitter,
                 exclude_regions=regionlist)
-    else:
+    else: #exclude == None
         return fit_continuum(spectrum=p,
                 model=model,
                 fitter=fitter)
@@ -234,15 +252,20 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     """
     nchan = len(calon)
     if nedge == None:
-        nedge = nchan // fedge     # 10 %
+        nedge = nchan // fedge    # 10 %
+    # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
+    # Therefore we have to add a channel to the upper edge of the range
+    # below in order to reproduce exactly what GBTIDL gets for Tsys.  
+    # See github issue #28
     if mode == 0:
-        meanoff = np.mean(caloff[nedge:-nedge])
-        meandiff = np.mean(calon[nedge:-nedge] - caloff[nedge:-nedge])
+        meanoff = np.mean(caloff[nedge:-(nedge-1)])
+        meandiff = np.mean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
     else:
-        meanTsys = np.mean( caloff[nedge:-nedge] / (calon[nedge:-nedge] - caloff[nedge:-nedge]) )
+        meanTsys = np.mean( caloff[nedge:-(nedge-1)] / (calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)]) )
         meanTsys = meanTsys * tcal + tcal/2.0
     return meanTsys
+
 
 
 def veldef_to_convention(veldef):
