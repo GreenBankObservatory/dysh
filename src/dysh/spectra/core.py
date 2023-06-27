@@ -225,13 +225,13 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     """
     nchan = len(calon)
     if nedge == None:
-        nedge = nchan // fedge     # 10 %
+        nedge = nchan // fedge    # 10 %
     if mode == 0:
-        meanoff = np.mean(caloff[nedge:-nedge])
-        meandiff = np.mean(calon[nedge:-nedge] - caloff[nedge:-nedge])
+        meanoff = np.mean(caloff[nedge:-(nedge-1)])
+        meandiff = np.mean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
     else:
-        meanTsys = np.mean( caloff[nedge:-nedge] / (calon[nedge:-nedge] - caloff[nedge:-nedge]) )
+        meanTsys = np.mean( caloff[nedge:-(nedge-1)] / (calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)]) )
         meanTsys = meanTsys * tcal + tcal/2.0
     return meanTsys
 
