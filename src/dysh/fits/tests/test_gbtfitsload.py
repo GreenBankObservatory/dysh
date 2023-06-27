@@ -18,7 +18,9 @@ class TestGBTFITSLoad():
 
     def test_load(self):
 
-        expected = {"TGBT21A_501_11.raw.vegas.fits": 6}
+        expected = {"TGBT21A_501_11.raw.vegas.fits": 4,
+                    "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
+                    }
 
         for fnm in self._file_list:
 
