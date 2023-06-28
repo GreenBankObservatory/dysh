@@ -341,9 +341,7 @@ class GBTFITSLoad(SDFITSLoad):
         df_out = []
         rows = []
         for pt in self._ptable:
-            #print(f"doing {scans} in {pt}")
-            #_df = pt["SCAN"].isin(scans)
-            df_out = pd.concat(df_out,pt[pt["SCAN"].isin(scans)])
+            df_out.append(pt[pt["SCAN"].isin(scans)])
         for df in df_out:
             rows.append(list(df.index))
         return rows
