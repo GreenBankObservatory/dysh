@@ -13,18 +13,132 @@ import matplotlib.pyplot as plt
 from ..util import uniq
 import warnings
 
-def baseline_all(speclist,order,exclude=None,**kwargs):
-    kwargs_opts = {
-        'remove': False,
-        'show': False,
-        'model':'polynomial',
-        'fitter':  LinearLSQFitter(calc_uncertainties=True),
-    }
-    kwargs_opts.update(kwargs)
-    i=0
-    bad = 0
-    for p in speclist:
-        p.baseline(order,exclude,**kwargs)
+#def baseline_all(speclist,order,exclude=None,**kwargs):
+#    kwargs_opts = {
+#        'remove': False,
+#        'show': False,
+#        'model':'polynomial',
+#        'fitter':  LinearLSQFitter(calc_uncertainties=True),
+#    }
+#    kwargs_opts.update(kwargs)
+#    for p in speclist:
+#        p.baseline(order,exclude,**kwargs)
+
+def exclude_to_region(exclude,refspec,fix_exclude=False):
+    """Convert an exclude list to a list of ~specutuls.SpectralRegion.
+       Parameters
+       ----------        
+
+            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  
+in channel units.  
+
+                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+    
+            refspec: `Spectrum`
+                The reference spectrum whose spectral axis will be used 
+                when converting between exclude and axis units (e.g. channels to GHz).
+            fix_exclude: bool
+                If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
+ 
+      Returns
+      ----------        
+            regionlist : list of ~specutil.SpectralRegion
+            A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
+
+    """
+    regionlist = [] 
+    p = refspec
+    sa = refspec.spectral_axis
+    if exclude is not None:
+        regionlist = [] 
+        # a single SpectralRegion was given
+        if isinstance(exclude,SpectralRegion):
+            b = exclude.bounds
+            if b[0]<sa[0] or b[1]>sa[1]:
+                msg = f"Exclude limits {pair} are not fully within the spectral axis {sa}"
+                raise Exception(msg)
+            regionlist.append(exclude)
+        # list of int or Quantity or SpectralRegion was given
+        else:
+            # if user provided a single list, we have to
+            # add another set of brackets so we an iterate.
+            # If SpectralRegion took a list argument, we wouldn't
+            # have to do this.
+            if len(np.shape(exclude[0])) == 0:
+                exclude = [exclude]
+            #NB: we are assuming that a SpectralAxis is always [lower...upper].  Is this true???
+            for pair in exclude:
+                if type(pair[0]) == int:
+                # convert channel to spectral axis units
+                    lastchan = len(sa)-1
+                    msg = f"Exclude limits {pair} are not fully within the spectral axis [0,{lastchan}]." 
+                    if pair[0] < 0 or pair[1] > lastchan:
+                        if fix_exclude:
+                            msg += f" Setting upper limit to {lastchan}."
+                            pair[1] = lastchan
+                            warnings.warn(msg) 
+                        else:
+                            raise Exception(msg)
+                    pair = [sa[pair[0]],sa[pair[1]]]
+                # if it is already a spectral region no additional
+                # work is needed
+                #@TODO we should test that the SpectralRegion is not out of bounds
+                if isinstance(pair[0],SpectralRegion):
+                    b = pair[0].bounds
+                    if b[0]<sa[0] or b[1]>sa[1]:
+                        msg = f"Exclude limits {pair} are not fully within the spectral axis {p.spectral_axis}"
+                        raise Exception(msg)
+                    regionlist.append(pair)
+                else: # it is a Quantity that may need conversion to spectral_axis units
+                    if pair[0].unit.is_equivalent("km/s"):
+                        offset = p.rest_value - p.radial_velocity.to(sa.unit,equivalencies = p.equivalencies)
+                    else:
+                        offset = 0
+                    pair[0] = offset + pair[0].to(sa.unit,equivalencies = p.equivalencies)
+                    pair[1] = offset + pair[1].to(sa.unit,equivalencies = p.equivalencies)
+                    pair = sorted(pair) # SpectralRegion requires sorted [lower,upper]
+                    if pair[0] < sa[0] or pair[1] > sa[-1]:
+                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[sa[0],sa[-1]]}."
+                        if fix_exclude:
+                            msg += f" Setting upper limit to {p.spectral_axis[-1]}."
+                            pair[1] = sa[-1]
+                            warnings.warn(msg) 
+                        else:
+                            raise Exception(msg)
+                    sr = SpectralRegion(pair[0],pair[1])
+                    regionlist.append(sr)
+
+            return regionlist
+
+def region_to_axis_indices(region,refspec):
+    """
+        Parameters
+        ----------
+            region : `~specutils.SpectralRegion`
+            refspec: `Spectrum`
+                The reference spectrum whose spectral axis will be used 
+                when converting between exclude and axis units (e.g. channels to GHz).
+        Returns
+        -------
+            indices : 2-tuple of int
+                The array indices in `refspec` corresponding to `region.bounds`
+    """
+    # Spectral region to indices in an input spectral axis.
+    #@TODO needs to work for multiple spectral regions? or just loop outside this call
+    p = refspec
+    sa = refspec.spectral_axis
+    if region.lower.unit != sa.unit:
+        #@todo if they are conformable, then allow it and convert
+        raise Exception(f"Axis units of region [{region.lower.unit}] and refspec [{sa.unit}] not identical")
+    b = [x.value for x in region.bounds]
+    indices = np.abs(np.subtract.outer(sa.value, b)).argmin(0)
+    return indices
+
+def exclude_to_mask(exclude,refspec):
+    # set a mask based on an exclude region
+    # mask ~ exclude_to_indices(exclude_to_region())
+    pass
 
 def baseline(spectrum,order,exclude=None,**kwargs):
     """Fit a baseline for a spectrum
@@ -59,10 +173,13 @@ in channel units.
         #'show': False,
         'model':'polynomial',
         'fitter':  LinearLSQFitter(calc_uncertainties=True),
+        'fix_exclude': False,
+        'exclude_action': 'replace', # {'replace','append',None}
     }
     kwargs_opts.update(kwargs)
 
     _valid_models = ["polynomial", "chebyshev"]
+    _valid_exclude_actions = ['replace','append',None]
     # @todo replace with minimum_string_match
     if kwargs_opts["model"] not in _valid_models:
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
@@ -73,121 +190,31 @@ in channel units.
     else:
         # should never get here, unless we someday allow user to input a astropy.model
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
+
+    if kwargs_opts['exclude_action'] not in _valid_exclude_actions:
+        raise ValueError(f'Unrecognized exclude region action {kwargs["exclude_region"]}. Must be one of {_valid_exclude_actions}')
     fitter = kwargs_opts['fitter']
     #print(f"MODEL {model} FITTER {fitter}")
     p = spectrum
     if np.isnan(p.data).all():
-        print('returning none')
+        #@Todo handle masks
         return None # or raise exception
     if exclude is not None:
-        regionlist = []
-        # a single SpectralRegion was given
-        if isinstance(exclude,SpectralRegion):
-            regionlist.append(exclude)
-        # list of int or Quantity or SpectralRegion was given
-        else:
-            # if user provided a single list, we have to
-            # add another set of brackets so we an iterate.
-            # If SpectralRegion took a list argument, we wouldn't
-            # have to do this.
-            if len(np.shape(exclude[0])) == 0:
-                exclude = [exclude]
-            #NB: we are assuming that a SpectralAxis is always [lower...upper].  Is this true???
-            for pair in exclude:
-                if type(pair[0]) == int:
-                # convert channel to spectral axis units
-                    lastchan = len(p.spectral_axis)-1
-                    if pair[1] > lastchan:
-                        msg = f"Exclude limits {pair} are not fully within the spectral axis [0,{lastchan}]. Setting upper limit to {lastchan}."
-                        warnings.warn(msg) 
-                        pair[1] = lastchan
-                    #if pair[0] is < 0, let the Exception be raised
-                    pair = [p.spectral_axis[pair[0]],p.spectral_axis[pair[1]]]
-                # if it is already a spectral region no additional
-                # work is needed
-                if isinstance(pair[0],SpectralRegion):
-                    regionlist.append(pair)
-                else: # it is a Quantity that may need conversion to spectral_axis units
-                    if pair[0].unit.is_equivalent("km/s"):
-                        offset = p.rest_value - p.radial_velocity.to(p.spectral_axis.unit,equivalencies = p.equivalencies)
-                    else:
-                        offset = 0
-                    pair[0] = offset + pair[0].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
-                    pair[1] = offset + pair[1].to(p.spectral_axis.unit,equivalencies = p.equivalencies)
-                    pair = sorted(pair) # SpectralRegion requires sorted [lower,upper]
-                    if pair[0] < p.spectral_axis[0] or pair[1] > p.spectral_axis[-1]:
-                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[p.spectral_axis[0],p.spectral_axis[-1]]}. Setting upper limit to {p.spectral_axis[-1]}"
-                        warnings.warn(msg) 
-                        pair[1] = p.spectral_axis[-1]
-                    sr = SpectralRegion(pair[0],pair[1])
-                    print(f"EXCLUDING {sr}")
-                    regionlist.append(sr)
-        return fit_continuum(spectrum=p,
+        regionlist = exclude_to_region(exclude,spectrum,fix_exclude=kwargs_opts['fix_exclude'])
+        if kwargs_opts['exclude_action'] == 'replace':
+            p._exclude_regions = regionlist
+        elif kwargs_opts['exclude_action'] == 'append':
+            p._exclude_regions.extend(regionlist)
+            regionlist = p._exclude_regions
+    else:
+        # use the spectrum's preset exclude regions if they
+        # exist (they will be a list of SpectralRegions or None)
+        regionlist = p._exclude_regions
+    print(f"EXCLUDING {regionlist}")
+    return fit_continuum(spectrum=p,
                 model=model,
                 fitter=fitter,
                 exclude_regions=regionlist)
-    else:
-        return fit_continuum(spectrum=p,
-                model=model,
-                fitter=fitter)
-
-def baseline_old(speclist,order,exclude=None,**kwargs):
-    kwargs_opts = {
-        'remove': True,
-        'show': False,
-        'model':'polynomial',
-        'fitter':  LinearLSQFitter(calc_uncertainties=True),
-    }
-    kwargs_opts.update(kwargs)
-
-    _valid_models = ["polynomial", "chebyshev"]
-    # @todo replace with minimum_string_match
-    if kwargs["model"] not in _valid_models:
-        raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
-    print(f"BL {order} for {len(speclist)} spectra")
-    i=0
-    bad = 0
-    if kwargs_opts['model'] == "polynomial":
-        model = Polynomial1D(degree=order)
-    elif kwargs_opts['model'] == "chebyshev":
-        model = Chebyshev1D(degree=order)
-    else:
-        # should never get here
-        raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
-    fitter = kwargs_opts['fitter']
-    print(f"MODEL {model} FITTER {fitter}")
-    try:
-        if exclude is not None:
-            for p in speclist:
-                if np.isnan(p.data).all():
-                    bad+=1
-                    continue
-                fc = fit_continuum(spectrum=p,
-                        model=model,
-                        fitter=fitter,
-                        exclude_regions=[exclude])
-                i=i+1
-        else:
-            for p in speclist:
-                if np.isnan(p.data).all():
-                    bad+=1
-                    continue
-                fc = fit_continuum(spectrum=p,
-                        model=model,
-                        fitter=fitter)
-                i=i+1
-    except Exception as e:
-        print(f"At spectrum {i}, Exception was {e}")
-        print(p)
-        print("DATA MEAN: ",np.nanmean(p.data))
-        return p
-    if plot:
-        fig,ax = plt.subplots()
-        ax.plot(x,p.flux)
-        ax.plot(x,fc(x))
-        plt.show()
-    print(f"NUMBER OF BAD SPECTRA: {bad}")
-    return None
 
 def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     """
@@ -223,17 +250,23 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         meanTsys : `~numpy.ndarray`-like 
             The mean system temperature
     """
+    #@todo Pedro thinks about a version that takes a spectrum with multiple SpectralRegions to exclude.
     nchan = len(calon)
     if nedge == None:
-        nedge = nchan // fedge     # 10 %
+        nedge = nchan // fedge    # 10 %
+    # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
+    # Therefore we have to add a channel to the upper edge of the range
+    # below in order to reproduce exactly what GBTIDL gets for Tsys.  
+    # See github issue #28
     if mode == 0:
-        meanoff = np.mean(caloff[nedge:-nedge])
-        meandiff = np.mean(calon[nedge:-nedge] - caloff[nedge:-nedge])
+        meanoff = np.mean(caloff[nedge:-(nedge-1)])
+        meandiff = np.mean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
     else:
-        meanTsys = np.mean( caloff[nedge:-nedge] / (calon[nedge:-nedge] - caloff[nedge:-nedge]) )
+        meanTsys = np.mean( caloff[nedge:-(nedge-1)] / (calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)]) )
         meanTsys = meanTsys * tcal + tcal/2.0
     return meanTsys
+
 
 
 def veldef_to_convention(veldef):

@@ -7,6 +7,7 @@ from astropy.table import Table
 import astropy.units as u
 import numpy as np
 from . import baseline
+from ..plot import specplot as sp
 
 class Spectrum(Spectrum1D):
     """This class contains a spectrum and its attributes. It is built on
@@ -27,6 +28,7 @@ class Spectrum(Spectrum1D):
         self._baseline_model = None
         self._subtracted = False
         self._exclude_regions = None
+        self._plotter = None
     
     @property
     def exclude_regions(self):
@@ -88,7 +90,7 @@ in channel units.
     def _undo_baseline(self):
         """Undo the most recently computed baseline.  If the baseline
            has been subtracted, it will be added back.  The `baseline_model`
-           attribute is set to None.  
+           attribute is set to None.   Exclude regions are untouched.
         """
         if self._baseline_model is None:
             return
@@ -102,9 +104,12 @@ in channel units.
         
         Parameters
         ----------
-            exclude : `~numpy.ndarray`-like
-                Array where values in the flux to be masked are those that
-                astype(bool) converts to True.  
+            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  
+in channel units.  
+
+                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+
         """
         pass
 
@@ -116,6 +121,15 @@ in channel units.
     def bshow(self):
         """Show the baseline model""" 
         print(f"baseline model {self._baseline_model}")
+
+    def plot(self,**kwargs):
+        if self._plotter is None:
+            self._plotter = sp.SpectrumPlot(self,**kwargs)
+        self._plotter.plot(**kwargs)
+
+    @property
+    def plotter(self):
+        return self._plotter
 
     def stats(self):
         """ Compute some statistics of this `Spectrum`.  The mean, rms,
