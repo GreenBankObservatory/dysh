@@ -1,4 +1,3 @@
-from ..spectra.spectrum import Spectrum
 import matplotlib.pyplot as plt
 import numpy as np
 import astropy.units as u
@@ -62,6 +61,7 @@ class SpectrumPlot():
                                 color='k',alpha=0.22,linestyle='--')
 
         self._set_labels(**self._plot_kwargs)
+        #self._axis.axhline(y=0,color='red',lw=2)
         #self.refresh()
 
     def reset(self):
@@ -134,6 +134,17 @@ class SpectrumPlot():
         elif self.spectrum.unit.is_equivalent(u.Jy):
             snu = r"$S_{\nu}$"
             self.axis.set_ylabel(f"{snu} ({yunit})")
+
+    def _show_exclude(self,**kwargs):
+        ''' Method to show the exclude array on the plot'''
+        kwargs_opts = {
+            'loc': "bottom", #top,bottom ?
+            'color' : 'silver',
+        }
+        kwargs_opts.update(kwargs)
+        #if kwargs_opts['loc'] == 'bottom':
+        #    self._ax.axhline
+        
 
 
     def refresh(self):
