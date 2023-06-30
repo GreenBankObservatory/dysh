@@ -7,7 +7,7 @@ from . import dcmeantsys, veldef_to_convention
 
 class PSScan(object):
     """
-    Holds a position scan pair
+    Holds a position switch scan pair
 
     Parameters
     ----------
@@ -56,16 +56,145 @@ class PSScan(object):
     def __len__(self):
         return self._nrows
     
-class GBTPSScan(PSScan):
+class TPScan(object):
+    """
+    Holds a total power scan
+
+    Parameters
+    ----------
+        sdfits : ~SDFITSLoad
+            input SDFITSLoad object (or derivative)
+        scan: int
+            scan number
+        sigstate : str
+            one of 'SIG' or 'REF' to indicate if this is the signal or reference scan
+        scanrows : list-like
+            the list of rows in `sdfits` corresponding to sig_state integrations 
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans
+    """
+    def __init__(self, sdfits, scan, sigstate, calstate, scanrows, bintable):
+        self._sdfits = sdfits # parent class
+        self._scan = scan
+        self._sigstate = sigstate
+        self._calstate = calstate
+        self._scanrows = scanrows
+        self._bintable_index = bintable
+        self._status = 0 #@TODO make these an enumeration, possibly dict
+        #                           # ex1:
+        self._nint = 0              # 11
+        self._npol = 0              #  2
+        self._timeaveraged = None   #  2
+        self._polaveraged = None    #  1
+        self._nrows = len(scanrows)
+        print(f"TPSCAN nrows = {self.nrows}")
+        
+    @property
+    def scan(self):
+        return self._scan
+
+#@TODO all the various attributes should be in a dict. sigstate,calstate,ifnum,plnum etc
+# to make this class flexible. then some sort of clever property accessor.
+#@TODO TPScanList class or let this class contain multiple scans....bookkeeping!
+
+    @property
+    def sigstate(self):
+        return self._sigstate
+
+    @property
+    def calstate(self):
+        return self._calstate
+
+    @property
+    def status(self):
+        """Status flag, will be used later for undo"""
+        return self._status
+
+    @property
+    def nrows(self):
+        """The number of rows in this Scan"""
+        return self._nrows
+
+    @property
+    def npol(self):
+        """The number of polarizations in this Scan"""
+        return self._npol
+
+    def __len__(self):
+        return self._nrows
+
+class GBTTPScan(TPScan): 
+    """GBT specific version of Total Power Scan (TPScan)
+    Parameters
+    ----------
+        gbtfits : ~GBFITSLoad
+            input GBFITSLoad object 
+        scan: int
+            scan number
+        sigstate : str
+            one of 'SIG' or 'REF' to indicate if this is the signal or reference scan
+        calstate : str
+            one of 'ON' or 'OFF' to indicate if the calibration statio of this scan
+        scanrows : list-like
+            the list of rows in `sdfits` corresponding to sig_state integrations 
+        calrows : dict
+            dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans
+    """
+#@TODO get rid of calrows and calc tsys in gettp and pass it in.
+    def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable):
+        TPScan.__init__(self, gbtfits, scan, sigstate, calstate, scanrows, bintable)
+        self._calrows = calrows
+        self._npol =  gbtfits.npol(bintable) #TODO deal with bintable
+        self._nint = gbtfits.nintegrations(bintable)
+        self._refonrows = self._calrows["ON"]
+        self._refoffrows = self._calrows["OFF"]
+        self._refcalon = gbtfits.rawspectra(bintable)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(bintable)[self._refoffrows]
+        self.calc_tsys()
+
+    @property
+    def tsys(self):
+        """The system temperature array. 
+        Returns
+        -------
+            tsys : ~numpy.ndarray 
+                System temperature values in K
+        """
+        return self._tsys
+
+    def calc_tsys(self, **kwargs):
+        """
+        Calculate the system temperature array
+        """
+        kwargs_opts = {
+            'verbose': False
+        }
+        kwargs_opts.update(kwargs)
+
+        self._status = 1
+        nspect = self.nrows
+        self._tsys= np.empty(nspect, dtype=float) # should be same as len(calon)
+
+        tcal = list(self._sdfits.index(self._bintable_index).iloc[self._refonrows]["TCAL"])
+        #@Todo  this loop could be replaces with clever numpy
+        if len(tcal) != nspect: 
+            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+        for i in range(nspect):
+            tsys = dcmeantsys(calon=self._refcalon[i],  caloff=self._refcaloff[i],tcal=tcal[i])
+            self._tsys[i] = tsys
+
+class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only difference is the keys.
     """GBT specific version of Position Switch Scan (PSScan)
     Parameters
     ----------
-        sdfits : ~GBFITSLoad
+        gbtfits : ~GBFITSLoad
             input GBFITSLoad object 
         scans : dict
-            dictionary with keys 'ON' and 'OFF' containing unique list of ON (sig) and OFF (ref) scan numbers
+            dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
         scanrows : dict
-            dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (sig) and OFF (ref) integrations
+            dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
         calrows : dict
             dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations. 
         bintable : int
@@ -171,7 +300,7 @@ class GBTPSScan(PSScan):
         self._tsys= np.empty(nspect, dtype=float)
 
         tcal = list(self._sdfits.index(self._bintable_index).iloc[self._refonrows]["TCAL"])
-        #@Todo  this loop could be replaces with clever numpy
+        #@Todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect: 
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):

@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
-from ..spectra.scan import GBTPSScan
+from ..spectra.scan import GBTPSScan,GBTTPScan
 from ..spectra.obsblock import Obsblock
 from ..spectra import dcmeantsys
 from .sdfitsload import SDFITSLoad
@@ -182,7 +182,8 @@ class GBTFITSLoad(SDFITSLoad):
         TODO: figure how to allow [startscan, endscan]
         Returns 
         -------
-                ? ScanBlock
+            psscan : ~scan.GBTPSScan
+                A `GBTPScan` object containing the data which can be calibrated.
         '''
         # all ON/OFF scans
         kwargs_opts = {
@@ -206,6 +207,45 @@ class GBTFITSLoad(SDFITSLoad):
         # add ifnum,plnum
         calrows = self.calonoff_rows(scans=None,bintable=bintable)
         g = GBTPSScan(self,scanlist,rows,calrows,bintable)
+        return g
+
+    def gettp(self,scan,sig,cal,bintable=0,**kwargs):
+        kwargs_opts = {
+                'ifnum': 0,
+                'plnum' : 0, # I prefer "pol"
+                'fdnum' : 0,
+                'timeaverage' : True,
+                'polaverage': True,
+                'weights' : 'equal' # or 'tsys' or ndarray
+        }   
+        kwargs_opts.update(kwargs)
+        TF = {True : 'T', False:'F'}
+        sigstate = {True : 'SIG', False:'REF'}
+        calstate = {True : 'ON', False:'OFF'}
+        ifnum = kwargs_opts['ifnum']
+        plnum = kwargs_opts['plnum']
+        fdnum =kwargs_opts['fdnum']
+        # do you have to give sig or cal?
+        df = self._ptable[0]
+        df = df[(df["SCAN"] == scan)]
+        if sig is not None:
+            sigch = TF[sig]
+            df = df[(df['SIG']==sigch)]
+        if cal is not None:
+            calch = TF[cal]
+            df = df[df['CAL']==calch]
+        if ifnum is not None:
+            df = df[df['IFNUM']==ifnum]
+        if plnum is not None:
+            df = df[df['PLNUM']==plnum]
+        if fdnum is not None:
+            df = df[df['FDNUM']==fdnum]
+        #TBD: if ifnum is none then we will have to sort these by ifnum, plnum and store separate arrays or something. 
+        tprows = list(df.index)
+        #data = self.rawspectra(bintable)[tprows]
+        calrows = self.calonoff_rows(scans=scan,bintable=bintable,**kwargs_opts)
+        print(len(calrows['ON']))
+        g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable)
         return g
 
 
@@ -281,9 +321,12 @@ class GBTFITSLoad(SDFITSLoad):
 
         return s
 
-    def calonoff_rows(self,scans=None,bintable=0):
+    def calonoff_rows(self,scans=None,bintable=0,**kwargs):
         self._create_index_if_needed()
         s = {"ON": [], "OFF" :[]}
+        ifnum  = kwargs.get('ifnum',None)
+        plnum  = kwargs.get('plnum',None)
+        fdnum  = kwargs.get('fdnum',None)
         if type(scans) == int:
             scans = [scans]
         df    = self._ptable[bintable]
@@ -291,6 +334,15 @@ class GBTFITSLoad(SDFITSLoad):
             df = df[df["SCAN"].isin(scans)]
         dfon  = self.select("CAL","T",df)
         dfoff = self.select("CAL","F",df)
+        if ifnum is not None:
+            dfon  = self.select("IFNUM",ifnum,dfon)
+            dfoff  = self.select("IFNUM",ifnum,dfoff)
+        if plnum is not None:
+            dfon  = self.select("PLNUM",plnum,dfon)
+            dfoff  = self.select("PLNUM",plnum,dfoff)
+        if fdnum is not None:
+            dfon  = self.select("FDNUM",fdnum,dfon)
+            dfoff  = self.select("FDNUM",fdnum,dfoff)
         s["ON"]  = list(dfon.index)
         s["OFF"] = list(dfoff.index)
         return s

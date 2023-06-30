@@ -267,8 +267,6 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         meanTsys = meanTsys * tcal + tcal/2.0
     return meanTsys
 
-
-
 def veldef_to_convention(veldef):
     """given a VELDEF, return the velocity convention expected by Spectrum(1D)
 
