@@ -5,9 +5,9 @@ name: Python package
 
 on:
   push:
-    branches: [ "cat-devel" ]
+    branches: [ "main", "release-0.1.0", "cat-devel", "mwp-devel", "pedro-devel" ]
   pull_request:
-    branches: [ "cat-devel" ]
+    branches: [ "main", "release-0.1.0", "cat-devel", "mwp-devel", "pedro-devel" ]
 
 jobs:
   build:
