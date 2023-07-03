@@ -94,6 +94,7 @@ class TPScan(object):
         self._timeaveraged = None   #  2
         self._polaveraged = None    #  1
         self._nrows = len(scanrows)
+        self._tsys = None
         print(f"TPSCAN nrows = {self.nrows}")
 
     @property
@@ -164,6 +165,7 @@ class GBTTPScan(TPScan):
         self._refoffrows = self._calrows["OFF"]
         self._refcalon = gbtfits.rawspectra(bintable)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(bintable)[self._refoffrows]
+        print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
         self.calc_tsys()
 
     @property
@@ -279,14 +281,18 @@ class GBTTPScan(TPScan):
                   )
         vc = veldef_to_convention(meta['VELDEF'])
         
-        return Spectrum(self._data[i]*u.ct,wcs=wcs,meta=meta,velocity_convention=vc)
+        s = Spectrum(self._data[i]*u.ct,wcs=wcs,meta=meta,velocity_convention=vc)
+        s.meta['TSYS'] = np.mean(self._tsys) 
+        return s
 
     def timeaverage(self,weights='tsys'):
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == 'tsys':
+            #print("TSYS weighting ",self._tsys_weight)
             self._timeaveraged._data = average(self._data,axis=0,weights=self._tsys_weight)
         else:
             self._timeaveraged._data = average(self._data,axis=0,weights=None)
+        self._timeaveraged.meta['TSYS'] =  np.mean(self._tsys)
         return self._timeaveraged
 
 

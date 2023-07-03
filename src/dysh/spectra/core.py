@@ -258,7 +258,7 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # Therefore we have to add a channel to the upper edge of the range
     # below in order to reproduce exactly what GBTIDL gets for Tsys.  
     # See github issue #28
-    if mode == 0:
+    if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.mean(caloff[nedge:-(nedge-1)])
         meandiff = np.mean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
