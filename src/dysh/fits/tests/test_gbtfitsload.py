@@ -23,8 +23,9 @@ class TestGBTFITSLoad():
                     }
 
         for fnm in self._file_list:
+            print(fnm)
 
             filename = os.path.basename(fnm)
-            sdf = gbtfitsload.GBTFITSLoad(os.path.join("data", filename))
+            sdf = gbtfitsload.GBTFITSLoad(fnm)
             assert len(sdf._ptable[0]) == expected[filename]
 
