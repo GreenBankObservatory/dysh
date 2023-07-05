@@ -51,6 +51,10 @@ class SDFITSLoad(object):
         self.create_index()
         #self._hdu.close()  # can't access hdu[i].data member of you do this.
 
+    def info(self):
+        """Return the `~astropy.HDUList` info()"""
+        return self._hdu.info()
+
     @property 
     def bintable(self):
         """The list of bintables"""
@@ -316,7 +320,7 @@ class SDFITSLoad(object):
         return self._binheader[bintable][nax]
     
     def nintegrations(self,bintable,source=None):
-        '''The number of integrations on a given source
+        '''The number of integrations on a given source divided by the number of polarizations
 
         Parameters
         ----------
@@ -332,8 +336,11 @@ class SDFITSLoad(object):
         
         data = self.rawspectra(bintable)
         if source is not None:
-            numsources = len(self.select('OBJECT','NGC2415',self._ptable[0]))
-            nint = numsources//self.npol(bintable)[0]
+            df = self.select('OBJECT',source,self._ptable[bintable])
+            #nfeed = df["FEED"].nunique()
+            numsources = len(df)
+            #nint = numsources//(self.npol(bintable)*nfeed)
+            nint = numsources//self.npol(bintable)
         else:
             nint = self.nrows(bintable)//self.npol(bintable)
         return nint

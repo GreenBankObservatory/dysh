@@ -1,4 +1,3 @@
-from ..spectra.spectrum import Spectrum
 import matplotlib.pyplot as plt
 import numpy as np
 import astropy.units as u
@@ -55,6 +54,7 @@ class SpectrumPlot():
         self._axis.plot(sa,sf,color=self._plot_kwargs['color'], lw = lw)
         self._axis.set_xlim(self._plot_kwargs['xmin'],self._plot_kwargs['xmax'])
         self._axis.set_ylim(self._plot_kwargs['ymin'],self._plot_kwargs['ymax'])
+        self._axis.tick_params(axis='both',which='both',bottom=True,top=True,left=True,right=True,direction='in')
         if self._plot_kwargs['grid']:
             self._axis.grid(visible=True,which='major',axis='both',lw=lw/2,
                                 color='k',alpha=0.33)
@@ -62,6 +62,7 @@ class SpectrumPlot():
                                 color='k',alpha=0.22,linestyle='--')
 
         self._set_labels(**self._plot_kwargs)
+        #self._axis.axhline(y=0,color='red',lw=2)
         #self.refresh()
 
     def reset(self):
@@ -134,6 +135,17 @@ class SpectrumPlot():
         elif self.spectrum.unit.is_equivalent(u.Jy):
             snu = r"$S_{\nu}$"
             self.axis.set_ylabel(f"{snu} ({yunit})")
+
+    def _show_exclude(self,**kwargs):
+        ''' Method to show the exclude array on the plot'''
+        kwargs_opts = {
+            'loc': "bottom", #top,bottom ?
+            'color' : 'silver',
+        }
+        kwargs_opts.update(kwargs)
+        #if kwargs_opts['loc'] == 'bottom':
+        #    self._ax.axhline
+        
 
 
     def refresh(self):

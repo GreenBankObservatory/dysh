@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
-from ..spectra.scan import GBTPSScan
+from ..spectra.scan import GBTPSScan,GBTTPScan
 from ..spectra.obsblock import Obsblock
 from ..spectra import dcmeantsys
 from .sdfitsload import SDFITSLoad
@@ -59,7 +59,7 @@ class GBTFITSLoad(SDFITSLoad):
 # @TODO perhaps return as a astropy.Table then we can have units
         """Create a summary list of the input dataset.   
             If `verbose=False` (default), some numeric data 
-            (e.g., RESTFREQ, AZIMUTH, ELEVATION) are 
+            (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are 
             averaged over the records with the same scan number.
 
         Parameters
@@ -80,11 +80,11 @@ class GBTFITSLoad(SDFITSLoad):
         #@todo set individual format options on output by
         # changing these to dicts(?)
         show = ["SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
-                "RESTFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", 
-                "FDNUM", "PLNUM"] 
+                "RESTFREQ", "DOPFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", 
+                "FDNUM", "PLNUM", "SIG", "CAL"] 
         comp_colnames = [
                 "SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
-                "RESTFREQ", "# IF","# POL", "# INT", "# FEED", 
+                "RESTFREQ", "DOPFREQ", "# IF","# POL", "# INT", "# FEED", 
                 "AZIMUTH", "ELEVATIO"]
         uncompressed_df = None
         if self._ptable is None:
@@ -95,6 +95,7 @@ class GBTFITSLoad(SDFITSLoad):
             _df = df[show].copy()
             _df.loc[:,"VELOCITY"] /= 1E3   # convert to km/s
             _df["RESTFREQ"] = _df["RESTFREQ"]/1.0E9 # convert to GHz
+            _df["DOPFREQ"] = _df["DOPFREQ"]/1.0E9 # convert to GHz
             if scans is not None:
                 if type(scans) == int:
                     scans = [scans]
@@ -118,7 +119,7 @@ class GBTFITSLoad(SDFITSLoad):
         compressed_df = pd.DataFrame(columns = comp_colnames)
         scanset = set(uncompressed_df["SCAN"])
         avg_cols = ["SCAN", "VELOCITY", "PROCSEQN", 
-                    "RESTFREQ", 
+                    "RESTFREQ", "DOPFREQ",
                     "AZIMUTH", "ELEVATIO"]
         for s in scanset:
             uf = self.select("SCAN",s,uncompressed_df)
@@ -127,10 +128,11 @@ class GBTFITSLoad(SDFITSLoad):
             ser = uf.filter(avg_cols).mean(numeric_only=True)
             ser.rename("filtered ser")
             # for others we will count how many there are
-            nint  = len(uf)
             nIF = uf["IFNUM"].nunique()
             nPol = uf["PLNUM"].nunique()
             nfeed = uf["FEED"].nunique()
+            # divide by two to account for sig and ref
+            nint  = len(uf)//(nPol*nIF*nfeed*2) 
             obj = list(set(uf["OBJECT"]))[0] # We assume they are all the same!
             proc = list(set(uf["PROC"]))[0] # We assume they are all the same!
             #print(f"Uniq data for scan {s}: {nint} {nIF} {nPol} {nfeed} {obj} {proc}")
@@ -180,7 +182,8 @@ class GBTFITSLoad(SDFITSLoad):
         TODO: figure how to allow [startscan, endscan]
         Returns 
         -------
-                ? ScanBlock
+            psscan : ~scan.GBTPSScan
+                A `GBTPScan` object containing the data which can be calibrated.
         '''
         # all ON/OFF scans
         kwargs_opts = {
@@ -206,6 +209,87 @@ class GBTFITSLoad(SDFITSLoad):
         g = GBTPSScan(self,scanlist,rows,calrows,bintable)
         return g
 
+    def gettp(self,scan,sig,cal,bintable=0,**kwargs):
+        kwargs_opts = {
+                'ifnum': 0,
+                'plnum' : 0, 
+                'fdnum' : 0,
+                'subref': None, # subreflector position
+                'timeaverage' : True,
+                'polaverage': True,
+                'weights' : 'equal', # or 'tsys' or ndarray
+                'calibrate': False
+        }   
+        kwargs_opts.update(kwargs)
+        TF = {True : 'T', False:'F'}
+        sigstate = {True : 'SIG', False:'REF'}
+        calstate = {True : 'ON', False:'OFF'}
+        ifnum = kwargs_opts['ifnum']
+        plnum = kwargs_opts['plnum']
+        fdnum =kwargs_opts['fdnum']
+        subref = kwargs_opts['subref']
+        # do you have to give sig or cal?
+        df = self._ptable[0]
+        df = df[(df["SCAN"] == scan)]
+        if sig is not None:
+            sigch = TF[sig]
+            df = df[(df['SIG']==sigch)]
+            print('S ',len(df))
+        if cal is not None:
+            calch = TF[cal]
+            df = df[df['CAL']==calch]
+            print('C ',len(df))
+        if ifnum is not None:
+            df = df[df['IFNUM']==ifnum]
+            print('I ',len(df))
+        if plnum is not None:
+            df = df[df['PLNUM']==plnum]
+            print('P ',len(df))
+        if fdnum is not None:
+            df = df[df['FDNUM']==fdnum]
+            print('F ',len(df))
+        if subref is not None:
+            df = df[df['SUBREF_STATE']==subref]
+            print('SR ',len(df))
+        #TBD: if ifnum is none then we will have to sort these by ifnum, plnum and store separate arrays or something. 
+        tprows = list(df.index)
+        #data = self.rawspectra(bintable)[tprows]
+        calrows = self.calonoff_rows(scans=scan,bintable=bintable,**kwargs_opts)
+        print(len(calrows['ON']))
+        g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable,kwargs_opts['calibrate'])
+        return g
+
+    # special nod for KA data.
+    # See /users/dfrayer/gbtidlpro/snodka
+
+    def getnod_ka(self,scan,bintable=0,**kwargs):
+        kwargs_opts = {
+                'ifnum': 0,
+                'fdnum' : 0,
+                'timeaverage' : True,
+                'polaverage': True,
+                'weights' : 'equal' # or 'tsys' or ndarray
+        } 
+        kwargs_opts.update(kwargs)
+        ifnum = kwargs_opts['ifnum']
+        fdnum = kwargs_opts['fdnum']
+        if fdnum == 1:
+            plnum = 0
+            tpon  = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1)
+            tpoff = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1)
+        elif fdnum == 0:
+            plnum = 1
+            tpoff = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1)
+            tpon  = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1)
+        else:
+            raise ValueError(f"Feed number {fdnum} must be 0 or 1.")
+        on  =  tpon.timeaverage(weights=kwargs_opts['weights']) 
+        off = tpoff.timeaverage(weights=kwargs_opts['weights'])
+        meanTsys = 0.5*(off.meta['TSYS']+on.meta['TSYS'])
+        print(f"Tsys(ON) = {on.meta['TSYS']}, Tsys(OFF) = {off.meta['TSYS']}, meanTsys = {meanTsys}")
+        data = meanTsys*(on - off)/off
+        data.meta['TSYS'] = meanTsys
+        return data
 
     def onoff_scan_list(self,scans=None,ifnum=0,plnum=0,bintable=0):
         self._create_index_if_needed()
@@ -279,9 +363,13 @@ class GBTFITSLoad(SDFITSLoad):
 
         return s
 
-    def calonoff_rows(self,scans=None,bintable=0):
+    def calonoff_rows(self,scans=None,bintable=0,**kwargs):
         self._create_index_if_needed()
         s = {"ON": [], "OFF" :[]}
+        ifnum  = kwargs.get('ifnum',None)
+        plnum  = kwargs.get('plnum',None)
+        fdnum  = kwargs.get('fdnum',None)
+        subref = kwargs.get('subref',None)
         if type(scans) == int:
             scans = [scans]
         df    = self._ptable[bintable]
@@ -289,6 +377,18 @@ class GBTFITSLoad(SDFITSLoad):
             df = df[df["SCAN"].isin(scans)]
         dfon  = self.select("CAL","T",df)
         dfoff = self.select("CAL","F",df)
+        if ifnum is not None:
+            dfon  = self.select("IFNUM",ifnum,dfon)
+            dfoff  = self.select("IFNUM",ifnum,dfoff)
+        if plnum is not None:
+            dfon  = self.select("PLNUM",plnum,dfon)
+            dfoff  = self.select("PLNUM",plnum,dfoff)
+        if fdnum is not None:
+            dfon  = self.select("FDNUM",fdnum,dfon)
+            dfoff  = self.select("FDNUM",fdnum,dfoff)
+        if subref is not None:
+            dfon  = self.select("SUBREF_STATE",subref,dfon)
+            dfoff  = self.select("SUBREF_STATE",subref,dfoff)
         s["ON"]  = list(dfon.index)
         s["OFF"] = list(dfoff.index)
         return s
@@ -339,8 +439,6 @@ class GBTFITSLoad(SDFITSLoad):
         df_out = []
         rows = []
         for pt in self._ptable:
-            #print(f"doing {scans} in {pt}")
-            #_df = pt["SCAN"].isin(scans)
             df_out.append(pt[pt["SCAN"].isin(scans)])
         for df in df_out:
             rows.append(list(df.index))
