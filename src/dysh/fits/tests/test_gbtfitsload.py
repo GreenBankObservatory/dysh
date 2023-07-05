@@ -23,6 +23,8 @@ class TestGBTFITSLoad():
 
         expected = {"TGBT21A_501_11.raw.vegas.fits": 4,
                     "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
+                    "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
+                    "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits": 1,
                     }
 
         for fnm in self._file_list:
@@ -33,7 +35,7 @@ class TestGBTFITSLoad():
             assert len(sdf._ptable[0]) == expected[filename]
 
 
-    def test_getps(self):
+    def test_getps_single_int(self):
         """
         """
 
@@ -52,3 +54,24 @@ class TestGBTFITSLoad():
         assert np.nanmedian(diff) == 0.0
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
+
+
+    def test_gettp_single_int(self):
+        """
+        """
+
+        # Get the answer from GBTIDL.
+        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits")
+        hdu = fits.open(gbtidl_file)
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+
+        # Get the answer from dysh.
+        sdf_file = get_pkg_data_filename("data/TGBT21A_501_11.raw.vegas.fits")
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        tps_on = sdf.gettp(152, sig=True, cal=True)
+
+        # Compare.
+        diff = tps_on.total_power(0).flux.value - gbtidl_gettp
+        assert np.nanmean(diff) == 0.0
+
+
