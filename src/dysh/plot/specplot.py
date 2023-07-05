@@ -54,6 +54,7 @@ class SpectrumPlot():
         self._axis.plot(sa,sf,color=self._plot_kwargs['color'], lw = lw)
         self._axis.set_xlim(self._plot_kwargs['xmin'],self._plot_kwargs['xmax'])
         self._axis.set_ylim(self._plot_kwargs['ymin'],self._plot_kwargs['ymax'])
+        self._axis.tick_params(axis='both',which='both',bottom=True,top=True,left=True,right=True,direction='in')
         if self._plot_kwargs['grid']:
             self._axis.grid(visible=True,which='major',axis='both',lw=lw/2,
                                 color='k',alpha=0.33)
