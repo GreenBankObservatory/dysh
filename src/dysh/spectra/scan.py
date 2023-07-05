@@ -86,7 +86,7 @@ class TPScan(object):
         self._calstate = calstate
         self._scanrows = scanrows
         self._bintable_index = bintable
-        self._data = self._sdfits.rawspectra(bintable)[scanrows]
+        self._data = self._sdfits.rawspectra(bintable)[scanrows] # all cal states
         self._status = 0 #@TODO make these an enumeration, possibly dict
         #                           # ex1:
         self._nint = 0              # 11
@@ -154,9 +154,11 @@ class GBTTPScan(TPScan):
             dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
         bintable : int
             the index for BINTABLE in `sdfits` containing the scans
+        calibrate: bool
+            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     """
 #@TODO get rid of calrows and calc tsys in gettp and pass it in.
-    def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable):
+    def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable,calibrate=True):
         TPScan.__init__(self, gbtfits, scan, sigstate, calstate, scanrows, bintable)
         self._calrows = calrows
         self._npol =  gbtfits.npol(bintable) #TODO deal with bintable
@@ -165,6 +167,10 @@ class GBTTPScan(TPScan):
         self._refoffrows = self._calrows["OFF"]
         self._refcalon = gbtfits.rawspectra(bintable)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(bintable)[self._refoffrows]
+        self._calibrate=calibrate
+        if self._calibrate:
+            print("CALIBRATE")
+            self._data = 0.5*(self._refcalon+self._refcaloff)
         print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
         self.calc_tsys()
 

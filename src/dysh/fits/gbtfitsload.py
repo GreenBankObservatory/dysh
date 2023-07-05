@@ -217,7 +217,8 @@ class GBTFITSLoad(SDFITSLoad):
                 'subref': None, # subreflector position
                 'timeaverage' : True,
                 'polaverage': True,
-                'weights' : 'equal' # or 'tsys' or ndarray
+                'weights' : 'equal', # or 'tsys' or ndarray
+                'calibrate': False
         }   
         kwargs_opts.update(kwargs)
         TF = {True : 'T', False:'F'}
@@ -255,7 +256,7 @@ class GBTFITSLoad(SDFITSLoad):
         #data = self.rawspectra(bintable)[tprows]
         calrows = self.calonoff_rows(scans=scan,bintable=bintable,**kwargs_opts)
         print(len(calrows['ON']))
-        g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable)
+        g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable,kwargs_opts['calibrate'])
         return g
 
     # special nod for KA data.
