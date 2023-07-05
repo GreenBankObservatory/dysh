@@ -258,7 +258,8 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # Therefore we have to add a channel to the upper edge of the range
     # below in order to reproduce exactly what GBTIDL gets for Tsys.  
     # See github issue #28
-    if mode == 0:
+    #print(f"DCMEANTSYS Tcal {tcal} MEAN TCAL {np.mean(tcal)}")
+    if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.mean(caloff[nedge:-(nedge-1)])
         meandiff = np.mean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
@@ -266,8 +267,6 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         meanTsys = np.mean( caloff[nedge:-(nedge-1)] / (calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)]) )
         meanTsys = meanTsys * tcal + tcal/2.0
     return meanTsys
-
-
 
 def veldef_to_convention(veldef):
     """given a VELDEF, return the velocity convention expected by Spectrum(1D)
@@ -292,3 +291,54 @@ def veldef_to_convention(veldef):
     if prefix == "rela":
         return 'relativistic'
     return None
+
+def average(data,axis=0,weights=None):
+    """Average a group of spectra or scans.
+       
+       Parameters
+       ----------
+            data : ~numpy.ndarray
+                The spectral data, typically with shape (nspect,nchan). 
+            axis : int
+                The axis over which to average the data.  Default axis=0 will return the average spectrum
+                if shape is (nspect,nchan)
+            weights : ~numpy.ndarray
+                The weights to use in averaging.  These might typically be system temperature based. 
+                The weights array must be the length of the axis over which the average is taken.
+                Default: None will use equal weights
+       Returns
+       -------
+            average : ~numpy.ndarray
+                The average along the input axis
+    """
+    return np.average(data,axis,weights)
+
+def tsys_weight(exposure,delta_freq,tsys):
+    """Compute the system temperature based weight(s).
+       If exposure, delta_freq, or tsys parameters are given as ~astropy.unit.Quantity, 
+       they will be converted to seconds, Hz, K, respectively for the calculation.
+       (Not that this really matters since weights are relative to each other)
+    
+       *Note:*The parameters *cannot* be given as arrays of ~astropy.unit.Quantity, e.g. [3*~astropy.unit.Unit('s'), 4*~astropy.unit.Unit('s')].
+       Rather, if using ~astropy.unit.Quantity, they have to be ~astropy.unit.Quantity objects, e.g. [3, 4]*~astropy.unit.Unit('s')
+
+       Parameters
+       ----------
+            exposure: ~numpy.ndarray or float or ~astropy.unit.Quantity
+                The exposure time, typically given in seconds
+            delta_freq: ~numpy.ndarray or float or ~astropy.unit.Quantity
+                The channel width in frequency units
+            tsys: ~numpy.ndarray or float or ~astropy.unit.Quantity
+                The system temperature, typically in K 
+       Returns
+       -------
+            average : ~numpy.ndarray
+                The average along the input axis
+    """
+
+    # Quantitys work with abs and power!
+    weight = abs(delta_freq)*exposure*np.power(tsys,-2)
+    if type(weight) == u.Quantity:
+        return weight.value
+    else:
+        return weight
