@@ -74,4 +74,10 @@ class TestGBTFITSLoad():
         diff = tps_on.total_power(0).flux.value - gbtidl_gettp
         assert np.nanmean(diff) == 0.0
 
-
+        # Now with the noise diode Off.
+        tps_off = sdf.gettp(152, sig=True, cal=False)
+        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits")
+        hdu = fits.open(gbtidl_file)
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        diff = tps_off.total_power(0).flux.value - gbtidl_gettp
+        assert np.nanmean(diff) == 0.0
