@@ -25,6 +25,9 @@ class TestGBTFITSLoad():
                     "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
                     "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
                     "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits": 1,
+                    "TGBT21A_501_11_ifnum_0_int_0-2.fits": 24,
+                    "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits": 1,
+                    "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_1.fits": 1,
                     }
 
         for fnm in self._file_list:
