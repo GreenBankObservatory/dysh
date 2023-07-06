@@ -257,15 +257,18 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
     # Therefore we have to add a channel to the upper edge of the range
     # below in order to reproduce exactly what GBTIDL gets for Tsys.  
-    # See github issue #28
-    #print(f"DCMEANTSYS Tcal {tcal} MEAN TCAL {np.mean(tcal)}")
+    # See github issue #28.
+    # Define the channel range once.
+    chrng = slice(nedge,-(nedge-1),1)
+
     if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
-        meanoff = np.mean(caloff[nedge:-(nedge-1)])
-        meandiff = np.mean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
+        meanoff = np.mean(caloff[chrng])
+        meandiff = np.mean(calon[chrng] - caloff[chrng])
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
     else:
-        meanTsys = np.mean( caloff[nedge:-(nedge-1)] / (calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)]) )
+        meanTsys = np.mean( caloff[chrng] / (calon[chrng] - caloff[chrng]) )
         meanTsys = meanTsys * tcal + tcal/2.0
+
     return meanTsys
 
 def veldef_to_convention(veldef):
