@@ -47,6 +47,13 @@ To time average the data, using system temperature weighting (other option is 'e
 
     >>> ta = psscan.timeaverage(weights='tsys')
     >>> ta.plot()
-
 .. image:: static/ps_152.png
- 
+
+The `plot()` command allows changing of axis units and also recognizes a number matplolib-like keywords::
+
+    >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
+
+.. image:: static/ps_152_zoom.png
+
+Removing a baseline
+===================
