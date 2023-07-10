@@ -1,18 +1,23 @@
 
 import pytest
+import pathlib
 import numpy as np
 
 from astropy.io import fits
 
+import dysh
 from dysh.fits import gbtfitsload
+
+
+dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
 
 class TestGBTPSScan():
 
     def test_compare_with_GBTIDL(self):
 
-        sdf_file = "../../fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2.fits"
-        gbtidl_file = "../../fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
+        sdf_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
