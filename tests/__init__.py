@@ -1,1 +1,1 @@
-"""Unit test package for astrodysh."""
+"""Test module for dysh."""

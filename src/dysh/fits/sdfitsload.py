@@ -15,8 +15,9 @@ import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
 from ..spectra.obsblock import Obsblock
-from ..spectra import dcmeantsys
+from ..spectra import dcmeantsys, veldef_to_convention
 from ..util import uniq, stripTable
+#from .. import version
 
 
 class SDFITSLoad(object):
@@ -33,7 +34,8 @@ class SDFITSLoad(object):
             Header Data Unit to select from input file. Default: all HDUs
     '''
     def __init__(self, filename, source=None, hdu=None, **kwargs):
-        print("==SDFITSLoad %s" % filename)
+        if kwargs.get("verbose",None):
+            print("==SDFITSLoad %s" % filename)
         cds.enable()  # to get mmHg
         kwargs_opts = {'fix':False}
         kwargs_opts = {'wcs':False}
@@ -48,6 +50,10 @@ class SDFITSLoad(object):
         self.load(hdu,**kwargs_opts)
         self.create_index()
         #self._hdu.close()  # can't access hdu[i].data member of you do this.
+
+    def info(self):
+        """Return the `~astropy.HDUList` info()"""
+        return self._hdu.info()
 
     @property 
     def bintable(self):
@@ -96,7 +102,6 @@ class SDFITSLoad(object):
             t = Table.read(self._hdu[i]) 
             t.remove_column('DATA')
             stripTable(t)
-            print(f"doing pandas for HDU {i}")
             self._ptable.append(t.to_pandas())
             del t
             
@@ -315,7 +320,7 @@ class SDFITSLoad(object):
         return self._binheader[bintable][nax]
     
     def nintegrations(self,bintable,source=None):
-        '''The number of integrations on a given source
+        '''The number of integrations on a given source divided by the number of polarizations
 
         Parameters
         ----------
@@ -331,8 +336,11 @@ class SDFITSLoad(object):
         
         data = self.rawspectra(bintable)
         if source is not None:
-            numsources = len(self.select('OBJECT','NGC2415',self._ptable[0]))
-            nint = numsources//self.npol(bintable)[0]
+            df = self.select('OBJECT',source,self._ptable[bintable])
+            #nfeed = df["FEED"].nunique()
+            numsources = len(df)
+            #nint = numsources//(self.npol(bintable)*nfeed)
+            nint = numsources//self.npol(bintable)
         else:
             nint = self.nrows(bintable)//self.npol(bintable)
         return nint
@@ -354,6 +362,7 @@ class SDFITSLoad(object):
 
     def rawspectrum(self,bintable,i):
         '''Get a single raw (unprocessed) spectrum from the input bintable.
+    TODO: arguments are backwards from getrow(), getspec()
 
         Parameters
         ----------
@@ -371,6 +380,42 @@ class SDFITSLoad(object):
 
     def getrow(self,i,bintable=0):
         return self._bintable[bintable].data[i]
+
+    def getspec(self,i,bintable=0):
+        """get a row (record) as a Spectrum"""
+        meta = self._ptable[bintable].iloc[i]
+        data = self.rawspectrum(bintable,i)
+        naxis1 = len(data)
+        ctype1 = meta['CTYPE1']
+        ctype2 = meta['CTYPE2']
+        ctype3 = meta['CTYPE3']
+        crval1 = meta['CRVAL1']
+        crval2 = meta['CRVAL2']
+        crval3 = meta['CRVAL3']
+        crpix1 = meta['CRPIX1']
+        cdelt1 = meta['CDELT1']
+        restfrq = meta['RESTFREQ']
+        if 'CUNIT1' in meta:
+            cunit1 = meta['CUNIT1']
+        else:
+            cunit1 = "Hz" #@TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        rfq = restfrq * u.Unit(cunit1)
+        restfreq = rfq.to("Hz").value
+
+        #@TODO WCS is expensive.  Figure how to calculate spectral_axis instead.
+        wcs = WCS(header={'CDELT1': cdelt1, 'CRVAL1': crval1, 'CUNIT1': cunit1,
+                                      'CTYPE1': 'FREQ', 'CRPIX1': crpix1, 'RESTFRQ': restfreq,
+                                      'CTYPE2': ctype2, 'CRVAL2': crval2, 'CRPIX2': 1,
+                                      'CTYPE3': ctype3, 'CRVAL3': crval3, 'CRPIX3': 1,
+                                      'CUNIT2': 'deg', 'CUNIT3':'deg',
+                                      'NAXIS1': naxis1, 'NAXIS2':1, 'NAXIS3':1
+                                     },
+                             )
+        vc = veldef_to_convention(meta['VELDEF'])
+        
+        # raw data are in counts
+        return Spectrum(data*u.count,wcs=wcs,meta=meta.to_dict(),velocity_convention=vc)
+
     
     def nrows(self,bintable):
         '''The number of rows of the input bintable
@@ -476,3 +521,88 @@ class SDFITSLoad(object):
     def __repr__(self):
         return self._filename    
 
+    def _bintable_from_rows(self,rows=None,bintable=None):
+        """extract a bintable from an existing 
+           bintable in this SDFITSLoad object
+            
+        Parameters
+        ----------
+
+            rows: int or list-like
+                Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. 
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            outbintable : ~astropy.iofits.BinTableHDU
+                The binary table HDU created containing the selected rows
+
+        """
+        # ensure it is a list if int was given 
+        if type(rows) == int:
+            rows = [rows]
+        outbintable = self._bintable[bintable].copy()
+        #print(f"bintable copy data length {len(outbintable.data)}")
+        outbintable.data = outbintable.data[rows]
+        #print(f"bintable rows data length {len(outbintable.data)}")
+        outbintable.update()
+        return outbintable
+
+    def write(self,fileobj,rows=None,bintable=None,output_verify="exception",overwrite=False,checksum=False):
+        """
+        Write the `SDFITSLoad` to a new file, potentially sub-selecting rows or bintables.
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+
+        rows: int or list-like
+            Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. Default: None, meaning all rows
+            Note: Currently `rows`, if given, must be contained in a single bintable and bintable must be given
+
+        bintable :  int
+            The index of the `bintable` attribute or None for all bintables. Default: None
+
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+        """
+        if bintable is None:
+            if rows is None:
+                # write out everything 
+                self._hdu.writeto(fileobj,
+                    output_verify=output_verify,
+                    overwrite=overwrite,checksum=checksum)
+            else:
+                raise ValueError("You must specify bintable if you specify rows")
+        else:
+            if rows is None:
+                # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
+                self._hdu[0:bintable+2]._hdu.writeto(fileobj,
+                    output_verify=output_verify, 
+                    overwrite=overwrite, checksum=checksum)
+            else:
+                hdu0 = self._hdu[0].copy()
+                # need to get imports correct first
+                #hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
+                outhdu = fits.HDUList(hdu0)
+                outbintable = self._bintable_from_rows(rows,bintable)
+                outhdu.append(outbintable)
+                outhdu.writeto(fileobj,
+                    output_verify=output_verify,
+                    overwrite=overwrite, checksum=checksum)

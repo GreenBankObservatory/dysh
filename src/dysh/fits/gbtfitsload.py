@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
-from ..spectra.scan import GBTPSScan
+from ..spectra.scan import GBTPSScan,GBTTPScan
 from ..spectra.obsblock import Obsblock
 from ..spectra import dcmeantsys
 from .sdfitsload import SDFITSLoad
@@ -23,22 +23,23 @@ _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 class GBTFITSLoad(SDFITSLoad):
     """GBT-specific container for bintables from selected HDU(s)"""
-    def __init__(self, filename, source=None,hdu=None):
+    def __init__(self, filename, source=None,hdu=None,**kwargs):
         SDFITSLoad.__init__(self,filename,source,hdu)#,fix=False)
-        print("==GBTLoad %s" % filename)
 
         self._compute_proc()
-        self.ushow(0,'OBJECT')
-        self.ushow(0,'SCAN')
-        self.ushow(0,'SAMPLER')
-        #ushow('PLNUM')
-        #ushow('IFNUM')
-        self.ushow(0,'SIG')
-        self.ushow(0,'CAL')
-        self.ushow(0,'PROCSEQN')
-        self.ushow(0,'PROCSIZE')
-        self.ushow(0,'OBSMODE')  
-        self.ushow(0,'SIDEBAND')
+        if kwargs.get("verbose",None):
+            print("==GBTLoad %s" % filename)
+            self.ushow(0,'OBJECT')
+            self.ushow(0,'SCAN')
+            self.ushow(0,'SAMPLER')
+            self.ushow('PLNUM')
+            self.ushow('IFNUM')
+            self.ushow(0,'SIG')
+            self.ushow(0,'CAL')
+            self.ushow(0,'PROCSEQN')
+            self.ushow(0,'PROCSIZE')
+            self.ushow(0,'OBSMODE')  
+            self.ushow(0,'SIDEBAND')
 
     def _compute_proc(self):
         """Compute the procedure string from obsmode and add to index"""
@@ -49,50 +50,106 @@ class GBTFITSLoad(SDFITSLoad):
             self._ptable[i]["_OBSTYPE"] = df[1]
             self._ptable[i]["_SUBOBSMODE"] = df[2]
 
-    def summary(self, scans=None, verbose=True, bintable=0):
-#  From GBTIDL 
-#Intended to work with un-calibrated GBT data and is
+    def summary(self, scans=None, verbose=False, bintable=0):
+# From GBTIDL:
+# Intended to work with un-calibrated GBT data and is
 # likely to give confusing results for other data.  For other data,
 # list is usually more useful.
-        """Create a summary list of the input dataset.  
+#
+# @TODO perhaps return as a astropy.Table then we can have units
+        """Create a summary list of the input dataset.   
+            If `verbose=False` (default), some numeric data 
+            (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are 
+            averaged over the records with the same scan number.
 
         Parameters
         ----------
-            scans : 2-tuple
-                The beginning and ending scan  to use. Default: show all scans
+            scans : int or 2-tuple
+                The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
 
             verbose: bool
-                If True, list every record, otherwise list compact summary
-                TODO : make compact work ala gbtidl
-            concat : bool
-                If true concatenate summaries of multiple HDUs, otherwise return list of summaries.
+                If True, list every record, otherwise return a compact summary
 
         Returns
         -------
-            summary - list of `~pandas.DataFrame`
-                Summary of the data as a DataFrame, one per HDU
+            summary - `~pandas.DataFrame`
+                Summary of the data as a DataFrame.
             
         """
+        #@todo allow user to change show list
+        #@todo set individual format options on output by
+        # changing these to dicts(?)
         show = ["SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
-                "RESTFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", "FDNUM"] 
-        summary = []
-        #alternative use df.concatenate and make one big df for all HDUs
+                "RESTFREQ", "DOPFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", 
+                "FDNUM", "PLNUM", "SIG", "CAL"] 
+        comp_colnames = [
+                "SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
+                "RESTFREQ", "DOPFREQ", "# IF","# POL", "# INT", "# FEED", 
+                "AZIMUTH", "ELEVATIO"]
+        uncompressed_df = None
         if self._ptable is None:
             self._create_index()
         for df in self._ptable:
             # make a copy here because we can't guarantee if this is a 
             # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-            _df = df[df.columns & show].copy()
+            _df = df[show].copy()
             _df.loc[:,"VELOCITY"] /= 1E3   # convert to km/s
             _df["RESTFREQ"] = _df["RESTFREQ"]/1.0E9 # convert to GHz
+            _df["DOPFREQ"] = _df["DOPFREQ"]/1.0E9 # convert to GHz
             if scans is not None:
-                _df = self.select_scans(scans,_df).reindex(columns=show)
-                #_df = _df[(_df["SCAN"]>=scans[0]) & ( _df["SCAN"] <= scans[1])].reindex(columns=show)
-                summary.append(_df)
+                if type(scans) == int:
+                    scans = [scans]
+                if len(scans) == 1:
+                    scans = [scans[0],scans[0]]
+                _df = self.select_scans(scans,_df).filter(show)
+                if uncompressed_df is None:
+                    uncompressed_df = _df
+                else:
+                    uncompressed_df =pd.concat([uncompressed_df,_df])
             else:
-                summary.append(_df.reindex(columns=show))
-
-        return summary
+                if uncompressed_df is None:
+                    uncompressed_df = _df.filter(show)
+                else:
+                    uncompressed_df = pd.concat([uncompressed_df,_df.filter(show)])
+        
+        if verbose:
+            return uncompressed_df
+        # do the work to compress the info 
+        # in the dataframe on a scan basis
+        compressed_df = pd.DataFrame(columns = comp_colnames)
+        scanset = set(uncompressed_df["SCAN"])
+        avg_cols = ["SCAN", "VELOCITY", "PROCSEQN", 
+                    "RESTFREQ", "DOPFREQ",
+                    "AZIMUTH", "ELEVATIO"]
+        for s in scanset:
+            uf = self.select("SCAN",s,uncompressed_df)
+            # for some columns we will display 
+            # the mean value
+            ser = uf.filter(avg_cols).mean(numeric_only=True)
+            ser.rename("filtered ser")
+            # for others we will count how many there are
+            nIF = uf["IFNUM"].nunique()
+            nPol = uf["PLNUM"].nunique()
+            nfeed = uf["FEED"].nunique()
+            # divide by two to account for sig and ref
+            nint  = len(uf)//(nPol*nIF*nfeed*2) 
+            obj = list(set(uf["OBJECT"]))[0] # We assume they are all the same!
+            proc = list(set(uf["PROC"]))[0] # We assume they are all the same!
+            #print(f"Uniq data for scan {s}: {nint} {nIF} {nPol} {nfeed} {obj} {proc}")
+            s2 = pd.Series([obj,proc,nIF,nPol,nint,nfeed],
+                    name = "uniqued data",
+                    index=["OBJECT","PROC",
+                           "# IF","# POL", "# INT","# FEED"])
+            ser=pd.concat([ser,s2]).reindex(comp_colnames)
+            ser.rename("appended ser")
+            #print("append series data",ser)
+            #print("append series index ",ser.index)
+            #print("df cols",compressed_df.columns)
+            #print("SAME? ",all(ser.index == compressed_df.columns))
+            compressed_df = pd.concat(
+                    [compressed_df,ser.to_frame().T],
+                    ignore_index=True)
+        return compressed_df
 
     def velocity_convention(self,veldef,velframe):
         # GBT uses VELDEF and VELFRAME incorrectly. 
@@ -105,7 +162,7 @@ class GBTFITSLoad(SDFITSLoad):
         return df[(df["PROC"]=="OnOff") | ( df["PROC"] == "OffOn")]
 
     def select(self,key,value,df):
-        return df[(df[key]==value) | ( df[key] == value)]
+        return df[(df[key]==value)]
 
     def _create_index_if_needed(self):
         if self._ptable is None:
@@ -125,7 +182,8 @@ class GBTFITSLoad(SDFITSLoad):
         TODO: figure how to allow [startscan, endscan]
         Returns 
         -------
-                ? ScanBlock
+            psscan : ~scan.GBTPSScan
+                A `GBTPScan` object containing the data which can be calibrated.
         '''
         # all ON/OFF scans
         kwargs_opts = {
@@ -151,6 +209,87 @@ class GBTFITSLoad(SDFITSLoad):
         g = GBTPSScan(self,scanlist,rows,calrows,bintable)
         return g
 
+    def gettp(self,scan,sig,cal,bintable=0,**kwargs):
+        kwargs_opts = {
+                'ifnum': 0,
+                'plnum' : 0, 
+                'fdnum' : 0,
+                'subref': None, # subreflector position
+                'timeaverage' : True,
+                'polaverage': True,
+                'weights' : 'equal', # or 'tsys' or ndarray
+                'calibrate': False
+        }   
+        kwargs_opts.update(kwargs)
+        TF = {True : 'T', False:'F'}
+        sigstate = {True : 'SIG', False:'REF'}
+        calstate = {True : 'ON', False:'OFF'}
+        ifnum = kwargs_opts['ifnum']
+        plnum = kwargs_opts['plnum']
+        fdnum =kwargs_opts['fdnum']
+        subref = kwargs_opts['subref']
+        # do you have to give sig or cal?
+        df = self._ptable[0]
+        df = df[(df["SCAN"] == scan)]
+        if sig is not None:
+            sigch = TF[sig]
+            df = df[(df['SIG']==sigch)]
+            print('S ',len(df))
+        if cal is not None:
+            calch = TF[cal]
+            df = df[df['CAL']==calch]
+            print('C ',len(df))
+        if ifnum is not None:
+            df = df[df['IFNUM']==ifnum]
+            print('I ',len(df))
+        if plnum is not None:
+            df = df[df['PLNUM']==plnum]
+            print('P ',len(df))
+        if fdnum is not None:
+            df = df[df['FDNUM']==fdnum]
+            print('F ',len(df))
+        if subref is not None:
+            df = df[df['SUBREF_STATE']==subref]
+            print('SR ',len(df))
+        #TBD: if ifnum is none then we will have to sort these by ifnum, plnum and store separate arrays or something. 
+        tprows = list(df.index)
+        #data = self.rawspectra(bintable)[tprows]
+        calrows = self.calonoff_rows(scans=scan,bintable=bintable,**kwargs_opts)
+        print(len(calrows['ON']))
+        g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable,kwargs_opts['calibrate'])
+        return g
+
+    # special nod for KA data.
+    # See /users/dfrayer/gbtidlpro/snodka
+
+    def getnod_ka(self,scan,bintable=0,**kwargs):
+        kwargs_opts = {
+                'ifnum': 0,
+                'fdnum' : 0,
+                'timeaverage' : True,
+                'polaverage': True,
+                'weights' : 'equal' # or 'tsys' or ndarray
+        } 
+        kwargs_opts.update(kwargs)
+        ifnum = kwargs_opts['ifnum']
+        fdnum = kwargs_opts['fdnum']
+        if fdnum == 1:
+            plnum = 0
+            tpon  = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1)
+            tpoff = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1)
+        elif fdnum == 0:
+            plnum = 1
+            tpoff = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1)
+            tpon  = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1)
+        else:
+            raise ValueError(f"Feed number {fdnum} must be 0 or 1.")
+        on  =  tpon.timeaverage(weights=kwargs_opts['weights']) 
+        off = tpoff.timeaverage(weights=kwargs_opts['weights'])
+        meanTsys = 0.5*(off.meta['TSYS']+on.meta['TSYS'])
+        print(f"Tsys(ON) = {on.meta['TSYS']}, Tsys(OFF) = {off.meta['TSYS']}, meanTsys = {meanTsys}")
+        data = meanTsys*(on - off)/off
+        data.meta['TSYS'] = meanTsys
+        return data
 
     def onoff_scan_list(self,scans=None,ifnum=0,plnum=0,bintable=0):
         self._create_index_if_needed()
@@ -224,9 +363,13 @@ class GBTFITSLoad(SDFITSLoad):
 
         return s
 
-    def calonoff_rows(self,scans=None,bintable=0):
+    def calonoff_rows(self,scans=None,bintable=0,**kwargs):
         self._create_index_if_needed()
         s = {"ON": [], "OFF" :[]}
+        ifnum  = kwargs.get('ifnum',None)
+        plnum  = kwargs.get('plnum',None)
+        fdnum  = kwargs.get('fdnum',None)
+        subref = kwargs.get('subref',None)
         if type(scans) == int:
             scans = [scans]
         df    = self._ptable[bintable]
@@ -234,6 +377,18 @@ class GBTFITSLoad(SDFITSLoad):
             df = df[df["SCAN"].isin(scans)]
         dfon  = self.select("CAL","T",df)
         dfoff = self.select("CAL","F",df)
+        if ifnum is not None:
+            dfon  = self.select("IFNUM",ifnum,dfon)
+            dfoff  = self.select("IFNUM",ifnum,dfoff)
+        if plnum is not None:
+            dfon  = self.select("PLNUM",plnum,dfon)
+            dfoff  = self.select("PLNUM",plnum,dfoff)
+        if fdnum is not None:
+            dfon  = self.select("FDNUM",fdnum,dfon)
+            dfoff  = self.select("FDNUM",fdnum,dfoff)
+        if subref is not None:
+            dfon  = self.select("SUBREF_STATE",subref,dfon)
+            dfoff  = self.select("SUBREF_STATE",subref,dfoff)
         s["ON"]  = list(dfon.index)
         s["OFF"] = list(dfoff.index)
         return s
@@ -247,10 +402,7 @@ class GBTFITSLoad(SDFITSLoad):
         rows = {"ON": [], "OFF" :[]}
         if type(scans) is int:
             scans = [scans]
-        if scans is not None:
-            scans = self.onoff_scan_list(None,ifnum,plnum,bintable)
-        else:
-            scans = self.onoff_scan_list(scans,ifnum,plnum,bintable)
+        scans = self.onoff_scan_list(scans,ifnum,plnum,bintable)
         #scans is now a dict of "ON" "OFF
         for key in scans: 
             rows[key] = self.scan_rows(scans[key],ifnum,plnum,bintable)
@@ -268,28 +420,73 @@ class GBTFITSLoad(SDFITSLoad):
         if len(rows) == 0:
             raise Exception(f"Scans {scans} not found in bintable {bintable}")
         return rows
+
+    def _scan_rows_all(self,scans):
+        """get scan rows regardless of ifnum,plnum, bintable.
         
+        Parameters
+        ----------
+            scans : int or list-like
+                The scan numbers to find the rows of
 
-# OLD PJT method
-# @This only works if the FITS FILE contains ONLY ons and offs
-def sonoff(scan, procseqn):
-    """
-    return the list of On and Off scan numbers
-    there must be a more elegant python way to do this....
-    """
-    sp = {}
-    for (i,j) in zip(scan, procseqn):
-        sp[i] = j
-    
-    us1 = uniq(scan)
-    up1 = uniq(procseqn)
-    
-    sd = {}
-    for i in up1:
-        sd[i] = []
-        
-    for s in us1:
-        sd[sp[s]].append(s)
+        Returns
+        -------
+            rows : list
+                Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
+        """
+        if scans is None:
+            raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
+        df_out = []
+        rows = []
+        for pt in self._ptable:
+            df_out.append(pt[pt["SCAN"].isin(scans)])
+        for df in df_out:
+            rows.append(list(df.index))
+        return rows
 
-    return sd
+    def write_scans(self,fileobj,scans,output_verify="exception",overwrite=False,checksum=False):
+        """
+        Write specific scans of the `GBTFITSLoad` to a new file.
 
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+
+        scans: int or list-like
+            Range of scans to write out. e.g. 0, [14,25,32]. 
+
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+        """
+        # get the rows that contain the scans in all bintables
+        rows = self._scan_rows_all(scans)
+        #print("Using rows",rows)
+        hdu0 = self._hdu[0].copy()
+        outhdu = fits.HDUList(hdu0)
+        # get the bintables rows as new bintables.
+        for i in range(len(rows)):
+            ob = self._bintable_from_rows(rows[i],i)
+            #print(f"bintable {i} #rows {len(rows[i])} data length {len(ob.data)}")
+            if len(ob.data) > 0:
+                outhdu.append(ob)
+        #print(outhdu.info())
+        # write it out!
+        outhdu.update_extend() # possibly unneeded
+        outhdu.writeto(fileobj,
+            output_verify=output_verify,
+            overwrite=overwrite, checksum=checksum)
