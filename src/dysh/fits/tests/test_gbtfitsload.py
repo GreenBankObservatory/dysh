@@ -94,7 +94,8 @@ class TestGBTFITSLoad():
         # Now, both on and off.
         tps = sdf.gettp(152, sig=True, cal=True)
         tps_tavg = tps.timeaverage()
-        gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
+        #gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
+        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits")
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
         spec = table["DATA"][0]
