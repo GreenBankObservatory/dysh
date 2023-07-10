@@ -162,6 +162,23 @@ class GBTFITSLoad(SDFITSLoad):
         return df[(df["PROC"]=="OnOff") | ( df["PROC"] == "OffOn")]
 
     def select(self,key,value,df):
+        """Select data where key=value
+
+        Parameters
+        ----------
+
+            key : str
+                The key value (SDFITS column name)
+            value : any
+                The value to match
+            df : ~pandas.DataFrame
+                The DataFrame to search
+
+        Returns
+        -------
+            df : ~pandas.DataFrame
+                The subselected DataFrame
+        """
         return df[(df[key]==value)]
 
     def _create_index_if_needed(self):
@@ -210,6 +227,23 @@ class GBTFITSLoad(SDFITSLoad):
         return g
 
     def gettp(self,scan,sig,cal,bintable=0,**kwargs):
+        """Get a total power scan, optionally calibrating it.
+
+        Parameters
+        ----------
+            scan: int
+                scan number
+            sig : bool
+                True to indicate if this is the signal scan, False if reference
+            cal: bool
+                True if calibration (diode) is on, False if off.
+            bintable : int
+                the index for BINTABLE in `sdfits` containing the scans
+            calibrate: bool
+                whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+
+            scan args - ifnum, plnum, fdnum, subref
+        """
         kwargs_opts = {
                 'ifnum': 0,
                 'plnum' : 0, 
@@ -218,7 +252,7 @@ class GBTFITSLoad(SDFITSLoad):
                 'timeaverage' : True,
                 'polaverage': True,
                 'weights' : 'equal', # or 'tsys' or ndarray
-                'calibrate': False
+                'calibrate': True
         }   
         kwargs_opts.update(kwargs)
         TF = {True : 'T', False:'F'}
@@ -263,6 +297,31 @@ class GBTFITSLoad(SDFITSLoad):
     # See /users/dfrayer/gbtidlpro/snodka
 
     def getnod_ka(self,scan,bintable=0,**kwargs):
+        """Get a subbeam nod power scan, optionally calibrating it.
+
+        Parameters
+        ----------
+            scan: int
+                scan number
+            sig : bool
+                True to indicate if this is the signal scan, False if reference
+            cal: bool
+                True if calibration (diode) is on, False if off.
+            bintable : int
+                the index for BINTABLE in `sdfits` containing the scans
+            calibrate: bool
+                whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+            weights: str
+                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging
+
+            scan args - ifnum, fdnum, subref  (plnum depends on fdnum)
+
+        Returns
+        -------
+
+            data : ~spectra.Spectrum
+                A Spectrum object containing the data
+        """
         kwargs_opts = {
                 'ifnum': 0,
                 'fdnum' : 0,
@@ -292,6 +351,21 @@ class GBTFITSLoad(SDFITSLoad):
         return data
 
     def onoff_scan_list(self,scans=None,ifnum=0,plnum=0,bintable=0):
+        """Get the scan row indices for position-switch data sorted by ON and OFF state
+                scans : int or list-like
+                    The scan numbers to find the rows of
+                ifnum : int
+                    the IF index
+                plnum : int
+                    the polarization index
+                bintable : int
+                    the index for BINTABLE containing the scans
+
+            Returns
+            -------
+                rows : dict
+                    A dictionary with keys 'ON' and 'OFF' giving the row indices of ON and OFF data for the input scan(s)
+        """
         self._create_index_if_needed()
         #print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum})")
         s = {"ON": [], "OFF" :[]}
@@ -364,6 +438,28 @@ class GBTFITSLoad(SDFITSLoad):
         return s
 
     def calonoff_rows(self,scans=None,bintable=0,**kwargs):
+        """Get individual scan row numbers  sorted by whether the calibration (diode) was on or off, and selected by ifnum,plnum, fdnum,subref,bintable.
+        
+        Parameters
+        ----------
+            scans : int or list-like
+                The scan numbers to find the rows of
+            ifnum : int
+                the IF index
+            plnum : int
+                the polarization index
+            fdnum : int
+                the feed index
+            subref : int
+                the subreflector state (-1,0,1)
+            bintable : int
+                the index for BINTABLE containing the scans
+
+        Returns
+        -------
+            rows : dict
+                A dictionary with keys 'ON' and 'OFF' giving the row indices of CALON and CALOFF data for the input scan(s)
+        """
         self._create_index_if_needed()
         s = {"ON": [], "OFF" :[]}
         ifnum  = kwargs.get('ifnum',None)
@@ -394,6 +490,24 @@ class GBTFITSLoad(SDFITSLoad):
         return s
 
     def onoff_rows(self,scans=None,ifnum=0,plnum=0,bintable=0): 
+        """get individual ON/OFF (position switch) scan row numbers selected by ifnum,plnum, bintable.
+        
+        Parameters
+        ----------
+            scans : int or list-like
+                The scan numbers to find the rows of
+            ifnum : int
+                the IF index
+            plnum : int
+                the polarization index
+            bintable : int
+                the index for BINTABLE in `sdfits` containing the scans
+
+        Returns
+        -------
+            rows : dict
+                A dictionary with keys 'ON' and 'OFF' giving the row indices of the ON and OFF data for the input scan(s)
+        """
     #@TODO deal with mulitple bintables
     #@TODO rename this sigref_rows?
     # keep the bintable keyword and allow iteration over bintables if requested (bintable=None) 
@@ -409,6 +523,24 @@ class GBTFITSLoad(SDFITSLoad):
         return rows
         
     def scan_rows(self,scans,ifnum=0,plnum=0,bintable=0):
+        """get scan rows selected by ifnum,plnum, bintable.
+        
+        Parameters
+        ----------
+            scans : int or list-like
+                The scan numbers to find the rows of
+            ifnum : int
+                the IF index
+            plnum : int
+                the polarization index
+            bintable : int
+                the index for BINTABLE in `sdfits` containing the scans
+
+        Returns
+        -------
+            rows : list
+                Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
+        """
         #scans is a list
         #print(f"scan_rows(scans={scans},if={ifnum},pl={plnum})")
         self._create_index_if_needed()

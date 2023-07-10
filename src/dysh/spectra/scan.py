@@ -333,10 +333,10 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
         # todo use gbtfits.velocity_convention(veldef,velframe)
         vc = "doppler_radio"
         # so quick with slicing!
-        self._sigonrows = list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"])))
-        self._sigoffrows = list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"])))
-        self._refonrows = list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"])))
-        self._refoffrows = list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"])))
+        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
+        self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
+        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
+        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         self._sigcalon = gbtfits.rawspectra(bintable)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(bintable)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(bintable)[self._refonrows]

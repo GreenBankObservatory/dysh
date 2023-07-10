@@ -1,6 +1,15 @@
 .. include:: ../README.md
     :parser: myst_parser.sphinx_
 
+***************
+Getting Started
+***************
+
+.. toctree::
+    :maxdepth: 1
+
+    example
+
 Module Descriptions and APIs
 ============================
 
