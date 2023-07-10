@@ -1,6 +1,7 @@
 
 import os
 import pytest
+import pathlib
 import numpy as np
 
 from astropy.io import fits
@@ -9,7 +10,11 @@ from astropy.utils.data import (
                     get_pkg_data_filenames,
                     )
 
+import dysh
 from dysh.fits import gbtfitsload
+
+
+dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
 
 class TestGBTFITSLoad():
@@ -28,6 +33,7 @@ class TestGBTFITSLoad():
                     "TGBT21A_501_11_ifnum_0_int_0-2.fits": 24,
                     "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits": 1,
                     "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_1.fits": 1,
+                    "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits": 1,
                     }
 
         for fnm in self._file_list:
@@ -71,16 +77,26 @@ class TestGBTFITSLoad():
         # Get the answer from dysh.
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11.raw.vegas.fits")
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps_on = sdf.gettp(152, sig=True, cal=True)
+        tps_on = sdf.gettp(152, sig=True, cal=True, calibrate=False)
 
         # Compare.
         diff = tps_on.total_power(0).flux.value - gbtidl_gettp
         assert np.nanmean(diff) == 0.0
 
         # Now with the noise diode Off.
-        tps_off = sdf.gettp(152, sig=True, cal=False)
+        tps_off = sdf.gettp(152, sig=True, cal=False, calibrate=False)
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits")
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         diff = tps_off.total_power(0).flux.value - gbtidl_gettp
+        assert np.nanmean(diff) == 0.0
+
+        # Now, both on and off.
+        tps = sdf.gettp(152, sig=True, cal=True)
+        tps_tavg = tps.timeaverage()
+        gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
+        hdu = fits.open(gbtidl_file)
+        table = hdu[1].data
+        spec = table["DATA"][0]
+        diff = tps.total_power(0).flux.value - spec
         assert np.nanmean(diff) == 0.0
