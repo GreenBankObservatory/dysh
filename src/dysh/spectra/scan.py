@@ -11,7 +11,7 @@ class PSScan(object):
 
     Parameters
     ----------
-        sdfits : ~SDFITSLoad
+        sdfits : `~fits.sdfitsload.SDFITSLoad`
             input SDFITSLoad object (or derivative)
         scans : dict
             dictionary with keys 'ON' and 'OFF' containing unique list of ON (sig) and OFF (ref) scan numbers
@@ -51,10 +51,25 @@ class PSScan(object):
         return self._npol
 
     def timeaverage(self,weights=None):
+        r'''Compute the time-averaged spectrum for this set of scans. 
+        
+        Parameters
+        ----------
+                weights: str
+                    'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+                    Default: 'tsys'
+        Returns
+        -------
+                spectrum : :class:`~spectra.spectrum.Spectrum`
+                    The time-averaged spectrum
+        '''
         # weights = None (equal) or "tsys"
         self._timeaveraged = average(self._calibrated)
         # this should really be a spectrum
-        return self_timeaveraged
+        return self._timeaveraged
 
     #@TODO write calibrated data to a FITS? file.
     #def write(self,filename,format,**kwargs):
@@ -137,25 +152,26 @@ class TPScan(object):
         return self._nrows
 
 class GBTTPScan(TPScan): 
-    """GBT specific version of Total Power Scan (TPScan)
+    """GBT specific version of Total Power Scan (`~spectra.scan.TPScan`)
+
     Parameters
     ----------
-        gbtfits : ~GBFITSLoad
-            input GBFITSLoad object 
-        scan: int
-            scan number
-        sigstate : str
-            one of 'SIG' or 'REF' to indicate if this is the signal or reference scan
-        calstate : str
-            one of 'ON' or 'OFF' to indicate the calibration state of this scan, or None
-        scanrows : list-like
-            the list of rows in `sdfits` corresponding to sig_state integrations 
-        calrows : dict
-            dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
-        calibrate: bool
-            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+    gbtfits : `~fits.gbtfitsload.GBFITSLoad`
+        input GBFITSLoad object 
+    scan: int
+        scan number
+    sigstate : str
+        one of 'SIG' or 'REF' to indicate if this is the signal or reference scan
+    calstate : str
+        one of 'ON' or 'OFF' to indicate the calibration state of this scan, or None
+    scanrows : list-like
+        the list of rows in `sdfits` corresponding to sig_state integrations 
+    calrows : dict
+        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
+    bintable : int
+        the index for BINTABLE in `sdfits` containing the scans
+    calibrate: bool
+        whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     """
 #@TODO get rid of calrows and calc tsys in gettp and pass it in.
     def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable,calibrate=True):
@@ -177,10 +193,11 @@ class GBTTPScan(TPScan):
     @property
     def tsys(self):
         """The system temperature array. 
+
         Returns
         -------
-            tsys : ~numpy.ndarray 
-                System temperature values in K
+        tsys : `~numpy.ndarray`
+            System temperature values in K
         """
         return self._tsys
 
@@ -215,11 +232,12 @@ class GBTTPScan(TPScan):
             exposure =  0.5*(exp_ref_on + exp_ref_off) 
         
         Note we only have access to the refon and refoff row indices so can't use sig here.
-           Returns
-           -------
-                exposure : ~numpy.ndarray
-                    The exposure time in units of the EXPOSURE keyword in the SDFITS header
         This is probably incorrect
+
+        Returns
+        -------
+            exposure : `~numpy.ndarray`
+                The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
         exp_ref_on  = self._sdfits.index(self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
         exp_ref_off = self._sdfits.index(self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
@@ -230,14 +248,15 @@ class GBTTPScan(TPScan):
     def delta_freq(self):
         """Get the array of channel frequency width
 
-            df =  0.5*(df_ref_on + df_ref_off) 
+           df =  0.5*(df_ref_on + df_ref_off) 
         
         Note we only have access to the refon and refoff row indices so can't use sig here.
         This is probably incorrect
-           Returns
-           -------
-                delta_freq: ~numpy.ndarray
-                    The channel frequency width in units of the CDELT1 keyword in the SDFITS header
+
+        Returns
+        -------
+            delta_freq: `~numpy.ndarray`
+                The channel frequency width in units of the CDELT1 keyword in the SDFITS header
         """
         df_ref_on = self._sdfits.index(self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
         df_ref_off = self._sdfits.index(self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
@@ -246,19 +265,22 @@ class GBTTPScan(TPScan):
 
     @property
     def _tsys_weight(self):
+        r'''The system temperature weighting array computed from current
+        :math:`T_{sys}, t_{exp}`, and `\delta\nu`. See :meth:`tsys_weight` 
+        '''
         return tsys_weight(self.exposure,self.delta_freq,self.tsys)
 
     def total_power(self,i):
         """Return the total power spectrum
 
         Parameters
-        ---------
+        ----------
             i : int
                 The index into the data array
 
         Returns
         -------
-            spectrum : ~Spectrum
+            spectrum : `~spectra.spectrum.Spectrum`
         """
         meta = dict(self._sdfits.index(self._bintable_index).iloc[self._scanrows[i]])
         meta['TSYS'] = self._tsys[i]
@@ -295,6 +317,21 @@ class GBTTPScan(TPScan):
         return s
 
     def timeaverage(self,weights='tsys'):
+        r'''Compute the time-averaged spectrum for this set of scans. 
+        
+        Parameters
+        ----------
+                weights: str
+                    'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+                    Default: 'tsys'
+        Returns
+        -------
+                spectrum : :class:`~spectra.spectrum.Spectrum`
+                    The time-averaged spectrum
+        '''
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == 'tsys':
             #print("TSYS weighting ",self._tsys_weight)
@@ -307,18 +344,20 @@ class GBTTPScan(TPScan):
 
 class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only difference is the keys.
     """GBT specific version of Position Switch Scan (PSScan)
-    Parameters
-    ----------
-        gbtfits : ~GBFITSLoad
-            input GBFITSLoad object 
-        scans : dict
-            dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
-        scanrows : dict
-            dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
-        calrows : dict
-            dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations. 
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
+
+       Parameters
+       ----------
+
+       gbtfits : `~fit.gbtfitsload.GBFITSLoad`
+           input GBFITSLoad object 
+       scans : dict
+           dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
+       scanrows : dict
+           dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
+       calrows : dict
+           dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations. 
+       bintable : int
+           the index for BINTABLE in `sdfits` containing the scans
     """
     def __init__(self, gbtfits, scans, scanrows, calrows, bintable=0):
         PSScan.__init__(self,gbtfits,scans,scanrows,bintable)
@@ -348,29 +387,28 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
 
     @property
     def tsys(self):
-        """The system temperature array. This will be `None` until 
-           calibration is done
+        """The system temperature array. This will be `None` until calibration is done.
 
         Returns
         -------
-            tsys : ~numpy.ndarray 
-                System temperature values in K
+        tsys : `~numpy.ndarray`
+            System temperature values in K
         """
         return self._tsys
 
     #TODO something clever 
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self,i):
-        """Return the calibrated Spectrum
+        """Return the calibrated Spectrum.
         
         Parameters
-        ---------
+        ----------
             i : int
                 The index into the calibrated array
 
         Returns
         -------
-            spectrum : ~Spectrum
+            spectrum : `~spectra.spectrum.Spectrum`
         """
         meta = dict(self._sdfits.index(self._bintable_index).iloc[self._scanrows["ON"][i]])
         meta['TSYS'] = self._tsys[i]
@@ -445,7 +483,7 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
     def exposure(self):
         """Get the array of exposure (integration) times
 
-            exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
+           exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
         
            Returns
            -------
@@ -465,7 +503,7 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
     def delta_freq(self):
         """Get the array of channel frequency width
 
-            df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
+           df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
         
            Returns
            -------
@@ -484,23 +522,25 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
     @property
     def _tsys_weight(self):
         r'''The system temperature weighting array computed from current
-        $T_{sys}, t_{int}$, and $\delta\nu$. See :meth:`tsys_weight` 
+        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight` 
         '''
         return tsys_weight(self.exposure,self.delta_freq,self.tsys)
 
     def timeaverage(self,weights='tsys'):
-        r'''Compute the time-averaged spectrum for this PSScan. 
+        r'''Compute the time-averaged spectrum for this set of scans. 
         
         Parameters
         ----------
                 weights: str
                     'tsys' or None.  If 'tsys' the weight will be calculated as:
-                        $$w = t_{int} * \delta\nu/T_{sys}^2$%
+
+                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
                     Default: 'tsys'
         Returns
         -------
-                spectrum : :class:`~spectra.Spectrum`
-                    The time-average spectrum
+                spectrum : :class:`~spectra.spectrum.Spectrum`
+                    The time-averaged spectrum
         '''
         if self._calibrated is None:
             raise Exception("You can't time average before calibration.")
