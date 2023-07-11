@@ -260,13 +260,20 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # See github issue #28
     #print(f"DCMEANTSYS Tcal {tcal} MEAN TCAL {np.mean(tcal)}")
     if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
-        meanoff = np.mean(caloff[nedge:-(nedge-1)])
-        meandiff = np.mean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
+        meanoff = np.nanmean(caloff[nedge:-(nedge-1)])
+        meandiff = np.nanmean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
+        if False:
+            if meandiff < 0  :
+                print(f"moff {meanoff}, mdif {meandiff}, tc {tcal}")
+                print(f"CALON: {calon[nedge:-(nedge-1)]}")
+                print(f"CALOF: {caloff[nedge:-(nedge-1)]}")
+                print(f"DIFF: {calon[nedge:-(nedge-1)]-caloff[nedge:-(nedge-1)]}")
+                print(f"CALOF: {caloff[nedge:-(nedge-1)]}")
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
     else:
         meanTsys = np.mean( caloff[nedge:-(nedge-1)] / (calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)]) )
         meanTsys = meanTsys * tcal + tcal/2.0
-    return meanTsys
+    return np.abs(meanTsys)
 
 def veldef_to_convention(veldef):
     """given a VELDEF, return the velocity convention expected by Spectrum(1D)
@@ -314,26 +321,32 @@ def average(data,axis=0,weights=None):
     return np.average(data,axis,weights)
 
 def tsys_weight(exposure,delta_freq,tsys):
-    """Compute the system temperature based weight(s).
-       If exposure, delta_freq, or tsys parameters are given as ~astropy.unit.Quantity, 
+    r"""Compute the system temperature based weight(s) using the expression:
+        
+        $w = t_{exp} \times \delta_\nu / T_{sys}^2$,
+
+       where $t_{exp} is the exposure time, $\delta_\nu$ is the frequency resolution, and $T_{sys}$ is the systemp temperature.
+
+       If `exposure`, `delta_freq`, or `tsys` parameters are given as `~astropy.units.Quantity`,
        they will be converted to seconds, Hz, K, respectively for the calculation.
        (Not that this really matters since weights are relative to each other)
     
-       *Note:*The parameters *cannot* be given as arrays of ~astropy.unit.Quantity, e.g. [3*~astropy.unit.Unit('s'), 4*~astropy.unit.Unit('s')].
-       Rather, if using ~astropy.unit.Quantity, they have to be ~astropy.unit.Quantity objects, e.g. [3, 4]*~astropy.unit.Unit('s')
+       **Note:** The parameters cannot be given as arrays of `~astropy.units.Quantity`, 
+        e.g., [3*`~astropy.units.Unit`('s'), 4*`~astropy.unit.Unit`('s')].
+       Rather, if using `~astropy.units.Quantity`, they have to be `~astropy.units.Quantity` objects, e.g., [3, 4]*`~astropy.unit.Unit`('s')
 
        Parameters
        ----------
-            exposure: ~numpy.ndarray or float or ~astropy.unit.Quantity
+            exposure : :class:`~numpy.ndarray`, float, or :class:`~astropy.units.Quantity`
                 The exposure time, typically given in seconds
-            delta_freq: ~numpy.ndarray or float or ~astropy.unit.Quantity
+            delta_freq : :class:`~numpy.ndarray`, float, or :class:`~astropy.units.Quantity`
                 The channel width in frequency units
-            tsys: ~numpy.ndarray or float or ~astropy.unit.Quantity
+            tsys: `~numpy.ndarray`, float, or `~astropy.units.Quantity`
                 The system temperature, typically in K 
        Returns
        -------
-            average : ~numpy.ndarray
-                The average along the input axis
+            weight :class:`~numpy.ndarray`
+                The weights array
     """
 
     # Quantitys work with abs and power!

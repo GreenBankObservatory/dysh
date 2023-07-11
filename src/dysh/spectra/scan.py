@@ -147,7 +147,7 @@ class GBTTPScan(TPScan):
         sigstate : str
             one of 'SIG' or 'REF' to indicate if this is the signal or reference scan
         calstate : str
-            one of 'ON' or 'OFF' to indicate if the calibration statio of this scan
+            one of 'ON' or 'OFF' to indicate the calibration state of this scan, or None
         scanrows : list-like
             the list of rows in `sdfits` corresponding to sig_state integrations 
         calrows : dict
@@ -169,7 +169,7 @@ class GBTTPScan(TPScan):
         self._refcaloff = gbtfits.rawspectra(bintable)[self._refoffrows]
         self._calibrate=calibrate
         if self._calibrate:
-            print("CALIBRATE")
+            print("CALIBRATING")
             self._data = 0.5*(self._refcalon+self._refcaloff)
         print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
         self.calc_tsys()
@@ -194,10 +194,13 @@ class GBTTPScan(TPScan):
         kwargs_opts.update(kwargs)
 
         self._status = 1
-        nspect = self.nrows
-        self._tsys= np.empty(nspect, dtype=float) # should be same as len(calon)
 
         tcal = list(self._sdfits.index(self._bintable_index).iloc[self._refonrows]["TCAL"])
+        nspect = len(tcal)
+        self._tsys= np.empty(nspect, dtype=float) # should be same as len(calon)
+        #allcal = self._refonrows.copy()
+        #allcal.extend(self._refoffrows)
+        #tcal = list(self._sdfits.index(self._bintable_index).iloc[sorted(allcal)]["TCAL"])
         #@Todo  this loop could be replaces with clever numpy
         if len(tcal) != nspect: 
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
@@ -480,9 +483,25 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
 
     @property
     def _tsys_weight(self):
+        r'''The system temperature weighting array computed from current
+        $T_{sys}, t_{int}$, and $\delta\nu$. See :meth:`tsys_weight` 
+        '''
         return tsys_weight(self.exposure,self.delta_freq,self.tsys)
 
     def timeaverage(self,weights='tsys'):
+        r'''Compute the time-averaged spectrum for this PSScan. 
+        
+        Parameters
+        ----------
+                weights: str
+                    'tsys' or None.  If 'tsys' the weight will be calculated as:
+                        $$w = t_{int} * \delta\nu/T_{sys}^2$%
+                    Default: 'tsys'
+        Returns
+        -------
+                spectrum : :class:`~spectra.Spectrum`
+                    The time-average spectrum
+        '''
         if self._calibrated is None:
             raise Exception("You can't time average before calibration.")
         self._timeaveraged = deepcopy(self.calibrated(0))
