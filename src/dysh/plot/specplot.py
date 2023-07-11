@@ -15,11 +15,11 @@ class SpectrumPlot():
 
     Parameters
     ----------
-    
-        spectrum : ~spectra.Spectrum
-            The spectrum to plot
-        \**kwargs : dict
-            Plot attribute keyword arguments, see below.
+
+    spectrum : `~spectra.spectrum.Spectrum`
+        The spectrum to plot
+    \**kwargs : dict
+        Plot attribute keyword arguments, see below.
 
     Keyword Arguments
     -----------------
@@ -79,17 +79,18 @@ class SpectrumPlot():
         return self._figure
     @property
     def spectrum(self):
-        """The underlying ~spectra.Spectrum"""
+        """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
     def plot(self,**kwargs):
-        """Plot the spectrum.
+        """
+        Plot the spectrum.
 
-           Parameters
-           ----------
+        Parameters
+        ----------
 
-                kwargs : various
-                    keyword=value arguments (need to describe these in a central place)
+        \**kwargs : various
+            keyword=value arguments (need to describe these in a central place)
         """
         # xtype = 'velocity, 'frequency', 'wavelength'
         self._plot_kwargs.update(kwargs)
@@ -166,14 +167,14 @@ class SpectrumPlot():
            Parameters
            ----------
 
-                title : str
-                    plot title
-                xlabel : str
-                    x-axis label
-                ylabel : str
-                    x-axis label
-                kwargs : various
-                    other keyword=value arguments
+           title : str
+               plot title
+           xlabel : str
+               x-axis label
+           ylabel : str
+               x-axis label
+           \*\*kwargs : various
+               other keyword=value arguments
         """
         if title is not None:
             self._title = title
@@ -217,7 +218,7 @@ class SpectrumPlot():
             self.axis.set_ylabel(f"{snu} ({yunit})")
 
     def _show_exclude(self,**kwargs):
-        ''' Method to show the exclude array on the plot'''
+        '''TODO: Method to show the exclude array on the plot'''
         kwargs_opts = {
             'loc': "bottom", #top,bottom ?
             'color' : 'silver',
@@ -229,6 +230,7 @@ class SpectrumPlot():
 
 
     def refresh(self):
+        """Refresh the plot"""
         if self.axis is not None:
             self.axis.figure.canvas.draw()
             #print('redrawing')
