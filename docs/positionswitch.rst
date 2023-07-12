@@ -5,7 +5,8 @@ Position-Switched Data
 Calibrating Position-Switched Data
 ==================================
 
-Single beam position-switched (PS) data is retrieved using :meth:`~GBTFITSLoad.getps` which returns a `~GBTPSScan` position-switched scan object that is used to calibrate and average the data.  First, import the relevant modules::
+
+Single beam position-switched (PS) data is retrieved using :meth:`~GBTFITSLoad.getps` which returns a :class:`~spectra.GBTPSScan` position-switched scan object that is used to calibrate and average the data.  First, import the relevant modules::
 
     >>> from dysh.fits.gbtfitsload import GBTFITSLoad
     >>> from dysh.spectra.scan import GBTPSScan
@@ -43,7 +44,8 @@ The system temperature array (numpy.ndarray) is stored in `tsys`::
     >>> print(f"T_sys = {pscan.tsys.mean():.2f}:")
         T_sys = 17.17
 
-To time average the data, using system temperature weighting (other option is 'equal' weighting; 'tsys' is the default if no `weights` parameter is given. The returned object is ~spectra.Spectrum, which has a default matplotlib plotter attached::
+To time average the data, using system temperature weighting (other option is 'equal' weighting; 'tsys' is the default if no `weights` parameter is given. Future upgrade will allow user to provide a numeric weights array). The returned object is :class:`~spectra.Spectrum`, which has a default matplotlib plotter attached::
+
 
     >>> ta = psscan.timeaverage(weights='tsys')
     >>> ta.plot()
@@ -57,3 +59,6 @@ The `plot()` command allows changing of axis units and also recognizes a number 
 
 Removing a baseline
 ===================
+
+Baselines can be removed from :class:`~spectra.Spectrum`
+
