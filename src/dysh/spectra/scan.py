@@ -67,7 +67,7 @@ class PSScan(object):
                     The time-averaged spectrum
         '''
         # weights = None (equal) or "tsys"
-        self._timeaveraged = average(self._calibrated)
+        self._timeaveraged = average(self._calibrated,weights=weights)
         # this should really be a spectrum
         return self._timeaveraged
 
