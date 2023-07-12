@@ -240,7 +240,7 @@ class GBTTPScan(TPScan):
         """
         exp_ref_on  = self._sdfits.index(self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
         exp_ref_off = self._sdfits.index(self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-        exposure = 0.5*(exp_ref_on + exp_ref_off)
+        exposure = (exp_ref_on + exp_ref_off)
         return exposure
 
     @property
@@ -312,7 +312,9 @@ class GBTTPScan(TPScan):
         vc = veldef_to_convention(meta['VELDEF'])
         
         s = Spectrum(self._data[i]*u.ct,wcs=wcs,meta=meta,velocity_convention=vc)
-        s.meta['TSYS'] = np.mean(self._tsys) 
+        s.meta['MEANTSYS'] = np.mean(self._tsys) 
+        s.meta['WTTSYS'] = average(self._tsys,0,self.exposure*self.delta_freq) 
+        s.meta['TSYS'] = s.meta['WTTSYS']
         return s
 
     def timeaverage(self,weights='tsys'):
@@ -496,6 +498,7 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
         exp_ref = 0.5*(exp_ref_on + exp_ref_off)
         exp_sig = 0.5*(exp_sig_on + exp_sig_off)
         exposure = 0.5*(exp_ref + exp_sig)
+        #exposure = exp_ref + exp_sig
         return exposure
 
     @property
