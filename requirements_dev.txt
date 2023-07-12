@@ -12,3 +12,4 @@ black
 sphinx_rtd_theme
 sphinxcontrib_mermaid
 myst_parser
+wget

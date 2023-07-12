@@ -15,7 +15,6 @@ class SpectrumPlot():
 
     Parameters
     ----------
-
     spectrum : `~spectra.spectrum.Spectrum`
         The spectrum to plot
     \**kwargs : dict
@@ -88,7 +87,6 @@ class SpectrumPlot():
 
         Parameters
         ----------
-
         \**kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
@@ -166,7 +164,6 @@ class SpectrumPlot():
 
            Parameters
            ----------
-
            title : str
                plot title
            xlabel : str
