@@ -26,16 +26,30 @@ import warnings
 
 def exclude_to_region(exclude,refspec,fix_exclude=False):
     """Convert an exclude list to a list of ~specutuls.SpectralRegion.
+
        Parameters
        ----------        
 
-            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
-                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  
-in channel units.  
+            exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:
 
-                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
-    
-            refspec: `Spectrum`
+                One channel-based region: 
+
+                >>> [11,51] 
+
+                Two channel-based regions: 
+
+                >>> [(11,51),(99,123)] 
+
+                One `~astropy.units.Quantity` region: 
+
+                >>> [110.198*u.GHz,110.204*u.GHz]. 
+
+                One compound `~specutils.SpectralRegion`: 
+
+                >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+                
+            refspec: `~spectra.spectrum.Spectrum`
                 The reference spectrum whose spectral axis will be used 
                 when converting between exclude and axis units (e.g. channels to GHz).
             fix_exclude: bool
@@ -43,8 +57,8 @@ in channel units.
  
       Returns
       ----------        
-            regionlist : list of ~specutil.SpectralRegion
-            A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
+            regionlist : list of `~specutil.SpectralRegion`
+                A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
 
     """
     regionlist = [] 
@@ -116,9 +130,10 @@ def region_to_axis_indices(region,refspec):
         Parameters
         ----------
             region : `~specutils.SpectralRegion`
-            refspec: `Spectrum`
+            refspec: `~spectra.spectrum.Spectrum`
                 The reference spectrum whose spectral axis will be used 
-                when converting between exclude and axis units (e.g. channels to GHz).
+                when converting between exclude and axis units (e.g., channels to GHz).
+
         Returns
         -------
             indices : 2-tuple of int
@@ -145,29 +160,41 @@ def baseline(spectrum,order,exclude=None,**kwargs):
 
        Parameters
        ----------        
-            spectrum : ~Spectrum
-                The input spectrum
-            order : int
-                The order of the polynomial series, a.k.a. baseline order
-            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
-                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  
-in channel units.  
+       spectrum : `~spectra.spectrum.Spectrum`
+           The input spectrum
+       order : int
+           The order of the polynomial series, a.k.a. baseline order
+       exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+           List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:
 
-                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+           One channel-based region: 
 
-                Default: no exclude region
+           >>> [11,51] 
 
-            model : str
-                One of 'polynomial' or 'chebyshev', Default: 'polynomial'
-            fitter : `~astropy.fitting._FitterMeta`
-                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+           Two channel-based regions: 
 
-        Returns
-        -------
-           models : list of `~astropy.modeling.Model`
-                The list of models that contain the fitted model parameters.
-                See `~specutuls.fitting.fit_continuum`.
-            
+           >>> [(11,51),(99,123)] 
+
+           One `~astropy.units.Quantity` region: 
+
+           >>> [110.198*u.GHz,110.204*u.GHz]. 
+
+           One compound `~specutils.SpectralRegion`: 
+
+           >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+           Default: no exclude region
+
+       model : str
+           One of 'polynomial' or 'chebyshev', Default: 'polynomial'
+       fitter : `~astropy.fitting._FitterMeta`
+           The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+
+       Returns
+       -------
+       models : list of `~astropy.modeling.Model`
+           The list of models that contain the fitted model parameters.
+           See `~specutuls.fitting.fit_continuum`.
+           
     """
     kwargs_opts = {
         #'show': False,
@@ -262,14 +289,22 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     chrng = slice(nedge,-(nedge-1),1)
 
     if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
-        meanoff = np.mean(caloff[chrng])
-        meandiff = np.mean(calon[chrng] - caloff[chrng])
+        meanoff = np.nanmean(caloff[chrng])
+        meandiff = np.nanmean(calon[chrng] - caloff[chrng])
+        if False:
+            if meandiff < 0  :
+                print(f"moff {meanoff}, mdif {meandiff}, tc {tcal}")
+                print(f"CALON: {calon[nedge:-(nedge-1)]}")
+                print(f"CALOF: {caloff[nedge:-(nedge-1)]}")
+                print(f"DIFF: {calon[nedge:-(nedge-1)]-caloff[nedge:-(nedge-1)]}")
+                print(f"CALOF: {caloff[nedge:-(nedge-1)]}")
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
     else:
         meanTsys = np.mean( caloff[chrng] / (calon[chrng] - caloff[chrng]) )
         meanTsys = meanTsys * tcal + tcal/2.0
 
-    return meanTsys
+    #return meanTsys
+    return np.abs(meanTsys) #meandiff can sometimes be negative, which makes Tsys negative!
 
 def veldef_to_convention(veldef):
     """given a VELDEF, return the velocity convention expected by Spectrum(1D)
@@ -300,43 +335,56 @@ def average(data,axis=0,weights=None):
        
        Parameters
        ----------
-            data : ~numpy.ndarray
-                The spectral data, typically with shape (nspect,nchan). 
-            axis : int
-                The axis over which to average the data.  Default axis=0 will return the average spectrum
-                if shape is (nspect,nchan)
-            weights : ~numpy.ndarray
-                The weights to use in averaging.  These might typically be system temperature based. 
-                The weights array must be the length of the axis over which the average is taken.
-                Default: None will use equal weights
+       data : `~numpy.ndarray`
+           The spectral data, typically with shape (nspect,nchan). 
+       axis : int
+           The axis over which to average the data.  Default axis=0 will return the average spectrum
+           if shape is (nspect,nchan)
+       weights : `~numpy.ndarray`
+           The weights to use in averaging.  These might typically be system temperature based. 
+           The weights array must be the length of the axis over which the average is taken.
+           Default: None will use equal weights
+
        Returns
        -------
-            average : ~numpy.ndarray
-                The average along the input axis
+       average : `~numpy.ndarray`
+           The average along the input axis
     """
     return np.average(data,axis,weights)
 
 def tsys_weight(exposure,delta_freq,tsys):
-    """Compute the system temperature based weight(s).
-       If exposure, delta_freq, or tsys parameters are given as ~astropy.unit.Quantity, 
+    r"""Compute the system temperature based weight(s) using the expression:
+        
+        :math:`w = t_{exp} \times \delta_\nu / T_{sys}^2,`
+
+       where :math:`t_{exp}` is the exposure time, :math:`\delta_\nu` is the frequency resolution, and :math:`T_{sys}` is the system temperature.
+
+       If `exposure`, `delta_freq`, or `tsys` parameters are given as `~astropy.units.Quantity`,
        they will be converted to seconds, Hz, K, respectively for the calculation.
        (Not that this really matters since weights are relative to each other)
     
-       *Note:*The parameters *cannot* be given as arrays of ~astropy.unit.Quantity, e.g. [3*~astropy.unit.Unit('s'), 4*~astropy.unit.Unit('s')].
-       Rather, if using ~astropy.unit.Quantity, they have to be ~astropy.unit.Quantity objects, e.g. [3, 4]*~astropy.unit.Unit('s')
+       **Note:** The parameters cannot be given as arrays of `~astropy.units.Quantity`, e.g., 
+
+        >>> import astropy.units as u
+        >>> [3*u.s, 4*u.s]   ### WRONG
+
+       Rather, if using `~astropy.units.Quantity`, they have to be `~astropy.units.Quantity` objects, e.g., 
+
+        >>> [3, 4]*u.s ### RIGHT!
 
        Parameters
        ----------
-            exposure: ~numpy.ndarray or float or ~astropy.unit.Quantity
+            exposure : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
                 The exposure time, typically given in seconds
-            delta_freq: ~numpy.ndarray or float or ~astropy.unit.Quantity
+            delta_freq : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
                 The channel width in frequency units
-            tsys: ~numpy.ndarray or float or ~astropy.unit.Quantity
+            tsys : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
                 The system temperature, typically in K 
+
        Returns
        -------
-            average : ~numpy.ndarray
-                The average along the input axis
+            weight : `~numpy.ndarray`
+                The weights array
     """
 
     # Quantitys work with abs and power!

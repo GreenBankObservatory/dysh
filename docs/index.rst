@@ -18,6 +18,7 @@ Module Descriptions and APIs
 
    dysh.fits
    dysh.spectra
+   dysh.plot
    dysh.util
 
 Indices and tables
