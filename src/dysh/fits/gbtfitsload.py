@@ -258,6 +258,7 @@ class GBTFITSLoad(SDFITSLoad):
         TF = {True : 'T', False:'F'}
         sigstate = {True : 'SIG', False:'REF'}
         calstate = {True : 'ON', False:'OFF', None:None}
+
         ifnum = kwargs_opts['ifnum']
         plnum = kwargs_opts['plnum']
         fdnum =kwargs_opts['fdnum']
@@ -291,6 +292,7 @@ class GBTFITSLoad(SDFITSLoad):
         calrows = self.calonoff_rows(scans=scan,bintable=bintable,**kwargs_opts)
         print("TPROWS len=",len(tprows))
         print("CALROWS on len=",len(calrows['ON']))
+
         g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable,kwargs_opts['calibrate'])
         return g
 
@@ -335,8 +337,10 @@ class GBTFITSLoad(SDFITSLoad):
         fdnum = kwargs_opts['fdnum']
         if fdnum == 1:
             plnum = 0
+
             tpon  = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1)
             tpoff = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1)
+
         elif fdnum == 0:
             plnum = 1
             tpoff = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1)

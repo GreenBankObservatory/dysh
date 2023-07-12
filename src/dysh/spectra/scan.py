@@ -80,7 +80,6 @@ class PSScan(object):
 class TPScan(object):
     """
     Holds a total power scan
-
     Parameters
     ----------
         sdfits : ~SDFITSLoad
@@ -502,9 +501,9 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
     @property
     def delta_freq(self):
         """Get the array of channel frequency width
-
-           df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
         
+           df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2     
+           
            Returns
            -------
                 delta_freq: ~numpy.ndarray

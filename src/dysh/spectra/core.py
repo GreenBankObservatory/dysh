@@ -284,11 +284,13 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
     # Therefore we have to add a channel to the upper edge of the range
     # below in order to reproduce exactly what GBTIDL gets for Tsys.  
-    # See github issue #28
-    #print(f"DCMEANTSYS Tcal {tcal} MEAN TCAL {np.mean(tcal)}")
+    # See github issue #28.
+    # Define the channel range once.
+    chrng = slice(nedge,-(nedge-1),1)
+
     if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
-        meanoff = np.nanmean(caloff[nedge:-(nedge-1)])
-        meandiff = np.nanmean(calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)])
+        meanoff = np.nanmean(caloff[chrng])
+        meandiff = np.nanmean(calon[chrng] - caloff[chrng])
         if False:
             if meandiff < 0  :
                 print(f"moff {meanoff}, mdif {meandiff}, tc {tcal}")
@@ -298,9 +300,11 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
                 print(f"CALOF: {caloff[nedge:-(nedge-1)]}")
         meanTsys = ( meanoff / meandiff * tcal + tcal/2.0 )
     else:
-        meanTsys = np.mean( caloff[nedge:-(nedge-1)] / (calon[nedge:-(nedge-1)] - caloff[nedge:-(nedge-1)]) )
+        meanTsys = np.mean( caloff[chrng] / (calon[chrng] - caloff[chrng]) )
         meanTsys = meanTsys * tcal + tcal/2.0
-    return np.abs(meanTsys)
+
+    #return meanTsys
+    return np.abs(meanTsys) #meandiff can sometimes be negative, which makes Tsys negative!
 
 def veldef_to_convention(veldef):
     """given a VELDEF, return the velocity convention expected by Spectrum(1D)
