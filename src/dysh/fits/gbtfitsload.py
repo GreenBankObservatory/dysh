@@ -1,6 +1,7 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 import sys
 import copy
+import warnings
 from astropy.wcs import WCS
 from astropy.units import cds
 from astropy.io import fits
@@ -79,7 +80,11 @@ class GBTFITSLoad(SDFITSLoad):
         #@todo allow user to change show list
         #@todo set individual format options on output by
         # changing these to dicts(?)
-        show = ["SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
+        #
+        # 'show' is fragile because anything we might need to query in 'uf' below in 
+        # order to do a calculation,  whether we want to show it, or not must be in 'show.'  
+        # (e.g. PROCSIZE is needed to calculate n_integrations).
+        show = ["SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", "PROCSIZE",
                 "RESTFREQ", "DOPFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", 
                 "FDNUM", "PLNUM", "SIG", "CAL"] 
         comp_colnames = [
@@ -100,7 +105,7 @@ class GBTFITSLoad(SDFITSLoad):
                 if type(scans) == int:
                     scans = [scans]
                 if len(scans) == 1:
-                    scans = [scans[0],scans[0]]
+                    scans = [scans[0],scans[0]] # or should this be [scans[0],lastscan]?
                 _df = self.select_scans(scans,_df).filter(show)
                 if uncompressed_df is None:
                     uncompressed_df = _df
@@ -131,8 +136,22 @@ class GBTFITSLoad(SDFITSLoad):
             nIF = uf["IFNUM"].nunique()
             nPol = uf["PLNUM"].nunique()
             nfeed = uf["FEED"].nunique()
-            # divide by two to account for sig and ref
-            nint  = len(uf)//(nPol*nIF*nfeed*2) 
+            # Divide by procsize to account for, e.g., sig and ref.
+            # For some procs, procsize will be 1 (e.g. SubBeamNod)
+            procsize = set(uf["PROCSIZE"])
+            if len(procsize) > 1:
+                warnings.warn(f"PROCSIZE {procsize} is not unique for SCAN {s}. Setting it to max value {max(procsize)}. #INT may be incorrect.")
+            elif len(procsize) == 0:
+                warnings.warn(f"PROCSIZE not present for SCAN {s}. Setting it to 1. #INT may be incorrect")
+                procsize = [1]
+            elif max(procsize) == 0:
+                # if PROC is "Unknown" procsize will be zero. Don't warn. Just set it so we can
+                # do the calculation of nint
+                #warnings.warn(f"PROCSIZE is zero for SCAN {s}. Setting it to 1.")
+                procsize = [1]
+            # max(procsize) always works even if len(procsize) == 1.
+            procsize = max(procsize)
+            nint  = len(uf)//(nPol*nIF*nfeed*procsize)
             obj = list(set(uf["OBJECT"]))[0] # We assume they are all the same!
             proc = list(set(uf["PROC"]))[0] # We assume they are all the same!
             #print(f"Uniq data for scan {s}: {nint} {nIF} {nPol} {nfeed} {obj} {proc}")
@@ -330,29 +349,38 @@ class GBTFITSLoad(SDFITSLoad):
                 'fdnum' : 0,
                 'timeaverage' : True,
                 'polaverage': True,
-                'weights' : 'equal' # or 'tsys' or ndarray
+                'weights' : 'tsys' # or 'tsys' or ndarray
         } 
         kwargs_opts.update(kwargs)
         ifnum = kwargs_opts['ifnum']
         fdnum = kwargs_opts['fdnum']
+        w = kwargs_opts['weights']
         if fdnum == 1:
             plnum = 0
 
-            tpon  = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1)
-            tpoff = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1)
+            tpon  = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1,weight=w)
+            tpoff = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1,weight=w)
 
         elif fdnum == 0:
             plnum = 1
-            tpoff = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1)
-            tpon  = self.gettp(scan,sig=True,cal=False,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1)
+            tpoff = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1,weights=w)
+            tpon  = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1,weights=w)
         else:
             raise ValueError(f"Feed number {fdnum} must be 0 or 1.")
-        on  =  tpon.timeaverage(weights=kwargs_opts['weights']) 
-        off = tpoff.timeaverage(weights=kwargs_opts['weights'])
+        on  =  tpon.timeaverage(weights=w)
+        off = tpoff.timeaverage(weights=w)
         meanTsys = 0.5*(off.meta['TSYS']+on.meta['TSYS'])
+        print(f"WEIGHTS {w}")
         print(f"Tsys(ON) = {on.meta['TSYS']}, Tsys(OFF) = {off.meta['TSYS']}, meanTsys = {meanTsys}")
+        print(f"MEAN Tsys(ON) = {on.meta['MEANTSYS']}, Tsys(OFF) = {off.meta['MEANTSYS']}, meanTsys = {meanTsys}")
+        print(f"WT Tsys(ON) = {on.meta['WTTSYS']}, Tsys(OFF) = {off.meta['WTTSYS']}, meanTsys = {meanTsys}")
         data = meanTsys*(on - off)/off
-        data.meta['TSYS'] = meanTsys
+        data.meta['MEANTSYS'] = meanTsys
+        data.meta['WTTSYS'] = 0.5*(on.meta['WTTSYS'] + off.meta['WTTSYS'])
+        data.meta['TSYS'] = data.meta['WTTSYS']
+        data.meta['XTSYS'] = 0.5*(on.meta['MEANTSYS']+off.meta['MEANTSYS'])
+        data._on = tpon
+        data._off = tpoff
         return data
 
     def onoff_scan_list(self,scans=None,ifnum=0,plnum=0,bintable=0):
