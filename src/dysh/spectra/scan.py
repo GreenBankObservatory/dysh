@@ -4,6 +4,7 @@ import numpy as np
 from astropy.wcs import WCS
 from .spectrum import Spectrum
 from . import dcmeantsys, average, veldef_to_convention,tsys_weight
+from ..util import sq_weighted_avg
 
 class PSScan(object):
     """
@@ -160,9 +161,9 @@ class GBTTPScan(TPScan):
     scan: int
         scan number
     sigstate : str
-        one of 'SIG' or 'REF' to indicate if this is the signal or reference scan
+        one of 'SIG' or 'REF' to indicate if this is the signal or reference scan or 'BOTH' if it contains both
     calstate : str
-        one of 'ON' or 'OFF' to indicate the calibration state of this scan, or None
+        one of 'ON' or 'OFF' to indicate the calibration state of this scan, or 'BOTH' if it contains both
     scanrows : list-like
         the list of rows in `sdfits` corresponding to sig_state integrations 
     calrows : dict
@@ -184,7 +185,6 @@ class GBTTPScan(TPScan):
         self._refcaloff = gbtfits.rawspectra(bintable)[self._refoffrows]
         self._calibrate=calibrate
         if self._calibrate:
-            print("CALIBRATING")
             self._data = 0.5*(self._refcalon+self._refcaloff)
         print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
         self.calc_tsys()
@@ -310,11 +310,7 @@ class GBTTPScan(TPScan):
                          },
                   )
         vc = veldef_to_convention(meta['VELDEF'])
-        
         s = Spectrum(self._data[i]*u.ct,wcs=wcs,meta=meta,velocity_convention=vc)
-        s.meta['MEANTSYS'] = np.mean(self._tsys) 
-        s.meta['WTTSYS'] = average(self._tsys,0,self.exposure*self.delta_freq) 
-        s.meta['TSYS'] = s.meta['WTTSYS']
         return s
 
     def timeaverage(self,weights='tsys'):
@@ -335,13 +331,14 @@ class GBTTPScan(TPScan):
         '''
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == 'tsys':
-            #print("TSYS weighting ",self._tsys_weight)
-            self._timeaveraged._data = average(self._data,axis=0,weights=self._tsys_weight)
+            w = self._tsys_weight
         else:
-            self._timeaveraged._data = average(self._data,axis=0,weights=None)
-        self._timeaveraged.meta['TSYS'] =  np.mean(self._tsys)
+            w = None
+        self._timeaveraged._data = average(self._data,axis=0,weights=w)
+        self._timeaveraged.meta['MEANTSYS'] = np.mean(self._tsys) 
+        self._timeaveraged.meta['WTTSYS'] = sq_weighted_avg(self._tsys,axis=0,weights=w)
+        self._timeaveraged.meta['TSYS'] = self._timeaveraged.meta['WTTSYS']
         return self._timeaveraged
-
 
 class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only difference is the keys.
     """GBT specific version of Position Switch Scan (PSScan)
@@ -453,7 +450,6 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
         kwargs_opts.update(kwargs)
 
         self._status = 1
-        #npolint = self.npol * self.nint
         nspect = self.nrows//2
         self._calibrated = np.empty(nspect, dtype=np.ndarray)
         self._tsys= np.empty(nspect, dtype=float)
@@ -463,20 +459,11 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
         if len(tcal) != nspect: 
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
-            #tcal = self.off[2*i].meta['TCAL']
-            #tcal2= self.on[2*i].meta['TCAL']
-            tsys = dcmeantsys(calon=self._refcalon[i],  caloff=self._refcaloff[i],tcal=tcal[i])
-            #tsys2= dcmeantsys(self.sigcalon[i],  self.sigcalon[i],tcal2)
-            #if kwargs_opts['verbose']: 
-            #    print(i,tcal,tsys,tsys2)
-            #                 2*i is the CalON     2*i+1 the CalOFF
-            #
-            #calon = 2*i
-            #caloff = calon+1
+            tsys = dcmeantsys(calon=self._refcalon[i],  
+                              caloff=self._refcaloff[i], tcal=tcal[i])
             sig = 0.5*(self._sigcalon[i] + self._sigcaloff[i])
             ref = 0.5*(self._refcalon[i] + self._refcaloff[i])
             self._calibrated[i] = tsys * (sig-ref) / ref
-            #self.calibrated[i].gbt['row'] = kr
             self._tsys[i] = tsys
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
@@ -549,10 +536,11 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == 'tsys':
-            #w =self._tsys_weight
-            #print("data shape ",np.shape(data))
-            #print("Tsys weight shape ",np.shape(w))
-            self._timeaveraged._data = average(data,axis=0,weights=self._tsys_weight)
+            w = self._tsys_weight
         else:
-            self._timeaveraged._data = average(data,axis=0,weights=None)
+            w = None
+        self._timeaveraged._data = average(data,axis=0,weights=w)
+        self._timeaveraged.meta['MEANTSYS'] = np.mean(self._tsys) 
+        self._timeaveraged.meta['WTTSYS'] = sq_weighted_avg(self._tsys,axis=0,weights=w)
+        self._timeaveraged.meta['TSYS'] = self._timeaveraged.meta['WTTSYS']
         return self._timeaveraged

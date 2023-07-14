@@ -204,18 +204,21 @@ class GBTFITSLoad(SDFITSLoad):
         if self._ptable is None:
             self._create_index()
 
+#        TODO: figure how to allow [startscan, endscan]
+#            [sampler], ap_eff [if requested units are Jy]
     def getps(self,scans=None,bintable=0,**kwargs):
         '''Get the rows that contain position-switched data.  These include ONs and OFFs.
 
-            kwargs: plnum, feed, ifnum, integration, calibrate=T/F, average=T/F, tsys, weights
-            [sampler], ap_eff [if requested units are Jy]
+           kwargs: plnum, feed, ifnum, integration, calibrate=T/F, average=T/F, tsys, weights
             
         Parameters
         ----------
             scans : int or 2-tuple
                 Single scan number or list of scan numbers to use. Default: all scans.
                 Scan numbers can be Ons or Offs
-        TODO: figure how to allow [startscan, endscan]
+            weights: str
+                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
+
         Returns 
         -------
             psscan : ~scan.GBTPSScan
@@ -227,9 +230,10 @@ class GBTFITSLoad(SDFITSLoad):
             'plnum' : 0, # I prefer "pol"
             'fdnum' : 0,
             'calibrate': True,
-            'average': False,
+            'timeaverage': False,
+            'polaverage': False,
             'tsys': None,
-            'weights': None,
+            'weights': 'tsys',
         }
         kwargs_opts.update(kwargs)
 
@@ -245,23 +249,30 @@ class GBTFITSLoad(SDFITSLoad):
         g = GBTPSScan(self,scanlist,rows,calrows,bintable)
         return g
 
-    def gettp(self,scan,sig,cal,bintable=0,**kwargs):
+    def gettp(self,scan,sig=None,cal=None,bintable=0,**kwargs):
         """Get a total power scan, optionally calibrating it.
 
         Parameters
         ----------
             scan: int
                 scan number
-            sig : bool
-                True to indicate if this is the signal scan, False if reference
-            cal: bool
-                True if calibration (diode) is on, False if off.
+            sig : bool or None
+                True to use only integrations where signal state is True, False to use reference state (signal state is False). None to use all integrations.
+            cal: bool or None
+                True to use only integrations where calibration (diode) is on, False if off. None to use all integrations regardless calibration state. The system temperature will be calculated from both states regardless of the value of this variable.
             bintable : int
                 the index for BINTABLE in `sdfits` containing the scans
             calibrate: bool
                 whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+            weights: str
+                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
 
             scan args - ifnum, plnum, fdnum, subref
+
+        Returns
+        -------
+            data : `~spectra.scan.GBTTPScan`
+                A Spectrum object containing the data
         """
         kwargs_opts = {
                 'ifnum': 0,
@@ -270,55 +281,64 @@ class GBTFITSLoad(SDFITSLoad):
                 'subref': None, # subreflector position
                 'timeaverage' : True,
                 'polaverage': True,
-                'weights' : 'equal', # or 'tsys' or ndarray
-                'calibrate': True
+                'weights' : 'tsys', # or 'tsys' or ndarray
+                'calibrate': True,
+                'debug': False,
         }   
         kwargs_opts.update(kwargs)
-        TF = {True : 'T', False:'F'}
-        sigstate = {True : 'SIG', False:'REF'}
-        calstate = {True : 'ON', False:'OFF', None:None}
+        TF = {True: 'T', False:'F'}
+        sigstate = {True: 'SIG', False:'REF', None:'BOTH'}
+        calstate = {True: 'ON', False:'OFF', None:'BOTH'}
 
         ifnum = kwargs_opts['ifnum']
         plnum = kwargs_opts['plnum']
         fdnum =kwargs_opts['fdnum']
         subref = kwargs_opts['subref']
-        # do you have to give sig or cal?
         df = self._ptable[0]
         df = df[(df["SCAN"] == scan)]
         if sig is not None:
             sigch = TF[sig]
             df = df[(df['SIG']==sigch)]
-            print('S ',len(df))
+            if kwargs_opts['debug']:
+                print('S ',len(df))
         if cal is not None:
             calch = TF[cal]
             df = df[df['CAL']==calch]
-            print('C ',len(df))
+            if kwargs_opts['debug']:
+                print('C ',len(df))
         if ifnum is not None:
             df = df[df['IFNUM']==ifnum]
-            print('I ',len(df))
+            if kwargs_opts['debug']:
+                print('I ',len(df))
         if plnum is not None:
             df = df[df['PLNUM']==plnum]
-            print('P ',len(df))
+            if kwargs_opts['debug']:
+                print('P ',len(df))
         if fdnum is not None:
             df = df[df['FDNUM']==fdnum]
-            print('F ',len(df))
+            if kwargs_opts['debug']:
+                print('F ',len(df))
         if subref is not None:
             df = df[df['SUBREF_STATE']==subref]
-            print('SR ',len(df))
+            if kwargs_opts['debug']:
+                print('SR ',len(df))
         #TBD: if ifnum is none then we will have to sort these by ifnum, plnum and store separate arrays or something. 
         tprows = list(df.index)
         #data = self.rawspectra(bintable)[tprows]
         calrows = self.calonoff_rows(scans=scan,bintable=bintable,**kwargs_opts)
-        print("TPROWS len=",len(tprows))
-        print("CALROWS on len=",len(calrows['ON']))
+        if kwargs_opts['debug']:
+            print("TPROWS len=",len(tprows))
+            print("CALROWS on len=",len(calrows['ON']))
 
         g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable,kwargs_opts['calibrate'])
         return g
 
-    # special nod for KA data.
+    # special nod for KA (or other array Rx?) data.
     # See /users/dfrayer/gbtidlpro/snodka
 
-    def getnod_ka(self,scan,bintable=0,**kwargs):
+    # note behavior of this is different that tpscan or psscan in that
+    # this time-averages and the others do not.   Inconsistent?
+    def subbeamnod(self,scan,bintable=0,**kwargs):
         """Get a subbeam nod power scan, optionally calibrating it.
 
         Parameters
@@ -334,70 +354,87 @@ class GBTFITSLoad(SDFITSLoad):
             calibrate: bool
                 whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
             weights: str
-                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging
+                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
 
             scan args - ifnum, fdnum, subref  (plnum depends on fdnum)
 
         Returns
         -------
-
-            data : ~spectra.Spectrum
+            data : `~spectra.spectrum.Spectrum`
                 A Spectrum object containing the data
         """
         kwargs_opts = {
                 'ifnum': 0,
                 'fdnum' : 0,
                 'timeaverage' : True,
-                'polaverage': True,
-                'weights' : 'tsys' # or 'tsys' or ndarray
+                'weights' : 'tsys', # or None or ndarray
+                'calibrate' : True,
+                'debug' : False,
         } 
         kwargs_opts.update(kwargs)
         ifnum = kwargs_opts['ifnum']
         fdnum = kwargs_opts['fdnum']
+        docal = kwargs_opts['calibrate']
         w = kwargs_opts['weights']
         if fdnum == 1:
             plnum = 0
-
-            tpon  = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1,weight=w)
-            tpoff = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1,weight=w)
-
+            tpon  = self.gettp(scan,sig=None,cal=None,
+                        bintable=bintable,fdnum=fdnum,
+                        plnum=plnum,ifnum=ifnum,
+                        subref=-1,weight=w,calibrate=docal)
+            tpoff = self.gettp(scan,sig=None,cal=None,
+                        bintable=bintable,fdnum=fdnum,
+                        plnum=plnum,ifnum=ifnum,subref=1,
+                        weight=w,calibrate=docal)
         elif fdnum == 0:
             plnum = 1
-            tpoff = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=-1,weights=w)
-            tpon  = self.gettp(scan,sig=True,cal=None,bintable=bintable,fdnum=fdnum,plnum=plnum,ifnum=ifnum,subref=1,weights=w)
+            tpoff = self.gettp(scan,sig=None,cal=None,
+                        bintable=bintable,fdnum=fdnum,
+                        plnum=plnum,ifnum=ifnum,subref=-1,
+                        weights=w,calibrate=docal)
+            tpon  = self.gettp(scan,sig=None,cal=None,
+                        bintable=bintable,fdnum=fdnum,
+                        plnum=plnum,ifnum=ifnum,subref=1,
+                        weights=w,calibrate=docal)
         else:
             raise ValueError(f"Feed number {fdnum} must be 0 or 1.")
         on  =  tpon.timeaverage(weights=w)
         off = tpoff.timeaverage(weights=w)
-        meanTsys = 0.5*(off.meta['TSYS']+on.meta['TSYS'])
-        print(f"WEIGHTS {w}")
-        print(f"Tsys(ON) = {on.meta['TSYS']}, Tsys(OFF) = {off.meta['TSYS']}, meanTsys = {meanTsys}")
-        print(f"MEAN Tsys(ON) = {on.meta['MEANTSYS']}, Tsys(OFF) = {off.meta['MEANTSYS']}, meanTsys = {meanTsys}")
-        print(f"WT Tsys(ON) = {on.meta['WTTSYS']}, Tsys(OFF) = {off.meta['WTTSYS']}, meanTsys = {meanTsys}")
-        data = meanTsys*(on - off)/off
-        data.meta['MEANTSYS'] = meanTsys
-        data.meta['WTTSYS'] = 0.5*(on.meta['WTTSYS'] + off.meta['WTTSYS'])
+        # in order to reproduce gbtidl tsys, we need to do a normal
+        # total power scan
+        fulltp = self.gettp(scan,sig=None,cal=None,
+                        bintable=bintable,fdnum=fdnum,
+                        plnum=plnum,ifnum=ifnum,
+                        weight=w,calibrate=docal).timeaverage()
+        tsys = fulltp.meta['TSYS'] 
+        data = tsys*(on - off)/off
+        data.meta['MEANTSYS'] = 0.5*np.mean((on.meta['TSYS']+off.meta['TSYS']))
+        data.meta['WTTSYS'] = tsys
         data.meta['TSYS'] = data.meta['WTTSYS']
-        data.meta['XTSYS'] = 0.5*(on.meta['MEANTSYS']+off.meta['MEANTSYS'])
-        data._on = tpon
-        data._off = tpoff
+        #if kwargs_opts['debug']:
+        #    data._on = tpon
+        #    data._off = tpoff
         return data
 
     def onoff_scan_list(self,scans=None,ifnum=0,plnum=0,bintable=0):
-        """Get the scan row indices for position-switch data sorted by ON and OFF state
-                scans : int or list-like
-                    The scan numbers to find the rows of
-                ifnum : int
-                    the IF index
-                plnum : int
-                    the polarization index
-                bintable : int
-                    the index for BINTABLE containing the scans
+        """Get the scan row indices for position-switch data sorted 
+           by ON and OFF state
 
-            Returns
-            -------
-                rows : dict
-                    A dictionary with keys 'ON' and 'OFF' giving the row indices of ON and OFF data for the input scan(s)
+        Parameters
+        ----------
+            scans : int or list-like
+                The scan numbers to find the rows of
+            ifnum : int
+                the IF index
+            plnum : int
+                the polarization index
+            bintable : int
+                the index for BINTABLE containing the scans
+
+        Returns
+        -------
+            rows : dict
+                A dictionary with keys 'ON' and 'OFF' giving the row indices of ON and OFF data for the input scan(s)
         """
         self._create_index_if_needed()
         #print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum})")

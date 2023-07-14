@@ -24,6 +24,29 @@ import warnings
 #    for p in speclist:
 #        p.baseline(order,exclude,**kwargs)
 
+def average(data,axis=0,weights=None):
+    """Average a group of spectra or scans.
+        TODO: allow data to be SpectrumList or array of Spectrum
+       
+       Parameters
+       ----------
+       data : `~numpy.ndarray`
+           The spectral data, typically with shape (nspect,nchan). 
+       axis : int
+           The axis over which to average the data.  Default axis=0 will return the average spectrum
+           if shape is (nspect,nchan)
+       weights : `~numpy.ndarray`
+           The weights to use in averaging.  These might typically be system temperature based. 
+           The weights array must be the length of the axis over which the average is taken.
+           Default: None will use equal weights
+
+       Returns
+       -------
+       average : `~numpy.ndarray`
+           The average along the input axis
+    """
+    return np.average(data,axis,weights)
+
 def exclude_to_region(exclude,refspec,fix_exclude=False):
     """Convert an exclude list to a list of ~specutuls.SpectralRegion.
 
@@ -303,8 +326,10 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         meanTsys = np.mean( caloff[chrng] / (calon[chrng] - caloff[chrng]) )
         meanTsys = meanTsys * tcal + tcal/2.0
 
-    #return meanTsys
-    return np.abs(meanTsys) #meandiff can sometimes be negative, which makes Tsys negative!
+    # meandiff can sometimes be negative, which makes Tsys negative!
+    # GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)
+    return np.abs(meanTsys) 
+
 
 def veldef_to_convention(veldef):
     """given a VELDEF, return the velocity convention expected by Spectrum(1D)
@@ -330,27 +355,6 @@ def veldef_to_convention(veldef):
         return 'relativistic'
     return None
 
-def average(data,axis=0,weights=None):
-    """Average a group of spectra or scans.
-       
-       Parameters
-       ----------
-       data : `~numpy.ndarray`
-           The spectral data, typically with shape (nspect,nchan). 
-       axis : int
-           The axis over which to average the data.  Default axis=0 will return the average spectrum
-           if shape is (nspect,nchan)
-       weights : `~numpy.ndarray`
-           The weights to use in averaging.  These might typically be system temperature based. 
-           The weights array must be the length of the axis over which the average is taken.
-           Default: None will use equal weights
-
-       Returns
-       -------
-       average : `~numpy.ndarray`
-           The average along the input axis
-    """
-    return np.average(data,axis,weights)
 
 def tsys_weight(exposure,delta_freq,tsys):
     r"""Compute the system temperature based weight(s) using the expression:
