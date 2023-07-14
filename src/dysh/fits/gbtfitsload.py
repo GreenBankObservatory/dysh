@@ -405,7 +405,7 @@ class GBTFITSLoad(SDFITSLoad):
         fulltp = self.gettp(scan,sig=None,cal=None,
                         bintable=bintable,fdnum=fdnum,
                         plnum=plnum,ifnum=ifnum,
-                        weight=w,calibrate=docal).timeaverage()
+                        weight=w,calibrate=docal).timeaverage(weights=w)
         tsys = fulltp.meta['TSYS'] 
         data = tsys*(on - off)/off
         data.meta['MEANTSYS'] = 0.5*np.mean((on.meta['TSYS']+off.meta['TSYS']))
