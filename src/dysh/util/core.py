@@ -25,7 +25,7 @@ def sq_weighted_avg(a,axis=0,weights=None):
     average : `~numpy.ndarray`
         The average along the input axis
     '''
-    if weights is None or weights == 'equal':
+    if weights is None:
         w = np.ones_like(a)
     else:
         w = weights
