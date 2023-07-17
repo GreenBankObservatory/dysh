@@ -41,12 +41,13 @@ class TestSubBeamNod():
 
     def test_compare_with_GBTIDL(self):
         # get filenames
-        sdf_file = get_pkg_data_filename("data/xx")
+        # We still need a data file with a single scan in it
+        sdf_file = get_pkg_data_filename("data/TRCO_230413_Ka_scan43.fits")
         gbtidl_file = get_pkg_data_filename("data/TRCO_230413_Ka_snodka_43_ifnum_0_plnum_0_fdnum_1.fits"
 )
 
         # Generate the dysh result.
-        sdf = gbtfitsload(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sbn = sdf.subbeamnod(43, sig=None, cal=None,
                         ifnum=0, fdnum=1, calibrate=True,
                         weights='tsys')
