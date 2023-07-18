@@ -311,9 +311,12 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # Define the channel range once.
     chrng = slice(nedge,-(nedge-1),1)
 
+    caloff = caloff.astype(np.longdouble)
+    calon = calon.astype(np.longdouble)
+
     if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.nanmean(caloff[chrng])
-        meandiff = np.nanmean(calon[chrng] - caloff[chrng])
+        meandiff = np.nanmean(calon[chrng]) - np.nanmean(caloff[chrng])
         if False:
             if meandiff < 0  :
                 print(f"moff {meanoff}, mdif {meandiff}, tc {tcal}")
@@ -392,7 +395,7 @@ def tsys_weight(exposure,delta_freq,tsys):
     """
 
     # Quantitys work with abs and power!
-    weight = abs(delta_freq)*exposure*np.power(tsys,-2)
+    weight = (abs(delta_freq)*exposure*np.power(tsys,-2)).astype(np.longdouble)
     if type(weight) == u.Quantity:
         return weight.value
     else:
