@@ -14,7 +14,7 @@ from dysh.spectra import core
 LOCALDIR = os.path.dirname(os.path.realpath(__file__))
 
 
-class TestDCMeanTsys():
+class TestMeanTsys():
     """
     Tests for `dysh.spectra.core.dcmeantsys` function.
     """
@@ -36,8 +36,8 @@ class TestDCMeanTsys():
         tcal = table_pl0_off["TCAL"][0]
         tsys_dysh = np.empty(table_pl0_off["DATA"].shape[0]//2, dtype=float)
         for i in range(len(tsys_dysh)):
-            tsys_dysh[i] = core.dcmeantsys(calon=table_pl0_off["DATA"][1::2][i],  
-                                           caloff=table_pl0_off["DATA"][0::2][i],
-                                           tcal=tcal)
+            tsys_dysh[i] = core.mean_tsys(calon=table_pl0_off["DATA"][1::2][i],  
+                                         caloff=table_pl0_off["DATA"][0::2][i],
+                                         tcal=tcal)
         # Compare.
         assert tsys_dysh == pytest.approx(expected)

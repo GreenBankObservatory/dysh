@@ -3,7 +3,7 @@ from copy import deepcopy
 import numpy as np
 from astropy.wcs import WCS
 from .spectrum import Spectrum
-from . import dcmeantsys, average, veldef_to_convention,tsys_weight
+from . import mean_tsys, average, veldef_to_convention,tsys_weight
 from ..util import sq_weighted_avg
 
 class PSScan(object):
@@ -221,7 +221,7 @@ class GBTTPScan(TPScan):
         if len(tcal) != nspect: 
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
-            tsys = dcmeantsys(calon=self._refcalon[i],  caloff=self._refcaloff[i],tcal=tcal[i])
+            tsys = mean_tsys(calon=self._refcalon[i],  caloff=self._refcaloff[i],tcal=tcal[i])
             self._tsys[i] = tsys
 
     @property
@@ -459,8 +459,8 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
         if len(tcal) != nspect: 
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
-            tsys = dcmeantsys(calon=self._refcalon[i],  
-                              caloff=self._refcaloff[i], tcal=tcal[i])
+            tsys = mean_tsys(calon=self._refcalon[i],  
+                             caloff=self._refcaloff[i], tcal=tcal[i])
             sig = 0.5*(self._sigcalon[i] + self._sigcaloff[i])
             ref = 0.5*(self._refcalon[i] + self._refcaloff[i])
             self._calibrated[i] = tsys * (sig-ref) / ref

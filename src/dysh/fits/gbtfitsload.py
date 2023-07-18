@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 from ..spectra.spectrum import Spectrum
 from ..spectra.scan import GBTPSScan,GBTTPScan
 from ..spectra.obsblock import Obsblock
-from ..spectra import dcmeantsys
 from .sdfitsload import SDFITSLoad
 from ..util import uniq
 

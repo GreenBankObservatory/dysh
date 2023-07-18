@@ -266,12 +266,11 @@ def baseline(spectrum,order,exclude=None,**kwargs):
                 fitter=fitter,
                 exclude_regions=regionlist)
 
-def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
+def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     """
-    Following the GBTIDL routine with same name, get the system temperature from 
-    the neighboring calon and caloff, which reflect the state of the noise diode.
+    Get the system temperature from the neighboring calon and caloff, which reflect the state of the noise diode.
     We define an extra way to set the edge size, nedge, if you prefer to use 
-    number of edge channels instead of the inverse fraction.
+    number of edge channels instead of the inverse fraction.  This implementation recreates GBTIDL's `dcmeantsys`.
     
     Parameters
     ----------
@@ -395,8 +394,8 @@ def tsys_weight(exposure,delta_freq,tsys):
     """
 
     # Quantitys work with abs and power!
-    weight = (abs(delta_freq)*exposure*np.power(tsys,-2)).astype(np.longdouble)
+    weight = abs(delta_freq)*exposure*np.power(tsys,-2)
     if type(weight) == u.Quantity:
-        return weight.value
+        return weight.value.astype(np.longdouble)
     else:
-        return weight
+        return weight.astype(np.longdouble)
