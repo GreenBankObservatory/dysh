@@ -482,10 +482,12 @@ class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only differenc
         exp_ref_off = self._sdfits.index(self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        exp_ref = 0.5*(exp_ref_on + exp_ref_off)
-        exp_sig = 0.5*(exp_sig_on + exp_sig_off)
-        exposure = 0.5*(exp_ref + exp_sig)
+        exp_ref = (exp_ref_on + exp_ref_off)
+        exp_sig = (exp_sig_on + exp_sig_off)
+        #exposure = 0.5*(exp_ref + exp_sig)
         #exposure = exp_ref + exp_sig
+        nsmooth = 1. # In case we start smoothing the reference spectra.
+        exposure = exp_sig*exp_ref*nsmooth/(exp_sig+exp_ref*nsmooth)
         return exposure
 
     @property
