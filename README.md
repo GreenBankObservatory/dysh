@@ -10,10 +10,6 @@ Dysh requires Python 3.8+ and recent versions of [astropy]( https://astropy.org)
     $ pip install dysh
 ```
 
-## Getting Help & Giving Feedback
-
-more here
-
 ## Reporting Issues
 
 If you find a bug or something you think is in error, please report it on
