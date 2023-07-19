@@ -134,9 +134,11 @@ def exclude_to_region(exclude,refspec,fix_exclude=False):
                         offset = 0
                     pair[0] = offset + pair[0].to(sa.unit,equivalencies = p.equivalencies)
                     pair[1] = offset + pair[1].to(sa.unit,equivalencies = p.equivalencies)
-                    pair = sorted(pair) # SpectralRegion requires sorted [lower,upper]
-                    if pair[0] < sa[0] or pair[1] > sa[-1]:
-                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[sa[0],sa[-1]]}."
+                    # Ensure test is with sorted [lower,upper]
+                    pair = sorted(pair) 
+                    salimits = sorted([sa[0],sa[-1]])
+                    if pair[0] < salimits[0] or pair[1] > salimits[-1]:
+                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[salimits[0],salimits[-1]]}."
                         if fix_exclude:
                             msg += f" Setting upper limit to {p.spectral_axis[-1]}."
                             pair[1] = sa[-1]
