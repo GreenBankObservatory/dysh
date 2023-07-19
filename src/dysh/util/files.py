@@ -95,8 +95,7 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
         retval = all
     return retval
 
-def main_cli(args):
-    
+def main_cli():
 
     import argparse
 
@@ -146,5 +145,5 @@ def main_cli(args):
 
 
 if __name__ == "__main__":
-    main_cli(sys.argv)
+    main_cli()
             
