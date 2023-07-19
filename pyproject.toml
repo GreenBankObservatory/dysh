@@ -43,6 +43,8 @@ Source = "https://github.com/GreenBankObservatory/dysh"
 
 #[project.scripts]
 #dysh = "dysh.dysh:main"
+[project.scripts]
+fdr = "dysh.util.files:main_cli"
 
 [tool.hatch.version]
 path = "src/dysh/__init__.py"
@@ -67,7 +69,7 @@ dependencies = [
 python = ["38", "39", "310", "311"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/tests"]
+include = ["/src", "/tests", "/bin"]
 exclude = [
   "/.github",
   "/.gitignore",
@@ -79,7 +81,6 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dysh"]
-
 
 [tool.coverage.run]
 branch = true
