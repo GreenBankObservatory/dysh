@@ -8,13 +8,14 @@ Calibrating Position-Switched Data
 Single beam position-switched (PS) data is retrieved using :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.getps` which returns a :class:`~dysh.spectra.scan.GBTPSScan` position-switched scan object that is used to calibrate and average the data.  First, import the relevant modules::
 
     >>> from dysh.fits.gbtfitsload import GBTFITSLoad
-    >>> from dysh.spectra.scan import GBTPSScan
     >>> import astropy.units as u
 
-Then load your SDFITS file containing PS data
-(TODO need to replace fixed path with get_example_data() and explanation thereof)::
+..  (TODO need to replace fixed path with get_example_data() and explanation thereof)::
 
-    >>> f = '/data/gbt/examples/onoff-L/data/TGBT21A_501_11.raw.vegas.fits'
+Then load your SDFITS file containing PS data. In this example, we use a 
+`GBT SDFITS file downloadable from GBO <http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits>`_::
+
+    >>> f = 'TGBT21A_501_11.raw.vegas.fits'
     >>> sdfits = GBTFITSLoad(f)
 
 The returned `sdfits` can be probed for information::
@@ -38,20 +39,21 @@ Retrieve a scan and its partner ON or OFF, selecting and IF number and polarizat
     >>> psscan.calibrate() # this will be eventually be subsumed into `calibrate=True` in `getps`
         PSSCAN nrows = 302
     
-
 The system temperature array (numpy.ndarray) is stored in `tsys`::
 
     >>> print(f"T_sys = {pscan.tsys.mean():.2f}:")
         T_sys = 17.17
 
-To time average the data, using system temperature weighting (other option is 'equal' weighting; 'tsys' is the default if no `weights` parameter is given. Future upgrade will allow user to provide a numeric weights array). The returned object is :class:`~dysh.spectra.spectrum.Spectrum`, which has a default matplotlib plotter attached::
+Then time average the data, using system temperature weighting (other option is 'equal' weighting; 'tsys' is the default if no `weights` parameter is given. Future upgrade will allow the user to provide a numeric weights array). The returned object is :class:`~dysh.spectra.spectrum.Spectrum`, which has a default `matplotlib`-based plotter attached::
 
 
     >>> ta = psscan.timeaverage(weights='tsys')
     >>> ta.plot()
+
 .. image:: static/ps_152.png
 
-The `plot()` command allows changing of axis units and also recognizes a number matplolib-like keywords::
+
+The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis units and also recognizes a number matplolib-like keywords::
 
     >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
 
