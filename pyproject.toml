@@ -25,9 +25,11 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
+  "astropy ; python_version >= '3.9'",
   "astropy<5.3 ; python_version<'3.9'",
   "matplotlib",
-  "numpy",
+  "numpy ; python_version >= '3.9'",
+  "numpy<1.25 ; python_version<'3.9'",
   "pandas",
   "scipy",
   "specutils",
@@ -39,7 +41,8 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
-  "sphinx"
+  "sphinx",
+  "pip-tools",
 ]
 
 [project.urls]
