@@ -14,13 +14,15 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('../src'))
-sys.path.insert(0, os.path.abspath('../src/dysh'))
-#sys.path.insert(0, os.path.abspath('../src'))
+
+sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("../src"))
+sys.path.insert(0, os.path.abspath("../src/dysh"))
+# sys.path.insert(0, os.path.abspath('../src'))
 # sys.path.insert(0, os.path.abspath('.'))
 
 import dysh
+
 # -- Project information -----------------------------------------------------
 
 from dysh import __version__
@@ -58,7 +60,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.mermaid",
     "numpydoc",
-#    "sphinx_automodapi.automodapi",
+    #    "sphinx_automodapi.automodapi",
 ]
 
 numpydoc_show_class_members = True
@@ -76,12 +78,12 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = ['.rst', '.md']
-#source_suffix = {
+source_suffix = [".rst", ".md"]
+# source_suffix = {
 #    '.rst': 'restructuredtext',
 #    '.txt': 'markdown',
 #    '.md': 'markdown',
-#}
+# }
 
 # The master toctree document.
 master_doc = "index"
@@ -165,7 +167,7 @@ latex_documents = [
         master_doc,
         "dysh.tex",
         "dysh Documentation",
-        ["Marc Pound","Victoria Catlett", "Peter Teuben"],
+        ["Marc Pound", "Victoria Catlett", "Peter Teuben"],
         "manual",
     )
 ]
@@ -198,7 +200,7 @@ texinfo_documents = [
 # The reST default role (used for this markup: `text`) to use for all
 # documents. Set to the "smart" one.
 # This lets e.g, `~astropy.Foo` link without using :class:
-default_role = 'obj'
+default_role = "obj"
 
 # -- Extension configuration -------------------------------------------------
 
@@ -206,24 +208,24 @@ default_role = 'obj'
 
 # Example configuration for intersphinx: refer to the Python standard library.
 # intersphinx_mapping = {"https://docs.python.org/": None}
-intersphinx_mapping = { 
-    'python': ('https://docs.python.org/3/', None),
-    'numpy': ('https://numpy.org/doc/stable/', None),
-    'scipy': ('https://docs.scipy.org/doc/scipy/', None),
-    'astropy': ('https://docs.astropy.org/en/stable/', None),
-    'matplotib': ('https://matplotlib.org/stable',None),
-    'pandas': ('https://pandas.pydata.org/docs/', None),
-    'specutils': ('https://specutils.readthedocs.io/en/stable/',None),
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "astropy": ("https://docs.astropy.org/en/stable/", None),
+    "matplotib": ("https://matplotlib.org/stable", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "specutils": ("https://specutils.readthedocs.io/en/stable/", None),
 }
 
 # -- Options for todo extension ----------------------------------------------
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
-#todo_include_todos = True
+# todo_include_todos = True
 
 
 # These paths are either relative to html_static_path
 # or fully qualified paths (eg. https://...)
-#html_css_files = [
+# html_css_files = [
 #    "css/custom.css",
-#]
+# ]
