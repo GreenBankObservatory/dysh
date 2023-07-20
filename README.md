@@ -64,6 +64,16 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 ```
     Notice you can ONLY do that from this directory
 
+### Updating Dependencies
+
+`requirements.txt` and `requirements_dev.txt` are controlled by [pip-tools](https://pypi.org/project/pip-tools/). Whenever you add or change a dependency, you will need to run:
+
+```bash
+# Resolve and lock dependencies from `project.dependencies` in `pyproject.toml`
+$ pip-compile pyproject.toml --resolver=backtracking -o requirements.txt
+# Resolve and lock dependencies from `project.optional-dependencies.dev` in `pyproject.toml`
+$ pip-compile pyproject.toml --extra dev --resolver=backtracking -o requirements_dev.txt
+```
 
 ## Testing
 

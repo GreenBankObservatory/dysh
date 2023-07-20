@@ -24,17 +24,23 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["astropy",
-                "matplotlib",
-                "numpy",
-                "pandas",
-                "scipy",
-                "specutils",
-                "sphinx",
-                "myst-parser"
-               ]
+dependencies = [
+  "astropy",
+  "matplotlib",
+  "numpy",
+  "pandas",
+  "scipy",
+  "specutils",
+  "myst-parser",
+  "wget",
+ ]
 
 dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+  "sphinx"
+]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
