@@ -45,44 +45,43 @@ Installation
 We use `hatch <https://hatch.pypa.io/>`_ to manage the build environment.
 The usual caveats apply how you set up your python development environment.
 
-1.  Clone the repo and install hatch.
+#.  Clone the repo and install hatch.
 
-.. code::
+    .. code-block:: bash
 
-    $ git clone git@github.com:GreenBankObservatory/dysh.git
-    $ cd dysh
-    $ pip install hatch
-
-
-2.  Create and activate a virtual environment with hatch and install the packages required for development.
-The virtual environment will be created the first time; subsequent invoking ``hatch shell`` will simply load the created environment.cdi
-
-.. code::
-
-    $ hatch shell
-    (dysh) $ pip install -r requirements_dev.txt
+        $ git clone git@github.com:GreenBankObservatory/dysh.git
+        $ cd dysh
+        $ pip install hatch
 
 
-3.  Build and install the package
+#.  Create and activate a virtual environment with hatch and install the packages required for development.
+The virtual environment will be created the first time; subsequent invoking ``hatch shell`` will simply load the created environment.
 
-.. code::
+    .. code-block:: bash
 
-    (dysh) $ hatch build
-    (dysh) $ pip install -e .
-
-4.  You can exit this environment (which effectively had started a new shell) just exit:
-
-.. code::
-
-    (dysh) $ exit
-    $ 
+        $ hatch shell
+        (dysh) $ pip install -r requirements_dev.txt
 
 
-5.  Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment
+#.  Build and install the package
 
-.. code::
+    .. code-block:: bash
 
-    $ hatch shell
+        (dysh) $ hatch build
+        (dysh) $ pip install -e .
+
+#.  You can exit this environment (which effectively had started a new shell).
+
+    .. code-block:: bash
+
+        (dysh) $ exit
+        $ 
+
+#.  Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment.
+
+    .. code-block:: bash
+
+        $ hatch shell
 
 Notice you can *only* do that from within the original install directory tree.
 
@@ -90,7 +89,7 @@ Testing
 -------
  We use pytest for unit and integration testing.  From the top-level dysh directory, run:
 
-.. code::
+.. code-block:: bash
 
     $ pytest
 

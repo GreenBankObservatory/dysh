@@ -2,8 +2,8 @@
 SubBeamNod Data 
 ***************
 
-Reducing SubBeamNod Data
-========================
+Calibrating SubBeamNod Data
+===========================
 
 
 SubBeamNod data, where a single pixel in a pixel camera is used to do a beam nod, is retrieved using :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.subbeamnod` which returns a :class:`~dysh.spectra.spectra.Spectrum` object.  First, import the relevant module::
