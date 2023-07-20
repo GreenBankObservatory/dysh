@@ -186,7 +186,7 @@ class GBTTPScan(TPScan):
         self._calibrate=calibrate
         if self._calibrate:
             self._data = 0.5*(self._refcalon+self._refcaloff)
-        print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
+        #print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
         self.calc_tsys()
 
     @property
