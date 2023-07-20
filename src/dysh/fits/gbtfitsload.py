@@ -12,11 +12,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from ..spectra.core import tsys_weight
 from ..spectra.spectrum import Spectrum
 from ..spectra.scan import GBTPSScan,GBTTPScan
 from ..spectra.obsblock import Obsblock
 from .sdfitsload import SDFITSLoad
-from ..util import uniq
+from ..util import uniq, consecutive
 
 # from GBT IDL users guide Table 6.7
 _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"] 
@@ -332,11 +333,8 @@ class GBTFITSLoad(SDFITSLoad):
         g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable,kwargs_opts['calibrate'])
         return g
 
-    # special nod for KA (or other array Rx?) data.
-    # See /users/dfrayer/gbtidlpro/snodka
-
-    # note behavior of this is different that tpscan or psscan in that
-    # this time-averages and the others do not.   Inconsistent?
+    # TODO: Figure out when, if done, the fix to the Ka beam labelling took place.
+    # Inspired by Dave Frayer's snodka: /users/dfrayer/gbtidlpro/snodka
     def subbeamnod(self,scan,bintable=0,**kwargs):
         """Get a subbeam nod power scan, optionally calibrating it.
 
@@ -369,51 +367,157 @@ class GBTFITSLoad(SDFITSLoad):
                 'weights' : 'tsys', # or None or ndarray
                 'calibrate' : True,
                 'debug' : False,
+                'method': 'cycle',
         } 
         kwargs_opts.update(kwargs)
         ifnum = kwargs_opts['ifnum']
         fdnum = kwargs_opts['fdnum']
         docal = kwargs_opts['calibrate']
         w = kwargs_opts['weights']
-        if fdnum == 1:
-            plnum = 0
+        method = kwargs_opts['method']
+
+        # Check if we are dealing with Ka data before the beam switch.
+        df = self._ptable[bintable]
+        df = df[df["SCAN"].isin([scan])]
+        rx = np.unique(df["FRONTEND"])
+        if len(rx) > 1:
+            raise TypeError("More than one receiver for the selected scan.")
+        elif rx[0] == "Rcvr26_40": # and df["DATE-OBS"][-1] < xxxx
+            # Switch the polarizations to match the beams.
+            if fdnum == 0:
+                plnum = 1
+            elif fdnum == 1:
+                plnum = 0
+
+        if method == 'cycle':
+            # Calibrate each cycle individually and then
+            # average the calibrated data.
+
+            # Row selection.
+            df = self._ptable[bintable]
+            df = df[df["SCAN"].isin([scan])]
+            df = df[df["IFNUM"].isin([ifnum])]
+            df = df[df["FDNUM"].isin([fdnum])]
+            df = df[df["PLNUM"].isin([plnum])]
+            df_on = df[df["CAL"]=="T"]
+            df_off = df[df["CAL"]=="F"]
+            df_on_sig = df_on[df_on["SUBREF_STATE"]==-1]
+            df_on_ref = df_on[df_on["SUBREF_STATE"]==1]
+            df_off_sig = df_off[df_off["SUBREF_STATE"]==-1]
+            df_off_ref = df_off[df_off["SUBREF_STATE"]==1]
+            sig_on_rows  = df_on_sig.index.to_numpy()
+            ref_on_rows  = df_on_ref.index.to_numpy()
+            sig_off_rows = df_off_sig.index.to_numpy()
+            ref_off_rows = df_off_ref.index.to_numpy()
+
+            # Define how large of a gap between rows we will tolerate to consider
+            # a row as part of a cycle.
+            # Thinking about it, we should use the SUBREF_STATE=0 as delimiter rather 
+            # than this.
+            stepsize = len(self.udata(0,"IFNUM"))*len(self.udata(0,"PLNUM"))*2 + 1
+
+            ref_on_groups = consecutive(ref_on_rows, stepsize=stepsize)
+            sig_on_groups = consecutive(sig_on_rows, stepsize=stepsize)
+            ref_off_groups = consecutive(ref_off_rows, stepsize=stepsize)
+            sig_off_groups = consecutive(sig_off_rows, stepsize=stepsize)
+
+            # Make sure we have enough signal and reference pairs.
+            # Same number of cycles or less signal cycles.
+            if len(sig_on_groups) <= len(ref_on_groups):
+                pairs = {i : i for i in range(len(sig_on_groups))}
+            # One more signal cycle. Re-use one reference cycle.
+            elif len(sig_on_groups) - 1 == len(ref_on_groups):
+                pairs = {i : i for i in range(len(sig_on_groups))}
+                pairs[len(sig_on_groups) - 1] = len(ref_on_groups) - 1
+            else:
+                e = f"""There are {len(sig_on_groups)} and {len(ref_on_groups)} signal and reference cycles.
+                        Try using method='scan'."""
+                raise ValueError(e)
+
+            # Define the calibrated data array, and 
+            # variables to store weights and exposure times.
+            nchan = int(self._ptable[bintable]["TDIM7"][0][1:-1].split(",")[0])
+            ta = np.empty((len(sig_on_groups)), dtype=object)
+            ta_avg = np.zeros(nchan, dtype='d')
+            wt_avg = 0.0 # A single value for now, but it should be an array once we implement vector TSYS. 
+            tsys_wt = 0.0
+            tsys_avg = 0.0
+            exposure = 0.0
+
+            # Loop over cycles, calibrating each independently.
+            groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
+
+            for i,(rgon,sgon,rgoff,sgoff) in enumerate(groups_zip):
+
+                # Do it the dysh way.
+                calrows = {"ON": rgon, "OFF": rgoff}
+                tprows = np.sort(np.hstack((rgon, rgoff)))
+                reftp = GBTTPScan(self, 43, "BOTH", "BOTH", tprows, calrows, 0, True)
+                ref_avg = reftp.timeaverage()
+                calrows = {"ON": sgon, "OFF": sgoff}
+                tprows = np.sort(np.hstack((sgon, sgoff)))
+                sigtp = GBTTPScan(self, 43, "BOTH", "BOTH", tprows, calrows, 0, True)
+                sig_avg = sigtp.timeaverage()
+                # Combine sig and ref.
+                ta[i] = copy.deepcopy(sig_avg)
+                ta[i] = ta[i].new_flux_unit("K", suppress_conversion=True)
+                ta[i]._data = ((sig_avg - ref_avg)/ref_avg).flux.value * ref_avg.meta['WTTSYS'] * u.K
+                ta[i].meta["TUNIT7"] = "Ta"
+                ta[i].meta["TSYS"] = ref_avg.meta['WTTSYS']
+                
+                # Add to the average, a-la accum.
+                wt_avg += ta[i].meta["TSYS"]**-2.
+                ta_avg[:] += ta[i].flux.value * ta[i].meta["TSYS"]**-2.
+                tsys_wt_ = tsys_weight(ta[i].meta["EXPOSURE"], ta[i].meta["CDELT1"], ta[i].meta["TSYS"])
+                tsys_wt += tsys_wt_
+                tsys_avg += ta[i].meta["TSYS"] * tsys_wt_
+                exposure += ta[i].meta["EXPOSURE"]
+
+            # Divide by the sum of the weights.
+            ta_avg /= wt_avg
+            tsys_avg /= tsys_wt
+
+            # Set up a Spectrum1D object to return.
+            data = copy.deepcopy(ta[-1])
+            data._data = ta_avg
+            data.meta["TSYS"] = tsys_avg
+            data.meta["EXPOSURE"] = exposure
+           
+            return data
+
+        elif method == 'scan':
+            # Process the whole scan as a single block.
+            # This is less accurate, but might be needed if 
+            # the scan was aborted and there are not enough
+            # sig/ref cycles to do a per cycle calibration.
+
             tpon  = self.gettp(scan,sig=None,cal=None,
-                        bintable=bintable,fdnum=fdnum,
-                        plnum=plnum,ifnum=ifnum,
-                        subref=-1,weight=w,calibrate=docal)
+                               bintable=bintable,fdnum=fdnum,
+                               plnum=plnum,ifnum=ifnum,
+                               subref=-1,weight=w,calibrate=docal)
             tpoff = self.gettp(scan,sig=None,cal=None,
-                        bintable=bintable,fdnum=fdnum,
-                        plnum=plnum,ifnum=ifnum,subref=1,
-                        weight=w,calibrate=docal)
-        elif fdnum == 0:
-            plnum = 1
-            tpoff = self.gettp(scan,sig=None,cal=None,
-                        bintable=bintable,fdnum=fdnum,
-                        plnum=plnum,ifnum=ifnum,subref=-1,
-                        weights=w,calibrate=docal)
-            tpon  = self.gettp(scan,sig=None,cal=None,
-                        bintable=bintable,fdnum=fdnum,
-                        plnum=plnum,ifnum=ifnum,subref=1,
-                        weights=w,calibrate=docal)
-        else:
-            raise ValueError(f"Feed number {fdnum} must be 0 or 1.")
-        on  =  tpon.timeaverage(weights=w)
-        off = tpoff.timeaverage(weights=w)
-        # in order to reproduce gbtidl tsys, we need to do a normal
-        # total power scan
-        fulltp = self.gettp(scan,sig=None,cal=None,
-                        bintable=bintable,fdnum=fdnum,
-                        plnum=plnum,ifnum=ifnum,
-                        weight=w,calibrate=docal).timeaverage(weights=w)
-        tsys = fulltp.meta['TSYS'] 
-        data = tsys*(on - off)/off
-        data.meta['MEANTSYS'] = 0.5*np.mean((on.meta['TSYS']+off.meta['TSYS']))
-        data.meta['WTTSYS'] = tsys
-        data.meta['TSYS'] = data.meta['WTTSYS']
-        #if kwargs_opts['debug']:
-        #    data._on = tpon
-        #    data._off = tpoff
-        return data
+                               bintable=bintable,fdnum=fdnum,
+                               plnum=plnum,ifnum=ifnum,subref=1,
+                               weight=w,calibrate=docal)
+            
+            on  =  tpon.timeaverage(weights=w)
+            off = tpoff.timeaverage(weights=w)
+            
+            # in order to reproduce gbtidl tsys, we need to do a normal
+            # total power scan
+            fulltp = self.gettp(scan,sig=None,cal=None,
+                            bintable=bintable,fdnum=fdnum,
+                            plnum=plnum,ifnum=ifnum,
+                            weight=w,calibrate=docal).timeaverage(weights=w)
+            tsys = fulltp.meta['TSYS'] 
+            data = tsys*(on - off)/off
+            data.meta['MEANTSYS'] = 0.5*np.mean((on.meta['TSYS']+off.meta['TSYS']))
+            data.meta['WTTSYS'] = tsys
+            data.meta['TSYS'] = data.meta['WTTSYS']
+            #if kwargs_opts['debug']:
+            #    data._on = tpon
+            #    data._off = tpoff
+            return data
 
     def onoff_scan_list(self,scans=None,ifnum=0,plnum=0,bintable=0):
         """Get the scan row indices for position-switch data sorted 
