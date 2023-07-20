@@ -190,12 +190,12 @@ class GBTFITSLoad(SDFITSLoad):
                 The key value (SDFITS column name)
             value : any
                 The value to match
-            df : ~pandas.DataFrame
+            df : `~pandas.DataFrame`
                 The DataFrame to search
 
         Returns
         -------
-            df : ~pandas.DataFrame
+            df : `~pandas.DataFrame`
                 The subselected DataFrame
         """
         return df[(df[key]==value)]
@@ -221,7 +221,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         Returns 
         -------
-            psscan : ~scan.GBTPSScan
+            psscan : `~spectra.scan.GBTPSScan`
                 A `GBTPScan` object containing the data which can be calibrated.
         '''
         # all ON/OFF scans
@@ -333,8 +333,9 @@ class GBTFITSLoad(SDFITSLoad):
         g = GBTTPScan(self,scan,sigstate[sig],calstate[cal],tprows,calrows,bintable,kwargs_opts['calibrate'])
         return g
 
-    # TODO: Figure out when, if done, the fix to the Ka beam labelling took place.
     # Inspired by Dave Frayer's snodka: /users/dfrayer/gbtidlpro/snodka
+    # TODO: Figure out when, if done, the fix to the Ka beam labelling took place.
+    # TODO: sig and ref parameters no longer needed? Fix description of calibrate keyword, or possibly eliminate it.
     def subbeamnod(self,scan,bintable=0,**kwargs):
         """Get a subbeam nod power scan, optionally calibrating it.
 
@@ -436,6 +437,10 @@ class GBTFITSLoad(SDFITSLoad):
 
             # Define the calibrated data array, and 
             # variables to store weights and exposure times.
+            # @TODO: using TDIM7 is fragile if the headers ever change.
+            #  nchan should be gotten from data length
+            # e.g. len(self._hdu[1].data[:]["DATA"][row])
+            # where row is a row number associated with this scan number
             nchan = int(self._ptable[bintable]["TDIM7"][0][1:-1].split(",")[0])
             ta = np.empty((len(sig_on_groups)), dtype=object)
             ta_avg = np.zeros(nchan, dtype='d')
@@ -452,20 +457,22 @@ class GBTFITSLoad(SDFITSLoad):
                 # Do it the dysh way.
                 calrows = {"ON": rgon, "OFF": rgoff}
                 tprows = np.sort(np.hstack((rgon, rgoff)))
-                reftp = GBTTPScan(self, 43, "BOTH", "BOTH", tprows, calrows, 0, True)
+                reftp = GBTTPScan(self, scan, "BOTH", "BOTH", tprows, calrows, 0, True)
                 ref_avg = reftp.timeaverage()
                 calrows = {"ON": sgon, "OFF": sgoff}
                 tprows = np.sort(np.hstack((sgon, sgoff)))
-                sigtp = GBTTPScan(self, 43, "BOTH", "BOTH", tprows, calrows, 0, True)
+                sigtp = GBTTPScan(self, scan, "BOTH", "BOTH", tprows, calrows, 0, True)
                 sig_avg = sigtp.timeaverage()
                 # Combine sig and ref.
                 ta[i] = copy.deepcopy(sig_avg)
                 ta[i] = ta[i].new_flux_unit("K", suppress_conversion=True)
                 ta[i]._data = ((sig_avg - ref_avg)/ref_avg).flux.value * ref_avg.meta['WTTSYS'] * u.K
+                # TUNIT7 is fragile as locations of specific header data could change in the future.
                 ta[i].meta["TUNIT7"] = "Ta"
                 ta[i].meta["TSYS"] = ref_avg.meta['WTTSYS']
                 
                 # Add to the average, a-la accum.
+                # @TODO possibly replace with a call to util.sq_weighted_avg
                 wt_avg += ta[i].meta["TSYS"]**-2.
                 ta_avg[:] += ta[i].flux.value * ta[i].meta["TSYS"]**-2.
                 tsys_wt_ = tsys_weight(ta[i].meta["EXPOSURE"], ta[i].meta["CDELT1"], ta[i].meta["TSYS"])
