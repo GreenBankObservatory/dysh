@@ -234,4 +234,7 @@ class SpectrumPlot():
             #self.axis.figure.canvas.draw_idle()
             self._plt.show()
 
+    def savefig(self,file,**kwargs):
+        """Save the plot"""
+        self.figure.savefig(file,*kwargs)
 

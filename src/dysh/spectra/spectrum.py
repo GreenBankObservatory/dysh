@@ -188,6 +188,12 @@ in channel units.
                 equiv.extend(u.doppler_redshift())
         return equiv
 
+    def savefig(self,file,**kwargs):
+        """Save the plot"""
+        if self._plotter is None:
+            raise Exception("You have to invoke plot() first")
+        self._plotter.figure.savefig(file,**kwargs)
+
     def _write_table(self,fileobj,format,**kwargs):
         """Write this `Spectrum` as an ~astropy.table.Table.
         
