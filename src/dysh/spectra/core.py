@@ -312,8 +312,9 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # Define the channel range once.
     chrng = slice(nedge,-(nedge-1),1)
 
-    caloff = caloff.astype(np.longdouble)
-    calon = calon.astype(np.longdouble)
+    # Make them doubles. Probably not worth it.
+    caloff = caloff.astype('d')
+    calon = calon.astype('d')
 
     if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.nanmean(caloff[chrng])
