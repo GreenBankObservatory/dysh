@@ -25,7 +25,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "astropy",
+  "astropy<5.3 ; python_version<'3.9'",
   "matplotlib",
   "numpy",
   "pandas",
