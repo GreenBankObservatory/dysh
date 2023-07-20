@@ -1,8 +1,6 @@
 
-Reading observations into dysh
-==============================
-
-This is how you do it.
+Reading in and writing out observations
+=======================================
 
 Loading SDFITS files
 ---------------------

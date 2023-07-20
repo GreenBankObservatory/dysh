@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
 from ..spectra.obsblock import Obsblock
-from ..spectra import dcmeantsys, veldef_to_convention
+from ..spectra import veldef_to_convention
 from ..util import uniq, stripTable
 #from .. import version
 

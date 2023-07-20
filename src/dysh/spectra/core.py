@@ -134,9 +134,11 @@ def exclude_to_region(exclude,refspec,fix_exclude=False):
                         offset = 0
                     pair[0] = offset + pair[0].to(sa.unit,equivalencies = p.equivalencies)
                     pair[1] = offset + pair[1].to(sa.unit,equivalencies = p.equivalencies)
-                    pair = sorted(pair) # SpectralRegion requires sorted [lower,upper]
-                    if pair[0] < sa[0] or pair[1] > sa[-1]:
-                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[sa[0],sa[-1]]}."
+                    # Ensure test is with sorted [lower,upper]
+                    pair = sorted(pair) 
+                    salimits = sorted([sa[0],sa[-1]])
+                    if pair[0] < salimits[0] or pair[1] > salimits[-1]:
+                        msg = f"Exclude limits {pair} are not fully within the spectral axis {[salimits[0],salimits[-1]]}."
                         if fix_exclude:
                             msg += f" Setting upper limit to {p.spectral_axis[-1]}."
                             pair[1] = sa[-1]
@@ -266,12 +268,11 @@ def baseline(spectrum,order,exclude=None,**kwargs):
                 fitter=fitter,
                 exclude_regions=regionlist)
 
-def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
+def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     """
-    Following the GBTIDL routine with same name, get the system temperature from 
-    the neighboring calon and caloff, which reflect the state of the noise diode.
+    Get the system temperature from the neighboring calon and caloff, which reflect the state of the noise diode.
     We define an extra way to set the edge size, nedge, if you prefer to use 
-    number of edge channels instead of the inverse fraction.
+    number of edge channels instead of the inverse fraction.  This implementation recreates GBTIDL's `dcmeantsys`.
     
     Parameters
     ----------
@@ -311,8 +312,9 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # Define the channel range once.
     chrng = slice(nedge,-(nedge-1),1)
 
-    caloff = caloff.astype(np.longdouble)
-    calon = calon.astype(np.longdouble)
+    # Make them doubles. Probably not worth it.
+    caloff = caloff.astype('d')
+    calon = calon.astype('d')
 
     if mode == 0:  #mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.nanmean(caloff[chrng])
@@ -395,8 +397,8 @@ def tsys_weight(exposure,delta_freq,tsys):
     """
 
     # Quantitys work with abs and power!
-    weight = (abs(delta_freq)*exposure*np.power(tsys,-2)).astype(np.longdouble)
+    weight = abs(delta_freq)*exposure*np.power(tsys,-2)
     if type(weight) == u.Quantity:
-        return weight.value
+        return weight.value.astype(np.longdouble)
     else:
-        return weight
+        return weight.astype(np.longdouble)

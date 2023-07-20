@@ -1,7 +1,30 @@
 """
 Core utility classes and functions
 """
+
 import numpy as np
+
+
+def consecutive(data, stepsize=1):
+    """Returns the indices of elements in `data`
+    separated by less than stepsize separated into 
+    groups.
+
+    Parameters
+    ----------
+    data : array
+        Array with values to split.
+    stepsize : int
+        Maximum separation between elements of `data`
+        to be considered a single group.
+
+    Returns
+    -------
+    groups : `~numpy.ndarray`
+        Array with values of `data` separated into groups.
+    """
+    return np.split(data, np.where(np.diff(data) >= stepsize)[0]+1)
+
 
 def sq_weighted_avg(a,axis=0,weights=None):
 #@todo make a generic moment or use scipy.stats.moment
