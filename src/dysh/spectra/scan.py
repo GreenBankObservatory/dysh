@@ -283,6 +283,7 @@ class GBTTPScan(TPScan):
         """
         meta = dict(self._sdfits.index(self._bintable_index).iloc[self._scanrows[i]])
         meta['TSYS'] = self._tsys[i]
+        meta['EXPOSURE'] = self.exposure[i]
         naxis1 = len(self._data[i])
         ctype1 = meta['CTYPE1']
         ctype2 = meta['CTYPE2']
@@ -338,6 +339,7 @@ class GBTTPScan(TPScan):
         self._timeaveraged.meta['MEANTSYS'] = np.mean(self._tsys) 
         self._timeaveraged.meta['WTTSYS'] = sq_weighted_avg(self._tsys,axis=0,weights=w)
         self._timeaveraged.meta['TSYS'] = self._timeaveraged.meta['WTTSYS']
+        self._timeaveraged.meta['EXPOSURE'] = self.exposure.sum()
         return self._timeaveraged
 
 class GBTPSScan(PSScan): # perhaps should derive from TPScan, the only difference is the keys.
