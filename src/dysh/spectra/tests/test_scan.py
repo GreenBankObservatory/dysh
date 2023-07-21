@@ -58,6 +58,7 @@ class TestSubBeamNod():
 
         # Compare.
         ratio = sbn.flux.value/nodscan_gbtidl
+        #print("DIFF ",np.nanmedian(sbn.flux.value - nodscan_gbtidl))
         # kluge for now since there is a small wavy pattern in 
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
