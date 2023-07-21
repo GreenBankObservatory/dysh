@@ -64,7 +64,7 @@ class TestSubBeamNod():
 
 class TestGBTTPScan():
 
-    def test_compare_with_GBTIDL(self):
+    def test_compare_with_GBTIDL_tsys_weights(self):
 
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits")
@@ -94,3 +94,25 @@ class TestGBTTPScan():
         assert np.sum(tp._data - data[:-1]) == 0.0
         assert np.nanmean((tpavg.flux.value - data[-1])/data[-1].mean()) < 2**32
         
+    def test_compare_with_GBTIDL_equal_weights(self):
+
+        sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
+        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits")
+
+        # Generate the dysh result.
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        tp  = sdf.gettp(152)
+        tpavg = tp.timeaverage(weights=None)
+        
+        # Check that we know how to add.
+        assert tpavg.meta["EXPOSURE"] == tp.exposure.sum()
+
+        # Load GBTIDL result.
+        hdu = fits.open(gbtidl_file)
+        table = hdu[1].data
+        data = table["DATA"]
+
+        # Compare Dysh and GBTIDL.
+        assert table["EXPOSURE"][0] == tpavg.meta["EXPOSURE"]
+        assert abs(table["TSYS"][0] - tpavg.meta["TSYS"]) < 2**-32
+        assert np.all((data[0] - tpavg.flux.value) == 0.0)
