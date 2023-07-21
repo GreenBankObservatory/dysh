@@ -28,6 +28,14 @@ Module Descriptions and APIs
    dysh.plot
    dysh.util
 
+Performance
+============
+
+.. toctree::
+   :maxdepth: 1
+
+   performance
+
 Indices and tables
 ==================
 
