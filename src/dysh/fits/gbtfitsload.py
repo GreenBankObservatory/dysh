@@ -86,7 +86,7 @@ class GBTFITSLoad(SDFITSLoad):
         # (e.g. PROCSIZE is needed to calculate n_integrations).
         show = ["SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", "PROCSIZE",
                 "RESTFREQ", "DOPFREQ", "IFNUM","FEED", "AZIMUTH", "ELEVATIO", 
-                "FDNUM", "PLNUM", "SIG", "CAL"] 
+                "FDNUM", "PLNUM", "SIG", "CAL","DATE-OBS"] 
         comp_colnames = [
                 "SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
                 "RESTFREQ", "DOPFREQ", "# IF","# POL", "# INT", "# FEED", 
@@ -136,22 +136,24 @@ class GBTFITSLoad(SDFITSLoad):
             nIF = uf["IFNUM"].nunique()
             nPol = uf["PLNUM"].nunique()
             nfeed = uf["FEED"].nunique()
-            # Divide by procsize to account for, e.g., sig and ref.
-            # For some procs, procsize will be 1 (e.g. SubBeamNod)
-            procsize = set(uf["PROCSIZE"])
-            if len(procsize) > 1:
-                warnings.warn(f"PROCSIZE {procsize} is not unique for SCAN {s}. Setting it to max value {max(procsize)}. #INT may be incorrect.")
-            elif len(procsize) == 0:
-                warnings.warn(f"PROCSIZE not present for SCAN {s}. Setting it to 1. #INT may be incorrect")
-                procsize = [1]
-            elif max(procsize) == 0:
-                # if PROC is "Unknown" procsize will be zero. Don't warn. Just set it so we can
-                # do the calculation of nint
-                #warnings.warn(f"PROCSIZE is zero for SCAN {s}. Setting it to 1.")
-                procsize = [1]
-            # max(procsize) always works even if len(procsize) == 1.
-            procsize = max(procsize)
-            nint  = len(uf)//(nPol*nIF*nfeed*procsize)
+            if False:
+                # Divide by procsize to account for, e.g., sig and ref.
+                # For some procs, procsize will be 1 (e.g. SubBeamNod)
+                procsize = set(uf["PROCSIZE"])
+                if len(procsize) > 1:
+                    warnings.warn(f"PROCSIZE {procsize} is not unique for SCAN {s}. Setting it to max value {max(procsize)}. #INT may be incorrect.")
+                elif len(procsize) == 0:
+                    warnings.warn(f"PROCSIZE not present for SCAN {s}. Setting it to 1. #INT may be incorrect")
+                    procsize = [1]
+                elif max(procsize) == 0:
+                    # if PROC is "Unknown" procsize will be zero. Don't warn. Just set it so we can
+                    # do the calculation of nint
+                    #warnings.warn(f"PROCSIZE is zero for SCAN {s}. Setting it to 1.")
+                    procsize = [1]
+                # max(procsize) always works even if len(procsize) == 1.
+                procsize = max(procsize)
+                nint  = len(uf)//(nPol*nIF*nfeed*procsize)
+            nint = len(set(uf["DATE-OBS"])) # see gbtidl io/line_index__define.pro
             obj = list(set(uf["OBJECT"]))[0] # We assume they are all the same!
             proc = list(set(uf["PROC"]))[0] # We assume they are all the same!
             #print(f"Uniq data for scan {s}: {nint} {nIF} {nPol} {nfeed} {obj} {proc}")
@@ -343,6 +345,8 @@ class GBTFITSLoad(SDFITSLoad):
         ----------
             scan: int
                 scan number
+            method: str
+                Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
             sig : bool
                 True to indicate if this is the signal scan, False if reference
             cal: bool
