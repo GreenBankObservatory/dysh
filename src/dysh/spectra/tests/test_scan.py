@@ -43,8 +43,7 @@ class TestSubBeamNod():
         # get filenames
         # We still need a data file with a single scan in it
         sdf_file = get_pkg_data_filename("data/TRCO_230413_Ka_scan43.fits")
-        gbtidl_file = get_pkg_data_filename("data/TRCO_230413_Ka_snodka_43_ifnum_0_plnum_0_fdnum_1.fits"
-)
+        gbtidl_file = get_pkg_data_filename("data/TRCO_230413_Ka_snodka_43_ifnum_0_plnum_0_fdnum_1.fits")
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
@@ -62,3 +61,36 @@ class TestSubBeamNod():
         # kluge for now since there is a small wavy pattern in 
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
+
+class TestGBTTPScan():
+
+    def test_compare_with_GBTIDL(self):
+
+        sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
+        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits")
+
+        # Generate the dysh result.
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        tp  = sdf.gettp(152)
+        tpavg = tp.timeaverage()
+
+        # Check that we know how to add.
+        assert tpavg.meta["EXPOSURE"] == tp.exposure.sum()
+
+        # Load GBTIDL result.
+        hdu = fits.open(gbtidl_file)
+        table = hdu[1].data
+        data = table["DATA"]
+
+        # Check exposure times.
+        assert np.sum(table["EXPOSURE"][:-1] - tp.exposure) == 0.0
+        assert tpavg.meta["EXPOSURE"] == table["EXPOSURE"][-1]
+        # System temperature.
+        # For some reason, the last integration comes out with a
+        # difference in TSYS ~4e-10 rather than ~1e-14. Check why.
+        assert np.all(abs(table["TSYS"][:-1] - tp.tsys) < 1e-9)
+        assert abs(tpavg.meta["TSYS"] - table["TSYS"][-1]) < 1e-10
+        # Data, which uses float -- 32 bits.
+        assert np.sum(tp._data - data[:-1]) == 0.0
+        assert np.nanmean((tpavg.flux.value - data[-1])/data[-1].mean()) < 2**32
+        
