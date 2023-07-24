@@ -47,10 +47,11 @@ class TestSubBeamNod():
 )
 
         # Generate the dysh result.
+        # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sbn = sdf.subbeamnod(43, sig=None, cal=None,
                         ifnum=0, fdnum=1, calibrate=True,
-                        weights='tsys')
+                        weights='tsys',method='scan') 
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
@@ -62,3 +63,9 @@ class TestSubBeamNod():
         # kluge for now since there is a small wavy pattern in 
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
+
+class TestGBTTPScan():
+
+    def test_compare_with_GBTIDL(self):
+        sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2.fits")
+        assert True

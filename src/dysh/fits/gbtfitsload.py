@@ -136,7 +136,7 @@ class GBTFITSLoad(SDFITSLoad):
             nIF = uf["IFNUM"].nunique()
             nPol = uf["PLNUM"].nunique()
             nfeed = uf["FEED"].nunique()
-            if False:
+            if False: # Nope, this does not always provde the correct answer
                 # Divide by procsize to account for, e.g., sig and ref.
                 # For some procs, procsize will be 1 (e.g. SubBeamNod)
                 procsize = set(uf["PROCSIZE"])
