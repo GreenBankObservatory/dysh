@@ -1,3 +1,10 @@
+on:
+  release:
+    types: 
+      - published
+
+name: release
+
 jobs:
   pypi-publish:
     name: upload release to PyPI
