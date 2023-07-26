@@ -13,7 +13,7 @@ SubBeamNod data, where a single pixel in a pixel camera is used to do a beam nod
 ..  (TODO need to replace fixed path with get_example_data() and explanation thereof)::
 
 Then load your SDFITS file containing SubBeamNod data. In this example, we use a 
-`GBT SDFITS file downloadable from GBO <http://www.gb.nrao.edu/dysh/example_datasubbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits'>_``
+`GBT SDFITS file downloadable from GBO <http://www.gb.nrao.edu/dysh/example_data/subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits'>_``
 
     >>> f = 'TRCO_230413_Ka.raw.vegas.A.fits'
     >>> sdfits = GBTFITSLoad(f)
