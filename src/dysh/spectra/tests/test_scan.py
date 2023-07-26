@@ -46,10 +46,11 @@ class TestSubBeamNod():
         gbtidl_file = get_pkg_data_filename("data/TRCO_230413_Ka_snodka_43_ifnum_0_plnum_0_fdnum_1.fits")
 
         # Generate the dysh result.
+        # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sbn = sdf.subbeamnod(43, sig=None, cal=None,
                         ifnum=0, fdnum=1, calibrate=True,
-                        weights='tsys')
+                        weights='tsys',method='scan') 
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
@@ -116,3 +117,4 @@ class TestGBTTPScan():
         assert table["EXPOSURE"][0] == tpavg.meta["EXPOSURE"]
         assert abs(table["TSYS"][0] - tpavg.meta["TSYS"]) < 2**-32
         assert np.all((data[0] - tpavg.flux.value) == 0.0)
+
