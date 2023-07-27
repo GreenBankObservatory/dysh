@@ -74,9 +74,12 @@ exclude = [
   "/.github",
   "/.gitignore",
   "*.swp",
+  "/attic",
+  "/build",
+  "/benchmark",
   "/docs",
-  "/benchmark"
-#"/tests"?
+  "/dist",
+  "/notebooks",
 ]
 
 [tool.hatch.build.targets.wheel]
