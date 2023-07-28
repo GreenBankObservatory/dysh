@@ -3,12 +3,12 @@ on:
     types: 
       - published
 
-name: release
+name: hatch-build
 
 jobs:
   build:
     runs-on:  ${{ matrix.os }}
-    environment: release
+    environment: hatch-build
     
     strategy:
       fail-fast: false
