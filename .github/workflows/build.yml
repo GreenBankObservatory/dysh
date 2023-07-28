@@ -1,4 +1,4 @@
-name: hatch build
+name: Build with hatch
 
 on:
   release:
