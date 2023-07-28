@@ -4,6 +4,7 @@ on:
   release:
     types: 
       - published
+  workflow_dispatch: # needed for "Run" button to show up in action menu
 
 jobs:
   build:
