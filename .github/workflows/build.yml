@@ -1,14 +1,15 @@
+name: hatch build
+
 on:
   release:
     types: 
-      - published
-
-name: release
+      - [created]
+  workflow_dispatch: # needed for "Run" button to show up in action menu
 
 jobs:
   build:
     runs-on:  ${{ matrix.os }}
-    environment: release
+    environment: hatch build
     
     strategy:
       fail-fast: false
@@ -27,18 +28,5 @@ jobs:
         pip install -r requirements-dev.txt
         pip install -e .
     - hatch: Build with hatch
+      run: |
         hatch build -c 
-
-  pypi-publish:
-    name: upload release to PyPI
-    runs-on: ubuntu-latest
-    # Specifying a GitHub environment is optional, but strongly encouraged
-    environment: release
-    permissions:
-      # IMPORTANT: this permission is mandatory for trusted publishing
-      id-token: write
-    steps:
-      # retrieve your distributions here
-
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
