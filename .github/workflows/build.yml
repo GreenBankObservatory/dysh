@@ -1,14 +1,15 @@
+name: hatch build
+
 on:
   release:
     types: 
-      - published
-
-name: hatch-build
+      - [created]
+  workflow_dispatch: # needed for "Run" button to show up in action menu
 
 jobs:
   build:
     runs-on:  ${{ matrix.os }}
-    environment: hatch-build
+    environment: hatch build
     
     strategy:
       fail-fast: false
