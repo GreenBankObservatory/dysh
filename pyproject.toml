@@ -14,6 +14,7 @@ authors = [
   { name = "Victoria Catlett", email = "vcatlett@nrao.edu" },
   { name = "Peter Teuben", email = "teuben@umd.edu" },
   { name = "Thomas Chamberlin", email = "tchamber@nrao.edu" },
+  { name = "Pedro Salas", email = "psalas@nrao.edu" },
 ]
 classifiers = [
   "Development Status :: 1 - Planning",
