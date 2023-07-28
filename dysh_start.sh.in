@@ -1,0 +1,13 @@
+# @EDIT_MSG@
+# for (ba)sh : source this file
+
+export  DYSH=@DYSH@
+
+export DYSH_DATA=@DYSH_DATA@
+
+for f in $DYSH/dysh_local.sh $HOME/.dysh_start.sh; do
+    if [ -e $f ]; then
+	source $f
+    fi
+done
+

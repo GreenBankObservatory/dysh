@@ -17,7 +17,7 @@ class Spectrum(Spectrum1D):
     have only one spectral axis conflicts with slight Doppler shifts.
     See `~specutils.Spectrum1D` for the instantiation arguments.
 
-    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  `~specutils.Spectrum1D` is wrong (there should not be a 'doppler_' prefix).
+    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  `~specutils.Spectrum1D` is wrong (there should not be a 'doppler\_' prefix).
     """
     def __init__(self, *args,**kwargs):
         Spectrum1D.__init__(self,*args,**kwargs)
@@ -187,6 +187,12 @@ in channel units.
                 convention="redshift"
                 equiv.extend(u.doppler_redshift())
         return equiv
+
+    def savefig(self,file,**kwargs):
+        """Save the plot"""
+        if self._plotter is None:
+            raise Exception("You have to invoke plot() first")
+        self._plotter.figure.savefig(file,**kwargs)
 
     def _write_table(self,fileobj,format,**kwargs):
         """Write this `Spectrum` as an ~astropy.table.Table.

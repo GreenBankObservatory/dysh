@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
 from ..spectra.obsblock import Obsblock
-from ..spectra import dcmeantsys, veldef_to_convention
+from ..spectra import veldef_to_convention
 from ..util import uniq, stripTable
 #from .. import version
 
@@ -491,13 +491,13 @@ class SDFITSLoad(object):
             scans: int
                 Number of scans as given by `SCAN` FITS header keyword.
         '''
-        return self.ushow(bintable,'SCAN')
+        return self.udata(bintable,'SCAN') #self.ushow(bintable,'SCAN')
     
     def _summary(self,bintable):
         j=bintable
         nrows = self.naxis(j,2)
         nflds = self._binheader[j]['TFIELDS']
-        restfreq = np.unique(self._ptable['RESTFREQ'])/1.0E9
+        restfreq = np.unique(self._ptable[j]['RESTFREQ'])/1.0E9
     #
         print("HDU       %d" %  (j+1))
         print("BINTABLE: %d rows x %d cols with %d chans" % (self._nrows[j],nflds,self.nchan(j)))

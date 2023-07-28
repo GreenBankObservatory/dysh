@@ -2,8 +2,61 @@ import matplotlib.pyplot as plt
 import numpy as np
 import astropy.units as u
 import copy
-
+"""Plot a spectrum using matplotlib"""
 class SpectrumPlot():
+    '''
+    The SpectrumPlot class is for simple plotting of a ~spectrum.Spectrum
+    using matplotlib functions.   Plots attributes are modified using keywords
+    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    choices for the plot if no additional keywords are given.
+    The attributes are "sticky" meaning that an attribute set via
+    instantiation or by the `plot()` method will stay set until changed
+    or reset using the `reset()` method.  
+
+    Parameters
+    ----------
+    spectrum : `~spectra.spectrum.Spectrum`
+        The spectrum to plot
+    \**kwargs : dict
+        Plot attribute keyword arguments, see below.
+
+    Keyword Arguments
+    -----------------
+        xaxis_unit : str or ~astrpy.unit.Unit
+            The units to use on the x-axis, e.g. "km/s" to plot velocity 
+        yaxis_unit : str or ~astrpy.unit.Unit
+            The units to use on the y-axis
+        xmin : float
+            Minimum x-axis value
+        xmax : float
+            Maximum x-axis value
+        ymin : float
+            Minimum y-axis value
+        ymax : float
+            Maximum y-axis value
+        xlabel : str
+            x-axis label
+        ylabel : str
+            y-axis label
+        grid : bool
+            Show a plot grid or not
+        figsize : tuple
+            Figure size (see matplotlib)
+        linewidth : float
+            Line width, default: 2.0.  lw also works
+        linestyle : str
+            Line style, default 'steps-mid'.  ls also works
+        color : str
+            Line color, c also works
+        title : str
+            Plot title
+        aspect : str
+            plot aspect ratio, default: 'auto'
+        show_baseline : bool
+            show the baseline - not yet implemented
+    '''
+    # loc, legend, bbox_to_anchor
+
     def __init__(self,spectrum,**kwargs):
         self.reset()
         self._plot_kwargs.update(kwargs)
@@ -17,16 +70,26 @@ class SpectrumPlot():
 
     @property
     def axis(self):
+        """The underlying :class:`~matplotlib.Axes` object"""
         return self._axis
     @property
     def figure(self):
+        """The underlying :class:`~matplotlib.Figure` object"""
         return self._figure
     @property
     def spectrum(self):
+        """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
     def plot(self,**kwargs):
-        """Plot the spectrum"""
+        """
+        Plot the spectrum.
+
+        Parameters
+        ----------
+        \**kwargs : various
+            keyword=value arguments (need to describe these in a central place)
+        """
         # xtype = 'velocity, 'frequency', 'wavelength'
         self._plot_kwargs.update(kwargs)
         #if self._figure is None:
@@ -43,17 +106,20 @@ class SpectrumPlot():
         if xunit is not None:
             if "chan" in xunit:
                 sa = np.arange(len(sa))
+                self._plot_kwargs['xlabel'] = "Channel"
             else:
                 # convert the x axis to the requested 
                 #print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
                 #sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
                 sa = s.velocity.to( self._plot_kwargs["xaxis_unit"], equivalencies=s.equivalencies)
+                self._plot_kwargs['xlabel'] = f'Velocity ({xunit})'
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
         self._axis.plot(sa,sf,color=self._plot_kwargs['color'], lw = lw)
         self._axis.set_xlim(self._plot_kwargs['xmin'],self._plot_kwargs['xmax'])
         self._axis.set_ylim(self._plot_kwargs['ymin'],self._plot_kwargs['ymax'])
+        self._axis.tick_params(axis='both',which='both',bottom=True,top=True,left=True,right=True,direction='in')
         if self._plot_kwargs['grid']:
             self._axis.grid(visible=True,which='major',axis='both',lw=lw/2,
                                 color='k',alpha=0.33)
@@ -62,9 +128,10 @@ class SpectrumPlot():
 
         self._set_labels(**self._plot_kwargs)
         #self._axis.axhline(y=0,color='red',lw=2)
-        #self.refresh()
+        self.refresh()
 
     def reset(self):
+        """Reset the plot keyword arguments to their defaults."""
         self._plot_kwargs = {
             'xmin': None,
             'xmax': None,
@@ -93,7 +160,19 @@ class SpectrumPlot():
         }
 
     def _set_labels(self,title=None,xlabel=None,ylabel=None,**kwargs):
-        """set x and y labels according to spectral units"""
+        """Set x and y labels according to spectral units
+
+           Parameters
+           ----------
+           title : str
+               plot title
+           xlabel : str
+               x-axis label
+           ylabel : str
+               x-axis label
+           \*\*kwargs : various
+               other keyword=value arguments
+        """
         if title is not None:
             self._title = title
         if hasattr(self.spectrum.wcs,'wcs'):
@@ -130,13 +209,13 @@ class SpectrumPlot():
         if ylabel is not None:
             self.axis.set_ylabel(ylabel)
         elif yunit.is_equivalent(u.K):
-            self.axis.set_ylabel(f"$T_B$ ({yunit})")
+            self.axis.set_ylabel(f"$T_A$ ({yunit})")
         elif self.spectrum.unit.is_equivalent(u.Jy):
             snu = r"$S_{\nu}$"
             self.axis.set_ylabel(f"{snu} ({yunit})")
 
     def _show_exclude(self,**kwargs):
-        ''' Method to show the exclude array on the plot'''
+        '''TODO: Method to show the exclude array on the plot'''
         kwargs_opts = {
             'loc': "bottom", #top,bottom ?
             'color' : 'silver',
@@ -148,10 +227,14 @@ class SpectrumPlot():
 
 
     def refresh(self):
+        """Refresh the plot"""
         if self.axis is not None:
             self.axis.figure.canvas.draw()
             #print('redrawing')
             #self.axis.figure.canvas.draw_idle()
             self._plt.show()
 
+    def savefig(self,file,**kwargs):
+        """Save the plot"""
+        self.figure.savefig(file,*kwargs)
 
