@@ -1,9 +1,9 @@
+name: hatch build
+
 on:
   release:
     types: 
       - published
-
-name: hatch build
 
 jobs:
   build:
