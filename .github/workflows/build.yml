@@ -27,4 +27,5 @@ jobs:
         pip install -r requirements-dev.txt
         pip install -e .
     - hatch: Build with hatch
+      run: |
         hatch build -c 
