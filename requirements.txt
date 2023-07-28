@@ -9,3 +9,4 @@ hatch
 pytest
 sphinx_rtd_theme
 sphinxcontrib_mermaid
+wget
