@@ -27,6 +27,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements-dev.txt
         pip install -e .
-    - hatch: Build with hatch
+    - name: Build with hatch
       run: |
         hatch build -c 
