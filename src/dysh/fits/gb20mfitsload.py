@@ -7,7 +7,7 @@ class GB20MFITSLoad(SDFITSLoad):
 
     def __init__(self, filename, source=None, hdu=None, **kwargs):
         SDFITSLoad.__init__(self, filename, source, hdu)
-
+        self._fix_object()
 
     def _fix_object(self):
         """
@@ -16,4 +16,8 @@ class GB20MFITSLoad(SDFITSLoad):
         for i in range(len(self._bintable)):
             for j in range(self._binheader[i]["NAXIS2"]):
                 text = self._bintable[i].data[j]["OBJECT"]
-                self._bintable[i].data[j]["OBJECT"] = text[:text.index("\x00")]
+                try:
+                    idx = text.index("\x00")
+                except ValueError:
+                    continue
+                self._bintable[i].data[j]["OBJECT"] = text[:idx]
