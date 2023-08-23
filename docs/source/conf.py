@@ -106,8 +106,7 @@ pygments_style = "sphinx"
 #
 # TODO: consider using sphinx_sizzle_theme, so we get tooltip definitions?
 html_theme = "sphinx_rtd_theme"
-
-# html_logo = "_static/gbors_logo.png"
+html_logo = "_static/icon/logo.svg"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -221,6 +220,6 @@ intersphinx_mapping = {
 
 # These paths are either relative to html_static_path
 # or fully qualified paths (eg. https://...)
-#html_css_files = [
-#    "css/custom.css",
-#]
+html_css_files = [
+    "css/custom.css",
+]

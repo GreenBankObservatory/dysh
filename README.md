@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/dysh/badge/?version=latest)](https://dysh.readthedocs.io/en/latest/?badge=latest)
+
 # Dysh
 
 *Dysh* is a Python spectral line data reduction and analysis program for singledish data with specific emphasis on data from the Green Bank Telescope.  It is currently under development in collaboration between the [Green Bank Observatory](https:/greenbankobservatory.org) and the Laboratory for Millimeter-Wave Astronomy (LMA) at [University of Maryland (UMD)](https://www.astro.umd.edu).  It is intended to be a full replacement for the GBO's current reduction package [GBTIDL](https://www.gb.nrao.edu/GBT/DA/gbtidl/users_guide/).
@@ -14,7 +16,7 @@ Dysh is most easily installed with *pip*, which will take care of any dependenci
     $ pip install dysh
 ```
 
-#### From github
+#### From GitHub
 To install from github without creating a separate virtual environment: 
 
 ```bash

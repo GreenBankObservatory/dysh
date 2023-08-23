@@ -14,9 +14,11 @@ Contents
    :maxdepth: 2
    
    getting_started/index
+   design/index
    modules/index
    examples/index
-   testing/index
+   performance_testing/index
+   for_beta_testers/index
    for_developers/index
 
 Indices and tables

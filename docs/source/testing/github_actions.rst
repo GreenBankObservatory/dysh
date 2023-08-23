@@ -1,5 +1,0 @@
-**************
-GitHub Actions
-**************
-
-Instructions
