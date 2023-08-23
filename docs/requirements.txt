@@ -15,7 +15,6 @@ colorama==0.4.6
 contourpy==1.1.0
 cycler==0.11.0
 docutils==0.18.1
--e git+ssh://git@github.com/GreenBankObservatory/dysh.git@96bff61e689058092190f0a9fccc648003261836#egg=dysh
 fonttools==4.42.1
 gwcs==0.18.3
 idna==3.4
