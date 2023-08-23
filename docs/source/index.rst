@@ -1,4 +1,3 @@
-
 ******************
 Dysh Documentation
 ******************
@@ -8,33 +7,19 @@ and the Laboratory for Millimeter-Wave Astronomy (LMA)
 at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.  
 It is intended to be a full replacement for the GBO's current reduction package `GBTIDL <https://www.gb.nrao.edu/GBT/DA/gbtidl/users_guide/>`_.
 
-Getting Started
+Contents
 ===============
 
 .. toctree::
-    :maxdepth: 1
-
-    install
-    example
-
-Module Descriptions and APIs
-============================
-
-.. toctree::
    :maxdepth: 2
-
-   dysh.fits
-   dysh.spectra
-   dysh.plot
-   dysh.util
-
-Performance
-============
-
-.. toctree::
-   :maxdepth: 1
-
-   performance
+   
+   getting_started/index
+   design/index
+   modules/index
+   examples/index
+   performance_testing/index
+   for_beta_testers/index
+   for_developers/index
 
 Indices and tables
 ==================

@@ -59,4 +59,4 @@ You can time-average the data, in this example with equal weighting per integrat
 
     >>> tps.timeaverage(weights=None).plot()
 
-.. image:: static/tp_153_eqweight.png
+.. image:: ../_static/examples/tp_153_eqweight.png

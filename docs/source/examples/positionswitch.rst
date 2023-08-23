@@ -51,14 +51,14 @@ Then time average the data, using system temperature weighting (other option is 
     >>> ta = psscan.timeaverage(weights='tsys')
     >>> ta.plot()
 
-.. image:: static/ps_152.png
+.. image:: ../_static/examples/ps_152.png
 
 
 The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis units and also recognizes a number matplolib-like keywords::
 
     >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
 
-.. image:: static/ps_152_zoom.png
+.. image:: ../_static/examples/ps_152_zoom.png
 
 Removing a baseline
 ===================
@@ -83,5 +83,5 @@ is also .  The baseline is removed if `remove=True`.
         ------------------- --------------------- ----------------------
         0.16984671256725348 6.155580136474429e-29 2.2305011385559243e-56
 
-.. image:: static/ps_152_baseline_removed.png
+.. image:: ../_static/examples/ps_152_baseline_removed.png
 
