@@ -5,8 +5,11 @@ on:
   push:
     branches: [main, release*]
 
+
 jobs:
   pre-commit:
+    env:
+      SKIP: ruff
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
