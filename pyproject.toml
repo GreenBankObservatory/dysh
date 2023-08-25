@@ -39,8 +39,6 @@ dev = [
   "pytest",
   "pytest-cov",
   "wget",
-]
-docs = [
   "myst-parser",
   "sphinx",
   "sphinx-autobuild",
@@ -77,7 +75,7 @@ docs-build = "sphinx-build {root}/docs {root}/docs/build -b html {args}"
 
 # run via: $ hatch run test:<script>
 [tool.hatch.envs.test.scripts]
-run = "pytest {args}"
+matrix = "pytest {args}"
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/dysh --cov=tests {args}"
 
 # Run tests across all supported version of Python
