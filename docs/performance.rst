@@ -24,4 +24,3 @@ The result is that `dysh` performs **better** than `GBTIDL` in loading and index
     :align: left
 
     Performance of `dysh` versus `GBTIDL` in common operations.  `dysh` is significantly faster in loading SDFITS files and creating indices (equivalent of GBTIDL index file) and creating spectra.  It is comparable in removing baselines of arbitrary order.  No attempt was made to optimize the prototype `dysh` code.
-

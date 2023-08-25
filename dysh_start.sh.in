@@ -10,4 +10,3 @@ for f in $DYSH/dysh_local.sh $HOME/.dysh_start.sh; do
 	source $f
     fi
 done
-

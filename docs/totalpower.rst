@@ -12,7 +12,7 @@ Single beam total power (TP) data is retrieved using :meth:`~dysh.fits.gbtfitslo
 
 ..  (TODO need to replace fixed path with get_example_data() and explanation thereof)::
 
-Then load your SDFITS file containing TP data. In this example, we use a 
+Then load your SDFITS file containing TP data. In this example, we use a
 `GBT SDFITS file downloadable from GBO <http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits>`_::
 
     >>> f = 'TGBT21A_501_11.raw.vegas.fits'
@@ -23,8 +23,8 @@ The returned `sdfits` can be probed for information::
     >>> sdfits.info()
         Filename: /data/gbt/examples/onoff-L/data/TGBT21A_501_11.raw.vegas.fits
         No.    Name      Ver    Type      Cards   Dimensions   Format
-          0  PRIMARY       1 PrimaryHDU      12   ()      
-          1  SINGLE DISH    1 BinTableHDU    245   6040R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '32768E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']   
+          0  PRIMARY       1 PrimaryHDU      12   ()
+          1  SINGLE DISH    1 BinTableHDU    245   6040R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '32768E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']
 
 You can also print a concise (or verbose if you choose `verbose=True`) summary :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.summary` of the data::
 

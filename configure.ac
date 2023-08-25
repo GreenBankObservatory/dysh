@@ -1,4 +1,4 @@
-dnl Process this file with autoconf to produce a new configure script if it has changed. 
+dnl Process this file with autoconf to produce a new configure script if it has changed.
 dnl ------------------------------------------------------------------------------------
 
 AC_INIT

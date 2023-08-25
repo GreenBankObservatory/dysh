@@ -1,5 +1,7 @@
-import wget
 import os
+
+import wget
+
 
 def test_flag_wget():
     url = "https://www.gb.nrao.edu/dysh/example_data/nod-KFPA/data/TGBT22A_503_02.raw.vegas/TGBT22A_503_02.raw.vegas.A.flag"
