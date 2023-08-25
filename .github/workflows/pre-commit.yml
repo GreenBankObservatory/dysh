@@ -1,0 +1,17 @@
+name: pre-commit
+
+on:
+  pull_request:
+  push:
+    branches: [main, release*]
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        # must match the version in .pre-commit-config.yaml:default_language_version.python
+        python-version: '3.9'
+    - uses: pre-commit/action@v3.0.0
