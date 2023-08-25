@@ -48,3 +48,4 @@ repos:
           - '--output-file=requirements.txt'
           - '--no-strip-extras'
           - '--quiet'
+          - '--no-emit-trusted-host'
