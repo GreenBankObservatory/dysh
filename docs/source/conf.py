@@ -55,10 +55,7 @@ extensions = [
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
     "sphinxcontrib.mermaid",
-    "numpydoc",
-    "nbsphinx",
-    "nbsphinx_link"
-#    "sphinx_automodapi.automodapi",
+    "numpydoc"
 ]
 
 numpydoc_show_class_members = True
