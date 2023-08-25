@@ -17,7 +17,7 @@ class Spectrum(Spectrum1D):
     have only one spectral axis conflicts with slight Doppler shifts.
     See `~specutils.Spectrum1D` for the instantiation arguments.
 
-    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  `~specutils.Spectrum1D` is wrong (there should not be a 'doppler\_' prefix).
+    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  `~specutils.Spectrum1D` is wrong (there should not be a 'doppler\\_' prefix).
     """
 
     def __init__(self, *args, **kwargs):

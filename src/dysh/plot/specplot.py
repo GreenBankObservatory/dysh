@@ -9,7 +9,7 @@ class SpectrumPlot:
     """
     The SpectrumPlot class is for simple plotting of a ~spectrum.Spectrum
     using matplotlib functions.   Plots attributes are modified using keywords
-    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    (\\*\\*kwargs) described below SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
     The attributes are "sticky" meaning that an attribute set via
     instantiation or by the `plot()` method will stay set until changed
@@ -19,7 +19,7 @@ class SpectrumPlot:
     ----------
     spectrum : `~spectra.spectrum.Spectrum`
         The spectrum to plot
-    \**kwargs : dict
+    \\**kwargs : dict
         Plot attribute keyword arguments, see below.
 
     Keyword Arguments
@@ -92,7 +92,7 @@ class SpectrumPlot:
 
         Parameters
         ----------
-        \**kwargs : various
+        \\**kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
         # xtype = 'velocity, 'frequency', 'wavelength'
@@ -173,7 +173,7 @@ class SpectrumPlot:
             x-axis label
         ylabel : str
             x-axis label
-        \*\*kwargs : various
+        \\*\\*kwargs : various
             other keyword=value arguments
         """
         if title is not None:
