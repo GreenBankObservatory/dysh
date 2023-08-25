@@ -11,8 +11,9 @@ Contents
 ===============
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    
+   background/index
    getting_started/index
    design/index
    modules/index

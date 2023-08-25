@@ -5,7 +5,7 @@ Git Workflows
 Branches
 ========
 
-Make your own development/feature branch and stay synced with the current `release-x.y.z` branch. When it's time to release, merge the `release-x.y.z` branch with the `main` branch. Tag the merge accordingly. 
+The development team employs a GitFlow workflow with personal branching. This means that code in the `main` branch should always be in a releasable state. Developers should maintain their own development branches and commit changes to a `release-x.y.z` branch. When it's time to release, a dedicated team member will merge the `release-x.y.z` branch with the `main` branch and tag it accordingly. 
 
 .. mermaid::
 
@@ -36,3 +36,8 @@ Make your own development/feature branch and stay synced with the current `relea
         merge personB-devel id: "14"
         checkout main
         merge release-x.y.z  id: "15" tag: "release-x.y.z"
+
+Releases
+========
+
+Release branches will be locked once work on the next release begins. 
