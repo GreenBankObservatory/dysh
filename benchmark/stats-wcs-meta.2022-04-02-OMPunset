@@ -348,5 +348,3 @@ NUMBER OF BAD SPECTRA: 1680
     92032    0.477    0.000 2174.092    0.024 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/api.py:94(pixel_to_world_values)
     92032    0.579    0.000 2164.603    0.024 /n/lupus/mpound/anaconda3/lib/python3.9/site-packages/gwcs/wcs.py:332(__call__)
 26651872454 2053.948    0.000 2053.948    0.000 {built-in method numpy.asanyarray}
-
-

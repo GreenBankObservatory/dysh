@@ -19,10 +19,10 @@ You will need initial admin privilages for this.
      # setup a venv, for example in a $HOME/venv hierarchy
      mkdir -p $HOME/venv
      python3 -m venv $HOME/venv/dysh1
-     
+
      # activate this venv
      source $HOME/venv/dysh1/bin/activate
-     
+
      # install hatch
      pip install hatch notebook
 
@@ -37,11 +37,11 @@ After this dysh can be installed in a virtual environment controlled by hatch
      hatch shell
      pip install -r requirements_dev.txt
          # some warning about running ipython
-     pip install -r docs/requirements.txt     
+     pip install -r docs/requirements.txt
      hatch build
      pip install -e .
      ipython            # this initially gave a matplotlib error, but it went away
-     exit               
+     exit
 
 Any time development is needed:
 
@@ -67,7 +67,7 @@ this will still return to the native virtual environment, so one more exit is ne
 
 
 
-     
+
 ## dysh2: anaconda3 python
 
 Here is an example using an anaconda3 python, no virtual environments, no hatch, no nothing.
@@ -98,21 +98,21 @@ and verify
 and when done, exit will terminate the shell
 
      exit
-   
+
 
 
 
 
 ## dysh3: anaconda3 python with virtual environment
 
-Here is an example using an anaconda3 python, but now using hatch 
+Here is an example using an anaconda3 python, but now using hatch
 
      mkdir ~/GBT/dysh3
      cd ~/GBT/dysh3
 
      ../install_anaconda3                # DM me for a copy
      source python_start.sh
-     
+
      pip install hatch
 
 After this dysh can be installed in a virtual environment controlled by hatch,
@@ -124,7 +124,7 @@ pretty much following what we did in *dysh1*:
      # setup dysh with hatch (be sure to be in the dysh directory)
      hatch shell
      pip install -r requirements_dev.txt
-     pip install -r docs/requirements.txt     
+     pip install -r docs/requirements.txt
      hatch build
      pip install -e .
 
@@ -136,7 +136,7 @@ and verify
 and when done, exit will terminate the shell
 
      exit
-   
+
 
 Any time development is needed:
 
