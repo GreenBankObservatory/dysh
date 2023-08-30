@@ -50,11 +50,10 @@ def average(data,axis=0,weights=None):
 def exclude_to_region(exclude,refspec,fix_exclude=False):
     """Convert an exclude list to a list of ~specutuls.SpectralRegion.
 
-       Parameters
-       ----------        
-
-            exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:
+    Parameters
+    ----------        
+    exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.    Examples:
 
                 One channel-based region: 
 
@@ -72,16 +71,16 @@ def exclude_to_region(exclude,refspec,fix_exclude=False):
 
                 >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
                 
-            refspec: `~spectra.spectrum.Spectrum`
-                The reference spectrum whose spectral axis will be used 
-                when converting between exclude and axis units (e.g. channels to GHz).
-            fix_exclude: bool
-                If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
+    refspec: `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used 
+        when converting between exclude and axis units (e.g. channels to GHz).
+    fix_exclude: bool
+        If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
  
       Returns
-      ----------        
-            regionlist : list of `~specutil.SpectralRegion`
-                A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
+      ------- 
+      regionlist : list of `~specutil.SpectralRegion`
+        A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
 
     """
     regionlist = [] 
@@ -212,7 +211,7 @@ def baseline(spectrum,order,exclude=None,**kwargs):
        model : str
            One of 'polynomial' or 'chebyshev', Default: 'polynomial'
        fitter : `~astropy.fitting._FitterMeta`
-           The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+           The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
 
        Returns
        -------
