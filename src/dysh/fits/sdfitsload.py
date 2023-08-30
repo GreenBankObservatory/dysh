@@ -19,6 +19,8 @@ from ..spectra import veldef_to_convention
 from ..util import uniq, stripTable
 #from .. import version
 
+# [Cat] I added this requirement to get _loadlists working for the GUI code
+from specutils import SpectrumList
 
 class SDFITSLoad(object):
     '''
