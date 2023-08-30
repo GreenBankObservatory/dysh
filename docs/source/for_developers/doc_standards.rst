@@ -5,22 +5,30 @@ Documentation Standards
 Sphinx Autobuilds
 =====================
 
-First, you need to create a documentation environment.
+* First, you need to create a documentation environment.
 
-* `cd dysh/docs`
-* `/path/to/python -m venv docs-env`
-* `source docs-env/bin/activate`
-* `pip install -r requirements.txt`
-* `pip install -e ../`
+.. code-block:: bash
 
-Next, set up the build command. 
+    cd dysh/docs
+    /path/to/python -m venv docs-env
+    source docs-env/bin/activate
+    pip install -r requirements.txt
 
-* `cp .env.template .env`
+* Next, set up the build command. 
+
+.. code-block:: bash
+
+    cp .env.template .env
+
 * Add values for `DOCS_ROOT`, `DOCS_HOST`, and `DOCS_PORT` in `.env`
-* `source .env`
-* `startdocs`
+* Start the autobuild
 
-Go to `http://{$DOCS_HOST}:{$DOCS_PORT}` in a web browser. You should now see the documentation with live edits as you save changes. 
+.. code-block:: bash
+    
+    source .env
+    startdocs
+
+* Go to `http://{$DOCS_HOST}:{$DOCS_PORT}` in a web browser. You should now see the documentation with live edits as you save changes. 
 
 Docstring Format
 ================

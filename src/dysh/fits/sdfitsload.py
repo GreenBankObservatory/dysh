@@ -32,6 +32,7 @@ class SDFITSLoad(object):
             target source to select from input file. Default: all sources
         hdu : int or list
             Header Data Unit to select from input file. Default: all HDUs
+    
     '''
     def __init__(self, filename, source=None, hdu=None, **kwargs):
         if kwargs.get("verbose",None):
@@ -86,12 +87,14 @@ class SDFITSLoad(object):
          #   self.load(src,hdu)
     
     def create_index(self,hdu=None):
-        """Create the index of the SDFITS file.
+        """
+        Create the index of the SDFITS file.
 
         Parameters
         ----------
             hdu : int or list
                 Header Data Unit to select from input file. Default: all HDUs
+        
         """
         if hdu is not None:
             ldu = list([hdu])
@@ -114,6 +117,7 @@ class SDFITSLoad(object):
         ----------
             hdu : int or list
                 Header Data Unit to select from input file. Default: all HDUs
+        
         """
         self._bintable = []
         self._ptable = []
@@ -245,7 +249,8 @@ class SDFITSLoad(object):
 
 
     def fix_meta(self,meta):
-        """Do any repair to the meta/header for peculariaties in definitions 
+        """
+        Do any repair to the meta/header for peculariaties in definitions 
         from a particular observatory
         The passed-in dictionary will be repaired in place.
         At minimum this method must populate meta['VELDEF'] and meta['VELFRAME']
@@ -254,11 +259,13 @@ class SDFITSLoad(object):
         ----------
             meta : dict
                 The header of the `~Spectrum` to be fixed, corresponding to the `meta` attribute of the Spectrum.
+        
         """
         pass
     
     def velocity_convention(self,veldef,velframe):
-        '''Compute the velocity convention string use for velocity conversions, 
+        '''
+        Compute the velocity convention string use for velocity conversions, 
         given the VELDEF and VELFRAME values. 
         Return value must be a recognized string of `~specutils.Spectrum1D`, one of
         {"doppler_relativistic", "doppler_optical", "doppler_radio"}
@@ -271,11 +278,13 @@ class SDFITSLoad(object):
                 The velocity definition string (`VELDEF` FITS keyword)
             velframe : str
                 The velocity frame string (`VELFRAME` FITS keyword)
+        
         '''
         return "doppler_radio"
     
     def udata(self,bintable,key):
-        """The unique list of values of a given header keyword
+        """
+        The unique list of values of a given header keyword
 
         Parameters
         ----------
@@ -283,15 +292,18 @@ class SDFITSLoad(object):
                 The index of the `bintable` attribute
             key : str
                 The keyword to retrieve
+        
         Returns
         -------
             udata : list
                 The unique set of values for the input keyword.
+        
         """
         return uniq(self._ptable[bintable][key])
                                   
     def ushow(self,bintable,key):
-        """Print the unique list of values of a given header keyword
+        """
+        Print the unique list of values of a given header keyword
 
         Parameters
         ----------
@@ -299,11 +311,13 @@ class SDFITSLoad(object):
                 The index of the `bintable` attribute
             key : str
                 The keyword to retrieve
+        
         """
         print(f'{bintable} {key}: {self.udata(bintable,key)}')
         
     def naxis(self,bintable,naxis):
-        '''The NAXISn value of the input bintable.
+        '''
+        The NAXISn value of the input bintable.
 
         Parameters
         ----------
@@ -315,12 +329,14 @@ class SDFITSLoad(object):
         Returns
         -------
             naxis : the length of the NAXIS
+        
         '''
         nax = f'NAXIS{naxis}'
         return self._binheader[bintable][nax]
     
     def nintegrations(self,bintable,source=None):
-        '''The number of integrations on a given source divided by the number of polarizations
+        '''
+        The number of integrations on a given source divided by the number of polarizations
 
         Parameters
         ----------
@@ -332,6 +348,7 @@ class SDFITSLoad(object):
         Returns
         -------
             nintegrations : the number of integrations 
+        
         '''
         
         data = self.rawspectra(bintable)
@@ -346,7 +363,8 @@ class SDFITSLoad(object):
         return nint
 
     def rawspectra(self,bintable):
-        '''Get the raw (unprocessed) spectra from the input bintable.
+        '''
+        Get the raw (unprocessed) spectra from the input bintable.
 
         Parameters
         ----------
@@ -357,12 +375,14 @@ class SDFITSLoad(object):
         -------
             rawspectra : ~numpy.ndarray
                 The DATA column of the input bintable
+        
         '''
         return self._bintable[bintable].data[:]["DATA"]
 
     def rawspectrum(self,bintable,i):
-        '''Get a single raw (unprocessed) spectrum from the input bintable.
-    TODO: arguments are backwards from getrow(), getspec()
+        '''
+        Get a single raw (unprocessed) spectrum from the input bintable.
+        TODO: arguments are backwards from getrow(), getspec()
 
         Parameters
         ----------
@@ -375,6 +395,7 @@ class SDFITSLoad(object):
         -------
             rawspectrum : ~numpy.ndarray
                 The i-th row of DATA column of the input bintable
+        
         '''
         return self._bintable[bintable].data[:]["DATA"][i]
 
@@ -418,7 +439,8 @@ class SDFITSLoad(object):
 
     
     def nrows(self,bintable):
-        '''The number of rows of the input bintable
+        '''
+        The number of rows of the input bintable
 
         Parameters
         ----------
@@ -429,11 +451,13 @@ class SDFITSLoad(object):
         -------
             nrows : int
                 Number of rows, i.e., the length of the input bintable
+        
         '''
         return self._nrows[bintable]
 
     def nchan(self,bintable):
-        '''The number of channels per row of the input bintable. Assumes all rows have same length.
+        '''
+        The number of channels per row of the input bintable. Assumes all rows have same length.
 
         Parameters
         ----------
@@ -444,11 +468,13 @@ class SDFITSLoad(object):
         -------
             nchan : int
                 Number channels in the first spectrum of the input bintbale
+        
         '''
         return np.shape(self.rawspectrum(bintable,1))[0]
     
     def npol(self,bintable):
-        '''The number of polarizations present in the input bintable. 
+        '''
+        The number of polarizations present in the input bintable. 
 
         Parameters
         ----------
@@ -459,11 +485,13 @@ class SDFITSLoad(object):
         -------
             npol: int
                 Number of polarizations as given by `CRVAL4` FITS header keyword.
+        
         '''
         return len(self.udata(bintable,'CRVAL4'))
     
     def sources(self,bintable):
-        '''The number of sources present in the input bintable. 
+        '''
+        The number of sources present in the input bintable. 
 
         Parameters
         ----------
@@ -474,12 +502,14 @@ class SDFITSLoad(object):
         -------
             sources: int
                 Number of sources as given by `OBJECT` FITS header keyword.
+        
         '''
         return self.udata(bintable,'OBJECT')
     
     def scans(self,bintable):
-        #@TODO move this to GBTFISLoad?
-        '''The number of scans resent in the input bintable. 
+        '''
+        The number of scans resent in the input bintable. 
+        TODO: move this to GBTFISLoad?
 
         Parameters
         ----------
@@ -522,8 +552,9 @@ class SDFITSLoad(object):
         return self._filename    
 
     def _bintable_from_rows(self,rows=None,bintable=None):
-        """extract a bintable from an existing 
-           bintable in this SDFITSLoad object
+        """
+        Extract a bintable from an existing 
+        bintable in this SDFITSLoad object
             
         Parameters
         ----------
@@ -555,32 +586,33 @@ class SDFITSLoad(object):
 
         Parameters
         ----------
-        fileobj : str, file-like or `pathlib.Path`
-            File to write to.  If a file object, must be opened in a
-            writeable mode.
+            fileobj : str, file-like or `pathlib.Path`
+                File to write to.  If a file object, must be opened in a
+                writeable mode.
 
-        rows: int or list-like
-            Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. Default: None, meaning all rows
-            Note: Currently `rows`, if given, must be contained in a single bintable and bintable must be given
+            rows: int or list-like
+                Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. Default: None, meaning all rows
+                Note: Currently `rows`, if given, must be contained in a single bintable and bintable must be given
 
-        bintable :  int
-            The index of the `bintable` attribute or None for all bintables. Default: None
+            bintable :  int
+                The index of the `bintable` attribute or None for all bintables. Default: None
 
-        output_verify : str
-            Output verification option.  Must be one of ``"fix"``,
-            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-            ``"exception"``.  May also be any combination of ``"fix"`` or
-            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
-            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+            output_verify : str
+                Output verification option.  Must be one of ``"fix"``,
+                ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+                ``"exception"``.  May also be any combination of ``"fix"`` or
+                ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+                (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
 
-        overwrite : bool, optional
-            If ``True``, overwrite the output file if it exists. Raises an
-            ``OSError`` if ``False`` and the output file exists. Default is
-            ``False``.
+            overwrite : bool, optional
+                If ``True``, overwrite the output file if it exists. Raises an
+                ``OSError`` if ``False`` and the output file exists. Default is
+                ``False``.
 
-        checksum : bool
-            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
-            to the headers of all HDU's written to the file.
+            checksum : bool
+                When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+                to the headers of all HDU's written to the file.
+        
         """
         if bintable is None:
             if rows is None:

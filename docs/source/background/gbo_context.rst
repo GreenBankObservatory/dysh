@@ -2,8 +2,16 @@
 Context Within GBO Systems
 **************************
 
-Overview 
-========
+Background 
+==========
+
+GBTIDL
+------
+
+`GBTIDL` is the current software used to calibrate SDFITS files from the GBT. 
+
+Requirements
+============
 
 At its core, `dysh` needs to read in an SDFITS file and ultimately output calibrated data.
 

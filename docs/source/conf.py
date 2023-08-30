@@ -55,8 +55,7 @@ extensions = [
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
     "sphinxcontrib.mermaid",
-    "numpydoc",
-#    "sphinx_automodapi.automodapi",
+    "numpydoc"
 ]
 
 numpydoc_show_class_members = True
@@ -198,6 +197,7 @@ texinfo_documents = [
 default_role = 'obj'
 
 # -- Extension configuration -------------------------------------------------
+numpydoc_class_members_toctree = False
 
 # -- Options for intersphinx extension ---------------------------------------
 
