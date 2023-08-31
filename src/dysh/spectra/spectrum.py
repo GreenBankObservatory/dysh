@@ -72,7 +72,7 @@ class Spectrum(Spectrum1D):
             model : str
                 One of 'polynomial' or 'chebyshev', Default: 'polynomial'
             fitter  :  `~astropy.fitting._FitterMeta`
-                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
             remove : bool
                 If True, the baseline is removed from the spectrum. Default: False
         

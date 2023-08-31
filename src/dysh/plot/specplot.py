@@ -20,40 +20,40 @@ class SpectrumPlot():
     \**kwargs : dict
         Plot attribute keyword arguments, see below.
 
-    Keyword Arguments
-    -----------------
-        xaxis_unit : str or ~astrpy.unit.Unit
-            The units to use on the x-axis, e.g. "km/s" to plot velocity 
-        yaxis_unit : str or ~astrpy.unit.Unit
-            The units to use on the y-axis
-        xmin : float
-            Minimum x-axis value
-        xmax : float
-            Maximum x-axis value
-        ymin : float
-            Minimum y-axis value
-        ymax : float
-            Maximum y-axis value
-        xlabel : str
-            x-axis label
-        ylabel : str
-            y-axis label
-        grid : bool
-            Show a plot grid or not
-        figsize : tuple
-            Figure size (see matplotlib)
-        linewidth : float
-            Line width, default: 2.0.  lw also works
-        linestyle : str
-            Line style, default 'steps-mid'.  ls also works
-        color : str
-            Line color, c also works
-        title : str
-            Plot title
-        aspect : str
-            plot aspect ratio, default: 'auto'
-        show_baseline : bool
-            show the baseline - not yet implemented
+    Other Parameters
+    ----------------
+    xaxis_unit : str or ~astrpy.unit.Unit
+        The units to use on the x-axis, e.g. "km/s" to plot velocity 
+    yaxis_unit : str or ~astrpy.unit.Unit
+        The units to use on the y-axis
+    xmin : float
+        Minimum x-axis value
+    xmax : float
+        Maximum x-axis value
+    ymin : float
+        Minimum y-axis value
+    ymax : float
+        Maximum y-axis value
+    xlabel : str
+        x-axis label
+    ylabel : str
+        y-axis label
+    grid : bool
+        Show a plot grid or not
+    figsize : tuple
+        Figure size (see matplotlib)
+    linewidth : float
+        Line width, default: 2.0.  lw also works
+    linestyle : str
+        Line style, default 'steps-mid'.  ls also works
+    color : str
+        Line color, c also works
+    title : str
+        Plot title
+    aspect : str
+        plot aspect ratio, default: 'auto'
+    show_baseline : bool
+        show the baseline - not yet implemented
     '''
     # loc, legend, bbox_to_anchor
 
@@ -72,16 +72,18 @@ class SpectrumPlot():
     def axis(self):
         """The underlying :class:`~matplotlib.Axes` object"""
         return self._axis
+    
     @property
     def figure(self):
         """The underlying :class:`~matplotlib.Figure` object"""
         return self._figure
+    
     @property
     def spectrum(self):
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self,**kwargs):
+    def plot(self, **kwargs):
         """
         Plot the spectrum.
 
