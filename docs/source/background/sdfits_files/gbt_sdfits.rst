@@ -1,15 +1,10 @@
-************
-SDFITS Files 
-************
+****************
+GBT SDFITS Files 
+****************
 
-Overview
-========
-The single-dish FITS (SDFITS) convention is used for observer-facing GBT data. The GBT records raw data to FITS files, and then the SDFITS filler populates SDFITS files with information the observer needs. 
-
-GBT Convention
-=================
-
-GBT SDFITS files contain 2 Header-Data Units (HDUs). Note that keys sometimes appear to be truncated because they can only have up to 8 letters. 
+Convention
+==========
+The single-dish FITS (SDFITS) convention is used for observer-facing GBT data. The GBT records raw data to FITS files, and then the SDFITS filler populates SDFITS files with information the observer needs. GBT SDFITS files contain 2 or more Header-Data Units (HDUs). Note that keys sometimes appear to be truncated because they can only have up to 8 letters. 
 
 HDU 0 (PRIMARY)
 ---------------
