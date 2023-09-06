@@ -21,6 +21,8 @@ from ..util import uniq, stripTable
 
 # [Cat] I added this requirement to get _loadlists working for the GUI code
 from specutils import SpectrumList
+# And this lets us have a progress bar
+from rich.progress import track
 
 class SDFITSLoad(object):
     '''
@@ -49,7 +51,7 @@ class SDFITSLoad(object):
         self._binheader = []
         self._data = []
         self._hdu = fits.open(filename)  
-        self._header = self._hdu[0].header
+        self._primaryheader = self._hdu[0].header
         self.load(hdu,**kwargs_opts)
         self.create_index()
         #self._hdu.close()  # can't access hdu[i].data member of you do this.
@@ -63,6 +65,10 @@ class SDFITSLoad(object):
         """The list of bintables"""
         return self._bintable
 
+    def primaryheader(self):
+        """The primary header"""
+        return self._primaryheader
+    
     def binheader(self):
         """The list of bintable headers"""
         return self._binheader
@@ -166,8 +172,9 @@ class SDFITSLoad(object):
             rawspect = self._bintable[i].data["DATA"]
             sl = SpectrumList()
             maxload = int(np.min([maxspect,self.nrows(i)]))
-            print(f"Creating {maxload} Spectrum in bintable {i} HDU {hdu}",file=sys.stderr)
-            for j in range(maxload):
+            #print(f"Creating {maxload} Spectrum in bintable {i} HDU {hdu}",file=sys.stderr)
+            # The "track" makes a progress bar
+            for j in track(range(maxload), description = f"Creating {maxload} spectra in bintable {i} HDU {hdu}"):
                 k = k+1
                 # need extra [[]] because we have 1x1 spatial NAXIS
                 # otherwise, slicing the spectrum won't work.
@@ -179,8 +186,8 @@ class SDFITSLoad(object):
                     #sp = np.random.rand(32768)*u.K
                 naxis1 =  sp.shape[0]#self.nchan(i)
                 printme = int(0.1*len(b))
-                if (k%printme) == 0: 
-                    print(f"Row {k} nchan {naxis1} {type(sp)}", file=sys.stderr)
+                #if (k%printme) == 0: 
+                    #print(f"Row {k} nchan {naxis1} {type(sp)}", file=sys.stderr)
                     #print(f"NAXIS1 is {naxis1}",file=sys.stderr)
                 crval1  = b['CRVAL1'][j]
                 cdelt1  = b['CDELT1'][j]

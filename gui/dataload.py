@@ -23,13 +23,13 @@ class FITSFileDialog(QFileDialog):
     
     def config(self):
         self.setDirectory(self.f_root)
-        # self.setFilter(self.f_filter)
+        #self.setFilter(self.f_filter)
 
     def get_fpaths(self):
         # [TODO] Have this check what system you're on and build the QFileSystemModel
         # [TODO] Add the FITS file filter
         self.f_root = QDir("/home/dysh/example_data/")
-        # self.f_filter = QDir.Filters("FITS Files (*.fits)")
+        #self.f_filter = "FITS Files (*.fits)"
         # self.f_model = QFileSystemModel()
         # self.f_model.setRootPath("/home/dysh/example_data/")
 

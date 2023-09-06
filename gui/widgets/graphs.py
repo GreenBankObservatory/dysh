@@ -21,10 +21,10 @@ class WaterfallSpectrum(ImageView):
     """ Waterfall Plot """
     def __init__(self, data):
         super().__init__()
-        self.add_data()
+        self.add_data(data)
         self.config()
 
-    def add_data(self):
+    def add_data(self, data):
         self.setImage(self.data.T)
 
     def config(self):
