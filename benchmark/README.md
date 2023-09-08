@@ -1,12 +1,12 @@
 # Notes for benchmarking Dysh
 
-The purpose of  benchmarking is to test performance  of 
+The purpose of  benchmarking is to test performance  of
 
-- opening/loading an SDFITS file/hdu 
+- opening/loading an SDFITS file/hdu
 - optionally creating an index of some sort (GBTIDL or pandas)
 - creating spectra from each DATA row of the SDFITS table.
 - remove baselines of order 1, 2, and 3 from each spectrum.
- 
+
 Timing is 'wall clock time', i.e., it includes and kernel/sleep operations.  In python, we are using  *time.perfcounter_ns()*
 
 ## Avoiding File caching
@@ -22,7 +22,7 @@ The OMP_NUM_THREADS environment variable sets the number of threads to use for  
 and
     setenv OMP_NUM_THREADS 1
 
-## SDFITS Files 
+## SDFITS Files
 
 The standard set of SDFITS files to run the benchmark on are in /lma1/mpound/GBT/examples/ on LMA machines and /home/scratch/mpound/examples in GBO machines.  The files are (in ascending order of size):
 
@@ -33,7 +33,7 @@ The standard set of SDFITS files to run the benchmark on are in /lma1/mpound/GBT
 - onoff-L/data/TGBT21A_501_11.raw.vegas.fits
 - mapping-L/data/TGBT17A_506_11.raw.vegas/
 TGBT17A_506_11.raw.vegas.A.fits
-- nod-KFPA/data/TGBT22A_503_02.raw.vegas/TGBT22A_503_02.raw.vegas.F.fits 
+- nod-KFPA/data/TGBT22A_503_02.raw.vegas/TGBT22A_503_02.raw.vegas.F.fits
 - mixed-fs-ps/data/AGBT16B_225_05/AGBT16B_225_05.raw.vegas/AGBT16B_225_05.raw.vegas.B.fits
 
 ## Code details
@@ -41,7 +41,7 @@ TGBT17A_506_11.raw.vegas.A.fits
 2. The python benchmark code is *revisedstructure.py* and is invoked with *benchmark_py.csh*
     -  To run it, you have to have dysh installed.  This is done with hatch and I haven't written up the notes for that yet!
     - It has various options to turn on/off pieces of the benchmark, see *revisedstructure.py -h*
- 
+
 ## Output
 Output should be into a (IPAC-formatted) table with the following columns:
 
@@ -50,7 +50,7 @@ Output should be into a (IPAC-formatted) table with the following columns:
 - N_hdu - number of HDU in the file
 - HDU - number of the HDU for which this row contains the benchmark
 - N_rows - number of rows in this HDU
-- N_chan - number of chan per spectum in this HDU  
+- N_chan - number of chan per spectum in this HDU
 - Load - time to load/read the SDFITs file, in ms .  e.g. astropy.io.fits.open()
 - Index - time to create index (e.g. pandas, GBTIDL) in ms
 - Create_Obslocks - time to create Spectrum object for every row of HDU, in ms
@@ -62,4 +62,3 @@ The python script *makeplots.py* will make some standard  plots given the IPAC f
 
     ./makeplots.py -f tab_omp=1.out -t "Timing for Load/Obsblocks/Baseline (OMP=1)" -o t1.png
     ./makeplots.py -f tab_omp_unset.out -t "Timing for Load/Obsblocks/Baseline (OMP unset)" -o t2.png
-

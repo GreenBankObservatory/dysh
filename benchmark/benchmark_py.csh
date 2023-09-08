@@ -2,7 +2,7 @@
 #set path = ( . $path )
 #
 # BE sure to echo 1 > /proc/sys/vm/drop_caches before running this.
-unsetenv OMP_NUM_THREADS 
+unsetenv OMP_NUM_THREADS
 set root = "/data/gbt/examples/"
 #set root = "/lma1/mpound/GBT/examples/"
 #set root = "/home/scratch/mpound/examples/"
