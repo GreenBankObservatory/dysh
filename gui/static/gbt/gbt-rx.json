@@ -1,0 +1,235 @@
+{
+    "PF1 (0.29 - 0.395 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "PF1 (0.385 - 0.52 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "PF1 (0.51 - 0.69 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "PF1 (0.68 - 0.92 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "PF2 (0.9 - 1.23 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "L (1.15 - 1.73 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "S (1.73 - 2.6 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "UWBR (0.7 - 4.0 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "C (3.95 - 8.0 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "X (8.0 - 12.0 GHz)":{
+        "beams":[1], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "Ku (12.0 - 15.4 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "KFPA (17.0 - 27.5 GHz)":{
+        "beams":[1, 2, 4, 7], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "Ka F1 (26.0 - 31.0 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Single"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "Ka F2 (30.5 - 37.0 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Single"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "Ka F3 (36.0 - 39.5 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Single"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4, 5, 6, 7, 8],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "Q (38.2 - 49.8 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "W1 (68.0 - 74.0 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "W2 (73.0 - 80.0 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "W3 (79.0 - 86.0 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "W4 (85.0 - 92.0 GHz)":{
+        "beams":[1, 2], 
+        "pol":["Dual", "Full"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Out-of-Band Frequency Switching",
+            "Position Switching"
+            ]
+        },
+    "ARGUS (75.0 - 115.5 GHz)":{
+        "beams":[1, 2, 4, 8, 16], 
+        "pol":["Single"],
+        "BpW":[11.72, 16.9, 23.44, 100, 187.5, 850, 1250],
+        "n_spec":[1, 2, 3, 4],
+        "sw_mode":[
+            "In-Band Frequency Switching",
+            "Nodding between beams",
+            "Out-of-Band Frequency Switching",
+            "Position Switching",
+            "Sub-reflector nodding between beams"
+            ]
+        }
+}

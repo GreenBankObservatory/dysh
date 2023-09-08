@@ -1,0 +1,298 @@
+{
+    "OBJECT": {
+        "format": "32A",
+        "unit": null
+    },
+    "BANDWID": {
+        "format": "1D",
+        "unit": "Hz"
+    },
+    "DATE-OBS": {
+        "format": "22A",
+        "unit": null
+    },
+    "DURATION": {
+        "format": "1D",
+        "unit": "s"
+    },
+    "EXPOSURE": {
+        "format": "1D",
+        "unit": "s"
+    },
+    "TSYS": {
+        "format": "1D",
+        "unit": "K"
+    },
+    "DATA": {
+        "format": "32768E",
+        "unit": null
+    },
+    "TDIM7": {
+        "format": "16A",
+        "unit": null
+    },
+    "TUNIT7": {
+        "format": "6A",
+        "unit": null
+    },
+    "CTYPE1": {
+        "format": "8A",
+        "unit": "Hz"
+    },
+    "CRVAL1": {
+        "format": "1D",
+        "unit": "Hz"
+    },
+    "CRPIX1": {
+        "format": "1D",
+        "unit": null
+    },
+    "CDELT1": {
+        "format": "1D",
+        "unit": "Hz"
+    },
+    "CTYPE2": {
+        "format": "4A",
+        "unit": null
+    },
+    "CRVAL2": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "CTYPE3": {
+        "format": "4A",
+        "unit": null
+    },
+    "CRVAL3": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "CRVAL4": {
+        "format": "1I",
+        "unit": null
+    },
+    "OBSERVER": {
+        "format": "32A",
+        "unit": null
+    },
+    "OBSID": {
+        "format": "32A",
+        "unit": null
+    },
+    "SCAN": {
+        "format": "1J",
+        "unit": null
+    },
+    "OBSMODE": {
+        "format": "32A",
+        "unit": null
+    },
+    "FRONTEND": {
+        "format": "16A",
+        "unit": null
+    },
+    "TCAL": {
+        "format": "1E",
+        "unit": "K"
+    },
+    "VELDEF": {
+        "format": "8A",
+        "unit": null
+    },
+    "VFRAME": {
+        "format": "1D",
+        "unit": "m/s"
+    },
+    "RVSYS": {
+        "format": "1D",
+        "unit": "m/s"
+    },
+    "OBSFREQ": {
+        "format": "1D",
+        "unit": "Hz"
+    },
+    "LST": {
+        "format": "1D",
+        "unit": "s"
+    },
+    "AZIMUTH": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "ELEVATIO": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "TAMBIENT": {
+        "format": "1D",
+        "unit": "K"
+    },
+    "PRESSURE": {
+        "format": "1D",
+        "unit": "mmHg"
+    },
+    "HUMIDITY": {
+        "format": "1D",
+        "unit": null
+    },
+    "RESTFREQ": {
+        "format": "1D",
+        "unit": "Hz"
+    },
+    "FREQRES": {
+        "format": "1D",
+        "unit": "Hz"
+    },
+    "EQUINOX": {
+        "format": "1D",
+        "unit": null
+    },
+    "RADESYS": {
+        "format": "8A",
+        "unit": null
+    },
+    "TRGTLONG": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "TRGTLAT": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "SAMPLER": {
+        "format": "12A",
+        "unit": null
+    },
+    "FEED": {
+        "format": "1I",
+        "unit": null
+    },
+    "SRFEED": {
+        "format": "1I",
+        "unit": null
+    },
+    "FEEDXOFF": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "FEEDEOFF": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "SUBREF_STATE": {
+        "format": "1I",
+        "unit": null
+    },
+    "SIDEBAND": {
+        "format": "1A",
+        "unit": null
+    },
+    "PROCSEQN": {
+        "format": "1I",
+        "unit": null
+    },
+    "PROCSIZE": {
+        "format": "1I",
+        "unit": null
+    },
+    "PROCSCAN": {
+        "format": "16A",
+        "unit": null
+    },
+    "PROCTYPE": {
+        "format": "16A",
+        "unit": null
+    },
+    "LASTON": {
+        "format": "1J",
+        "unit": null
+    },
+    "LASTOFF": {
+        "format": "1J",
+        "unit": null
+    },
+    "TIMESTAMP": {
+        "format": "22A",
+        "unit": "UTC"
+    },
+    "QD_XEL": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "QD_EL": {
+        "format": "1D",
+        "unit": "deg"
+    },
+    "QD_BAD": {
+        "format": "1I",
+        "unit": null
+    },
+    "QD_METHOD": {
+        "format": "1A",
+        "unit": null
+    },
+    "VELOCITY": {
+        "format": "1D",
+        "unit": "m/s"
+    },
+    "ZEROCHAN": {
+        "format": "1E",
+        "unit": null
+    },
+    "DOPFREQ": {
+        "format": "1D",
+        "unit": "Hz"
+    },
+    "ADCSAMPF": {
+        "format": "1D",
+        "unit": null
+    },
+    "VSPDELT": {
+        "format": "1D",
+        "unit": null
+    },
+    "VSPRVAL": {
+        "format": "1D",
+        "unit": null
+    },
+    "VSPRPIX": {
+        "format": "1D",
+        "unit": null
+    },
+    "SIG": {
+        "format": "1A",
+        "unit": null
+    },
+    "CAL": {
+        "format": "1A",
+        "unit": null
+    },
+    "CALTYPE": {
+        "format": "8A",
+        "unit": null
+    },
+    "TWARM": {
+        "format": "1E",
+        "unit": "K"
+    },
+    "TCOLD": {
+        "format": "1E",
+        "unit": "K"
+    },
+    "CALPOSITION": {
+        "format": "16A",
+        "unit": null
+    },
+    "IFNUM": {
+        "format": "1I",
+        "unit": null
+    },
+    "PLNUM": {
+        "format": "1I",
+        "unit": null
+    },
+    "FDNUM": {
+        "format": "1I",
+        "unit": null
+    }
+}
