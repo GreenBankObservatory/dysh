@@ -1,6 +1,6 @@
 import sys, os
 import json, pathlib
-from rich import print
+from rich import print as rprint
 from rich.align import Align
 from rich.filesize import decimal
 from rich.markup import escape
@@ -9,10 +9,13 @@ from rich.tree import Tree
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-sys.path.insert(0, os.path.abspath('.'))
+
+sys.path.insert(0, os.path.abspath("."))
+
 
 class SystemMessages:
-    """ Messages about the system """
+    """Messages about the system"""
+
     def __init__(self):
         pass
 
@@ -22,11 +25,11 @@ class SystemMessages:
             guide_style="bold bright_blue",
         )
         self._directory_tree(pathlib.Path(dir), tree, max_depth)
-        print(tree)
+        rprint(tree)
 
     def _directory_tree(self, directory, tree, max_depth, current_depth=0):
-        """ Recursively build a Tree with directory contents """
-        
+        """Recursively build a Tree with directory contents"""
+
         if current_depth <= max_depth:
             current_depth += 1
             # Sort dirs first,  then sort by filename
@@ -61,8 +64,10 @@ class SystemMessages:
                         icon = "🐍 " if path.suffix == ".py" else "📄 "
                         tree.add(Text(icon) + text_filename)
 
+
 class GBTInfoMessages:
-    """ Messages about the GBT """
+    """Messages about the GBT"""
+
     def __init__(self):
         pass
 
@@ -81,10 +86,12 @@ class GBTInfoMessages:
             rx_table.add_row(rx_name, rx_freqs)
 
         rx_table = Align.center(rx_table, vertical="middle")
-        print(rx_table)
+        rprint(rx_table)
+
 
 class FriendlyMessages:
-    """ General friendly stuff to print """
+    """General friendly stuff to print"""
+
     def __init__(self):
         pass
 
@@ -92,10 +99,10 @@ class FriendlyMessages:
         w_message = "Welcome to Dysh"
         w_panel = Panel(w_message, padding=2)
         w_panel = Align.center(w_panel, vertical="middle")
-        print(w_panel)
+        rprint(w_panel)
 
     def goodbye(self):
         bye_message = "Goodbye!"
         bye_panel = Panel(bye_message, padding=2)
         bye_panel = Align.center(bye_panel, vertical="middle")
-        print(bye_panel)
+        rprint(bye_panel)
