@@ -91,6 +91,9 @@ class GBTFITSLoad(SDFITSLoad):
                 "SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
                 "RESTFREQ", "DOPFREQ", "# IF","# POL", "# INT", "# FEED", 
                 "AZIMUTH", "ELEVATIO"]
+        # In the process, some columns get cast to floats or others. Make sure we cast them
+        # back to an appropriate data type before return.
+        col_dtypes = {"SCAN": int, "PROCSEQN": int}
         uncompressed_df = None
         if self._ptable is None:
             self._create_index()
@@ -118,7 +121,9 @@ class GBTFITSLoad(SDFITSLoad):
                     uncompressed_df = pd.concat([uncompressed_df,_df.filter(show)])
         
         if verbose:
+            uncompressed_df = uncompressed_df.astype(col_dtypes)
             return uncompressed_df
+
         # do the work to compress the info 
         # in the dataframe on a scan basis
         compressed_df = pd.DataFrame(columns = comp_colnames)
@@ -153,6 +158,7 @@ class GBTFITSLoad(SDFITSLoad):
             compressed_df = pd.concat(
                     [compressed_df,ser.to_frame().T],
                     ignore_index=True)
+        compressed_df = compressed_df.astype(col_dtypes)
         return compressed_df
 
     def velocity_convention(self,veldef,velframe):

@@ -2,6 +2,87 @@
 Position-Switched Data
 **********************
 
+Background
+==========
+
+Position switched observations are those in which the telescope observes a target (the ON position or signal) and another part of the sky, assumed to be devoid of emission (the OFF position or reference).
+
+.. image:: ../_static/examples/gbt_ps_2.gif
+
+While observing this is accomplished using the functions `OnOff` or `OffOn` in a scheduling block. For more details about these functions see Sections 6.4.2.2 and 6.4.2.3 of the |gbtog_link|.
+
+.. |gbtog_link| raw:: html
+
+   <a href="http://www.gb.nrao.edu/scienceDocs/GBTog.pdf" target="_blank">GBT observer's guide</a>
+
+A modified version of the scheduling block for the observations used in this example is copied below::
+
+    # Observing script for NGC 2415
+
+    # GBT Observing: TGBT21A_501
+    # Total power position switch, L-band, VEGAS
+    # Targets the HI 21 cm line and the four 18 cm OH lines.
+
+    # Setup configuration
+    HI_OH_config ='''
+    receiver   = 'Rcvr1_2'
+    obstype    = 'Spectroscopy'
+    backend    = 'VEGAS'
+    restfreq   = 1420.4057517,1612.231,1665.4018,1667.3590,1720.5299
+    nwin       = 5
+    bandwidth  = 23.44
+    nchan      = 32768
+    swmode     = 'tp'
+    swtype     = 'none'
+    swper      = 1.0
+    tint       = 2
+    vframe     = 'bary'
+    vdef       = 'Optical'
+    noisecal   = 'lo'
+    pol        = 'Linear'
+    '''
+
+    # Setup catalog of calibrators.
+    Catalog('fluxcal')
+
+    # Define catalog of targets.
+    target_cat = """
+    format=spherical 
+    coordmode=J2000 
+    HEAD=NAME RA DEC 
+    NGC2415 07:36:56.66 +35:14:30.55
+    """
+    Catalog(target_cat)
+    
+    # Slew to target.
+    Slew('NGC2415')
+
+    # Start finding pointing and focus corrections.i
+    # Without argument AutoPeakFocus will try to find
+    # a suitable pointing calibrator. 
+    AutoPeakFocus()
+    
+    # After an Auto procedure it is necessary to reconfigure.
+    Configure(HI_OH_config)
+
+    # Slew to the target and adjust the power levels.
+    Slew('NGC2415')
+    Balance()
+
+    # Observe a source of known flux density to find the 
+    # equivalent temperature/flux of the noise diode.
+    # This will be used to calibrate the flux scale.
+    OnOff('3C196', Offset('J2000', 0.0, 1.0, cosv=True), 60)
+
+    # Observe the target using OnOff for a total of ~10 minutes.
+    numobs = 1
+    for i in range(numobs):
+        OnOff('NGC2415',
+            Offset('J2000', 0.4042, 0.263), 300) 
+
+
+
+
 Calibrating Position-Switched Data
 ==================================
 
@@ -31,19 +112,19 @@ You can also print a concise (or verbose if you choose `verbose=True`) summary :
 
     >>> sdfits.summary()
         SCAN   OBJECT VELOCITY   PROC PROCSEQN  RESTFREQ   DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
-    0  152.0  NGC2415   3784.0  OnOff      1.0  1.617185  1.420406    5     2   151      1  286.218008   41.62843
-    1  153.0  NGC2415   3784.0  OnOff      2.0  1.617185  1.420406    5     2   151      1  286.886521  41.118134
+    0    152  NGC2415   3784.0  OnOff        1  1.617185  1.420406    5     2   151      1  286.218008   41.62843
+    1    153  NGC2415   3784.0  OnOff        2  1.617185  1.420406    5     2   151      1  286.886521  41.118134
 
-Retrieve a scan and its partner ON or OFF, selecting and IF number and polarization, then calibrate it::
+Retrieve a scan and its partner ON or OFF, selecting an IF number and polarization, then calibrate it::
 
     >>> psscan = sdfits.getps(152, ifnum=0, plnum=0)
     >>> psscan.calibrate() # this will be eventually be subsumed into `calibrate=True` in `getps`
         PSSCAN nrows = 302
     
-The system temperature array (numpy.ndarray) is stored in `tsys`::
+The system temperature array (`numpy.ndarray`) is stored in `tsys`::
 
-    >>> print(f"T_sys = {pscan.tsys.mean():.2f}:")
-        T_sys = 17.17
+    >>> print(f"T_sys = {pscan.tsys.mean():.2f} K")
+        T_sys = 17.17 K
 
 Then time average the data, using system temperature weighting (other option is 'equal' weighting; 'tsys' is the default if no `weights` parameter is given. Future upgrade will allow the user to provide a numeric weights array). The returned object is :class:`~dysh.spectra.spectrum.Spectrum`, which has a default `matplotlib`-based plotter attached::
 
@@ -59,6 +140,10 @@ The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis
     >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
 
 .. image:: ../_static/examples/ps_152_zoom.png
+
+.. WARNING::
+    At this point, `dysh` does not handle Doppler corrections. So the frequency and velocity information will be wrong for observations requesting a reference frame other than Topocentric.
+
 
 Removing a baseline
 ===================

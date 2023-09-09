@@ -79,21 +79,23 @@ class PSScan(object):
         return self._nrows
     
 class TPScan(object):
-    """
-    Holds a total power scan
+    r"""
+    Holds a total power scan.
+    
     Parameters
     ----------
-        sdfits : ~SDFITSLoad
-            input SDFITSLoad object (or derivative)
-        scan: int
-            scan number
-        sigstate : str
-            one of 'SIG' or 'REF' to indicate if this is the signal or reference scan
-        scanrows : list-like
-            the list of rows in `sdfits` corresponding to sig_state integrations 
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
+    sdfits : ~SDFITSLoad
+        Input SDFITSLoad object (or derivative).
+    scan: int
+        Scan number.
+    sigstate : str
+        One of 'SIG' or 'REF' to indicate if this is the signal or reference scan.
+    scanrows : list-like
+        The list of rows in `sdfits` corresponding to sig_state integrations.
+    bintable : int
+        The index for BINTABLE in `sdfits` containing the scans.
     """
+
     def __init__(self, sdfits, scan, sigstate, calstate, scanrows, bintable):
         self._sdfits = sdfits # parent class
         self._scan = scan

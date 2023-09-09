@@ -61,6 +61,12 @@ extensions = [
 numpydoc_show_class_members = True
 autosummary_generate = True
 
+autodoc_docstring_signature = True
+autodoc_default_options = {'members': None, 'undoc-members': None}
+
+# Make sure the targets are unique
+autosectionlabel_prefix_document = True
+
 # TODO: These appear to have no effect
 mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:false});"
 
