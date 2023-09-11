@@ -12,12 +12,16 @@ from astropy.table import Table
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import json
 
-sys.path.insert(0, os.path.abspath("."))
 from ..spectra.spectrum import Spectrum
 from ..spectra.obsblock import Obsblock
 from ..spectra import veldef_to_convention
 from ..util import uniq, stripTable
+
+from pathlib import Path
+FITS_BASE_DIR = Path(__file__).resolve().parent
+TRANS_BASE_DIR = os.path.join(FITS_BASE_DIR, "dicts/")
 
 # from .. import version
 
@@ -52,6 +56,25 @@ class ThreadCallbacks:
     def progress(future):
         print(".", end="", flush=True)
 
+class SDFITSTrans:
+    def __init__(self, telescope, fpath=None):
+        self.telescope = telescope
+        # self.fpath = fpath
+        self.load_json()
+        self.gen_keys()
+
+    def load_json(self):
+        json_path = os.path.join(TRANS_BASE_DIR, f"{self.telescope}.json")
+        self._hdr_trans = json.load(open(json_path))
+
+    def gen_keys(self):
+        self.keys = {}
+        self.fixed = {}
+        for k in self._hdr_trans:
+            if self._hdr_trans[k]["KTYPE"] == "FIXED":
+                self.fixed[k] = self._hdr_trans[k]["FILL"]
+            else:
+                self.keys[k] = self._hdr_trans[k]["KEY"]
 
 class SDFITSLoad(object):
     """
@@ -75,6 +98,8 @@ class SDFITSLoad(object):
         kwargs_opts = {"fix": False}
         kwargs_opts = {"wcs": False}
         kwargs_opts.update(kwargs)
+        self._load_hdr_translator("gbt")
+
         self._filename = filename
         self._bintable = []
         self._ptable = []
@@ -84,6 +109,9 @@ class SDFITSLoad(object):
         self._primaryheader = self._hdu[0].header
         self.load(hdu, **kwargs_opts)
         self.create_index()
+
+    def _load_hdr_translator(self, telescope="default"):
+        self.trans = SDFITSTrans(telescope)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
@@ -138,7 +166,7 @@ class SDFITSLoad(object):
         self._ptable = []
         for i in ldu:
             t = Table.read(self._hdu[i])
-            t.remove_column("DATA")
+            t.remove_column(self.trans.keys["DATA"])
             stripTable(t)
             self._ptable.append(t.to_pandas())
             del t
@@ -171,7 +199,7 @@ class SDFITSLoad(object):
             j = i - 1
             self._bintable.append(self._hdu[i])
             self._binheader.append(self._hdu[i].header)
-            self._nrows.append(self._binheader[j]["NAXIS2"])
+            self._nrows.append(self._binheader[j][self.trans.keys["NAXIS2"]])
 
         if kwargs.get("index", False):
             self.create_index(hdu)
@@ -185,7 +213,7 @@ class SDFITSLoad(object):
         print("HDU = ", hdu)
         if hdu is not None:
             self.b = self._ptable[hdu - 1]
-            self.rawspect = self._bintable[i].data["DATA"]
+            self.rawspect = self._bintable[i].data[self.trans.keys["DATA"]]
             self.sl = SpectrumList()
             maxload = int(np.min([maxspect, self.nrows(i)]))
 
@@ -213,80 +241,57 @@ class SDFITSLoad(object):
                 while (n_finished := sum([future.done() for future in futures])) < len(futures):
                     progress_bar.update(overall_progress, completed=n_finished, total=len(futures))
 
+        # [TODO] Sort by index in case it's out of order?
         self._obsblock.append(Obsblock(self.sl, self._ptable[i]))
 
     def _load_one_list(self, j):
         sp = np.copy(self.rawspect[j])
         naxis1 = sp.shape[0]
-        crval1 = self.b["CRVAL1"][j]
-        cdelt1 = self.b["CDELT1"][j]
-        crpix1 = self.b["CRPIX1"][j]
-        ctype1 = self.b["CTYPE1"][j]
-        restfrq = self.b["RESTFREQ"][j]
+        
+        crval1 = self.b[self.trans.keys["CRVAL1"]][j]
+        cdelt1 = self.b[self.trans.keys["CDELT1"]][j]
+        crpix1 = self.b[self.trans.keys["CRPIX1"]][j]
+        ctype1 = self.b[self.trans.keys["CTYPE1"]][j]
+        restfrq = self.b[self.trans.keys["RESTFREQ"]][j]
         if "CUNIT1" in self.b.columns:
-            cunit1 = self.b["CUNIT1"][j]
+            cunit1 = self.b[self.trans.keys["CUNIT1"]][j]
             rfq = restfrq * u.Unit(cunit1)
             restfreq = rfq.to("Hz").value
         cunit1 = "Hz"
-        crval2 = self.b["CRVAL2"][j]
-        crval3 = self.b["CRVAL3"][j]
-        ctype2 = self.b["CTYPE2"][j]
-        ctype3 = self.b["CTYPE3"][j]
-        # if wcs:
-        wcs = WCS(
-            header={
+        crval2 = self.b[self.trans.keys["CRVAL2"]][j]
+        crval3 = self.b[self.trans.keys["CRVAL3"]][j]
+        ctype2 = self.b[self.trans.keys["CTYPE2"]][j]
+        ctype3 = self.b[self.trans.keys["CTYPE3"]][j]
+        
+        meta = {
                 "CDELT1": cdelt1,
                 "CRVAL1": crval1,
                 "CUNIT1": cunit1,
-                "CTYPE1": "FREQ",
+                "CTYPE1": self.trans.fixed["CTYPE1"],
                 "CRPIX1": crpix1,
                 "RESTFRQ": restfrq,
                 "CTYPE2": ctype2,
                 "CRVAL2": crval2,
-                "CRPIX2": 1,
+                "CRPIX2": int(self.trans.fixed["CRPIX2"]),
                 "CTYPE3": ctype3,
                 "CRVAL3": crval3,
-                "CRPIX3": 1,
-                "CUNIT2": "deg",
-                "CUNIT3": "deg",
+                "CRPIX3": int(self.trans.fixed["CRPIX3"]),
+                "CUNIT2": self.trans.fixed["CUNIT2"],
+                "CUNIT3": self.trans.fixed["CUNIT3"],
                 "NAXIS1": naxis1,
-                "NAXIS2": 1,
-                "NAXIS3": 1,
+                "NAXIS2": int(self.trans.fixed["NAXIS2"]),
+                "NAXIS3": int(self.trans.fixed["NAXIS3"]),
             }
-        )
-        # else:
-        #    wcs = None
-        if "VELFRAME" in self.b.columns:
-            vframe = self.b["VELFRAME"][j]
-        elif "VFRAME" in self.b.columns:
-            vframe = self.b["VFRAME"][j]
-        else:
-            vframe = None
-        if "VELDEF" in self.b.columns:
-            vdef = self.b["VELDEF"][j]
-        else:
-            vdef = None
-        meta = {
-            "CDELT1": cdelt1,
-            "CRVAL1": crval1,
-            "CUNIT1": cunit1,
-            "CTYPE1": "FREQ",
-            "CRPIX1": crpix1,
-            "RESTFRQ": restfrq,
-            "CTYPE2": ctype2,
-            "CRVAL2": crval2,
-            "CRPIX2": 1,
-            "CTYPE3": ctype3,
-            "CRVAL3": crval3,
-            "CRPIX3": 1,
-            "CUNIT2": "deg",
-            "CUNIT3": "deg",
-            "NAXIS1": naxis1,
-            "NAXIS2": 1,
-            "NAXIS3": 1,
-            "VELDEF": vdef,
-            "VELFRAME": vframe,
-        }
+        
+    
+        wcs = WCS(meta)
+        
+        vframe = self.b[self.trans.keys["VFRAME"]][j]
+        vdef = self.b[self.trans.keys["VELDEF"]][j]
+        
+        meta["VELDEF"] = vdef,
+
+        meta["VELFRAME"] = vframe
         convention = self.velocity_convention(vdef, vframe)
 
         # Append to the spectrum list (a thread-safe operation)
