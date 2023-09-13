@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dysh.spectra.spectrum &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=938c9ccc"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({startOnLoad:true, useMaxWidth:false});</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html">
+            
+              <img src="../../../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../background/index.html">Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../design/index.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules/index.html">Modules and APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples for GBT Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../for_developers/index.html">For Developers</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dysh.spectra.spectrum</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dysh.spectra.spectrum</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">specutils</span> <span class="kn">import</span> <span class="n">Spectrum1D</span><span class="p">,</span> <span class="n">SpectrumList</span><span class="p">,</span><span class="n">SpectralRegion</span>
+<span class="kn">from</span> <span class="nn">astropy.modeling.polynomial</span> <span class="kn">import</span> <span class="n">Polynomial1D</span><span class="p">,</span><span class="n">Chebyshev1D</span>
+<span class="kn">from</span> <span class="nn">astropy.modeling.fitting</span> <span class="kn">import</span> <span class="n">LevMarLSQFitter</span><span class="p">,</span><span class="n">LinearLSQFitter</span>
+<span class="kn">from</span> <span class="nn">astropy.wcs</span> <span class="kn">import</span> <span class="n">WCS</span>
+<span class="kn">from</span> <span class="nn">astropy.io</span> <span class="kn">import</span> <span class="n">fits</span><span class="p">,</span><span class="n">registry</span>
+<span class="kn">from</span> <span class="nn">astropy.table</span> <span class="kn">import</span> <span class="n">Table</span>
+<span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">baseline</span>
+<span class="kn">from</span> <span class="nn">..plot</span> <span class="kn">import</span> <span class="n">specplot</span> <span class="k">as</span> <span class="n">sp</span>
+
+<div class="viewcode-block" id="Spectrum">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum">[docs]</a>
+<span class="k">class</span> <span class="nc">Spectrum</span><span class="p">(</span><span class="n">Spectrum1D</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class contains a spectrum and its attributes. It is built on</span>
+<span class="sd">    `~specutils.Spectrum1D` with added attributes like baseline model.</span>
+<span class="sd">    Note that `~specutils.Spectrum1D` can contain multiple spectra but</span>
+<span class="sd">    we probably will not use that because the restriction that it can</span>
+<span class="sd">    have only one spectral axis conflicts with slight Doppler shifts.</span>
+<span class="sd">    See `~specutils.Spectrum1D` for the instantiation arguments.</span>
+
+<span class="sd">    *Note:* `velocity_convention` should be one of {&#39;radio&#39;, &#39;optical&#39;, &#39;relativistic&#39;}; the  `~specutils.Spectrum1D` is wrong (there should not be a &#39;doppler\_&#39; prefix).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">Spectrum1D</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="o">*</span><span class="n">args</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1"># if mask is not set via the flux input (NaNs in flux or flux.mask),</span>
+        <span class="c1"># then set the mask to all False == good</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flux</span><span class="p">),</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_model</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subtracted</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_exclude_regions</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plotter</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">exclude_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exclude_regions</span>
+
+    <span class="c1">##@todo</span>
+    <span class="c1"># def exclude_region(self,region):</span>
+    <span class="c1"># where region is SpectralRegion, channels, velocity, etc.  See core.py baseline method.</span>
+    <span class="c1">#</span>
+    <span class="c1"># def region_to_mask():</span>
+    <span class="c1">#  set spectrum mask to True inside exclude_regions. normally we don&#39;t do this for baselining</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">baseline_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the computed baseline model or None if it has not yet been computed.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_model</span>
+
+<div class="viewcode-block" id="Spectrum.baseline">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.baseline">[docs]</a>
+    <span class="k">def</span> <span class="nf">baseline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">degree</span><span class="p">,</span><span class="n">exclude</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute and optionally remove a baseline.  The model for the</span>
+<span class="sd">        baseline can be either a </span>
+<span class="sd">        `1D polynomial model &lt;https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html&gt;`_ or a </span>
+<span class="sd">        `1D Chebyshev polynomial of the first kind &lt;https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html&gt;`_.  The code uses `astropy.modeling`</span>
+<span class="sd">        and `astropy.fitter` to compute the baseline.  See the documentation for those modules.  This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            degree : int</span>
+<span class="sd">                The degree of the polynomial series, a.k.a. baseline order</span>
+<span class="sd">            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion</span>
+<span class="sd">                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  </span>
+<span class="sd">                In channel units.  </span>
+
+<span class="sd">                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).</span>
+
+<span class="sd">                Default: no exclude region</span>
+
+<span class="sd">                TODO: Are these OR&#39;d with the existing mask? make that an option</span>
+<span class="sd">                TODO: Allow these to be Quantities (spectral axis units or equivalent). See list_to_spectral_region()</span>
+<span class="sd">            model : str</span>
+<span class="sd">                One of &#39;polynomial&#39; or &#39;chebyshev&#39;, Default: &#39;polynomial&#39;</span>
+<span class="sd">            fitter  :  `~astropy.fitting._FitterMeta`</span>
+<span class="sd">                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.</span>
+<span class="sd">            remove : bool</span>
+<span class="sd">                If True, the baseline is removed from the spectrum. Default: False</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kwargs_opts</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;remove&#39;</span><span class="p">:</span><span class="kc">False</span><span class="p">,</span>
+            <span class="s1">&#39;model&#39;</span><span class="p">:</span><span class="s1">&#39;polynomial&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;fitter&#39;</span><span class="p">:</span>  <span class="n">LinearLSQFitter</span><span class="p">(</span><span class="n">calc_uncertainties</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="n">kwargs_opts</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_model</span> <span class="o">=</span> <span class="n">baseline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">degree</span><span class="p">,</span><span class="n">exclude</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">kwargs_opts</span><span class="p">[</span><span class="s1">&#39;remove&#39;</span><span class="p">]:</span>
+            <span class="n">s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_baseline_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spectral_axis</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">_data</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subtracted</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_undo_baseline</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Undo the most recently computed baseline.  If the baseline</span>
+<span class="sd">        has been subtracted, it will be added back.  The `baseline_model`</span>
+<span class="sd">        attribute is set to None.   Exclude regions are untouched.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subtracted</span><span class="p">:</span>
+            <span class="n">s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_baseline_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spectral_axis</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">_data</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_baseline_model</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_set_exclude_regions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exclude</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the mask for the regions to exclude.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion</span>
+<span class="sd">                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  </span>
+<span class="sd">                In channel units.  </span>
+
+<span class="sd">                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+<div class="viewcode-block" id="Spectrum.list_to_spectral_region">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.list_to_spectral_region">[docs]</a>
+    <span class="k">def</span> <span class="nf">list_to_spectral_region</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">inlist</span><span class="p">):</span>
+        <span class="c1">#todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit. This could go in core.py</span>
+        <span class="c1"># combine this with _set_exclude_regions</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Spectrum.bshow">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.bshow">[docs]</a>
+    <span class="k">def</span> <span class="nf">bshow</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Show the baseline model&quot;&quot;&quot;</span> 
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;baseline model </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_baseline_model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Spectrum.plot">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.plot">[docs]</a>
+    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plotter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_plotter</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">SpectrumPlot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plotter</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">plotter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plotter</span>
+
+<div class="viewcode-block" id="Spectrum.stats">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.stats">[docs]</a>
+    <span class="k">def</span> <span class="nf">stats</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute some statistics of this `Spectrum`.  The mean, rms,</span>
+<span class="sd">        data minimum and data maximum are calculated.  Note this works</span>
+<span class="sd">        with slicing, so, e.g.,  `myspectrum[45:153].stats()` will return</span>
+<span class="sd">        the statistics of the slice.  </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        stats : tuple </span>
+<span class="sd">            Tuple consisting of (mean,rms,datamin,datamax)</span>
+<span class="sd">            TODO: maybe make this a dict</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="n">rms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+        <span class="n">dmin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+        <span class="n">dmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">mean</span><span class="p">,</span><span class="n">rms</span><span class="p">,</span><span class="n">dmin</span><span class="p">,</span><span class="n">dmax</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Spectrum.smooth">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.smooth">[docs]</a>
+    <span class="k">def</span> <span class="nf">smooth</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1">#todo use specutils.manipulation.smoothing</span>
+        <span class="c1">#option to smooth baseline too?</span>
+        <span class="k">pass</span></div>
+
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">equivalencies</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># @todo encapsulate take into account velframe and veldef</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the spectral axis equivalencies that can be used in converting the axis between km/s and frequency or wavelength&quot;&quot;&quot;</span>
+        <span class="n">equiv</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">spectral</span><span class="p">()</span>
+        <span class="n">sa</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectral_axis</span>
+        <span class="n">convention</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">velocity_convention</span>
+        <span class="k">if</span> <span class="n">sa</span><span class="o">.</span><span class="n">doppler_rest</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">rfq</span> <span class="o">=</span> <span class="n">sa</span><span class="o">.</span><span class="n">doppler_rest</span>
+        <span class="k">elif</span> <span class="s2">&quot;RESTFREQ&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="p">:</span>
+            <span class="n">cunit1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;CUNIT1&quot;</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">cunit</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="c1">#@todo this could be done with a dict str-&gt;function</span>
+            <span class="n">rfq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;RESTFREQ&quot;</span><span class="p">]</span><span class="o">*</span><span class="n">cunit1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">rfq</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1">#print(&quot;RESTFREQ is &quot;,rfq)</span>
+        <span class="k">if</span> <span class="n">rfq</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;radio&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">velocity_convention</span><span class="p">:</span>
+                <span class="c1"># Yeesh, the doppler_convention parameter for SpectralAxis.to does not match the doppler_convention list for Spectrum1D!</span>
+                <span class="c1"># This is actually bug in Spectrum1D documentation https://github.com/astropy/specutils/issues/1067</span>
+                <span class="n">convention</span><span class="o">=</span><span class="s2">&quot;radio&quot;</span>
+                <span class="n">equiv</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">doppler_radio</span><span class="p">(</span><span class="n">rfq</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="s2">&quot;optical&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">velocity_convention</span><span class="p">:</span>
+                <span class="n">convention</span><span class="o">=</span><span class="s2">&quot;optical&quot;</span>
+                <span class="n">equiv</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">doppler_optical</span><span class="p">(</span><span class="n">rfq</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="s2">&quot;relativistic&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">velocity_convention</span><span class="p">:</span>
+                <span class="n">convention</span><span class="o">=</span><span class="s2">&quot;relativistic&quot;</span>
+                <span class="n">equiv</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">doppler_relativistic</span><span class="p">(</span><span class="n">rfq</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="s2">&quot;redshift&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">velocity_convention</span><span class="p">:</span>
+                <span class="n">convention</span><span class="o">=</span><span class="s2">&quot;redshift&quot;</span>
+                <span class="n">equiv</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">doppler_redshift</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">equiv</span>
+
+<div class="viewcode-block" id="Spectrum.savefig">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.savefig">[docs]</a>
+    <span class="k">def</span> <span class="nf">savefig</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">file</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the plot&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plotter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;You have to invoke plot() first&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plotter</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">file</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_write_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">fileobj</span><span class="p">,</span><span class="nb">format</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write this `Spectrum` as an ~astropy.table.Table.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        fileobj : str, file-like or `pathlib.Path`</span>
+<span class="sd">            File to write to.  If a file object, must be opened in a</span>
+<span class="sd">            writeable mode.</span>
+<span class="sd">        format : str</span>
+<span class="sd">            The output format. Must be a format supported by ~astropy.table.Table.write</span>
+<span class="sd">        kwargs : variable</span>
+<span class="sd">            Additional keyword arguments supported by ~astropy.table.Table.write</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+                
+        <span class="n">flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flux</span>
+        <span class="n">axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectral_axis</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">Table</span><span class="p">([</span><span class="n">axis</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">mask</span><span class="p">],</span>
+                  <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;spectral_axis&quot;</span><span class="p">,</span> <span class="s2">&quot;flux&quot;</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">],</span>
+                  <span class="n">meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">uncertainty</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">uncertainty</span><span class="o">.</span><span class="n">_array</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;uncertainty&quot;</span><span class="p">)</span>
+        <span class="c1">#f=kwargs.pop(&quot;format&quot;)</span>
+        <span class="n">t</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fileobj</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<span class="c1">#@TODO figure how how to document write()</span>
+<span class="c1">####################################################################</span>
+<span class="c1"># There is probably a less brute-force way to do this but I haven&#39;t</span>
+<span class="c1"># been able to figure it out.  astropy.io.registry tools are not</span>
+<span class="c1"># well explained.  register_writer &#39;consumes&#39; the format keyword, so</span>
+<span class="c1"># it cannot be passed along via a single overaarching write method,</span>
+<span class="c1"># e.g., spectrum_writer()</span>
+<span class="c1">####################################################################</span>
+<div class="viewcode-block" id="ascii_spectrum_writer_basic">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.ascii_spectrum_writer_basic">[docs]</a>
+<span class="k">def</span> <span class="nf">ascii_spectrum_writer_basic</span><span class="p">(</span><span class="n">spectrum</span><span class="p">,</span><span class="n">fileobj</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">spectrum</span><span class="o">.</span><span class="n">_write_table</span><span class="p">(</span><span class="n">fileobj</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;ascii.basic&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ascii_spectrum_writer_commented_header">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.ascii_spectrum_writer_commented_header">[docs]</a>
+<span class="k">def</span> <span class="nf">ascii_spectrum_writer_commented_header</span><span class="p">(</span><span class="n">spectrum</span><span class="p">,</span><span class="n">fileobj</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">spectrum</span><span class="o">.</span><span class="n">_write_table</span><span class="p">(</span><span class="n">fileobj</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;ascii.commented_header&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ascii_spectrum_writer_fixed_width">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.ascii_spectrum_writer_fixed_width">[docs]</a>
+<span class="k">def</span> <span class="nf">ascii_spectrum_writer_fixed_width</span><span class="p">(</span><span class="n">spectrum</span><span class="p">,</span><span class="n">fileobj</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">spectrum</span><span class="o">.</span><span class="n">_write_table</span><span class="p">(</span><span class="n">fileobj</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;ascii.fixed_width&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ascii_spectrum_writer_ipac">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.ascii_spectrum_writer_ipac">[docs]</a>
+<span class="k">def</span> <span class="nf">ascii_spectrum_writer_ipac</span><span class="p">(</span><span class="n">spectrum</span><span class="p">,</span><span class="n">fileobj</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">spectrum</span><span class="o">.</span><span class="n">_write_table</span><span class="p">(</span><span class="n">fileobj</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;ascii.ipac&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="spectrum_writer_votable">
+<a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.spectrum.spectrum_writer_votable">[docs]</a>
+<span class="k">def</span> <span class="nf">spectrum_writer_votable</span><span class="p">(</span><span class="n">spectrum</span><span class="p">,</span><span class="n">fileobj</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">spectrum</span><span class="o">.</span><span class="n">_write_table</span><span class="p">(</span><span class="n">fileobj</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="s1">&#39;votable&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<span class="k">with</span> <span class="n">registry</span><span class="o">.</span><span class="n">delay_doc_updates</span><span class="p">(</span><span class="n">Spectrum</span><span class="p">):</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;ascii.basic&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">ascii_spectrum_writer_basic</span><span class="p">)</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;basic&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">ascii_spectrum_writer_basic</span><span class="p">)</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;ascii.commented_header&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">ascii_spectrum_writer_commented_header</span><span class="p">)</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;commented_header&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">ascii_spectrum_writer_commented_header</span><span class="p">)</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;ascii.fixed_width&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">ascii_spectrum_writer_fixed_width</span><span class="p">)</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;fixed_width&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">ascii_spectrum_writer_fixed_width</span><span class="p">)</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;ascii.ipac&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">ascii_spectrum_writer_ipac</span><span class="p">)</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;ipac&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">ascii_spectrum_writer_ipac</span><span class="p">)</span>
+    <span class="n">registry</span><span class="o">.</span><span class="n">register_writer</span><span class="p">(</span><span class="s1">&#39;votable&#39;</span><span class="p">,</span> <span class="n">Spectrum</span><span class="p">,</span> <span class="n">spectrum_writer_votable</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

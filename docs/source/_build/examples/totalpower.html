@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Total Power Data &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SubBeamNod" href="subbeamnod.html" />
+    <link rel="prev" title="Position-Switched Data" href="positionswitch.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html">
+            
+              <img src="../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../background/index.html">Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../design/index.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules/index.html">Modules and APIs</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Examples for GBT Data</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="positionswitch.html">Position-Switched Data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Total Power Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#retrieving-and-viewing-a-total-power-scan">Retrieving and Viewing a Total Power Scan</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="subbeamnod.html">SubBeamNod</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../for_developers/index.html">For Developers</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Examples for GBT Data</a></li>
+      <li class="breadcrumb-item active">Total Power Data</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/examples/totalpower.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="total-power-data">
+<h1>Total Power Data<a class="headerlink" href="#total-power-data" title="Link to this heading"></a></h1>
+<section id="retrieving-and-viewing-a-total-power-scan">
+<h2>Retrieving and Viewing a Total Power Scan<a class="headerlink" href="#retrieving-and-viewing-a-total-power-scan" title="Link to this heading"></a></h2>
+<p>Single beam total power (TP) data is retrieved using <a class="reference internal" href="../modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.gettp" title="dysh.fits.gbtfitsload.GBTFITSLoad.gettp"><code class="xref py py-meth docutils literal notranslate"><span class="pre">gettp()</span></code></a> which returns a <a class="reference internal" href="../modules/dysh.spectra.html#dysh.spectra.scan.GBTTPScan" title="dysh.spectra.scan.GBTTPScan"><code class="xref py py-class docutils literal notranslate"><span class="pre">GBTTPScan</span></code></a> total power scan object that is used to calibrate and average the data.  First, import the relevant module:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">dysh.fits.gbtfitsload</span> <span class="kn">import</span> <span class="n">GBTFITSLoad</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+</pre></div>
+</div>
+<p>Then load your SDFITS file containing TP data. In this example, we use a
+<a class="reference external" href="http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits">GBT SDFITS file downloadable from GBO</a>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">f</span> <span class="o">=</span> <span class="s1">&#39;TGBT21A_501_11.raw.vegas.fits&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sdfits</span> <span class="o">=</span> <span class="n">GBTFITSLoad</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The returned <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> can be probed for information:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">sdfits</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+<span class="go">    Filename: /data/gbt/examples/onoff-L/data/TGBT21A_501_11.raw.vegas.fits</span>
+<span class="go">    No.    Name      Ver    Type      Cards   Dimensions   Format</span>
+<span class="go">      0  PRIMARY       1 PrimaryHDU      12   ()</span>
+<span class="go">      1  SINGLE DISH    1 BinTableHDU    245   6040R x 74C   [&#39;32A&#39;, &#39;1D&#39;, &#39;22A&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;32768E&#39;, &#39;16A&#39;, &#39;6A&#39;, &#39;8A&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;4A&#39;, &#39;1D&#39;, &#39;4A&#39;, &#39;1D&#39;, &#39;1I&#39;, &#39;32A&#39;, &#39;32A&#39;, &#39;1J&#39;, &#39;32A&#39;, &#39;16A&#39;, &#39;1E&#39;, &#39;8A&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;8A&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;12A&#39;, &#39;1I&#39;, &#39;1I&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1I&#39;, &#39;1A&#39;, &#39;1I&#39;, &#39;1I&#39;, &#39;16A&#39;, &#39;16A&#39;, &#39;1J&#39;, &#39;1J&#39;, &#39;22A&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1I&#39;, &#39;1A&#39;, &#39;1D&#39;, &#39;1E&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1D&#39;, &#39;1A&#39;, &#39;1A&#39;, &#39;8A&#39;, &#39;1E&#39;, &#39;1E&#39;, &#39;16A&#39;, &#39;1I&#39;, &#39;1I&#39;, &#39;1I&#39;]</span>
+</pre></div>
+</div>
+<p>You can also print a concise (or verbose if you choose <code class="xref py py-obj docutils literal notranslate"><span class="pre">verbose=True</span></code>) summary <a class="reference internal" href="../modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.summary" title="dysh.fits.gbtfitsload.GBTFITSLoad.summary"><code class="xref py py-meth docutils literal notranslate"><span class="pre">summary()</span></code></a> of the data:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">sdfits</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="go">    SCAN   OBJECT VELOCITY   PROC PROCSEQN  RESTFREQ   DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO</span>
+<span class="go">0  152.0  NGC2415   3784.0  OnOff      1.0  1.617185  1.420406    5     2   151      1  286.218008   41.62843</span>
+<span class="go">1  153.0  NGC2415   3784.0  OnOff      2.0  1.617185  1.420406    5     2   151      1  286.886521  41.118134</span>
+</pre></div>
+</div>
+<p>Retrieve a scan, selecting and IF number and polarization:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tpscan</span> <span class="o">=</span> <span class="n">sdfits</span><span class="o">.</span><span class="n">gettp</span><span class="p">(</span><span class="mi">152</span><span class="p">,</span> <span class="n">ifnum</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">plnum</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="go">    TPSCAN nrows = 302</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../modules/dysh.spectra.html#dysh.spectra.scan.GBTTPScan" title="dysh.spectra.scan.GBTTPScan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GBTTPScan</span></code></a> contains the individual integrations.  The system temperatures per integration are calculated from the CALON and CALOFF data:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array2string</span><span class="p">(</span><span class="n">tps</span><span class="o">.</span><span class="n">tsys</span><span class="p">,</span><span class="n">precision</span><span class="o">=</span><span class="mi">2</span><span class="p">)))</span>
+<span class="go">    [16.89 16.89 16.94 16.77 16.96 16.94 16.87 16.86 16.92 16.86 16.85 16.97</span>
+<span class="go">     16.79 16.86 16.96 17.02 16.94 16.89 16.87 16.92 16.88 16.86 16.92 17.02</span>
+<span class="go">     16.77 16.8  17.   16.91 16.91 16.86 16.98 16.81 16.88 17.03 16.96 16.95</span>
+<span class="go">     16.8  16.86 16.91 17.02 16.77 17.03 17.03 16.88 16.78 16.88 16.83 16.84</span>
+<span class="go">     16.88 17.03 17.01 16.98 16.99 16.92 16.88 16.74 16.87 16.92 16.81 16.88</span>
+<span class="go">     16.99 16.97 16.92 17.03 16.94 16.84 16.86 17.05 16.87 16.97 16.82 16.83</span>
+<span class="go">     16.98 17.06 17.11 16.98 16.86 17.02 16.88 16.94 16.93 16.98 16.81 16.83</span>
+<span class="go">     16.98 17.   16.87 16.91 16.91 16.93 17.   16.91 17.08 16.85 16.9  16.85</span>
+<span class="go">     16.89 16.95 17.03 16.98 16.9  16.98 16.98 16.93 16.83 17.03 16.97 16.92</span>
+<span class="go">     16.87 16.99 16.87 16.84 16.97 16.84 16.89 16.89 16.98 16.89 16.81 16.76</span>
+<span class="go">     16.94 16.95 16.89 16.87 16.94 16.91 17.1  16.91 16.84 16.84 16.88 16.95</span>
+<span class="go">     17.04 16.88 16.9  17.03 16.9  16.84 16.99 16.95 16.94 17.02 17.01 16.91</span>
+<span class="go">     16.95 16.91 16.92 17.08 16.67 17.06 17.14]</span>
+</pre></div>
+</div>
+<p>You can time-average the data, in this example with equal weighting per integration, and plot it:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tps</span><span class="o">.</span><span class="n">timeaverage</span><span class="p">(</span><span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+</pre></div>
+</div>
+<img alt="../_images/tp_153_eqweight.png" src="../_images/tp_153_eqweight.png" />
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="positionswitch.html" class="btn btn-neutral float-left" title="Position-Switched Data" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="subbeamnod.html" class="btn btn-neutral float-right" title="SubBeamNod" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

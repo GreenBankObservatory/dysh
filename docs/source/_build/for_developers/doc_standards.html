@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentation Standards &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({startOnLoad:true, useMaxWidth:false});</script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="GitHub Integrations" href="github_integrations.html" />
+    <link rel="prev" title="For Developers" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html">
+            
+              <img src="../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../background/index.html">Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../design/index.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules/index.html">Modules and APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples for GBT Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">For Developers</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Documentation Standards</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sphinx-autobuilds">Sphinx Autobuilds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#docstring-format">Docstring Format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mermaid-diagrams">Mermaid Diagrams</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="github_integrations.html">GitHub Integrations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="git_workflows.html">Git Workflows</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">For Developers</a></li>
+      <li class="breadcrumb-item active">Documentation Standards</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/for_developers/doc_standards.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="documentation-standards">
+<h1>Documentation Standards<a class="headerlink" href="#documentation-standards" title="Link to this heading"></a></h1>
+<section id="sphinx-autobuilds">
+<h2>Sphinx Autobuilds<a class="headerlink" href="#sphinx-autobuilds" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>First, you need to create a documentation environment.</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>dysh/docs
+/path/to/python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>docs-env
+<span class="nb">source</span><span class="w"> </span>docs-env/bin/activate
+pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Next, set up the build command.</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>.env.template<span class="w"> </span>.env
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Add values for <code class="xref py py-obj docutils literal notranslate"><span class="pre">DOCS_ROOT</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">DOCS_HOST</span></code>, and <code class="xref py py-obj docutils literal notranslate"><span class="pre">DOCS_PORT</span></code> in <code class="xref py py-obj docutils literal notranslate"><span class="pre">env</span></code></p></li>
+<li><p>Start the autobuild</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>.env
+startdocs
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Go to <code class="xref py py-obj docutils literal notranslate"><span class="pre">http://{$DOCS_HOST}:{$DOCS_PORT}</span></code> in a web browser. You should now see the documentation with live edits as you save changes.</p></li>
+</ul>
+</section>
+<section id="docstring-format">
+<h2>Docstring Format<a class="headerlink" href="#docstring-format" title="Link to this heading"></a></h2>
+<p>Gotta format the docstrings</p>
+</section>
+<section id="mermaid-diagrams">
+<h2>Mermaid Diagrams<a class="headerlink" href="#mermaid-diagrams" title="Link to this heading"></a></h2>
+<p>Diagrams can be directly in these text files by using the <code class="xref py py-obj docutils literal notranslate"><span class="pre">sphinxcontrib-mermaid</span></code> package. Here’s an example:</p>
+<div class="mermaid">
+            flowchart LR
+    A[Item 1] --&gt; B[Item 2]
+    B --&gt; C[Item 3]
+        </div><p>To learn more, see the <a class="reference external" href="https://sphinxcontrib-mermaid-demo.readthedocs.io/en/latest/">package documentation</a>. Mermaid also offers an <a class="reference external" href="https://mermaid.live">online editor</a> which can be used to design diagrams.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="For Developers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="github_integrations.html" class="btn btn-neutral float-right" title="GitHub Integrations" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

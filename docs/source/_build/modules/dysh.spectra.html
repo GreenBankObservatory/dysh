@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spectral classes and functions &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Plotting classes and functions" href="dysh.plot.html" />
+    <link rel="prev" title="Reading in and writing out observations" href="dysh.fits.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html">
+            
+              <img src="../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../background/index.html">Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../design/index.html">Design</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Modules and APIs</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dysh.fits.html">Reading in and writing out observations</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Spectral classes and functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#core-functions">Core Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.core.average"><code class="docutils literal notranslate"><span class="pre">average()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.core.baseline"><code class="docutils literal notranslate"><span class="pre">baseline()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.core.exclude_to_mask"><code class="docutils literal notranslate"><span class="pre">exclude_to_mask()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.core.exclude_to_region"><code class="docutils literal notranslate"><span class="pre">exclude_to_region()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.core.mean_tsys"><code class="docutils literal notranslate"><span class="pre">mean_tsys()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.core.region_to_axis_indices"><code class="docutils literal notranslate"><span class="pre">region_to_axis_indices()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.core.tsys_weight"><code class="docutils literal notranslate"><span class="pre">tsys_weight()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.core.veldef_to_convention"><code class="docutils literal notranslate"><span class="pre">veldef_to_convention()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#spectrum">Spectrum</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.spectrum.Spectrum"><code class="docutils literal notranslate"><span class="pre">Spectrum</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.spectrum.ascii_spectrum_writer_basic"><code class="docutils literal notranslate"><span class="pre">ascii_spectrum_writer_basic()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.spectrum.ascii_spectrum_writer_commented_header"><code class="docutils literal notranslate"><span class="pre">ascii_spectrum_writer_commented_header()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.spectrum.ascii_spectrum_writer_fixed_width"><code class="docutils literal notranslate"><span class="pre">ascii_spectrum_writer_fixed_width()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.spectrum.ascii_spectrum_writer_ipac"><code class="docutils literal notranslate"><span class="pre">ascii_spectrum_writer_ipac()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.spectrum.spectrum_writer_votable"><code class="docutils literal notranslate"><span class="pre">spectrum_writer_votable()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#scan">Scan</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.scan.GBTPSScan"><code class="docutils literal notranslate"><span class="pre">GBTPSScan</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.scan.GBTTPScan"><code class="docutils literal notranslate"><span class="pre">GBTTPScan</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.scan.PSScan"><code class="docutils literal notranslate"><span class="pre">PSScan</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.scan.TPScan"><code class="docutils literal notranslate"><span class="pre">TPScan</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#obsblock">Obsblock</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.spectra.obsblock.Obsblock"><code class="docutils literal notranslate"><span class="pre">Obsblock</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dysh.plot.html">Plotting classes and functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dysh.util.html">Utility classes and functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples for GBT Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../for_developers/index.html">For Developers</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Modules and APIs</a></li>
+      <li class="breadcrumb-item active">Spectral classes and functions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/dysh.spectra.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="spectral-classes-and-functions">
+<h1>Spectral classes and functions<a class="headerlink" href="#spectral-classes-and-functions" title="Link to this heading"></a></h1>
+<p id="module-dysh.spectra">Classes and functions for managing and processing spectra</p>
+<section id="core-functions">
+<h2>Core Functions<a class="headerlink" href="#core-functions" title="Link to this heading"></a></h2>
+<span class="target" id="module-dysh.spectra.core"></span><dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.core.average">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.core.</span></span><span class="sig-name descname"><span class="pre">average</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/core.html#average"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.core.average" title="Link to this definition"></a></dt>
+<dd><dl class="simple">
+<dt>Average a group of spectra or scans.</dt><dd><p>TODO: allow data to be SpectrumList or array of Spectrum</p>
+</dd>
+</dl>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>data</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></span></dt><dd><p>The spectral data, typically with shape (nspect,nchan).</p>
+</dd>
+<dt><strong>axis</strong><span class="classifier">int</span></dt><dd><p>The axis over which to average the data.  Default axis=0 will return the average spectrum
+if shape is (nspect,nchan)</p>
+</dd>
+<dt><strong>weights</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></span></dt><dd><p>The weights to use in averaging.  These might typically be system temperature based. 
+The weights array must be the length of the axis over which the average is taken.
+Default: None will use equal weights</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>average</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></span></dt><dd><p>The average along the input axis</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.core.baseline">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.core.</span></span><span class="sig-name descname"><span class="pre">baseline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/core.html#baseline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.core.baseline" title="Link to this definition"></a></dt>
+<dd><p>Fit a baseline for a spectrum</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>spectrum</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum</span></code></span></dt><dd><p>The input spectrum</p>
+</dd>
+<dt><strong>order</strong><span class="classifier">int</span></dt><dd><p>The order of the polynomial series, a.k.a. baseline order</p>
+</dd>
+<dt><strong>exclude</strong><span class="classifier">list of 2-tuples of int or <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a>, or <a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.SpectralRegion.html#specutils.SpectralRegion" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SpectralRegion</span></code></a></span></dt><dd><p>List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:</p>
+<p>One channel-based region:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="mi">11</span><span class="p">,</span><span class="mi">51</span><span class="p">]</span> 
+</pre></div>
+</div>
+<p>Two channel-based regions:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">[(</span><span class="mi">11</span><span class="p">,</span><span class="mi">51</span><span class="p">),(</span><span class="mi">99</span><span class="p">,</span><span class="mi">123</span><span class="p">)]</span> 
+</pre></div>
+</div>
+<p>One <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a> region:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="mf">110.198</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">,</span><span class="mf">110.204</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">]</span><span class="o">.</span> 
+</pre></div>
+</div>
+<p>One compound <a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.SpectralRegion.html#specutils.SpectralRegion" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SpectralRegion</span></code></a>:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">SpectralRegion</span><span class="p">([(</span><span class="mf">110.198</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">,</span><span class="mf">110.204</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">),(</span><span class="mf">110.196</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">,</span><span class="mf">110.197</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">)])</span><span class="o">.</span>
+<span class="go">Default: no exclude region</span>
+</pre></div>
+</div>
+</dd>
+<dt><strong>model</strong><span class="classifier">str</span></dt><dd><p>One of ‘polynomial’ or ‘chebyshev’, Default: ‘polynomial’</p>
+</dd>
+<dt><strong>fitter</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_FitterMeta</span></code></span></dt><dd><p>The fitter to use. Default: <code class="xref py py-obj docutils literal notranslate"><span class="pre">LinearLSQFitter</span></code> (with <code class="xref py py-obj docutils literal notranslate"><span class="pre">calc_uncertaintes=True</span></code>).  Be care when choosing a different fitter to be sure it is optimized for this problem.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>models</strong><span class="classifier">list of <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.modeling.Model.html#astropy.modeling.Model" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Model</span></code></a></span></dt><dd><p>The list of models that contain the fitted model parameters.
+See <code class="xref py py-obj docutils literal notranslate"><span class="pre">fit_continuum</span></code>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.core.exclude_to_mask">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.core.</span></span><span class="sig-name descname"><span class="pre">exclude_to_mask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exclude</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refspec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/core.html#exclude_to_mask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.core.exclude_to_mask" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.core.exclude_to_region">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.core.</span></span><span class="sig-name descname"><span class="pre">exclude_to_region</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exclude</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refspec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fix_exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/core.html#exclude_to_region"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.core.exclude_to_region" title="Link to this definition"></a></dt>
+<dd><p>Convert an exclude list to a list of ~specutuls.SpectralRegion.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>exclude</strong><span class="classifier">list of 2-tuples of int or <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a>, or <a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.SpectralRegion.html#specutils.SpectralRegion" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SpectralRegion</span></code></a></span></dt><dd><p>List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.    Examples:</p>
+<blockquote>
+<div><p>One channel-based region:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="mi">11</span><span class="p">,</span><span class="mi">51</span><span class="p">]</span> 
+</pre></div>
+</div>
+<p>Two channel-based regions:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">[(</span><span class="mi">11</span><span class="p">,</span><span class="mi">51</span><span class="p">),(</span><span class="mi">99</span><span class="p">,</span><span class="mi">123</span><span class="p">)]</span> 
+</pre></div>
+</div>
+<p>One <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a> region:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="mf">110.198</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">,</span><span class="mf">110.204</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">]</span><span class="o">.</span> 
+</pre></div>
+</div>
+<p>One compound <a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.SpectralRegion.html#specutils.SpectralRegion" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SpectralRegion</span></code></a>:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">SpectralRegion</span><span class="p">([(</span><span class="mf">110.198</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">,</span><span class="mf">110.204</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">),(</span><span class="mf">110.196</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">,</span><span class="mf">110.197</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">GHz</span><span class="p">)])</span><span class="o">.</span>
+</pre></div>
+</div>
+</div></blockquote>
+</dd>
+<dt><strong>refspec: `~spectra.spectrum.Spectrum`</strong></dt><dd><p>The reference spectrum whose spectral axis will be used 
+when converting between exclude and axis units (e.g. channels to GHz).</p>
+</dd>
+<dt><strong>fix_exclude: bool</strong></dt><dd><p>If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>regionlist</strong><span class="classifier">list of <code class="xref py py-obj docutils literal notranslate"><span class="pre">SpectralRegion</span></code></span></dt><dd><p>A list of <code class="xref py py-obj docutils literal notranslate"><span class="pre">SpectralRegion</span></code> corresponding to <code class="xref py py-obj docutils literal notranslate"><span class="pre">exclude</span></code> with units of the <code class="xref py py-obj docutils literal notranslate"><span class="pre">refspec.spectral_axis</span></code>.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.core.mean_tsys">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.core.</span></span><span class="sig-name descname"><span class="pre">mean_tsys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">calon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">caloff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tcal</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fedge</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nedge</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/core.html#mean_tsys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.core.mean_tsys" title="Link to this definition"></a></dt>
+<dd><p>Get the system temperature from the neighboring calon and caloff, which reflect the state of the noise diode.
+We define an extra way to set the edge size, nedge, if you prefer to use 
+number of edge channels instead of the inverse fraction.  This implementation recreates GBTIDL’s <code class="xref py py-obj docutils literal notranslate"><span class="pre">dcmeantsys</span></code>.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>calon</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>-like</span></dt><dd><p>ON calibration</p>
+</dd>
+<dt><strong>caloff</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>-like</span></dt><dd><p>OFF calibration</p>
+</dd>
+<dt><strong>tcal</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>-like</span></dt><dd><p>calibration temperature</p>
+</dd>
+<dt><strong>mode</strong><span class="classifier">int</span></dt><dd><p>mode=0  Do the mean before the division
+mode=1  Do the mean after the division
+TODO: Ask PJT why the options?</p>
+</dd>
+<dt><strong>fedge</strong><span class="classifier">int</span></dt><dd><p>Fraction of edge channels to exclude at each end, in percent. Default: 10, meaning the central 80% bandwidth is used</p>
+</dd>
+<dt><strong>nedge</strong><span class="classifier">int</span></dt><dd><p>Number of edge channels to exclude. Default: None, meaning use <code class="xref py py-obj docutils literal notranslate"><span class="pre">fedge</span></code></p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>meanTsys</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>-like</span></dt><dd><p>The mean system temperature</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.core.region_to_axis_indices">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.core.</span></span><span class="sig-name descname"><span class="pre">region_to_axis_indices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">region</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refspec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/core.html#region_to_axis_indices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.core.region_to_axis_indices" title="Link to this definition"></a></dt>
+<dd><dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>region</strong><span class="classifier"><a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.SpectralRegion.html#specutils.SpectralRegion" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SpectralRegion</span></code></a></span></dt><dd></dd>
+<dt><strong>refspec: `~spectra.spectrum.Spectrum`</strong></dt><dd><p>The reference spectrum whose spectral axis will be used 
+when converting between exclude and axis units (e.g., channels to GHz).</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>indices</strong><span class="classifier">2-tuple of int</span></dt><dd><p>The array indices in <code class="xref py py-obj docutils literal notranslate"><span class="pre">refspec</span></code> corresponding to <code class="xref py py-obj docutils literal notranslate"><span class="pre">region.bounds</span></code></p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.core.tsys_weight">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.core.</span></span><span class="sig-name descname"><span class="pre">tsys_weight</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exposure</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_freq</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tsys</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/core.html#tsys_weight"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.core.tsys_weight" title="Link to this definition"></a></dt>
+<dd><p>Compute the system temperature based weight(s) using the expression:</p>
+<blockquote>
+<div><p><span class="math notranslate nohighlight">\(w = t_{exp} \times \delta_\nu / T_{sys}^2,\)</span></p>
+</div></blockquote>
+<p>where <span class="math notranslate nohighlight">\(t_{exp}\)</span> is the exposure time, <span class="math notranslate nohighlight">\(\delta_\nu\)</span> is the frequency resolution, and <span class="math notranslate nohighlight">\(T_{sys}\)</span> is the system temperature.</p>
+<p>If <code class="xref py py-obj docutils literal notranslate"><span class="pre">exposure</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">delta_freq</span></code>, or <code class="xref py py-obj docutils literal notranslate"><span class="pre">tsys</span></code> parameters are given as <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a>,
+they will be converted to seconds, Hz, K, respectively for the calculation.
+(Not that this really matters since weights are relative to each other)</p>
+<p><strong>Note:</strong> The parameters cannot be given as arrays of <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a>, e.g.,</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="mi">3</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="mi">4</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">]</span>   <span class="c1">### WRONG</span>
+</pre></div>
+</div>
+<p>Rather, if using <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a>, they have to be <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a> objects, e.g.,</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">s</span> <span class="c1">### RIGHT!</span>
+</pre></div>
+</div>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>exposure</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>, float, or <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a></span></dt><dd><p>The exposure time, typically given in seconds</p>
+</dd>
+<dt><strong>delta_freq</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>, float, or <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a></span></dt><dd><p>The channel width in frequency units</p>
+</dd>
+<dt><strong>tsys</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>, float, or <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a></span></dt><dd><p>The system temperature, typically in K</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>weight</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></span></dt><dd><p>The weights array</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.core.veldef_to_convention">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.core.</span></span><span class="sig-name descname"><span class="pre">veldef_to_convention</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">veldef</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/core.html#veldef_to_convention"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.core.veldef_to_convention" title="Link to this definition"></a></dt>
+<dd><p>given a VELDEF, return the velocity convention expected by Spectrum(1D)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>veldef</strong><span class="classifier">str</span></dt><dd><p>velocity definition from FITS header, e.g., ‘OPTI-HELO’, ‘VELO-LSR’</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>convention</strong><span class="classifier">str</span></dt><dd></dd>
+<dt>velocity convention string, one of {‘radio’, ‘optical’, ‘relativistic’}  or None if <code class="xref py py-obj docutils literal notranslate"><span class="pre">velframe</span></code> can’t be parsed</dt><dd></dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="spectrum">
+<h2>Spectrum<a class="headerlink" href="#spectrum" title="Link to this heading"></a></h2>
+<span class="target" id="module-dysh.spectra.spectrum"></span><dl class="py class">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dysh.spectra.spectrum.</span></span><span class="sig-name descname"><span class="pre">Spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#Spectrum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.Spectrum1D.html#specutils.Spectrum1D" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum1D</span></code></a></p>
+<p>This class contains a spectrum and its attributes. It is built on
+<a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.Spectrum1D.html#specutils.Spectrum1D" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum1D</span></code></a> with added attributes like baseline model.
+Note that <a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.Spectrum1D.html#specutils.Spectrum1D" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum1D</span></code></a> can contain multiple spectra but
+we probably will not use that because the restriction that it can
+have only one spectral axis conflicts with slight Doppler shifts.
+See <a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.Spectrum1D.html#specutils.Spectrum1D" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum1D</span></code></a> for the instantiation arguments.</p>
+<p><em>Note:</em> <code class="xref py py-obj docutils literal notranslate"><span class="pre">velocity_convention</span></code> should be one of {‘radio’, ‘optical’, ‘relativistic’}; the  <a class="reference external" href="https://specutils.readthedocs.io/en/stable/api/specutils.Spectrum1D.html#specutils.Spectrum1D" title="(in specutils v1.11.1.dev0+ge97bc508.d20230808)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum1D</span></code></a> is wrong (there should not be a ‘doppler_’ prefix).</p>
+<dl class="field-list">
+<dt class="field-odd">Attributes<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">array_axis_physical_types</span></code></dt><dd><p>Returns the WCS physical types that vary along each array axis.</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.spectrum.Spectrum.baseline_model" title="dysh.spectra.spectrum.Spectrum.baseline_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">baseline_model</span></code></a></dt><dd><p>Returns the computed baseline model or None if it has not yet been computed.</p>
+</dd>
+<dt><strong>bin_edges</strong></dt><dd></dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">combined_wcs</span></code></dt><dd><p>The WCS transform for the NDCube, including the coordinates specified in <code class="docutils literal notranslate"><span class="pre">.extra_coords</span></code>.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">data</span></code></dt><dd><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>-like : The stored dataset.</p>
+</dd>
+<dt><strong>dimensions</strong></dt><dd></dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">energy</span></code></dt><dd><p>The energy of the spectral axis as a <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a> in units of eV.</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.spectrum.Spectrum.equivalencies" title="dysh.spectra.spectrum.Spectrum.equivalencies"><code class="xref py py-obj docutils literal notranslate"><span class="pre">equivalencies</span></code></a></dt><dd><p>Get the spectral axis equivalencies that can be used in converting the axis between km/s and frequency or wavelength</p>
+</dd>
+<dt><strong>exclude_regions</strong></dt><dd></dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">extra_coords</span></code></dt><dd><p>Coordinates not described by <code class="docutils literal notranslate"><span class="pre">NDCubeABC.wcs</span></code> which vary along one or more axes.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">flux</span></code></dt><dd><p>Converts the stored data and unit information into a quantity.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">frequency</span></code></dt><dd><p>The <code class="xref py py-obj docutils literal notranslate"><span class="pre">spectral_axis</span></code> as a <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a> in units of GHz</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">global_coords</span></code></dt><dd><p>Coordinate metadata which applies to the whole cube.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">mask</span></code></dt><dd><p>any type : Mask for the dataset, if any.</p>
+</dd>
+<dt><strong>meta</strong></dt><dd><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>-like : Additional meta information about the dataset.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">photon_flux</span></code></dt><dd><p>The flux density of photons as a <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a>, in units of</p>
+</dd>
+<dt><strong>plotter</strong></dt><dd></dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">psf</span></code></dt><dd><p>Image representation of the PSF for the dataset.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">radial_velocity</span></code></dt><dd><p>The radial velocity(s) of the objects represented by this spectrum.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">redshift</span></code></dt><dd><p>The redshift(s) of the objects represented by this spectrum.</p>
+</dd>
+<dt><strong>rest_value</strong></dt><dd></dd>
+<dt><strong>shape</strong></dt><dd></dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">spectral_axis</span></code></dt><dd><p>Returns the SpectralCoord object.</p>
+</dd>
+<dt><strong>spectral_axis_direction</strong></dt><dd></dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">spectral_axis_unit</span></code></dt><dd><div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version v1.1.</span></p>
+</div>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">spectral_wcs</span></code></dt><dd><p>Returns the spectral axes of the WCS</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">uncertainty</span></code></dt><dd><p>any type : Uncertainty in the dataset, if any.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">unit</span></code></dt><dd><p><a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Unit.html#astropy.units.Unit" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Unit</span></code></a> : Unit for the dataset, if any.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">velocity</span></code></dt><dd><p>Converts the spectral axis array to the given velocity space unit given the rest value.</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">velocity_convention</span></code></dt><dd><p>Returns the velocity convention</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">wavelength</span></code></dt><dd><p>The <code class="xref py py-obj docutils literal notranslate"><span class="pre">spectral_axis</span></code> as a <a class="reference external" href="https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html#astropy.units.Quantity" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Quantity</span></code></a> in units of Angstroms</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">wcs</span></code></dt><dd><p>any type : A world coordinate system (WCS) for the dataset, if any.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add</span></code>(operand[, operand2])</p></td>
+<td><p>Performs addition by evaluating <code class="docutils literal notranslate"><span class="pre">self</span></code> + <code class="docutils literal notranslate"><span class="pre">operand</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">axis_world_coords</span></code>(*axes[, pixel_corners, wcs])</p></td>
+<td><p>Returns objects representing the world coordinates of pixel centers for a desired axes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">axis_world_coords_values</span></code>(*axes[, ...])</p></td>
+<td><p>Returns the world coordinate values of all pixels for desired axes.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#dysh.spectra.spectrum.Spectrum.baseline" title="dysh.spectra.spectrum.Spectrum.baseline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">baseline</span></code></a>(degree[, exclude])</p></td>
+<td><p>Compute and optionally remove a baseline.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dysh.spectra.spectrum.Spectrum.bshow" title="dysh.spectra.spectrum.Spectrum.bshow"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bshow</span></code></a>()</p></td>
+<td><p>Show the baseline model</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">collapse</span></code>(method[, axis])</p></td>
+<td><p>Collapse the flux array given a method.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">crop</span></code>(*points[, wcs])</p></td>
+<td><p>Crop using real world coordinates.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">crop_by_values</span></code>(*points[, units, wcs])</p></td>
+<td><p>Crop using real world coordinates.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">divide</span></code>(operand[, operand2])</p></td>
+<td><p>Performs division by evaluating <code class="docutils literal notranslate"><span class="pre">self</span></code> / <code class="docutils literal notranslate"><span class="pre">operand</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">explode_along_axis</span></code>(axis)</p></td>
+<td><p>Separates slices of NDCubes along a given axis into an NDCubeSequence of (N-1)DCubes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">multiply</span></code>(operand[, operand2])</p></td>
+<td><p>Performs multiplication by evaluating <code class="docutils literal notranslate"><span class="pre">self</span></code> * <code class="docutils literal notranslate"><span class="pre">operand</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">new_flux_unit</span></code>(unit[, equivalencies, ...])</p></td>
+<td><p>Converts the flux data to the specified unit.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dysh.spectra.spectrum.Spectrum.plot" title="dysh.spectra.spectrum.Spectrum.plot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code></a>(**kwargs)</p></td>
+<td><p>A convenience function for the plotters default <code class="docutils literal notranslate"><span class="pre">plot()</span></code> method.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">rebin</span></code>(bin_shape[, operation, ...])</p></td>
+<td><p>Downsample array by combining contiguous pixels into bins.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reproject_to</span></code>(target_wcs[, algorithm, ...])</p></td>
+<td><p>Reprojects the instance to the coordinates described by another WCS object.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#dysh.spectra.spectrum.Spectrum.savefig" title="dysh.spectra.spectrum.Spectrum.savefig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">savefig</span></code></a>(file, **kwargs)</p></td>
+<td><p>Save the plot</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_radial_velocity_to</span></code>(radial_velocity)</p></td>
+<td><p>This sets the radial velocity of the spectrum to be <code class="xref py py-obj docutils literal notranslate"><span class="pre">radial_velocity</span></code> <em>without</em> changing the values of the <code class="xref py py-obj docutils literal notranslate"><span class="pre">spectral_axis</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_redshift_to</span></code>(redshift)</p></td>
+<td><p>This sets the redshift of the spectrum to be <code class="xref py py-obj docutils literal notranslate"><span class="pre">redshift</span></code> <em>without</em> changing the values of the <code class="xref py py-obj docutils literal notranslate"><span class="pre">spectral_axis</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">shift_spectrum_to</span></code>(*[, redshift, radial_velocity])</p></td>
+<td><p>This shifts in-place the values of the <code class="xref py py-obj docutils literal notranslate"><span class="pre">spectral_axis</span></code>, given either a redshift or radial velocity.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#dysh.spectra.spectrum.Spectrum.stats" title="dysh.spectra.spectrum.Spectrum.stats"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stats</span></code></a>()</p></td>
+<td><p>Compute some statistics of this <a class="reference internal" href="#dysh.spectra.spectrum.Spectrum" title="dysh.spectra.spectrum.Spectrum"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum</span></code></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">subtract</span></code>(operand[, operand2])</p></td>
+<td><p>Performs subtraction by evaluating <code class="docutils literal notranslate"><span class="pre">self</span></code> - <code class="docutils literal notranslate"><span class="pre">operand</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to</span></code>(new_unit, **kwargs)</p></td>
+<td><p>Convert instance to another unit.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">with_spectral_unit</span></code>(unit[, ...])</p></td>
+<td><p>Returns a new spectrum with a different spectral axis unit.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><strong>list_to_spectral_region</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><strong>max</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><strong>mean</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><strong>median</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><strong>min</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><strong>read</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><strong>smooth</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><strong>sum</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><strong>with_velocity_convention</strong></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><strong>write</strong></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.baseline">
+<span class="sig-name descname"><span class="pre">baseline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">degree</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#Spectrum.baseline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.baseline" title="Link to this definition"></a></dt>
+<dd><p>Compute and optionally remove a baseline.  The model for the
+baseline can be either a 
+<a class="reference external" href="https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html">1D polynomial model</a> or a 
+<a class="reference external" href="https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html">1D Chebyshev polynomial of the first kind</a>.  The code uses <a class="reference external" href="https://docs.astropy.org/en/stable/modeling/reference_api.html#module-astropy.modeling" title="(in Astropy v5.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">astropy.modeling</span></code></a>
+and <code class="xref py py-obj docutils literal notranslate"><span class="pre">astropy.fitter</span></code> to compute the baseline.  See the documentation for those modules.  This method will set the <a class="reference internal" href="#dysh.spectra.spectrum.Spectrum.baseline_model" title="dysh.spectra.spectrum.Spectrum.baseline_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">baseline_model</span></code></a> attribute to the fitted model function which can be evaluated over a domain.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>degree</strong><span class="classifier">int</span></dt><dd><p>The degree of the polynomial series, a.k.a. baseline order</p>
+</dd>
+<dt><strong>exclude</strong><span class="classifier">list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion</span></dt><dd><p>List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  
+In channel units.</p>
+<p>Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).</p>
+<p>Default: no exclude region</p>
+<p>TODO: Are these OR’d with the existing mask? make that an option
+TODO: Allow these to be Quantities (spectral axis units or equivalent). See list_to_spectral_region()</p>
+</dd>
+<dt><strong>model</strong><span class="classifier">str</span></dt><dd><p>One of ‘polynomial’ or ‘chebyshev’, Default: ‘polynomial’</p>
+</dd>
+<dt><strong>fitter</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">_FitterMeta</span></code></span></dt><dd><p>The fitter to use. Default: <code class="xref py py-obj docutils literal notranslate"><span class="pre">LinearLSQFitter</span></code> (with <code class="xref py py-obj docutils literal notranslate"><span class="pre">calc_uncertaintes=True</span></code>).  Be care when choosing a different fitter to be sure it is optimized for this problem.</p>
+</dd>
+<dt><strong>remove</strong><span class="classifier">bool</span></dt><dd><p>If True, the baseline is removed from the spectrum. Default: False</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.baseline_model">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">baseline_model</span></span><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.baseline_model" title="Link to this definition"></a></dt>
+<dd><p>Returns the computed baseline model or None if it has not yet been computed.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.bshow">
+<span class="sig-name descname"><span class="pre">bshow</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#Spectrum.bshow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.bshow" title="Link to this definition"></a></dt>
+<dd><p>Show the baseline model</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.equivalencies">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">equivalencies</span></span><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.equivalencies" title="Link to this definition"></a></dt>
+<dd><p>Get the spectral axis equivalencies that can be used in converting the axis between km/s and frequency or wavelength</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.exclude_regions">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">exclude_regions</span></span><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.exclude_regions" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.list_to_spectral_region">
+<span class="sig-name descname"><span class="pre">list_to_spectral_region</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inlist</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#Spectrum.list_to_spectral_region"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.list_to_spectral_region" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#Spectrum.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.plot" title="Link to this definition"></a></dt>
+<dd><p>A convenience function for the plotters default <code class="docutils literal notranslate"><span class="pre">plot()</span></code> method.</p>
+<p>Calling this method is the same as calling <code class="docutils literal notranslate"><span class="pre">cube.plotter.plot</span></code>, the
+behaviour of this method can change if the <code class="xref py py-obj docutils literal notranslate"><span class="pre">ndcube.NDCube.plotter</span></code> class is
+set to a different <code class="docutils literal notranslate"><span class="pre">Plotter</span></code> class.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.plotter">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plotter</span></span><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.plotter" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.savefig">
+<span class="sig-name descname"><span class="pre">savefig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#Spectrum.savefig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.savefig" title="Link to this definition"></a></dt>
+<dd><p>Save the plot</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.smooth">
+<span class="sig-name descname"><span class="pre">smooth</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#Spectrum.smooth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.smooth" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.Spectrum.stats">
+<span class="sig-name descname"><span class="pre">stats</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#Spectrum.stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.Spectrum.stats" title="Link to this definition"></a></dt>
+<dd><p>Compute some statistics of this <a class="reference internal" href="#dysh.spectra.spectrum.Spectrum" title="dysh.spectra.spectrum.Spectrum"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum</span></code></a>.  The mean, rms,
+data minimum and data maximum are calculated.  Note this works
+with slicing, so, e.g.,  <code class="xref py py-obj docutils literal notranslate"><span class="pre">myspectrum[45:153].stats()</span></code> will return
+the statistics of the slice.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>stats</strong><span class="classifier">tuple</span></dt><dd><p>Tuple consisting of (mean,rms,datamin,datamax)
+TODO: maybe make this a dict</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.ascii_spectrum_writer_basic">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.spectrum.</span></span><span class="sig-name descname"><span class="pre">ascii_spectrum_writer_basic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileobj</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#ascii_spectrum_writer_basic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.ascii_spectrum_writer_basic" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.ascii_spectrum_writer_commented_header">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.spectrum.</span></span><span class="sig-name descname"><span class="pre">ascii_spectrum_writer_commented_header</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileobj</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#ascii_spectrum_writer_commented_header"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.ascii_spectrum_writer_commented_header" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.ascii_spectrum_writer_fixed_width">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.spectrum.</span></span><span class="sig-name descname"><span class="pre">ascii_spectrum_writer_fixed_width</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileobj</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#ascii_spectrum_writer_fixed_width"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.ascii_spectrum_writer_fixed_width" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.ascii_spectrum_writer_ipac">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.spectrum.</span></span><span class="sig-name descname"><span class="pre">ascii_spectrum_writer_ipac</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileobj</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#ascii_spectrum_writer_ipac"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.ascii_spectrum_writer_ipac" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dysh.spectra.spectrum.spectrum_writer_votable">
+<span class="sig-prename descclassname"><span class="pre">dysh.spectra.spectrum.</span></span><span class="sig-name descname"><span class="pre">spectrum_writer_votable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fileobj</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/spectrum.html#spectrum_writer_votable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.spectrum.spectrum_writer_votable" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="scan">
+<h2>Scan<a class="headerlink" href="#scan" title="Link to this heading"></a></h2>
+<span class="target" id="module-dysh.spectra.scan"></span><dl class="py class">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTPSScan">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dysh.spectra.scan.</span></span><span class="sig-name descname"><span class="pre">GBTPSScan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gbtfits</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scans</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scanrows</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calrows</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bintable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#GBTPSScan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.GBTPSScan" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#dysh.spectra.scan.PSScan" title="dysh.spectra.scan.PSScan"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSScan</span></code></a></p>
+<p>GBT specific version of Position Switch Scan (PSScan)</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>gbtfits</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GBFITSLoad</span></code></span></dt><dd><p>input GBFITSLoad object</p>
+</dd>
+<dt><strong>scans</strong><span class="classifier">dict</span></dt><dd><p>dictionary with keys ‘ON’ and ‘OFF’ containing unique list of ON (signal) and OFF (reference) scan numbers</p>
+</dd>
+<dt><strong>scanrows</strong><span class="classifier">dict</span></dt><dd><p>dictionary with keys ‘ON’ and ‘OFF’ containing the list of rows in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> corresponding to ON (signal) and OFF (reference) integrations</p>
+</dd>
+<dt><strong>calrows</strong><span class="classifier">dict</span></dt><dd><p>dictionary containing with keys ‘ON’ and ‘OFF’ containing list of rows in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> corresponding to cal=T (ON) and cal=F (OFF) integrations.</p>
+</dd>
+<dt><strong>bintable</strong><span class="classifier">int</span></dt><dd><p>the index for BINTABLE in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> containing the scans</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Attributes<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><a class="reference internal" href="#dysh.spectra.scan.GBTPSScan.delta_freq" title="dysh.spectra.scan.GBTPSScan.delta_freq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">delta_freq</span></code></a></dt><dd><p>Get the array of channel frequency width</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.GBTPSScan.exposure" title="dysh.spectra.scan.GBTPSScan.exposure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">exposure</span></code></a></dt><dd><p>Get the array of exposure (integration) times</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">npol</span></code></dt><dd><p>The number of polarizations in this Scan</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">nrows</span></code></dt><dd><p>The number of rows in this Scan</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">status</span></code></dt><dd><p>Status flag, will be used later for undo</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.GBTPSScan.tsys" title="dysh.spectra.scan.GBTPSScan.tsys"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tsys</span></code></a></dt><dd><p>The system temperature array.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dysh.spectra.scan.GBTPSScan.calibrate" title="dysh.spectra.scan.GBTPSScan.calibrate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">calibrate</span></code></a>(**kwargs)</p></td>
+<td><p>Position switch calibration, following equations 1 and 2 in the GBTIDL clibration manual</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#dysh.spectra.scan.GBTPSScan.calibrated" title="dysh.spectra.scan.GBTPSScan.calibrated"><code class="xref py py-obj docutils literal notranslate"><span class="pre">calibrated</span></code></a>(i)</p></td>
+<td><p>Return the calibrated Spectrum.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dysh.spectra.scan.GBTPSScan.timeaverage" title="dysh.spectra.scan.GBTPSScan.timeaverage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timeaverage</span></code></a>([weights])</p></td>
+<td><p>Compute the time-averaged spectrum for this set of scans.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTPSScan.calibrate">
+<span class="sig-name descname"><span class="pre">calibrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#GBTPSScan.calibrate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.GBTPSScan.calibrate" title="Link to this definition"></a></dt>
+<dd><p>Position switch calibration, following equations 1 and 2 in the GBTIDL clibration manual</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTPSScan.calibrated">
+<span class="sig-name descname"><span class="pre">calibrated</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#GBTPSScan.calibrated"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.GBTPSScan.calibrated" title="Link to this definition"></a></dt>
+<dd><p>Return the calibrated Spectrum.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>i</strong><span class="classifier">int</span></dt><dd><p>The index into the calibrated array</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>spectrum</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum</span></code></span></dt><dd></dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTPSScan.delta_freq">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delta_freq</span></span><a class="headerlink" href="#dysh.spectra.scan.GBTPSScan.delta_freq" title="Link to this definition"></a></dt>
+<dd><p>Get the array of channel frequency width</p>
+<p>df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt>delta_freq: ~numpy.ndarray</dt><dd><p>The channel frequency width in units of the CDELT1 keyword in the SDFITS header</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTPSScan.exposure">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">exposure</span></span><a class="headerlink" href="#dysh.spectra.scan.GBTPSScan.exposure" title="Link to this definition"></a></dt>
+<dd><p>Get the array of exposure (integration) times</p>
+<p>exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>exposure</strong><span class="classifier">~numpy.ndarray</span></dt><dd><p>The exposure time in units of the EXPOSURE keyword in the SDFITS header</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTPSScan.timeaverage">
+<span class="sig-name descname"><span class="pre">timeaverage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'tsys'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#GBTPSScan.timeaverage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.GBTPSScan.timeaverage" title="Link to this definition"></a></dt>
+<dd><p>Compute the time-averaged spectrum for this set of scans.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>weights: str</strong></dt><dd><p>‘tsys’ or None.  If ‘tsys’ the weight will be calculated as:</p>
+<blockquote>
+<div><p><span class="math notranslate nohighlight">\(w = t_{exp} \times \delta\nu/T_{sys}^2\)</span></p>
+</div></blockquote>
+<p>Default: ‘tsys’</p>
+</dd>
+<dt><strong>Returns</strong></dt><dd></dd>
+<dt><strong>——-</strong></dt><dd><dl>
+<dt>spectrum<span class="classifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></span></dt><dd><p>The time-averaged spectrum</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTPSScan.tsys">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tsys</span></span><a class="headerlink" href="#dysh.spectra.scan.GBTPSScan.tsys" title="Link to this definition"></a></dt>
+<dd><p>The system temperature array. This will be <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a> until calibration is done.</p>
+<dl class="field-list">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>tsys</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></span></dt><dd><p>System temperature values in K</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTTPScan">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dysh.spectra.scan.</span></span><span class="sig-name descname"><span class="pre">GBTTPScan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gbtfits</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigstate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calstate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scanrows</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calrows</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bintable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calibrate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#GBTTPScan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.GBTTPScan" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#dysh.spectra.scan.TPScan" title="dysh.spectra.scan.TPScan"><code class="xref py py-class docutils literal notranslate"><span class="pre">TPScan</span></code></a></p>
+<p>GBT specific version of Total Power Scan (<code class="xref py py-obj docutils literal notranslate"><span class="pre">TPScan</span></code>)</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>gbtfits</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GBFITSLoad</span></code></span></dt><dd><p>input GBFITSLoad object</p>
+</dd>
+<dt><strong>scan: int</strong></dt><dd><p>scan number</p>
+</dd>
+<dt><strong>sigstate</strong><span class="classifier">str</span></dt><dd><p>one of ‘SIG’ or ‘REF’ to indicate if this is the signal or reference scan or ‘BOTH’ if it contains both</p>
+</dd>
+<dt><strong>calstate</strong><span class="classifier">str</span></dt><dd><p>one of ‘ON’ or ‘OFF’ to indicate the calibration state of this scan, or ‘BOTH’ if it contains both</p>
+</dd>
+<dt><strong>scanrows</strong><span class="classifier">list-like</span></dt><dd><p>the list of rows in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> corresponding to sig_state integrations</p>
+</dd>
+<dt><strong>calrows</strong><span class="classifier">dict</span></dt><dd><p>dictionary containing with keys ‘ON’ and ‘OFF’ containing list of rows in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> corresponding to cal=T (ON) and cal=F (OFF) integrations for <code class="xref py py-obj docutils literal notranslate"><span class="pre">scan</span></code></p>
+</dd>
+<dt><strong>bintable</strong><span class="classifier">int</span></dt><dd><p>the index for BINTABLE in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> containing the scans</p>
+</dd>
+<dt><strong>calibrate: bool</strong></dt><dd><p>whether or not to calibrate the data.  If <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Attributes<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>calstate</strong></dt><dd></dd>
+<dt><strong>data</strong></dt><dd></dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.GBTTPScan.delta_freq" title="dysh.spectra.scan.GBTTPScan.delta_freq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">delta_freq</span></code></a></dt><dd><p>Get the array of channel frequency width</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.GBTTPScan.exposure" title="dysh.spectra.scan.GBTTPScan.exposure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">exposure</span></code></a></dt><dd><p>Get the array of exposure (integration) times</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">npol</span></code></dt><dd><p>The number of polarizations in this Scan</p>
+</dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">nrows</span></code></dt><dd><p>The number of rows in this Scan</p>
+</dd>
+<dt><strong>scan</strong></dt><dd></dd>
+<dt><strong>sigstate</strong></dt><dd></dd>
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">status</span></code></dt><dd><p>Status flag, will be used later for undo</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.GBTTPScan.tsys" title="dysh.spectra.scan.GBTTPScan.tsys"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tsys</span></code></a></dt><dd><p>The system temperature array.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dysh.spectra.scan.GBTTPScan.calc_tsys" title="dysh.spectra.scan.GBTTPScan.calc_tsys"><code class="xref py py-obj docutils literal notranslate"><span class="pre">calc_tsys</span></code></a>(**kwargs)</p></td>
+<td><p>Calculate the system temperature array</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#dysh.spectra.scan.GBTTPScan.timeaverage" title="dysh.spectra.scan.GBTTPScan.timeaverage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timeaverage</span></code></a>([weights])</p></td>
+<td><p>Compute the time-averaged spectrum for this set of scans.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dysh.spectra.scan.GBTTPScan.total_power" title="dysh.spectra.scan.GBTTPScan.total_power"><code class="xref py py-obj docutils literal notranslate"><span class="pre">total_power</span></code></a>(i)</p></td>
+<td><p>Return the total power spectrum</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTTPScan.calc_tsys">
+<span class="sig-name descname"><span class="pre">calc_tsys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#GBTTPScan.calc_tsys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.GBTTPScan.calc_tsys" title="Link to this definition"></a></dt>
+<dd><p>Calculate the system temperature array</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTTPScan.delta_freq">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delta_freq</span></span><a class="headerlink" href="#dysh.spectra.scan.GBTTPScan.delta_freq" title="Link to this definition"></a></dt>
+<dd><p>Get the array of channel frequency width</p>
+<blockquote>
+<div><p>df =  0.5*(df_ref_on + df_ref_off)</p>
+</div></blockquote>
+<p>Note we only have access to the refon and refoff row indices so can’t use sig here.
+This is probably incorrect</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt>delta_freq: <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></dt><dd><p>The channel frequency width in units of the CDELT1 keyword in the SDFITS header</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTTPScan.exposure">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">exposure</span></span><a class="headerlink" href="#dysh.spectra.scan.GBTTPScan.exposure" title="Link to this definition"></a></dt>
+<dd><p>Get the array of exposure (integration) times</p>
+<blockquote>
+<div><p>exposure =  0.5*(exp_ref_on + exp_ref_off)</p>
+</div></blockquote>
+<p>Note we only have access to the refon and refoff row indices so can’t use sig here.
+This is probably incorrect</p>
+<dl class="field-list">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>exposure</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></span></dt><dd><p>The exposure time in units of the EXPOSURE keyword in the SDFITS header</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTTPScan.timeaverage">
+<span class="sig-name descname"><span class="pre">timeaverage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'tsys'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#GBTTPScan.timeaverage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.GBTTPScan.timeaverage" title="Link to this definition"></a></dt>
+<dd><p>Compute the time-averaged spectrum for this set of scans.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>weights: str</strong></dt><dd><p>‘tsys’ or None.  If ‘tsys’ the weight will be calculated as:</p>
+<blockquote>
+<div><p><span class="math notranslate nohighlight">\(w = t_{exp} \times \delta\nu/T_{sys}^2\)</span></p>
+</div></blockquote>
+<p>Default: ‘tsys’</p>
+</dd>
+<dt><strong>Returns</strong></dt><dd></dd>
+<dt><strong>——-</strong></dt><dd><dl>
+<dt>spectrum<span class="classifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></span></dt><dd><p>The time-averaged spectrum</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTTPScan.total_power">
+<span class="sig-name descname"><span class="pre">total_power</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#GBTTPScan.total_power"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.GBTTPScan.total_power" title="Link to this definition"></a></dt>
+<dd><p>Return the total power spectrum</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>i</strong><span class="classifier">int</span></dt><dd><p>The index into the data array</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>spectrum</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum</span></code></span></dt><dd></dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.GBTTPScan.tsys">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tsys</span></span><a class="headerlink" href="#dysh.spectra.scan.GBTTPScan.tsys" title="Link to this definition"></a></dt>
+<dd><p>The system temperature array.</p>
+<dl class="field-list">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>tsys</strong><span class="classifier"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.25)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></span></dt><dd><p>System temperature values in K</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="dysh.spectra.scan.PSScan">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dysh.spectra.scan.</span></span><span class="sig-name descname"><span class="pre">PSScan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sdfits</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scans</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scanrows</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bintable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#PSScan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.PSScan" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Holds a position switch scan pair</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>sdfits</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SDFITSLoad</span></code></span></dt><dd><p>input SDFITSLoad object (or derivative)</p>
+</dd>
+<dt><strong>scans</strong><span class="classifier">dict</span></dt><dd><p>dictionary with keys ‘ON’ and ‘OFF’ containing unique list of ON (sig) and OFF (ref) scan numbers</p>
+</dd>
+<dt><strong>scanrows</strong><span class="classifier">dict</span></dt><dd><p>dictionary with keys ‘ON’ and ‘OFF’ containing the list of rows in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> corresponding to ON (sig) and OFF (ref) integrations</p>
+</dd>
+<dt><strong>bintable</strong><span class="classifier">int</span></dt><dd><p>the index for BINTABLE in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> containing the scans</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Attributes<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><a class="reference internal" href="#dysh.spectra.scan.PSScan.npol" title="dysh.spectra.scan.PSScan.npol"><code class="xref py py-obj docutils literal notranslate"><span class="pre">npol</span></code></a></dt><dd><p>The number of polarizations in this Scan</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.PSScan.nrows" title="dysh.spectra.scan.PSScan.nrows"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nrows</span></code></a></dt><dd><p>The number of rows in this Scan</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.PSScan.status" title="dysh.spectra.scan.PSScan.status"><code class="xref py py-obj docutils literal notranslate"><span class="pre">status</span></code></a></dt><dd><p>Status flag, will be used later for undo</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dysh.spectra.scan.PSScan.timeaverage" title="dysh.spectra.scan.PSScan.timeaverage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timeaverage</span></code></a>([weights])</p></td>
+<td><p>Compute the time-averaged spectrum for this set of scans.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.PSScan.npol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">npol</span></span><a class="headerlink" href="#dysh.spectra.scan.PSScan.npol" title="Link to this definition"></a></dt>
+<dd><p>The number of polarizations in this Scan</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.PSScan.nrows">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nrows</span></span><a class="headerlink" href="#dysh.spectra.scan.PSScan.nrows" title="Link to this definition"></a></dt>
+<dd><p>The number of rows in this Scan</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.PSScan.status">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">status</span></span><a class="headerlink" href="#dysh.spectra.scan.PSScan.status" title="Link to this definition"></a></dt>
+<dd><p>Status flag, will be used later for undo</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.scan.PSScan.timeaverage">
+<span class="sig-name descname"><span class="pre">timeaverage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#PSScan.timeaverage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.PSScan.timeaverage" title="Link to this definition"></a></dt>
+<dd><p>Compute the time-averaged spectrum for this set of scans.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>weights: str</strong></dt><dd><p>‘tsys’ or None.  If ‘tsys’ the weight will be calculated as:</p>
+<blockquote>
+<div><p><span class="math notranslate nohighlight">\(w = t_{exp} \times \delta\nu/T_{sys}^2\)</span></p>
+</div></blockquote>
+<p>Default: ‘tsys’</p>
+</dd>
+<dt><strong>Returns</strong></dt><dd></dd>
+<dt><strong>——-</strong></dt><dd><dl>
+<dt>spectrum<span class="classifier"><code class="xref py py-class docutils literal notranslate"><span class="pre">Spectrum</span></code></span></dt><dd><p>The time-averaged spectrum</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="dysh.spectra.scan.TPScan">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dysh.spectra.scan.</span></span><span class="sig-name descname"><span class="pre">TPScan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sdfits</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigstate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calstate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scanrows</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bintable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/scan.html#TPScan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.scan.TPScan" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Holds a total power scan.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>sdfits</strong><span class="classifier">~SDFITSLoad</span></dt><dd><p>Input SDFITSLoad object (or derivative).</p>
+</dd>
+<dt><strong>scan: int</strong></dt><dd><p>Scan number.</p>
+</dd>
+<dt><strong>sigstate</strong><span class="classifier">str</span></dt><dd><p>One of ‘SIG’ or ‘REF’ to indicate if this is the signal or reference scan.</p>
+</dd>
+<dt><strong>scanrows</strong><span class="classifier">list-like</span></dt><dd><p>The list of rows in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> corresponding to sig_state integrations.</p>
+</dd>
+<dt><strong>bintable</strong><span class="classifier">int</span></dt><dd><p>The index for BINTABLE in <code class="xref py py-obj docutils literal notranslate"><span class="pre">sdfits</span></code> containing the scans.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Attributes<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>calstate</strong></dt><dd></dd>
+<dt><strong>data</strong></dt><dd></dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.TPScan.npol" title="dysh.spectra.scan.TPScan.npol"><code class="xref py py-obj docutils literal notranslate"><span class="pre">npol</span></code></a></dt><dd><p>The number of polarizations in this Scan</p>
+</dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.TPScan.nrows" title="dysh.spectra.scan.TPScan.nrows"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nrows</span></code></a></dt><dd><p>The number of rows in this Scan</p>
+</dd>
+<dt><strong>scan</strong></dt><dd></dd>
+<dt><strong>sigstate</strong></dt><dd></dd>
+<dt><a class="reference internal" href="#dysh.spectra.scan.TPScan.status" title="dysh.spectra.scan.TPScan.status"><code class="xref py py-obj docutils literal notranslate"><span class="pre">status</span></code></a></dt><dd><p>Status flag, will be used later for undo</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.TPScan.calstate">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">calstate</span></span><a class="headerlink" href="#dysh.spectra.scan.TPScan.calstate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.TPScan.data">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">data</span></span><a class="headerlink" href="#dysh.spectra.scan.TPScan.data" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.TPScan.npol">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">npol</span></span><a class="headerlink" href="#dysh.spectra.scan.TPScan.npol" title="Link to this definition"></a></dt>
+<dd><p>The number of polarizations in this Scan</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.TPScan.nrows">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nrows</span></span><a class="headerlink" href="#dysh.spectra.scan.TPScan.nrows" title="Link to this definition"></a></dt>
+<dd><p>The number of rows in this Scan</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.TPScan.scan">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">scan</span></span><a class="headerlink" href="#dysh.spectra.scan.TPScan.scan" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.TPScan.sigstate">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sigstate</span></span><a class="headerlink" href="#dysh.spectra.scan.TPScan.sigstate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.spectra.scan.TPScan.status">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">status</span></span><a class="headerlink" href="#dysh.spectra.scan.TPScan.status" title="Link to this definition"></a></dt>
+<dd><p>Status flag, will be used later for undo</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="obsblock">
+<h2>Obsblock<a class="headerlink" href="#obsblock" title="Link to this heading"></a></h2>
+<span class="target" id="module-dysh.spectra.obsblock"></span><dl class="py class">
+<dt class="sig sig-object py" id="dysh.spectra.obsblock.Obsblock">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dysh.spectra.obsblock.</span></span><span class="sig-name descname"><span class="pre">Obsblock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">speclist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/obsblock.html#Obsblock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.obsblock.Obsblock" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Class that holds a series of spectra on which bulk operations can be performed</p>
+<p class="rubric">Methods</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#dysh.spectra.obsblock.Obsblock.baseline" title="dysh.spectra.obsblock.Obsblock.baseline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">baseline</span></code></a>(order[, exclude])</p></td>
+<td><p>compute and optionally remove a baseline</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.spectra.obsblock.Obsblock.baseline">
+<span class="sig-name descname"><span class="pre">baseline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">order</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/spectra/obsblock.html#Obsblock.baseline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.spectra.obsblock.Obsblock.baseline" title="Link to this definition"></a></dt>
+<dd><p>compute and optionally remove a baseline</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dysh.fits.html" class="btn btn-neutral float-left" title="Reading in and writing out observations" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dysh.plot.html" class="btn btn-neutral float-right" title="Plotting classes and functions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

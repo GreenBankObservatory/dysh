@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dysh.plot.specplot &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=938c9ccc"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({startOnLoad:true, useMaxWidth:false});</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html">
+            
+              <img src="../../../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../background/index.html">Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../design/index.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules/index.html">Modules and APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples for GBT Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../for_developers/index.html">For Developers</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dysh.plot.specplot</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dysh.plot.specplot</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="sd">&quot;&quot;&quot;Plot a spectrum using matplotlib&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="SpectrumPlot">
+<a class="viewcode-back" href="../../../modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot">[docs]</a>
+<span class="k">class</span> <span class="nc">SpectrumPlot</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    The SpectrumPlot class is for simple plotting of a ~spectrum.Spectrum</span>
+<span class="sd">    using matplotlib functions.   Plots attributes are modified using keywords</span>
+<span class="sd">    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default</span>
+<span class="sd">    choices for the plot if no additional keywords are given.</span>
+<span class="sd">    The attributes are &quot;sticky&quot; meaning that an attribute set via</span>
+<span class="sd">    instantiation or by the `plot()` method will stay set until changed</span>
+<span class="sd">    or reset using the `reset()` method.  </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    spectrum : `~spectra.spectrum.Spectrum`</span>
+<span class="sd">        The spectrum to plot</span>
+<span class="sd">    \**kwargs : dict</span>
+<span class="sd">        Plot attribute keyword arguments, see below.</span>
+
+<span class="sd">    Other Parameters</span>
+<span class="sd">    ----------------</span>
+<span class="sd">    xaxis_unit : str or ~astrpy.unit.Unit</span>
+<span class="sd">        The units to use on the x-axis, e.g. &quot;km/s&quot; to plot velocity </span>
+<span class="sd">    yaxis_unit : str or ~astrpy.unit.Unit</span>
+<span class="sd">        The units to use on the y-axis</span>
+<span class="sd">    xmin : float</span>
+<span class="sd">        Minimum x-axis value</span>
+<span class="sd">    xmax : float</span>
+<span class="sd">        Maximum x-axis value</span>
+<span class="sd">    ymin : float</span>
+<span class="sd">        Minimum y-axis value</span>
+<span class="sd">    ymax : float</span>
+<span class="sd">        Maximum y-axis value</span>
+<span class="sd">    xlabel : str</span>
+<span class="sd">        x-axis label</span>
+<span class="sd">    ylabel : str</span>
+<span class="sd">        y-axis label</span>
+<span class="sd">    grid : bool</span>
+<span class="sd">        Show a plot grid or not</span>
+<span class="sd">    figsize : tuple</span>
+<span class="sd">        Figure size (see matplotlib)</span>
+<span class="sd">    linewidth : float</span>
+<span class="sd">        Line width, default: 2.0.  lw also works</span>
+<span class="sd">    linestyle : str</span>
+<span class="sd">        Line style, default &#39;steps-mid&#39;.  ls also works</span>
+<span class="sd">    color : str</span>
+<span class="sd">        Line color, c also works</span>
+<span class="sd">    title : str</span>
+<span class="sd">        Plot title</span>
+<span class="sd">    aspect : str</span>
+<span class="sd">        plot aspect ratio, default: &#39;auto&#39;</span>
+<span class="sd">    show_baseline : bool</span>
+<span class="sd">        show the baseline - not yet implemented</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="c1"># loc, legend, bbox_to_anchor</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">spectrum</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plt</span> <span class="o">=</span> <span class="n">plt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_figure</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_axis</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spectrum</span> <span class="o">=</span> <span class="n">spectrum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span>
+
+<span class="c1"># def __call__ (see pyspeckit)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">axis</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The underlying :class:`~matplotlib.Axes` object&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_axis</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">figure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The underlying :class:`~matplotlib.Figure` object&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_figure</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">spectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The underlying `~spectra.spectrum.Spectrum`&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spectrum</span>
+
+<div class="viewcode-block" id="SpectrumPlot.plot">
+<a class="viewcode-back" href="../../../modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.plot">[docs]</a>
+    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot the spectrum.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        \**kwargs : various</span>
+<span class="sd">            keyword=value arguments (need to describe these in a central place)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># xtype = &#39;velocity, &#39;frequency&#39;, &#39;wavelength&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1">#if self._figure is None:</span>
+        <span class="k">if</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_figure</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">_axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;figsize&#39;</span><span class="p">])</span>
+        <span class="c1">#else:</span>
+        <span class="c1">#    self._axis.cla()</span>
+
+        <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spectrum</span>
+        <span class="n">sa</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">spectral_axis</span>
+        <span class="n">lw</span> <span class="o">=</span>  <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;linewidth&#39;</span><span class="p">]</span>
+        <span class="n">xunit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s2">&quot;xaxis_unit&quot;</span><span class="p">]</span>
+        <span class="n">yunit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s2">&quot;yaxis_unit&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">xunit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;chan&quot;</span> <span class="ow">in</span> <span class="n">xunit</span><span class="p">:</span>
+                <span class="n">sa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sa</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;xlabel&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Channel&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># convert the x axis to the requested </span>
+                <span class="c1">#print(f&quot;EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}&quot;)</span>
+                <span class="c1">#sa = s.spectral_axis.to( self._plot_kwargs[&quot;xaxis_unit&quot;], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)</span>
+                <span class="n">sa</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">velocity</span><span class="o">.</span><span class="n">to</span><span class="p">(</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s2">&quot;xaxis_unit&quot;</span><span class="p">],</span> <span class="n">equivalencies</span><span class="o">=</span><span class="n">s</span><span class="o">.</span><span class="n">equivalencies</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;xlabel&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;Velocity (</span><span class="si">{</span><span class="n">xunit</span><span class="si">}</span><span class="s1">)&#39;</span>
+        <span class="n">sf</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">flux</span>
+        <span class="k">if</span> <span class="n">yunit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sf</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">flux</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">yunit</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_axis</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">sa</span><span class="p">,</span><span class="n">sf</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;color&#39;</span><span class="p">],</span> <span class="n">lw</span> <span class="o">=</span> <span class="n">lw</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_axis</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;xmin&#39;</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;xmax&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_axis</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;ymin&#39;</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;ymax&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_axis</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s1">&#39;both&#39;</span><span class="p">,</span><span class="n">which</span><span class="o">=</span><span class="s1">&#39;both&#39;</span><span class="p">,</span><span class="n">bottom</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">top</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">left</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">right</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">direction</span><span class="o">=</span><span class="s1">&#39;in&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_axis</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">visible</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">which</span><span class="o">=</span><span class="s1">&#39;major&#39;</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="s1">&#39;both&#39;</span><span class="p">,</span><span class="n">lw</span><span class="o">=</span><span class="n">lw</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span>
+                                <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.33</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_axis</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">visible</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">which</span><span class="o">=</span><span class="s1">&#39;minor&#39;</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="s1">&#39;both&#39;</span><span class="p">,</span><span class="n">lw</span><span class="o">=</span><span class="n">lw</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span>
+                                <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.22</span><span class="p">,</span><span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_labels</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span><span class="p">)</span>
+        <span class="c1">#self._axis.axhline(y=0,color=&#39;red&#39;,lw=2)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refresh</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SpectrumPlot.reset">
+<a class="viewcode-back" href="../../../modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.reset">[docs]</a>
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the plot keyword arguments to their defaults.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plot_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;xmin&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;xmax&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;ymin&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;ymax&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;xlabel&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;ylabel&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;xaxis_unit&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;yaxis_unit&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;grid&#39;</span> <span class="p">:</span><span class="kc">False</span><span class="p">,</span>
+            <span class="s1">&#39;figsize&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
+            <span class="c1">#&#39;capsize&#39;:3,</span>
+            <span class="s1">&#39;linewidth&#39;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">,</span>
+            <span class="s1">&#39;linestyle&#39;</span><span class="p">:</span> <span class="s1">&#39;steps-mid&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;markersize&#39;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+            <span class="s1">&#39;color&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;title&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
+            <span class="c1">#&#39;axis&#39;:None,</span>
+            <span class="c1">#&#39;label&#39;:None,</span>
+            <span class="s1">&#39;aspect&#39;</span><span class="p">:</span> <span class="s1">&#39;auto&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;bbox_to_anchor&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;loc&#39;</span><span class="p">:</span><span class="s2">&quot;best&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;legend&#39;</span><span class="p">:</span><span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;show_baseline&#39;</span><span class="p">:</span><span class="kc">True</span><span class="p">,</span>
+            <span class="s1">&#39;test&#39;</span><span class="p">:</span> <span class="kc">False</span>
+        <span class="p">}</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_set_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">xlabel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">ylabel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set x and y labels according to spectral units</span>
+
+<span class="sd">           Parameters</span>
+<span class="sd">           ----------</span>
+<span class="sd">           title : str</span>
+<span class="sd">               plot title</span>
+<span class="sd">           xlabel : str</span>
+<span class="sd">               x-axis label</span>
+<span class="sd">           ylabel : str</span>
+<span class="sd">               x-axis label</span>
+<span class="sd">           \*\*kwargs : various</span>
+<span class="sd">               other keyword=value arguments</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">wcs</span><span class="p">,</span><span class="s1">&#39;wcs&#39;</span><span class="p">):</span>
+           <span class="n">ctype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">wcs</span><span class="o">.</span><span class="n">ctype</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">meta</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+           <span class="n">ctype</span> <span class="o">=</span> <span class="p">[]</span>
+           <span class="n">ctype</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;CTYPE1&#39;</span><span class="p">,</span><span class="kc">None</span><span class="p">))</span>
+           <span class="n">ctype</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;CTYPE2&#39;</span><span class="p">,</span><span class="kc">None</span><span class="p">))</span>
+           <span class="n">ctype</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;CTYPE3&#39;</span><span class="p">,</span><span class="kc">None</span><span class="p">))</span>
+        <span class="c1">#print(&#39;ctype is &#39;,ctype)</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;xaxis_unit&quot;</span><span class="p">,</span><span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">xunit</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;xaxis_unit&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xunit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">spectral_axis</span><span class="o">.</span><span class="n">unit</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;yaxis_unit&quot;</span><span class="p">,</span><span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">yunit</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;yaxis_unit&quot;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">yunit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">unit</span>
+        <span class="k">if</span> <span class="n">xlabel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">xlabel</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ctype</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;FREQ&#39;</span><span class="p">]:</span>
+            <span class="n">xlabel</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;Frequency (</span><span class="si">{</span><span class="n">xunit</span><span class="si">}</span><span class="s1">)&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">xlabel</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ctype</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;VELO&#39;</span><span class="p">,</span> <span class="s1">&#39;VRAD&#39;</span><span class="p">,</span> <span class="s1">&#39;VOPT&#39;</span><span class="p">]:</span>
+            <span class="n">xlabel</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;Velocity (</span><span class="si">{</span><span class="n">xunit</span><span class="si">}</span><span class="s1">)&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">xlabel</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ctype</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;WAVE&#39;</span><span class="p">,</span> <span class="s1">&#39;AWAV&#39;</span><span class="p">]:</span>
+            <span class="n">xlabel</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;Wavelength(</span><span class="si">{</span><span class="n">xunit</span><span class="si">}</span><span class="s1">)&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">xlabel</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">xunit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">xlabel</span> <span class="o">=</span> <span class="n">xunit</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">xlabel</span><span class="p">)</span>
+        <span class="c1">#print(f&quot;ylabel {ylabel} yunit {yunit} sunit {self.spectrum.unit}&quot;)</span>
+        <span class="k">if</span> <span class="n">ylabel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="n">ylabel</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">yunit</span><span class="o">.</span><span class="n">is_equivalent</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">K</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$T_A$ (</span><span class="si">{</span><span class="n">yunit</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectrum</span><span class="o">.</span><span class="n">unit</span><span class="o">.</span><span class="n">is_equivalent</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">Jy</span><span class="p">):</span>
+            <span class="n">snu</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;$S_{\nu}$&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">snu</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">yunit</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_show_exclude</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&#39;&#39;&#39;TODO: Method to show the exclude array on the plot&#39;&#39;&#39;</span>
+        <span class="n">kwargs_opts</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="s2">&quot;bottom&quot;</span><span class="p">,</span> <span class="c1">#top,bottom ?</span>
+            <span class="s1">&#39;color&#39;</span> <span class="p">:</span> <span class="s1">&#39;silver&#39;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">kwargs_opts</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c1">#if kwargs_opts[&#39;loc&#39;] == &#39;bottom&#39;:</span>
+        <span class="c1">#    self._ax.axhline</span>
+        
+
+
+<div class="viewcode-block" id="SpectrumPlot.refresh">
+<a class="viewcode-back" href="../../../modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.refresh">[docs]</a>
+    <span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Refresh the plot&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">axis</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+            <span class="c1">#print(&#39;redrawing&#39;)</span>
+            <span class="c1">#self.axis.figure.canvas.draw_idle()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SpectrumPlot.savefig">
+<a class="viewcode-back" href="../../../modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.savefig">[docs]</a>
+    <span class="k">def</span> <span class="nf">savefig</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">file</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the plot&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">file</span><span class="p">,</span><span class="o">*</span><span class="n">kwargs</span><span class="p">)</span></div>
+</div>
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
