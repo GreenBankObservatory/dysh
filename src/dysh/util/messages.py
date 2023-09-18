@@ -1,14 +1,14 @@
 import sys, os
 import json, pathlib
-from rich import print as rprint
 from rich.align import Align
 from rich.filesize import decimal
 from rich.markup import escape
 from rich.text import Text
 from rich.tree import Tree
-from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from rich import print as rprint
+from dysh.config.rich_theme import DyshRichConsole
 
 sys.path.insert(0, os.path.abspath("."))
 
@@ -25,7 +25,7 @@ class SystemMessages:
             guide_style="bold bright_blue",
         )
         self._directory_tree(pathlib.Path(dir), tree, max_depth)
-        rprint(tree)
+        DyshRichConsole.print(tree)
 
     def _directory_tree(self, directory, tree, max_depth, current_depth=0):
         """Recursively build a Tree with directory contents"""
@@ -86,6 +86,7 @@ class GBTInfoMessages:
             rx_table.add_row(rx_name, rx_freqs)
 
         rx_table = Align.center(rx_table, vertical="middle")
+        # DyshRichConsole.print(rx_table)
         rprint(rx_table)
 
 
@@ -99,10 +100,12 @@ class FriendlyMessages:
         w_message = "Welcome to Dysh"
         w_panel = Panel(w_message, padding=2)
         w_panel = Align.center(w_panel, vertical="middle")
+        # DyshRichConsole.print(w_panel)
         rprint(w_panel)
 
     def goodbye(self):
         bye_message = "Goodbye!"
         bye_panel = Panel(bye_message, padding=2)
         bye_panel = Align.center(bye_panel, vertical="middle")
+        # DyshRichConsole.print(bye_panel)
         rprint(bye_panel)

@@ -74,9 +74,9 @@ class FITSDataTable(QTableWidget):
 
         for i, ki in enumerate(ks):
             try:
-                self.tbl.setItem(j, 0, QTableWidgetItem(str(ki)))
-                self.tbl.setItem(j, 1, QTableWidgetItem(str(self.hdr_df[ki][0])))
-                self.tbl.setItem(j, 2, QTableWidgetItem(str(self.h_data_info[ki]['TUNIT'])))
-                self.tbl.setItem(j, 3, QTableWidgetItem(str(self.h_data_info[ki]['TFORM'])))
+                self.tbl.setItem(i, 0, QTableWidgetItem(str(ki)))
+                self.tbl.setItem(i, 1, QTableWidgetItem(str(self.hdr_df[ki][0])))
+                self.tbl.setItem(i, 2, QTableWidgetItem(str(self.h_data_info[ki]['TUNIT'])))
+                self.tbl.setItem(i, 3, QTableWidgetItem(str(self.h_data_info[ki]['TFORM'])))
             except:
-                print(f'Issue encountered for {dkj} (data)')
+                print(f'Issue encountered for {ki} (data)')

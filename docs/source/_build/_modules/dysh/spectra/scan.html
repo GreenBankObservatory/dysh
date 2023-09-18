@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dysh.spectra.scan &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+        <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({startOnLoad:true, useMaxWidth:false});</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html">
+            
+              <img src="../../../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../background/index.html">Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../design/index.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../gui/index.html">GUI Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules/index.html">Modules and APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples for GBT Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../for_developers/index.html">For Developers</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dysh.spectra.scan</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dysh.spectra.scan</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">astropy.wcs</span> <span class="kn">import</span> <span class="n">WCS</span>
+<span class="kn">from</span> <span class="nn">.spectrum</span> <span class="kn">import</span> <span class="n">Spectrum</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">mean_tsys</span><span class="p">,</span> <span class="n">average</span><span class="p">,</span> <span class="n">veldef_to_convention</span><span class="p">,</span><span class="n">tsys_weight</span>
+<span class="kn">from</span> <span class="nn">..util</span> <span class="kn">import</span> <span class="n">sq_weighted_avg</span>
+
+<div class="viewcode-block" id="PSScan"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.PSScan">[docs]</a><span class="k">class</span> <span class="nc">PSScan</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Holds a position switch scan pair</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        sdfits : `~fits.sdfitsload.SDFITSLoad`</span>
+<span class="sd">            input SDFITSLoad object (or derivative)</span>
+<span class="sd">        scans : dict</span>
+<span class="sd">            dictionary with keys &#39;ON&#39; and &#39;OFF&#39; containing unique list of ON (sig) and OFF (ref) scan numbers</span>
+<span class="sd">        scanrows : dict</span>
+<span class="sd">            dictionary with keys &#39;ON&#39; and &#39;OFF&#39; containing the list of rows in `sdfits` corresponding to ON (sig) and OFF (ref) integrations</span>
+<span class="sd">        bintable : int</span>
+<span class="sd">            the index for BINTABLE in `sdfits` containing the scans</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sdfits</span><span class="p">,</span> <span class="n">scans</span><span class="p">,</span> <span class="n">scanrows</span><span class="p">,</span> <span class="n">bintable</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span> <span class="o">=</span> <span class="n">sdfits</span> <span class="c1"># parent class</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1">#@TODO make these an enumeration, possibly dict</span>
+        <span class="c1">#                           # ex1:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nint</span> <span class="o">=</span> <span class="mi">0</span>               <span class="c1"># 11</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_npol</span> <span class="o">=</span> <span class="mi">0</span>               <span class="c1">#  2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_on</span> <span class="o">=</span> <span class="kc">None</span>              <span class="c1"># 44</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_off</span> <span class="o">=</span> <span class="kc">None</span>             <span class="c1"># 44</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_calibrated</span> <span class="o">=</span> <span class="kc">None</span>      <span class="c1"># 22</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span> <span class="o">=</span> <span class="kc">None</span>    <span class="c1">#  2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_polaveraged</span> <span class="o">=</span> <span class="kc">None</span>     <span class="c1">#  1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span> <span class="o">=</span> <span class="n">bintable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nrows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scanrows</span><span class="p">[</span><span class="s1">&#39;ON&#39;</span><span class="p">])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSSCAN nrows = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nrows</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Status flag, will be used later for undo&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">nrows</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of rows in this Scan&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nrows</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">npol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of polarizations in this Scan&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_npol</span>
+
+<div class="viewcode-block" id="PSScan.timeaverage"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.PSScan.timeaverage">[docs]</a>    <span class="k">def</span> <span class="nf">timeaverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&#39;&#39;&#39;Compute the time-averaged spectrum for this set of scans. </span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">                weights: str</span>
+<span class="sd">                    &#39;tsys&#39; or None.  If &#39;tsys&#39; the weight will be calculated as:</span>
+
+<span class="sd">                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`</span>
+
+<span class="sd">                    Default: &#39;tsys&#39;</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">                spectrum : :class:`~spectra.spectrum.Spectrum`</span>
+<span class="sd">                    The time-averaged spectrum</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c1"># weights = None (equal) or &quot;tsys&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span> <span class="o">=</span> <span class="n">average</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_calibrated</span><span class="p">,</span><span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+        <span class="c1"># this should really be a spectrum</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span></div>
+
+    <span class="c1">#@TODO write calibrated data to a FITS? file.</span>
+    <span class="c1">#def write(self,filename,format,**kwargs):</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nrows</span></div>
+    
+<div class="viewcode-block" id="TPScan"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.TPScan">[docs]</a><span class="k">class</span> <span class="nc">TPScan</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Holds a total power scan.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sdfits : ~SDFITSLoad</span>
+<span class="sd">        Input SDFITSLoad object (or derivative).</span>
+<span class="sd">    scan: int</span>
+<span class="sd">        Scan number.</span>
+<span class="sd">    sigstate : str</span>
+<span class="sd">        One of &#39;SIG&#39; or &#39;REF&#39; to indicate if this is the signal or reference scan.</span>
+<span class="sd">    scanrows : list-like</span>
+<span class="sd">        The list of rows in `sdfits` corresponding to sig_state integrations.</span>
+<span class="sd">    bintable : int</span>
+<span class="sd">        The index for BINTABLE in `sdfits` containing the scans.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sdfits</span><span class="p">,</span> <span class="n">scan</span><span class="p">,</span> <span class="n">sigstate</span><span class="p">,</span> <span class="n">calstate</span><span class="p">,</span> <span class="n">scanrows</span><span class="p">,</span> <span class="n">bintable</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span> <span class="o">=</span> <span class="n">sdfits</span> <span class="c1"># parent class</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scan</span> <span class="o">=</span> <span class="n">scan</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sigstate</span> <span class="o">=</span> <span class="n">sigstate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_calstate</span> <span class="o">=</span> <span class="n">calstate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scanrows</span> <span class="o">=</span> <span class="n">scanrows</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span> <span class="o">=</span> <span class="n">bintable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">rawspectra</span><span class="p">(</span><span class="n">bintable</span><span class="p">)[</span><span class="n">scanrows</span><span class="p">]</span> <span class="c1"># all cal states</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1">#@TODO make these an enumeration, possibly dict</span>
+        <span class="c1">#                           # ex1:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nint</span> <span class="o">=</span> <span class="mi">0</span>              <span class="c1"># 11</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_npol</span> <span class="o">=</span> <span class="mi">0</span>              <span class="c1">#  2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1">#  2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_polaveraged</span> <span class="o">=</span> <span class="kc">None</span>    <span class="c1">#  1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nrows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scanrows</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TPSCAN nrows = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">nrows</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span>
+        
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">scan</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan</span>
+
+<span class="c1">#@TODO all the various attributes should be in a dict. sigstate,calstate,ifnum,plnum etc</span>
+<span class="c1"># to make this class flexible. then some sort of clever property accessor.</span>
+<span class="c1">#@TODO TPScanList class or let this class contain multiple scans....bookkeeping!</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">sigstate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigstate</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">calstate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calstate</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Status flag, will be used later for undo&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_status</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">nrows</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of rows in this Scan&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nrows</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">npol</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of polarizations in this Scan&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_npol</span>
+
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nrows</span></div>
+
+<div class="viewcode-block" id="GBTTPScan"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.GBTTPScan">[docs]</a><span class="k">class</span> <span class="nc">GBTTPScan</span><span class="p">(</span><span class="n">TPScan</span><span class="p">):</span> 
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;GBT specific version of Total Power Scan (`~spectra.scan.TPScan`)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    gbtfits : `~fits.gbtfitsload.GBFITSLoad`</span>
+<span class="sd">        input GBFITSLoad object </span>
+<span class="sd">    scan: int</span>
+<span class="sd">        scan number</span>
+<span class="sd">    sigstate : str</span>
+<span class="sd">        one of &#39;SIG&#39; or &#39;REF&#39; to indicate if this is the signal or reference scan or &#39;BOTH&#39; if it contains both</span>
+<span class="sd">    calstate : str</span>
+<span class="sd">        one of &#39;ON&#39; or &#39;OFF&#39; to indicate the calibration state of this scan, or &#39;BOTH&#39; if it contains both</span>
+<span class="sd">    scanrows : list-like</span>
+<span class="sd">        the list of rows in `sdfits` corresponding to sig_state integrations </span>
+<span class="sd">    calrows : dict</span>
+<span class="sd">        dictionary containing with keys &#39;ON&#39; and &#39;OFF&#39; containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`</span>
+<span class="sd">    bintable : int</span>
+<span class="sd">        the index for BINTABLE in `sdfits` containing the scans</span>
+<span class="sd">    calibrate: bool</span>
+<span class="sd">        whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<span class="c1">#@TODO get rid of calrows and calc tsys in gettp and pass it in.</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gbtfits</span><span class="p">,</span> <span class="n">scan</span><span class="p">,</span> <span class="n">sigstate</span><span class="p">,</span> <span class="n">calstate</span><span class="p">,</span> <span class="n">scanrows</span><span class="p">,</span> <span class="n">calrows</span><span class="p">,</span> <span class="n">bintable</span><span class="p">,</span><span class="n">calibrate</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">TPScan</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gbtfits</span><span class="p">,</span> <span class="n">scan</span><span class="p">,</span> <span class="n">sigstate</span><span class="p">,</span> <span class="n">calstate</span><span class="p">,</span> <span class="n">scanrows</span><span class="p">,</span> <span class="n">bintable</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_calrows</span> <span class="o">=</span> <span class="n">calrows</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_npol</span> <span class="o">=</span>  <span class="n">gbtfits</span><span class="o">.</span><span class="n">npol</span><span class="p">(</span><span class="n">bintable</span><span class="p">)</span> <span class="c1">#TODO deal with bintable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nint</span> <span class="o">=</span> <span class="n">gbtfits</span><span class="o">.</span><span class="n">nintegrations</span><span class="p">(</span><span class="n">bintable</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calrows</span><span class="p">[</span><span class="s2">&quot;ON&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refoffrows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calrows</span><span class="p">[</span><span class="s2">&quot;OFF&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refcalon</span> <span class="o">=</span> <span class="n">gbtfits</span><span class="o">.</span><span class="n">rawspectra</span><span class="p">(</span><span class="n">bintable</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refcaloff</span> <span class="o">=</span> <span class="n">gbtfits</span><span class="o">.</span><span class="n">rawspectra</span><span class="p">(</span><span class="n">bintable</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refoffrows</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_calibrate</span><span class="o">=</span><span class="n">calibrate</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calibrate</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_refcalon</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">_refcaloff</span><span class="p">)</span>
+        <span class="c1">#print(f&quot;# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows[&#39;ON&#39;])}  # calrows OFF {len(self._calrows[&#39;OFF&#39;])}&quot;)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calc_tsys</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">tsys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The system temperature array. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tsys : `~numpy.ndarray`</span>
+<span class="sd">            System temperature values in K</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span>
+
+<div class="viewcode-block" id="GBTTPScan.calc_tsys"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.GBTTPScan.calc_tsys">[docs]</a>    <span class="k">def</span> <span class="nf">calc_tsys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the system temperature array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kwargs_opts</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;verbose&#39;</span><span class="p">:</span> <span class="kc">False</span>
+        <span class="p">}</span>
+        <span class="n">kwargs_opts</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="n">tcal</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span><span class="p">][</span><span class="s2">&quot;TCAL&quot;</span><span class="p">])</span>
+        <span class="n">nspect</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tcal</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">nspect</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="c1"># should be same as len(calon)</span>
+        <span class="c1">#allcal = self._refonrows.copy()</span>
+        <span class="c1">#allcal.extend(self._refoffrows)</span>
+        <span class="c1">#tcal = list(self._sdfits.index(self._bintable_index).iloc[sorted(allcal)][&quot;TCAL&quot;])</span>
+        <span class="c1">#@Todo  this loop could be replaces with clever numpy</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tcal</span><span class="p">)</span> <span class="o">!=</span> <span class="n">nspect</span><span class="p">:</span> 
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TCAL length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tcal</span><span class="p">)</span><span class="si">}</span><span class="s2"> and number of spectra </span><span class="si">{</span><span class="n">nspect</span><span class="si">}</span><span class="s2"> don&#39;t match&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nspect</span><span class="p">):</span>
+            <span class="n">tsys</span> <span class="o">=</span> <span class="n">mean_tsys</span><span class="p">(</span><span class="n">calon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_refcalon</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>  <span class="n">caloff</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_refcaloff</span><span class="p">[</span><span class="n">i</span><span class="p">],</span><span class="n">tcal</span><span class="o">=</span><span class="n">tcal</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">tsys</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">exposure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the array of exposure (integration) times</span>
+
+<span class="sd">            exposure =  0.5*(exp_ref_on + exp_ref_off) </span>
+<span class="sd">        </span>
+<span class="sd">        Note we only have access to the refon and refoff row indices so can&#39;t use sig here.</span>
+<span class="sd">        This is probably incorrect</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            exposure : `~numpy.ndarray`</span>
+<span class="sd">                The exposure time in units of the EXPOSURE keyword in the SDFITS header</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">exp_ref_on</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span><span class="p">][</span><span class="s2">&quot;EXPOSURE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">exp_ref_off</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refoffrows</span><span class="p">][</span><span class="s2">&quot;EXPOSURE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">exposure</span> <span class="o">=</span> <span class="p">(</span><span class="n">exp_ref_on</span> <span class="o">+</span> <span class="n">exp_ref_off</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">exposure</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">delta_freq</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the array of channel frequency width</span>
+
+<span class="sd">           df =  0.5*(df_ref_on + df_ref_off) </span>
+<span class="sd">        </span>
+<span class="sd">        Note we only have access to the refon and refoff row indices so can&#39;t use sig here.</span>
+<span class="sd">        This is probably incorrect</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            delta_freq: `~numpy.ndarray`</span>
+<span class="sd">                The channel frequency width in units of the CDELT1 keyword in the SDFITS header</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df_ref_on</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span><span class="p">][</span><span class="s2">&quot;CDELT1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">df_ref_off</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refoffrows</span><span class="p">][</span><span class="s2">&quot;CDELT1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">delta_freq</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">df_ref_on</span> <span class="o">+</span> <span class="n">df_ref_off</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">delta_freq</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_tsys_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&#39;&#39;&#39;The system temperature weighting array computed from current</span>
+<span class="sd">        :math:`T_{sys}, t_{exp}`, and `\delta\nu`. See :meth:`tsys_weight` </span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">tsys_weight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exposure</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">delta_freq</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tsys</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GBTTPScan.total_power"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.GBTTPScan.total_power">[docs]</a>    <span class="k">def</span> <span class="nf">total_power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">i</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the total power spectrum</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            i : int</span>
+<span class="sd">                The index into the data array</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            spectrum : `~spectra.spectrum.Spectrum`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scanrows</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;TSYS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;EXPOSURE&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exposure</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">naxis1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">ctype1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CTYPE1&#39;</span><span class="p">]</span>
+        <span class="n">ctype2</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CTYPE2&#39;</span><span class="p">]</span>
+        <span class="n">ctype3</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CTYPE3&#39;</span><span class="p">]</span>
+        <span class="n">crval1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CRVAL1&#39;</span><span class="p">]</span>
+        <span class="n">crval2</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CRVAL2&#39;</span><span class="p">]</span>
+        <span class="n">crval3</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CRVAL3&#39;</span><span class="p">]</span>
+        <span class="n">crpix1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CRPIX1&#39;</span><span class="p">]</span>
+        <span class="n">cdelt1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CDELT1&#39;</span><span class="p">]</span>
+        <span class="n">restfrq</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;RESTFREQ&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;CUNIT1&#39;</span> <span class="ow">in</span> <span class="n">meta</span><span class="p">:</span>
+            <span class="n">cunit1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CUNIT1&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cunit1</span> <span class="o">=</span> <span class="s2">&quot;Hz&quot;</span> <span class="c1">#@TODO this is in gbtfits.hdu[0].header[&#39;TUNIT11&#39;] but is it always TUNIT11?</span>
+        <span class="n">rfq</span> <span class="o">=</span> <span class="n">restfrq</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="n">cunit1</span><span class="p">)</span>
+        <span class="n">restfreq</span> <span class="o">=</span> <span class="n">rfq</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;Hz&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="c1">#@TODO WCS is expensive.  Figure how to calculate spectral_axis instead.</span>
+        <span class="n">wcs</span> <span class="o">=</span> <span class="n">WCS</span><span class="p">(</span><span class="n">header</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;CDELT1&#39;</span><span class="p">:</span> <span class="n">cdelt1</span><span class="p">,</span> <span class="s1">&#39;CRVAL1&#39;</span><span class="p">:</span> <span class="n">crval1</span><span class="p">,</span> <span class="s1">&#39;CUNIT1&#39;</span><span class="p">:</span> <span class="n">cunit1</span><span class="p">,</span>
+                          <span class="s1">&#39;CTYPE1&#39;</span><span class="p">:</span> <span class="s1">&#39;FREQ&#39;</span><span class="p">,</span> <span class="s1">&#39;CRPIX1&#39;</span><span class="p">:</span> <span class="n">crpix1</span><span class="p">,</span> <span class="s1">&#39;RESTFRQ&#39;</span><span class="p">:</span> <span class="n">restfreq</span><span class="p">,</span>
+                          <span class="s1">&#39;CTYPE2&#39;</span><span class="p">:</span> <span class="n">ctype2</span><span class="p">,</span> <span class="s1">&#39;CRVAL2&#39;</span><span class="p">:</span> <span class="n">crval2</span><span class="p">,</span> <span class="s1">&#39;CRPIX2&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                          <span class="s1">&#39;CTYPE3&#39;</span><span class="p">:</span> <span class="n">ctype3</span><span class="p">,</span> <span class="s1">&#39;CRVAL3&#39;</span><span class="p">:</span> <span class="n">crval3</span><span class="p">,</span> <span class="s1">&#39;CRPIX3&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                          <span class="s1">&#39;CUNIT2&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">,</span> <span class="s1">&#39;CUNIT3&#39;</span><span class="p">:</span><span class="s1">&#39;deg&#39;</span><span class="p">,</span>
+                          <span class="s1">&#39;NAXIS1&#39;</span><span class="p">:</span> <span class="n">naxis1</span><span class="p">,</span> <span class="s1">&#39;NAXIS2&#39;</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;NAXIS3&#39;</span><span class="p">:</span><span class="mi">1</span>
+                         <span class="p">},</span>
+                  <span class="p">)</span>
+        <span class="n">vc</span> <span class="o">=</span> <span class="n">veldef_to_convention</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;VELDEF&#39;</span><span class="p">])</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">Spectrum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span><span class="n">wcs</span><span class="o">=</span><span class="n">wcs</span><span class="p">,</span><span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span><span class="n">velocity_convention</span><span class="o">=</span><span class="n">vc</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+
+<div class="viewcode-block" id="GBTTPScan.timeaverage"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.GBTTPScan.timeaverage">[docs]</a>    <span class="k">def</span> <span class="nf">timeaverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">weights</span><span class="o">=</span><span class="s1">&#39;tsys&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&#39;&#39;&#39;Compute the time-averaged spectrum for this set of scans. </span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">                weights: str</span>
+<span class="sd">                    &#39;tsys&#39; or None.  If &#39;tsys&#39; the weight will be calculated as:</span>
+
+<span class="sd">                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`</span>
+
+<span class="sd">                    Default: &#39;tsys&#39;</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">                spectrum : :class:`~spectra.spectrum.Spectrum`</span>
+<span class="sd">                    The time-averaged spectrum</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">total_power</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">weights</span> <span class="o">==</span> <span class="s1">&#39;tsys&#39;</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tsys_weight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">average</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">weights</span><span class="o">=</span><span class="n">w</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;MEANTSYS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="p">)</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;WTTSYS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sq_weighted_avg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">weights</span><span class="o">=</span><span class="n">w</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;TSYS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;WTTSYS&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;EXPOSURE&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exposure</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span></div></div>
+
+<div class="viewcode-block" id="GBTPSScan"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.GBTPSScan">[docs]</a><span class="k">class</span> <span class="nc">GBTPSScan</span><span class="p">(</span><span class="n">PSScan</span><span class="p">):</span> <span class="c1"># perhaps should derive from TPScan, the only difference is the keys.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;GBT specific version of Position Switch Scan (PSScan)</span>
+
+<span class="sd">       Parameters</span>
+<span class="sd">       ----------</span>
+
+<span class="sd">       gbtfits : `~fit.gbtfitsload.GBFITSLoad`</span>
+<span class="sd">           input GBFITSLoad object </span>
+<span class="sd">       scans : dict</span>
+<span class="sd">           dictionary with keys &#39;ON&#39; and &#39;OFF&#39; containing unique list of ON (signal) and OFF (reference) scan numbers</span>
+<span class="sd">       scanrows : dict</span>
+<span class="sd">           dictionary with keys &#39;ON&#39; and &#39;OFF&#39; containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations</span>
+<span class="sd">       calrows : dict</span>
+<span class="sd">           dictionary containing with keys &#39;ON&#39; and &#39;OFF&#39; containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations. </span>
+<span class="sd">       bintable : int</span>
+<span class="sd">           the index for BINTABLE in `sdfits` containing the scans</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gbtfits</span><span class="p">,</span> <span class="n">scans</span><span class="p">,</span> <span class="n">scanrows</span><span class="p">,</span> <span class="n">calrows</span><span class="p">,</span> <span class="n">bintable</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="n">PSScan</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">gbtfits</span><span class="p">,</span><span class="n">scans</span><span class="p">,</span><span class="n">scanrows</span><span class="p">,</span><span class="n">bintable</span><span class="p">)</span>
+        <span class="c1"># The rows of the original bintable corresponding to ON (sig) and OFF (reg)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scanrows</span> <span class="o">=</span> <span class="n">scanrows</span>
+        <span class="c1">#print(f&quot;scanrows ON {self._scanrows[&#39;ON&#39;]}&quot;)</span>
+        <span class="c1">#print(f&quot;scanrows OFF {self._scanrows[&#39;OFF&#39;]}&quot;)</span>
+        
+        <span class="c1"># calrows perhaps not needed as input since we can get it from gbtfits object?</span>
+        <span class="c1">#calrows[&#39;ON&#39;] are rows with noise diode was on, regardless of sig or ref</span>
+        <span class="c1">#calrows[&#39;OFF&#39;] are rows with noise diode was off, regardless of sig or ref</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_calrows</span> <span class="o">=</span> <span class="n">calrows</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_npol</span> <span class="o">=</span>  <span class="n">gbtfits</span><span class="o">.</span><span class="n">npol</span><span class="p">(</span><span class="n">bintable</span><span class="p">)</span> <span class="c1">#TODO deal with bintable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nint</span> <span class="o">=</span> <span class="n">gbtfits</span><span class="o">.</span><span class="n">nintegrations</span><span class="p">(</span><span class="n">bintable</span><span class="p">)</span>
+        <span class="c1"># todo use gbtfits.velocity_convention(veldef,velframe)</span>
+        <span class="n">vc</span> <span class="o">=</span> <span class="s2">&quot;doppler_radio&quot;</span>
+        <span class="c1"># so quick with slicing!</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sigonrows</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_calrows</span><span class="p">[</span><span class="s2">&quot;ON&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scanrows</span><span class="p">[</span><span class="s2">&quot;ON&quot;</span><span class="p">]))))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sigoffrows</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_calrows</span><span class="p">[</span><span class="s2">&quot;OFF&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scanrows</span><span class="p">[</span><span class="s2">&quot;ON&quot;</span><span class="p">]))))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_calrows</span><span class="p">[</span><span class="s2">&quot;ON&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scanrows</span><span class="p">[</span><span class="s2">&quot;OFF&quot;</span><span class="p">]))))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refoffrows</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_calrows</span><span class="p">[</span><span class="s2">&quot;OFF&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scanrows</span><span class="p">[</span><span class="s2">&quot;OFF&quot;</span><span class="p">]))))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sigcalon</span> <span class="o">=</span> <span class="n">gbtfits</span><span class="o">.</span><span class="n">rawspectra</span><span class="p">(</span><span class="n">bintable</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigonrows</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sigcaloff</span> <span class="o">=</span> <span class="n">gbtfits</span><span class="o">.</span><span class="n">rawspectra</span><span class="p">(</span><span class="n">bintable</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigoffrows</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refcalon</span> <span class="o">=</span> <span class="n">gbtfits</span><span class="o">.</span><span class="n">rawspectra</span><span class="p">(</span><span class="n">bintable</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_refcaloff</span> <span class="o">=</span> <span class="n">gbtfits</span><span class="o">.</span><span class="n">rawspectra</span><span class="p">(</span><span class="n">bintable</span><span class="p">)[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refoffrows</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">tsys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The system temperature array. This will be `None` until calibration is done.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tsys : `~numpy.ndarray`</span>
+<span class="sd">            System temperature values in K</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span>
+
+    <span class="c1">#TODO something clever </span>
+    <span class="c1"># self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]</span>
+<div class="viewcode-block" id="GBTPSScan.calibrated"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.GBTPSScan.calibrated">[docs]</a>    <span class="k">def</span> <span class="nf">calibrated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">i</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the calibrated Spectrum.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            i : int</span>
+<span class="sd">                The index into the calibrated array</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            spectrum : `~spectra.spectrum.Spectrum`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scanrows</span><span class="p">[</span><span class="s2">&quot;ON&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]])</span>
+        <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;TSYS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">naxis1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_calibrated</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">ctype1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CTYPE1&#39;</span><span class="p">]</span>
+        <span class="n">ctype2</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CTYPE2&#39;</span><span class="p">]</span>
+        <span class="n">ctype3</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CTYPE3&#39;</span><span class="p">]</span>
+        <span class="n">crval1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CRVAL1&#39;</span><span class="p">]</span>
+        <span class="n">crval2</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CRVAL2&#39;</span><span class="p">]</span>
+        <span class="n">crval3</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CRVAL3&#39;</span><span class="p">]</span>
+        <span class="n">crpix1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CRPIX1&#39;</span><span class="p">]</span>
+        <span class="n">cdelt1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CDELT1&#39;</span><span class="p">]</span>
+        <span class="n">restfrq</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;RESTFREQ&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s1">&#39;CUNIT1&#39;</span> <span class="ow">in</span> <span class="n">meta</span><span class="p">:</span>
+            <span class="n">cunit1</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s1">&#39;CUNIT1&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cunit1</span> <span class="o">=</span> <span class="s2">&quot;Hz&quot;</span> <span class="c1">#@TODO this is in gbtfits.hdu[0].header[&#39;TUNIT11&#39;] but is it always TUNIT11?</span>
+        <span class="n">rfq</span> <span class="o">=</span> <span class="n">restfrq</span> <span class="o">*</span> <span class="n">u</span><span class="o">.</span><span class="n">Unit</span><span class="p">(</span><span class="n">cunit1</span><span class="p">)</span>
+        <span class="n">restfreq</span> <span class="o">=</span> <span class="n">rfq</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;Hz&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="c1">#@TODO WCS is expensive.  Figure how to calculate spectral_axis instead.</span>
+        <span class="n">wcs</span> <span class="o">=</span> <span class="n">WCS</span><span class="p">(</span><span class="n">header</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;CDELT1&#39;</span><span class="p">:</span> <span class="n">cdelt1</span><span class="p">,</span> <span class="s1">&#39;CRVAL1&#39;</span><span class="p">:</span> <span class="n">crval1</span><span class="p">,</span> <span class="s1">&#39;CUNIT1&#39;</span><span class="p">:</span> <span class="n">cunit1</span><span class="p">,</span>
+                                      <span class="s1">&#39;CTYPE1&#39;</span><span class="p">:</span> <span class="s1">&#39;FREQ&#39;</span><span class="p">,</span> <span class="s1">&#39;CRPIX1&#39;</span><span class="p">:</span> <span class="n">crpix1</span><span class="p">,</span> <span class="s1">&#39;RESTFRQ&#39;</span><span class="p">:</span> <span class="n">restfreq</span><span class="p">,</span>
+                                      <span class="s1">&#39;CTYPE2&#39;</span><span class="p">:</span> <span class="n">ctype2</span><span class="p">,</span> <span class="s1">&#39;CRVAL2&#39;</span><span class="p">:</span> <span class="n">crval2</span><span class="p">,</span> <span class="s1">&#39;CRPIX2&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                                      <span class="s1">&#39;CTYPE3&#39;</span><span class="p">:</span> <span class="n">ctype3</span><span class="p">,</span> <span class="s1">&#39;CRVAL3&#39;</span><span class="p">:</span> <span class="n">crval3</span><span class="p">,</span> <span class="s1">&#39;CRPIX3&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                                      <span class="s1">&#39;CUNIT2&#39;</span><span class="p">:</span> <span class="s1">&#39;deg&#39;</span><span class="p">,</span> <span class="s1">&#39;CUNIT3&#39;</span><span class="p">:</span><span class="s1">&#39;deg&#39;</span><span class="p">,</span>
+                                      <span class="s1">&#39;NAXIS1&#39;</span><span class="p">:</span> <span class="n">naxis1</span><span class="p">,</span> <span class="s1">&#39;NAXIS2&#39;</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;NAXIS3&#39;</span><span class="p">:</span><span class="mi">1</span>
+                                     <span class="p">},</span>
+                             <span class="p">)</span>
+        <span class="n">vc</span> <span class="o">=</span> <span class="n">veldef_to_convention</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;VELDEF&#39;</span><span class="p">])</span>
+        
+        <span class="k">return</span> <span class="n">Spectrum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_calibrated</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">K</span><span class="p">,</span><span class="n">wcs</span><span class="o">=</span><span class="n">wcs</span><span class="p">,</span><span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span><span class="n">velocity_convention</span><span class="o">=</span><span class="n">vc</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="GBTPSScan.calibrate"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.GBTPSScan.calibrate">[docs]</a>    <span class="k">def</span> <span class="nf">calibrate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Position switch calibration, following equations 1 and 2 in the GBTIDL clibration manual</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kwargs_opts</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;verbose&#39;</span><span class="p">:</span> <span class="kc">False</span>
+        <span class="p">}</span>
+        <span class="n">kwargs_opts</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_status</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">nspect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nrows</span><span class="o">//</span><span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_calibrated</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">nspect</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">nspect</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="n">tcal</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span><span class="p">][</span><span class="s2">&quot;TCAL&quot;</span><span class="p">])</span>
+        <span class="c1">#@Todo  this loop could be replaced with clever numpy</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tcal</span><span class="p">)</span> <span class="o">!=</span> <span class="n">nspect</span><span class="p">:</span> 
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TCAL length </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tcal</span><span class="p">)</span><span class="si">}</span><span class="s2"> and number of spectra </span><span class="si">{</span><span class="n">nspect</span><span class="si">}</span><span class="s2"> don&#39;t match&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nspect</span><span class="p">):</span>
+            <span class="n">tsys</span> <span class="o">=</span> <span class="n">mean_tsys</span><span class="p">(</span><span class="n">calon</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_refcalon</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>  
+                             <span class="n">caloff</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_refcaloff</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">tcal</span><span class="o">=</span><span class="n">tcal</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigcalon</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigcaloff</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">ref</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_refcalon</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refcaloff</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_calibrated</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">tsys</span> <span class="o">*</span> <span class="p">(</span><span class="n">sig</span><span class="o">-</span><span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="n">ref</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">tsys</span></div>
+
+    <span class="c1"># tip o&#39; the hat to Pedro S. for exposure and delta_freq</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">exposure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the array of exposure (integration) times</span>
+
+<span class="sd">           exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2</span>
+<span class="sd">        </span>
+<span class="sd">           Returns</span>
+<span class="sd">           -------</span>
+<span class="sd">                exposure : ~numpy.ndarray</span>
+<span class="sd">                    The exposure time in units of the EXPOSURE keyword in the SDFITS header</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">exp_ref_on</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span><span class="p">][</span><span class="s2">&quot;EXPOSURE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">exp_ref_off</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refoffrows</span><span class="p">][</span><span class="s2">&quot;EXPOSURE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">exp_sig_on</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigonrows</span><span class="p">][</span><span class="s2">&quot;EXPOSURE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">exp_sig_off</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigoffrows</span><span class="p">][</span><span class="s2">&quot;EXPOSURE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">exp_ref</span> <span class="o">=</span> <span class="p">(</span><span class="n">exp_ref_on</span> <span class="o">+</span> <span class="n">exp_ref_off</span><span class="p">)</span>
+        <span class="n">exp_sig</span> <span class="o">=</span> <span class="p">(</span><span class="n">exp_sig_on</span> <span class="o">+</span> <span class="n">exp_sig_off</span><span class="p">)</span>
+        <span class="c1">#exposure = 0.5*(exp_ref + exp_sig)</span>
+        <span class="c1">#exposure = exp_ref + exp_sig</span>
+        <span class="n">nsmooth</span> <span class="o">=</span> <span class="mf">1.</span> <span class="c1"># In case we start smoothing the reference spectra.</span>
+        <span class="n">exposure</span> <span class="o">=</span> <span class="n">exp_sig</span><span class="o">*</span><span class="n">exp_ref</span><span class="o">*</span><span class="n">nsmooth</span><span class="o">/</span><span class="p">(</span><span class="n">exp_sig</span><span class="o">+</span><span class="n">exp_ref</span><span class="o">*</span><span class="n">nsmooth</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">exposure</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">delta_freq</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the array of channel frequency width</span>
+<span class="sd">        </span>
+<span class="sd">           df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2     </span>
+<span class="sd">           </span>
+<span class="sd">           Returns</span>
+<span class="sd">           -------</span>
+<span class="sd">                delta_freq: ~numpy.ndarray</span>
+<span class="sd">                    The channel frequency width in units of the CDELT1 keyword in the SDFITS header</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df_ref_on</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refonrows</span><span class="p">][</span><span class="s2">&quot;CDELT1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">df_ref_off</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_refoffrows</span><span class="p">][</span><span class="s2">&quot;CDELT1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">df_sig_on</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigonrows</span><span class="p">][</span><span class="s2">&quot;CDELT1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">df_sig_off</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sdfits</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bintable_index</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_sigoffrows</span><span class="p">][</span><span class="s2">&quot;CDELT1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">df_ref</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">df_ref_on</span> <span class="o">+</span> <span class="n">df_ref_off</span><span class="p">)</span>
+        <span class="n">df_sig</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">df_sig_on</span> <span class="o">+</span> <span class="n">df_sig_off</span><span class="p">)</span>
+        <span class="n">delta_freq</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">df_ref</span> <span class="o">+</span> <span class="n">df_sig</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">delta_freq</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_tsys_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&#39;&#39;&#39;The system temperature weighting array computed from current</span>
+<span class="sd">        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight` </span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="n">tsys_weight</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">exposure</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">delta_freq</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">tsys</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GBTPSScan.timeaverage"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.scan.GBTPSScan.timeaverage">[docs]</a>    <span class="k">def</span> <span class="nf">timeaverage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">weights</span><span class="o">=</span><span class="s1">&#39;tsys&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&#39;&#39;&#39;Compute the time-averaged spectrum for this set of scans. </span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">                weights: str</span>
+<span class="sd">                    &#39;tsys&#39; or None.  If &#39;tsys&#39; the weight will be calculated as:</span>
+
+<span class="sd">                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`</span>
+
+<span class="sd">                    Default: &#39;tsys&#39;</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">                spectrum : :class:`~spectra.spectrum.Spectrum`</span>
+<span class="sd">                    The time-averaged spectrum</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calibrated</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;You can&#39;t time average before calibration.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">calibrated</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calibrated</span>
+        <span class="k">if</span> <span class="n">weights</span> <span class="o">==</span> <span class="s1">&#39;tsys&#39;</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tsys_weight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">average</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">weights</span><span class="o">=</span><span class="n">w</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;MEANTSYS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="p">)</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;WTTSYS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sq_weighted_avg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tsys</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">weights</span><span class="o">=</span><span class="n">w</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;TSYS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s1">&#39;WTTSYS&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timeaveraged</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

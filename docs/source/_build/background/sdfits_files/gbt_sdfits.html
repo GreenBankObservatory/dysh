@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GBT SDFITS Files &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Getting Started" href="../../getting_started/index.html" />
+    <link rel="prev" title="SDFITS Files" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html">
+            
+              <img src="../../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Background</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../gbo_context.html">Context Within GBO Systems</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">SDFITS Files</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">GBT SDFITS Files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#convention">Convention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#index-files">Index Files</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#flag-files">Flag Files</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#other-resources">Other Resources</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../design/index.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../gui/index.html">GUI Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules/index.html">Modules and APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples/index.html">Examples for GBT Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../for_developers/index.html">For Developers</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Background</a></li>
+          <li class="breadcrumb-item"><a href="index.html">SDFITS Files</a></li>
+      <li class="breadcrumb-item active">GBT SDFITS Files</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/background/sdfits_files/gbt_sdfits.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="gbt-sdfits-files">
+<h1>GBT SDFITS Files<a class="headerlink" href="#gbt-sdfits-files" title="Permalink to this heading"></a></h1>
+<section id="convention">
+<h2>Convention<a class="headerlink" href="#convention" title="Permalink to this heading"></a></h2>
+<p>The single-dish FITS (SDFITS) convention is used for observer-facing GBT data. The GBT records raw data to FITS files, and then the SDFITS filler populates SDFITS files with information the observer needs. GBT SDFITS files contain 2 or more Header-Data Units (HDUs). Note that keys sometimes appear to be truncated because they can only have up to 8 letters.</p>
+<section id="hdu-0-primary">
+<h3>HDU 0 (PRIMARY)<a class="headerlink" href="#hdu-0-primary" title="Permalink to this heading"></a></h3>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Header</span><a class="headerlink" href="#id1" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Definition</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>DATE</p></td>
+<td><p>UTC Timestamp</p></td>
+<td><p>Date and time the file was created</p></td>
+</tr>
+<tr class="row-odd"><td><p>ORIGIN</p></td>
+<td><p>“NRAO Green Bank”</p></td>
+<td><p>Origin of the observation</p></td>
+</tr>
+<tr class="row-even"><td><p>TELESCOP</p></td>
+<td><p>“NRAO_GBT”</p></td>
+<td><p>The telescope used for the observation</p></td>
+</tr>
+<tr class="row-odd"><td><p>INSTRUME</p></td>
+<td><p>“VEGAS”</p></td>
+<td><p>The backend used for the observation</p></td>
+</tr>
+<tr class="row-even"><td><p>GBTMCVER</p></td>
+<td><p>“sdfits ver#.##”</p></td>
+<td><p>Version of SDFITS used to make this file (current: 1.22)</p></td>
+</tr>
+<tr class="row-odd"><td><p>FITSVER</p></td>
+<td><p>“#.#”</p></td>
+<td><p>FITS definition version</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="hdu-1-single-dish">
+<h3>HDU 1 (SINGLE DISH)<a class="headerlink" href="#hdu-1-single-dish" title="Permalink to this heading"></a></h3>
+<table class="docutils align-default" id="id2">
+<caption><span class="caption-text">Header</span><a class="headerlink" href="#id2" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Definition</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>XTENSION</p></td>
+<td><p>“BINTABLE”</p></td>
+<td><p>binary table extension</p></td>
+</tr>
+<tr class="row-odd"><td><p>BITPIX</p></td>
+<td><p>8</p></td>
+<td><p>8-bit bytes</p></td>
+</tr>
+<tr class="row-even"><td><p>NAXIS</p></td>
+<td><p>2</p></td>
+<td><p>2-dimensional binary table</p></td>
+</tr>
+<tr class="row-odd"><td><p>NAXIS1</p></td>
+<td><p>integer</p></td>
+<td><p>width of table in bytes</p></td>
+</tr>
+<tr class="row-even"><td><p>NAXIS2</p></td>
+<td><p>integer</p></td>
+<td><p>number of rows in table</p></td>
+</tr>
+<tr class="row-odd"><td><p>PCOUNT</p></td>
+<td><p>integer</p></td>
+<td><p>size of special data area</p></td>
+</tr>
+<tr class="row-even"><td><p>GCOUNT</p></td>
+<td><p>1</p></td>
+<td><p>one data group (required keyword)</p></td>
+</tr>
+<tr class="row-odd"><td><p>TFIELDS</p></td>
+<td><p>integer</p></td>
+<td><p>number of fields in each row</p></td>
+</tr>
+<tr class="row-even"><td><p>TELESCOP</p></td>
+<td><p>“NRAO_GBT”</p></td>
+<td><p>The telescope used for the observation</p></td>
+</tr>
+<tr class="row-odd"><td><p>PROJID</p></td>
+<td><p>string</p></td>
+<td><p>project identifier</p></td>
+</tr>
+<tr class="row-even"><td><p>Backend</p></td>
+<td><p>“VEGAS”</p></td>
+<td><p>backend device</p></td>
+</tr>
+<tr class="row-odd"><td><p>SITELONG</p></td>
+<td><p>-7.983983E+01</p></td>
+<td><ol class="upperalpha simple" start="5">
+<li><p>longitude of intersection of the az/el axes</p></li>
+</ol>
+</td>
+</tr>
+<tr class="row-even"><td><p>SITELAT</p></td>
+<td><p>3.843312E+01</p></td>
+<td><ol class="upperalpha simple" start="14">
+<li><p>latitude of intersection of the az/el axes</p></li>
+</ol>
+</td>
+</tr>
+<tr class="row-odd"><td><p>SITEELEV</p></td>
+<td><p>8.245510E+02</p></td>
+<td><p>height of the intersection of az/el axes</p></td>
+</tr>
+<tr class="row-even"><td><p>EXTNAME</p></td>
+<td><p>“SINGLE DISH”</p></td>
+<td><p>The name of this binary table extension</p></td>
+</tr>
+</tbody>
+</table>
+<table class="docutils align-default" id="id3">
+<caption><span class="caption-text">Data</span><a class="headerlink" href="#id3" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Unit</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Definition</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>OBJECT</p></td>
+<td></td>
+<td><p>32A</p></td>
+<td><p>name of source observed</p></td>
+</tr>
+<tr class="row-odd"><td><p>BANDWID</p></td>
+<td><p>Hz</p></td>
+<td><p>1D</p></td>
+<td><p>bandwidth</p></td>
+</tr>
+<tr class="row-even"><td><p>DATE-OBS</p></td>
+<td></td>
+<td><p>22A</p></td>
+<td><p>date and time of observation start</p></td>
+</tr>
+<tr class="row-odd"><td><p>DURATION</p></td>
+<td><p>s</p></td>
+<td><p>1D</p></td>
+<td><p>total integration duration in seconds</p></td>
+</tr>
+<tr class="row-even"><td><p>EXPOSURE</p></td>
+<td><p>s</p></td>
+<td><p>1D</p></td>
+<td><p>effective int time (excludes blanking) in seconds</p></td>
+</tr>
+<tr class="row-odd"><td><p>TSYS</p></td>
+<td><p>K</p></td>
+<td><p>1D</p></td>
+<td><p>system temperature in Kelvin</p></td>
+</tr>
+<tr class="row-even"><td><p>DATA</p></td>
+<td></td>
+<td><p>131072E</p></td>
+<td><p>Actual data</p></td>
+</tr>
+<tr class="row-odd"><td><p>TDIM7</p></td>
+<td></td>
+<td><p>16A</p></td>
+<td><p>data dimensions of the array</p></td>
+</tr>
+<tr class="row-even"><td><p>TUNIT7</p></td>
+<td></td>
+<td><p>6A</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>CTYPE1</p></td>
+<td><p>Hz</p></td>
+<td><p>8A</p></td>
+<td><p>first data axis is frequency-like</p></td>
+</tr>
+<tr class="row-even"><td><p>CRVAL1</p></td>
+<td><p>Hz</p></td>
+<td><p>1D</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>CRPIX1</p></td>
+<td><p>index</p></td>
+<td><p>1D</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>CDELT1</p></td>
+<td><p>Hz</p></td>
+<td><p>1D</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>CTYPE2</p></td>
+<td></td>
+<td><p>4A</p></td>
+<td><p>second axis is longitude-like</p></td>
+</tr>
+<tr class="row-even"><td><p>CRVAL2</p></td>
+<td><p>1D</p></td>
+<td><p>deg</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>CTYPE3</p></td>
+<td></td>
+<td><p>4A</p></td>
+<td><p>third axis is latitude-like</p></td>
+</tr>
+<tr class="row-even"><td><p>CRVAL3</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>CTYPE4</p></td>
+<td></td>
+<td></td>
+<td><p>fourth axis is Stokes</p></td>
+</tr>
+<tr class="row-even"><td><p>CRVAL4</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>OBSERVER</p></td>
+<td></td>
+<td><p>32A</p></td>
+<td><p>name of observer(s)</p></td>
+</tr>
+<tr class="row-even"><td><p>OBSID</p></td>
+<td></td>
+<td><p>32A</p></td>
+<td><p>observation description</p></td>
+</tr>
+<tr class="row-odd"><td><p>SCAN</p></td>
+<td></td>
+<td><p>1J</p></td>
+<td><p>scan number</p></td>
+</tr>
+<tr class="row-even"><td><p>OBSMODE</p></td>
+<td></td>
+<td><p>32A</p></td>
+<td><p>observing mode</p></td>
+</tr>
+<tr class="row-odd"><td><p>FRONTEND</p></td>
+<td></td>
+<td><p>16A</p></td>
+<td><p>frontend device</p></td>
+</tr>
+<tr class="row-even"><td><p>TCAL</p></td>
+<td><p>K</p></td>
+<td><p>1E</p></td>
+<td><p>calibration temperature</p></td>
+</tr>
+<tr class="row-odd"><td><p>VELDEF</p></td>
+<td></td>
+<td><p>8A</p></td>
+<td><p>velocity definition and frame</p></td>
+</tr>
+<tr class="row-even"><td><p>VFRAME</p></td>
+<td><p>m/s</p></td>
+<td><p>1D</p></td>
+<td><p>radial velocity of the reference frame</p></td>
+</tr>
+<tr class="row-odd"><td><p>RVSYS</p></td>
+<td><p>m/s</p></td>
+<td><p>1D</p></td>
+<td><p>radial velocity, Vsource - Vtelescope</p></td>
+</tr>
+<tr class="row-even"><td><p>OBSFREQ</p></td>
+<td><p>Hz</p></td>
+<td><p>1D</p></td>
+<td><p>observed center frequency</p></td>
+</tr>
+<tr class="row-odd"><td><p>LST</p></td>
+<td><p>s</p></td>
+<td><p>1D</p></td>
+<td><p>LST at midpoint of integration/scan</p></td>
+</tr>
+<tr class="row-even"><td><p>AZIMUTH</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td><p>azimuth</p></td>
+</tr>
+<tr class="row-odd"><td><p>ELEVATIO</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td><p>elevation</p></td>
+</tr>
+<tr class="row-even"><td><p>TAMBIENT</p></td>
+<td><p>K</p></td>
+<td><p>1D</p></td>
+<td><p>ambient temperature</p></td>
+</tr>
+<tr class="row-odd"><td><p>PRESSURE</p></td>
+<td><p>1D</p></td>
+<td><p>mmHg</p></td>
+<td><p>ambient pressure</p></td>
+</tr>
+<tr class="row-even"><td><p>HUMIDITY</p></td>
+<td></td>
+<td><p>1D</p></td>
+<td><p>relative humidity</p></td>
+</tr>
+<tr class="row-odd"><td><p>RESTFREQ</p></td>
+<td><p>Hz</p></td>
+<td><p>1D</p></td>
+<td><p>rest frequency at band center</p></td>
+</tr>
+<tr class="row-even"><td><p>FREQRES</p></td>
+<td><p>Hz</p></td>
+<td><p>1D</p></td>
+<td><p>frequency resolution</p></td>
+</tr>
+<tr class="row-odd"><td><p>EQUINOX</p></td>
+<td></td>
+<td><p>1D</p></td>
+<td><p>equinox of selected coordinate reference frame</p></td>
+</tr>
+<tr class="row-even"><td><p>RADESYS</p></td>
+<td></td>
+<td><p>8A</p></td>
+<td><p>Equitorial coordinate system name</p></td>
+</tr>
+<tr class="row-odd"><td><p>TRGTLONG</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td><p>target longitude in coord. ref. frame</p></td>
+</tr>
+<tr class="row-even"><td><p>TRGTLAT</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td><p>target latitude in coord. ref. frame</p></td>
+</tr>
+<tr class="row-odd"><td><p>SAMPLER</p></td>
+<td></td>
+<td><p>12A</p></td>
+<td><p>sampler description (e.g., “A1” or “A1xA3”)</p></td>
+</tr>
+<tr class="row-even"><td><p>FEED</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>(signal) feed number</p></td>
+</tr>
+<tr class="row-odd"><td><p>SRFEED</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>reference feed number</p></td>
+</tr>
+<tr class="row-even"><td><p>FEEDXOFF</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td><p>feed XEL offset</p></td>
+</tr>
+<tr class="row-odd"><td><p>FEEDEOFF</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td><p>feed EL offset</p></td>
+</tr>
+<tr class="row-even"><td><p>SUBREF_STATE</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>subreflector state (1,0,-1) - 0=moving</p></td>
+</tr>
+<tr class="row-odd"><td><p>SIDEBAND</p></td>
+<td></td>
+<td><p>1A</p></td>
+<td><p>resulting sideband (‘U’pper or ‘L’ower)</p></td>
+</tr>
+<tr class="row-even"><td><p>PROCSEQN</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>scan sequence number</p></td>
+</tr>
+<tr class="row-odd"><td><p>PROCSIZE</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>number of scans in procedure</p></td>
+</tr>
+<tr class="row-even"><td><p>PROCSCAN</p></td>
+<td></td>
+<td><p>16A</p></td>
+<td><p>scan’s role in the procedure</p></td>
+</tr>
+<tr class="row-odd"><td><p>PROCTYPE</p></td>
+<td></td>
+<td><p>16A</p></td>
+<td><p>type of the procedure</p></td>
+</tr>
+<tr class="row-even"><td><p>LASTON</p></td>
+<td></td>
+<td><p>1J</p></td>
+<td><p>last ‘on’ for position switching</p></td>
+</tr>
+<tr class="row-odd"><td><p>LASTOFF</p></td>
+<td></td>
+<td><p>1J</p></td>
+<td><p>last ‘off’ for position switching</p></td>
+</tr>
+<tr class="row-even"><td><p>TIMESTAMP</p></td>
+<td><p>UTC</p></td>
+<td><p>22A</p></td>
+<td><p>date and time of scan start</p></td>
+</tr>
+<tr class="row-odd"><td><p>QD_XEL</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td><p>QuadrantDetector cross-elevation offset</p></td>
+</tr>
+<tr class="row-even"><td><p>QD_EL</p></td>
+<td><p>deg</p></td>
+<td><p>1D</p></td>
+<td><p>QuadrantDetector elevation offset</p></td>
+</tr>
+<tr class="row-odd"><td><p>QD_BAD</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>QuadrantDetector flag: 0=good,1=bad</p></td>
+</tr>
+<tr class="row-even"><td><p>QD_METHOD</p></td>
+<td></td>
+<td><p>1A</p></td>
+<td><p>Quad. Det. method A,B,C. Blank indicates none.</p></td>
+</tr>
+<tr class="row-odd"><td><p>VELOCITY</p></td>
+<td><p>m/s</p></td>
+<td><p>1D</p></td>
+<td><p>line velocity in rest frame</p></td>
+</tr>
+<tr class="row-even"><td><p>ZEROCHAN</p></td>
+<td></td>
+<td><p>1E</p></td>
+<td><p>zero channel</p></td>
+</tr>
+<tr class="row-odd"><td><p>DOPFREQ</p></td>
+<td><p>Hz</p></td>
+<td><p>1D</p></td>
+<td><p>Doppler tracked frequency</p></td>
+</tr>
+<tr class="row-even"><td><p>ADCSAMPF</p></td>
+<td></td>
+<td><p>1D</p></td>
+<td><p>VEGAS ADC sampler frequency</p></td>
+</tr>
+<tr class="row-odd"><td><p>VSPDELT</p></td>
+<td></td>
+<td><p>1D</p></td>
+<td><p>channel increment between adjacent VEGAS spurs</p></td>
+</tr>
+<tr class="row-even"><td><p>VSPRVAL</p></td>
+<td></td>
+<td><p>1D</p></td>
+<td><p>VEGAS spur number at VSPRPIX</p></td>
+</tr>
+<tr class="row-odd"><td><p>VSPRPIX</p></td>
+<td></td>
+<td><p>1D</p></td>
+<td><p>channel number of VEGAS spur VSPRVAL</p></td>
+</tr>
+<tr class="row-even"><td><p>SIG</p></td>
+<td></td>
+<td><p>1A</p></td>
+<td><p>signal is true, reference is false</p></td>
+</tr>
+<tr class="row-odd"><td><p>CAL</p></td>
+<td></td>
+<td><p>1A</p></td>
+<td><p>cal ON is true, cal OFF is false</p></td>
+</tr>
+<tr class="row-even"><td><p>CALTYPE</p></td>
+<td></td>
+<td><p>8A</p></td>
+<td><p>LOW or HIGH, may eventually be other types</p></td>
+</tr>
+<tr class="row-odd"><td><p>TWARM</p></td>
+<td><p>K</p></td>
+<td><p>1E</p></td>
+<td><p>4mm RX ambient load temp (K)</p></td>
+</tr>
+<tr class="row-even"><td><p>TCOLD</p></td>
+<td><p>K</p></td>
+<td><p>1E</p></td>
+<td><p>4mm RX cold load temp (K)</p></td>
+</tr>
+<tr class="row-odd"><td><p>CALPOSITION</p></td>
+<td></td>
+<td><p>16A</p></td>
+<td><p>4mm RX table position</p></td>
+</tr>
+<tr class="row-even"><td><p>IFNUM</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>Spectral window (IF) number</p></td>
+</tr>
+<tr class="row-odd"><td><p>PLNUM</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>Polarization number</p></td>
+</tr>
+<tr class="row-even"><td><p>FDNUM</p></td>
+<td></td>
+<td><p>1I</p></td>
+<td><p>Feed number</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="index-files">
+<h2>Index Files<a class="headerlink" href="#index-files" title="Permalink to this heading"></a></h2>
+<table class="docutils align-default" id="id4">
+<caption><span class="caption-text">Header</span><a class="headerlink" href="#id4" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Definition</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>created</p></td>
+<td><p>Day Month DD HH:MM:SS YYYY</p></td>
+<td><p>Date file was created</p></td>
+</tr>
+<tr class="row-odd"><td><p>last_modified</p></td>
+<td><p>Day Month DD HH:MM:SS YYYY</p></td>
+<td><p>Date file was last modified</p></td>
+</tr>
+<tr class="row-even"><td><p>version</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>observer</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>backend</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>tcal_rx_table</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>sprotect</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>created_by</p></td>
+<td><p>“index_writer”</p></td>
+<td><p>Method that created this file</p></td>
+</tr>
+</tbody>
+</table>
+<table class="docutils align-default" id="id5">
+<caption><span class="caption-text">Rows</span><a class="headerlink" href="#id5" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Definition</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>INDEX</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>PROJECT</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>FILE EXT</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>ROW</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>SOURCE</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>PROCEDURE</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>OBSID</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>E2ESC</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>PROCS</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>SCAN</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>POL</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>PLNUM</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>IFNUM</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>FEED</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>FDNUM</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>INT</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>NUMCHN</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>SIG</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>CAL</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>SAMPLER</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>AZIMUTH</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>ELEVATION</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>LONGITUDE</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>LATITUDE</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>TRGTLONG</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>TRGTLAT</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>SUB</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>LST</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>CENTFREQ</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>RESTFREQ</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>VELOCITY</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>FREQINT</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>FREQRES</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>DATEOBS</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>TIMESTAMP</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>BANDWIDTH</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>EXPOSURE</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>TSYS</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>NSAVE</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>PROCSCAN</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>PROCTYPE</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>WCALPOS</p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="flag-files">
+<h2>Flag Files<a class="headerlink" href="#flag-files" title="Permalink to this heading"></a></h2>
+<p>Flag files indicate the data that should be ignored. For example, these flags can include the locations of VEGAS spurs. <code class="xref py py-obj docutils literal notranslate"><span class="pre">GBTIDL</span></code> sometimes auto-masks data that is flagged in these files immediately upon start.</p>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">Header</span><a class="headerlink" href="#id6" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Definition</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>created</p></td>
+<td><p>Day Month DD HH:MM:SS YYYY</p></td>
+<td><p>Date file was created</p></td>
+</tr>
+<tr class="row-odd"><td><p>version</p></td>
+<td><p>1.0</p></td>
+<td><p>Version of ?</p></td>
+</tr>
+<tr class="row-even"><td><p>created_by</p></td>
+<td><p>sdfits</p></td>
+<td><p>Created by the SDFITS filler</p></td>
+</tr>
+</tbody>
+</table>
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-text">Flags</span><a class="headerlink" href="#id7" title="Permalink to this table"></a></caption>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Value</p></th>
+<th class="head"><p>Definition</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RECNUM</p></td>
+<td><p>integer or “*”</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>SCAN</p></td>
+<td><p>integer or “*”</p></td>
+<td><p>Scan number</p></td>
+</tr>
+<tr class="row-even"><td><p>INTNUM</p></td>
+<td><p>integer or “*”</p></td>
+<td><p>Integration number</p></td>
+</tr>
+<tr class="row-odd"><td><p>PLNUM</p></td>
+<td><p>integer or “*”</p></td>
+<td><p>Polarization number</p></td>
+</tr>
+<tr class="row-even"><td><p>IFNUM</p></td>
+<td><p>integer or “*”</p></td>
+<td><p>Spectral window (IF) number</p></td>
+</tr>
+<tr class="row-odd"><td><p>FDNUM</p></td>
+<td><p>integer or “*”</p></td>
+<td><p>Feed number</p></td>
+</tr>
+<tr class="row-even"><td><p>BCHAN</p></td>
+<td><p>list of integers</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>ECHAN</p></td>
+<td><p>list of integers</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>IDSTRING</p></td>
+<td><p>“VEGAS_SPUR”</p></td>
+<td><p>Type of flag</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="other-resources">
+<h2>Other Resources<a class="headerlink" href="#other-resources" title="Permalink to this heading"></a></h2>
+<p>The full SDFITS documentation for GBO can be found here: <a class="reference external" href="https://safe.nrao.edu/wiki/bin/view/GB/Data/Sdfits">The GBT SDFITS Project Wiki</a></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="SDFITS Files" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../getting_started/index.html" class="btn btn-neutral float-right" title="Getting Started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

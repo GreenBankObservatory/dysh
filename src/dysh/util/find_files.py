@@ -2,12 +2,8 @@ from bs4 import BeautifulSoup
 import os, wget, socket, requests, subprocess
 from getpass import getuser
 from pathlib import Path
-import platform
-import glob
-from rich.markup import escape
 from rich.text import Text
 from rich.tree import Tree
-from rich import print as rprint
 
 from dysh.config.environment import DyshEnvironment
 from dysh.config.rich_theme import DyshRichConsole
@@ -23,19 +19,25 @@ class DirectoryModel:
         self.model_type = model_type
         self.base_dir = base_dir
         self.console = DyshRichConsole()
+        self.tree = None
 
-    def get_tree(self, max_depth=4):
+    def print_tree(self):
+        if self.tree is None:
+            self.get_tree()
+        self.console.print(self.tree)
+
+    def get_tree(self, max_depth=10):
         self.max_depth = max_depth
         if self.model_type == "web":
             self.get_tree_web()
 
     def get_tree_web(self):
-        tree = Tree(
+        # [TODO] This can print a LOT. Maybe summarize more?
+        self.tree = Tree(
             f":open_file_folder: [link {self.base_dir}]{self.base_dir}",
             guide_style="bold bright_blue",
         )
-        self._get_tree_web(tree, self.base_dir)
-        self.console.print(tree)
+        self._get_tree_web(self.tree, self.base_dir)
 
     def _get_tree_web(self, tree, url, current_depth=0):
         ignore_starts = ["?", "/"]
@@ -43,7 +45,7 @@ class DirectoryModel:
             current_depth += 1
             page = requests.get(url).text
             soup = BeautifulSoup(page, "html.parser")
-            links = [node.get("href") for node in soup.find_all("a")]  # if node.get('href').endswith(ext)
+            links = [node.get("href") for node in soup.find_all("a")]
             links.sort()
             for li in links:
                 continue_tree = True
@@ -64,4 +66,4 @@ class DirectoryModel:
 
 url = "https://www.gb.nrao.edu/dysh/example_data/"
 web_examples = DirectoryModel("web", url)
-web_examples.get_tree()
+web_examples.print_tree()

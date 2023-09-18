@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plotting classes and functions &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Utility classes and functions" href="dysh.util.html" />
+    <link rel="prev" title="Spectral classes and functions" href="dysh.spectra.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html">
+            
+              <img src="../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../background/index.html">Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../design/index.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gui/index.html">GUI Design</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Modules and APIs</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dysh.fits.html">Reading in and writing out observations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dysh.spectra.html">Spectral classes and functions</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Plotting classes and functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-dysh.plot.specplot">SpecPlot</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#dysh.plot.specplot.SpectrumPlot"><code class="docutils literal notranslate"><span class="pre">SpectrumPlot</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dysh.util.html">Utility classes and functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples for GBT Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../for_developers/index.html">For Developers</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Modules and APIs</a></li>
+      <li class="breadcrumb-item active">Plotting classes and functions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/dysh.plot.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-dysh.plot">
+<span id="plotting-classes-and-functions"></span><h1>Plotting classes and functions<a class="headerlink" href="#module-dysh.plot" title="Permalink to this heading"></a></h1>
+<p>Classes and functions for plotting spectra and SDFITS data</p>
+<section id="module-dysh.plot.specplot">
+<span id="specplot"></span><h2>SpecPlot<a class="headerlink" href="#module-dysh.plot.specplot" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="dysh.plot.specplot.SpectrumPlot">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dysh.plot.specplot.</span></span><span class="sig-name descname"><span class="pre">SpectrumPlot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spectrum</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/plot/specplot.html#SpectrumPlot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.plot.specplot.SpectrumPlot" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>The SpectrumPlot class is for simple plotting of a ~spectrum.Spectrum
+using matplotlib functions.   Plots attributes are modified using keywords
+(**kwargs) described below SpectrumPlot will attempt to make smart default
+choices for the plot if no additional keywords are given.
+The attributes are “sticky” meaning that an attribute set via
+instantiation or by the <a class="reference internal" href="#dysh.plot.specplot.SpectrumPlot.plot" title="dysh.plot.specplot.SpectrumPlot.plot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot()</span></code></a> method will stay set until changed
+or reset using the <a class="reference internal" href="#dysh.plot.specplot.SpectrumPlot.reset" title="dysh.plot.specplot.SpectrumPlot.reset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reset()</span></code></a> method.</p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h3>
+<dl>
+<dt>spectrum<span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum</span></code></span></dt><dd><p>The spectrum to plot</p>
+</dd>
+<dt>**kwargs<span class="classifier">dict</span></dt><dd><p>Plot attribute keyword arguments, see below.</p>
+</dd>
+</dl>
+</section>
+<section id="other-parameters">
+<h3>Other Parameters<a class="headerlink" href="#other-parameters" title="Permalink to this heading"></a></h3>
+<dl class="simple">
+<dt>xaxis_unit<span class="classifier">str or ~astrpy.unit.Unit</span></dt><dd><p>The units to use on the x-axis, e.g. “km/s” to plot velocity</p>
+</dd>
+<dt>yaxis_unit<span class="classifier">str or ~astrpy.unit.Unit</span></dt><dd><p>The units to use on the y-axis</p>
+</dd>
+<dt>xmin<span class="classifier">float</span></dt><dd><p>Minimum x-axis value</p>
+</dd>
+<dt>xmax<span class="classifier">float</span></dt><dd><p>Maximum x-axis value</p>
+</dd>
+<dt>ymin<span class="classifier">float</span></dt><dd><p>Minimum y-axis value</p>
+</dd>
+<dt>ymax<span class="classifier">float</span></dt><dd><p>Maximum y-axis value</p>
+</dd>
+<dt>xlabel<span class="classifier">str</span></dt><dd><p>x-axis label</p>
+</dd>
+<dt>ylabel<span class="classifier">str</span></dt><dd><p>y-axis label</p>
+</dd>
+<dt>grid<span class="classifier">bool</span></dt><dd><p>Show a plot grid or not</p>
+</dd>
+<dt>figsize<span class="classifier">tuple</span></dt><dd><p>Figure size (see matplotlib)</p>
+</dd>
+<dt>linewidth<span class="classifier">float</span></dt><dd><p>Line width, default: 2.0.  lw also works</p>
+</dd>
+<dt>linestyle<span class="classifier">str</span></dt><dd><p>Line style, default ‘steps-mid’.  ls also works</p>
+</dd>
+<dt>color<span class="classifier">str</span></dt><dd><p>Line color, c also works</p>
+</dd>
+<dt>title<span class="classifier">str</span></dt><dd><p>Plot title</p>
+</dd>
+<dt>aspect<span class="classifier">str</span></dt><dd><p>plot aspect ratio, default: ‘auto’</p>
+</dd>
+<dt>show_baseline<span class="classifier">bool</span></dt><dd><p>show the baseline - not yet implemented</p>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.plot.specplot.SpectrumPlot.axis">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">axis</span></span><a class="headerlink" href="#dysh.plot.specplot.SpectrumPlot.axis" title="Permalink to this definition"></a></dt>
+<dd><p>The underlying <code class="xref py py-class docutils literal notranslate"><span class="pre">Axes</span></code> object</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.plot.specplot.SpectrumPlot.figure">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">figure</span></span><a class="headerlink" href="#dysh.plot.specplot.SpectrumPlot.figure" title="Permalink to this definition"></a></dt>
+<dd><p>The underlying <code class="xref py py-class docutils literal notranslate"><span class="pre">Figure</span></code> object</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.plot.specplot.SpectrumPlot.plot">
+<span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/plot/specplot.html#SpectrumPlot.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.plot.specplot.SpectrumPlot.plot" title="Permalink to this definition"></a></dt>
+<dd><p>Plot the spectrum.</p>
+<section id="id1">
+<h4>Parameters<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h4>
+<dl class="simple">
+<dt>**kwargs<span class="classifier">various</span></dt><dd><p>keyword=value arguments (need to describe these in a central place)</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.plot.specplot.SpectrumPlot.refresh">
+<span class="sig-name descname"><span class="pre">refresh</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/plot/specplot.html#SpectrumPlot.refresh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.plot.specplot.SpectrumPlot.refresh" title="Permalink to this definition"></a></dt>
+<dd><p>Refresh the plot</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.plot.specplot.SpectrumPlot.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/plot/specplot.html#SpectrumPlot.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.plot.specplot.SpectrumPlot.reset" title="Permalink to this definition"></a></dt>
+<dd><p>Reset the plot keyword arguments to their defaults.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dysh.plot.specplot.SpectrumPlot.savefig">
+<span class="sig-name descname"><span class="pre">savefig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/dysh/plot/specplot.html#SpectrumPlot.savefig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#dysh.plot.specplot.SpectrumPlot.savefig" title="Permalink to this definition"></a></dt>
+<dd><p>Save the plot</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="dysh.plot.specplot.SpectrumPlot.spectrum">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">spectrum</span></span><a class="headerlink" href="#dysh.plot.specplot.SpectrumPlot.spectrum" title="Permalink to this definition"></a></dt>
+<dd><p>The underlying <code class="xref py py-obj docutils literal notranslate"><span class="pre">Spectrum</span></code></p>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dysh.spectra.html" class="btn btn-neutral float-left" title="Spectral classes and functions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dysh.util.html" class="btn btn-neutral float-right" title="Utility classes and functions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

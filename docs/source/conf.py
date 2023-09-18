@@ -15,6 +15,7 @@
 import os
 import sys
 
+sys.path.insert(0, os.path.abspath('../../'))
 sys.path.insert(0, os.path.abspath('../../src'))
 sys.path.insert(0, os.path.abspath('.'))
 
@@ -43,7 +44,7 @@ release = __version__
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "myst_parser",
+    #"myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.graphviz",
@@ -55,7 +56,7 @@ extensions = [
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
     "sphinxcontrib.mermaid",
-    "numpydoc"
+    "myst_nb"
 ]
 
 numpydoc_show_class_members = True
@@ -79,7 +80,11 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = ['.rst', '.md']
+source_suffix = {
+    '.rst':'restructuredtext',
+    '.md':'myst-nb', 
+    '.ipynb':'myst-nb'
+    }
 #source_suffix = {
 #    '.rst': 'restructuredtext',
 #    '.txt': 'markdown',

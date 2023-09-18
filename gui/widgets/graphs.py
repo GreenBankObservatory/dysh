@@ -3,6 +3,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from pyqtgraph import GraphicsLayoutWidget, PlotWidget, ImageView, InfiniteLine
 import sys, os, psutil, getpass, socket
+import numpy as np
 
 class SpectrumSelectLine(InfiniteLine):
     """ Horizontal Line to select spectrum in waterfall """
@@ -40,8 +41,10 @@ class WaterfallSpectrum(ImageView):
 
 class SingleSpectrum(PlotWidget):
     """ Spectrum Plot """
-    def __init__(self):
+    def __init__(self,spectrum,**kwargs):
         super().__init__()
+        self._spectrum = spectrum
+        self.add_data()
 
     def config(self):
         # [TODO] connect spec_num to the hline value
@@ -49,12 +52,25 @@ class SingleSpectrum(PlotWidget):
         self.setLabels(left='Intensity', bottom='Frequency')
         self.setTitle(f"Spectrum {spec_num}")
 
-    def update_data(self, data):
+    def update_data(self, spectrum):
         self.clear()
-        self.add_data(data)
+        self._spectrum = spectrum
+        self.add_data()
 
-    def add_data(self, data):
-        self.plot(self.data.x, self.data.y)
+    def add_data(self, **kwargs):
+        #self._plot_kwargs.update(kwargs)
+        #self.get_kwargs(**kwargs)
+
+        s = self._spectrum
+        sa = s.spectral_axis
+        sf = s.flux
+
+        self.plot(sa, sf)
+
+    def get_kwargs(self, **kwargs):
+        self.lw =  self._plot_kwargs['linewidth']
+        self.xunit = self._plot_kwargs["xaxis_unit"]
+        self.yunit = self._plot_kwargs["yaxis_unit"]
 
 class MemoryUsage(PlotWidget):
     """ Memory Usage Plot """
@@ -96,3 +112,4 @@ class MemoryUsage(PlotWidget):
         pmem = process.memory_info().rss / 1048576 # Bytes to MiB
         amem = psutil.virtual_memory().available / 1048576 # Bytes to MiB
         return pmem, amem
+    

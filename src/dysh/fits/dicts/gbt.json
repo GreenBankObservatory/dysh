@@ -1,0 +1,122 @@
+{
+    "DATA": {
+        "KTYPE": "TABLE",
+        "HDU": "1",
+        "KEY": "DATA",
+        "FILL": ""
+    },
+    "CDELT1": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "CDELT1",
+        "FILL": ""
+    },
+    "CRVAL1": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "CRVAL1",
+        "FILL": ""
+    },
+    "CUNIT1": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "CUNIT1",
+        "FILL": ""
+    },
+    "CTYPE1": {
+        "KTYPE": "FIXED",
+        "HDU": "",
+        "KEY": "",
+        "FILL": "FREQ"
+    },
+    "CRPIX1": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "CRPIX1",
+        "FILL": ""
+    },
+    "RESTFRQ": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "RESTFRQ",
+        "FILL": ""
+    },
+    "CTYPE2": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "CTYPE2",
+        "FILL": ""
+    },
+    "CRVAL2": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "CRVAL2",
+        "FILL": ""
+    },
+    "CRPIX2": {
+        "KTYPE": "FIXED",
+        "HDU": "",
+        "KEY": "",
+        "FILL": "1"
+    },
+    "CTYPE3": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "CTYPE3",
+        "FILL": ""
+    },
+    "CRVAL3": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "CRVAL3",
+        "FILL": ""
+    },
+    "CRPIX3": {
+        "KTYPE": "FIXED",
+        "HDU": "",
+        "KEY": "",
+        "FILL": "1"
+    },
+    "CUNIT2": {
+        "KTYPE": "FIXED",
+        "HDU": "",
+        "KEY": "",
+        "FILL": "deg"
+    },
+    "CUNIT3": {
+        "KTYPE": "FIXED",
+        "HDU": "",
+        "KEY": "",
+        "FILL": "deg"
+    },
+    "NAXIS1": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "NAXIS1",
+        "FILL": ""
+    },
+    "NAXIS2": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "NAXIS2",
+        "FILL": ""
+    },
+    "NAXIS3": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "NAXIS3",
+        "FILL": ""
+    },
+    "VELDEF": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "VELDEF",
+        "FILL": ""
+    },
+    "VFRAME": {
+        "KTYPE": "COLUMN",
+        "HDU": "1",
+        "KEY": "VFRAME",
+        "FILL": ""
+    }
+}

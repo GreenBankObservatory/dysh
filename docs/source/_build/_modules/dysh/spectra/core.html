@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dysh.spectra.core &mdash; dysh 0.2.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+        <script src="https://unpkg.com/mermaid@10.2.0/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({startOnLoad:true, useMaxWidth:false});</script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html">
+            
+              <img src="../../../_static/logo.svg" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../background/index.html">Background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../design/index.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../gui/index.html">GUI Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules/index.html">Modules and APIs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples/index.html">Examples for GBT Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance_testing/index.html">Performance Testing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../for_beta_testers/index.html">For Beta Testers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../for_developers/index.html">For Developers</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">dysh</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dysh.spectra.core</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dysh.spectra.core</h1><div class="highlight"><pre>
+<span></span><span class="c1"># import sys</span>
+<span class="c1"># import copy</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">astropy.wcs</span> <span class="kn">import</span> <span class="n">WCS</span>
+<span class="kn">from</span> <span class="nn">astropy.io</span> <span class="kn">import</span> <span class="n">fits</span>
+<span class="kn">import</span> <span class="nn">astropy.units</span> <span class="k">as</span> <span class="nn">u</span>
+
+<span class="c1"># from astropy.table import Table</span>
+<span class="kn">from</span> <span class="nn">astropy.modeling.polynomial</span> <span class="kn">import</span> <span class="n">Polynomial1D</span><span class="p">,</span> <span class="n">Chebyshev1D</span>
+<span class="kn">from</span> <span class="nn">astropy.modeling.fitting</span> <span class="kn">import</span> <span class="n">LevMarLSQFitter</span><span class="p">,</span> <span class="n">LinearLSQFitter</span>
+<span class="kn">from</span> <span class="nn">specutils</span> <span class="kn">import</span> <span class="n">Spectrum1D</span><span class="p">,</span> <span class="n">SpectrumList</span><span class="p">,</span> <span class="n">SpectralRegion</span>
+<span class="kn">from</span> <span class="nn">specutils.fitting</span> <span class="kn">import</span> <span class="n">fit_continuum</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">..util</span> <span class="kn">import</span> <span class="n">uniq</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+
+<div class="viewcode-block" id="average"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.core.average">[docs]</a><span class="k">def</span> <span class="nf">average</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Average a group of spectra or scans.</span>
+<span class="sd">     TODO: allow data to be SpectrumList or array of Spectrum</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    data : `~numpy.ndarray`</span>
+<span class="sd">        The spectral data, typically with shape (nspect,nchan).</span>
+<span class="sd">    axis : int</span>
+<span class="sd">        The axis over which to average the data.  Default axis=0 will return the average spectrum</span>
+<span class="sd">        if shape is (nspect,nchan)</span>
+<span class="sd">    weights : `~numpy.ndarray`</span>
+<span class="sd">        The weights to use in averaging.  These might typically be system temperature based.</span>
+<span class="sd">        The weights array must be the length of the axis over which the average is taken.</span>
+<span class="sd">        Default: None will use equal weights</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    average : `~numpy.ndarray`</span>
+<span class="sd">        The average along the input axis</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">weights</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="exclude_to_region"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.core.exclude_to_region">[docs]</a><span class="k">def</span> <span class="nf">exclude_to_region</span><span class="p">(</span><span class="n">exclude</span><span class="p">,</span> <span class="n">refspec</span><span class="p">,</span> <span class="n">fix_exclude</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert an exclude list to a list of ~specutuls.SpectralRegion.</span>
+
+<span class="sd">     Parameters</span>
+<span class="sd">     ----------</span>
+
+<span class="sd">          exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`</span>
+<span class="sd">              List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:</span>
+
+<span class="sd">              One channel-based region:</span>
+
+<span class="sd">              &gt;&gt;&gt; [11,51]</span>
+
+<span class="sd">              Two channel-based regions:</span>
+
+<span class="sd">              &gt;&gt;&gt; [(11,51),(99,123)]</span>
+
+<span class="sd">              One `~astropy.units.Quantity` region:</span>
+
+<span class="sd">              &gt;&gt;&gt; [110.198*u.GHz,110.204*u.GHz].</span>
+
+<span class="sd">              One compound `~specutils.SpectralRegion`:</span>
+
+<span class="sd">              &gt;&gt;&gt; SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).</span>
+
+<span class="sd">          refspec: `~spectra.spectrum.Spectrum`</span>
+<span class="sd">              The reference spectrum whose spectral axis will be used</span>
+<span class="sd">              when converting between exclude and axis units (e.g. channels to GHz).</span>
+<span class="sd">          fix_exclude: bool</span>
+<span class="sd">              If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----------</span>
+<span class="sd">          regionlist : list of `~specutil.SpectralRegion`</span>
+<span class="sd">              A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">regionlist</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">refspec</span>
+    <span class="n">sa</span> <span class="o">=</span> <span class="n">refspec</span><span class="o">.</span><span class="n">spectral_axis</span>
+    <span class="k">if</span> <span class="n">exclude</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">regionlist</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># a single SpectralRegion was given</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exclude</span><span class="p">,</span> <span class="n">SpectralRegion</span><span class="p">):</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">exclude</span><span class="o">.</span><span class="n">bounds</span>
+            <span class="k">if</span> <span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">sa</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">sa</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Exclude limits </span><span class="si">{</span><span class="n">pair</span><span class="si">}</span><span class="s2"> are not fully within the spectral axis </span><span class="si">{</span><span class="n">sa</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="n">regionlist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">exclude</span><span class="p">)</span>
+        <span class="c1"># list of int or Quantity or SpectralRegion was given</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># if user provided a single list, we have to</span>
+            <span class="c1"># add another set of brackets so we an iterate.</span>
+            <span class="c1"># If SpectralRegion took a list argument, we wouldn&#39;t</span>
+            <span class="c1"># have to do this.</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">exclude</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">exclude</span> <span class="o">=</span> <span class="p">[</span><span class="n">exclude</span><span class="p">]</span>
+            <span class="c1"># NB: we are assuming that a SpectralAxis is always [lower...upper].  Is this true???</span>
+            <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">exclude</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">int</span><span class="p">:</span>
+                    <span class="c1"># convert channel to spectral axis units</span>
+                    <span class="n">lastchan</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sa</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Exclude limits </span><span class="si">{</span><span class="n">pair</span><span class="si">}</span><span class="s2"> are not fully within the spectral axis [0,</span><span class="si">{</span><span class="n">lastchan</span><span class="si">}</span><span class="s2">].&quot;</span>
+                    <span class="k">if</span> <span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">lastchan</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">fix_exclude</span><span class="p">:</span>
+                            <span class="n">msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; Setting upper limit to </span><span class="si">{</span><span class="n">lastchan</span><span class="si">}</span><span class="s2">.&quot;</span>
+                            <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">lastchan</span>
+                            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                    <span class="n">pair</span> <span class="o">=</span> <span class="p">[</span><span class="n">sa</span><span class="p">[</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">sa</span><span class="p">[</span><span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]]]</span>
+                <span class="c1"># if it is already a spectral region no additional</span>
+                <span class="c1"># work is needed</span>
+                <span class="c1"># @TODO we should test that the SpectralRegion is not out of bounds</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">SpectralRegion</span><span class="p">):</span>
+                    <span class="n">b</span> <span class="o">=</span> <span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bounds</span>
+                    <span class="k">if</span> <span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">sa</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">sa</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Exclude limits </span><span class="si">{</span><span class="n">pair</span><span class="si">}</span><span class="s2"> are not fully within the spectral axis </span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">spectral_axis</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                    <span class="n">regionlist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pair</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>  <span class="c1"># it is a Quantity that may need conversion to spectral_axis units</span>
+                    <span class="k">if</span> <span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">unit</span><span class="o">.</span><span class="n">is_equivalent</span><span class="p">(</span><span class="s2">&quot;km/s&quot;</span><span class="p">):</span>
+                        <span class="n">offset</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">rest_value</span> <span class="o">-</span> <span class="n">p</span><span class="o">.</span><span class="n">radial_velocity</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">equivalencies</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">equivalencies</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">equivalencies</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">equivalencies</span><span class="p">)</span>
+                    <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">equivalencies</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">equivalencies</span><span class="p">)</span>
+                    <span class="c1"># Ensure test is with sorted [lower,upper]</span>
+                    <span class="n">pair</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">pair</span><span class="p">)</span>
+                    <span class="n">salimits</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">sa</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sa</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+                    <span class="k">if</span> <span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">salimits</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">salimits</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+                        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Exclude limits </span><span class="si">{</span><span class="n">pair</span><span class="si">}</span><span class="s2"> are not fully within the spectral axis&quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="p">[</span><span class="n">salimits</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">salimits</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span><span class="si">}</span><span class="s2">.&quot;</span>
+                        <span class="p">)</span>
+                        <span class="k">if</span> <span class="n">fix_exclude</span><span class="p">:</span>
+                            <span class="n">msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; Setting upper limit to </span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">spectral_axis</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">.&quot;</span>
+                            <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">sa</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                    <span class="n">sr</span> <span class="o">=</span> <span class="n">SpectralRegion</span><span class="p">(</span><span class="n">pair</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="n">regionlist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sr</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">regionlist</span></div>
+
+
+<div class="viewcode-block" id="region_to_axis_indices"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.core.region_to_axis_indices">[docs]</a><span class="k">def</span> <span class="nf">region_to_axis_indices</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">refspec</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        region : `~specutils.SpectralRegion`</span>
+<span class="sd">        refspec: `~spectra.spectrum.Spectrum`</span>
+<span class="sd">            The reference spectrum whose spectral axis will be used</span>
+<span class="sd">            when converting between exclude and axis units (e.g., channels to GHz).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        indices : 2-tuple of int</span>
+<span class="sd">            The array indices in `refspec` corresponding to `region.bounds`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Spectral region to indices in an input spectral axis.</span>
+    <span class="c1"># @TODO needs to work for multiple spectral regions? or just loop outside this call</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">refspec</span>
+    <span class="n">sa</span> <span class="o">=</span> <span class="n">refspec</span><span class="o">.</span><span class="n">spectral_axis</span>
+    <span class="k">if</span> <span class="n">region</span><span class="o">.</span><span class="n">lower</span><span class="o">.</span><span class="n">unit</span> <span class="o">!=</span> <span class="n">sa</span><span class="o">.</span><span class="n">unit</span><span class="p">:</span>
+        <span class="c1"># @todo if they are conformable, then allow it and convert</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Axis units of region [</span><span class="si">{</span><span class="n">region</span><span class="o">.</span><span class="n">lower</span><span class="o">.</span><span class="n">unit</span><span class="si">}</span><span class="s2">] and refspec [</span><span class="si">{</span><span class="n">sa</span><span class="o">.</span><span class="n">unit</span><span class="si">}</span><span class="s2">] not identical&quot;</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">value</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">region</span><span class="o">.</span><span class="n">bounds</span><span class="p">]</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">subtract</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">sa</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">indices</span></div>
+
+
+<div class="viewcode-block" id="exclude_to_mask"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.core.exclude_to_mask">[docs]</a><span class="k">def</span> <span class="nf">exclude_to_mask</span><span class="p">(</span><span class="n">exclude</span><span class="p">,</span> <span class="n">refspec</span><span class="p">):</span>
+    <span class="c1"># set a mask based on an exclude region</span>
+    <span class="c1"># mask ~ exclude_to_indices(exclude_to_region())</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="baseline"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.core.baseline">[docs]</a><span class="k">def</span> <span class="nf">baseline</span><span class="p">(</span><span class="n">spectrum</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit a baseline for a spectrum</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    spectrum : `~spectra.spectrum.Spectrum`</span>
+<span class="sd">        The input spectrum</span>
+<span class="sd">    order : int</span>
+<span class="sd">        The order of the polynomial series, a.k.a. baseline order</span>
+<span class="sd">    exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`</span>
+<span class="sd">        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:</span>
+
+<span class="sd">        One channel-based region:</span>
+
+<span class="sd">        &gt;&gt;&gt; [11,51]</span>
+
+<span class="sd">        Two channel-based regions:</span>
+
+<span class="sd">        &gt;&gt;&gt; [(11,51),(99,123)]</span>
+
+<span class="sd">        One `~astropy.units.Quantity` region:</span>
+
+<span class="sd">        &gt;&gt;&gt; [110.198*u.GHz,110.204*u.GHz].</span>
+
+<span class="sd">        One compound `~specutils.SpectralRegion`:</span>
+
+<span class="sd">        &gt;&gt;&gt; SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).</span>
+<span class="sd">        Default: no exclude region</span>
+
+<span class="sd">    model : str</span>
+<span class="sd">        One of &#39;polynomial&#39; or &#39;chebyshev&#39;, Default: &#39;polynomial&#39;</span>
+<span class="sd">    fitter : `~astropy.fitting._FitterMeta`</span>
+<span class="sd">        The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    models : list of `~astropy.modeling.Model`</span>
+<span class="sd">        The list of models that contain the fitted model parameters.</span>
+<span class="sd">        See `~specutuls.fitting.fit_continuum`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">kwargs_opts</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="c1">#&#39;show&#39;: False,</span>
+        <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="s2">&quot;polynomial&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fitter&quot;</span><span class="p">:</span> <span class="n">LinearLSQFitter</span><span class="p">(</span><span class="n">calc_uncertainties</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+        <span class="s2">&quot;fix_exclude&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="s2">&quot;exclude_action&quot;</span><span class="p">:</span> <span class="s2">&quot;replace&quot;</span><span class="p">,</span>  <span class="c1"># {&#39;replace&#39;,&#39;append&#39;,None}</span>
+    <span class="p">}</span>
+    <span class="n">kwargs_opts</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="n">_valid_models</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;polynomial&quot;</span><span class="p">,</span> <span class="s2">&quot;chebyshev&quot;</span><span class="p">]</span>
+    <span class="n">_valid_exclude_actions</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;replace&quot;</span><span class="p">,</span> <span class="s2">&quot;append&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="c1"># @todo replace with minimum_string_match</span>
+    <span class="k">if</span> <span class="n">kwargs_opts</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_valid_models</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unrecognized input model </span><span class="si">{</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">. Must be one of </span><span class="si">{</span><span class="n">_valid_models</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">kwargs_opts</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;polynomial&quot;</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Polynomial1D</span><span class="p">(</span><span class="n">degree</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">kwargs_opts</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;chebyshev&quot;</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Chebyshev1D</span><span class="p">(</span><span class="n">degree</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># should never get here, unless we someday allow user to input a astropy.model</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unrecognized input model </span><span class="si">{</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">. Must be one of </span><span class="si">{</span><span class="n">_valid_models</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">kwargs_opts</span><span class="p">[</span><span class="s2">&quot;exclude_action&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_valid_exclude_actions</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s1">&#39;Unrecognized exclude region action </span><span class="si">{</span><span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;exclude_region&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">. Must be one of </span><span class="si">{</span><span class="n">_valid_exclude_actions</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="p">)</span>
+    <span class="n">fitter</span> <span class="o">=</span> <span class="n">kwargs_opts</span><span class="p">[</span><span class="s2">&quot;fitter&quot;</span><span class="p">]</span>
+    <span class="c1"># print(f&quot;MODEL {model} FITTER {fitter}&quot;)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">spectrum</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+        <span class="c1"># @Todo handle masks</span>
+        <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># or raise exception</span>
+    <span class="k">if</span> <span class="n">exclude</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">regionlist</span> <span class="o">=</span> <span class="n">exclude_to_region</span><span class="p">(</span><span class="n">exclude</span><span class="p">,</span> <span class="n">spectrum</span><span class="p">,</span> <span class="n">fix_exclude</span><span class="o">=</span><span class="n">kwargs_opts</span><span class="p">[</span><span class="s2">&quot;fix_exclude&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">kwargs_opts</span><span class="p">[</span><span class="s2">&quot;exclude_action&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;replace&quot;</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">_exclude_regions</span> <span class="o">=</span> <span class="n">regionlist</span>
+        <span class="k">elif</span> <span class="n">kwargs_opts</span><span class="p">[</span><span class="s2">&quot;exclude_action&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;append&quot;</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">_exclude_regions</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">regionlist</span><span class="p">)</span>
+            <span class="n">regionlist</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">_exclude_regions</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># use the spectrum&#39;s preset exclude regions if they</span>
+        <span class="c1"># exist (they will be a list of SpectralRegions or None)</span>
+        <span class="n">regionlist</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">_exclude_regions</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;EXCLUDING </span><span class="si">{</span><span class="n">regionlist</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fit_continuum</span><span class="p">(</span><span class="n">spectrum</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">fitter</span><span class="o">=</span><span class="n">fitter</span><span class="p">,</span> <span class="n">exclude_regions</span><span class="o">=</span><span class="n">regionlist</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="mean_tsys"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.core.mean_tsys">[docs]</a><span class="k">def</span> <span class="nf">mean_tsys</span><span class="p">(</span><span class="n">calon</span><span class="p">,</span> <span class="n">caloff</span><span class="p">,</span> <span class="n">tcal</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">fedge</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">nedge</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the system temperature from the neighboring calon and caloff, which reflect the state of the noise diode.</span>
+<span class="sd">    We define an extra way to set the edge size, nedge, if you prefer to use</span>
+<span class="sd">    number of edge channels instead of the inverse fraction.  This implementation recreates GBTIDL&#39;s `dcmeantsys`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        calon : `~numpy.ndarray`-like</span>
+<span class="sd">            ON calibration</span>
+
+<span class="sd">        caloff  :  `~numpy.ndarray`-like</span>
+<span class="sd">            OFF calibration</span>
+
+<span class="sd">        tcal  :  `~numpy.ndarray`-like</span>
+<span class="sd">            calibration temperature</span>
+
+<span class="sd">        mode : int</span>
+<span class="sd">            mode=0  Do the mean before the division</span>
+<span class="sd">            mode=1  Do the mean after the division</span>
+<span class="sd">            TODO: Ask PJT why the options?</span>
+
+<span class="sd">        fedge : int</span>
+<span class="sd">            Fraction of edge channels to exclude at each end, in percent. Default: 10, meaning the central 80% bandwidth is used</span>
+
+<span class="sd">        nedge : int</span>
+<span class="sd">            Number of edge channels to exclude. Default: None, meaning use `fedge`</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        meanTsys : `~numpy.ndarray`-like</span>
+<span class="sd">            The mean system temperature</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># @todo Pedro thinks about a version that takes a spectrum with multiple SpectralRegions to exclude.</span>
+    <span class="n">nchan</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">calon</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nedge</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">nedge</span> <span class="o">=</span> <span class="n">nchan</span> <span class="o">//</span> <span class="n">fedge</span>  <span class="c1"># 10 %</span>
+    <span class="c1"># Python uses exclusive array ranges while GBTIDL uses inclusive ones.</span>
+    <span class="c1"># Therefore we have to add a channel to the upper edge of the range</span>
+    <span class="c1"># below in order to reproduce exactly what GBTIDL gets for Tsys.</span>
+    <span class="c1"># See github issue #28.</span>
+    <span class="c1"># Define the channel range once.</span>
+    <span class="n">chrng</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">nedge</span><span class="p">,</span> <span class="o">-</span><span class="p">(</span><span class="n">nedge</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Make them doubles. Probably not worth it.</span>
+    <span class="n">caloff</span> <span class="o">=</span> <span class="n">caloff</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;d&quot;</span><span class="p">)</span>
+    <span class="n">calon</span> <span class="o">=</span> <span class="n">calon</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;d&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># mode = 0 matches GBTIDL output for Tsys values</span>
+        <span class="n">meanoff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">caloff</span><span class="p">[</span><span class="n">chrng</span><span class="p">])</span>
+        <span class="n">meandiff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">calon</span><span class="p">[</span><span class="n">chrng</span><span class="p">])</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">caloff</span><span class="p">[</span><span class="n">chrng</span><span class="p">])</span>
+        <span class="k">if</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">meandiff</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;moff </span><span class="si">{</span><span class="n">meanoff</span><span class="si">}</span><span class="s2">, mdif </span><span class="si">{</span><span class="n">meandiff</span><span class="si">}</span><span class="s2">, tc </span><span class="si">{</span><span class="n">tcal</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CALON: </span><span class="si">{</span><span class="n">calon</span><span class="p">[</span><span class="n">nedge</span><span class="p">:</span><span class="o">-</span><span class="p">(</span><span class="n">nedge</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CALOF: </span><span class="si">{</span><span class="n">caloff</span><span class="p">[</span><span class="n">nedge</span><span class="p">:</span><span class="o">-</span><span class="p">(</span><span class="n">nedge</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;DIFF: </span><span class="si">{</span><span class="n">calon</span><span class="p">[</span><span class="n">nedge</span><span class="p">:</span><span class="o">-</span><span class="p">(</span><span class="n">nedge</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span><span class="o">-</span><span class="n">caloff</span><span class="p">[</span><span class="n">nedge</span><span class="p">:</span><span class="o">-</span><span class="p">(</span><span class="n">nedge</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CALOF: </span><span class="si">{</span><span class="n">caloff</span><span class="p">[</span><span class="n">nedge</span><span class="p">:</span><span class="o">-</span><span class="p">(</span><span class="n">nedge</span><span class="o">-</span><span class="mi">1</span><span class="p">)]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">meanTsys</span> <span class="o">=</span> <span class="n">meanoff</span> <span class="o">/</span> <span class="n">meandiff</span> <span class="o">*</span> <span class="n">tcal</span> <span class="o">+</span> <span class="n">tcal</span> <span class="o">/</span> <span class="mf">2.0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">meanTsys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">caloff</span><span class="p">[</span><span class="n">chrng</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">calon</span><span class="p">[</span><span class="n">chrng</span><span class="p">]</span> <span class="o">-</span> <span class="n">caloff</span><span class="p">[</span><span class="n">chrng</span><span class="p">]))</span>
+        <span class="n">meanTsys</span> <span class="o">=</span> <span class="n">meanTsys</span> <span class="o">*</span> <span class="n">tcal</span> <span class="o">+</span> <span class="n">tcal</span> <span class="o">/</span> <span class="mf">2.0</span>
+
+    <span class="c1"># meandiff can sometimes be negative, which makes Tsys negative!</span>
+    <span class="c1"># GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">meanTsys</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="veldef_to_convention"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.core.veldef_to_convention">[docs]</a><span class="k">def</span> <span class="nf">veldef_to_convention</span><span class="p">(</span><span class="n">veldef</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;given a VELDEF, return the velocity convention expected by Spectrum(1D)</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        veldef : str</span>
+<span class="sd">            velocity definition from FITS header, e.g., &#39;OPTI-HELO&#39;, &#39;VELO-LSR&#39;</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        convention : str</span>
+<span class="sd">        velocity convention string, one of {&#39;radio&#39;, &#39;optical&#39;, &#39;relativistic&#39;}  or None if `velframe` can&#39;t be parsed</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># @TODO GBT defines these wrong.  Need to sort out and have special version for GBT</span>
+    <span class="n">prefix</span> <span class="o">=</span> <span class="n">veldef</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">prefix</span> <span class="o">==</span> <span class="s2">&quot;opti&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;optical&quot;</span>
+    <span class="k">if</span> <span class="n">prefix</span> <span class="o">==</span> <span class="s2">&quot;velo&quot;</span> <span class="ow">or</span> <span class="n">prefix</span> <span class="o">==</span> <span class="s2">&quot;radi&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;radio&quot;</span>
+    <span class="k">if</span> <span class="n">prefix</span> <span class="o">==</span> <span class="s2">&quot;rela&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;relativistic&quot;</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="tsys_weight"><a class="viewcode-back" href="../../../modules/dysh.spectra.html#dysh.spectra.core.tsys_weight">[docs]</a><span class="k">def</span> <span class="nf">tsys_weight</span><span class="p">(</span><span class="n">exposure</span><span class="p">,</span> <span class="n">delta_freq</span><span class="p">,</span> <span class="n">tsys</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Compute the system temperature based weight(s) using the expression:</span>
+
+<span class="sd">     :math:`w = t_{exp} \times \delta_\nu / T_{sys}^2,`</span>
+
+<span class="sd">    where :math:`t_{exp}` is the exposure time, :math:`\delta_\nu` is the frequency resolution, and :math:`T_{sys}` is the system temperature.</span>
+
+<span class="sd">    If `exposure`, `delta_freq`, or `tsys` parameters are given as `~astropy.units.Quantity`,</span>
+<span class="sd">    they will be converted to seconds, Hz, K, respectively for the calculation.</span>
+<span class="sd">    (Not that this really matters since weights are relative to each other)</span>
+
+<span class="sd">    **Note:** The parameters cannot be given as arrays of `~astropy.units.Quantity`, e.g.,</span>
+
+<span class="sd">     &gt;&gt;&gt; import astropy.units as u</span>
+<span class="sd">     &gt;&gt;&gt; [3*u.s, 4*u.s]   ### WRONG</span>
+
+<span class="sd">    Rather, if using `~astropy.units.Quantity`, they have to be `~astropy.units.Quantity` objects, e.g.,</span>
+
+<span class="sd">     &gt;&gt;&gt; [3, 4]*u.s ### RIGHT!</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">         exposure : `~numpy.ndarray`, float, or `~astropy.units.Quantity`</span>
+<span class="sd">             The exposure time, typically given in seconds</span>
+<span class="sd">         delta_freq : `~numpy.ndarray`, float, or `~astropy.units.Quantity`</span>
+<span class="sd">             The channel width in frequency units</span>
+<span class="sd">         tsys : `~numpy.ndarray`, float, or `~astropy.units.Quantity`</span>
+<span class="sd">             The system temperature, typically in K</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">         weight : `~numpy.ndarray`</span>
+<span class="sd">             The weights array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Quantitys work with abs and power!</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">delta_freq</span><span class="p">)</span> <span class="o">*</span> <span class="n">exposure</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">tsys</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span> <span class="o">==</span> <span class="n">u</span><span class="o">.</span><span class="n">Quantity</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">weight</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">longdouble</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">weight</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">longdouble</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Green Bank Observatory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

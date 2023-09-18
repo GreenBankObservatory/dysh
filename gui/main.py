@@ -13,92 +13,42 @@ from screeninfo import get_monitors
 from qt_material import apply_stylesheet
 
 # ADD PATHS
-sys.path.insert(0, os.path.abspath("../src"))
 sys.path.insert(0, os.path.abspath("."))
+sys.path.insert(0, os.path.abspath("../src"))
 
 # LOCAL GUI IMPORTS
 from widgets.tables import FITSHeaderTable
 from widgets.graphs import *
 from dataload import FITSFileDialog
 
-"""
+from gui.core import ThreadCallbacks, DyshWorker
 from widgets.splash import SplashScreen
 from widgets.graphs import *
-from gui.core import Worker
+from widgets.layouts import *
 from gui.dataload import DataLoader
-"""
+
 # DYSH IMPORTS
 from dysh.util.messages import *
-from dysh.fits.sdfitsload_parallel import SDFITSLoad  # , get_size, Obsblock, baseline
-from dysh.fits.gbtfitsload import GBTFITSLoad  # , get_size, Obsblock, baseline
+from dysh.util.parallelization import SingleThread
+from dysh.fits.sdfitsload_parallel import SDFITSLoad  
+from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.spectra.obsblock import Obsblock
 
 # PARALLELIZATION
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 
-
-class ThreadCallbacks:
-    def progress(future):
-        pass
-        # print('.', end='', flush=True)
-
-
-class DyshWorker(QObject, Thread):
-    """Thread to run a function that returns a value"""
-
-    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}):
-        self.finished = pyqtSignal()
-        self.progress = pyqtSignal(int)
-        Thread.__init__(self, group=group, target=target, name=name, args=args, kwargs=kwargs)
-        self._return = None
-        # print(self.__dir__())
-
-    def run(self):
-        if self._target is not None:
-            self._return = self._target(*self._args, **self._kwargs)
-
-    def join(self):
-        Thread.join(self)
-        return self._return
-
-
-class StartWindow(QMainWindow):
+class SelectPanel(QGridLayout):
     """The startup window of the GUI"""
 
     def __init__(self):
         """Initializes the startup window"""
         super().__init__()
-        self.setWindowTitle("Dysh GUI")
-        self._init_geometry(0.8)
         self._init_UI()
-        self.show()
-
-    def _init_geometry(self, mult):
-        """
-        Draws the GUI on the primary monitor
-
-        Parameters
-        ----------
-            mult : int or float
-                proportion of total size to draw window (0.8 = 80%)
-
-        """
-        for m in get_monitors():
-            if m.is_primary:
-                self.width = int(m.width * mult)
-                self.height = int(m.height * mult)
-                self.xpos = int(m.x + (m.width * (1 - mult)) / 2)
-                self.ypos = int(m.y + (m.height * (1 - mult)) / 2)
-        self.setGeometry(self.xpos, self.ypos, self.width, self.height)
 
     def _init_UI(self):
         """Creates the skeleton structure of the GUI"""
-        self.main_widget = QWidget()
-        self.main_layout = QGridLayout()
-        self.main_widget.setLayout(self.main_layout)
-        self.setCentralWidget(self.main_widget)
-
+        
         # Make the UI Items
         self.main_text = QLabel("Welcome to the Dysh GUI")
         self.button = QPushButton("Select file")
@@ -107,12 +57,10 @@ class StartWindow(QMainWindow):
         self._init_site_selection()
 
         # Add the UI Items
-        self.main_layout.addWidget(self.main_text, 0, 0, 1, 2)
-        self.main_layout.addWidget(self.combo_telescope, 1, 0, 1, 1)
-        self.main_layout.addWidget(self.combo_rx, 1, 1, 1, 1)
-        self.main_layout.addWidget(self.button, 2, 0, 1, 2)
-
-        self.setCentralWidget(self.main_widget)
+        self.addWidget(self.main_text, 0, 0, 1, 2)
+        self.addWidget(self.combo_telescope, 1, 0, 1, 1)
+        self.addWidget(self.combo_rx, 1, 1, 1, 1)
+        self.addWidget(self.button, 2, 0, 1, 2)
 
     def _init_site_selection(self):
         self.combo_telescope = QComboBox()
@@ -172,31 +120,23 @@ class StartWindow(QMainWindow):
 
     def get_files(self):
         # [TODO] Figure out why this makes you do it twice?
-        file_dialog = FITSFileDialog()
-        if file_dialog.exec_() == QDialog.Accepted:
-            self.fpath = file_dialog.selectedFiles()[0]
-            self.open_main_window()
+        self.file_dialog = FITSFileDialog()
 
-    def open_main_window(self):
-        self.close()
-        self.new_window = MainWindow(self.fpath)
-        self.new_window.show()
-
-
-class MainWindow(QMainWindow):
+class DyshMainWindow(QMainWindow):
     """The main window of the GUI"""
 
     def __init__(self, fpath=None):
         """Initializes the main window"""
-        super(MainWindow, self).__init__()
+        super(DyshMainWindow, self).__init__()
         self.fpath = "/Users/victoriacatlett/Desktop/TGBT21A_501_11.raw.vegas.fits"  # fpath
 
         self.setWindowTitle("Dysh GUI")
         self._init_geometry(0.8)
 
         self.info_threads()
-        self._load_data()
-        self._init_UI()
+        #self._init_select_panel()
+        self._init_main_panel()
+        
         self.show()
 
     def _init_geometry(self, mult):
@@ -221,20 +161,35 @@ class MainWindow(QMainWindow):
         """Updates info on available threads"""
         self.threadCountActive = QThreadPool.globalInstance().activeThreadCount()
         self.threadCountTotal = QThreadPool.globalInstance().maxThreadCount()
-        print(f"You are using {self.threadCountActive} of the {self.threadCountTotal} available QThreads")
+        # print(f"You are using {self.threadCountActive} of the {self.threadCountTotal} available QThreads")
 
-    def SDFITS_load_all(self, fpath, n):
-        fdata = SDFITSLoad(fpath)
-        fdata._loadlists(n)
-        return fdata
+    def _init_select_panel(self):
+        self.main_widget = QWidget()
+        self.main_layout = SelectPanel()
+        self.main_widget.setLayout(self.main_layout)
+        self.setCentralWidget(self.main_widget)
+        if self.main_layout.file_dialog.exec_() == QDialog.Accepted:
+            self.fpath = self.main_layout.file_dialog.selectedFiles()[0]
+
+    def _init_main_panel(self):
+        #self._clear_all()
+        self._load_data()
+        self._init_UI()
+
+    #@SingleThread
+    def SDFITS_load_all(self, fpath):
+        self.sdfits = GBTFITSLoad(fpath)
 
     def _load_data(self):
         """Opens up the FITS file"""
         # [TODO] Load lists in a QThread so the main screen can be created
         # [TODO] Add logic to determine if GBTFITSLoad or another
-        s_load = DyshWorker(target=self.SDFITS_load_all, args=(self.fpath, 1))
-        s_load.start()
-        self.f_data = s_load.join()
+        #s_load = DyshWorker(target=self.SDFITS_load_all, args=(self.fpath, 1))
+        #s_load.start()
+        self.SDFITS_load_all(self.fpath) #s_load.join()
+        self.scan = self.sdfits.getps(152, ifnum=0, plnum=0)
+        self.scan.calibrate()
+        self.fdata = self.scan.timeaverage(weights='tsys')
 
     def _init_UI(self):
         """Creates the skeleton structure of the GUI"""
@@ -243,41 +198,103 @@ class MainWindow(QMainWindow):
         self.main_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.main_widget)
 
+        self._init_sidebar()
+        self._init_toggle_btn()
+        self._init_tabs()
+
+        self.main_layout.addWidget(self.toggle_btn, 0, 0, 1, 1)
+        self.main_layout.addWidget(self.sidebar, 1, 0, 1, 1)
+        
+        self.main_layout.addWidget(self.tabs, 0, 1, 2, 2)
         self._init_tables()
         self._init_plots()
+
+    def _init_tabs(self):
+        self.tabs = QTabWidget()
+        self.tab1 = QWidget()
+        self.tab2 = QWidget()
+        self.tab3 = QWidget()
+        self.tab4 = QWidget()
+
+        self.tab1_layout = QGridLayout()
+        self.tab2_layout = QGridLayout()
+        self.tab3_layout = QGridLayout()
+        self.tab4_layout = QGridLayout()
+
+        self.tab1.setLayout(self.tab1_layout)
+        self.tab2.setLayout(self.tab2_layout)
+        self.tab3.setLayout(self.tab3_layout)
+        self.tab4.setLayout(self.tab4_layout)
+
+        self.tabs.addTab(self.tab1,"File")
+        self.tabs.addTab(self.tab2,"Waterfall")
+        self.tabs.addTab(self.tab3,"Calibrated Spectrum")
+        self.tabs.addTab(self.tab4,"Console")
+
+    def _init_sidebar(self):
+        self.sidebar = CollapsibleSideBar()
+        self.sidebar.add_box(title="my box 1", contentWidget=QLabel("content 1"))
+        self.sidebar.add_box(title="my box 2", contentWidget=QLabel("content 2"))
+
+    def _init_toggle_btn(self):
+        self.toggle_btn = QPushButton("Dock")
+        self.toggle_btn.clicked.connect(self.toggle_hidden)
+
+    def toggle_hidden(self):
+        if self.sidebar.isHidden() == True:
+            self.sidebar.setHidden(False)
+        else:
+            self.sidebar.setHidden(True)
 
     def _init_tables(self):
         """Creates tables of FITS information"""
         # [TODO] Add selection logic for if len(bintable) > 1
         # [TODO] Do this in a QThread so the main screen can be created
         self.hdr0_tbl = FITSHeaderTable()
-        self.hdr0_tbl.load(self.fdata.primaryheader())
+        self.hdr0_tbl.load(self.sdfits.primaryheader())
         self.hdr1_tbl = FITSHeaderTable()
-        self.hdr1_tbl.load(self.fdata.binheader()[0])
-        self.main_layout.addWidget(self.hdr0_tbl, 0, 0, 1, 1)
-        self.main_layout.addWidget(self.hdr1_tbl, 0, 1, 1, 1)
+        self.hdr1_tbl.load(self.sdfits.binheader()[0])
+        self.tab1_layout.addWidget(self.hdr0_tbl, 0, 0, 1, 1)
+        self.tab1_layout.addWidget(self.hdr1_tbl, 0, 1, 1, 1)
 
     def _init_plots(self):
         """Creates the plot canvases"""
         # [TODO] Do this in a QThread so the main screen can be created
-        self.fdata.summary()
+        self.spec_plot = SingleSpectrum(self.fdata)
         # print(f"NINTEGRATIONS: {self.fdata.nintegrations(1)}")
         # self.waterfall = WaterfallSpectrum(self.fdata)
+        self.tab3_layout.addWidget(self.spec_plot, 0, 0, 1, 2)
 
+    def _init_plot_sidebar(self):
+        pass
 
-def start():
-    friendly_messages = FriendlyMessages()
-    friendly_messages.welcome()
+    def _clear_all(self):
+        while self.main_layout.count():
+            child = self.main_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
 
-    app = QApplication(sys.argv)
+class App(QApplication):
+    def __init__(self, *args):
+        QApplication.__init__(self, *args)
+        self.friendly_messages = FriendlyMessages()
+        self.hello()
+        self.main = DyshMainWindow()
+        self.lastWindowClosed.connect(self.bye)
+        self.main.show()
+
+    def hello(self):
+        self.friendly_messages.welcome()
+
+    def bye(self):
+        self.friendly_messages.goodbye()
+        self.exit(0)
+
+def main(args):
+    global app
+    app = App(args)
     apply_stylesheet(app, theme="dark_purple.xml")
-    # win = StartWindow()
-    win = MainWindow()
-    sys.exit(app.exec_())
-
-    # [TODO] Add functions to execute on exit
-    # friendly_messages.goodbye()
-
+    app.exec_()
 
 if __name__ == "__main__":
-    start()
+    main(sys.argv)

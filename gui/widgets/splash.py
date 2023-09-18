@@ -2,6 +2,8 @@ import sys, os
 from PyQt5.QtCore import pyqtSignal, Qt, QThread
 from PyQt5.QtGui import QMovie
 from PyQt5.QtWidgets import QApplication, QSplashScreen, QMainWindow
+from pathlib import Path
+GUI_BASE_DIR = Path(__file__).resolve().parent.parent
 # https://stackoverflow.com/questions/71627508/pyqt-show-animated-gif-while-other-operations-are-running
 
 class Worker(QThread):
@@ -18,9 +20,10 @@ class Window(QMainWindow):
         super().__init__()
 
 class SplashScreen(QSplashScreen):
-    def __init__(self, filepath, flags=0):
+    def __init__(self, flags=0):
         super().__init__(flags=Qt.WindowFlags(flags))
-        self.movie = QMovie(filepath, parent=self)
+        self.load_gif_dir = os.path.join(GUI_BASE_DIR, "static/img/loading.gif")
+        self.movie = QMovie(self.load_gif_dir, parent=self)
         self.movie.frameChanged.connect(self.handleFrameChange)
         self.movie.start()
 
@@ -45,9 +48,8 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     window = Window()
-    load_path = dir_path + "/img/loading.gif"
 
-    splash = SplashScreen(load_path, Qt.WindowStaysOnTopHint)
+    splash = SplashScreen(Qt.WindowStaysOnTopHint)
     worker = Worker()
     worker.progressChanged.connect(splash.updateProgress)
     worker.finished.connect(
