@@ -81,4 +81,4 @@ check `dysh/.gitignore` to make sure you are not adding ignored files (virtual e
 
 `$ git push`
 
-The first time you run this, it will give a command about setting the origin upstream. Simply copy and run that command. Users of Github Desktop can also achieve all of these steps using the app interface. Next, go to the `dysh Github page <https://github.com/GreenBankObservatory/dysh/>`_ and submit a pull request.
+The first time you run this, it will give a command about setting the origin upstream. Simply copy and run that command. Users of GitHub Desktop can also achieve all of these above steps using the app interface. Next, go to the `dysh GitHub page <https://github.com/GreenBankObservatory/dysh/>`_ and submit a pull request.
