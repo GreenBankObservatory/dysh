@@ -9,7 +9,15 @@ Position switched observations are those in which the telescope observes a targe
 
 .. image:: ../_static/examples/gbt_ps_2.gif
 
-While observing this is accomplished using the functions `OnOff` or `OffOn` in a scheduling block. For more details about these functions see Sections 6.4.2.2 and 6.4.2.3 of the |gbtog_link|.
+While observing this is accomplished using the functions `OnOff` or `OffOn` in a scheduling block. For more details about these functions see Sections |gbtog_onoff_link| and |gbtog_offon_link| of the |gbtog_link|.
+
+.. |gbtog_onoff_link| raw:: html
+
+   <a href="http://www.gb.nrao.edu/scienceDocs/GBTog.pdf#nameddest=subsubsection.6.4.2.2" target="_blank">6.4.2.2</a>
+
+.. |gbtog_offon_link| raw:: html
+
+   <a href="http://www.gb.nrao.edu/scienceDocs/GBTog.pdf#nameddest=subsubsection.6.4.2.3" target="_blank">6.4.2.3</a>
 
 .. |gbtog_link| raw:: html
 

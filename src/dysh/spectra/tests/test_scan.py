@@ -66,6 +66,16 @@ class TestSubBeamNod():
 class TestGBTTPScan():
 
     def test_compare_with_GBTIDL_tsys_weights(self):
+        """
+        This test compares `gettp` when using radiometer weights.
+        It takes a scan with multiple integrations and averages 
+        them using weights from the radiometer equation.
+        It checks that the averaged exposure and spectra are the same,
+        and that the system temperature is the same up to the precision
+        used by GBTIDL.
+        It also checks that the spectra, exposures and system temperatures are the 
+        same for individual integrations after calibrating them.
+        """
 
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits")
@@ -84,6 +94,7 @@ class TestGBTTPScan():
         data = table["DATA"]
 
         # Check exposure times.
+        # The last row in the GBTIDL file is the averaged data.
         assert np.sum(table["EXPOSURE"][:-1] - tp.exposure) == 0.0
         assert tpavg.meta["EXPOSURE"] == table["EXPOSURE"][-1]
         # System temperature.
@@ -93,9 +104,17 @@ class TestGBTTPScan():
         assert abs(tpavg.meta["TSYS"] - table["TSYS"][-1]) < 1e-10
         # Data, which uses float -- 32 bits.
         assert np.sum(tp._data - data[:-1]) == 0.0
-        assert np.nanmean((tpavg.flux.value - data[-1])/data[-1].mean()) < 2**32
+        assert np.nanmean((tpavg.flux.value - data[-1])/data[-1].mean()) < 2**-32
         
     def test_compare_with_GBTIDL_equal_weights(self):
+        """
+        This test compares `gettp` when using equal weights.
+        It takes a scan with multiple integrations and averages 
+        them using unity weights.
+        It checks that the exposure and averaged spectra are the same,
+        and that the system temperature is the same up to the precision
+        used by GBTIDL.
+        """
 
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits")
