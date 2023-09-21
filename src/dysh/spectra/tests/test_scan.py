@@ -52,7 +52,6 @@ class TestGBTPSScan():
         #3rd order baseline fitted in gbtidl with regions [100,400] and [450,750]
         psscan.baseline(3,[(0,100),(400,450),(750,819)],remove=True,model='chebyshev')
 
-
         #load gbtidl result
         #assuming the pre-baseline spectrum is still the same (can still test this if need be)
         hdu = fits.open(gbtidl_file)
