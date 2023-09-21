@@ -229,7 +229,7 @@ def baseline(spectrum,order,exclude=None,**kwargs):
     }
     kwargs_opts.update(kwargs)
 
-    _valid_models = ["polynomial", "chebyshev"]
+    _valid_models = ["polynomial", "chebyshev","legendre"]
     _valid_exclude_actions = ['replace','append',None]
     # @todo replace with minimum_string_match
     if kwargs_opts["model"] not in _valid_models:
