@@ -9,7 +9,48 @@ from . import average, mean_tsys, tsys_weight, veldef_to_convention
 from .spectrum import Spectrum
 
 
-class PSScan(object):
+class Scan(object):
+    def __init__(self):
+        self._status = None
+        self._nrows = 0
+        self._npol = 0
+
+    @property
+    def status(self):
+        """Status flag, will be used later for undo"""
+        return self._status
+
+    @property
+    def nrows(self):
+        """The number of rows in this Scan"""
+        return self._nrows
+
+    @property
+    def npol(self):
+        """The number of polarizations in this Scan"""
+        return self._npol
+
+    def timeaverage(self, weights=None):
+        pass
+
+    def polaverage(self, weights=None):
+        pass
+
+    def finalspectum(self, weights=None):
+        pass
+
+    def __len__(self):
+        return self._nrows
+
+
+class ScanBlock(Scan):
+    def __init__(self):
+        self._status = None
+        self._nrows = 0
+        self._npol = 0
+
+
+class PSScan(Scan):
     """
     Holds a position switch scan pair
 
@@ -83,7 +124,7 @@ class PSScan(object):
         return self._nrows
 
 
-class TPScan(object):
+class TPScan(Scan):
     """
     Holds a total power scan
     Parameters
