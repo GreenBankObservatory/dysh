@@ -14,7 +14,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..spectra.spectrum import Spectrum
-from ..spectra.obsblock import Obsblock
 from ..spectra import veldef_to_convention
 from ..util import uniq, stripTable
 #from .. import version
@@ -22,7 +21,8 @@ from ..util import uniq, stripTable
 
 class SDFITSLoad(object):
     '''
-    Generic Container for a bintable(s) from selected HDU(s)
+    Generic Container for a bintable(s) from selected HDU(s) for a single SDFITS file.
+    For multiple SDFITS files, see :class:`~gbtfitsload.GBTFITSLoad`.
 
     Parameters
     ----------
@@ -43,7 +43,7 @@ class SDFITSLoad(object):
         kwargs_opts.update(kwargs)
         self._filename = filename
         self._bintable = []
-        self._ptable = []
+        self._index = None
         self._binheader = []
         self._data = []
         self._hdu = fits.open(filename)  
@@ -70,15 +70,18 @@ class SDFITSLoad(object):
         """The input SDFITS filename"""
         return self._filename
     
-    def index(self,hdu):
+    def index(self,hdu = None):
         """The index table"""
-        return self._ptable[hdu]
+        if hdu is None:
+            return self._index
+        else:
+            return self_index[self._index[HDU] == hdu]
 
     def reset(self,hdu=None):
         """Reset all attributes"""
         self._bintable = []
         self._binheader = []
-        self._ptable = []
+        self._index = None
         self._data = []
         self._spectra = []
         self._hdu = fits.open(self._filename)  
@@ -96,18 +99,30 @@ class SDFITSLoad(object):
                 Header Data Unit to select from input file. Default: all HDUs
         
         """
+        row = 0
         if hdu is not None:
             ldu = list([hdu])
         else:
             ldu = range(1,len(self._hdu))
-        self._ptable = []
+        self._index = None
         for i in ldu:
-            t = Table.read(self._hdu[i]) 
-            t.remove_column('DATA')
-            stripTable(t)
-            self._ptable.append(t.to_pandas())
-            del t
+           # Create a DataFrame without the data column.
+            df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, "DATA"))
+            # Select columns that are strings, decode them and remove white spaces.
+            df_obj = df.select_dtypes(['object'])
+            df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
+            ones = np.ones(len(df.index),dtype=np.int)
+            df['HDU'] = i*ones
+            df['BINTABLE'] = (i-1)*ones
+            if self._index is None:
+                self._index = df
+            else:
+                self._index = pd.concat([self._index,df],axis=0)
+        self.add_primary_hdu()
             
+    def add_primary_hdu(self):
+        pass;
+
     def load(self, hdu=None, **kwargs):
         """
         Load the bintable for given hdu.
@@ -120,7 +135,6 @@ class SDFITSLoad(object):
         
         """
         self._bintable = []
-        self._ptable = []
         self._binheader = []
         self._data = []
         self._nrows = []
@@ -136,22 +150,7 @@ class SDFITSLoad(object):
             j=i-1
             self._bintable.append(self._hdu[i]) 
             self._binheader.append(self._hdu[i].header)
-            # TODO: don't allow preselection here, it just screws bookkeepingu p.
-            # All selection must happen in obsblocks.
-            #if source is None:
-            #self._data.append(self._bintable[j].data[:]["DATA"])
-            #else:
-            #    wh1 = np.char.strip(self._bintable[j]['OBJECT']) == source # true/false array
-            #    if wh1.sum() == 0: #all False none found
-            #        srcs = np.unique(self._bintable[j]['OBJECT'])
-            #        raise Exception(f"Source name {source} not found in HDU {i}. Sources present are {srcs}")
-            #    self._data.append(self._bintable[j]["DATA"][wh1])
-            #    mask = np.where(wh1)[0]
-            #    self._bintable[j] = self._bintable[j][mask]  # header will be wrong?
             self._nrows.append(self._binheader[j]["NAXIS2"])
-
-        if kwargs.get("index",False):
-            self.create_index(hdu)
 
     def _loadlists(self,hdu,fix=False,wcs=False,maxspect=1E16):
         '''Create an obsblock from all rows in bintable.  For debug/performance testing only'''
@@ -160,7 +159,7 @@ class SDFITSLoad(object):
         k = -1
         print("HDU = ",hdu)
         if hdu is not None:
-            b = self._ptable[hdu-1]
+            b = self._index[hdu-1]
             rawspect = self._bintable[i].data["DATA"]
             sl = SpectrumList()
             maxload = int(np.min([maxspect,self.nrows(i)]))
@@ -244,7 +243,7 @@ class SDFITSLoad(object):
                         convention="doppler_radio"
                 meta = {}
                 sl.append(Spectrum(flux=sp*u.K,wcs=wcs,  meta=meta, velocity_convention=convention))
-            self._obsblock.append(Obsblock(sl,self._ptable[i]))
+            #self._obsblock.append(Obsblock(sl,self._index[i]))
             i=i+1
 
 
@@ -282,16 +281,16 @@ class SDFITSLoad(object):
         '''
         return "doppler_radio"
     
-    def udata(self,bintable,key):
+    def udata(self,key,bintable = None):
         """
         The unique list of values of a given header keyword
 
         Parameters
         ----------
-            bintable :  int
-                The index of the `bintable` attribute
             key : str
                 The keyword to retrieve
+            bintable :  int
+                The index of the `bintable` attribute, None means all bintables
         
         Returns
         -------
@@ -299,32 +298,36 @@ class SDFITSLoad(object):
                 The unique set of values for the input keyword.
         
         """
-        return uniq(self._ptable[bintable][key])
+        if bintable is not None:
+            df = self._index[self._index["BINTABLE"] == bintable]
+        else:
+            df = self._index
+        return uniq(df[key])
                                   
-    def ushow(self,bintable,key):
+    def ushow(self,key,bintable=None):
         """
         Print the unique list of values of a given header keyword
 
         Parameters
         ----------
-            bintable :  int
-                The index of the `bintable` attribute
             key : str
                 The keyword to retrieve
+            bintable :  int
+                The index of the `bintable` attribute, None means all bintables
         
         """
         print(f'{bintable} {key}: {self.udata(bintable,key)}')
         
-    def naxis(self,bintable,naxis):
+    def naxis(self,naxis,bintable):
         '''
         The NAXISn value of the input bintable.
 
         Parameters
         ----------
-            bintable :  int
-                The index of the `bintable` attribute
             naxis : int
                 The NAXIS whose length is requested
+            bintable :  int
+                The index of the `bintable` attribute
 
         Returns
         -------
@@ -353,7 +356,7 @@ class SDFITSLoad(object):
         
         data = self.rawspectra(bintable)
         if source is not None:
-            df = self.select('OBJECT',source,self._ptable[bintable])
+            df = self.select('OBJECT',source,self._index[bintable])
             #nfeed = df["FEED"].nunique()
             numsources = len(df)
             #nint = numsources//(self.npol(bintable)*nfeed)
@@ -379,17 +382,17 @@ class SDFITSLoad(object):
         '''
         return self._bintable[bintable].data[:]["DATA"]
 
-    def rawspectrum(self,bintable,i):
+    def rawspectrum(self,i,bintable=0):
         '''
         Get a single raw (unprocessed) spectrum from the input bintable.
         TODO: arguments are backwards from getrow(), getspec()
 
         Parameters
         ----------
-            bintable :  int
-                The index of the `bintable` attribute
             i :  int
                 The row index to retrieve
+            bintable :  int
+                The index of the `bintable` attribute
 
         Returns
         -------
@@ -404,8 +407,8 @@ class SDFITSLoad(object):
 
     def getspec(self,i,bintable=0):
         """get a row (record) as a Spectrum"""
-        meta = self._ptable[bintable].iloc[i]
-        data = self.rawspectrum(bintable,i)
+        meta = self._index[bintable].iloc[i]
+        data = self.rawspectrum(i,bintable)
         naxis1 = len(data)
         ctype1 = meta['CTYPE1']
         ctype2 = meta['CTYPE2']
@@ -470,7 +473,7 @@ class SDFITSLoad(object):
                 Number channels in the first spectrum of the input bintbale
         
         '''
-        return np.shape(self.rawspectrum(bintable,1))[0]
+        return np.shape(self.rawspectrum(1,bintable))[0]
     
     def npol(self,bintable):
         '''
@@ -487,7 +490,7 @@ class SDFITSLoad(object):
                 Number of polarizations as given by `CRVAL4` FITS header keyword.
         
         '''
-        return len(self.udata(bintable,'CRVAL4'))
+        return len(self.udata(key='CRVAL4',bintable=bintable))
     
     def sources(self,bintable):
         '''
@@ -504,7 +507,7 @@ class SDFITSLoad(object):
                 Number of sources as given by `OBJECT` FITS header keyword.
         
         '''
-        return self.udata(bintable,'OBJECT')
+        return self.udata(bintable=bintable,key='OBJECT')
     
     def scans(self,bintable):
         '''
@@ -521,13 +524,13 @@ class SDFITSLoad(object):
             scans: int
                 Number of scans as given by `SCAN` FITS header keyword.
         '''
-        return self.udata(bintable,'SCAN') #self.ushow(bintable,'SCAN')
+        return self.udata(key='SCAN',bintable=bintable) 
     
     def _summary(self,bintable):
         j=bintable
-        nrows = self.naxis(j,2)
+        nrows = self.naxis(bintable=j,naxis=2)
         nflds = self._binheader[j]['TFIELDS']
-        restfreq = np.unique(self._ptable[j]['RESTFREQ'])/1.0E9
+        restfreq = np.unique(self._index[j]['RESTFREQ'])/1.0E9
     #
         print("HDU       %d" %  (j+1))
         print("BINTABLE: %d rows x %d cols with %d chans" % (self._nrows[j],nflds,self.nchan(j)))
