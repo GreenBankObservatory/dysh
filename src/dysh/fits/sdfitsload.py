@@ -68,7 +68,7 @@ class SDFITSLoad(object):
         """The input SDFITS filename"""
         return self._filename
 
-    def index(self, hdu=None):
+    def index(self, hdu=None, bintable=None):
         """Return The index table
         Parameters
         ----------
@@ -80,10 +80,14 @@ class SDFITSLoad(object):
             index : ~pandas.DataFrame
                 The index of this SDFITS file
         """
-        if hdu is None:
-            return self._index
-        else:
-            return self._index[self._index["HDU"] == hdu]
+        df = self._index
+        if hdu is None and bintable is None:
+            return df
+        if hdu is not None:
+            df = df[df["HDU"] == hdu]
+        if bintable is not None:
+            df = df[df["BINTABLE"] == bintable]
+        return df
 
     def create_index(self, hdu=None):
         """
@@ -106,7 +110,7 @@ class SDFITSLoad(object):
             # Select columns that are strings, decode them and remove white spaces.
             df_obj = df.select_dtypes(["object"])
             df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
-            ones = np.ones(len(df.index), dtype=np.int)
+            ones = np.ones(len(df.index), dtype=int)
             # create columns to track HDU and BINTABLE numbers
             df["HDU"] = i * ones
             df["BINTABLE"] = (i - 1) * ones
