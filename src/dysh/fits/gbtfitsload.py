@@ -1,20 +1,19 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 import copy
+import os
 import sys
 import warnings
+from pathlib import Path
 
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.modeling import fitting, models
-from astropy.table import Table
 from astropy.units import cds
 from astropy.wcs import WCS
 
 from ..spectra.core import tsys_weight
-from ..spectra.obsblock import Obsblock
 from ..spectra.scan import GBTPSScan, GBTTPScan
 from ..spectra.spectrum import Spectrum
 from ..util import consecutive, uniq
@@ -25,11 +24,42 @@ _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 
 class GBTFITSLoad(SDFITSLoad):
-    """GBT-specific container for bintables from selected HDU(s)"""
+    """GBT-specific container to reprensent one or more SDFITS files
+    Parameters
+    ----------
+        fileobj : str or `pathlib.Path`
+            File to read or directory path.  If a directory, all
+            FITS files within will be read in.
+        source  : str
+            target source to select from input file(s). Default: all sources
+        hdu : int or list
+            Header Data Unit to select from input file. Default: all HDUs
+    """
 
-    def __init__(self, filename, source=None, hdu=None, **kwargs):
-        SDFITSLoad.__init__(self, filename, source, hdu)
+    def __init__(self, fileobj, source=None, hdu=None, **kwargs):
+        kwargs_opts = {
+            "fix": False,  # fix non-standard header elements
+            "index": True,
+            "verbose": False,
+        }
+        kwargs_opts.update(kwargs)
+        path = Path(fileobj)
+        self._sdf = []
+        self._index = None
+        if path.is_file():
+            self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
+        elif path.is_dir():
+            # Find all the FITS files in the directory and sort alphabetically
+            # because e.g., VEGAS does A,B,C,D,E
+            for f in sorted(path.glob("*.fits")):
+                print(f"doing {f}")
+                self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
+        else:
+            raise Exception(f"{fileobj} is not a file or directory path")
+        if kwargs_opts["index"]:
+            self._create_index_if_needed()
 
+        cds.enable()  # to get mmHg
         self._compute_proc()
         if kwargs.get("verbose", None):
             print("==GBTLoad %s" % filename)
@@ -49,11 +79,12 @@ class GBTFITSLoad(SDFITSLoad):
         """Compute the procedure string from obsmode and add to index"""
         df = self._index["OBSMODE"].str.split(":", expand=True)
         self._index["PROC"] = df[0]
-        # Assign these to something that might be usefule later, since we have them
+        # Assign these to something that might be useful later,
+        # since we have them
         self._index["_OBSTYPE"] = df[1]
         self._index["_SUBOBSMODE"] = df[2]
 
-    def summary(self, scans=None, verbose=False, bintable=0):
+    def summary(self, scans=None, verbose=False):  # selected=False
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
@@ -211,7 +242,18 @@ class GBTFITSLoad(SDFITSLoad):
 
     def _create_index_if_needed(self):
         if self._index is None:
-            self._create_index()
+            for s in self._sdf:
+                if s._index is None:
+                    s._create_index()
+                if self._index is None:
+                    self._index = s._index
+                else:
+                    self._index = pd.concat([self._index, s._index], axis=0)
+
+    def info(self):
+        """Return the `~astropy.HDUList` info()"""
+        for s in self._sdf:
+            s.info()
 
     #        TODO: figure how to allow [startscan, endscan]
     #            [sampler], ap_eff [if requested units are Jy]

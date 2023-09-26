@@ -33,12 +33,15 @@ class SDFITSLoad(object):
     """
 
     def __init__(self, filename, source=None, hdu=None, **kwargs):
-        if kwargs.get("verbose", None):
+        kwargs_opts = {
+            "fix": False,  # fix non-standard header elements
+            "verbose": False,
+            "wcs": False,  # create WCS in _loadlists (testing only)
+        }
+        kwargs_opts.update(kwargs)
+        if kwargs_opts["verbose"]:
             print("==SDFITSLoad %s" % filename)
         cds.enable()  # to get mmHg
-        kwargs_opts = {"fix": False}
-        kwargs_opts = {"wcs": False}
-        kwargs_opts.update(kwargs)
         self._filename = filename
         self._bintable = []
         self._index = None
@@ -138,8 +141,8 @@ class SDFITSLoad(object):
         self._binheader = []
         self._nrows = []
         source = kwargs.get("source", None)
-        fix = kwargs.get("fix", False)
-        wcs = kwargs.get("wcs", False)
+        fix = kwargs.get("fix")
+        dowcs = kwargs.get("wcs")
 
         if hdu is not None:
             ldu = list([hdu])
@@ -167,7 +170,7 @@ class SDFITSLoad(object):
                 k = k + 1
                 # need extra [[]] because we have 1x1 spatial NAXIS
                 # otherwise, slicing the spectrum won't work.
-                if wcs:
+                if dowcs:
                     sp = np.array([[self.rawspectrum(i, j)]])
                 else:
                     # sp = self.rawspectrum(i,j)*u.K
@@ -197,7 +200,7 @@ class SDFITSLoad(object):
                 # 'FREQ-OBS' to 'FREQ'; assuming SPECSYS='TOPOCENT'
                 # if ctype1 == 'FREQ-OBS': ctype1  = 'FREQ'
                 # only axis1 needs a full description, axis2,3,4 are all single points
-                if wcs:
+                if dowcs:
                     wcs = WCS(
                         header={
                             "CDELT1": cdelt1,
