@@ -21,9 +21,10 @@ this is probably the only way to bootstrap yourself. For example
 https://github.com/GreenbankObservatory/dysh/archive/refs/heads/main.zip, which
 will create a directory **dysh-main**. Other branches are available
 through similar zip file construct. For releases, we suggest to use
-a release, for example
-https://github.com/GreenBankObservatory/dysh/archive/refs/heads/release-0.2.0.zip
-which would create a directory **dysh-release-0.2.0**.
+a tagged release, for example
+https://github.com/GreenBankObservatory/dysh/archive/refs/tags/0.1.0.zip
+which would create a directory **dysh-0.1.0**.
+
 
 4. You used "pip install". In this way the source is likely hidden within your
 **python/site-packages** tree, and this is not a good habit to hack the code
