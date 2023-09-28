@@ -76,7 +76,9 @@ class SDFITSLoad(object):
         Parameters
         ----------
             hdu : int or list
-                Header Data Unit to select from input file. Default: all HDUs
+                Header Data Unit to select from the index. Default: all HDUs
+            bintable :  int
+                The index of the `bintable` attribute, None means all bintables
 
         Returns
         --------
