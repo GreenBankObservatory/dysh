@@ -1,3 +1,4 @@
+from collections import UserList
 from copy import deepcopy
 
 import astropy.units as u
@@ -9,12 +10,7 @@ from . import average, mean_tsys, tsys_weight, veldef_to_convention
 from .spectrum import Spectrum
 
 
-class Scan(object):
-    def __init__(self):
-        self._status = None
-        self._nrows = 0
-        self._npol = 0
-
+class ScanMixin(object):
     @property
     def status(self):
         """Status flag, will be used later for undo"""
@@ -43,20 +39,21 @@ class Scan(object):
         return self._nrows
 
 
-class ScanBlock(Scan):
-    def __init__(self):
+class ScanBlock(UserList, ScanMixin):
+    def __init__(self, *args):
+        super().__init__(*args)
         self._status = None
         self._nrows = 0
         self._npol = 0
 
 
-class PSScan(Scan):
+class PSScan(ScanMixin):
     """
     Holds a position switch scan pair
 
     Parameters
     ----------
-        sdfits : `~fits.sdfitsload.SDFITSLoad`
+        gbtfits : `~fits.sdfitsload.SDFITSLoad`
             input SDFITSLoad object (or derivative)
         scans : dict
             dictionary with keys 'ON' and 'OFF' containing unique list of ON (sig) and OFF (ref) scan numbers
@@ -66,8 +63,8 @@ class PSScan(Scan):
             the index for BINTABLE in `sdfits` containing the scans
     """
 
-    def __init__(self, sdfits, scans, scanrows, bintable):
-        self._sdfits = sdfits  # parent class
+    def __init__(self, gbtfits, scans, scanrows, bintable):
+        self._gbtfits = gbtfits  # parent class
         self._status = 0  # @TODO make these an enumeration, possibly dict
         #                           # ex1:
         self._nint = 0  # 11
@@ -124,13 +121,13 @@ class PSScan(Scan):
         return self._nrows
 
 
-class TPScan(Scan):
+class XXTPScan(ScanMixin):
     """
     Holds a total power scan
     Parameters
     ----------
-        sdfits : ~SDFITSLoad
-            input SDFITSLoad object (or derivative)
+        sdfits : ~GBTFITSLoad
+            input GBTFITSLoad object
         scan: int
             scan number
         sigstate : str
@@ -141,15 +138,18 @@ class TPScan(Scan):
             the index for BINTABLE in `sdfits` containing the scans
     """
 
-    def __init__(self, sdfits, scan, sigstate, calstate, scanrows, bintable):
-        self._sdfits = sdfits  # parent class
+    def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, bintable):
+        self._gbtfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
         self._calstate = calstate
         self._scanrows = scanrows
         self._bintable_index = bintable
         print("BINTABLE = ", bintable)
-        self._data = self._sdfits.rawspectra(bintable)[scanrows]  # all cal states
+        nsdf = len(self._gbtfits._sdf)
+        self.data = np.empty(nsdf)
+        for i in np.arange(nsdf):
+            self._data[i] = self._sdfits.rawspectra(bintable)[scanrows[i]]  # all cal states
         self._status = 0  # @TODO make these an enumeration, possibly dict
         #                           # ex1:
         self._nint = 0  # 11
@@ -199,8 +199,8 @@ class TPScan(Scan):
         return self._nrows
 
 
-class GBTTPScan(TPScan):
-    """GBT specific version of Total Power Scan (`~spectra.scan.TPScan`)
+class TPScan(ScanMixin):
+    """GBT specific version of Total Power Scan
 
     Parameters
     ----------
@@ -224,10 +224,27 @@ class GBTTPScan(TPScan):
 
     # @TODO get rid of calrows and calc tsys in gettp and pass it in.
     def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable, calibrate=True):
-        TPScan.__init__(self, gbtfits, scan, sigstate, calstate, scanrows, bintable)
+        # TPScan.__init__(self, gbtfits, scan, sigstate, calstate, scanrows, bintable)
+        self._gbtfits = gbtfits  # parent class
+        self._scan = scan
+        self._sigstate = sigstate
+        self._calstate = calstate
+        self._scanrows = scanrows
+        self._bintable_index = bintable
+        print("BINTABLE = ", bintable)
+        self._data = self._gbtfits.rawspectra(bintable)[scanrows]  # all cal states
+        self._status = 0  # @TODO make these an enumeration, possibly dict
+        #                           # ex1:
+        self._nint = 0
+        self._npol = 0
+        self._timeaveraged = None
+        self._polaveraged = None
+        # self._nrows = len(scanrows)
+        self._tsys = None
+        if False:
+            self._npol = gbtfits.npol(bintable)  # TODO deal with bintable
+            self._nint = gbtfits.nintegrations(bintable)
         self._calrows = calrows
-        self._npol = gbtfits.npol(bintable)  # TODO deal with bintable
-        self._nint = gbtfits.nintegrations(bintable)
         self._refonrows = self._calrows["ON"]
         self._refoffrows = self._calrows["OFF"]
         self._refcalon = gbtfits.rawspectra(bintable)[self._refonrows]
