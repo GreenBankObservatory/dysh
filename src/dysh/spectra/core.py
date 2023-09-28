@@ -5,7 +5,7 @@ from astropy.wcs import WCS
 from astropy.io import fits
 import astropy.units as u
 #from astropy.table import Table
-from astropy.modeling.polynomial import Polynomial1D,Chebyshev1D, Legendre1D
+from astropy.modeling.polynomial import Polynomial1D,Chebyshev1D, Legendre1D, Hermite1D
 from astropy.modeling.fitting import LevMarLSQFitter,LinearLSQFitter
 from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from specutils.fitting import fit_continuum
@@ -229,7 +229,7 @@ def baseline(spectrum,order,exclude=None,**kwargs):
     }
     kwargs_opts.update(kwargs)
 
-    _valid_models = ["polynomial", "chebyshev","legendre"]
+    _valid_models = ["polynomial", "chebyshev","legendre","hermite"]
     _valid_exclude_actions = ['replace','append',None]
     # @todo replace with minimum_string_match
     if kwargs_opts["model"] not in _valid_models:
@@ -240,6 +240,8 @@ def baseline(spectrum,order,exclude=None,**kwargs):
         model = Chebyshev1D(degree=order)
     elif kwargs_opts['model'] == "legendre":
         model = Legendre1D(degree=order)
+    elif kwargs_opts['model'] == "hermite":
+        model = Hermite1D(degree=order)
     else:
         # should never get here, unless we someday allow user to input a astropy.model
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
