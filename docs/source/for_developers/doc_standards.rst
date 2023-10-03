@@ -1,34 +1,36 @@
-***********************
-Documentation Standards
-***********************
+*************
+Documentation
+*************
 
-Sphinx Autobuilds
-=====================
+Setting Up Sphinx Autobuilds
+============================
 
-* First, you need to create a documentation environment.
+Here are the steps to set up Sphinx autobuilds so that you can check your documentation edits live. 
 
-.. code-block:: bash
-
-    cd dysh/docs
-    /path/to/python -m venv docs-env
-    source docs-env/bin/activate
-    pip install -r requirements.txt
-
-* Next, set up the build command. 
+1. First, navigate to your `dysh` root directory and activate the `hatch` environment.
 
 .. code-block:: bash
 
-    cp .env.template .env
+    $ hatch shell
 
-* Add values for `DOCS_ROOT`, `DOCS_HOST`, and `DOCS_PORT` in `.env`
-* Start the autobuild
+2. Next, copy the environment file template.
+
+.. code-block:: bash
+
+    (dysh) $ cp .env.template .env
+
+3. Add values for ``DOCS_ROOT``, ``DOCS_HOST``, and ``DOCS_PORT`` in `.env`
+4. Start the autobuild
 
 .. code-block:: bash
     
-    source .env
-    startdocs
+    (dysh) $ source .env
+    (dysh) $ startdocs
 
-* Go to `http://{$DOCS_HOST}:{$DOCS_PORT}` in a web browser. You should now see the documentation with live edits as you save changes. 
+5. Go to `http://{$DOCS_HOST}:{$DOCS_PORT}` in a web browser. You should now see the documentation with live edits as you save changes. 
+
+.. note::
+    Do not commit the `.env` file to `git`. 
 
 Docstring Format
 ================

@@ -5,9 +5,10 @@ Position-Switched Data
 Background
 ==========
 
-Position switched observations are those in which the telescope observes a target (the ON position or signal) and another part of the sky, assumed to be devoid of emission (the OFF position or reference).
+Position-switched observations are those in which the telescope observes a target (the ON position or signal) and another part of the sky, assumed to be devoid of emission (the OFF position or reference).
 
-.. image:: ../_static/examples/gbt_ps_2.gif
+.. figure:: .img/gbt_ps_2.gif
+    :alt: A GIF showing the GBT nod back and forth in elevation to demonstrate position switching. 
 
 While observing this is accomplished using the functions `OnOff` or `OffOn` in a scheduling block. For more details about these functions see Sections 6.4.2.2 and 6.4.2.3 of the |gbtog_link|.
 
@@ -15,7 +16,9 @@ While observing this is accomplished using the functions `OnOff` or `OffOn` in a
 
    <a href="http://www.gb.nrao.edu/scienceDocs/GBTog.pdf" target="_blank">GBT observer's guide</a>
 
-A modified version of the scheduling block for the observations used in this example is copied below::
+A modified version of the scheduling block for the observations used in this example is copied below
+
+.. code:: python
 
     # Observing script for NGC 2415
 
@@ -86,7 +89,9 @@ A modified version of the scheduling block for the observations used in this exa
 Calibrating Position-Switched Data
 ==================================
 
-Single beam position-switched (PS) data is retrieved using :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.getps` which returns a :class:`~dysh.spectra.scan.GBTPSScan` position-switched scan object that is used to calibrate and average the data.  First, import the relevant modules::
+Single beam position-switched (PS) data is retrieved using :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.getps` which returns a :class:`~dysh.spectra.scan.GBTPSScan` position-switched scan object that is used to calibrate and average the data.  First, import the relevant modules
+
+.. code:: python
 
     >>> from dysh.fits.gbtfitsload import GBTFITSLoad
     >>> import astropy.units as u
@@ -94,12 +99,16 @@ Single beam position-switched (PS) data is retrieved using :meth:`~dysh.fits.gbt
 ..  (TODO need to replace fixed path with get_example_data() and explanation thereof)::
 
 Then load your SDFITS file containing PS data. In this example, we use a 
-`GBT SDFITS file downloadable from GBO <http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits>`_::
+`GBT SDFITS file downloadable from GBO <http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits>`_
+
+.. code:: python
 
     >>> f = 'TGBT21A_501_11.raw.vegas.fits'
     >>> sdfits = GBTFITSLoad(f)
 
-The returned `sdfits` can be probed for information::
+The returned `sdfits` can be probed for information
+
+.. code:: python
 
     >>> sdfits.info()
         Filename: /data/gbt/examples/onoff-L/data/TGBT21A_501_11.raw.vegas.fits
@@ -107,39 +116,48 @@ The returned `sdfits` can be probed for information::
           0  PRIMARY       1 PrimaryHDU      12   ()      
           1  SINGLE DISH    1 BinTableHDU    245   6040R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '32768E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']   
 
-You can also print a concise (or verbose if you choose `verbose=True`) summary :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.summary` of the data::
+You can also print a concise (or verbose if you choose `verbose=True`) summary :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.summary` of the data
 
+.. code:: python
 
     >>> sdfits.summary()
         SCAN   OBJECT VELOCITY   PROC PROCSEQN  RESTFREQ   DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
     0    152  NGC2415   3784.0  OnOff        1  1.617185  1.420406    5     2   151      1  286.218008   41.62843
     1    153  NGC2415   3784.0  OnOff        2  1.617185  1.420406    5     2   151      1  286.886521  41.118134
 
-Retrieve a scan and its partner ON or OFF, selecting an IF number and polarization, then calibrate it::
+Retrieve a scan and its partner ON or OFF, selecting an IF number and polarization, then calibrate it
+
+.. code:: python
 
     >>> psscan = sdfits.getps(152, ifnum=0, plnum=0)
     >>> psscan.calibrate() # this will be eventually be subsumed into `calibrate=True` in `getps`
         PSSCAN nrows = 302
     
-The system temperature array (`numpy.ndarray`) is stored in `tsys`::
+The system temperature array (`numpy.ndarray`) is stored in `tsys`
+
+.. code:: python
 
     >>> print(f"T_sys = {pscan.tsys.mean():.2f} K")
         T_sys = 17.17 K
 
-Then time average the data, using system temperature weighting (other option is 'equal' weighting; 'tsys' is the default if no `weights` parameter is given. Future upgrade will allow the user to provide a numeric weights array). The returned object is :class:`~dysh.spectra.spectrum.Spectrum`, which has a default `matplotlib`-based plotter attached::
+Then time average the data, using system temperature weighting (other option is 'equal' weighting; 'tsys' is the default if no `weights` parameter is given. Future upgrade will allow the user to provide a numeric weights array). The returned object is :class:`~dysh.spectra.spectrum.Spectrum`, which has a default `matplotlib`-based plotter attached
 
+.. code:: python
 
     >>> ta = psscan.timeaverage(weights='tsys')
     >>> ta.plot()
 
-.. image:: ../_static/examples/ps_152.png
+.. figure:: img/ps_152.png
+    :alt: A frequency versus temperature spectrum plot. The spectrum is noisy and spans 1.390 to 1.415 GHz. 
 
+The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis units and also recognizes a number matplolib-like keywords
 
-The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis units and also recognizes a number matplolib-like keywords::
+.. code:: python
 
     >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
 
-.. image:: ../_static/examples/ps_152_zoom.png
+.. figure:: img/ps_152_zoom.png
+    :alt: The spectrum plot zoomed in along both axes to frame a central emission line. 
 
 .. WARNING::
     At this point, `dysh` does not handle Doppler corrections. So the frequency and velocity information will be wrong for observations requesting a reference frame other than Topocentric.
@@ -151,6 +169,8 @@ Removing a baseline
 Baselines can be removed from :class:`~dysh.spectra.spectrum.Spectrum` with the :meth:`~dysh.spectra.spectrum.Spectrum.baseline` function.   Users provide baseline degree and optionally exclude region in any conformable x-axis unit (e.g., frequency, velocity, channel).  The default model is polynomial (:class:`~astropy.modeling.polynomial.Polynomial1D`) but a Chebyshev series (:class:`~astropy.modeling.polynomial.Chebyshev1D`)
 is also .  The baseline is removed if `remove=True`. 
 
+.. code:: python
+    
     >>> kms = u.km/u.s
     >>> ta.baseline(order=2,exclude=[3600,4100]*kms, remove=True)
     EXCLUDING [Spectral Region, 1 sub-regions:
@@ -168,5 +188,5 @@ is also .  The baseline is removed if `remove=True`.
         ------------------- --------------------- ----------------------
         0.16984671256725348 6.155580136474429e-29 2.2305011385559243e-56
 
-.. image:: ../_static/examples/ps_152_baseline_removed.png
-
+.. figure:: img/ps_152_baseline_removed.png
+    :alt: A plot of a spectrum after its baseline was removed.
