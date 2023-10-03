@@ -159,6 +159,7 @@ class GBTFITSLoad(SDFITSLoad):
                     [compressed_df,ser.to_frame().T],
                     ignore_index=True)
         compressed_df = compressed_df.astype(col_dtypes)
+        print(compressed_df.to_string(index=False))
         return compressed_df
 
     def velocity_convention(self,veldef,velframe):
