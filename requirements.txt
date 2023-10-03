@@ -32,7 +32,6 @@ decorator==5.1.1
 defusedxml==0.7.1
 distlib==0.3.6
 docutils==0.18.1
--e git+ssh://git@github.com/GreenBankObservatory/dysh.git@668189f978d27d0b46c510615d3dddd107a83918#egg=dysh
 editables==0.3
 exceptiongroup==1.1.2
 executing==1.2.0
