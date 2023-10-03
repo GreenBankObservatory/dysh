@@ -14,7 +14,7 @@ from astropy.units import cds
 from astropy.wcs import WCS
 
 from ..spectra.core import tsys_weight
-from ..spectra.scan import GBTPSScan, GBTTPScan
+from ..spectra.scan import PSScan, ScanBlock, TPScan
 from ..spectra.spectrum import Spectrum
 from ..util import consecutive, uniq
 from .sdfitsload import SDFITSLoad
@@ -83,6 +83,35 @@ class GBTFITSLoad(SDFITSLoad):
         # since we have them
         self._index["_OBSTYPE"] = df[1]
         self._index["_SUBOBSMODE"] = df[2]
+
+    def index(self, hdu=None, bintable=None, fitsindex=None):
+        """Return The index table
+        Parameters
+        ----------
+            hdu : int or list
+                Header Data Unit to select from the index. Default: all HDUs
+            bintable :  int
+                The index of the `bintable` attribute, None means all bintables
+            fitsindex: int
+                The index of the FITS file contained in this GBTFITSLoad.  Default:None meaning return one index over all files.
+
+        Returns
+        --------
+            index : ~pandas.DataFrame
+                The index of this GBTFITSLoad
+        """
+        if fitsindex is None:
+            df = self._index
+        else:
+            df = self._sdf[fitsindex]._index
+
+        if hdu is None and bintable is None:
+            return df
+        if hdu is not None:
+            df = df[df["HDU"] == hdu]
+        if bintable is not None:
+            df = df[df["BINTABLE"] == bintable]
+        return df
 
     def summary(self, scans=None, verbose=False):  # selected=False
         # From GBTIDL:
@@ -248,7 +277,7 @@ class GBTFITSLoad(SDFITSLoad):
                 if self._index is None:
                     self._index = s._index
                 else:
-                    self._index = pd.concat([self._index, s._index], axis=0)
+                    self._index = pd.concat([self._index, s._index], axis=0, ignore_index=True)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
@@ -300,7 +329,7 @@ class GBTFITSLoad(SDFITSLoad):
         g = GBTPSScan(self, scanlist, rows, calrows, bintable)
         return g
 
-    def gettp(self, scan, sig=None, cal=None, bintable=0, **kwargs):
+    def gettp(self, scan, sig=None, cal=None, bintable=None, **kwargs):
         """Get a total power scan, optionally calibrating it.
 
         Parameters
@@ -322,7 +351,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         Returns
         -------
-            data : `~spectra.scan.GBTTPScan`
+            data : `~spectra.scan.TPScan`
                 A Spectrum object containing the data
         """
         kwargs_opts = {
@@ -345,44 +374,50 @@ class GBTFITSLoad(SDFITSLoad):
         plnum = kwargs_opts["plnum"]
         fdnum = kwargs_opts["fdnum"]
         subref = kwargs_opts["subref"]
-        df = self._index
-        df = df[(df["SCAN"] == scan)]
-        if sig is not None:
-            sigch = TF[sig]
-            df = df[(df["SIG"] == sigch)]
+        tpblock = ScanBlock()
+        for i in range(len(self._sdf)):
+            df = self._sdf[i]._index
+            df = df[(df["SCAN"] == scan)]
+            if sig is not None:
+                sigch = TF[sig]
+                df = df[(df["SIG"] == sigch)]
+                if kwargs_opts["debug"]:
+                    print("S ", len(df))
+            if cal is not None:
+                calch = TF[cal]
+                df = df[df["CAL"] == calch]
+                if kwargs_opts["debug"]:
+                    print("C ", len(df))
+            if ifnum is not None:
+                df = df[df["IFNUM"] == ifnum]
+                if kwargs_opts["debug"]:
+                    print("I ", len(df))
+            if plnum is not None:
+                df = df[df["PLNUM"] == plnum]
+                if kwargs_opts["debug"]:
+                    print("P ", len(df))
+            if fdnum is not None:
+                df = df[df["FDNUM"] == fdnum]
+                if kwargs_opts["debug"]:
+                    print("F ", len(df))
+            if subref is not None:
+                df = df[df["SUBREF_STATE"] == subref]
+                if kwargs_opts["debug"]:
+                    print("SR ", len(df))
+            # TBD: if ifnum is none then we will have to sort these by ifnum, plnum and store separate arrays or something.
+            tprows = list(df.index)
+            # data = self.rawspectra(bintable)[tprows]
+            calrows = self.calonoff_rows(scans=scan, bintable=bintable, fitsindex=i, **kwargs_opts)
             if kwargs_opts["debug"]:
-                print("S ", len(df))
-        if cal is not None:
-            calch = TF[cal]
-            df = df[df["CAL"] == calch]
-            if kwargs_opts["debug"]:
-                print("C ", len(df))
-        if ifnum is not None:
-            df = df[df["IFNUM"] == ifnum]
-            if kwargs_opts["debug"]:
-                print("I ", len(df))
-        if plnum is not None:
-            df = df[df["PLNUM"] == plnum]
-            if kwargs_opts["debug"]:
-                print("P ", len(df))
-        if fdnum is not None:
-            df = df[df["FDNUM"] == fdnum]
-            if kwargs_opts["debug"]:
-                print("F ", len(df))
-        if subref is not None:
-            df = df[df["SUBREF_STATE"] == subref]
-            if kwargs_opts["debug"]:
-                print("SR ", len(df))
-        # TBD: if ifnum is none then we will have to sort these by ifnum, plnum and store separate arrays or something.
-        tprows = list(df.index)
-        # data = self.rawspectra(bintable)[tprows]
-        calrows = self.calonoff_rows(scans=scan, bintable=bintable, **kwargs_opts)
-        if kwargs_opts["debug"]:
-            print("TPROWS len=", len(tprows))
-            print("CALROWS on len=", len(calrows["ON"]))
+                print("TPROWS len=", len(tprows))
+                print("CALROWS on len=", len(calrows["ON"]))
+                print("fitsindex=", i)
 
-        g = GBTTPScan(self, scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, kwargs_opts["calibrate"])
-        return g
+            g = TPScan(
+                self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, kwargs_opts["calibrate"]
+            )
+            tpblock.append(g)
+        return tpblock
 
     # Inspired by Dave Frayer's snodka: /users/dfrayer/gbtidlpro/snodka
     # TODO: Figure out when, if done, the fix to the Ka beam labelling took place.
@@ -684,7 +719,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         return s
 
-    def calonoff_rows(self, scans=None, bintable=0, **kwargs):
+    def calonoff_rows(self, scans=None, bintable=None, fitsindex=0, **kwargs):
         """Get individual scan row numbers  sorted by whether the calibration (diode) was on or off, and selected by ifnum,plnum, fdnum,subref,bintable.
 
         Parameters
@@ -701,6 +736,8 @@ class GBTFITSLoad(SDFITSLoad):
                 the subreflector state (-1,0,1)
             bintable : int
                 the index for BINTABLE containing the scans
+            fitsindex: int
+                the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
@@ -715,7 +752,7 @@ class GBTFITSLoad(SDFITSLoad):
         subref = kwargs.get("subref", None)
         if type(scans) == int:
             scans = [scans]
-        df = self.index(bintable=bintable)
+        df = self.index(bintable=bintable, fitsindex=fitsindex)
         if scans is not None:
             df = df[df["SCAN"].isin(scans)]
         dfon = self.select("CAL", "T", df)
@@ -736,7 +773,7 @@ class GBTFITSLoad(SDFITSLoad):
         s["OFF"] = list(dfoff.index)
         return s
 
-    def onoff_rows(self, scans=None, ifnum=0, plnum=0, bintable=0):
+    def onoff_rows(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
         """get individual ON/OFF (position switch) scan row numbers selected by ifnum,plnum, bintable.
 
         Parameters
@@ -749,6 +786,8 @@ class GBTFITSLoad(SDFITSLoad):
                 the polarization index
             bintable : int
                 the index for BINTABLE in `sdfits` containing the scans
+            fitsindex: int
+                the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
@@ -769,7 +808,7 @@ class GBTFITSLoad(SDFITSLoad):
             rows[key] = self.scan_rows(scans[key], ifnum, plnum, bintable)
         return rows
 
-    def scan_rows(self, scans, ifnum=0, plnum=0, bintable=0):
+    def scan_rows(self, scans, ifnum=0, plnum=0, bintable=None):
         """get scan rows selected by ifnum,plnum, bintable.
 
         Parameters
@@ -827,6 +866,7 @@ class GBTFITSLoad(SDFITSLoad):
     def write_scans(self, fileobj, scans, output_verify="exception", overwrite=False, checksum=False):
         """
         Write specific scans of the `GBTFITSLoad` to a new file.
+        TBD: How does this work for multiple files??
 
         Parameters
         ----------

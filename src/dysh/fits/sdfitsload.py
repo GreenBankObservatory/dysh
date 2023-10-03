@@ -116,9 +116,10 @@ class SDFITSLoad(object):
             df_obj = df.select_dtypes(["object"])
             df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
             ones = np.ones(len(df.index), dtype=int)
-            # create columns to track HDU and BINTABLE numbers
+            # create columns to track HDU and BINTABLE numbers and original row index
             df["HDU"] = i * ones
             df["BINTABLE"] = (i - 1) * ones
+            df["ROW"] = np.arange(len(df))
             if self._index is None:
                 self._index = df
             else:
@@ -395,6 +396,20 @@ class SDFITSLoad(object):
             nint = self.nrows(bintable) // self.npol(bintable)
         return nint
 
+    def _find_bintable_and_row(self, row):
+        """Given a row number from a multi-bintable spanning index, return
+            the bintable and original row number
+
+        Parameters
+        ----------
+            row :  int
+                The record (row) index to retrieve
+
+        Returns:
+            tuple of ints (bintable, row)
+        """
+        return (self._index.iloc[row]["BINTABLE"], self._index.iloc[row]["ROW"])
+
     def rawspectra(self, bintable):
         """
         Get the raw (unprocessed) spectra from the input bintable.
@@ -419,9 +434,9 @@ class SDFITSLoad(object):
         Parameters
         ----------
             i :  int
-                The row index to retrieve
-            bintable :  int
-                The index of the `bintable` attribute
+                The row index to retrieve.
+            bintable :  int or None
+                The index of the `bintable` attribute. If None, the underlying bintable is computed from i
 
         Returns
         -------
@@ -429,7 +444,11 @@ class SDFITSLoad(object):
                 The i-th row of DATA column of the input bintable
 
         """
-        return self._bintable[bintable].data[:]["DATA"][i]
+        if bintable is None:
+            (bt, row) = self._find_bintable_and_row(i)
+            return self._bintable[bt].data[:]["DATA"][i]
+        else:
+            return self._bintable[bintable].data[:]["DATA"][i]
 
     def getrow(self, i, bintable=0):
         """

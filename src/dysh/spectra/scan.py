@@ -64,7 +64,7 @@ class PSScan(ScanMixin):
     """
 
     def __init__(self, gbtfits, scans, scanrows, bintable):
-        self._gbtfits = gbtfits  # parent class
+        self._sdfits = gbtfits  # parent class
         self._status = 0  # @TODO make these an enumeration, possibly dict
         #                           # ex1:
         self._nint = 0  # 11
@@ -225,14 +225,14 @@ class TPScan(ScanMixin):
     # @TODO get rid of calrows and calc tsys in gettp and pass it in.
     def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable, calibrate=True):
         # TPScan.__init__(self, gbtfits, scan, sigstate, calstate, scanrows, bintable)
-        self._gbtfits = gbtfits  # parent class
+        self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
         self._calstate = calstate
         self._scanrows = scanrows
         self._bintable_index = bintable
         print("BINTABLE = ", bintable)
-        self._data = self._gbtfits.rawspectra(bintable)[scanrows]  # all cal states
+        self._data = self._sdfits.rawspectra(bintable)[scanrows]  # all cal states
         self._status = 0  # @TODO make these an enumeration, possibly dict
         #                           # ex1:
         self._nint = 0
