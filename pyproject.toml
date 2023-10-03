@@ -77,6 +77,7 @@ exclude = [
   "*.swp",
   "/attic",
   "/build",
+  "/_build",
   "/benchmark",
   "/docs",
   "/dist",
