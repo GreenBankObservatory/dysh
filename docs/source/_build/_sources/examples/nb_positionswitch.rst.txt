@@ -1,9 +1,0 @@
-**************************
-Position Switching Example
-**************************
-
-.. include:: ../../../notebooks/examples/positionswitch_nb.ipynb
-    :parser: myst_nb.sphinx_
-
-.. myst_nb::
-  .. include:: ../../../notebooks/examples/positionswitch_nb.ipynb

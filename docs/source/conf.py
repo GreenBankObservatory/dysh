@@ -55,8 +55,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
-    "sphinxcontrib.mermaid",
-    "myst_nb"
+    "sphinxcontrib.mermaid"
 ]
 
 numpydoc_show_class_members = True

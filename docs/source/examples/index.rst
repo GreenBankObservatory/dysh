@@ -9,4 +9,3 @@ Examples for GBT Data
    positionswitch
    totalpower
    subbeamnod
-   nb_positionswitch
