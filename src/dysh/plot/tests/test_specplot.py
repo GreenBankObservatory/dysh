@@ -15,7 +15,7 @@ import dysh
 from dysh.fits import gbtfitsload
 
 
-dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
+#dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
 
 

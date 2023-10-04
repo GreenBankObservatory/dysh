@@ -21,7 +21,7 @@ from widgets.tables import FITSHeaderTable
 from widgets.graphs import *
 from dataload import FITSFileDialog
 
-from gui.core import ThreadCallbacks, DyshWorker
+from . import ThreadCallbacks, DyshWorker
 from widgets.splash import SplashScreen
 from widgets.graphs import *
 from widgets.layouts import *
