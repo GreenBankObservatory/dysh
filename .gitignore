@@ -1,3 +1,6 @@
+# Custom
+.ignore/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -87,6 +90,7 @@ celerybeat-schedule
 .venv
 venv/
 ENV/
+dysh-env*
 
 # Spyder project settings
 .spyderproject
