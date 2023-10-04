@@ -33,6 +33,6 @@ jobs:
         run: |
           hatch build -c 
       - name: Package GUI with PyInstaller
-        uses: JackMcKew/pyinstaller-action-windows@main
-        with:
-            path: gui
+        run: |
+          cd gui
+          pyinstaller app.py
