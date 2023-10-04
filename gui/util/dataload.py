@@ -8,7 +8,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 
-sys.path.insert(0, os.path.abspath('../src'))
+#sys.path.insert(0, os.path.abspath('../src'))
 from dysh.fits.sdfitsload import SDFITSLoad
 
 class FITSFileDialog(QFileDialog):
