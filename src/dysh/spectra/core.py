@@ -4,11 +4,10 @@ import numpy as np
 from astropy.wcs import WCS
 from astropy.io import fits
 import astropy.units as u
-
-# from astropy.table import Table
-from astropy.modeling.polynomial import Polynomial1D, Chebyshev1D
-from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
-from specutils import Spectrum1D, SpectrumList, SpectralRegion
+#from astropy.table import Table
+from astropy.modeling.polynomial import Polynomial1D,Chebyshev1D, Legendre1D, Hermite1D
+from astropy.modeling.fitting import LevMarLSQFitter,LinearLSQFitter
+from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from specutils.fitting import fit_continuum
 import matplotlib.pyplot as plt
 from ..util import uniq
@@ -17,19 +16,19 @@ import warnings
 
 def average(data, axis=0, weights=None):
     """Average a group of spectra or scans.
-     TODO: allow data to be SpectrumList or array of Spectrum
+        TODO: allow data to be SpectrumList or array of Spectrum
 
-    Parameters
-    ----------
-    data : `~numpy.ndarray`
-        The spectral data, typically with shape (nspect,nchan).
-    axis : int
-        The axis over which to average the data.  Default axis=0 will return the average spectrum
-        if shape is (nspect,nchan)
-    weights : `~numpy.ndarray`
-        The weights to use in averaging.  These might typically be system temperature based.
-        The weights array must be the length of the axis over which the average is taken.
-        Default: None will use equal weights
+       Parameters
+       ----------
+       data : `~numpy.ndarray`
+           The spectral data, typically with shape (nspect,nchan).
+       axis : int
+           The axis over which to average the data.  Default axis=0 will return the average spectrum
+           if shape is (nspect,nchan)
+       weights : `~numpy.ndarray`
+           The weights to use in averaging.  These might typically be system temperature based.
+           The weights array must be the length of the axis over which the average is taken.
+           Default: None will use equal weights
 
     Returns
     -------
@@ -42,38 +41,37 @@ def average(data, axis=0, weights=None):
 def exclude_to_region(exclude, refspec, fix_exclude=False):
     """Convert an exclude list to a list of ~specutuls.SpectralRegion.
 
-     Parameters
-     ----------
-
-          exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-              List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:
-
-              One channel-based region:
-
-              >>> [11,51]
-
-              Two channel-based regions:
-
-              >>> [(11,51),(99,123)]
-
-              One `~astropy.units.Quantity` region:
-
-              >>> [110.198*u.GHz,110.204*u.GHz].
-
-              One compound `~specutils.SpectralRegion`:
-
-              >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
-
-          refspec: `~spectra.spectrum.Spectrum`
-              The reference spectrum whose spectral axis will be used
-              when converting between exclude and axis units (e.g. channels to GHz).
-          fix_exclude: bool
-              If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
-
-    Returns
+    Parameters
     ----------
-          regionlist : list of `~specutil.SpectralRegion`
-              A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
+    exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.    Examples:
+
+                One channel-based region:
+
+                >>> [11,51]
+
+                Two channel-based regions:
+
+                >>> [(11,51),(99,123)]
+
+                One `~astropy.units.Quantity` region:
+
+                >>> [110.198*u.GHz,110.204*u.GHz].
+
+                One compound `~specutils.SpectralRegion`:
+
+                >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+
+    refspec: `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used
+        when converting between exclude and axis units (e.g. channels to GHz).
+    fix_exclude: bool
+        If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
+
+      Returns
+      -------
+      regionlist : list of `~specutil.SpectralRegion`
+        A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
 
     """
     regionlist = []
@@ -99,8 +97,8 @@ def exclude_to_region(exclude, refspec, fix_exclude=False):
             # NB: we are assuming that a SpectralAxis is always [lower...upper].  Is this true???
             for pair in exclude:
                 if type(pair[0]) == int:
-                    # convert channel to spectral axis units
-                    lastchan = len(sa) - 1
+                # convert channel to spectral axis units
+                    lastchan = len(sa)-1
                     msg = f"Exclude limits {pair} are not fully within the spectral axis [0,{lastchan}]."
                     if pair[0] < 0 or pair[1] > lastchan:
                         if fix_exclude:
@@ -128,7 +126,7 @@ def exclude_to_region(exclude, refspec, fix_exclude=False):
                     pair[1] = offset + pair[1].to(sa.unit, equivalencies=p.equivalencies)
                     # Ensure test is with sorted [lower,upper]
                     pair = sorted(pair)
-                    salimits = sorted([sa[0], sa[-1]])
+                    salimits = sorted([sa[0],sa[-1]])
                     if pair[0] < salimits[0] or pair[1] > salimits[-1]:
                         msg = (
                             f"Exclude limits {pair} are not fully within the spectral axis"
@@ -148,12 +146,12 @@ def exclude_to_region(exclude, refspec, fix_exclude=False):
 
 def region_to_axis_indices(region, refspec):
     """
-    Parameters
-    ----------
-        region : `~specutils.SpectralRegion`
-        refspec: `~spectra.spectrum.Spectrum`
-            The reference spectrum whose spectral axis will be used
-            when converting between exclude and axis units (e.g., channels to GHz).
+        Parameters
+        ----------
+            region : `~specutils.SpectralRegion`
+            refspec: `~spectra.spectrum.Spectrum`
+                The reference spectrum whose spectral axis will be used
+                when converting between exclude and axis units (e.g., channels to GHz).
 
     Returns
     -------
@@ -181,28 +179,28 @@ def exclude_to_mask(exclude, refspec):
 def baseline(spectrum, order, exclude=None, **kwargs):
     """Fit a baseline for a spectrum
 
-    Parameters
-    ----------
-    spectrum : `~spectra.spectrum.Spectrum`
-        The input spectrum
-    order : int
-        The order of the polynomial series, a.k.a. baseline order
-    exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:
+       Parameters
+       ----------
+       spectrum : `~spectra.spectrum.Spectrum`
+           The input spectrum
+       order : int
+           The order of the polynomial series, a.k.a. baseline order
+       exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+           List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:
 
-        One channel-based region:
+           One channel-based region:
 
-        >>> [11,51]
+           >>> [11,51]
 
-        Two channel-based regions:
+           Two channel-based regions:
 
-        >>> [(11,51),(99,123)]
+           >>> [(11,51),(99,123)]
 
-        One `~astropy.units.Quantity` region:
+           One `~astropy.units.Quantity` region:
 
-        >>> [110.198*u.GHz,110.204*u.GHz].
+           >>> [110.198*u.GHz,110.204*u.GHz].
 
-        One compound `~specutils.SpectralRegion`:
+           One compound `~specutils.SpectralRegion`:
 
         >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
         Default: no exclude region
@@ -212,11 +210,11 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     fitter : `~astropy.fitting._FitterMeta`
         The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.
 
-    Returns
-    -------
-    models : list of `~astropy.modeling.Model`
-        The list of models that contain the fitted model parameters.
-        See `~specutuls.fitting.fit_continuum`.
+       Returns
+       -------
+       models : list of `~astropy.modeling.Model`
+           The list of models that contain the fitted model parameters.
+           See `~specutuls.fitting.fit_continuum`.
 
     """
     kwargs_opts = {
@@ -228,8 +226,8 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     }
     kwargs_opts.update(kwargs)
 
-    _valid_models = ["polynomial", "chebyshev"]
-    _valid_exclude_actions = ["replace", "append", None]
+    _valid_models = ["polynomial", "chebyshev","legendre","hermite"]
+    _valid_exclude_actions = ['replace','append',None]
     # @todo replace with minimum_string_match
     if kwargs_opts["model"] not in _valid_models:
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
@@ -237,6 +235,10 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         model = Polynomial1D(degree=order)
     elif kwargs_opts["model"] == "chebyshev":
         model = Chebyshev1D(degree=order)
+    elif kwargs_opts['model'] == "legendre":
+        model = Legendre1D(degree=order)
+    elif kwargs_opts['model'] == "hermite":
+        model = Hermite1D(degree=order)
     else:
         # should never get here, unless we someday allow user to input a astropy.model
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
@@ -337,15 +339,15 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
 def veldef_to_convention(veldef):
     """given a VELDEF, return the velocity convention expected by Spectrum(1D)
 
-    Parameters
-    ----------
-        veldef : str
-            velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'
+        Parameters
+        ----------
+            veldef : str
+                velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'
 
-    Returns
-    -------
-        convention : str
-        velocity convention string, one of {'radio', 'optical', 'relativistic'}  or None if `velframe` can't be parsed
+        Returns
+        -------
+            convention : str
+            velocity convention string, one of {'radio', 'optical', 'relativistic'}  or None if `velframe` can't be parsed
     """
 
     # @TODO GBT defines these wrong.  Need to sort out and have special version for GBT
@@ -362,31 +364,31 @@ def veldef_to_convention(veldef):
 def tsys_weight(exposure, delta_freq, tsys):
     r"""Compute the system temperature based weight(s) using the expression:
 
-     :math:`w = t_{exp} \times \delta_\nu / T_{sys}^2,`
+        :math:`w = t_{exp} \times \delta_\nu / T_{sys}^2,`
 
     where :math:`t_{exp}` is the exposure time, :math:`\delta_\nu` is the frequency resolution, and :math:`T_{sys}` is the system temperature.
 
-    If `exposure`, `delta_freq`, or `tsys` parameters are given as `~astropy.units.Quantity`,
-    they will be converted to seconds, Hz, K, respectively for the calculation.
-    (Not that this really matters since weights are relative to each other)
+       If `exposure`, `delta_freq`, or `tsys` parameters are given as `~astropy.units.Quantity`,
+       they will be converted to seconds, Hz, K, respectively for the calculation.
+       (Not that this really matters since weights are relative to each other)
 
-    **Note:** The parameters cannot be given as arrays of `~astropy.units.Quantity`, e.g.,
+       **Note:** The parameters cannot be given as arrays of `~astropy.units.Quantity`, e.g.,
 
      >>> import astropy.units as u
      >>> [3*u.s, 4*u.s]   ### WRONG
 
-    Rather, if using `~astropy.units.Quantity`, they have to be `~astropy.units.Quantity` objects, e.g.,
+       Rather, if using `~astropy.units.Quantity`, they have to be `~astropy.units.Quantity` objects, e.g.,
 
      >>> [3, 4]*u.s ### RIGHT!
 
-    Parameters
-    ----------
-         exposure : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The exposure time, typically given in seconds
-         delta_freq : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The channel width in frequency units
-         tsys : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The system temperature, typically in K
+       Parameters
+       ----------
+            exposure : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+                The exposure time, typically given in seconds
+            delta_freq : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+                The channel width in frequency units
+            tsys : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+                The system temperature, typically in K
 
     Returns
     -------
