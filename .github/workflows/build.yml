@@ -5,9 +5,9 @@ name: Build and Pytest
 
 on:
   push:
-    branches: [ "main", "release-0.1.0", "cat-devel", "mwp-devel", "pedro-devel" ]
+    branches: [ "main", "release-0.2.0", "cat-devel", "mwp-devel", "pedro-devel" ]
   pull_request:
-    branches: [ "main", "release-0.1.0", "cat-devel", "mwp-devel", "pedro-devel" ]
+    branches: [ "main", "release-0.2.0", "cat-devel", "mwp-devel", "pedro-devel" ]
 jobs:
   build:
     runs-on:  ${{ matrix.os }}
