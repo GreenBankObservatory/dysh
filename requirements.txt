@@ -1,12 +1,39 @@
-astropy
-matplotlib
-numpy
-pandas
-scipy
-specutils
-myst_parser
+# Infrastructure
+pip
+wheel
+watchdog
 hatch
+tox
+coverage
+Sphinx
+twine
 pytest
+pre-commit
+black
+flake8
+ipython
+
+# Documentation
+sphinx-autobuild
 sphinx_rtd_theme
 sphinxcontrib_mermaid
+myst_parser
+numpydoc
+
+# Toolkit
 wget
+astropy
+rich
+
+# GUI
+pyinstaller
+pyqt5
+pyqt5-sip
+qt_material
+pyqtgraph
+screeninfo
+bs4
+psutil
+PyOpenGL
+qtconsole
+sip
