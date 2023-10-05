@@ -93,17 +93,14 @@ class GBTInfoMessages:
 class FriendlyMessages:
     """General friendly stuff to print"""
 
-    def __init__(self):
-        pass
-
-    def welcome(self):
+    def hello():
         w_message = "Welcome to Dysh"
         w_panel = Panel(w_message, padding=2)
         w_panel = Align.center(w_panel, vertical="middle")
         # DyshRichConsole.print(w_panel)
         rprint(w_panel)
 
-    def goodbye(self):
+    def goodbye():
         bye_message = "Goodbye!"
         bye_panel = Panel(bye_message, padding=2)
         bye_panel = Align.center(bye_panel, vertical="middle")
