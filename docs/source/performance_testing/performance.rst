@@ -19,7 +19,7 @@ We used SDFITS files between 4MB and 23GB in size with number of rows ranging be
 
 The result is that `dysh` performs **better** than `GBTIDL` in loading and indexing files and creating spectra, and **comparably well** for baselining (*with no optimization*). The prototype design can easily handle large files and spectra with many channels.
 
-.. figure:: ../_static/performance_testing/perf.png
+.. figure:: img/perf.png
     :alt: Performance testing of dysh and GBTIDL
     :align: left
 
