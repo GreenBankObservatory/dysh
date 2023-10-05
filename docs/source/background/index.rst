@@ -8,4 +8,4 @@ Why does this exist?
    :maxdepth: 2
    
    gbo_context
-   sdfits_files
+   sdfits_files/index

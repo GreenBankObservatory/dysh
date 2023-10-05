@@ -16,6 +16,7 @@ Contents
    background/index
    getting_started/index
    design/index
+   gui/index
    modules/index
    examples/index
    performance_testing/index

@@ -17,7 +17,8 @@ To submit an issue, use the following steps:
 1. Go to https://github.com/GreenBankObservatory/dysh/issues
 2. Select "New Issue"
 
-.. figure:: ../_static/for_developers/GitHub_Issue.png
+.. figure:: img/GitHub_Issue.png
+    :alt: A screenshot of a blanck GitHub Issue editor
 
 Pre-Commit Hooks
 ================

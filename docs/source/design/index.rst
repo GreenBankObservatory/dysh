@@ -8,3 +8,4 @@ Stuff about the overall design
    :maxdepth: 2
    
    sdfits_loaders
+   structure
