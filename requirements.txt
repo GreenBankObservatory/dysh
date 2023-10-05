@@ -24,6 +24,8 @@ numpydoc
 wget
 astropy
 rich
+specutils
+pandas
 
 # GUI
 pyinstaller
