@@ -26,6 +26,9 @@ astropy
 rich
 specutils
 pandas
+matplotlib
+numpy
+scipy
 
 # GUI
 pyinstaller
