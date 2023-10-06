@@ -47,34 +47,46 @@ The usual caveats apply how you set up your python development environment.
     $ pip install hatch
 ```
 
-2.  Create and activate a virtual environment with hatch and install the packages required for development.
+2.  Hatch will default to using the system Python if there's no ``HATCH_PYTHON`` environment variable set. To use a specific version of Python, add the following line to your ``~/.bash_profile``:
+
+```
+export HATCH_PYTHON=/path/to/bin/python
+```
+
+Then source the new profile to apply the changes.
+
+```bash
+$ source ~/.bash_profile
+```
+
+3.  Create and activate a virtual environment with hatch and install the packages required for development. 
 The virtual environment will be created the first time; subsequent invoking ``hatch shell`` will simply load the created environment.cdi
 
 ```bash
     $ hatch shell
-    (dysh) $ pip install -r requirements_dev.txt
+    (dysh) $ pip install -r requirements.txt
 ```
 
-3.  Build and install the package
+4.  Build and install the package
 
 ```bash
     (dysh) $ hatch build
     (dysh) $ pip install -e .
 ```
 
-4.  You can exit this environment (which effectively had started a new shell) just exit:
+5.  You can exit this environment (which effectively had started a new shell) just exit:
 
 ```bash
     (dysh) $ exit
-    $ 
 ```
 
-4.  Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment
+6.  Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment
 
 ```bash
     $ hatch shell
 ```
-    Notice you can ONLY do that from this directory
+
+Notice you can ONLY do that from this directory
 
 ## Testing
  We use pytest for unit and integration testing.  From the top-level dysh directory, run:
@@ -82,4 +94,3 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 ```bash
     $ pytest
 ```
-

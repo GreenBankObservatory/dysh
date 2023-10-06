@@ -7,7 +7,9 @@ SubBeamNod scans with the GBT consist of using the subreflector to alternate bet
 Calibrating SubBeamNod Data
 ===========================
 
-For this example we will be using data from a receiver checkout, TRCO_230413_Ka. The data can be downloaded from this `link <http://www.gb.nrao.edu/dysh/example_data/subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits>`_. Or, using `wget`::
+For this example we will be using data from a receiver checkout, TRCO_230413_Ka. The data can be downloaded from this `link <http://www.gb.nrao.edu/dysh/example_data/subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits>`_. Or, using `wget`
+
+.. code:: python
 
     >>> import wget
     >>> url = "http://www.gb.nrao.edu/dysh/example_data/subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits"
@@ -17,18 +19,24 @@ For this example we will be using data from a receiver checkout, TRCO_230413_Ka.
 
 SubBeamNod data is retrieved using :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.subbeamnod` which returns a :class:`~dysh.spectra.spectra.Spectrum` object.
 
-First, import the relevant module::
+First, import the relevant module
+
+.. code:: python
 
     >>> from dysh.fits.gbtfitsload import GBTFITSLoad
 
 ..  (TODO need to replace fixed path with get_example_data() and explanation thereof)::
 
-Then load your SDFITS file containing SubBeamNod data::
+Then load your SDFITS file containing SubBeamNod data
+
+.. code:: python
 
     >>> filename = 'TRCO_230413_Ka.raw.vegas.A.fits'
     >>> sdfits = GBTFITSLoad(filename)
 
-The returned `sdfits` can be probed for information::
+The returned `sdfits` can be probed for information
+
+.. code:: python
 
     >>> sdfits.info()
     Filename: /data/gbt/examples/subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits
@@ -36,7 +44,9 @@ The returned `sdfits` can be probed for information::
       0  PRIMARY       1 PrimaryHDU      12   ()      
       1  SINGLE DISH    1 BinTableHDU    245   5280R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '1024E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']   
 
-You can also print a concise (or verbose if you choose `verbose=True`) :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.summary` of the data::
+You can also print a concise (or verbose if you choose `verbose=True`) :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.summary` of the data
+
+.. code:: python
 
     >>> sdfits.summary()
         SCAN     OBJECT VELOCITY        PROC  PROCSEQN RESTFREQ DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
@@ -59,7 +69,9 @@ You can also print a concise (or verbose if you choose `verbose=True`) :meth:`~d
     16    53  1256-0547      0.0         Nod         2     30.5    30.5    1     2    60      2  170.175815  45.201877
     17    54  1256-0547      0.0  SubBeamNod         1     30.5    30.5    1     2   120      2  170.518885  45.232575
 
-The SubBeamNod scans are 43, 46, and 54.  Retrieve and calibrate a SubBeamNod scan, then plot it::
+The SubBeamNod scans are 43, 46, and 54.  Retrieve and calibrate a SubBeamNod scan, then plot it
+
+.. code:: python
 
     >>> sbn = sdfits.subbeamnod(scan=43, fdnum=1, ifnum=0, weights='tsys')
     >>> sbn.plot()

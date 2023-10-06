@@ -14,8 +14,9 @@ from astropy.utils.data import (
 import dysh
 from dysh.fits import gbtfitsload
 
-
-dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
+# PyInstallwe won't work if there's pathlib in the environment
+# Why? Idk. But removing the dependency and commenting this out doesn't seem to hurt. 
+# dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
 
 
