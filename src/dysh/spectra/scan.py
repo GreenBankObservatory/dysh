@@ -230,9 +230,12 @@ class TPScan(ScanMixin):
         self._sigstate = sigstate
         self._calstate = calstate
         self._scanrows = scanrows
-        self._bintable_index = bintable
         print("BINTABLE = ", bintable)
-        self._data = self._sdfits.rawspectra(bintable)[scanrows]  # all cal states
+        if bintable is None:
+            self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows[0])[0]
+        else:
+            self._bintable_index = bintable
+        self._data = self._sdfits.rawspectra(self._bintable_index)[scanrows]  # all cal states
         self._status = 0  # @TODO make these an enumeration, possibly dict
         #                           # ex1:
         self._nint = 0
@@ -242,13 +245,13 @@ class TPScan(ScanMixin):
         # self._nrows = len(scanrows)
         self._tsys = None
         if False:
-            self._npol = gbtfits.npol(bintable)  # TODO deal with bintable
-            self._nint = gbtfits.nintegrations(bintable)
+            self._npol = gbtfits.npol(self._bintable_index)  # TODO deal with bintable
+            self._nint = gbtfits.nintegrations(self._bintable_index)
         self._calrows = calrows
         self._refonrows = self._calrows["ON"]
         self._refoffrows = self._calrows["OFF"]
-        self._refcalon = gbtfits.rawspectra(bintable)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(bintable)[self._refoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._calibrate = calibrate
         if self._calibrate:
             self._data = 0.5 * (self._refcalon + self._refcaloff)

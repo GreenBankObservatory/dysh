@@ -82,7 +82,7 @@ class TestGBTFITSLoad:
         )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
-        diff = tps_off.total_power(0).flux.value - gbtidl_gettp
+        diff = tps_off[0].total_power(0).flux.value - gbtidl_gettp
         assert np.nanmean(diff) == 0.0
 
         # Now, both on and off.
