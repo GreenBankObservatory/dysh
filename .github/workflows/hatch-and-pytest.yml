@@ -33,3 +33,6 @@ jobs:
     - name: Build with hatch
       run: |
         hatch build -c 
+    - name: Test with pytest
+      run: |
+        pytest

@@ -78,7 +78,6 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 
 ```bash
     (dysh) $ exit
-    $ 
 ```
 
 6.  Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment
@@ -95,4 +94,3 @@ Notice you can ONLY do that from this directory
 ```bash
     $ pytest
 ```
-
