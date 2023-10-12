@@ -26,6 +26,9 @@ class ScanMixin(object):
         """The number of polarizations in this Scan"""
         return self._npol
 
+    def calibrate(self, **kwargs):
+        pass
+
     def timeaverage(self, weights=None):
         pass
 
@@ -45,158 +48,28 @@ class ScanBlock(UserList, ScanMixin):
         self._status = None
         self._nrows = 0
         self._npol = 0
+        self._timeaveraged = []
+        self._polaveraged = []
+        self._finalspectrum = []
 
-
-class PSScan(ScanMixin):
-    """
-    Holds a position switch scan pair
-
-    Parameters
-    ----------
-        gbtfits : `~fits.sdfitsload.SDFITSLoad`
-            input SDFITSLoad object (or derivative)
-        scans : dict
-            dictionary with keys 'ON' and 'OFF' containing unique list of ON (sig) and OFF (ref) scan numbers
-        scanrows : dict
-            dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (sig) and OFF (ref) integrations
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
-    """
-
-    def __init__(self, gbtfits, scans, scanrows, bintable):
-        self._sdfits = gbtfits  # parent class
-        self._status = 0  # @TODO make these an enumeration, possibly dict
-        #                           # ex1:
-        self._nint = 0  # 11
-        self._npol = 0  #  2
-        self._on = None  # 44
-        self._off = None  # 44
-        self._calibrated = None  # 22
-        self._timeaveraged = None  #  2
-        self._polaveraged = None  #  1
-        self._bintable_index = bintable
-        self._nrows = len(scanrows["ON"])
-        print(f"PSSCAN nrows = {self.nrows}")
-
-    @property
-    def status(self):
-        """Status flag, will be used later for undo"""
-        return self._status
-
-    @property
-    def nrows(self):
-        """The number of rows in this Scan"""
-        return self._nrows
-
-    @property
-    def npol(self):
-        """The number of polarizations in this Scan"""
-        return self._npol
+    def calibrate(self, **kwargs):
+        for scan in self.data:
+            scan.calibrate(**kwargs)
 
     def timeaverage(self, weights=None):
-        r"""Compute the time-averaged spectrum for this set of scans.
-
-        Parameters
-        ----------
-                weights: str
-                    'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-                    Default: 'tsys'
-        Returns
-        -------
-                spectrum : :class:`~spectra.spectrum.Spectrum`
-                    The time-averaged spectrum
-        """
-        # weights = None (equal) or "tsys"
-        self._timeaveraged = average(self._calibrated, weights=weights)
-        # this should really be a spectrum
+        for scan in self.data:
+            self._timeaveraged.append(scan.timeaverage(weights))
         return self._timeaveraged
 
-    # @TODO write calibrated data to a FITS? file.
-    # def write(self,filename,format,**kwargs):
+    def polaverage(self, weights=None):
+        for scan in self.data:
+            self._polaveraged.append(scan.polaverage(weights))
+        return self._polaveraged
 
-    def __len__(self):
-        return self._nrows
-
-
-class XXTPScan(ScanMixin):
-    """
-    Holds a total power scan
-    Parameters
-    ----------
-        sdfits : ~GBTFITSLoad
-            input GBTFITSLoad object
-        scan: int
-            scan number
-        sigstate : str
-            one of 'SIG' or 'REF' to indicate if this is the signal or reference scan
-        scanrows : list-like
-            the list of rows in `sdfits` corresponding to sig_state integrations
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
-    """
-
-    def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, bintable):
-        self._gbtfits = gbtfits  # parent class
-        self._scan = scan
-        self._sigstate = sigstate
-        self._calstate = calstate
-        self._scanrows = scanrows
-        self._bintable_index = bintable
-        print("BINTABLE = ", bintable)
-        nsdf = len(self._gbtfits._sdf)
-        self.data = np.empty(nsdf)
-        for i in np.arange(nsdf):
-            self._data[i] = self._sdfits.rawspectra(bintable)[scanrows[i]]  # all cal states
-        self._status = 0  # @TODO make these an enumeration, possibly dict
-        #                           # ex1:
-        self._nint = 0  # 11
-        self._npol = 0  #  2
-        self._timeaveraged = None  #  2
-        self._polaveraged = None  #  1
-        self._nrows = len(scanrows)
-        self._tsys = None
-        print(f"TPSCAN nrows = {self.nrows}")
-
-    @property
-    def data(self):
-        return self._data
-
-    @property
-    def scan(self):
-        return self._scan
-
-    # @TODO all the various attributes should be in a dict. sigstate,calstate,ifnum,plnum etc
-    # to make this class flexible. then some sort of clever property accessor.
-    # @TODO TPScanList class or let this class contain multiple scans....bookkeeping!
-
-    @property
-    def sigstate(self):
-        return self._sigstate
-
-    @property
-    def calstate(self):
-        return self._calstate
-
-    @property
-    def status(self):
-        """Status flag, will be used later for undo"""
-        return self._status
-
-    @property
-    def nrows(self):
-        """The number of rows in this Scan"""
-        return self._nrows
-
-    @property
-    def npol(self):
-        """The number of polarizations in this Scan"""
-        return self._npol
-
-    def __len__(self):
-        return self._nrows
+    def finalspectum(self, weights=None):
+        for scan in self.data:
+            self._finalspectrum.append(scan.finalspectrum(weights))
+        return self._finalspectrum
 
 
 class TPScan(ScanMixin):
@@ -224,13 +97,13 @@ class TPScan(ScanMixin):
 
     # @TODO get rid of calrows and calc tsys in gettp and pass it in.
     def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable, calibrate=True):
-        # TPScan.__init__(self, gbtfits, scan, sigstate, calstate, scanrows, bintable)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
-        self._sigstate = sigstate
-        self._calstate = calstate
+        self._sigstate = sigstate  # ignored?
+        self._calstate = calstate  # ignored?
         self._scanrows = scanrows
         print("BINTABLE = ", bintable)
+        # @TODO deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
@@ -257,6 +130,14 @@ class TPScan(ScanMixin):
             self._data = 0.5 * (self._refcalon + self._refcaloff)
         # print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
         self.calc_tsys()
+
+    @property
+    def sigstate(self):
+        return self._sigstate
+
+    @property
+    def calstate(self):
+        return self._calstate
 
     @property
     def tsys(self):
@@ -423,8 +304,8 @@ class TPScan(ScanMixin):
         return self._timeaveraged
 
 
-class GBTPSScan(PSScan):  # perhaps should derive from TPScan, the only difference is the keys.
-    """GBT specific version of Position Switch Scan (PSScan)
+class PSScan(ScanMixin):
+    """GBT specific version of Position Switch Scan
 
     Parameters
     ----------
@@ -441,10 +322,13 @@ class GBTPSScan(PSScan):  # perhaps should derive from TPScan, the only differen
         the index for BINTABLE in `sdfits` containing the scans
     """
 
-    def __init__(self, gbtfits, scans, scanrows, calrows, bintable=0):
-        PSScan.__init__(self, gbtfits, scans, scanrows, bintable)
+    def __init__(self, gbtfits, scans, scanrows, calrows, bintable):
+        # PSScan.__init__(self, gbtfits, scans, scanrows, bintable)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
+        self._sdfits = gbtfits  # parent class
+        self._scans = scans
         self._scanrows = scanrows
+        self._nrows = len(self._scanrows["ON"])
         # print(f"scanrows ON {self._scanrows['ON']}")
         # print(f"scanrows OFF {self._scanrows['OFF']}")
 
@@ -452,8 +336,15 @@ class GBTPSScan(PSScan):  # perhaps should derive from TPScan, the only differen
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
         # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
         self._calrows = calrows
-        self._npol = gbtfits.npol(bintable)  # TODO deal with bintable
-        self._nint = gbtfits.nintegrations(bintable)
+        print("BINTABLE = ", bintable)
+        # @TODO deal with data that crosses bintables
+        if bintable is None:
+            self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
+        else:
+            self._bintable_index = bintable
+        if False:
+            self._npol = gbtfits.npol(self._bintable_index)  # TODO deal with bintable
+            self._nint = gbtfits.nintegrations(self._bintable_index)
         # todo use gbtfits.velocity_convention(veldef,velframe)
         vc = "doppler_radio"
         # so quick with slicing!
@@ -461,10 +352,10 @@ class GBTPSScan(PSScan):  # perhaps should derive from TPScan, the only differen
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-        self._sigcalon = gbtfits.rawspectra(bintable)[self._sigonrows]
-        self._sigcaloff = gbtfits.rawspectra(bintable)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(bintable)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(bintable)[self._refoffrows]
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._tsys = None
 
     @property

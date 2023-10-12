@@ -446,7 +446,7 @@ class SDFITSLoad(object):
         """
         if bintable is None:
             (bt, row) = self._find_bintable_and_row(i)
-            return self._bintable[bt].data[:]["DATA"][i]
+            return self._bintable[bt].data[:]["DATA"][row]
         else:
             return self._bintable[bintable].data[:]["DATA"][i]
 

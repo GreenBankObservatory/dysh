@@ -113,6 +113,47 @@ class GBTFITSLoad(SDFITSLoad):
             df = df[df["BINTABLE"] == bintable]
         return df
 
+    # override sdfits version
+    def rawspectra(self, bintable, fitsindex):
+        """
+        Get the raw (unprocessed) spectra from the input bintable.
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+            fitsindex: int
+                the index of the FITS file contained in this GBTFITSLoad.  Default:0
+
+        Returns
+        -------
+            rawspectra : ~numpy.ndarray
+                The DATA column of the input bintable
+
+        """
+        return self._sdf[fitsindex].rawspectra(bintable)
+
+    def rawspectrum(self, i, bintable=0, fitsindex=0):
+        """
+        Get a single raw (unprocessed) spectrum from the input bintable.
+
+        Parameters
+        ----------
+            i :  int
+                The row index to retrieve.
+            bintable :  int or None
+                The index of the `bintable` attribute. If None, the underlying bintable is computed from i
+            fitsindex: int
+                the index of the FITS file contained in this GBTFITSLoad.  Default:0
+
+        Returns
+        -------
+            rawspectrum : ~numpy.ndarray
+                The i-th row of DATA column of the input bintable
+
+        """
+        return self._sdf[fitsindex].rawspectrum(i, bintable)
+
     def summary(self, scans=None, verbose=False):  # selected=False
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
@@ -286,7 +327,7 @@ class GBTFITSLoad(SDFITSLoad):
 
     #        TODO: figure how to allow [startscan, endscan]
     #            [sampler], ap_eff [if requested units are Jy]
-    def getps(self, scans=None, bintable=0, **kwargs):
+    def getps(self, scans=None, bintable=None, **kwargs):
         """Get the rows that contain position-switched data.  These include ONs and OFFs.
 
            kwargs: plnum, feed, ifnum, integration, calibrate=T/F, average=T/F, tsys, weights
@@ -301,8 +342,8 @@ class GBTFITSLoad(SDFITSLoad):
 
         Returns
         -------
-            psscan : `~spectra.scan.GBTPSScan`
-                A `GBTPScan` object containing the data which can be calibrated.
+            data : `~spectra.scan.ScanBlock`
+                A ScanBlock containing one or more `~spectra.scan.PSScan`
         """
         # all ON/OFF scans
         kwargs_opts = {
@@ -319,15 +360,19 @@ class GBTFITSLoad(SDFITSLoad):
 
         ifnum = kwargs_opts["ifnum"]
         plnum = kwargs_opts["plnum"]
-        scanlist = self.onoff_scan_list(scans, ifnum=ifnum, plnum=plnum, bintable=bintable)
-        # add ifnum,plnum
-        rows = self.onoff_rows(scans, ifnum=ifnum, plnum=plnum, bintable=bintable)
-        # do not pass scan list here. We need all the cal rows. They will
-        # be intersected with scan rows in GBTPSScan
-        # add ifnum,plnum
-        calrows = self.calonoff_rows(scans=None, bintable=bintable)
-        g = GBTPSScan(self, scanlist, rows, calrows, bintable)
-        return g
+        psblock = ScanBlock()
+        for i in range(len(self._sdf)):
+            scanlist = self.onoff_scan_list(scans, ifnum=ifnum, plnum=plnum, fitsindex=i)
+            # add ifnum,plnum
+            rows = self.onoff_rows(scans, ifnum=ifnum, plnum=plnum, bintable=bintable, fitsindex=i)
+            # do not pass scan list here. We need all the cal rows. They will
+            # be intersected with scan rows in PSScan
+            # add ifnum,plnum
+            calrows = self.calonoff_rows(scans=None, bintable=bintable, fitsindex=i)
+            # print(f"Sending PSScan({scanlist},{rows},{calrows},{bintable}")
+            g = PSScan(self._sdf[i], scanlist, rows, calrows, bintable)
+            psblock.append(g)
+        return psblock
 
     def gettp(self, scan, sig=None, cal=None, bintable=None, **kwargs):
         """Get a total power scan, optionally calibrating it.
@@ -351,8 +396,8 @@ class GBTFITSLoad(SDFITSLoad):
 
         Returns
         -------
-            data : `~spectra.scan.TPScan`
-                A Spectrum object containing the data
+            data : `~spectra.scan.ScanBlock`
+                A ScanBlock containing one or more `~spectra.scan.TPScan`
         """
         kwargs_opts = {
             "ifnum": 0,
@@ -637,8 +682,8 @@ class GBTFITSLoad(SDFITSLoad):
             #    data._off = tpoff
             return data
 
-    def onoff_scan_list(self, scans=None, ifnum=0, plnum=0, bintable=None):
-        """Get the scan row indices for position-switch data sorted
+    def onoff_scan_list(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
+        """Get the scans for position-switch data sorted
            by ON and OFF state
 
         Parameters
@@ -651,18 +696,20 @@ class GBTFITSLoad(SDFITSLoad):
                 the polarization index
             bintable : int
                 the index for BINTABLE containing the scans
+            fitsindex: int
+                the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
             rows : dict
-                A dictionary with keys 'ON' and 'OFF' giving the row indices of ON and OFF data for the input scan(s)
+                A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
         """
         self._create_index_if_needed()
-        # print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum})")
+        print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum},bintable={bintable},fitsindex={fitsindex})")
         s = {"ON": [], "OFF": []}
         if type(scans) == int:
             scans = [scans]
-        df = self.index(bintable=bintable)
+        df = self.index(bintable=bintable, fitsindex=fitsindex)
         df = df[(df["PLNUM"] == plnum) & (df["IFNUM"] == ifnum)]
         dfon = self.select("_OBSTYPE", "PSWITCHON", df)
         dfoff = self.select("_OBSTYPE", "PSWITCHOFF", df)
@@ -687,7 +734,7 @@ class GBTFITSLoad(SDFITSLoad):
             missingon = []
             for i in onrequested:
                 expectedoff = i + 1
-                # print(f"DOING ONQUESTED {i}, looking for off {expectedoff}")
+                print(f"DOING ONREQUESTED {i}, looking for off {expectedoff}")
                 if len(setoff.intersection([expectedoff])) == 0:
                     missingoff.append(expectedoff)
                 else:
@@ -798,7 +845,6 @@ class GBTFITSLoad(SDFITSLoad):
         # @TODO rename this sigref_rows?
         # keep the bintable keyword and allow iteration over bintables if requested (bintable=None)
         # print(f"onoff_rows(scans={scans},if={ifnum},pl={plnum})")
-        self._create_index_if_needed()
         rows = {"ON": [], "OFF": []}
         if type(scans) is int:
             scans = [scans]
@@ -808,7 +854,7 @@ class GBTFITSLoad(SDFITSLoad):
             rows[key] = self.scan_rows(scans[key], ifnum, plnum, bintable)
         return rows
 
-    def scan_rows(self, scans, ifnum=0, plnum=0, bintable=None):
+    def scan_rows(self, scans, ifnum=0, plnum=0, bintable=None, fitsindex=0):
         """get scan rows selected by ifnum,plnum, bintable.
 
         Parameters
@@ -820,7 +866,9 @@ class GBTFITSLoad(SDFITSLoad):
             plnum : int
                 the polarization index
             bintable : int
-                the index for BINTABLE in `sdfits` containing the scans
+                the index for BINTABLE in `sdfits` containing the scans. Default:None
+            fitsindex: int
+                the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
@@ -832,7 +880,7 @@ class GBTFITSLoad(SDFITSLoad):
         self._create_index_if_needed()
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
-        df = self.index(bintable=bintable)
+        df = self.index(bintable=bintable, fitsindex=fitsindex)
         df = df[df["SCAN"].isin(scans) & (df["IFNUM"] == ifnum) & (df["PLNUM"] == plnum)]
         rows = list(df.index)
         if len(rows) == 0:
