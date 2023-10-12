@@ -56,17 +56,17 @@ class ScanBlock(UserList, ScanMixin):
         for scan in self.data:
             scan.calibrate(**kwargs)
 
-    def timeaverage(self, weights=None):
+    def timeaverage(self, weights="tsys"):
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
         return self._timeaveraged
 
-    def polaverage(self, weights=None):
+    def polaverage(self, weights="tsys"):
         for scan in self.data:
             self._polaveraged.append(scan.polaverage(weights))
         return self._polaveraged
 
-    def finalspectum(self, weights=None):
+    def finalspectum(self, weights="tsys"):
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum

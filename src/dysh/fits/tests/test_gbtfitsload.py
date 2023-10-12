@@ -47,9 +47,11 @@ class TestGBTFITSLoad:
 
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11.raw.vegas.fits")
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        # psscan is a ScanList
         psscan = sdf.getps(152)
+        assert len(psscan) == 1
         psscan.calibrate()
-        dysh_getps = psscan.calibrated(0).flux.to("K").value
+        dysh_getps = psscan[0].calibrated(0).flux.to("K").value
 
         diff = gbtidl_getps - dysh_getps
         assert np.nanmedian(diff) == 0.0
@@ -70,13 +72,15 @@ class TestGBTFITSLoad:
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11.raw.vegas.fits")
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         tps_on = sdf.gettp(152, sig=True, cal=True, calibrate=False)
+        assert len(tps_on) == 1
 
         # Compare.
-        diff = tps_on.total_power(0).flux.value - gbtidl_gettp
+        diff = tps_on[0].total_power(0).flux.value - gbtidl_gettp
         assert np.nanmean(diff) == 0.0
 
         # Now with the noise diode Off.
         tps_off = sdf.gettp(152, sig=True, cal=False, calibrate=False)
+        assert len(tps_off) == 1
         gbtidl_file = get_pkg_data_filename(
             "data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits"
         )
@@ -87,11 +91,14 @@ class TestGBTFITSLoad:
 
         # Now, both on and off.
         tps = sdf.gettp(152, sig=True, cal=True)
+        assert len(tps) == 1
         tps_tavg = tps.timeaverage()
+        assert len(tps_tavg) == 1
         # gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits")
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
         spec = table["DATA"][0]
-        diff = tps.total_power(0).flux.value - spec
+        diff = tps[0].total_power(0).flux.value - spec
         assert np.nanmean(diff) == 0.0
+        # what about tps_tavg
