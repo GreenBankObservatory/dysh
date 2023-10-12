@@ -2,8 +2,6 @@
 *.fits
 .ignore/
 docs/source/_build/
-gui/build
-gui/dist
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
