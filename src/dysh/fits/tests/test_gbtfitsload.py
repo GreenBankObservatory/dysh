@@ -25,7 +25,10 @@ class TestGBTFITSLoad():
         self._file_list = list(get_pkg_data_filenames("data/", pattern="*.fits"))
 
     def test_load(self):
-
+        """
+        Test loading 8 different sdfits files.
+        Check: number of pandas tables loaded is equal to the expected number.
+        """
         expected = {"TGBT21A_501_11.raw.vegas.fits": 4,
                     "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
                     "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
@@ -46,8 +49,12 @@ class TestGBTFITSLoad():
 
     def test_getps_single_int(self):
         """
+        Compare gbtidl result to dysh for a getps spectrum from a single integration/pol/feed.
+        For the differenced spectrum (gbtidl - dysh) we check:
+         - median is 0.0
+         - all non-nan values are less than 5e-7
+         - index 3072 is nan (why?)
         """
-
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits")
         # We should probably use dysh to open the file...
         hdu = fits.open(gbtidl_file)
@@ -67,8 +74,11 @@ class TestGBTFITSLoad():
 
     def test_gettp_single_int(self):
         """
+        Compare gbtidl result to dysh for a gettp spectrum from a single integration/pol/feed.
+        For the differenced spectrum (gbtidl - dysh) we check:
+        For the noise calibration diode on, off, and both:
+         - mean value is 0.0
         """
-
         # Get the answer from GBTIDL.
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits")
         hdu = fits.open(gbtidl_file)

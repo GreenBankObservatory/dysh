@@ -11,7 +11,7 @@ class SpectrumPlot():
     choices for the plot if no additional keywords are given.
     The attributes are "sticky" meaning that an attribute set via
     instantiation or by the `plot()` method will stay set until changed
-    or reset using the `reset()` method.  
+    or reset using the `reset()` method.
 
     Parameters
     ----------
@@ -22,9 +22,9 @@ class SpectrumPlot():
 
     Other Parameters
     ----------------
-    xaxis_unit : str or ~astrpy.unit.Unit
-        The units to use on the x-axis, e.g. "km/s" to plot velocity 
-    yaxis_unit : str or ~astrpy.unit.Unit
+    xaxis_unit : str or ~astropy.unit.Unit
+        The units to use on the x-axis, e.g. "km/s" to plot velocity
+    yaxis_unit : str or ~astropy.unit.Unit
         The units to use on the y-axis
     xmin : float
         Minimum x-axis value
@@ -72,12 +72,12 @@ class SpectrumPlot():
     def axis(self):
         """The underlying :class:`~matplotlib.Axes` object"""
         return self._axis
-    
+
     @property
     def figure(self):
         """The underlying :class:`~matplotlib.Figure` object"""
         return self._figure
-    
+
     @property
     def spectrum(self):
         """The underlying `~spectra.spectrum.Spectrum`"""
@@ -110,7 +110,7 @@ class SpectrumPlot():
                 sa = np.arange(len(sa))
                 self._plot_kwargs['xlabel'] = "Channel"
             else:
-                # convert the x axis to the requested 
+                # convert the x axis to the requested
                 #print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
                 #sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
                 sa = s.velocity.to( self._plot_kwargs["xaxis_unit"], equivalencies=s.equivalencies)
@@ -225,7 +225,7 @@ class SpectrumPlot():
         kwargs_opts.update(kwargs)
         #if kwargs_opts['loc'] == 'bottom':
         #    self._ax.axhline
-        
+
 
 
     def refresh(self):
@@ -239,4 +239,3 @@ class SpectrumPlot():
     def savefig(self,file,**kwargs):
         """Save the plot"""
         self.figure.savefig(file,*kwargs)
-
