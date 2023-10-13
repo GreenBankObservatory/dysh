@@ -27,15 +27,33 @@ class ScanMixin(object):
         return self._npol
 
     def calibrate(self, **kwargs):
+        """Calibrate the Scan data"""
         pass
 
     def timeaverage(self, weights=None):
+        r"""Compute the time-averaged spectrum for this scan.
+
+        Parameters
+        ----------
+                weights: str
+                    'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+                    Default: 'tsys'
+        Returns
+        -------
+                spectrum : :class:`~spectra.spectrum.Spectrum`
+                    The time-averaged spectrum
+        """
         pass
 
     def polaverage(self, weights=None):
+        """Average all polarizations in this Scan"""
         pass
 
-    def finalspectum(self, weights=None):
+    def finalspectrum(self, weights=None):
+        """Average all times and polarizations in this Scan"""
         pass
 
     def __len__(self):
@@ -53,20 +71,66 @@ class ScanBlock(UserList, ScanMixin):
         self._finalspectrum = []
 
     def calibrate(self, **kwargs):
+        """Calibrate all scans in this ScanBlock"""
         for scan in self.data:
             scan.calibrate(**kwargs)
 
     def timeaverage(self, weights="tsys"):
+        r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
+
+        Parameters
+        ----------
+            weights: str
+                'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+                 :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+                Default: 'tsys'
+        Returns
+        -------
+            timeaverage: list of `~spectra.spectrum.Spectrum`
+                List of all the time-averaged spectra
+        """
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
         return self._timeaveraged
 
     def polaverage(self, weights="tsys"):
+        """Average all polarizations in all scans in this ScanBlock
+
+        Parameters
+        ----------
+            weights: str
+                'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+                 :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+                Default: 'tsys'
+        Returns
+        -------
+            polaverage: list of `~spectra.spectrum.Spectrum`
+                List of all the polarization-averaged spectra
+        """
         for scan in self.data:
             self._polaveraged.append(scan.polaverage(weights))
         return self._polaveraged
 
-    def finalspectum(self, weights="tsys"):
+    def finalspectrum(self, weights="tsys"):
+        """Average all times and polarizations in all scans this ScanBlock
+
+        Parameters
+        ----------
+            weights: str
+                'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+                 :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+                Default: 'tsys'
+        Returns
+        -------
+            finalspectra: list of `~spectra.spectrum.Spectrum`
+                List of all the time- and polarization-averaged spectra
+        """
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
@@ -178,8 +242,8 @@ class TPScan(ScanMixin):
 
             exposure =  0.5*(exp_ref_on + exp_ref_off)
 
-        Note we only have access to the refon and refoff row indices so can't use sig here.
-        This is probably incorrect
+        Note we only have access to the refon and refoff row indices so
+        can't use sig here.  This is probably incorrect
 
         Returns
         -------
@@ -197,8 +261,8 @@ class TPScan(ScanMixin):
 
            df =  0.5*(df_ref_on + df_ref_off)
 
-        Note we only have access to the refon and refoff row indices so can't use sig here.
-        This is probably incorrect
+        Note we only have access to the refon and refoff row indices so
+        can't use sig here.  This is probably incorrect
 
         Returns
         -------
@@ -323,7 +387,6 @@ class PSScan(ScanMixin):
     """
 
     def __init__(self, gbtfits, scans, scanrows, calrows, bintable):
-        # PSScan.__init__(self, gbtfits, scans, scanrows, bintable)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
         self._scans = scans
@@ -336,7 +399,7 @@ class PSScan(ScanMixin):
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
         # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
         self._calrows = calrows
-        print("BINTABLE = ", bintable)
+        # print("BINTABLE = ", bintable)
         # @TODO deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
@@ -530,4 +593,174 @@ class PSScan(ScanMixin):
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        return self._timeaveraged
+
+
+class SubBeamNodScan(ScanMixin):  # SBNodScan?
+    def __init__(self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, **kwargs):
+        kwargs_opts = {
+            "timeaverage": True,
+            "weights": "tsys",  # or None or ndarray
+            "debug": False,
+        }
+        kwargs_opts.update(kwargs)
+        w = kwargs_opts["weights"]
+        if len(reftp) != len(sigtp):
+            raise ValueError(
+                f"Reference and signal total power arrays are different lengths: {len(reftp)} != {len(sigtp)}"
+            )
+        self._sigtp = sigtp
+        self._reftp = reftp
+        self._fulltp = fulltp
+        self._method = method.lower()
+        if self._method not in ["cycle", "scan"]:
+            raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        if calibrate:
+            self.calibrate(weights=w)
+
+    def calibrate(self, **kwargs):
+        """Calibrate the Scan data"""
+        nspect = len(self._reftp)
+        self._tsys = np.empty(nspect, dtype=np.ndarray)
+        self._exposure = np.empty(nspect, dtype=np.ndarray)
+        self._delta_freq = np.empty(nspect, dtype=np.ndarray)
+        self._calibrated = np.empty(nspect, dtype=np.ndarray)
+        if self._method == "cycle":
+            for i in range(nspect):
+                ref_avg = self._reftp[i].timeaverage(weights=kwargs["weights"])
+                sig_avg = self._sigtp[i].timeaverage(weights=kwargs["weights"])
+                # Combine sig and ref.
+                ta = ((sig_avg - ref_avg) / ref_avg).flux.value * ref_avg.meta["WTTSYS"]
+                self._tsys[i] = ref_avg.meta["WTTSYS"]
+                self._exposure[i] = sig_avg.meta["EXPOSURE"]
+                self._delta_freq[i] = sig_avg.meta["CDELT1"]
+                self._calibrated[i] = ta
+
+        elif self._method == "scan":
+            tpon = self._sigtp
+            tpoff = self._reftp
+            # Process the whole scan as a single block.
+            # This is less accurate, but might be needed if
+            # the scan was aborted and there are not enough
+            # sig/ref cycles to do a per cycle calibration.
+            for i in range(len(self._reftp)):
+                on = tpon.timeaverage(weights=kwargs["weights"])
+                off = tpoff.timeaverage(weights=kwargs["weights"])
+                fulltpavg = fulltp.timeaverage(weights=kwargs["weights"])
+                tsys = fulltpavg.meta["TSYS"]
+                # data is a Spectrum.  not consistent with other Scan classes
+                # where _calibrated is a numpy array.
+                data = tsys * (on - off) / off
+                data.meta["MEANTSYS"] = 0.5 * np.mean((on.meta["TSYS"] + off.meta["TSYS"]))
+                data.meta["WTTSYS"] = tsys
+                data.meta["TSYS"] = data.meta["WTTSYS"]
+                self._tsys.append(ref_avg.meta["WTTSYS"])
+                self._calibrated.append(data)
+        else:
+            raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+
+    def calibrated(self, i):
+        meta = deepcopy(self._sigtp[i].timeaverage().meta)
+        meta["TSYS"] = self._tsys[i]
+        naxis1 = len(self._calibrated[i])
+        ctype1 = meta["CTYPE1"]
+        ctype2 = meta["CTYPE2"]
+        ctype3 = meta["CTYPE3"]
+        crval1 = meta["CRVAL1"]
+        crval2 = meta["CRVAL2"]
+        crval3 = meta["CRVAL3"]
+        crpix1 = meta["CRPIX1"]
+        cdelt1 = meta["CDELT1"]
+        restfrq = meta["RESTFREQ"]
+        if "CUNIT1" in meta:
+            cunit1 = meta["CUNIT1"]
+        else:
+            cunit1 = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        rfq = restfrq * u.Unit(cunit1)
+        restfreq = rfq.to("Hz").value
+
+        # @TODO WCS is expensive.  Figure how to calculate spectral_axis instead.
+        wcs = WCS(
+            header={
+                "CDELT1": cdelt1,
+                "CRVAL1": crval1,
+                "CUNIT1": cunit1,
+                "CTYPE1": "FREQ",
+                "CRPIX1": crpix1,
+                "RESTFRQ": restfreq,
+                "CTYPE2": ctype2,
+                "CRVAL2": crval2,
+                "CRPIX2": 1,
+                "CTYPE3": ctype3,
+                "CRVAL3": crval3,
+                "CRPIX3": 1,
+                "CUNIT2": "deg",
+                "CUNIT3": "deg",
+                "NAXIS1": naxis1,
+                "NAXIS2": 1,
+                "NAXIS3": 1,
+            },
+        )
+        vc = veldef_to_convention(meta["VELDEF"])
+
+        return Spectrum(self._calibrated[i] * u.K, wcs=wcs, meta=meta, velocity_convention=vc)
+
+    @property
+    def exposure(self):
+        return self._exposure
+
+    @property
+    def delta_freq(self):
+        return self._delta_freq
+
+    @property
+    def tsys(self):
+        return self._tsys
+
+    @property
+    def _tsys_weight(self):
+        r"""The system temperature weighting array computed from current
+        :math:`T_{sys}, t_{exp}`, and `\delta\nu`. See :meth:`tsys_weight`
+        """
+        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+
+    def timeaverage(self, weights="tsys"):
+        # if self._calibrated is None:
+        if len(self._calibrated) == 0:
+            raise Exception("You can't time average before calibration.")
+        self._timeaveraged = deepcopy(self.calibrated(0))
+        data = self._calibrated
+        nchan = len(data[0])
+        print("NCHAN ", nchan)
+        if weights == "tsys":
+            w = self._tsys_weight
+        else:
+            w = None
+        if self._method == "scan":
+            w = None  # don't double tsys weight
+        if self._method == "cycle":
+            ta_avg = np.zeros(nchan, dtype="d")
+            wt_avg = 0.0  # A single value for now, but it should be an array once we implement vector TSYS.
+            tsys_wt = 0.0
+            tsys_avg = 0.0
+            for i in range(len(data)):
+                wt_avg += self.tsys[i] ** -2.0
+                tsys_wt_ = tsys_weight(self.exposure[i], self.delta_freq[i], self.tsys[i])
+                tsys_wt += tsys_wt_
+                ta_avg[:] += data[i] * self.tsys[i] ** -2.0
+            ta_avg /= wt_avg
+            tsys_avg /= tsys_wt
+            self._timeaveraged._data = ta_avg
+            self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
+            self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
+            self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+            self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
+            return self._timeaveraged
+
+        # print("DATA type ", type(data), "DATA SHAPE ", data.shape, "WEIGHTS SHAPE ", w.shape)
+        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
+        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
         return self._timeaveraged
