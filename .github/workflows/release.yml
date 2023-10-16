@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on:  ${{ matrix.os }}
     environment: release
-    
+
     strategy:
       fail-fast: false
       matrix:
@@ -26,7 +26,8 @@ jobs:
         pip install -r requirements-dev.txt
         pip install -e .
     - name: Build with hatch
-        hatch build -c 
+      run: |
+        hatch build -c
 
   pypi-publish:
     name: upload release to PyPI
