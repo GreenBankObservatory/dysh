@@ -1,6 +1,6 @@
-************
-Installation
-************
+***************************
+Installation for Developers
+***************************
 
 Here are the steps to install ``dysh`` if you want to develop code.
 
