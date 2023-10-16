@@ -32,5 +32,5 @@ To install from github without creating a separate virtual environment:
     $ cd dysh
     $ pip install -e .
 
-If you wish to install using a virtual environment, which we strongly recommend if you plan to contribute to the code, see :doc:`../for_developers/install`.
+If you wish to install using a virtual environment, which we strongly recommend if you plan to contribute to the code, see :doc:`installation instructions for developers <../for_developers/install>`.
 
