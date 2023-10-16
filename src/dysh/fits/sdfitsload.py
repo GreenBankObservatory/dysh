@@ -162,13 +162,13 @@ class SDFITSLoad(object):
         self._obsblock = []
         i = 0
         k = -1
-        print("HDU = ", hdu)
+        # print("HDU = ", hdu)
         if hdu is not None:
             b = self._index[hdu - 1]
             rawspect = self._bintable[i].data["DATA"]
             sl = SpectrumList()
             maxload = int(np.min([maxspect, self.nrows(i)]))
-            print(f"Creating {maxload} Spectrum in bintable {i} HDU {hdu}", file=sys.stderr)
+            # print(f"Creating {maxload} Spectrum in bintable {i} HDU {hdu}", file=sys.stderr)
             for j in range(maxload):
                 k = k + 1
                 # need extra [[]] because we have 1x1 spatial NAXIS

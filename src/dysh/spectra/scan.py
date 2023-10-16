@@ -166,7 +166,7 @@ class TPScan(ScanMixin):
         self._sigstate = sigstate  # ignored?
         self._calstate = calstate  # ignored?
         self._scanrows = scanrows
-        print("BINTABLE = ", bintable)
+        # print("BINTABLE = ", bintable)
         # @TODO deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows[0])[0]
@@ -639,8 +639,6 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         elif self._method == "scan":
             tpon = self._sigtp
             tpoff = self._reftp
-            print("SIGTP[0] is ", type(self._sigtp[0]))
-            print("REFTP[0] is ", type(self._reftp[0]))
             # Process the whole scan as a single block.
             # This is less accurate, but might be needed if
             # the scan was aborted and there are not enough
@@ -733,7 +731,6 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         nchan = len(data[0])
-        print("NCHAN ", nchan)
         if weights == "tsys":
             w = self._tsys_weight
         else:

@@ -62,7 +62,7 @@ class GBTFITSLoad(SDFITSLoad):
         cds.enable()  # to get mmHg
         self._compute_proc()
         if kwargs.get("verbose", None):
-            print("==GBTLoad %s" % filename)
+            print("==GBTLoad %s" % fileobj)
             self.ushow(0, "OBJECT")
             self.ushow(0, "SCAN")
             self.ushow(0, "SAMPLER")
@@ -585,7 +585,7 @@ class GBTFITSLoad(SDFITSLoad):
                 tsys_avg = 0.0
                 exposure = 0.0
 
-                print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
+                # print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
                 # Loop over cycles, calibrating each independently.
                 groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
 
@@ -810,7 +810,7 @@ class GBTFITSLoad(SDFITSLoad):
                 tsys_avg = 0.0
                 exposure = 0.0
 
-                print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
+                # print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
                 # Loop over cycles, calibrating each independently.
                 groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
 
@@ -879,7 +879,6 @@ class GBTFITSLoad(SDFITSLoad):
                     weight=w,
                     calibrate=docal,
                 )
-                print(f"LEN TPON = {len(tpon)}")
                 sigtp.append(tpon[0])
                 tpoff = self.gettp(
                     scan,
@@ -893,7 +892,6 @@ class GBTFITSLoad(SDFITSLoad):
                     weight=w,
                     calibrate=docal,
                 )
-                print(f"LEN TPOFF = {len(tpoff)}")
                 reftp.append(tpoff[0])
                 # in order to reproduce gbtidl tsys, we need to do a normal
                 # total power scan
@@ -908,7 +906,6 @@ class GBTFITSLoad(SDFITSLoad):
                     weight=w,
                     calibrate=docal,
                 )  # .timeaverage(weights=w)
-                print(f"LEN FTP = {len(ftp)}")
                 fulltp.append(ftp[0])
             sb = SubBeamNodScan(sigtp, reftp, fulltp, method=method, calibrate=True, weights=w)
             scanblock.append(sb)
@@ -950,7 +947,7 @@ class GBTFITSLoad(SDFITSLoad):
                 A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
         """
         self._create_index_if_needed()
-        print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum},bintable={bintable},fitsindex={fitsindex})")
+        # print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum},bintable={bintable},fitsindex={fitsindex})")
         s = {"ON": [], "OFF": []}
         if type(scans) == int:
             scans = [scans]
@@ -979,7 +976,7 @@ class GBTFITSLoad(SDFITSLoad):
             missingon = []
             for i in onrequested:
                 expectedoff = i + 1
-                print(f"DOING ONREQUESTED {i}, looking for off {expectedoff}")
+                # print(f"DOING ONREQUESTED {i}, looking for off {expectedoff}")
                 if len(setoff.intersection([expectedoff])) == 0:
                     missingoff.append(expectedoff)
                 else:
