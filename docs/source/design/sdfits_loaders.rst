@@ -1,21 +1,21 @@
 **************
-SDFITS Loaders 
+SDFITS Loaders
 **************
 
 Motivation
 ==========
 
-Although the initial design will be for GBT data, a goal is for `dysh` to be easily modifiable for any single-dish radio telescope. Thus came the idea of an SDFITS loader which would standardize inputs. 
+Although the initial design will be for GBT data, a goal is for `dysh` to be easily modifiable for any single-dish radio telescope. Thus came the idea of an SDFITS loader which would standardize inputs.
 
-Obsblock
-========
+ScanBlock
+=========
 
-Here's the class diagram for an `Obsblock` and its derived classes. 
+Here's the class diagram for an `ScanBlock` and its derived classes.
 
 .. mermaid::
 
     classDiagram
-        class Obsblock{
+        class ScanBlock{
             metadata
             spectra
             summary()
@@ -35,7 +35,7 @@ Here's the class diagram for an `Obsblock` and its derived classes.
             spectra
             fold()
         }
-        class NodScan{
+        class SubBeamNodScan{
             metadata
             spectra
         }
@@ -43,17 +43,12 @@ Here's the class diagram for an `Obsblock` and its derived classes.
             metadata
             spectra
         }
-        class ScanAvg{
-            metadata
-            spectra
-        }
-        Obsblock <|-- PSScan
-        Obsblock <|-- FSScan
-        Obsblock <|-- NodScan
-        Obsblock <|-- OTFScan
-        Obsblock <|-- ScanAvg
-        
-That's probably not super accurate. I just copied the diagram in the stakeholder presentation from last May. 
+        ScanBlock <|-- PSScan
+        ScanBlock <|-- FSScan
+        ScanBlock <|-- NodScan
+        ScanBlock <|-- OTFScan
+
+That's probably not super accurate. I just copied the diagram in the stakeholder presentation from last May.
 
 SDFITSLoad
 ==========
@@ -64,7 +59,7 @@ SDFITSLoad
         class SDFITSLoad{
             _filename
             _bintable
-            _ptable
+            _index
             _binheader
             _data
             _hdu
@@ -100,7 +95,7 @@ SDFITSLoad
             summary()
             write()
         }
-        
+
 
 GBTFITSLoad
 ===========

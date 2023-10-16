@@ -27,10 +27,3 @@ Scan
    :members:
    :undoc-members:
    :show-inheritance:
-
-Obsblock
---------
-.. automodule:: dysh.spectra.obsblock
-   :members:
-   :undoc-members:
-   :show-inheritance:
