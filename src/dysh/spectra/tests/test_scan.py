@@ -40,9 +40,6 @@ class TestPSScan:
 
 class TestSubBeamNod:
     def test_compare_with_GBTIDL(self):
-        if True:
-            assert 1 == 1
-            return
         # get filenames
         # We still need a data file with a single scan in it
         sdf_file = get_pkg_data_filename("data/TRCO_230413_Ka_scan43.fits")
@@ -51,14 +48,14 @@ class TestSubBeamNod:
         # Generate the dysh result.
         # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sbn = sdf.subbeamnod(43, sig=None, cal=None, ifnum=0, fdnum=1, calibrate=True, weights="tsys", method="scan")
+        sbn = sdf.subbeamnod2(43, sig=None, cal=None, ifnum=0, fdnum=1, calibrate=True, weights="tsys", method="scan")
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
         nodscan_gbtidl = hdu[1].data["DATA"][0]
 
         # Compare.
-        ratio = sbn.flux.value / nodscan_gbtidl
+        ratio = sbn[0].calibrated(0).flux.value / nodscan_gbtidl
         # print("DIFF ",np.nanmedian(sbn.flux.value - nodscan_gbtidl))
         # kluge for now since there is a small wavy pattern in
         # the difference at the ~0.06 K level
