@@ -75,6 +75,12 @@ class GBTFITSLoad(SDFITSLoad):
             self.ushow(0, "OBSMODE")
             self.ushow(0, "SIDEBAND")
 
+    def files(self):
+        files = []
+        for sdf in self._sdf:
+            files.append(sdf.filename)
+        return files
+
     def _compute_proc(self):
         """Compute the procedure string from obsmode and add to index"""
         df = self._index["OBSMODE"].str.split(":", expand=True)
@@ -83,6 +89,10 @@ class GBTFITSLoad(SDFITSLoad):
         # since we have them
         self._index["_OBSTYPE"] = df[1]
         self._index["_SUBOBSMODE"] = df[2]
+        for sdf in self._sdf:
+            df = sdf._index["OBSMODE"].str.split(":", expand=True)
+            sdf._index["_OBSTYPE"] = df[1]
+            sdf._index["_SUBOBSMODE"] = df[2]
 
     def index(self, hdu=None, bintable=None, fitsindex=None):
         """Return The index table
@@ -402,7 +412,7 @@ class GBTFITSLoad(SDFITSLoad):
         kwargs_opts = {
             "ifnum": 0,
             "plnum": 0,
-            "fdnum": 0,
+            "fdnum": None,
             "subref": None,  # subreflector position
             "timeaverage": True,
             "polaverage": True,

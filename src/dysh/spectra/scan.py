@@ -5,7 +5,7 @@ import astropy.units as u
 import numpy as np
 from astropy.wcs import WCS
 
-from ..util import sq_weighted_avg
+from ..util import sq_weighted_avg, uniq
 from . import average, mean_tsys, tsys_weight, veldef_to_convention
 from .spectrum import Spectrum
 
@@ -25,6 +25,14 @@ class ScanMixin(object):
     def npol(self):
         """The number of polarizations in this Scan"""
         return self._npol
+
+    def nif(self):
+        """The number of IFs in this Scan"""
+        return self._nif
+
+    def nfeed(self):
+        """The number of feeds in this Scan"""
+        return self._nfeed
 
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
@@ -169,14 +177,21 @@ class TPScan(ScanMixin):
         # print("BINTABLE = ", bintable)
         # @TODO deal with data that crosses bintables
         if bintable is None:
-            self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows[0])[0]
+            self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
             self._bintable_index = bintable
         self._data = self._sdfits.rawspectra(self._bintable_index)[scanrows]  # all cal states
+        df = self._sdfits._index
+        df = df.iloc[scanrows]
+        self._index = df
+        self._feeds = uniq(df["FDNUM"])
+        self._pols = uniq(df["PLNUM"])
+        self._ifs = uniq(df["IFNUM"])
         self._status = 0  # @TODO make these an enumeration, possibly dict
-        #                           # ex1:
         self._nint = 0
-        self._npol = 0
+        self._npol = len(self._pols)
+        self._nfeed = len(self._feeds)
+        self._nif = len(self._ifs)
         self._timeaveraged = None
         self._polaveraged = None
         # self._nrows = len(scanrows)
@@ -293,6 +308,7 @@ class TPScan(ScanMixin):
         -------
             spectrum : `~spectra.spectrum.Spectrum`
         """
+        print(len(self._scanrows), i)
         meta = dict(self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]])
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
@@ -355,6 +371,12 @@ class TPScan(ScanMixin):
                 spectrum : :class:`~spectra.spectrum.Spectrum`
                     The time-averaged spectrum
         """
+        if self._npol > 1:
+            raise Exception("Can't yet time average multiple polarizations")
+        if self._nif > 1:
+            raise Exception("Can't yet time average multiple IFs")
+        if self._nfeed > 1:
+            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == "tsys":
             w = self._tsys_weight
@@ -384,9 +406,11 @@ class PSScan(ScanMixin):
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
+    calibrate: bool
+        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
     """
 
-    def __init__(self, gbtfits, scans, scanrows, calrows, bintable):
+    def __init__(self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
         self._scans = scans
@@ -405,8 +429,15 @@ class PSScan(ScanMixin):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
+        df = self._sdfits._index
+        df = df.iloc[scanrows["ON"]]
+        self._feeds = uniq(df["FDNUM"])
+        self._pols = uniq(df["PLNUM"])
+        self._ifs = uniq(df["IFNUM"])
+        self._npol = len(self._pols)
+        self._nfeed = len(self._feeds)
+        self._nif = len(self._ifs)
         if False:
-            self._npol = gbtfits.npol(self._bintable_index)  # TODO deal with bintable
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # todo use gbtfits.velocity_convention(veldef,velframe)
         vc = "doppler_radio"
@@ -420,6 +451,10 @@ class PSScan(ScanMixin):
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._tsys = None
+        self._calibrated = None
+        self._calibrate = calibrate
+        if self._calibrate:
+            self.calibrate()
 
     @property
     def tsys(self):
@@ -581,8 +616,14 @@ class PSScan(ScanMixin):
                 spectrum : :class:`~spectra.spectrum.Spectrum`
                     The time-averaged spectrum
         """
-        if self._calibrated is None:
+        if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
+        if self._npol > 1:
+            raise Exception("Can't yet time average multiple polarizations")
+        if self._nif > 1:
+            raise Exception("Can't yet time average multiple IFs")
+        if self._nfeed > 1:
+            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
@@ -597,6 +638,28 @@ class PSScan(ScanMixin):
 
 
 class SubBeamNodScan(ScanMixin):  # SBNodScan?
+    """
+    Parameters
+    ----------
+        sigtp:  list of ~spectra.scan.TPScan
+            Signal total power scans
+        reftp:  list ~spectra.scan.TPScan
+            Reference total power scans
+        fulltp:  ~spectra.scan.TPScan
+            A full (sig+ref) total power scans, used only for method='scan'
+        method: str
+            Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
+        calibrate: bool
+            Whether or not to calibrate the data.
+        weights: str
+            Weighting scheme to use when averaging the signal and reference scans
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+    """
+
     def __init__(self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, **kwargs):
         kwargs_opts = {
             "timeaverage": True,
@@ -615,6 +678,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
 
@@ -725,9 +789,14 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
 
     def timeaverage(self, weights="tsys"):
-        # if self._calibrated is None:
-        if len(self._calibrated) == 0:
+        if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
+        if self._npol > 1:
+            raise Exception("Can't yet time average multiple polarizations")
+        if self._nif > 1:
+            raise Exception("Can't yet time average multiple IFs")
+        if self._nfeed > 1:
+            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         nchan = len(data[0])
