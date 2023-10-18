@@ -30,7 +30,6 @@ cryptography==41.0.4
 cycler==0.11.0
 distlib==0.3.7
 docutils==0.18.1
--e git+ssh://git@github.com/GreenBankObservatory/dysh.git@f6245923d749f179b7f964da843a0ed498edaa58#egg=dysh
 editables==0.5
 fastjsonschema==2.18.1
 filelock==3.12.4
