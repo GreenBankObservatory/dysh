@@ -16,7 +16,7 @@ import os
 import sys
 
 #sys.path.insert(0, os.path.abspath('../../'))
-sys.path.insert(0, os.path.abspath('../../src'))
+sys.path.insert(0, os.path.abspath('../src'))
 sys.path.insert(0, os.path.abspath('.'))
 
 import dysh
@@ -115,7 +115,7 @@ pygments_style = "sphinx"
 #
 # TODO: consider using sphinx_sizzle_theme, so we get tooltip definitions?
 html_theme = "sphinx_rtd_theme"
-html_logo = "_static/icon/logo.svg"
+html_logo = "source/_static/icon/logo.svg"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -126,7 +126,7 @@ html_theme_options = {"logo_only": True, "vcs_pageview_mode": "display_github"}
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = ["source/_static"]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
