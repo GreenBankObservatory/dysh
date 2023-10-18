@@ -7,10 +7,18 @@ Background
 
 Position-switched observations are those in which the telescope observes a target (the ON position or signal) and another part of the sky, assumed to be devoid of emission (the OFF position or reference).
 
-.. figure:: .img/gbt_ps_2.gif
+.. figure:: img/gbt_ps_2.gif
     :alt: A GIF showing the GBT nod back and forth in elevation to demonstrate position switching. 
 
-While observing this is accomplished using the functions `OnOff` or `OffOn` in a scheduling block. For more details about these functions see Sections 6.4.2.2 and 6.4.2.3 of the |gbtog_link|.
+While observing this is accomplished using the functions `OnOff` or `OffOn` in a scheduling block. For more details about these functions see Sections |gbtog_onoff_link| and |gbtog_offon_link| of the |gbtog_link|.
+
+.. |gbtog_onoff_link| raw:: html
+
+   <a href="http://www.gb.nrao.edu/scienceDocs/GBTog.pdf#nameddest=subsubsection.6.4.2.2" target="_blank">6.4.2.2</a>
+
+.. |gbtog_offon_link| raw:: html
+
+   <a href="http://www.gb.nrao.edu/scienceDocs/GBTog.pdf#nameddest=subsubsection.6.4.2.3" target="_blank">6.4.2.3</a>
 
 .. |gbtog_link| raw:: html
 

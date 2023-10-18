@@ -1,11 +1,11 @@
 *************
-Git Workflows 
+Git Workflows
 *************
 
 Branches
 ========
 
-The development team employs a GitFlow workflow with personal branching. This means that code in the `main` branch should always be in a releasable state. Developers should maintain their own development branches and commit changes to a `release-x.y.z` branch. When it's time to release, a dedicated team member will merge the `release-x.y.z` branch with the `main` branch and tag it accordingly. 
+The development team employs a GitFlow workflow with personal branching. This means that code in the `main` branch should always be in a releasable state. Developers should maintain their own development branches and commit changes to a `release-x.y.z` branch. When it's time to release, a dedicated team member will merge the `release-x.y.z` branch with the `main` branch and tag it accordingly.
 
 .. mermaid::
 
@@ -40,4 +40,45 @@ The development team employs a GitFlow workflow with personal branching. This me
 Releases
 ========
 
-Release branches will be locked once work on the next release begins. 
+Release branches will be locked once work on the next release begins.
+
+Setting up your own development branch
+========
+
+In the directory you want to work in, set up the repo:
+
+`$ git clone git@github.com:GreenBankObservatory/dysh.git`
+
+`$ cd dysh`
+
+`$ git checkout [branch-name]`
+
+with the [branch-name] replaced by the current release or other branch. Currently, this is "release-0.2.0". Then setup your own development branch with your first name followed by "-devel":
+
+`$ git checkout [name-devel]`
+
+Now make and activate a python virtual environment so your work doesn't impede or break other concurrent projects. Whenever you do some work, make sure you are in your own development branch. When you are ready to merge changes made by other developers into your own branch,
+
+`$ git checkout release-0.2.0`
+
+`$ git pull`
+
+`$ git checkout [name-devel]`
+
+`$ git merge release-0.2.0`
+
+When you are ready to commit changes, review what's been changed with
+
+`$ git status`
+
+and then add the intended files using
+
+`$ git add [path/to/changed/file]`
+
+check `dysh/.gitignore` to make sure you are not adding ignored files (virtual environment data, `_build/`, etc.). Then commit and push with
+
+`$ git commit -m "[this is my commit message]"`
+
+`$ git push`
+
+The first time you run this, it will give a command about setting the origin upstream. Simply copy and run that command. Users of GitHub Desktop can also achieve all of these above steps using the app interface. Next, go to the `dysh GitHub page <https://github.com/GreenBankObservatory/dysh/>`_ and submit a pull request.

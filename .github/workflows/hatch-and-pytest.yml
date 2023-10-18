@@ -1,0 +1,38 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Build and Pytest
+
+on:
+  push:
+    branches: ["main", "release-0.2.0", "cat-devel", "mwp-devel", "pedro-devel"]
+  pull_request:
+    branches: ["main", "release-0.2.0", "cat-devel", "mwp-devel", "pedro-devel"]
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    environment: hatch build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+      - name: Build with hatch
+        run: |
+          hatch build -c
+      - name: Test with pytest
+        run: |
+          pytest

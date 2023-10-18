@@ -2,37 +2,33 @@
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-import sys, os, psutil, getpass, socket
-import numpy as np
-import pyqtgraph as pg
-from astropy.io import fits
-from time import time
-import pandas as pd
-import argparse
+import sys #, os, psutil, getpass, socket
+import wget
+#import numpy as np
+#import pyqtgraph as pg
+#from astropy.io import fits
+#from time import time
+#import pandas as pd
+#import argparse
 from screeninfo import get_monitors
 from qt_material import apply_stylesheet
-
-# ADD PATHS
-sys.path.insert(0, os.path.abspath("."))
-sys.path.insert(0, os.path.abspath("../src"))
 
 # LOCAL GUI IMPORTS
 from widgets.tables import FITSHeaderTable
 from widgets.graphs import *
-from dataload import FITSFileDialog
+from widgets.QIPython import QIPythonConsoleWidget
+from util.dataload import FITSFileDialog
 
-from gui.core import ThreadCallbacks, DyshWorker
+from util.core import ThreadCallbacks, DyshWorker
 from widgets.splash import SplashScreen
 from widgets.graphs import *
 from widgets.layouts import *
-from gui.dataload import DataLoader
+from util.dataload import DataLoader
 
 # DYSH IMPORTS
 from dysh.util.messages import *
-from dysh.util.parallelization import SingleThread
-from dysh.fits.sdfitsload_parallel import SDFITSLoad  
+from dysh.util.parallelization import SingleThread 
 from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.spectra.obsblock import Obsblock
 
 # PARALLELIZATION
 from concurrent.futures import ThreadPoolExecutor
@@ -128,7 +124,7 @@ class DyshMainWindow(QMainWindow):
     def __init__(self, fpath=None):
         """Initializes the main window"""
         super(DyshMainWindow, self).__init__()
-        self.fpath = "/Users/victoriacatlett/Desktop/TGBT21A_501_11.raw.vegas.fits"  # fpath
+        FriendlyMessages.hello()
 
         self.setWindowTitle("Dysh GUI")
         self._init_geometry(0.8)
@@ -186,6 +182,10 @@ class DyshMainWindow(QMainWindow):
         # [TODO] Add logic to determine if GBTFITSLoad or another
         #s_load = DyshWorker(target=self.SDFITS_load_all, args=(self.fpath, 1))
         #s_load.start()
+        #url = "https://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"
+        #self.fpath = wget.download(url)
+        self.fpath = "TGBT21A_501_11.raw.vegas.fits"
+
         self.SDFITS_load_all(self.fpath) #s_load.join()
         self.scan = self.sdfits.getps(152, ifnum=0, plnum=0)
         self.scan.calibrate()
@@ -208,6 +208,7 @@ class DyshMainWindow(QMainWindow):
         self.main_layout.addWidget(self.tabs, 0, 1, 2, 2)
         self._init_tables()
         self._init_plots()
+        self._init_terminal()
 
     def _init_tabs(self):
         self.tabs = QTabWidget()
@@ -268,30 +269,29 @@ class DyshMainWindow(QMainWindow):
     def _init_plot_sidebar(self):
         pass
 
+    def _init_terminal(self):
+        self.terminal = QIPythonConsoleWidget()
+        self.tab4_layout.addWidget(self.terminal, 0, 0, 1, 1)
+
     def _clear_all(self):
         while self.main_layout.count():
             child = self.main_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
 
+    def closeEvent(self, *args, **kwargs):
+        super(QMainWindow, self).closeEvent(*args, **kwargs)
+        self.terminal.stop()
+        FriendlyMessages.goodbye()
+
 class App(QApplication):
     def __init__(self, *args):
         QApplication.__init__(self, *args)
-        self.friendly_messages = FriendlyMessages()
-        self.hello()
         self.main = DyshMainWindow()
-        self.lastWindowClosed.connect(self.bye)
         self.main.show()
 
-    def hello(self):
-        self.friendly_messages.welcome()
-
-    def bye(self):
-        self.friendly_messages.goodbye()
-        self.exit(0)
-
 def main(args):
-    global app
+    #global app
     app = App(args)
     apply_stylesheet(app, theme="dark_purple.xml")
     app.exec_()

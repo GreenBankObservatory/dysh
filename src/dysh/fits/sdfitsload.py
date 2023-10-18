@@ -45,7 +45,7 @@ class SDFITSLoad(object):
     def __init__(self, filename, source=None, hdu=None, **kwargs):
         if kwargs.get("verbose", None):
             print("==SDFITSLoad %s" % filename)
-        cds.enable()  # to get mmHg
+        #cds.enable()  # to get mmHg
         kwargs_opts = {"fix": False}
         kwargs_opts = {"wcs": False}
         kwargs_opts.update(kwargs)
@@ -114,7 +114,7 @@ class SDFITSLoad(object):
             ldu = range(1, len(self._hdu))
         self._ptable = []
         for i in ldu:
-            t = Table.read(self._hdu[i])
+            t = Table.read(self._hdu[i], unit_parse_strict='silent')
             t.remove_column("DATA")
             stripTable(t)
             self._ptable.append(t.to_pandas())

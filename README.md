@@ -64,7 +64,7 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 
 ```bash
     $ hatch shell
-    (dysh) $ pip install -r requirements_dev.txt
+    (dysh) $ pip install -r requirements.txt
 ```
 
 4.  Build and install the package
@@ -78,7 +78,6 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 
 ```bash
     (dysh) $ exit
-    $ 
 ```
 
 6.  Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment
@@ -86,7 +85,8 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 ```bash
     $ hatch shell
 ```
-    Notice you can ONLY do that from this directory
+
+Notice you can ONLY do that from this directory
 
 ## Testing
  We use pytest for unit and integration testing.  From the top-level dysh directory, run:
@@ -94,4 +94,3 @@ The virtual environment will be created the first time; subsequent invoking ``ha
 ```bash
     $ pytest
 ```
-

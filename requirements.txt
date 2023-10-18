@@ -144,3 +144,74 @@ watchdog==3.0.0
 wget==3.2
 yarl==1.9.2
 zipp==3.16.2
+pip
+wheel
+watchdog
+# Infrastructure
+pip
+wheel
+watchdog
+hatch
+tox
+coverage
+Sphinx
+twine
+# Infrastructure
+tox
+coverage
+Sphinx
+twine
+pytest
+pre-commit
+black
+flake8
+ipython
+
+# Documentation
+sphinx-autobuild
+sphinx_rtd_theme
+sphinxcontrib_mermaid
+myst_parser
+
+# Toolkit
+wget
+astropy
+rich
+
+# GUI
+pyinstaller
+pyqt5
+pyqt5-sip
+qt_material
+pyqtgraph
+screeninfo
+bs4
+psutil
+PyOpenGL
+qtconsole
+sip
+myst_parser
+numpydoc
+
+# Toolkit
+wget
+astropy
+rich
+specutils
+pandas
+matplotlib
+numpy
+scipy
+
+# GUI
+pyinstaller
+pyqt5
+pyqt5-sip
+qt_material
+pyqtgraph
+screeninfo
+bs4
+psutil
+PyOpenGL
+qtconsole
+sip

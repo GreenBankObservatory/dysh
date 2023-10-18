@@ -1,5 +1,6 @@
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from threading import Thread
+import sys, os
 
 class ThreadCallbacks:
     def progress(future):
