@@ -2,7 +2,7 @@ aiohttp==3.8.5
 aiosignal==1.3.1
 alabaster==0.7.13
 anyio==4.0.0
-asdf==2.15.1
+asdf==2.15.0
 asdf-astropy==0.4.0
 asdf-coordinates-schemas==0.2.0
 asdf-standard==1.0.3
@@ -30,6 +30,7 @@ cryptography==41.0.4
 cycler==0.11.0
 distlib==0.3.7
 docutils==0.18.1
+-e git+ssh://git@github.com/GreenBankObservatory/dysh.git@f6245923d749f179b7f964da843a0ed498edaa58#egg=dysh
 editables==0.5
 fastjsonschema==2.18.1
 filelock==3.12.4
@@ -52,7 +53,7 @@ jaraco.classes==3.3.0
 jeepney==0.8.0
 Jinja2==3.1.2
 jmespath==1.0.1
-jsonschema==4.19.0
+jsonschema==4.17.3
 jsonschema-specifications==2023.7.1
 jupyter_core==5.3.2
 keyring==24.2.0
@@ -95,6 +96,7 @@ PyQt5==5.15.9
 PyQt5-Qt5==5.15.2
 PyQt5-sip==12.12.2
 pyqtgraph==0.13.3
+pyrsistent==0.19.3
 pytest==7.4.2
 pytest-cov==4.1.0
 python-dateutil==2.8.2
@@ -144,74 +146,3 @@ watchdog==3.0.0
 wget==3.2
 yarl==1.9.2
 zipp==3.16.2
-pip
-wheel
-watchdog
-# Infrastructure
-pip
-wheel
-watchdog
-hatch
-tox
-coverage
-Sphinx
-twine
-# Infrastructure
-tox
-coverage
-Sphinx
-twine
-pytest
-pre-commit
-black
-flake8
-ipython
-
-# Documentation
-sphinx-autobuild
-sphinx_rtd_theme
-sphinxcontrib_mermaid
-myst_parser
-
-# Toolkit
-wget
-astropy
-rich
-
-# GUI
-pyinstaller
-pyqt5
-pyqt5-sip
-qt_material
-pyqtgraph
-screeninfo
-bs4
-psutil
-PyOpenGL
-qtconsole
-sip
-myst_parser
-numpydoc
-
-# Toolkit
-wget
-astropy
-rich
-specutils
-pandas
-matplotlib
-numpy
-scipy
-
-# GUI
-pyinstaller
-pyqt5
-pyqt5-sip
-qt_material
-pyqtgraph
-screeninfo
-bs4
-psutil
-PyOpenGL
-qtconsole
-sip
