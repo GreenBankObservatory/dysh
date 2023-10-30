@@ -52,7 +52,8 @@ class GBTFITSLoad(SDFITSLoad):
             # Find all the FITS files in the directory and sort alphabetically
             # because e.g., VEGAS does A,B,C,D,E
             for f in sorted(path.glob("*.fits")):
-                print(f"doing {f}")
+                if kwargs.get("verbose", None):
+                    print(f"doing {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
