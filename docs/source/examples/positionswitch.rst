@@ -168,7 +168,8 @@ The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis
     :alt: The spectrum plot zoomed in along both axes to frame a central emission line. 
 
 .. WARNING::
-    At this point, `dysh` does not handle Doppler corrections. So the frequency and velocity information will be wrong for observations requesting a reference frame other than Topocentric.
+    At this point, `dysh` does not handle Doppler corrections. 
+    So the frequency and velocity information will be offset for observations requesting a reference frame other than Topocentric.
 
 
 Removing a baseline
