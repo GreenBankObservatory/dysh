@@ -92,6 +92,7 @@ class GBTFITSLoad(SDFITSLoad):
         self._index["_SUBOBSMODE"] = df[2]
         for sdf in self._sdf:
             df = sdf._index["OBSMODE"].str.split(":", expand=True)
+            sdf._index["PROC"] = df[0]
             sdf._index["_OBSTYPE"] = df[1]
             sdf._index["_SUBOBSMODE"] = df[2]
 
@@ -371,9 +372,12 @@ class GBTFITSLoad(SDFITSLoad):
 
         ifnum = kwargs_opts["ifnum"]
         plnum = kwargs_opts["plnum"]
+        # todo apply_selection(kwargs_opts)
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             scanlist = self.onoff_scan_list(scans, ifnum=ifnum, plnum=plnum, fitsindex=i)
+            if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                continue
             # add ifnum,plnum
             rows = self.onoff_rows(scans, ifnum=ifnum, plnum=plnum, bintable=bintable, fitsindex=i)
             # do not pass scan list here. We need all the cal rows. They will
@@ -383,6 +387,9 @@ class GBTFITSLoad(SDFITSLoad):
             # print(f"Sending PSScan({scanlist},{rows},{calrows},{bintable}")
             g = PSScan(self._sdf[i], scanlist, rows, calrows, bintable)
             scanblock.append(g)
+        if len(scanblock) == 0:
+            # raise Exception("Didn't find any scans matching the input selection criteria.")
+            warnings.warn("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
     def gettp(self, scan, sig=None, cal=None, bintable=None, **kwargs):
@@ -478,7 +485,7 @@ class GBTFITSLoad(SDFITSLoad):
     # Inspired by Dave Frayer's snodka: /users/dfrayer/gbtidlpro/snodka
     # TODO: Figure out when, if done, the fix to the Ka beam labelling took place.
     # TODO: sig and ref parameters no longer needed? Fix description of calibrate keyword, or possibly eliminate it.
-    def subbeamnod(self, scan, bintable=None, **kwargs):
+    def _subbeamnod_old(self, scan, bintable=None, **kwargs):
         """Get a subbeam nod power scan, optionally calibrating it.
 
         Parameters
@@ -700,7 +707,8 @@ class GBTFITSLoad(SDFITSLoad):
             #    data._off = tpoff
             return data
 
-    def subbeamnod2(self, scan, bintable=None, **kwargs):
+    def subbeamnod(self, scan, bintable=None, **kwargs):
+        # TODO fix sig/cal -- no longer needed?
         """Get a subbeam nod power scan, optionally calibrating it.
 
         Parameters
@@ -843,34 +851,6 @@ class GBTFITSLoad(SDFITSLoad):
                     )
                 sb = SubBeamNodScan(sigtp, reftp, method=method, calibrate=True, weights=w)
                 scanblock.append(sb)
-                # ta[i] = copy.deepcopy(sig_avg)
-                # ta[i] = ta[i].new_flux_unit("K", suppress_conversion=True)
-                # ta[i]._data = ((sig_avg - ref_avg) / ref_avg).flux.value * ref_avg.meta["WTTSYS"] * u.K
-                ## TUNIT7 is fragile as locations of specific header data could change in the future.
-                # ta[i].meta["TUNIT7"] = "Ta"
-                # ta[i].meta["TSYS"] = ref_avg.meta["WTTSYS"]
-
-                # Add to the average, a-la accum.
-                # @TODO possibly replace with a call to util.sq_weighted_avg
-                # wt_avg += ta[i].meta["TSYS"] ** -2.0
-                # ta_avg[:] += ta[i].flux.value * ta[i].meta["TSYS"] ** -2.0
-                ##tsys_wt_ = tsys_weight(ta[i].meta["EXPOSURE"], ta[i].meta["CDELT1"], ta[i].meta["TSYS"])
-                # tsys_wt += tsys_wt_
-                # tsys_avg += ta[i].meta["TSYS"] * tsys_wt_
-                # exposure += ta[i].meta["EXPOSURE"]
-
-                # Divide by the sum of the weights.
-                # ta_avg /= wt_avg
-                # tsys_avg /= tsys_wt
-        #
-        #                # Set up a Spectrum1D object to return.
-        #                data = copy.deepcopy(ta[-1])
-        #                data._data = ta_avg
-        #                data.meta["TSYS"] = tsys_avg
-        #                data.meta["EXPOSURE"] = exposure
-        #
-        #                return data
-
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
                 # Process the whole scan as a single block.
@@ -920,22 +900,10 @@ class GBTFITSLoad(SDFITSLoad):
                 fulltp.append(ftp[0])
             sb = SubBeamNodScan(sigtp, reftp, fulltp, method=method, calibrate=True, weights=w)
             scanblock.append(sb)
-
-            # on = tpon.timeaverage(weights=w)
-            # off = tpoff.timeaverage(weights=w)
-
-            # tsys = fulltp.meta["TSYS"]
-            # data = tsys * (on - off) / off
-            # data.meta["MEANTSYS"] = 0.5 * np.mean((on.meta["TSYS"] + off.meta["TSYS"]))
-            # data.meta["WTTSYS"] = tsys
-            # data.meta["TSYS"] = data.meta["WTTSYS"]
-            # if kwargs_opts['debug']:
-            #    data._on = tpon
-            #    data._off = tpoff
-            # return data
         return scanblock
 
     def onoff_scan_list(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
+        # need to change to selection kwargs, allow fdnum etc and allow these values to be None
         """Get the scans for position-switch data sorted
            by ON and OFF state
 
@@ -959,24 +927,33 @@ class GBTFITSLoad(SDFITSLoad):
         """
         self._create_index_if_needed()
         # print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum},bintable={bintable},fitsindex={fitsindex})")
+        if fitsindex is not None:
+            print("FILE ", self._sdf[fitsindex]._filename)
         s = {"ON": [], "OFF": []}
         if type(scans) == int:
             scans = [scans]
         df = self.index(bintable=bintable, fitsindex=fitsindex)
         df = df[(df["PLNUM"] == plnum) & (df["IFNUM"] == ifnum)]
+        procset = set(uniq(df["PROC"]))
+        lenprocset = len(procset)
+        if lenprocset == 0:
+            # This is ok since not all files in a set have all the polarizations, feeds, or IFs
+            warnings.warn("no on/off scans found for given selection")
+            return s
+        if lenprocset > 1:
+            raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
+        proc = list(procset)[0]
         dfon = self.select("_OBSTYPE", "PSWITCHON", df)
         dfoff = self.select("_OBSTYPE", "PSWITCHOFF", df)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
         offscans = uniq(list(dfoff["SCAN"]))
         if scans is not None:
-            # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF)
-            # First check the requested scan number(s) are even in the ONs or OFFs of this bintable
+            # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF).
+            # First check the requested scan number(s) are in the ONs or OFFs of this bintable.
             seton = set(onscans)
             setoff = set(offscans)
             onrequested = seton.intersection(scans)
-            # print("ON REQUESTED ",onrequested)
             offrequested = setoff.intersection(scans)
-            # print("OFF REQUESTED ",offrequested)
             if len(onrequested) == 0 and len(offrequested) == 0:
                 raise ValueError(f"Scans {scans} not found in ONs or OFFs of bintable {bintable}")
             # Then check that for each requested ON/OFF there is a matching OFF/ON
@@ -985,15 +962,24 @@ class GBTFITSLoad(SDFITSLoad):
             soffs = list(offrequested.copy())
             missingoff = []
             missingon = []
+            # Figure out the companion scan
+            if proc == "OnOff":
+                offdelta = 1
+                ondelta = -1
+            elif proc == "OffOn":
+                offdelta = -1
+                ondelta = 1
+            else:
+                raise Exception(f"I don't know how to handle PROCTYPE {df['PROC']} for the requested scan operation")
             for i in onrequested:
-                expectedoff = i + 1
+                expectedoff = i + offdelta
                 # print(f"DOING ONREQUESTED {i}, looking for off {expectedoff}")
                 if len(setoff.intersection([expectedoff])) == 0:
                     missingoff.append(expectedoff)
                 else:
                     soffs.append(expectedoff)
             for i in offrequested:
-                expectedon = i - 1
+                expectedon = i + ondelta
                 # print(f"DOING OFFEQUESTED {i}, looking for on {expectedon}")
                 if len(seton.intersection([expectedon])) == 0:
                     missingon.append(expectedon)
@@ -1009,8 +995,6 @@ class GBTFITSLoad(SDFITSLoad):
                     f"For the requested OFF scans {offrequested}, the ON scans {missingon} were not present in bintable"
                     f" {bintable}"
                 )
-            # print("ON",sorted(sons))
-            # print("OFF",sorted(soffs))
             s["ON"] = sorted(set(sons))
             s["OFF"] = sorted(set(soffs))
         else:
