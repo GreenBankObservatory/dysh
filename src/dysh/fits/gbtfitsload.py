@@ -388,8 +388,8 @@ class GBTFITSLoad(SDFITSLoad):
             g = PSScan(self._sdf[i], scanlist, rows, calrows, bintable)
             scanblock.append(g)
         if len(scanblock) == 0:
-            # raise Exception("Didn't find any scans matching the input selection criteria.")
-            warnings.warn("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any scans matching the input selection criteria.")
+        # warnings.warn("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
     def gettp(self, scan, sig=None, cal=None, bintable=None, **kwargs):
@@ -480,6 +480,8 @@ class GBTFITSLoad(SDFITSLoad):
                 self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, kwargs_opts["calibrate"]
             )
             scanblock.append(g)
+        if len(scanblock) == 0:
+            raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
     # Inspired by Dave Frayer's snodka: /users/dfrayer/gbtidlpro/snodka
@@ -900,6 +902,8 @@ class GBTFITSLoad(SDFITSLoad):
                 fulltp.append(ftp[0])
             sb = SubBeamNodScan(sigtp, reftp, fulltp, method=method, calibrate=True, weights=w)
             scanblock.append(sb)
+        if len(scanblock) == 0:
+            raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
     def onoff_scan_list(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
