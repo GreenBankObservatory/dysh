@@ -934,7 +934,11 @@ class GBTFITSLoad(SDFITSLoad):
             scans = [scans]
         df = self.index(bintable=bintable, fitsindex=fitsindex)
         df = df[(df["PLNUM"] == plnum) & (df["IFNUM"] == ifnum)]
-        procset = set(uniq(df["PROC"]))
+        # don't want to limit scans yet since only on or off scan scan numbers may have been
+        # passed in, but do need to ensure that a single PROCTYPE is in the given scans
+        # Alterative is to this check at the end (which is probably better)
+        df2 = df[df["SCAN"].isin(scans)]
+        procset = set(uniq(df2["PROC"]))
         lenprocset = len(procset)
         if lenprocset == 0:
             # This is ok since not all files in a set have all the polarizations, feeds, or IFs
