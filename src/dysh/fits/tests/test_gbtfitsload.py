@@ -7,6 +7,7 @@ from astropy.io import fits
 from astropy.utils.data import get_pkg_data_filename, get_pkg_data_filenames
 
 import dysh
+from dysh import util
 from dysh.fits import gbtfitsload
 
 dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
@@ -102,3 +103,14 @@ class TestGBTFITSLoad:
         diff = tps[0].total_power(0).flux.value - spec
         assert np.nanmean(diff) == 0.0
         # what about tps_tavg
+
+    def test_load_multifits(self):
+        """
+        Loading multiple SDFITS files under a directory.
+        """
+
+        root_path = util.get_project_root()
+        data_path = f"{root_path}/testdata"
+        fits_path = f"{data_path}/AGBT18B_354_03.raw.vegas"
+
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
