@@ -8,6 +8,7 @@ on:
     branches: [ "main", "release-0.1.0", "cat-devel", "mwp-devel", "pedro-devel" ]
   pull_request:
     branches: [ "main", "release-0.1.0", "cat-devel", "mwp-devel", "pedro-devel" ]
+  workflow_dispatch: # needed for "Run" button to show up in action 
 jobs:
   build:
     runs-on:  ${{ matrix.os }}
