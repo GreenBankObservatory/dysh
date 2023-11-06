@@ -1,43 +1,43 @@
-
 import pytest
 import pathlib
+
 import numpy as np
 
 from astropy.io import fits
-from astropy.utils.data import (
-                            get_pkg_data_filename,
-                            )
+from astropy.utils.data import get_pkg_data_filename
 
 import dysh
 from dysh.fits import gbtfitsload
 
-#dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
-class TestGBTPSScan():
 
+class TestPSScan:
     def test_compare_with_GBTIDL(self):
-
         # get filenames
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2.fits")
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits")
-        #sdf_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2.fits"
-        #gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
+        # sdf_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        # gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        # psscan is a ScanList
         psscan = sdf.getps(152, plnum=0)
+        assert len(psscan) == 1
         psscan.calibrate()
+        # psscan_tavg is a list
         psscan_tavg = psscan.timeaverage(weights="tsys")
+        assert len(psscan_tavg) == 1
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
         psscan_gbtidl = hdu[1].data["DATA"][0]
 
         # Compare.
-        diff = psscan_tavg.flux.value - psscan_gbtidl
+        diff = psscan_tavg[0].flux.value - psscan_gbtidl
         assert np.nanmedian(diff) == 0.0
 
-
+    
     def test_baseline_removal(self):
 
         #get filenames
@@ -67,9 +67,7 @@ class TestGBTPSScan():
         #assert np.nanmean(diff) == 0
 
 
-
-class TestSubBeamNod():
-
+class TestSubBeamNod:
     def test_compare_with_GBTIDL(self):
         # get filenames
         # We still need a data file with a single scan in it
@@ -88,14 +86,13 @@ class TestSubBeamNod():
         nodscan_gbtidl = hdu[1].data["DATA"][0]
 
         # Compare.
-        ratio = sbn.flux.value/nodscan_gbtidl
-        #print("DIFF ",np.nanmedian(sbn.flux.value - nodscan_gbtidl))
+        ratio = sbn[0].calibrated(0).flux.value / nodscan_gbtidl
         # kluge for now since there is a small wavy pattern in
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
 
-class TestGBTTPScan():
 
+class TestTPScan:
     def test_compare_with_GBTIDL_tsys_weights(self):
         """
         This test compares `gettp` when using radiometer weights.
@@ -113,11 +110,15 @@ class TestGBTTPScan():
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tp  = sdf.gettp(152)
+        # tp is a ScanList
+        tp = sdf.gettp(152)
+        assert len(tp) == 1
+        # tpavg is a list
         tpavg = tp.timeaverage()
+        assert len(tpavg) == 1
 
         # Check that we know how to add.
-        assert tpavg.meta["EXPOSURE"] == tp.exposure.sum()
+        assert tpavg[0].meta["EXPOSURE"] == tp[0].exposure.sum()
 
         # Load GBTIDL result.
         hdu = fits.open(gbtidl_file)
@@ -131,11 +132,12 @@ class TestGBTTPScan():
         # System temperature.
         # For some reason, the last integration comes out with a
         # difference in TSYS ~4e-10 rather than ~1e-14. Check why.
-        assert np.all(abs(table["TSYS"][:-1] - tp.tsys) < 1e-9)
-        assert abs(tpavg.meta["TSYS"] - table["TSYS"][-1]) < 1e-10
+        assert np.all(abs(table["TSYS"][:-1] - tp[0].tsys) < 1e-9)
+        assert abs(tpavg[0].meta["TSYS"] - table["TSYS"][-1]) < 1e-10
         # Data, which uses float -- 32 bits.
         assert np.sum(tp._data - data[:-1]) == 0.0
         assert np.nanmean((tpavg.flux.value - data[-1])/data[-1].mean()) < 2**-32
+
 
     def test_compare_with_GBTIDL_equal_weights(self):
         """
@@ -146,17 +148,19 @@ class TestGBTTPScan():
         and that the system temperature is the same up to the precision
         used by GBTIDL.
         """
-
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits")
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tp  = sdf.gettp(152)
+        tp = sdf.gettp(152)
+        assert len(tp) == 1
+        # tpavg is a list
         tpavg = tp.timeaverage(weights=None)
+        assert len(tpavg) == 1
 
         # Check that we know how to add.
-        assert tpavg.meta["EXPOSURE"] == tp.exposure.sum()
+        assert tpavg[0].meta["EXPOSURE"] == tp[0].exposure.sum()
 
         # Load GBTIDL result.
         hdu = fits.open(gbtidl_file)
