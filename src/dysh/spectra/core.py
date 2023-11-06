@@ -49,7 +49,11 @@ def average(data, axis=0, weights=None):
     average : `~numpy.ndarray`
         The average along the input axis
     """
-    return np.average(data, axis, weights)
+    # Spectra that are blanked will have all channels set to NaN
+    # indices = ~np.isnan(data)
+    # For now, drop ANY spectra (rows) that have a NaN or Inf
+    c = data[~np.ma.fix_invalid(data).mask.any(axis=1)]
+    return np.average(c, axis, weights)
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
