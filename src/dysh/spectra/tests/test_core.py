@@ -4,10 +4,8 @@ import pytest
 import numpy as np
 
 from astropy.io import fits
-from astropy.utils.data import (
-                    get_pkg_data_filename,
-                    )
 
+from dysh import util
 from dysh.spectra import core
 
 
@@ -19,14 +17,17 @@ class TestMeanTsys():
     Tests for `dysh.spectra.core.dcmeantsys` function.
     """
 
+    def setup_method(self):
+        self.root_dir = util.get_project_root()
+        self.data_dir = f"{self.root_dir}/testdata"
+
     def test_tsys(self):
 
         expected = np.array([17.24000345, 17.17140405, 17.15663698])
 
-        path_to_file = "../../fits/tests/data"
+        path_to_file = f"{self.data_dir}/TGBT21A_501_11"
         filename = "TGBT21A_501_11_ifnum_0_int_0-2.fits"
-        sdf_file = f"{LOCALDIR}/{path_to_file}/{filename}" 
-        #get_pkg_data_filename(f"{path_to_file}/{filename}")
+        sdf_file = f"{path_to_file}/{filename}" 
 
         # Open and select data.
         hdu_sdf = fits.open(sdf_file)
