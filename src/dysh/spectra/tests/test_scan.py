@@ -12,10 +12,12 @@ from dysh.fits import gbtfitsload
 
 
 class TestPSScan:
-    def test_compare_with_GBTIDL(self):
+    def test_compare_with_GBTIDL(self, data_dir):
         # get filenames
-        sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2.fits")
-        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits")
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
+        #sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2.fits")
+        #gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits")
         # sdf_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2.fits"
         # gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
 
@@ -68,11 +70,14 @@ class TestPSScan:
 
 
 class TestSubBeamNod:
-    def test_compare_with_GBTIDL(self):
+    def test_compare_with_GBTIDL(self, data_dir):
         # get filenames
         # We still need a data file with a single scan in it
-        sdf_file = get_pkg_data_filename("data/TRCO_230413_Ka_scan43.fits")
-        gbtidl_file = get_pkg_data_filename("data/TRCO_230413_Ka_snodka_43_ifnum_0_plnum_0_fdnum_1.fits")
+        #sdf_file = get_pkg_data_filename("data/TRCO_230413_Ka_scan43.fits")
+        #gbtidl_file = get_pkg_data_filename("data/TRCO_230413_Ka_snodka_43_ifnum_0_plnum_0_fdnum_1.fits")
+        sdf_file = f"{data_dir}/TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        gbtidl_file = f"{data_dir}/TRCO_230413_Ka/TRCO_230413_Ka_snodka_43_ifnum_0_plnum_0_fdnum_1.fits"
+
 
         # Generate the dysh result.
         # snodka-style. Need test for method='cycle'
@@ -93,7 +98,7 @@ class TestSubBeamNod:
 
 
 class TestTPScan:
-    def test_compare_with_GBTIDL_tsys_weights(self):
+    def test_compare_with_GBTIDL_tsys_weights(self, data_dir):
         """
         This test compares `gettp` when using radiometer weights.
         It takes a scan with multiple integrations and averages
@@ -105,8 +110,10 @@ class TestTPScan:
         same for individual integrations after calibrating them.
         """
 
-        sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
-        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits")
+        #sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
+        #gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits")
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits"
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
@@ -139,7 +146,7 @@ class TestTPScan:
         assert np.nanmean((tpavg[0].flux.value - data[-1])/data[-1].mean()) < 2**-32
 
 
-    def test_compare_with_GBTIDL_equal_weights(self):
+    def test_compare_with_GBTIDL_equal_weights(self, data_dir):
         """
         This test compares `gettp` when using equal weights.
         It takes a scan with multiple integrations and averages
@@ -148,8 +155,10 @@ class TestTPScan:
         and that the system temperature is the same up to the precision
         used by GBTIDL.
         """
-        sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
-        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits")
+        #sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits")
+        #gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits")
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits"
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
