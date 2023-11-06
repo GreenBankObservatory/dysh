@@ -120,8 +120,48 @@ class TestGBTFITSLoad:
     def test_load_multifits(self):
         """
         Loading multiple SDFITS files under a directory.
+        It checks that 
+        
+        * the GBTFITSLoad object has the correct number of IFs
+        * the GBTFITSLoad object has the correct number of polarizations
+        * the GBTFITSLoad object has the correct number of beams
         """
 
         fits_path = f"{self.data_dir}/AGBT18B_354_03.raw.vegas"
 
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
+
+        # Check IFNUMs.
+        ifnums = np.sort(sdf.udata("IFNUM"))
+        assert np.sum(np.subtract(ifnums, [0,1,2,3])) == 0
+
+        # Check PLNUMs.
+        plnums = np.sort(sdf.udata("PLNUM"))
+        assert np.sum(np.subtract(plnums, [0,1])) == 0
+
+        # Check FDNUMs.
+        fdnums = np.sort(sdf.udata("FDNUM"))
+        assert len(fdnums) == 1
+        assert np.sum(np.subtract(fdnums, [0])) == 0
+
+
+    def test_multifits_getps_offon(self):
+        """
+        Loading multiple SDFITS files under a directory.
+        It checks that 
+                        
+        * getps works on all IFs
+        * 
+        """
+        # Load the data.
+        fits_path = f"{self.data_dir}/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+
+        # Check one IF.
+        ps_scans = sdf.getps(6, ifnum=2)
+        ps_spec = ps_scans[0].calibrated(0).flux.to("K").value
+
+        hdu = fits.open(f"{self.data_dir}/AGBT18B_354_03.raw.vegas/getps_scan_6_ifnum_2_plnum_0_intnum_0.fits")
+        gbtidl_spec = hdu[1].data["DATA"]
+
+        assert np.all( (ps_spec - gbtidl_spec) == 0 )
