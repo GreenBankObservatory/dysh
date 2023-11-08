@@ -3,6 +3,7 @@ Core utility classes and functions
 """
 
 import numpy as np
+from pathlib import Path
 
 
 def consecutive(data, stepsize=1):
@@ -54,6 +55,13 @@ def sq_weighted_avg(a,axis=0,weights=None):
         w = weights
     v = np.sqrt(np.average(a*a,axis=axis,weights=weights))
     return v
+
+
+def get_project_root() -> Path:
+    """
+    Returns the project root directory.
+    """
+    return Path(__file__).parent.parent.parent.parent
 
 
 def get_size(obj, seen=None):
