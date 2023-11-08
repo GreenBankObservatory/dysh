@@ -57,10 +57,12 @@ def average(data, axis=0, weights=None):
     # if len(c) == 0:
     #    return np.nan
     # Find indices that have any spectra with all channels = NaN
-    # badindices = np.argwhere(np.isnan(data).all(axis=1))
-    goodindices = np.argwhere(~np.isnan(data).all(axis=1))
-    return np.average(data[goodindices], axis, weights)
-    # return np.average(data[goodindices], axis, weights[goodindices])
+    # badindices = np.where(np.isnan(data).all(axis=1))
+    goodindices = np.where(~np.isnan(data).all(axis=1))
+    if weights is not None:
+        return np.average(data[goodindices], axis, weights[goodindices])
+    else:
+        return np.average(data[goodindices], axis, weights)
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
