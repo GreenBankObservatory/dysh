@@ -51,9 +51,16 @@ def average(data, axis=0, weights=None):
     """
     # Spectra that are blanked will have all channels set to NaN
     # indices = ~np.isnan(data)
-    # For now, drop ANY spectra (rows) that have a NaN or Inf
-    c = data[~np.ma.fix_invalid(data).mask.any(axis=1)]
-    return np.average(c, axis, weights)
+    # Find indices with ANY spectra (rows) that have a NaN or Inf
+    # goodindices = ~np.ma.fix_invalid(data).mask.any(axis=1)
+    # c = data[goodindices]
+    # if len(c) == 0:
+    #    return np.nan
+    # Find indices that have any spectra with all channels = NaN
+    # badindices = np.argwhere(np.isnan(data).all(axis=1))
+    goodindices = np.argwhere(~np.isnan(data).all(axis=1))
+    return np.average(data[goodindices], axis, weights)
+    # return np.average(data[goodindices], axis, weights[goodindices])
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):

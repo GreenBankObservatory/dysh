@@ -17,6 +17,10 @@ class ScanMixin(object):
         return self._status
 
     @property
+    def nchan(self):
+        return self._nchan
+
+    @property
     def nrows(self):
         """The number of rows in this Scan"""
         return self._nrows
@@ -194,7 +198,7 @@ class TPScan(ScanMixin):
         self._nif = len(self._ifs)
         self._timeaveraged = None
         self._polaveraged = None
-        # self._nrows = len(scanrows)
+        self._nrows = len(scanrows)
         self._tsys = None
         if False:
             self._npol = gbtfits.npol(self._bintable_index)  # TODO deal with bintable
@@ -204,6 +208,7 @@ class TPScan(ScanMixin):
         self._refoffrows = self._calrows["OFF"]
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         if self._calibrate:
             self._data = 0.5 * (self._refcalon + self._refcaloff)
@@ -308,7 +313,7 @@ class TPScan(ScanMixin):
         -------
             spectrum : `~spectra.spectrum.Spectrum`
         """
-        print(len(self._scanrows), i)
+        # print(len(self._scanrows), i)
         meta = dict(self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]])
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
@@ -416,8 +421,8 @@ class PSScan(ScanMixin):
         self._scans = scans
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        # print(f"scanrows ON {self._scanrows['ON']}")
-        # print(f"scanrows OFF {self._scanrows['OFF']}")
+        # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
+        # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -447,6 +452,7 @@ class PSScan(ScanMixin):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+        self._nchan = len(self._sigcalon[0])
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
@@ -535,7 +541,7 @@ class PSScan(ScanMixin):
 
         self._status = 1
         nspect = self.nrows // 2
-        self._calibrated = np.empty(nspect, dtype=np.ndarray)
+        self._calibrated = np.empty((nspect, self._nchan), dtype=float)
         self._tsys = np.empty(nspect, dtype=float)
 
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
@@ -675,6 +681,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         self._sigtp = sigtp
         self._reftp = reftp
         self._fulltp = fulltp
+        self._nchan = len(reftp[0]._data[0])
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
@@ -685,10 +692,10 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
         nspect = len(self._reftp)
-        self._tsys = np.empty(nspect, dtype=np.ndarray)
-        self._exposure = np.empty(nspect, dtype=np.ndarray)
-        self._delta_freq = np.empty(nspect, dtype=np.ndarray)
-        self._calibrated = np.empty(nspect, dtype=np.ndarray)
+        self._tsys = np.empty(nspect, dtype=float)
+        self._exposure = np.empty(nspect, dtype=float)
+        self._delta_freq = np.empty(nspect, dtype=float)
+        self._calibrated = np.empty((nspect, self._nchan), dtype=float)
         if self._method == "cycle":
             for i in range(nspect):
                 ref_avg = self._reftp[i].timeaverage(weights=kwargs["weights"])
@@ -805,7 +812,14 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         else:
             w = None
         if self._method == "scan":
-            w = None  # don't double tsys weight
+            w = None  # don't double tsys weight(?)
+            self._timeaveraged = deepcopy(self.calibrated(0))
+            self._timeaveraged._data = average(data, axis=0, weights=w)
+            self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
+            # data.meta["MEANTSYS"] = 0.5 * np.mean((on.meta["TSYS"] + off.meta["TSYS"]))
+            self._timeaveraged.meta["WTTSYS"] = fulltp.meta["TSYS"]
+            self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+            self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
         if self._method == "cycle":  # or weights = "gbtidl"
             # GBTIDL method of weighting subbeamnod data
             ta_avg = np.zeros(nchan, dtype="d")
@@ -830,15 +844,15 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
             self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
             # return self._timeaveraged
 
-        self.tavg2 = tavg2
-        self.tsysavg2 = tsysavg2
-        self.wt1 = wt1
-        self.wt2 = wt2
-        self._timeaveraged2 = deepcopy(self.calibrated(0))
-        # print("DATA type ", type(data), "DATA SHAPE ", data.shape, "WEIGHTS SHAPE ", w.shape)
-        self._timeaveraged2._data = average(data, axis=0, weights=w)
-        self._timeaveraged2.meta["MEANTSYS"] = np.mean(self._tsys)
-        self._timeaveraged2.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
-        self._timeaveraged2.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged2.meta["EXPOSURE"] = np.sum(self.exposure)
+        # self.tavg2 = tavg2
+        # self.tsysavg2 = tsysavg2
+        # self.wt1 = wt1
+        # self.wt2 = wt2
+        # self._timeaveraged2 = deepcopy(self.calibrated(0))
+        ## print("DATA type ", type(data), "DATA SHAPE ", data.shape, "WEIGHTS SHAPE ", w.shape)
+        # self._timeaveraged2._data = average(data, axis=0, weights=w)
+        # self._timeaveraged2.meta["MEANTSYS"] = np.mean(self._tsys)
+        # self._timeaveraged2.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
+        # self._timeaveraged2.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        # self._timeaveraged2.meta["EXPOSURE"] = np.sum(self.exposure)
         return self._timeaveraged

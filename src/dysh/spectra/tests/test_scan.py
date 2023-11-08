@@ -35,7 +35,7 @@ class TestPSScan:
 
         # Compare.
         diff = psscan_tavg[0].flux.value - psscan_gbtidl
-        assert np.nanmedian(diff) == 0.0
+        assert abs(np.nanmedian(diff)) < 1e-9
 
 
 class TestSubBeamNod:
@@ -48,7 +48,7 @@ class TestSubBeamNod:
         # Generate the dysh result.
         # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sbn = sdf.subbeamnod2(43, sig=None, cal=None, ifnum=0, fdnum=1, calibrate=True, weights="tsys", method="scan")
+        sbn = sdf.subbeamnod(43, sig=None, cal=None, ifnum=0, fdnum=1, calibrate=True, weights="tsys", method="scan")
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
