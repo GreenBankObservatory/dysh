@@ -173,15 +173,15 @@ def region_to_axis_indices(region, refspec):
     """
     Parameters
     ----------
-        region : `~specutils.SpectralRegion`
-        refspec: `~spectra.spectrum.Spectrum`
-            The reference spectrum whose spectral axis will be used
-            when converting between exclude and axis units (e.g., channels to GHz).
+    region : `~specutils.SpectralRegion`
+    refspec: `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used
+        when converting between exclude and axis units (e.g., channels to GHz).
 
     Returns
     -------
-        indices : 2-tuple of int
-            The array indices in `refspec` corresponding to `region.bounds`
+    indices : 2-tuple of int
+        The array indices in `refspec` corresponding to `region.bounds`
     """
     # Spectral region to indices in an input spectral axis.
     # @TODO needs to work for multiple spectral regions? or just loop outside this call
