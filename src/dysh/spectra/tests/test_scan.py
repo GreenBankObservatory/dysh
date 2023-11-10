@@ -31,7 +31,7 @@ class TestPSScan:
 
         # Compare.
         diff = psscan_tavg[0].flux.value - psscan_gbtidl
-        assert np.nanmedian(diff) == 0.0
+        assert abs(np.nanmedian(diff)) < 1e-9
 
     @pytest.mark.skip(reason="We need to update this to work with multifits and ScanBlocks")
     def test_baseline_removal(self):

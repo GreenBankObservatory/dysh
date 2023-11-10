@@ -48,7 +48,20 @@ def average(data, axis=0, weights=None):
     average : `~numpy.ndarray`
         The average along the input axis
     """
-    return np.average(data, axis, weights)
+    # Spectra that are blanked will have all channels set to NaN
+    # indices = ~np.isnan(data)
+    # Find indices with ANY spectra (rows) that have a NaN or Inf
+    # goodindices = ~np.ma.fix_invalid(data).mask.any(axis=1)
+    # c = data[goodindices]
+    # if len(c) == 0:
+    #    return np.nan
+    # Find indices that have any spectra with all channels = NaN
+    # badindices = np.where(np.isnan(data).all(axis=1))
+    goodindices = np.where(~np.isnan(data).all(axis=1))
+    if weights is not None:
+        return np.average(data[goodindices], axis, weights[goodindices])
+    else:
+        return np.average(data[goodindices], axis, weights)
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
