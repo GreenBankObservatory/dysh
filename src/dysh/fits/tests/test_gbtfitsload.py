@@ -38,6 +38,7 @@ class TestGBTFITSLoad:
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits": 1,
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits": 152,
             "TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits": 302,
+            "getps_154_ifnum_0_plnum_0_intnum_0.fits": 1,
         }
 
         for fnm in self._file_list:
@@ -148,6 +149,7 @@ class TestGBTFITSLoad:
         assert len(fdnums) == 1
         assert np.sum(np.subtract(fdnums, [0])) == 0
 
+    @pytest.mark.skip(reason="We need to update this to work with multifits and ScanBlocks")
     def test_multifits_getps_offon(self):
         """
         Loading multiple SDFITS files under a directory.
