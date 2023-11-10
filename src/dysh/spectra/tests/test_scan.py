@@ -9,7 +9,25 @@ from dysh.fits import gbtfitsload
 
 
 class TestPSScan:
+    def test_tsys(self, data_dir):
+        """
+        Test that `getps` results in the same system temperature as GBTIDL.
+        """
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        tps = sdf.getps(152)
+        tsys = tps[0].tsys
+
+        hdu = fits.open(gbtidl_file)
+        gbtidl_table = hdu[1].data
+        gbtidl_tsys = gbtidl_table["TSYS"]
+
+        assert (tsys - gbtidl_tsys)[0] == 0.0
+
     def test_compare_with_GBTIDL(self, data_dir):
+        """ """
         # get filenames
         sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2.fits"
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
