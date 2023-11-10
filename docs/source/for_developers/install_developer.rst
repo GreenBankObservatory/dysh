@@ -1,8 +1,8 @@
 
-The previous instructions (and the ``dysh`` README) suggest a route to install ``dysh`` using `hatch`. 
-However, there are several ways how you can install ``dysh`` for development. 
-We give a few practical examples, all based on having "dyshN" directories in a ~/GBT directory. 
-It is imperative that a developer install takes place in a shielded environment, generally using a virtual environment.  
+The previous instructions (and the ``dysh`` README) suggest a route to install ``dysh`` using `hatch`.
+However, there are several ways how you can install ``dysh`` for development.
+We give a few practical examples, all based on having "dyshN" directories in a ~/GBT directory.
+It is imperative that a developer install takes place in a shielded environment, generally using a virtual environment.
 
 We list a few, but if you found another approach, please share.
 
@@ -22,10 +22,10 @@ You will need initial admin privilages for this.
      # setup a venv, for example in a $HOME/venv hierarchy
      mkdir -p $HOME/venv
      python3 -m venv $HOME/venv/dysh1
-     
+
      # activate this venv
      source $HOME/venv/dysh1/bin/activate
-     
+
      # install hatch
      pip install hatch notebook
 
@@ -42,11 +42,11 @@ After this dysh can be installed in a virtual environment controlled by hatch
      hatch shell
      pip install -r requirements_dev.txt
          # some warning about running ipython
-     pip install -r docs/requirements.txt     
+     pip install -r docs/requirements.txt
      hatch build
      pip install -e .
      ipython            # this initially gave a matplotlib error, but it went away
-     exit               
+     exit
 
 Any time development is needed:
 
@@ -121,7 +121,7 @@ and when done, exit will terminate the shell
 dysh3: anaconda3 python with virtual environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Here is an example using an anaconda3 python, but now using hatch 
+Here is an example using an anaconda3 python, but now using hatch
 
 .. code:: bash
 
@@ -130,7 +130,7 @@ Here is an example using an anaconda3 python, but now using hatch
 
      ../install_anaconda3                # DM me for a copy
      source python_start.sh
-     
+
      pip install hatch
 
 After this dysh can be installed in a virtual environment controlled by hatch,
@@ -144,7 +144,7 @@ pretty much following what we did in :ref:`dysh1`:
      # setup dysh with hatch (be sure to be in the dysh directory)
      hatch shell
      pip install -r requirements_dev.txt
-     pip install -r docs/requirements.txt     
+     pip install -r docs/requirements.txt
      hatch build
      pip install -e .
 
@@ -160,7 +160,7 @@ and when done, exit will terminate the shell
 .. code:: bash
 
      exit
-   
+
 
 Any time development is needed:
 

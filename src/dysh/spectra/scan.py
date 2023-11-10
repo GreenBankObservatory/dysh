@@ -1,8 +1,8 @@
 from collections import UserList
 from copy import deepcopy
 
-import numpy as np
 import astropy.units as u
+import numpy as np
 from astropy.wcs import WCS
 
 from ..util import sq_weighted_avg, uniq
@@ -66,12 +66,12 @@ class ScanMixin(object):
 
     def __len__(self):
         return self._nrows
-   
+
 
 class TPScan(object):
     r"""
     Holds a total power scan.
-    
+
     Parameters
     ----------
     sdfits : ~SDFITSLoad
@@ -87,19 +87,19 @@ class TPScan(object):
     """
 
     def __init__(self, sdfits, scan, sigstate, calstate, scanrows, bintable):
-        self._sdfits = sdfits # parent class
+        self._sdfits = sdfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
         self._calstate = calstate
         self._scanrows = scanrows
         self._bintable_index = bintable
-        self._data = self._sdfits.rawspectra(bintable)[scanrows] # all cal states
-        self._status = 0 #@TODO make these an enumeration, possibly dict
+        self._data = self._sdfits.rawspectra(bintable)[scanrows]  # all cal states
+        self._status = 0  # @TODO make these an enumeration, possibly dict
         #                           # ex1:
-        self._nint = 0              # 11
-        self._npol = 0              #  2
-        self._timeaveraged = None   #  2
-        self._polaveraged = None    #  1
+        self._nint = 0  # 11
+        self._npol = 0  #  2
+        self._timeaveraged = None  #  2
+        self._polaveraged = None  #  1
         self._nrows = len(scanrows)
         self._tsys = None
         print(f"TPSCAN nrows = {self.nrows}")
@@ -477,7 +477,6 @@ class PSScan(ScanMixin):
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # todo use gbtfits.velocity_convention(veldef,velframe)
-        vc = "doppler_radio"
         # so quick with slicing!
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
@@ -878,4 +877,5 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         self._timeaveraged2.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
         self._timeaveraged2.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged2.meta["EXPOSURE"] = np.sum(self.exposure)
+
         return self._timeaveraged

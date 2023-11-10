@@ -2,13 +2,14 @@
 Core utility classes and functions
 """
 
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 
 def consecutive(data, stepsize=1):
     """Returns the indices of elements in `data`
-    separated by less than stepsize separated into 
+    separated by less than stepsize separated into
     groups.
 
     Parameters
@@ -24,12 +25,12 @@ def consecutive(data, stepsize=1):
     groups : `~numpy.ndarray`
         Array with values of `data` separated into groups.
     """
-    return np.split(data, np.where(np.diff(data) >= stepsize)[0]+1)
+    return np.split(data, np.where(np.diff(data) >= stepsize)[0] + 1)
 
 
-def sq_weighted_avg(a,axis=0,weights=None):
-#@todo make a generic moment or use scipy.stats.moment
-    r'''Compute the mean square weighted average of an array (2nd moment).
+def sq_weighted_avg(a, axis=0, weights=None):
+    # @todo make a generic moment or use scipy.stats.moment
+    r"""Compute the mean square weighted average of an array (2nd moment).
 
     :math:`v = \sqrt{\frac{\sum_i{w_i~a_i^{2}}}{\sum_i{w_i}}}`
 
@@ -48,12 +49,12 @@ def sq_weighted_avg(a,axis=0,weights=None):
     -------
     average : `~numpy.ndarray`
         The average along the input axis
-    '''
+    """
     if weights is None:
-        w = np.ones_like(a)
+        np.ones_like(a)
     else:
-        w = weights
-    v = np.sqrt(np.average(a*a,axis=axis,weights=weights))
+        pass
+    v = np.sqrt(np.average(a * a, axis=axis, weights=weights))
     return v
 
 
@@ -80,38 +81,41 @@ def get_size(obj, seen=None):
     if isinstance(obj, dict):
         size += sum([get_size(v, seen) for v in obj.values()])
         size += sum([get_size(k, seen) for k in obj.keys()])
-    elif hasattr(obj, '__dict__'):
+    elif hasattr(obj, "__dict__"):
         size += get_size(obj.__dict__, seen)
-    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+    elif hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([get_size(i, seen) for i in obj])
     return size
 
-def minimum_string_match(s,valid_strings):
+
+def minimum_string_match(s, valid_strings):
     """return the valid string given a minimum string input"""
     pass
 
+
 def stripTable(table):
-    '''Remove leading and trailing chars from all strings from an input table.
-        
-       Parameters
-       ----------
-        table: ~astropy.table.Table
-            The table to strip
-    '''
+    """Remove leading and trailing chars from all strings from an input table.
+
+    Parameters
+    ----------
+     table: ~astropy.table.Table
+         The table to strip
+    """
     for n in table.colnames:
-        if np.issubdtype(table.dtype[n],str):
+        if np.issubdtype(table.dtype[n], str):
             table[n] = np.char.strip(table[n])
 
-#def strip(self,tables):
+
+# def strip(self,tables):
 #    '''remove leading and trailing chars from all strings in list of tables'''
 #    for b in tables:
 #        stripTable(b)
 
+
 def uniq(seq):
-    """ Remove duplicates from a list while preserving order.
-        from http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order 
+    """Remove duplicates from a list while preserving order.
+    from http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order
     """
     seen = set()
     seen_add = seen.add
-    return [ x for x in seq if x not in seen and not seen_add(x)]
-
+    return [x for x in seq if x not in seen and not seen_add(x)]

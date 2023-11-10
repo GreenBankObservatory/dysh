@@ -1,19 +1,14 @@
-# import sys
-# import copy
+"""
+"""
+
 import warnings
 
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
-import astropy.units as u
-#from astropy.table import Table
-from astropy.modeling.polynomial import Polynomial1D,Chebyshev1D, Legendre1D, Hermite1D
-from specutils import Spectrum1D, SpectrumList,SpectralRegion
 from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
-
-# from astropy.table import Table
-from astropy.modeling.polynomial import Chebyshev1D, Polynomial1D
+from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
 from astropy.wcs import WCS
 from specutils import SpectralRegion, Spectrum1D, SpectrumList
 from specutils.fitting import fit_continuum
@@ -34,24 +29,24 @@ from ..util import uniq
 
 def average(data, axis=0, weights=None):
     """Average a group of spectra or scans.
-        TODO: allow data to be SpectrumList or array of Spectrum
+     TODO: allow data to be SpectrumList or array of Spectrum
 
-       Parameters
-       ----------
-       data : `~numpy.ndarray`
-           The spectral data, typically with shape (nspect,nchan).
-       axis : int
-           The axis over which to average the data.  Default axis=0 will return the average spectrum
-           if shape is (nspect,nchan)
-       weights : `~numpy.ndarray`
-           The weights to use in averaging.  These might typically be system temperature based.
-           The weights array must be the length of the axis over which the average is taken.
-           Default: None will use equal weights
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        The spectral data, typically with shape (nspect,nchan).
+    axis : int
+        The axis over which to average the data.  Default axis=0 will return the average spectrum
+        if shape is (nspect,nchan)
+    weights : `~numpy.ndarray`
+        The weights to use in averaging.  These might typically be system temperature based.
+        The weights array must be the length of the axis over which the average is taken.
+        Default: None will use equal weights
 
-       Returns
-       -------
-       average : `~numpy.ndarray`
-           The average along the input axis
+    Returns
+    -------
+    average : `~numpy.ndarray`
+        The average along the input axis
     """
     return np.average(data, axis, weights)
 
@@ -59,7 +54,6 @@ def average(data, axis=0, weights=None):
 def exclude_to_region(exclude, refspec, fix_exclude=False):
     """Convert an exclude list to a list of ~specutuls.SpectralRegion.
 
-<<<<<<< HEAD
     Parameters
     ----------
     exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
@@ -245,7 +239,7 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     kwargs_opts.update(kwargs)
 
     _valid_models = ["polynomial", "chebyshev", "legendre", "hermite"]
-    _valid_exclude_actions = ['replace', 'append', None]
+    _valid_exclude_actions = ["replace", "append", None]
     # @todo replace with minimum_string_match
     if kwargs_opts["model"] not in _valid_models:
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
@@ -253,9 +247,9 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         model = Polynomial1D(degree=order)
     elif kwargs_opts["model"] == "chebyshev":
         model = Chebyshev1D(degree=order)
-    elif kwargs_opts['model'] == "legendre":
+    elif kwargs_opts["model"] == "legendre":
         model = Legendre1D(degree=order)
-    elif kwargs_opts['model'] == "hermite":
+    elif kwargs_opts["model"] == "hermite":
         model = Hermite1D(degree=order)
     else:
         # should never get here, unless we someday allow user to input a astropy.model
@@ -329,7 +323,6 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # See github issue #28.
     # Define the channel range once.
     chrng = slice(nedge, -(nedge - 1), 1)
-    # print("CHNRNG = ",chrng)
 
     # Make them doubles. Probably not worth it.
     caloff = caloff.astype("d")

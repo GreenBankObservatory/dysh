@@ -1,10 +1,9 @@
-import os
 import glob
-import pytest
+import os
 import pathlib
 
 import numpy as np
-
+import pytest
 from astropy.io import fits
 
 import dysh
@@ -27,18 +26,19 @@ class TestGBTFITSLoad:
         Test loading 8 different sdfits files.
         Check: number of pandas tables loaded is equal to the expected number.
         """
-        expected = {"TGBT21A_501_11.raw.vegas.fits": 4,
-                    "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
-                    "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
-                    "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits": 1,
-                    "TGBT21A_501_11_ifnum_0_int_0-2.fits": 24,
-                    "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits": 1,
-                    "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_1.fits": 1,
-                    "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits": 1,
-                    "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits": 1,
-                    "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits": 152,
-                    "TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits": 302,
-                    }
+        expected = {
+            "TGBT21A_501_11.raw.vegas.fits": 4,
+            "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits": 1,
+            "TGBT21A_501_11_ifnum_0_int_0-2.fits": 24,
+            "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits": 1,
+            "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_1.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits": 152,
+            "TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits": 302,
+        }
 
         for fnm in self._file_list:
             print(fnm)
@@ -81,7 +81,9 @@ class TestGBTFITSLoad:
          - mean value is 0.0
         """
         # Get the answer from GBTIDL.
-        gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits"
+        gbtidl_file = (
+            f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits"
+        )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
 
@@ -98,7 +100,9 @@ class TestGBTFITSLoad:
         # Now with the noise diode Off.
         tps_off = sdf.gettp(152, sig=True, cal=False, calibrate=False)
         assert len(tps_off) == 1
-        gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits"
+        gbtidl_file = (
+            f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits"
+        )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         diff = tps_off[0].total_power(0).flux.value - gbtidl_gettp
@@ -120,8 +124,8 @@ class TestGBTFITSLoad:
     def test_load_multifits(self):
         """
         Loading multiple SDFITS files under a directory.
-        It checks that 
-        
+        It checks that
+
         * the GBTFITSLoad object has the correct number of IFs
         * the GBTFITSLoad object has the correct number of polarizations
         * the GBTFITSLoad object has the correct number of beams
@@ -133,25 +137,24 @@ class TestGBTFITSLoad:
 
         # Check IFNUMs.
         ifnums = np.sort(sdf.udata("IFNUM"))
-        assert np.sum(np.subtract(ifnums, [0,1,2,3])) == 0
+        assert np.sum(np.subtract(ifnums, [0, 1, 2, 3])) == 0
 
         # Check PLNUMs.
         plnums = np.sort(sdf.udata("PLNUM"))
-        assert np.sum(np.subtract(plnums, [0,1])) == 0
+        assert np.sum(np.subtract(plnums, [0, 1])) == 0
 
         # Check FDNUMs.
         fdnums = np.sort(sdf.udata("FDNUM"))
         assert len(fdnums) == 1
         assert np.sum(np.subtract(fdnums, [0])) == 0
 
-
     def test_multifits_getps_offon(self):
         """
         Loading multiple SDFITS files under a directory.
-        It checks that 
-                        
+        It checks that
+
         * getps works on all IFs
-        * 
+        *
         """
         # Load the data.
         fits_path = f"{self.data_dir}/AGBT18B_354_03.raw.vegas"
@@ -164,4 +167,4 @@ class TestGBTFITSLoad:
         hdu = fits.open(f"{self.data_dir}/AGBT18B_354_03.raw.vegas/getps_scan_6_ifnum_2_plnum_0_intnum_0.fits")
         gbtidl_spec = hdu[1].data["DATA"]
 
-        assert np.all( (ps_spec - gbtidl_spec) == 0 )
+        assert np.all((ps_spec - gbtidl_spec) == 0)

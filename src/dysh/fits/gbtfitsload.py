@@ -1,4 +1,5 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
+
 import copy
 import os
 import sys
@@ -219,9 +220,20 @@ class GBTFITSLoad(SDFITSLoad):
             "DATE-OBS",
         ]
         comp_colnames = [
-                "SCAN", "OBJECT", "VELOCITY", "PROC", "PROCSEQN", 
-                "RESTFREQ", "DOPFREQ", "# IF","# POL", "# INT", "# FEED", 
-                "AZIMUTH", "ELEVATIO"]
+            "SCAN",
+            "OBJECT",
+            "VELOCITY",
+            "PROC",
+            "PROCSEQN",
+            "RESTFREQ",
+            "DOPFREQ",
+            "# IF",
+            "# POL",
+            "# INT",
+            "# FEED",
+            "AZIMUTH",
+            "ELEVATIO",
+        ]
         # In the process, some columns get cast to floats or others. Make sure we cast them
         # back to an appropriate data type before return.
         col_dtypes = {"SCAN": int, "PROCSEQN": int}
@@ -278,13 +290,11 @@ class GBTFITSLoad(SDFITSLoad):
             )
             ser = pd.concat([ser, s2]).reindex(comp_colnames)
             ser.rename("appended ser")
-            #print("append series data",ser)
-            #print("append series index ",ser.index)
-            #print("df cols",compressed_df.columns)
-            #print("SAME? ",all(ser.index == compressed_df.columns))
-            compressed_df = pd.concat(
-                    [compressed_df,ser.to_frame().T],
-                    ignore_index=True)
+            # print("append series data",ser)
+            # print("append series index ",ser.index)
+            # print("df cols",compressed_df.columns)
+            # print("SAME? ",all(ser.index == compressed_df.columns))
+            compressed_df = pd.concat([compressed_df, ser.to_frame().T], ignore_index=True)
         compressed_df = compressed_df.astype(col_dtypes)
         return compressed_df
 
