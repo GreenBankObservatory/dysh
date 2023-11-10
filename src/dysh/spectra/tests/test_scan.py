@@ -34,11 +34,11 @@ class TestPSScan:
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        # psscan is a ScanList
+        # psscan is a ScanList.
         psscan = sdf.getps(152, plnum=0)
         assert len(psscan) == 1
         psscan.calibrate()
-        # psscan_tavg is a list
+        # psscan_tavg is a list.
         psscan_tavg = psscan.timeaverage(weights="tsys")
         assert len(psscan_tavg) == 1
 
@@ -49,6 +49,11 @@ class TestPSScan:
         # Compare.
         diff = psscan_tavg[0].flux.value - psscan_gbtidl
         assert abs(np.nanmedian(diff)) < 1e-9
+
+    def test_compare_with_GBTIDL_2(self, data_dir):
+        """
+        Test `getps` when working with multiple scans.
+        """
 
     @pytest.mark.skip(reason="We need to update this to work with multifits and ScanBlocks")
     def test_baseline_removal(self, data_dir):
@@ -121,6 +126,23 @@ class TestTPScan:
         gbtidl_tsys = gbtidl_table["TSYS"]
 
         assert (tsys - gbtidl_tsys)[0] == 0.0
+
+    def test_exposure(self, data_dir):
+        """
+        Test that `gettp` holds the same exposure times as GBTIDL.
+        """
+
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        tp = sdf.gettp(152)
+
+        hdu = fits.open(gbtidl_file)
+        table = hdu[1].data
+
+        for i in range(len(tp[0]._scanrows) // 2):
+            assert tp[0].total_power(i).meta["EXPOSURE"] == table["EXPOSURE"][i]
 
     def test_compare_with_GBTIDL_tsys_weights(self, data_dir):
         """
