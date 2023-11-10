@@ -343,7 +343,7 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
 
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.nanmean(caloff[chrng])
-        meandiff = np.nanmean(calon[chrng]) - np.nanmean(caloff[chrng])
+        meandiff = np.nanmean(calon[chrng] - caloff[chrng])
         if False:
             if meandiff < 0:
                 print(f"moff {meanoff}, mdif {meandiff}, tc {tcal}")

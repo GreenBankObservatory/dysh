@@ -3,7 +3,6 @@ import pathlib
 import numpy as np
 import pytest
 from astropy.io import fits
-from astropy.utils.data import get_pkg_data_filename
 
 import dysh
 from dysh.fits import gbtfitsload
@@ -34,11 +33,12 @@ class TestPSScan:
         assert abs(np.nanmedian(diff)) < 1e-9
 
     @pytest.mark.skip(reason="We need to update this to work with multifits and ScanBlocks")
-    def test_baseline_removal(self):
+    def test_baseline_removal(self, data_dir):
         # get filenames
-        sdf_file = get_pkg_data_filename("data/AGBT17A_404_01_scan_19_prebaseline.fits")
-        gbtidl_file = get_pkg_data_filename("data/AGBT17A_404_01_scan_19_postbaseline.fits")
-        gbtidl_modelfile = get_pkg_data_filename("data/AGBT17A_404_01_scan_19_bline_model.fits")
+        data_path = f"{data_dir}/AGBT17A_404_01"
+        sdf_file = f"{data_path}/AGBT17A_404_01_scan_19_prebaseline.fits"
+        gbtidl_file = f"{data_path}/AGBT17A_404_01_scan_19_postbaseline.fits"
+        gbtidl_modelfile = f"{data_path}/AGBT17A_404_01_scan_19_bline_model.fits"
 
         # generate the dysh result
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
@@ -86,6 +86,24 @@ class TestSubBeamNod:
 
 
 class TestTPScan:
+    def test_tsys(self, data_dir):
+        """
+        Test that `gettp` produces the same system temperature as GBTDIL.
+        """
+
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        tps = sdf.gettp(153)
+        tsys = tps[0].tsys
+
+        hdu = fits.open(gbtidl_file)
+        gbtidl_table = hdu[1].data
+        gbtidl_tsys = gbtidl_table["TSYS"]
+
+        assert (tsys - gbtidl_tsys)[0] == 0.0
+
     def test_compare_with_GBTIDL_tsys_weights(self, data_dir):
         """
         This test compares `gettp` when using radiometer weights.
