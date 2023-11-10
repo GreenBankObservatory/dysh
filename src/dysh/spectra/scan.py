@@ -47,16 +47,16 @@ class ScanMixin(object):
 
         Parameters
         ----------
-                weights: str
-                    'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-                    Default: 'tsys'
+            Default: 'tsys'
         Returns
         -------
-                spectrum : :class:`~spectra.spectrum.Spectrum`
-                    The time-averaged spectrum
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
         """
         pass
 
@@ -129,16 +129,16 @@ class ScanBlock(UserList, ScanMixin):
 
         Parameters
         ----------
-            weights: str
-                'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-                 :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-                Default: 'tsys'
+            Default: 'tsys'
         Returns
         -------
-            timeaverage: list of `~spectra.spectrum.Spectrum`
-                List of all the time-averaged spectra
+        timeaverage: list of `~spectra.spectrum.Spectrum`
+            List of all the time-averaged spectra
         """
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
@@ -149,16 +149,16 @@ class ScanBlock(UserList, ScanMixin):
 
         Parameters
         ----------
-            weights: str
-                'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-                 :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-                Default: 'tsys'
+            Default: 'tsys'
         Returns
         -------
-            polaverage: list of `~spectra.spectrum.Spectrum`
-                List of all the polarization-averaged spectra
+        polaverage: list of `~spectra.spectrum.Spectrum`
+            List of all the polarization-averaged spectra
         """
         for scan in self.data:
             self._polaveraged.append(scan.polaverage(weights))
@@ -169,16 +169,16 @@ class ScanBlock(UserList, ScanMixin):
 
         Parameters
         ----------
-            weights: str
-                'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-                 :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-                Default: 'tsys'
+            Default: 'tsys'
         Returns
         -------
-            finalspectra: list of `~spectra.spectrum.Spectrum`
-                List of all the time- and polarization-averaged spectra
+        finalspectra: list of `~spectra.spectrum.Spectrum`
+            List of all the time- and polarization-averaged spectra
         """
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
@@ -304,8 +304,8 @@ class TPScan(ScanMixin):
 
         Returns
         -------
-            exposure : `~numpy.ndarray`
-                The exposure time in units of the EXPOSURE keyword in the SDFITS header
+        exposure : `~numpy.ndarray`
+            The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
         exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
@@ -323,8 +323,8 @@ class TPScan(ScanMixin):
 
         Returns
         -------
-            delta_freq: `~numpy.ndarray`
-                The channel frequency width in units of the CDELT1 keyword in the SDFITS header
+        delta_freq: `~numpy.ndarray`
+            The channel frequency width in units of the CDELT1 keyword in the SDFITS header
         """
         df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
         df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
@@ -343,12 +343,12 @@ class TPScan(ScanMixin):
 
         Parameters
         ----------
-            i : int
-                The index into the data array
+        i : int
+            The index into the data array
 
         Returns
         -------
-            spectrum : `~spectra.spectrum.Spectrum`
+        spectrum : `~spectra.spectrum.Spectrum`
         """
         # print(len(self._scanrows), i)
         meta = dict(self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]])
@@ -402,16 +402,16 @@ class TPScan(ScanMixin):
 
         Parameters
         ----------
-                weights: str
-                    'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-                    Default: 'tsys'
+            Default: 'tsys'
         Returns
         -------
-                spectrum : :class:`~spectra.spectrum.Spectrum`
-                    The time-averaged spectrum
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
         """
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
@@ -516,12 +516,12 @@ class PSScan(ScanMixin):
 
         Parameters
         ----------
-            i : int
-                The index into the calibrated array
+        i : int
+            The index into the calibrated array
 
         Returns
         -------
-            spectrum : `~spectra.spectrum.Spectrum`
+        spectrum : `~spectra.spectrum.Spectrum`
         """
         meta = dict(self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]])
         meta["TSYS"] = self._tsys[i]
@@ -570,7 +570,7 @@ class PSScan(ScanMixin):
 
     def calibrate(self, **kwargs):
         """
-        Position switch calibration, following equations 1 and 2 in the GBTIDL clibration manual
+        Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
@@ -600,8 +600,8 @@ class PSScan(ScanMixin):
 
         Returns
         -------
-             exposure : ~numpy.ndarray
-                 The exposure time in units of the EXPOSURE keyword in the SDFITS header
+        exposure : ~numpy.ndarray
+            The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
         exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
@@ -647,16 +647,16 @@ class PSScan(ScanMixin):
 
         Parameters
         ----------
-                weights: str
-                    'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-                     :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-                    Default: 'tsys'
+            Default: 'tsys'
         Returns
         -------
-                spectrum : :class:`~spectra.spectrum.Spectrum`
-                    The time-averaged spectrum
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
