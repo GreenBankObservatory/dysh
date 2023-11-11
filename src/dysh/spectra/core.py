@@ -418,7 +418,10 @@ def tsys_weight(exposure, delta_freq, tsys):
     """
 
     # Quantitys work with abs and power!
-    weight = abs(delta_freq) * exposure * np.power(tsys, -2)
+    # Using `numpy.power` like this results in increased
+    # precision over the calculation used by GBTIDL:
+    # weight = abs(delta_freq) * exposure / tsys**2.
+    weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
     if type(weight) == u.Quantity:
         return weight.value.astype(np.longdouble)
     else:
