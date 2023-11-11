@@ -493,6 +493,7 @@ class PSScan(ScanMixin):
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._tsys = None
+        self._exposure = None
         self._calibrated = None
         self._calibrate = calibrate
         if self._calibrate:
@@ -525,6 +526,7 @@ class PSScan(ScanMixin):
         """
         meta = dict(self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]])
         meta["TSYS"] = self._tsys[i]
+        meta["EXPOSURE"] = self._exposure[i]
         naxis1 = len(self._calibrated[i])
         ctype1 = meta["CTYPE1"]
         ctype2 = meta["CTYPE2"]
@@ -577,8 +579,9 @@ class PSScan(ScanMixin):
 
         self._status = 1
         nspect = self.nrows // 2
-        self._calibrated = np.empty((nspect, self._nchan), dtype=float)
-        self._tsys = np.empty(nspect, dtype=float)
+        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._tsys = np.empty(nspect, dtype="d")
+        self._exposure = np.empty(nspect, dtype="d")
 
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         # @Todo  this loop could be replaced with clever numpy
@@ -590,6 +593,7 @@ class PSScan(ScanMixin):
             ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
             self._calibrated[i] = tsys * (sig - ref) / ref
             self._tsys[i] = tsys
+            self._exposure[i] = self.exposure[i]
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
@@ -675,6 +679,7 @@ class PSScan(ScanMixin):
         self._timeaveraged._data = average(data, axis=0, weights=w)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
+        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure)
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         return self._timeaveraged
 
@@ -683,23 +688,23 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
     """
     Parameters
     ----------
-        sigtp:  list of ~spectra.scan.TPScan
-            Signal total power scans
-        reftp:  list ~spectra.scan.TPScan
-            Reference total power scans
-        fulltp:  ~spectra.scan.TPScan
-            A full (sig+ref) total power scans, used only for method='scan'
-        method: str
-            Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
-        calibrate: bool
-            Whether or not to calibrate the data.
-        weights: str
-            Weighting scheme to use when averaging the signal and reference scans
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
+    sigtp:  list of ~spectra.scan.TPScan
+        Signal total power scans
+    reftp:  list ~spectra.scan.TPScan
+        Reference total power scans
+    fulltp:  ~spectra.scan.TPScan
+        A full (sig+ref) total power scans, used only for method='scan'
+    method: str
+        Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
+    calibrate: bool
+        Whether or not to calibrate the data.
+    weights: str
+        Weighting scheme to use when averaging the signal and reference scans
+        'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+         :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-            Default: 'tsys'
+        Default: 'tsys'
     """
 
     def __init__(self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, **kwargs):

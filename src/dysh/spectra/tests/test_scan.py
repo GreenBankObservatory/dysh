@@ -44,16 +44,34 @@ class TestPSScan:
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
-        psscan_gbtidl = hdu[1].data["DATA"][0]
+        table = hdu[1].data
+        psscan_gbtidl = table["DATA"][0]
 
         # Compare.
         diff = psscan_tavg[0].flux.value - psscan_gbtidl
         assert abs(np.nanmedian(diff)) < 1e-9
+        assert psscan_tavg[0].meta["EXPOSURE"] == table["EXPOSURE"][0]
+        assert psscan_tavg[0].meta["TSYS"] == pytest.approx(table["TSYS"][0], 1e-14)
 
     def test_compare_with_GBTIDL_2(self, data_dir):
         """
         Test `getps` when working with multiple scans.
         """
+
+        data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
+        sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
+        gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ps_scans = sdf.getps([156, 158])
+        ta = ps_scans.timeaverage()
+
+        hdu = fits.open(gbtidl_file)
+        table = hdu[1].data
+
+        assert ta[0].meta["TSYS"] == pytest.approx(table["TSYS"], 1e-14)
+        assert ta[0].meta["EXPOSURE"] == table["EXPOSURE"]
+        assert np.all(np.abs(table["DATA"][0] - ta[0].flux.value) < 3e-7)
 
     @pytest.mark.skip(reason="We need to update this to work with multifits and ScanBlocks")
     def test_baseline_removal(self, data_dir):
