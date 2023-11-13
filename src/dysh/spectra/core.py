@@ -57,11 +57,29 @@ def average(data, axis=0, weights=None):
     #    return np.nan
     # Find indices that have any spectra with all channels = NaN
     # badindices = np.where(np.isnan(data).all(axis=1))
-    goodindices = np.where(~np.isnan(data).all(axis=1))
+    goodindices = find_non_blanks(data)
     if weights is not None:
         return np.average(data[goodindices], axis, weights[goodindices])
     else:
         return np.average(data[goodindices], axis, weights)
+
+
+def find_non_blanks(data):
+    """
+    Finds the indices of blanked integrations.
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        The spectral data, typically with shape (nspect,nchan).
+
+    Returns
+    -------
+    blanks : `~numpy.ndarray`
+        Array with indices of blanked integrations.
+    """
+
+    return np.where(~np.isnan(data).all(axis=1))
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
@@ -359,6 +377,37 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # meandiff can sometimes be negative, which makes Tsys negative!
     # GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)
     return np.abs(meanTsys)
+
+
+def sq_weighted_avg(a, axis=0, weights=None):
+    # @todo make a generic moment or use scipy.stats.moment
+    r"""Compute the mean square weighted average of an array (2nd moment).
+
+    :math:`v = \sqrt{\frac{\sum_i{w_i~a_i^{2}}}{\sum_i{w_i}}}`
+
+    Parameters
+    ----------
+    a : `~numpy.ndarray`
+        The data to average.
+    axis : int
+        The axis over which to average the data.  Default: 0
+    weights : `~numpy.ndarray` or None
+        The weights to use in averaging.  The weights array must be the
+        length of the axis over which the average is taken.  Default:
+        `None` will use equal weights.
+
+    Returns
+    -------
+    average : `~numpy.ndarray`
+        The square root of the squared average of a along the input axis.
+    """
+    # if weights is None:
+    #    w = np.ones_like(a)
+    # else:
+    #    w = weights
+    a2 = a * a
+    v = np.sqrt(np.average(a2, axis=axis, weights=weights))
+    return v
 
 
 def veldef_to_convention(veldef):
