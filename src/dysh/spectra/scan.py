@@ -5,8 +5,15 @@ import astropy.units as u
 import numpy as np
 from astropy.wcs import WCS
 
-from ..util import sq_weighted_avg, uniq
-from . import average, mean_tsys, tsys_weight, veldef_to_convention
+from ..util import uniq
+from . import (
+    average,
+    find_non_blanks,
+    mean_tsys,
+    sq_weighted_avg,
+    tsys_weight,
+    veldef_to_convention,
+)
 from .spectrum import Spectrum
 
 
@@ -675,11 +682,12 @@ class PSScan(ScanMixin):
         if weights == "tsys":
             w = self._tsys_weight
         else:
-            w = None
+            w = np.ones_like(self._tsys_weight)
         self._timeaveraged._data = average(data, axis=0, weights=w)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure)
+        non_blanks = find_non_blanks(data)
+        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
+        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         return self._timeaveraged
 
