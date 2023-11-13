@@ -121,6 +121,8 @@ class TestPSScan:
         # The system temperature is different because of the squared averaging.
         assert abs(ps_sb[0].calibrated(0).meta["TSYS"] - ta1[0].meta["TSYS"]) < 5e-16
         assert (ps_sb[0].calibrated(0).meta["EXPOSURE"] - ta1[0].meta["EXPOSURE"]) == 0.0
+        # Check if the time averaged data matches that from the first integration.
+        assert np.all(abs(ps_sb[0].calibrated(0).flux.value - ta1[0].flux.value) < 2e-19)
 
 
 class TestSubBeamNod:
