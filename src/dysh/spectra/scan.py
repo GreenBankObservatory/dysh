@@ -255,7 +255,7 @@ class TPScan(ScanMixin):
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         if self._calibrate:
-            self._data = 0.5 * (self._refcalon + self._refcaloff)
+            self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         # print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
         self.calc_tsys()
 
@@ -430,12 +430,13 @@ class TPScan(ScanMixin):
         if weights == "tsys":
             w = self._tsys_weight
         else:
-            w = None
+            w = np.ones_like(self._tsys_weight)
+        non_blanks = find_non_blanks(self._data)
         self._timeaveraged._data = average(self._data, axis=0, weights=w)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
+        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged.meta["EXPOSURE"] = self.exposure.sum()
+        self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
         return self._timeaveraged
 
 

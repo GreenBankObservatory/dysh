@@ -260,4 +260,4 @@ class TestTPScan:
         # Compare Dysh and GBTIDL.
         assert table["EXPOSURE"][0] == tpavg[0].meta["EXPOSURE"]
         assert abs(table["TSYS"][0] - tpavg[0].meta["TSYS"]) < 2**-32
-        assert np.all((data[0] - tpavg[0].flux.value) == 0.0)
+        assert np.all((data[0] - tpavg[0].flux.value.astype(np.float32)) == 0.0)
