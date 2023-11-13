@@ -132,7 +132,7 @@ class TestGBTFITSLoad:
         * the GBTFITSLoad object has the correct number of beams
         """
 
-        fits_path = f"{self.data_dir}/AGBT18B_354_03.raw.vegas"
+        fits_path = f"{self.data_dir}/AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
 
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
 
