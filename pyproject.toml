@@ -68,8 +68,8 @@ test = "pytest {args}"
 lint = "ruff check . {args}"
 lint-all = "ruff check --select ALL {args}"
 lint-fix = "ruff check --select ALL --fix {args}"
-docs = "sphinx-autobuild {root}/docs {root}/docs/build -b html {args}"
-docs-build = "sphinx-build {root}/docs {root}/docs/build -b html {args}"
+docs = "sphinx-autobuild {root}/docs/source {root}/docs/build -b html {args}"
+docs-build = "sphinx-build {root}/docs/source {root}/docs/build -b html {args}"
 
 [tool.hatch.envs.test]
 
