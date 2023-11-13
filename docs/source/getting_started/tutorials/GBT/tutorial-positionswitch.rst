@@ -44,6 +44,9 @@ In a `Python` instance, type
 
 Keep the `Python` instance open, we will start working with `dysh` now.
 
+.. note::
+    The data used for this tutorial is ~800 MB. Make sure you have enough disk space and bandwidth to download it.
+
 Inspecting the raw data
 -----------------------
 
@@ -83,8 +86,8 @@ Plotting the calibrated data
     >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
 
 .. figure:: img/ps_152_zoom.png
-    :alt: The spectrum plot zoomed in along both axes to frame a central emission line. 
+    :alt: The spectrum plot zoomed in along both axes to frame a central emission line.
 
 .. WARNING::
-    At this point, `dysh` does not handle Doppler corrections. 
+    At this point, `dysh` does not handle Doppler corrections.
     So the frequency and velocity information will be offset for observations requesting a reference frame other than Topocentric.
