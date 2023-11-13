@@ -102,6 +102,26 @@ class TestPSScan:
         # [TODO] Find the right threshold for this
         # assert np.nanmean(diff) == 0
 
+    def test_blank_integrations(self, data_dir):
+        """
+        Test `getps` when there are blanked integrations.
+        """
+        data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
+        sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ps_sb = sdf.getps([156])
+        ta1 = ps_sb.timeaverage()
+        # This should not raise any errors.
+        ta2 = ps_sb.timeaverage(None)
+        # Check if the time average is all NaNs.
+        all_nan = np.isnan(ta1[0].flux.value).sum() == len(ta1[0].flux)
+        assert ~all_nan
+        # Check that the metadata is accurate.
+        # The system temperature is different because of the squared averaging.
+        assert abs(ps_sb[0].calibrated(0).meta["TSYS"] - ta1[0].meta["TSYS"]) < 5e-16
+        assert (ps_sb[0].calibrated(0).meta["EXPOSURE"] - ta1[0].meta["EXPOSURE"]) == 0.0
+
 
 class TestSubBeamNod:
     def test_compare_with_GBTIDL(self, data_dir):
