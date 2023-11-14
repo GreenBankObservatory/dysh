@@ -194,7 +194,7 @@ class SDFITSLoad(object):
                 if "CUNIT1" in b.columns:
                     cunit1 = b["CUNIT1"][j]
                     rfq = restfrq * u.Unit(cunit1)
-                    restfreq = rfq.to("Hz").value
+                    rfq.to("Hz").value
                 cunit1 = "Hz"
                 crval2 = b["CRVAL2"][j]
                 crval3 = b["CRVAL3"][j]

@@ -1,4 +1,5 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
+
 import copy
 import os
 import sys
@@ -233,6 +234,9 @@ class GBTFITSLoad(SDFITSLoad):
             "AZIMUTH",
             "ELEVATIO",
         ]
+        # In the process, some columns get cast to floats or others. Make sure we cast them
+        # back to an appropriate data type before return.
+        col_dtypes = {"SCAN": int, "PROCSEQN": int}
         uncompressed_df = None
         self._create_index_if_needed()
         # make a copy here because we can't guarantee if this is a
@@ -258,6 +262,7 @@ class GBTFITSLoad(SDFITSLoad):
                 uncompressed_df = pd.concat([uncompressed_df, _df.filter(show)])
 
         if verbose:
+            uncompressed_df = uncompressed_df.astype(col_dtypes)
             return uncompressed_df
         # do the work to compress the info
         # in the dataframe on a scan basis
@@ -290,6 +295,7 @@ class GBTFITSLoad(SDFITSLoad):
             # print("df cols",compressed_df.columns)
             # print("SAME? ",all(ser.index == compressed_df.columns))
             compressed_df = pd.concat([compressed_df, ser.to_frame().T], ignore_index=True)
+        compressed_df = compressed_df.astype(col_dtypes)
         return compressed_df
 
     def velocity_convention(self, veldef, velframe):

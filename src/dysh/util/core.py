@@ -28,36 +28,6 @@ def consecutive(data, stepsize=1):
     return np.split(data, np.where(np.diff(data) >= stepsize)[0] + 1)
 
 
-def sq_weighted_avg(a, axis=0, weights=None):
-    # @todo make a generic moment or use scipy.stats.moment
-    r"""Compute the mean square weighted average of an array (2nd moment).
-
-    :math:`v = \sqrt{\frac{\sum_i{w_i~a_i^{2}}}{\sum_i{w_i}}}`
-
-    Parameters
-    ----------
-    a : `~numpy.ndarray`
-        The data to average
-    axis : int
-        The axis over which to average the data.  Default: 0
-    weights : `~numpy.ndarray` or None
-        The weights to use in averaging.  The weights array must be the
-        length of the axis over which the average is taken.  Default:
-        `None` will use equal weights.
-
-    Returns
-    -------
-    average : `~numpy.ndarray`
-        The average along the input axis
-    """
-    if weights is None:
-        w = np.ones_like(a)
-    else:
-        w = weights
-    v = np.sqrt(np.average(a * a, axis=axis, weights=weights))
-    return v
-
-
 def get_project_root() -> Path:
     """
     Returns the project root directory.

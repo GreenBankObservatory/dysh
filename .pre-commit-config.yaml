@@ -12,8 +12,6 @@ repos:
       - id: end-of-file-fixer
         exclude: LICENSE
       - id: check-yaml
-      # Might make sense once everything is at Python 3
-      # - id: check-ast
       - id: check-added-large-files
         args:
           - '--maxkb=1024'
@@ -26,15 +24,16 @@ repos:
     rev: 5.12.0
     hooks:
       - id: isort
+        args: ["--profile", "black", "--filter-files"]
         exclude: ^notebooks/
   - repo: 'https://github.com/psf/black'
     rev: 23.1.0
     hooks:
       - id: black
         exclude: ^notebooks/
-  - repo: https://github.com/jazzband/pip-tools
-    rev: 6.12.3
-    hooks:
-      - id: pip-compile
-        args:
-          - '--resolver=backtracking'
+#  - repo: https://github.com/jazzband/pip-tools
+#    rev: 6.12.3
+#    hooks:
+#      - id: pip-compile
+#        args:
+#          - '--resolver=backtracking'
