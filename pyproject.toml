@@ -54,6 +54,7 @@ Source = "https://github.com/GreenBankObservatory/dysh"
 
 [project.scripts]
 fdr = "dysh.util.files:main_cli"
+dysh = "dysh.shell:main"
 
 [tool.hatch.version]
 path = "src/dysh/__init__.py"
