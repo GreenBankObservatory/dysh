@@ -3,6 +3,7 @@ __version__ = "0.2.0"
 
 all = ["version"]
 
+
 def version():
     """Version of the dysh code
 

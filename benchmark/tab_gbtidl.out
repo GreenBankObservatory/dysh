@@ -2,7 +2,7 @@
 |                           char| double| long|long|  long|  long|double| double|          double|    double|    double|    double|      double|
 |                               |  Mbyte|     |    |      |      |    ms|     ms|              ms|        ms|        ms|        ms|          ms|
 |                           null|   null| null|null|  null|  null|  null|   null|            null|      null|      null|      null|        null|
- TSCAL_220105_W.raw.vegas.E.fits     3.9     1    1    864   1024 580.90  711.26          20872.4    381.964    539.131    695.831      23781.5   
-   TGBT21A_501_11.raw.vegas.fits   758.6     1    1   6040  32768 6531.3 5005.89          95003.6    19253.0    30997.4    42464.0     199255.0 
+ TSCAL_220105_W.raw.vegas.E.fits     3.9     1    1    864   1024 580.90  711.26          20872.4    381.964    539.131    695.831      23781.5
+   TGBT21A_501_11.raw.vegas.fits   758.6     1    1   6040  32768 6531.3 5005.89          95003.6    19253.0    30997.4    42464.0     199255.0
  TGBT17A_506_11.raw.vegas.A.fits  2246.5     2    1  32760  32768 32776. 27701.8      1.14723e+06    139197.    230783.    321342.  1.89903e+06
  TGBT22A_503_02.raw.vegas.F.fits  2369.3     1    1  18864  32768 26663. 24011.3          670952.    138626.    231440.    324118.  1.41581e+06

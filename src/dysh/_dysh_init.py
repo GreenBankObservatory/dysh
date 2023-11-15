@@ -6,7 +6,6 @@ from pathlib import Path
 
 import specutils
 
-
 logger = logging.getLogger(__name__)
 
 

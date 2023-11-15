@@ -1,10 +1,10 @@
 ****************
-GBT SDFITS Files 
+GBT SDFITS Files
 ****************
 
 Convention
 ==========
-The single-dish FITS (SDFITS) convention is used for observer-facing GBT data. The GBT records raw data to FITS files, and then the SDFITS filler populates SDFITS files with information the observer needs. GBT SDFITS files contain 2 or more Header-Data Units (HDUs). Note that keys sometimes appear to be truncated because they can only have up to 8 letters. 
+The single-dish FITS (SDFITS) convention is used for observer-facing GBT data. The GBT records raw data to FITS files, and then the SDFITS filler populates SDFITS files with information the observer needs. GBT SDFITS files contain 2 or more Header-Data Units (HDUs). Note that keys sometimes appear to be truncated because they can only have up to 8 letters.
 
 HDU 0 (PRIMARY)
 ---------------
@@ -47,28 +47,28 @@ HDU 1 (SINGLE DISH)
      - Definition
    * - XTENSION
      - "BINTABLE"
-     - binary table extension                         
+     - binary table extension
    * - BITPIX
      - 8
-     - 8-bit bytes                                    
+     - 8-bit bytes
    * - NAXIS
      - 2
-     - 2-dimensional binary table                     
+     - 2-dimensional binary table
    * - NAXIS1
      - integer
-     - width of table in bytes                        
+     - width of table in bytes
    * - NAXIS2
-     - integer 
-     - number of rows in table                        
+     - integer
+     - number of rows in table
    * - PCOUNT
      - integer
-     - size of special data area                      
+     - size of special data area
    * - GCOUNT
      - 1
-     - one data group (required keyword)              
+     - one data group (required keyword)
    * - TFIELDS
      - integer
-     - number of fields in each row 
+     - number of fields in each row
    * - TELESCOP
      - "NRAO_GBT"
      - The telescope used for the observation
@@ -86,7 +86,7 @@ HDU 1 (SINGLE DISH)
      - N. latitude of intersection of the az/el axes
    * - SITEELEV
      - 8.245510E+02
-     - height of the intersection of az/el axes 
+     - height of the intersection of az/el axes
    * - EXTNAME
      - "SINGLE DISH"
      - The name of this binary table extension
@@ -100,7 +100,7 @@ HDU 1 (SINGLE DISH)
      - Type
      - Definition
    * - OBJECT
-     -  
+     -
      - 32A
      - name of source observed
    * - BANDWID
@@ -108,7 +108,7 @@ HDU 1 (SINGLE DISH)
      - 1D
      - bandwidth
    * - DATE-OBS
-     -  
+     -
      - 22A
      - date and time of observation start
    * - DURATION
@@ -124,17 +124,17 @@ HDU 1 (SINGLE DISH)
      - 1D
      - system temperature in Kelvin
    * - DATA
-     - 
+     -
      - 131072E
      - Actual data
    * - TDIM7
-     -  
+     -
      - 16A
      - data dimensions of the array
    * - TUNIT7
-     -  
+     -
      - 6A
-     - 
+     -
    * - CTYPE1
      - Hz
      - 8A
@@ -142,57 +142,57 @@ HDU 1 (SINGLE DISH)
    * - CRVAL1
      - Hz
      - 1D
-     - 
+     -
    * - CRPIX1
      - index
      - 1D
-     - 
+     -
    * - CDELT1
      - Hz
      - 1D
-     - 
+     -
    * - CTYPE2
-     - 
+     -
      - 4A
      - second axis is longitude-like
    * - CRVAL2
      - 1D
      - deg
-     - 
+     -
    * - CTYPE3
-     - 
+     -
      - 4A
      - third axis is latitude-like
    * - CRVAL3
      - deg
      - 1D
-     - 
+     -
    * - CTYPE4
-     - 
-     - 
+     -
+     -
      - fourth axis is Stokes
    * - CRVAL4
-     - 
+     -
      - 1I
-     - 
+     -
    * - OBSERVER
-     - 
+     -
      - 32A
      - name of observer(s)
    * - OBSID
-     - 
+     -
      - 32A
      - observation description
    * - SCAN
-     - 
+     -
      - 1J
      - scan number
    * - OBSMODE
-     -  
+     -
      - 32A
      - observing mode
    * - FRONTEND
-     -  
+     -
      - 16A
      - frontend device
    * - TCAL
@@ -200,7 +200,7 @@ HDU 1 (SINGLE DISH)
      - 1E
      - calibration temperature
    * - VELDEF
-     -  
+     -
      - 8A
      - velocity definition and frame
    * - VFRAME
@@ -236,7 +236,7 @@ HDU 1 (SINGLE DISH)
      - mmHg
      - ambient pressure
    * - HUMIDITY
-     -  
+     -
      - 1D
      - relative humidity
    * - RESTFREQ
@@ -248,11 +248,11 @@ HDU 1 (SINGLE DISH)
      - 1D
      - frequency resolution
    * - EQUINOX
-     - 
+     -
      - 1D
      - equinox of selected coordinate reference frame
    * - RADESYS
-     - 
+     -
      - 8A
      - Equitorial coordinate system name
    * - TRGTLONG
@@ -264,15 +264,15 @@ HDU 1 (SINGLE DISH)
      - 1D
      - target latitude in coord. ref. frame
    * - SAMPLER
-     - 
+     -
      - 12A
      - sampler description (e.g., "A1" or "A1xA3")
    * - FEED
-     - 
+     -
      - 1I
      - (signal) feed number
    * - SRFEED
-     - 
+     -
      - 1I
      - reference feed number
    * - FEEDXOFF
@@ -284,35 +284,35 @@ HDU 1 (SINGLE DISH)
      - 1D
      - feed EL offset
    * - SUBREF_STATE
-     -  
+     -
      - 1I
      - subreflector state (1,0,-1) - 0=moving
    * - SIDEBAND
-     - 
+     -
      - 1A
      - resulting sideband ('U'pper or 'L'ower)
    * - PROCSEQN
-     - 
+     -
      - 1I
      - scan sequence number
    * - PROCSIZE
-     - 
+     -
      - 1I
      - number of scans in procedure
    * - PROCSCAN
-     - 
+     -
      - 16A
      - scan's role in the procedure
    * - PROCTYPE
-     -  
+     -
      - 16A
      - type of the procedure
    * - LASTON
-     - 
+     -
      - 1J
      - last 'on' for position switching
    * - LASTOFF
-     -  
+     -
      - 1J
      - last 'off' for position switching
    * - TIMESTAMP
@@ -328,11 +328,11 @@ HDU 1 (SINGLE DISH)
      - 1D
      - QuadrantDetector elevation offset
    * - QD_BAD
-     - 
+     -
      - 1I
      - QuadrantDetector flag: 0=good,1=bad
    * - QD_METHOD
-     -  
+     -
      - 1A
      - Quad. Det. method A,B,C. Blank indicates none.
    * - VELOCITY
@@ -340,7 +340,7 @@ HDU 1 (SINGLE DISH)
      - 1D
      - line velocity in rest frame
    * - ZEROCHAN
-     - 
+     -
      - 1E
      - zero channel
    * - DOPFREQ
@@ -348,31 +348,31 @@ HDU 1 (SINGLE DISH)
      - 1D
      - Doppler tracked frequency
    * - ADCSAMPF
-     - 
+     -
      - 1D
      - VEGAS ADC sampler frequency
    * - VSPDELT
-     - 
+     -
      - 1D
      - channel increment between adjacent VEGAS spurs
    * - VSPRVAL
-     - 
+     -
      - 1D
      - VEGAS spur number at VSPRPIX
    * - VSPRPIX
-     - 
+     -
      - 1D
      - channel number of VEGAS spur VSPRVAL
    * - SIG
-     - 
+     -
      - 1A
      - signal is true, reference is false
    * - CAL
-     -  
+     -
      - 1A
      - cal ON is true, cal OFF is false
    * - CALTYPE
-     -  
+     -
      - 8A
      - LOW or HIGH, may eventually be other types
    * - TWARM
@@ -384,19 +384,19 @@ HDU 1 (SINGLE DISH)
      - 1E
      - 4mm RX cold load temp (K)
    * - CALPOSITION
-     - 
+     -
      - 16A
      - 4mm RX table position
    * - IFNUM
-     -  
+     -
      - 1I
      - Spectral window (IF) number
    * - PLNUM
-     - 
+     -
      - 1I
      - Polarization number
    * - FDNUM
-     - 
+     -
      - 1I
      - Feed number
 
@@ -417,24 +417,24 @@ Index Files
      - Day Month DD HH:MM:SS YYYY
      - Date file was last modified
    * - version
-     - 
-     - 
+     -
+     -
    * - observer
-     - 
-     - 
+     -
+     -
    * - backend
-     - 
-     - 
+     -
+     -
    * - tcal_rx_table
-     - 
-     - 
-   * - sprotect 
-     - 
-     - 
+     -
+     -
+   * - sprotect
+     -
+     -
    * - created_by
      - "index_writer"
      - Method that created this file
-                                                                                                                                                                                                                         
+
 .. list-table:: Rows
    :widths: 25 25 50
    :header-rows: 1
@@ -443,137 +443,137 @@ Index Files
      - Value
      - Definition
    * - INDEX
-     - 
-     -   
+     -
+     -
    * - PROJECT
-     - 
-     -                                                       
+     -
+     -
    * - FILE EXT
-     - 
-     -   
+     -
+     -
    * - ROW
-     - 
-     -                  
+     -
+     -
    * - SOURCE
-     - 
-     -   
+     -
+     -
    * - PROCEDURE
-     - 
-     -        
+     -
+     -
    * - OBSID
-     - 
-     -   
+     -
+     -
    * - E2ESC
-     - 
-     -   
+     -
+     -
    * - PROCS
-     - 
-     -   
+     -
+     -
    * - SCAN
-     - 
-     -   
+     -
+     -
    * - POL
-     - 
-     -   
+     -
+     -
    * - PLNUM
-     - 
-     -   
+     -
+     -
    * - IFNUM
-     - 
-     -   
+     -
+     -
    * - FEED
-     - 
-     -   
+     -
+     -
    * - FDNUM
-     - 
-     -     
+     -
+     -
    * - INT
-     - 
-     -   
+     -
+     -
    * - NUMCHN
-     - 
-     -   
+     -
+     -
    * - SIG
-     - 
-     -   
+     -
+     -
    * - CAL
-     - 
-     -   
+     -
+     -
    * - SAMPLER
-     - 
-     -    
+     -
+     -
    * - AZIMUTH
-     - 
-     -    
+     -
+     -
    * - ELEVATION
-     - 
-     -    
+     -
+     -
    * - LONGITUDE
-     - 
-     -   
+     -
+     -
    * - LATITUDE
-     - 
-     -   
+     -
+     -
    * - TRGTLONG
-     - 
-     -   
+     -
+     -
    * - TRGTLAT
-     - 
-     -   
+     -
+     -
    * - SUB
-     - 
-     -    
+     -
+     -
    * - LST
-     - 
-     -   
+     -
+     -
    * - CENTFREQ
-     - 
-     -   
+     -
+     -
    * - RESTFREQ
-     - 
-     -   
+     -
+     -
    * - VELOCITY
-     - 
-     -   
+     -
+     -
    * - FREQINT
-     - 
-     -   
+     -
+     -
    * - FREQRES
-     - 
-     -    
+     -
+     -
    * - DATEOBS
-     - 
-     -   
+     -
+     -
    * - TIMESTAMP
-     - 
-     -   
+     -
+     -
    * - BANDWIDTH
-     - 
-     -   
+     -
+     -
    * - EXPOSURE
-     - 
-     -   
+     -
+     -
    * - TSYS
-     - 
-     -   
+     -
+     -
    * - NSAVE
-     - 
-     -   
+     -
+     -
    * - PROCSCAN
-     - 
-     -   
+     -
+     -
    * - PROCTYPE
-     - 
-     -   
+     -
+     -
    * - WCALPOS
-     - 
-     -   
+     -
+     -
 
 
 Flag Files
 ==========
 
-Flag files indicate the data that should be ignored. For example, these flags can include the locations of VEGAS spurs. `GBTIDL` sometimes auto-masks data that is flagged in these files immediately upon start. 
+Flag files indicate the data that should be ignored. For example, these flags can include the locations of VEGAS spurs. `GBTIDL` sometimes auto-masks data that is flagged in these files immediately upon start.
 
 .. list-table:: Header
    :widths: 25 25 50
@@ -584,13 +584,13 @@ Flag files indicate the data that should be ignored. For example, these flags ca
      - Definition
    * - created
      - Day Month DD HH:MM:SS YYYY
-     - Date file was created                         
+     - Date file was created
    * - version
      - 1.0
-     - Version of ?   
+     - Version of ?
    * - created_by
      - sdfits
-     - Created by the SDFITS filler 
+     - Created by the SDFITS filler
 
 .. list-table:: Flags
    :widths: 25 25 50
@@ -601,16 +601,16 @@ Flag files indicate the data that should be ignored. For example, these flags ca
      - Definition
    * - RECNUM
      - integer or "*"
-     -                        
+     -
    * - SCAN
      - integer or "*"
-     - Scan number 
+     - Scan number
    * - INTNUM
      - integer or "*"
      - Integration number
    * - PLNUM
      - integer or "*"
-     - Polarization number                    
+     - Polarization number
    * - IFNUM
      - integer or "*"
      - Spectral window (IF) number
@@ -619,10 +619,10 @@ Flag files indicate the data that should be ignored. For example, these flags ca
      - Feed number
    * - BCHAN
      - list of integers
-     -                          
+     -
    * - ECHAN
      - list of integers
-     -   
+     -
    * - IDSTRING
      - "VEGAS_SPUR"
      - Type of flag

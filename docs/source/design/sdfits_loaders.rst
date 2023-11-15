@@ -1,16 +1,16 @@
 **************
-SDFITS Loaders 
+SDFITS Loaders
 **************
 
 Motivation
 ==========
 
-Although the initial design will be for GBT data, a goal is for `dysh` to be easily modifiable for any single-dish radio telescope. Thus came the idea of an SDFITS loader which would standardize inputs. 
+Although the initial design will be for GBT data, a goal is for `dysh` to be easily modifiable for any single-dish radio telescope. Thus came the idea of an SDFITS loader which would standardize inputs.
 
 Obsblock
 ========
 
-Here's the class diagram for an `Obsblock` and its derived classes. 
+Here's the class diagram for an `Obsblock` and its derived classes.
 
 .. mermaid::
 
@@ -52,8 +52,8 @@ Here's the class diagram for an `Obsblock` and its derived classes.
         Obsblock <|-- NodScan
         Obsblock <|-- OTFScan
         Obsblock <|-- ScanAvg
-        
-That's probably not super accurate. I just copied the diagram in the stakeholder presentation from last May. 
+
+That's probably not super accurate. I just copied the diagram in the stakeholder presentation from last May.
 
 SDFITSLoad
 ==========
@@ -100,7 +100,7 @@ SDFITSLoad
             summary()
             write()
         }
-        
+
 
 GBTFITSLoad
 ===========

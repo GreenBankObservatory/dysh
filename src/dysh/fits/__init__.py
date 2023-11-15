@@ -1,2 +1,2 @@
 """Classes and functions for importing SDFITS files"""
-__all__ = [ "gbtfitsload", "sdfitsload", "gb20mfitsload" ]
+__all__ = ["gbtfitsload", "sdfitsload", "gb20mfitsload"]

@@ -11,14 +11,14 @@
 #  find . -name \*$a\* -print
 
 
+import glob
 import os
 import sys
-import glob
 
 _debug = True
 
 
-#def find_data_recursively(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
+# def find_data_recursively(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
 def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
     """
     Input:
@@ -34,10 +34,10 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
         Note if multiple paths are given,  maxfiles is applied to each sublist
 
     See also:
-        astropy's getdata ???  
+        astropy's getdata ???
         pdrptry.pdrutils.get_testdata()
         astropy.utils.data.get_pkg_data_filenames
-    
+
     Examples:
         fdr('ngc1234.fits')    - this exact file!
         fdr('*.fits')          - all fits file in this directory
@@ -52,14 +52,14 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
 
     if path == None:
         if wildcard:
-            fname = '*' + filename + '*'
+            fname = "*" + filename + "*"
         else:
             fname = filename
         if recursive:
-            fname = '**/' + fname
+            fname = "**/" + fname
         if _debug:
-            print('# FNAME:',fname)
-            
+            print("# FNAME:", fname)
+
         fn = glob.glob(fname, recursive=recursive)
 
         if maxfiles == None:
@@ -69,9 +69,9 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
         retval.sort()
     else:
         cwd0 = os.getcwd()
-        all=[]
-        for p in path.split(':'):
-            if p[0] == '$':
+        all = []
+        for p in path.split(":"):
+            if p[0] == "$":
                 if p[1:] in os.environ:
                     p = os.environ[p[1:]]
                 else:
@@ -79,11 +79,11 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
             if os.path.exists(p):
                 os.chdir(p)
                 if wildcard:
-                    fname = '*' + filename + '*'
+                    fname = "*" + filename + "*"
                 else:
                     fname = filename
                 if recursive:
-                    fname = '**/' + fname
+                    fname = "**/" + fname
                 fn = glob.glob(fname, recursive=recursive)
                 fn.sort()
                 if maxfiles != None:
@@ -95,8 +95,8 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
         retval = all
     return retval
 
-def main_cli():
 
+def main_cli():
     import argparse
 
     my_help = """
@@ -109,18 +109,17 @@ def main_cli():
 
     """
 
-    p = argparse.ArgumentParser(description=my_help, epilog='And so the search goes on....')
-    p.add_argument('-m', '--maxfiles', type = int, default = None, help='Maximum number of files to return [Default: all]')
-    p.add_argument('-c', '--count', action='store_true',           help='add counter to filenames?')
-    p.add_argument('-w', '--wildcard', action='store_true',        help='fully wildcard the filename embedded')
-    p.add_argument('-r', '--recursive', action='store_true',       help='resursive?')
-    p.add_argument('-p', '--path', type = str, default = None,     help='optional (colon separated) path(s)')
-    p.add_argument('filename', nargs='+',                          help='Filename(s) to search for')
-
+    p = argparse.ArgumentParser(description=my_help, epilog="And so the search goes on....")
+    p.add_argument("-m", "--maxfiles", type=int, default=None, help="Maximum number of files to return [Default: all]")
+    p.add_argument("-c", "--count", action="store_true", help="add counter to filenames?")
+    p.add_argument("-w", "--wildcard", action="store_true", help="fully wildcard the filename embedded")
+    p.add_argument("-r", "--recursive", action="store_true", help="resursive?")
+    p.add_argument("-p", "--path", type=str, default=None, help="optional (colon separated) path(s)")
+    p.add_argument("filename", nargs="+", help="Filename(s) to search for")
 
     args = p.parse_args()
     if _debug:
-        print('#', args)
+        print("#", args)
 
     filename = args.filename
     maxfiles = args.maxfiles
@@ -132,13 +131,13 @@ def main_cli():
     r = []
     for f in filename:
         r = r + fdr(f, path, recursive, wildcard, maxfiles)
-    # r.sort()    
+    # r.sort()
 
     if count:
-        n=1
+        n = 1
         for f in r:
-            print(n,f)
-            n=n+1
+            print(n, f)
+            n = n + 1
     else:
         for f in r:
             print(f)
@@ -146,4 +145,3 @@ def main_cli():
 
 if __name__ == "__main__":
     main_cli()
-            

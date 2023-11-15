@@ -8,7 +8,7 @@ Background
 Position-switched observations are those in which the telescope observes a target (the ON position or signal) and another part of the sky, assumed to be devoid of emission (the OFF position or reference).
 
 .. figure:: img/gbt_ps_2.gif
-    :alt: A GIF showing the GBT nod back and forth in elevation to demonstrate position switching. 
+    :alt: A GIF showing the GBT nod back and forth in elevation to demonstrate position switching.
 
 While observing this is accomplished using the functions `OnOff` or `OffOn` in a scheduling block. For more details about these functions see Sections |gbtog_onoff_link| and |gbtog_offon_link| of the |gbtog_link|.
 
@@ -58,21 +58,21 @@ A modified version of the scheduling block for the observations used in this exa
 
     # Define catalog of targets.
     target_cat = """
-    format=spherical 
-    coordmode=J2000 
-    HEAD=NAME RA DEC 
+    format=spherical
+    coordmode=J2000
+    HEAD=NAME RA DEC
     NGC2415 07:36:56.66 +35:14:30.55
     """
     Catalog(target_cat)
-    
+
     # Slew to target.
     Slew('NGC2415')
 
     # Start finding pointing and focus corrections.i
     # Without argument AutoPeakFocus will try to find
-    # a suitable pointing calibrator. 
+    # a suitable pointing calibrator.
     AutoPeakFocus()
-    
+
     # After an Auto procedure it is necessary to reconfigure.
     Configure(HI_OH_config)
 
@@ -80,7 +80,7 @@ A modified version of the scheduling block for the observations used in this exa
     Slew('NGC2415')
     Balance()
 
-    # Observe a source of known flux density to find the 
+    # Observe a source of known flux density to find the
     # equivalent temperature/flux of the noise diode.
     # This will be used to calibrate the flux scale.
     OnOff('3C196', Offset('J2000', 0.0, 1.0, cosv=True), 60)
@@ -89,7 +89,7 @@ A modified version of the scheduling block for the observations used in this exa
     numobs = 1
     for i in range(numobs):
         OnOff('NGC2415',
-            Offset('J2000', 0.4042, 0.263), 300) 
+            Offset('J2000', 0.4042, 0.263), 300)
 
 
 
@@ -106,7 +106,7 @@ Single beam position-switched (PS) data is retrieved using :meth:`~dysh.fits.gbt
 
 ..  (TODO need to replace fixed path with get_example_data() and explanation thereof)::
 
-Then load your SDFITS file containing PS data. In this example, we use a 
+Then load your SDFITS file containing PS data. In this example, we use a
 `GBT SDFITS file downloadable from GBO <http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits>`_
 
 .. code:: python
@@ -121,8 +121,8 @@ The returned `sdfits` can be probed for information
     >>> sdfits.info()
         Filename: /data/gbt/examples/onoff-L/data/TGBT21A_501_11.raw.vegas.fits
         No.    Name      Ver    Type      Cards   Dimensions   Format
-          0  PRIMARY       1 PrimaryHDU      12   ()      
-          1  SINGLE DISH    1 BinTableHDU    245   6040R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '32768E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']   
+          0  PRIMARY       1 PrimaryHDU      12   ()
+          1  SINGLE DISH    1 BinTableHDU    245   6040R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '32768E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']
 
 You can also print a concise (or verbose if you choose `verbose=True`) summary :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.summary` of the data
 
@@ -140,7 +140,7 @@ Retrieve a scan and its partner ON or OFF, selecting an IF number and polarizati
     >>> psscan = sdfits.getps(152, ifnum=0, plnum=0)
     >>> psscan.calibrate() # this will be eventually be subsumed into `calibrate=True` in `getps`
         PSSCAN nrows = 302
-    
+
 The system temperature array (`numpy.ndarray`) is stored in `tsys`
 
 .. code:: python
@@ -156,7 +156,7 @@ Then time average the data, using system temperature weighting (other option is 
     >>> ta.plot()
 
 .. figure:: img/ps_152.png
-    :alt: A frequency versus temperature spectrum plot. The spectrum is noisy and spans 1.390 to 1.415 GHz. 
+    :alt: A frequency versus temperature spectrum plot. The spectrum is noisy and spans 1.390 to 1.415 GHz.
 
 The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis units and also recognizes a number matplolib-like keywords
 
@@ -165,10 +165,10 @@ The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis
     >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
 
 .. figure:: img/ps_152_zoom.png
-    :alt: The spectrum plot zoomed in along both axes to frame a central emission line. 
+    :alt: The spectrum plot zoomed in along both axes to frame a central emission line.
 
 .. WARNING::
-    At this point, `dysh` does not handle Doppler corrections. 
+    At this point, `dysh` does not handle Doppler corrections.
     So the frequency and velocity information will be offset for observations requesting a reference frame other than Topocentric.
 
 
@@ -176,14 +176,14 @@ Removing a baseline
 ===================
 
 Baselines can be removed from :class:`~dysh.spectra.spectrum.Spectrum` with the :meth:`~dysh.spectra.spectrum.Spectrum.baseline` function.   Users provide baseline degree and optionally exclude region in any conformable x-axis unit (e.g., frequency, velocity, channel).  The default model is polynomial (:class:`~astropy.modeling.polynomial.Polynomial1D`) but a Chebyshev series (:class:`~astropy.modeling.polynomial.Chebyshev1D`)
-is also .  The baseline is removed if `remove=True`. 
+is also .  The baseline is removed if `remove=True`.
 
 .. code:: python
-    
+
     >>> kms = u.km/u.s
     >>> ta.baseline(order=2,exclude=[3600,4100]*kms, remove=True)
     EXCLUDING [Spectral Region, 1 sub-regions:
-      (1401242184.363393 Hz, 1403551474.1090915 Hz) 
+      (1401242184.363393 Hz, 1403551474.1090915 Hz)
     ]
     >>> ta.plot(ymin=-200)
     >>> print(ta.baseline_model)Model: Polynomial1D
@@ -192,8 +192,8 @@ is also .  The baseline is removed if `remove=True`.
     Model set size: 1
     Degree: 2
     Parameters:
-                 c0                   c1                    c2          
-                 K                  K / Hz               K / Hz2        
+                 c0                   c1                    c2
+                 K                  K / Hz               K / Hz2
         ------------------- --------------------- ----------------------
         0.16984671256725348 6.155580136474429e-29 2.2305011385559243e-56
 

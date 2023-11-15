@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on:  ${{ matrix.os }}
     environment: hatch build
-    
+
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +32,7 @@ jobs:
         pip install -e .
     - name: Build with hatch
       run: |
-        hatch build -c 
+        hatch build -c
     - name: Test with pytest
       run: |
         pytest
