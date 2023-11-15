@@ -25,16 +25,19 @@ _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 
 class GBTFITSLoad(SDFITSLoad):
-    """GBT-specific container to reprensent one or more SDFITS files
+    """
+    GBT-specific container to reprensent one or more SDFITS files
+
     Parameters
     ----------
-        fileobj : str or `pathlib.Path`
-            File to read or directory path.  If a directory, all
-            FITS files within will be read in.
-        source  : str
-            target source to select from input file(s). Default: all sources
-        hdu : int or list
-            Header Data Unit to select from input file. Default: all HDUs
+    fileobj : str or `pathlib.Path`
+        File to read or directory path.  If a directory, all
+        FITS files within will be read in.
+    source  : str
+        target source to select from input file(s). Default: all sources
+    hdu : int or list
+        Header Data Unit to select from input file. Default: all HDUs
+
     """
 
     def __init__(self, fileobj, source=None, hdu=None, **kwargs):
@@ -84,7 +87,10 @@ class GBTFITSLoad(SDFITSLoad):
         return files
 
     def _compute_proc(self):
-        """Compute the procedure string from obsmode and add to index"""
+        """
+        Compute the procedure string from obsmode and add to index
+
+        """
         df = self._index["OBSMODE"].str.split(":", expand=True)
         self._index["PROC"] = df[0]
         # Assign these to something that might be useful later,
@@ -98,20 +104,24 @@ class GBTFITSLoad(SDFITSLoad):
             sdf._index["_SUBOBSMODE"] = df[2]
 
     def index(self, hdu=None, bintable=None, fitsindex=None):
-        """Return The index table
+        """
+        Return The index table
+
         Parameters
         ----------
-            hdu : int or list
-                Header Data Unit to select from the index. Default: all HDUs
-            bintable :  int
-                The index of the `bintable` attribute, None means all bintables
-            fitsindex: int
-                The index of the FITS file contained in this GBTFITSLoad.  Default:None meaning return one index over all files.
+        hdu : int or list
+            Header Data Unit to select from the index. Default: all HDUs
+        bintable :  int
+            The index of the `bintable` attribute, None means all bintables
+        fitsindex: int
+            The index of the FITS file contained in this GBTFITSLoad.
+            Default:None meaning return one index over all files.
 
         Returns
-        --------
-            index : ~pandas.DataFrame
-                The index of this GBTFITSLoad
+        -------
+        index : ~pandas.DataFrame
+            The index of this GBTFITSLoad
+
         """
         if fitsindex is None:
             df = self._index
@@ -133,15 +143,15 @@ class GBTFITSLoad(SDFITSLoad):
 
         Parameters
         ----------
-            bintable :  int
-                The index of the `bintable` attribute
-            fitsindex: int
-                the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
-            rawspectra : ~numpy.ndarray
-                The DATA column of the input bintable
+        rawspectra : ~numpy.ndarray
+            The DATA column of the input bintable
 
         """
         return self._sdf[fitsindex].rawspectra(bintable)
@@ -152,17 +162,17 @@ class GBTFITSLoad(SDFITSLoad):
 
         Parameters
         ----------
-            i :  int
-                The row index to retrieve.
-            bintable :  int or None
-                The index of the `bintable` attribute. If None, the underlying bintable is computed from i
-            fitsindex: int
-                the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        i :  int
+            The row index to retrieve.
+        bintable :  int or None
+            The index of the `bintable` attribute. If None, the underlying bintable is computed from i
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
-            rawspectrum : ~numpy.ndarray
-                The i-th row of DATA column of the input bintable
+        rawspectrum : ~numpy.ndarray
+            The i-th row of DATA column of the input bintable
 
         """
         return self._sdf[fitsindex].rawspectrum(i, bintable)
@@ -174,23 +184,24 @@ class GBTFITSLoad(SDFITSLoad):
         # list is usually more useful.
         #
         # @TODO perhaps return as a astropy.Table then we can have units
-        """Create a summary list of the input dataset.
-            If `verbose=False` (default), some numeric data
-            (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
-            averaged over the records with the same scan number.
+        """
+        Create a summary list of the input dataset.
+        If `verbose=False` (default), some numeric data
+        (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
+        averaged over the records with the same scan number.
 
         Parameters
         ----------
-            scans : int or 2-tuple
-                The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
+        scans : int or 2-tuple
+            The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
 
-            verbose: bool
-                If True, list every record, otherwise return a compact summary
+        verbose: bool
+            If True, list every record, otherwise return a compact summary
 
         Returns
         -------
-            summary - `~pandas.DataFrame`
-                Summary of the data as a DataFrame.
+        summary - `~pandas.DataFrame`
+            Summary of the data as a DataFrame.
 
         """
         # @todo allow user to change show list
@@ -309,22 +320,23 @@ class GBTFITSLoad(SDFITSLoad):
         return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
 
     def select(self, key, value, df):
-        """Select data where key=value
+        """
+        Select data where key=value.
 
         Parameters
         ----------
-
-            key : str
-                The key value (SDFITS column name)
-            value : any
-                The value to match
-            df : `~pandas.DataFrame`
-                The DataFrame to search
+        key : str
+            The key value (SDFITS column name)
+        value : any
+            The value to match
+        df : `~pandas.DataFrame`
+            The DataFrame to search
 
         Returns
         -------
-            df : `~pandas.DataFrame`
-                The subselected DataFrame
+        df : `~pandas.DataFrame`
+            The subselected DataFrame
+
         """
         return df[(df[key] == value)]
 
@@ -346,22 +358,24 @@ class GBTFITSLoad(SDFITSLoad):
     #        TODO: figure how to allow [startscan, endscan]
     #            [sampler], ap_eff [if requested units are Jy]
     def getps(self, scans=None, bintable=None, **kwargs):
-        """Get the rows that contain position-switched data.  These include ONs and OFFs.
+        """
+        Get the rows that contain position-switched data.  These include ONs and OFFs.
 
-           kwargs: plnum, feed, ifnum, integration, calibrate=T/F, average=T/F, tsys, weights
+        kwargs: plnum, feed, ifnum, integration, calibrate=T/F, average=T/F, tsys, weights
 
         Parameters
         ----------
-            scans : int or 2-tuple
-                Single scan number or list of scan numbers to use. Default: all scans.
-                Scan numbers can be Ons or Offs
-            weights: str
-                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
+        scans : int or 2-tuple
+            Single scan number or list of scan numbers to use. Default: all scans.
+            Scan numbers can be Ons or Offs
+        weights: str
+            'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
 
         Returns
         -------
-            data : `~spectra.scan.ScanBlock`
-                A ScanBlock containing one or more `~spectra.scan.PSScan`
+        data : `~spectra.scan.ScanBlock`
+            A ScanBlock containing one or more `~spectra.scan.PSScan`
+
         """
         # all ON/OFF scans
         kwargs_opts = {
@@ -400,29 +414,31 @@ class GBTFITSLoad(SDFITSLoad):
         return scanblock
 
     def gettp(self, scan, sig=None, cal=None, bintable=None, **kwargs):
-        """Get a total power scan, optionally calibrating it.
+        """
+        Get a total power scan, optionally calibrating it.
 
         Parameters
         ----------
-            scan: int
-                scan number
-            sig : bool or None
-                True to use only integrations where signal state is True, False to use reference state (signal state is False). None to use all integrations.
-            cal: bool or None
-                True to use only integrations where calibration (diode) is on, False if off. None to use all integrations regardless calibration state. The system temperature will be calculated from both states regardless of the value of this variable.
-            bintable : int
-                the index for BINTABLE in `sdfits` containing the scans
-            calibrate: bool
-                whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-            weights: str
-                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
+        scan: int
+            scan number
+        sig : bool or None
+            True to use only integrations where signal state is True, False to use reference state (signal state is False). None to use all integrations.
+        cal: bool or None
+            True to use only integrations where calibration (diode) is on, False if off. None to use all integrations regardless calibration state. The system temperature will be calculated from both states regardless of the value of this variable.
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans
+        calibrate: bool
+            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+        weights: str
+            'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
 
-            scan args - ifnum, plnum, fdnum, subref
+        scan args - ifnum, plnum, fdnum, subref
 
         Returns
         -------
-            data : `~spectra.scan.ScanBlock`
-                A ScanBlock containing one or more `~spectra.scan.TPScan`
+        data : `~spectra.scan.ScanBlock`
+            A ScanBlock containing one or more `~spectra.scan.TPScan`
+
         """
         kwargs_opts = {
             "ifnum": 0,
@@ -499,27 +515,28 @@ class GBTFITSLoad(SDFITSLoad):
 
         Parameters
         ----------
-            scan: int
-                scan number
-            method: str
-                Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
-            sig : bool
-                True to indicate if this is the signal scan, False if reference
-            cal: bool
-                True if calibration (diode) is on, False if off.
-            bintable : int
-                the index for BINTABLE in `sdfits` containing the scans, None means use all bintables
-            calibrate: bool
-                whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-            weights: str
-                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
+        scan: int
+            scan number
+        method: str
+            Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
+        sig : bool
+            True to indicate if this is the signal scan, False if reference
+        cal: bool
+            True if calibration (diode) is on, False if off.
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans, None means use all bintables
+        calibrate: bool
+            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+        weights: str
+            'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
 
-            scan args - ifnum, fdnum, subref  (plnum depends on fdnum)
+        scan args - ifnum, fdnum, subref  (plnum depends on fdnum)
 
         Returns
         -------
-            data : `~spectra.spectrum.Spectrum`
-                A Spectrum object containing the data
+        data : `~spectra.spectrum.Spectrum`
+            A Spectrum object containing the data
+
         """
         kwargs_opts = {
             "ifnum": 0,
@@ -722,27 +739,28 @@ class GBTFITSLoad(SDFITSLoad):
 
         Parameters
         ----------
-            scan: int
-                scan number
-            method: str
-                Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
-            sig : bool
-                True to indicate if this is the signal scan, False if reference
-            cal: bool
-                True if calibration (diode) is on, False if off.
-            bintable : int
-                the index for BINTABLE in `sdfits` containing the scans, None means use all bintables
-            calibrate: bool
-                whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-            weights: str
-                'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
+        scan: int
+            scan number
+        method: str
+            Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
+        sig : bool
+            True to indicate if this is the signal scan, False if reference
+        cal: bool
+            True if calibration (diode) is on, False if off.
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans, None means use all bintables
+        calibrate: bool
+            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+        weights: str
+            'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
 
             scan args - ifnum, fdnum, subref  (plnum depends on fdnum)
 
         Returns
         -------
-            data : `~spectra.spectrum.Spectrum`
-                A Spectrum object containing the data
+        data : `~spectra.spectrum.Spectrum`
+            A Spectrum object containing the data
+
         """
         kwargs_opts = {
             "ifnum": 0,
@@ -920,21 +938,21 @@ class GBTFITSLoad(SDFITSLoad):
 
         Parameters
         ----------
-            scans : int or list-like
-                The scan numbers to find the rows of
-            ifnum : int
-                the IF index
-            plnum : int
-                the polarization index
-            bintable : int
-                the index for BINTABLE containing the scans
-            fitsindex: int
-                the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        scans : int or list-like
+            The scan numbers to find the rows of
+        ifnum : int
+            the IF index
+        plnum : int
+            the polarization index
+        bintable : int
+            the index for BINTABLE containing the scans
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
-            rows : dict
-                A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
+        rows : dict
+            A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
         """
         self._create_index_if_needed()
         # print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum},bintable={bintable},fitsindex={fitsindex})")
@@ -1022,29 +1040,31 @@ class GBTFITSLoad(SDFITSLoad):
         return s
 
     def calonoff_rows(self, scans=None, bintable=None, fitsindex=0, **kwargs):
-        """Get individual scan row numbers  sorted by whether the calibration (diode) was on or off, and selected by ifnum,plnum, fdnum,subref,bintable.
+        """
+        Get individual scan row numbers  sorted by whether the calibration (diode) was on or off, and selected by ifnum,plnum, fdnum,subref,bintable.
 
         Parameters
         ----------
-            scans : int or list-like
-                The scan numbers to find the rows of
-            ifnum : int
-                the IF index
-            plnum : int
-                the polarization index
-            fdnum : int
-                the feed index
-            subref : int
-                the subreflector state (-1,0,1)
-            bintable : int
-                the index for BINTABLE containing the scans
-            fitsindex: int
-                the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        scans : int or list-like
+            The scan numbers to find the rows of
+        ifnum : int
+            the IF index
+        plnum : int
+            the polarization index
+        fdnum : int
+            the feed index
+        subref : int
+            the subreflector state (-1,0,1)
+        bintable : int
+            the index for BINTABLE containing the scans
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
-            rows : dict
-                A dictionary with keys 'ON' and 'OFF' giving the row indices of CALON and CALOFF data for the input scan(s)
+        rows : dict
+            A dictionary with keys 'ON' and 'OFF' giving the row indices of CALON and CALOFF data for the input scan(s)
+
         """
         self._create_index_if_needed()
         s = {"ON": [], "OFF": []}
@@ -1076,25 +1096,27 @@ class GBTFITSLoad(SDFITSLoad):
         return s
 
     def onoff_rows(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
-        """get individual ON/OFF (position switch) scan row numbers selected by ifnum,plnum, bintable.
+        """
+        Get individual ON/OFF (position switch) scan row numbers selected by ifnum,plnum, bintable.
 
         Parameters
         ----------
-            scans : int or list-like
-                The scan numbers to find the rows of
-            ifnum : int
-                the IF index
-            plnum : int
-                the polarization index
-            bintable : int
-                the index for BINTABLE in `sdfits` containing the scans
-            fitsindex: int
-                the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        scans : int or list-like
+            The scan numbers to find the rows of
+        ifnum : int
+            the IF index
+        plnum : int
+            the polarization index
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
-            rows : dict
-                A dictionary with keys 'ON' and 'OFF' giving the row indices of the ON and OFF data for the input scan(s)
+        rows : dict
+            A dictionary with keys 'ON' and 'OFF' giving the row indices of the ON and OFF data for the input scan(s)
+
         """
         # @TODO deal with mulitple bintables
         # @TODO rename this sigref_rows?
@@ -1110,25 +1132,27 @@ class GBTFITSLoad(SDFITSLoad):
         return rows
 
     def scan_rows(self, scans, ifnum=0, plnum=0, bintable=None, fitsindex=0):
-        """get scan rows selected by ifnum,plnum, bintable.
+        """
+        Get scan rows selected by ifnum,plnum, bintable.
 
         Parameters
         ----------
-            scans : int or list-like
-                The scan numbers to find the rows of
-            ifnum : int
-                the IF index
-            plnum : int
-                the polarization index
-            bintable : int
-                the index for BINTABLE in `sdfits` containing the scans. Default:None
-            fitsindex: int
-                the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        scans : int or list-like
+            The scan numbers to find the rows of
+        ifnum : int
+            the IF index
+        plnum : int
+            the polarization index
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans. Default:None
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
 
         Returns
         -------
-            rows : list
-                Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
+        rows : list
+            Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
+
         """
         # scans is a list
         # print(f"scan_rows(scans={scans},ifnum={ifnum},plnum={plnum},bintable={bintable},fitsindex={fitsindex}")
@@ -1147,17 +1171,19 @@ class GBTFITSLoad(SDFITSLoad):
         return rows
 
     def _scan_rows_all(self, scans):
-        """get scan rows regardless of ifnum,plnum, bintable.
+        """
+        Get scan rows regardless of ifnum,plnum, bintable.
 
         Parameters
         ----------
-            scans : int or list-like
-                The scan numbers to find the rows of
+        scans : int or list-like
+            The scan numbers to find the rows of
 
         Returns
         -------
-            rows : list
-                Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
+        rows : list
+            Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
+
         """
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
