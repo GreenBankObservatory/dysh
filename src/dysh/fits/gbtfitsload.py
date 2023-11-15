@@ -938,8 +938,6 @@ class GBTFITSLoad(SDFITSLoad):
         """
         self._create_index_if_needed()
         # print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum},bintable={bintable},fitsindex={fitsindex})")
-        if fitsindex is not None:
-            print("FILE ", self._sdf[fitsindex]._filename)
         s = {"ON": [], "OFF": []}
         if type(scans) == int:
             scans = [scans]
@@ -956,7 +954,6 @@ class GBTFITSLoad(SDFITSLoad):
         lenprocset = len(procset)
         if lenprocset == 0:
             # This is ok since not all files in a set have all the polarizations, feeds, or IFs
-            warnings.warn("no on/off scans found for given selection")
             return s
         if lenprocset > 1:
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
