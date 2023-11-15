@@ -366,8 +366,8 @@ class GBTFITSLoad(SDFITSLoad):
         # all ON/OFF scans
         kwargs_opts = {
             "ifnum": 0,
-            "plnum": 0,  # I prefer "pol"
-            "fdnum": 0,
+            "plnum": None,  # I prefer "pol"
+            "fdnum": None,
             "calibrate": True,
             "timeaverage": False,
             "polaverage": False,
@@ -383,6 +383,7 @@ class GBTFITSLoad(SDFITSLoad):
         for i in range(len(self._sdf)):
             scanlist = self.onoff_scan_list(scans, ifnum=ifnum, plnum=plnum, fitsindex=i)
             if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                # print("scans not found, continuing")
                 continue
             # add ifnum,plnum
             rows = self.onoff_rows(scans, ifnum=ifnum, plnum=plnum, bintable=bintable, fitsindex=i)
@@ -943,7 +944,10 @@ class GBTFITSLoad(SDFITSLoad):
         if type(scans) == int:
             scans = [scans]
         df = self.index(bintable=bintable, fitsindex=fitsindex)
-        df = df[(df["PLNUM"] == plnum) & (df["IFNUM"] == ifnum)]
+        if plnum is not None:
+            df = df[df["PLNUM"] == plnum]
+        if ifnum is not None:
+            df = df[df["IFNUM"] == ifnum]
         # don't want to limit scans yet since only on or off scan scan numbers may have been
         # passed in, but do need to ensure that a single PROCTYPE is in the given scans
         # Alterative is to this check at the end (which is probably better)
@@ -1095,14 +1099,14 @@ class GBTFITSLoad(SDFITSLoad):
         # @TODO deal with mulitple bintables
         # @TODO rename this sigref_rows?
         # keep the bintable keyword and allow iteration over bintables if requested (bintable=None)
-        # print(f"onoff_rows(scans={scans},if={ifnum},pl={plnum})")
+        # print(f"onoff_rows(scans={scans},ifnum={ifnum},plnum={plnum},bintable={bintable},fitsindex={fitsindex}")
         rows = {"ON": [], "OFF": []}
         if type(scans) is int:
             scans = [scans]
-        scans = self.onoff_scan_list(scans, ifnum, plnum, bintable)
+        scans = self.onoff_scan_list(scans, ifnum, plnum, bintable, fitsindex=fitsindex)
         # scans is now a dict of "ON" "OFF
         for key in scans:
-            rows[key] = self.scan_rows(scans[key], ifnum, plnum, bintable)
+            rows[key] = self.scan_rows(scans[key], ifnum, plnum, bintable, fitsindex=fitsindex)
         return rows
 
     def scan_rows(self, scans, ifnum=0, plnum=0, bintable=None, fitsindex=0):
@@ -1127,12 +1131,16 @@ class GBTFITSLoad(SDFITSLoad):
                 Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
         """
         # scans is a list
-        # print(f"scan_rows(scans={scans},if={ifnum},pl={plnum})")
+        # print(f"scan_rows(scans={scans},ifnum={ifnum},plnum={plnum},bintable={bintable},fitsindex={fitsindex}")
         self._create_index_if_needed()
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
         df = self.index(bintable=bintable, fitsindex=fitsindex)
-        df = df[df["SCAN"].isin(scans) & (df["IFNUM"] == ifnum) & (df["PLNUM"] == plnum)]
+        df = df[df["SCAN"].isin(scans)]
+        if plnum is not None:
+            df = df[df["PLNUM"] == plnum]
+        if ifnum is not None:
+            df = df[df["IFNUM"] == ifnum]
         rows = list(df.index)
         if len(rows) == 0:
             raise Exception(f"Scans {scans} not found in bintable {bintable}")
