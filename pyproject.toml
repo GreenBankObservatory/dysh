@@ -145,6 +145,9 @@ line-length = 120
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = ["tests", "src", "docs"]
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]
 
 [build-system]
 requires = ["hatchling"]

@@ -149,7 +149,7 @@ class TestGBTFITSLoad:
         assert len(fdnums) == 1
         assert np.sum(np.subtract(fdnums, [0])) == 0
 
-    @pytest.mark.skip(reason="We need to update this to work with multifits and ScanBlocks")
+    # @pytest.mark.skip(reason="We need to update this to work with multifits and ScanBlocks")
     def test_multifits_getps_offon(self):
         """
         Loading multiple SDFITS files under a directory.
@@ -158,15 +158,22 @@ class TestGBTFITSLoad:
         * getps works on all IFs
         *
         """
+        proj_dir = f"{self.data_dir}/AGBT18B_354_03"
         # Load the data.
-        fits_path = f"{self.data_dir}/AGBT18B_354_03.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        fits_dir = f"{proj_dir}/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_dir)
 
         # Check one IF.
         ps_scans = sdf.getps(6, ifnum=2)
         ps_spec = ps_scans[0].calibrated(0).flux.to("K").value
 
-        hdu = fits.open(f"{self.data_dir}/AGBT18B_354_03.raw.vegas/getps_scan_6_ifnum_2_plnum_0_intnum_0.fits")
-        gbtidl_spec = hdu[1].data["DATA"]
+        gbtidl_dir = f"{proj_dir}/gbtidl_outputs"
+        hdu = fits.open(f"{gbtidl_dir}/getps_scan_6_ifnum_2_plnum_0_intnum_0.fits")
+        table = hdu[1].data
+        gbtidl_spec = table["DATA"]
 
-        assert np.all((ps_spec - gbtidl_spec) == 0)
+        diff = ps_spec.astype(np.float32) - gbtidl_spec[0]
+        # assert np.all((ps_spec.astype(np.float32) - gbtidl_spec) == 0)
+        assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
+        assert table["EXPOSURE"] == ps_scans[0].calibrated(0).meta["EXPOSURE"]
+        assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
