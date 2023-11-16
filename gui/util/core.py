@@ -1,11 +1,15 @@
-from PyQt5.QtCore import QObject, QThread, pyqtSignal
+import os
+import sys
 from threading import Thread
-import sys, os
+
+from PyQt5.QtCore import QObject, QThread, pyqtSignal
+
 
 class ThreadCallbacks:
     def progress(future):
         pass
         # print('.', end='', flush=True)
+
 
 class DyshWorker(QObject, Thread):
     """Thread to run a function that returns a value"""

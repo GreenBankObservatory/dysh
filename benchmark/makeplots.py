@@ -187,19 +187,31 @@ def barplots(file, x_col="N_rows"):
     ax.bar(ind + 2 * width, list(pure_numpy.values()), width, log=args.logy, label="pure numpy", color=colors[0])
     # from peter
     if False:
-        pure_c = { 0: 0.6, 1: 0, 2:0, 3:0.58, 4:0.81, 5:1.16}
-        # take 0.75 because peter did the whole spectrum 
+        pure_c = {0: 0.6, 1: 0, 2: 0, 3: 0.58, 4: 0.81, 5: 1.16}
+        # take 0.75 because peter did the whole spectrum
         # could also * 0.5 because he used doubles
-        ax.bar(ind[0]+2*width,0.75*np.array(list(pure_c.values())[0]),width,log=args.logy,color=colors[8])
-        ax.bar(ind[1:]+3*width,0.75*np.array(list(pure_c.values())[1:]),width,log=args.logy,label="pure C",color=colors[8])
-        
-        #ax.hlines(pure_numpy,2.75,4.,lw=3,color=colors[0],label="pure numpy")
+        ax.bar(ind[0] + 2 * width, 0.75 * np.array(list(pure_c.values())[0]), width, log=args.logy, color=colors[8])
+        ax.bar(
+            ind[1:] + 3 * width,
+            0.75 * np.array(list(pure_c.values())[1:]),
+            width,
+            log=args.logy,
+            label="pure C",
+            color=colors[8],
+        )
+
+        # ax.hlines(pure_numpy,2.75,4.,lw=3,color=colors[0],label="pure numpy")
     else:
         pure_c = {0: 0.6, 1: 0, 2: 0, 3: 0.58, 4: 0.81, 5: 1.16}
         pure_c = {0: 0.0, 1: 0, 2: 0, 3: 0.58, 4: 0.81, 5: 1.16}
         # take 0.75 because peter did the whole spectrum
         ax.bar(
-            ind + 3 * width, 0.75 * np.array(list(pure_c.values())), width, log=args.logy, label="pure C", color=colors[8]
+            ind + 3 * width,
+            0.75 * np.array(list(pure_c.values())),
+            width,
+            log=args.logy,
+            label="pure C",
+            color=colors[8],
         )
 
         # ax.hlines(pure_numpy,2.75,4.,lw=3,color=colors[0],label="pure numpy")

@@ -6,7 +6,7 @@ For beta testing we ask that your provide feedback in the form of:
 
 * Reporting issues. For example, if something does not work or the results are not accurate.
 * Making suggestions. For example, requesting new features.
-* Letting us know what you think. 
+* Letting us know what you think.
 
 If you are interested in beta testing `dysh`, please contact Pedro Salas (psalas@nrao.edu) to be added to the beta testers list. Thanks for your interest!
 

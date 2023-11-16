@@ -42,7 +42,7 @@ have to insYou did tall yet another tool for this.
 
 If you can use conda, installation can be done as follows:
 
-      conda install gh --channel conda-forge  
+      conda install gh --channel conda-forge
 
 but see also [manual installing instructions](https://cli.github.com/manual/installation),
 after this you need to authenticate once via your github account:
@@ -62,7 +62,7 @@ If all is well, the following commands should show the correct *origin* and *ups
       upstream git@github.com:GreenbankObservatory/dysh.git
 
 for both the (fetch) and (push). None of these should be blank! You are now ready for working
-in your own branches and issue a pull request (PR). 
+in your own branches and issue a pull request (PR).
 
 ## 2. Cloning your personal fork
 
@@ -116,12 +116,12 @@ here is a typical example to work in a branch, using a branchname **b1**
 
       git branch b1
       git checkout b1
-      
+
       ## edit/add your files; test them; commit them, e.g.
       git commit -m "my comment"  existing_file
       git add new_file
       git commit -m "my command"  new_file
-          
+
       git push -u origin b1
 
 Now you can issue a pull request on this branch **b1**.
@@ -130,7 +130,7 @@ If you have become a fan on the **gh pr** method, here's the recipe for this:
 
       git checkout -b b1
         <<edit, test, commit>>
-      gh pr create 
+      gh pr create
 
 once the branch has been merged, you don't need it locally anymore, so delete it
 
@@ -142,14 +142,14 @@ once the branch has been merged, you don't need it locally anymore, so delete it
 
 Lets say there is a new development idea, lets call it "table2", and others will
 share the development in this "table2" branch, but until the development is done, this is not
-merged to the master yet. 
+merged to the master yet.
 
 1. DYSH (*upstream*) itself will start making this new development branch:
 
        git checkout -b table2
        ...
        git push --set-upstream origin table2
-	  
+
 2. others will do then branch off this new branch (user *astroumd* is used as example here):
 
        gh repo fork https://github.com/GreenbankObservatory/dysh dysh
@@ -160,8 +160,8 @@ merged to the master yet.
        git merge upstream/table2
        ...
        git push --set-upstream origin myTable3
-	  
-   on github.com/astroumd/dysh you can then do a pull request from astroumd::myTable3 to teuben:table2. An 
+
+   on github.com/astroumd/dysh you can then do a pull request from astroumd::myTable3 to teuben:table2. An
    alternative (next item) is that the upstream person would pull in myTable3 and tests locally
 
 3. DYSH, optionally, creates an alias site "astroumd" and merge from their myTable3 branch to check out the code
@@ -181,7 +181,7 @@ merged to the master yet.
 
 ## Memorable git options
 
-1.  Show all files modified in a branch AAA 
+1.  Show all files modified in a branch AAA
 
        git diff master...AAA --name-status --diff-filter=M
 
@@ -190,11 +190,11 @@ merged to the master yet.
        git show --summary `git merge-base AAA master`
        gitk --all --select-commit=`git merge-base foo master`
 
-3. To see which files belonged in a commit, find the sha (e.g. via "git log" or "git log file" if 
+3. To see which files belonged in a commit, find the sha (e.g. via "git log" or "git log file" if
    you know the file that belonged to it), then
 
        git diff-tree --no-commit-id --name-only -r SHA
-	 
+
 4. Difference between two SHA's
 
        git diff <commit-id> <commit-id>
@@ -209,7 +209,7 @@ Step 1 from the submitter of the PR:
        cd dysh
        git checkout -b teuben1
        $EDITOR index.md
-       gh pr create 
+       gh pr create
 
 Once the branch has been merged by the upstream, there is no need to keep it.
 It can be removed as follows:
@@ -220,7 +220,7 @@ It can be removed as follows:
 Step 2 by the receiver of the PR:
 
 
-	
+
 
 # References
 

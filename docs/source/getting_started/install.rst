@@ -3,9 +3,9 @@ Installing ``dysh``
 *******************
 
 ``dysh`` requires Python 3.8+ and recent versions of
-`astropy <https://astropy.org>`_, 
+`astropy <https://astropy.org>`_,
 `numpy <https://numpy.org>`_,
-`scipy <https://scipy.org>`_, 
+`scipy <https://scipy.org>`_,
 `pandas <https://pandas.pydata.org>`_,
 `specutils <https://specutils.readthedocs.io/en/stable/>`_,  and
 `matplotlib <https://matplotlib.org>`_.
@@ -24,7 +24,7 @@ Index <https://pypi.org/project/dysh>`_.
 From github
 ===========
 
-To install from github without creating a separate virtual environment: 
+To install from github without creating a separate virtual environment:
 
 .. code::
 
@@ -33,4 +33,3 @@ To install from github without creating a separate virtual environment:
     $ pip install -e .
 
 If you wish to install using a virtual environment, which we strongly recommend if you plan to contribute to the code, see :doc:`installation instructions for developers <../for_developers/install>`.
-
