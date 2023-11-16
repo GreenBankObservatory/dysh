@@ -1,14 +1,20 @@
-from PyQt5.QtGui import *
+import getpass
+import os
+import socket
+import sys
+
+import psutil
 from PyQt5.QtCore import *
+from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from pyqtgraph import GraphicsLayoutWidget, ImageItem
-import sys, os, psutil, getpass, socket
+
 
 class FITSHeaderTable(QWidget):
-    """ Table of FITS Header information """
-    
+    """Table of FITS Header information"""
+
     def __init__(self):
-        """ Initializes the table widget """
+        """Initializes the table widget"""
         super().__init__()
         self.make_layout()
 
@@ -32,20 +38,20 @@ class FITSHeaderTable(QWidget):
         """
         ks = [k for k in data.keys()]
 
-        self.tbl.setRowCount(len(ks)) 
+        self.tbl.setRowCount(len(ks))
         self.tbl.setColumnCount(2)
-        self.tbl.setHorizontalHeaderLabels(['Header Key', 'Header Value'])
-  
+        self.tbl.setHorizontalHeaderLabels(["Header Key", "Header Value"])
+
         for i, ki in enumerate(ks):
             self.tbl.setItem(i, 0, QTableWidgetItem(str(ki)))
             self.tbl.setItem(i, 1, QTableWidgetItem(str(data[ki])))
 
 
 class FITSDataTable(QTableWidget):
-    """ Table of FITS Header information """
-    
+    """Table of FITS Header information"""
+
     def __init__(self):
-        """ Initializes the table widget """
+        """Initializes the table widget"""
         super().__init__()
 
     def make_layout(self):
@@ -68,15 +74,15 @@ class FITSDataTable(QTableWidget):
         """
         ks = data.keys()
 
-        self.tbl.setRowCount(len(ks)) 
+        self.tbl.setRowCount(len(ks))
         self.tbl.setColumnCount(4)
-        self.tbl.setHorizontalHeaderLabels(['Header Key', 'Value', 'Unit', 'TFORM'])
+        self.tbl.setHorizontalHeaderLabels(["Header Key", "Value", "Unit", "TFORM"])
 
         for i, ki in enumerate(ks):
             try:
                 self.tbl.setItem(i, 0, QTableWidgetItem(str(ki)))
                 self.tbl.setItem(i, 1, QTableWidgetItem(str(self.hdr_df[ki][0])))
-                self.tbl.setItem(i, 2, QTableWidgetItem(str(self.h_data_info[ki]['TUNIT'])))
-                self.tbl.setItem(i, 3, QTableWidgetItem(str(self.h_data_info[ki]['TFORM'])))
+                self.tbl.setItem(i, 2, QTableWidgetItem(str(self.h_data_info[ki]["TUNIT"])))
+                self.tbl.setItem(i, 3, QTableWidgetItem(str(self.h_data_info[ki]["TFORM"])))
             except:
-                print(f'Issue encountered for {ki} (data)')
+                print(f"Issue encountered for {ki} (data)")

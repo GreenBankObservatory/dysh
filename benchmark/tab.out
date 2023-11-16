@@ -2,6 +2,5 @@
 |                           char|double| long|long|  long|  long|double|double|          double|    double|    double|    double|  double|
 |                               | Mbyte|     |    |      |      |    ms|    ms|              ms|        ms|        ms|        ms|      ms|
 |                           null|  null| null|null|  null|  null|  null|  null|            null|      null|      null|      null|    null|
- TSCAL_220105_W.raw.vegas.E.fits    3.9     1    1    864   1024  124.8  205.7           3667.5    66850.2    67657.7    80611.8 219117.9 
- TSCAL_220105_W.raw.vegas.E.fits    3.9     1    1    864   1024  105.3  178.3           2998.0     3288.5     4479.3     3885.1 14934.6 
-
+ TSCAL_220105_W.raw.vegas.E.fits    3.9     1    1    864   1024  124.8  205.7           3667.5    66850.2    67657.7    80611.8 219117.9
+ TSCAL_220105_W.raw.vegas.E.fits    3.9     1    1    864   1024  105.3  178.3           2998.0     3288.5     4479.3     3885.1 14934.6

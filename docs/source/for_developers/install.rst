@@ -52,7 +52,7 @@ Additional Installation Options
 
 Testing
 =======
-We use `pytest` for unit and integration testing. 
+We use `pytest` for unit and integration testing.
 From the top-level dysh directory, run:
 
 .. code-block:: bash

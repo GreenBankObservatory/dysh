@@ -7,7 +7,7 @@
 ## Getting Started
 ### Installation
 
-Dysh requires Python 3.8+ and recent versions of [astropy]( https://astropy.org), [numpy](https://numpy.org), [scipy](https://scipy.org), [pandas](https://pandas.pydata.org), [specutils](https://specutils.readthedocs.io/en/stable/),  and [matplotlib](https://matplotlib.org). 
+Dysh requires Python 3.8+ and recent versions of [astropy]( https://astropy.org), [numpy](https://numpy.org), [scipy](https://scipy.org), [pandas](https://pandas.pydata.org), [specutils](https://specutils.readthedocs.io/en/stable/),  and [matplotlib](https://matplotlib.org).
 
 #### With pip from PyPi
 Dysh is most easily installed with *pip*, which will take care of any dependencies.  The packaged code is hosted at the [Python Packaging Index](https://pypi.org/project/dysh).
@@ -17,7 +17,7 @@ Dysh is most easily installed with *pip*, which will take care of any dependenci
 ```
 
 #### From GitHub
-To install from github without creating a separate virtual environment: 
+To install from github without creating a separate virtual environment:
 
 ```bash
     $ git clone git@github.com:GreenBankObservatory/dysh.git
@@ -59,7 +59,7 @@ Then source the new profile to apply the changes.
 $ source ~/.bash_profile
 ```
 
-3.  Create and activate a virtual environment with hatch and install the packages required for development. 
+3.  Create and activate a virtual environment with hatch and install the packages required for development.
 The virtual environment will be created the first time; subsequent invoking ``hatch shell`` will simply load the created environment.cdi
 
 ```bash

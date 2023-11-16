@@ -2,13 +2,13 @@
 Context Within GBO Systems
 **************************
 
-Background 
+Background
 ==========
 
 GBTIDL
 ------
 
-`GBTIDL` is the current software used to calibrate SDFITS files from the GBT. 
+`GBTIDL` is the current software used to calibrate SDFITS files from the GBT.
 
 Requirements
 ============

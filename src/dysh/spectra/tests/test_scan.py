@@ -1,27 +1,23 @@
-
-import pytest
 import pathlib
-import numpy as np
 
+import numpy as np
+import pytest
 from astropy.io import fits
-from astropy.utils.data import (
-                            get_pkg_data_filename,
-                            )
+from astropy.utils.data import get_pkg_data_filename
 
 import dysh
 from dysh.fits import gbtfitsload
 
-#dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
+# dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
-class TestGBTPSScan():
 
+class TestGBTPSScan:
     def test_compare_with_GBTIDL(self):
-
         # get filenames
         sdf_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2.fits")
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits")
-        #sdf_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2.fits"
-        #gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
+        # sdf_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        # gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
@@ -37,23 +33,21 @@ class TestGBTPSScan():
         diff = psscan_tavg.flux.value - psscan_gbtidl
         assert np.nanmedian(diff) == 0.0
 
-
     def test_baseline_removal(self):
-
-        #get filenames
+        # get filenames
         sdf_file = get_pkg_data_filename("data/AGBT17A_404_01_scan_19_prebaseline.fits")
         gbtidl_file = get_pkg_data_filename("data/AGBT17A_404_01_scan_19_postbaseline.fits")
         gbtidl_modelfile = get_pkg_data_filename("data/AGBT17A_404_01_scan_19_bline_model.fits")
 
-        #generate the dysh result
+        # generate the dysh result
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        #has already been calibrated and smoothed slightly in gbtidl
+        # has already been calibrated and smoothed slightly in gbtidl
         psscan = sdf.getspec(0)
-        #3rd order baseline fitted in gbtidl with regions [100,400] and [450,750]
-        psscan.baseline(3,[(0,100),(400,450),(750,819)],remove=True,model='chebyshev')
+        # 3rd order baseline fitted in gbtidl with regions [100,400] and [450,750]
+        psscan.baseline(3, [(0, 100), (400, 450), (750, 819)], remove=True, model="chebyshev")
 
-        #load gbtidl result
-        #assuming the pre-baseline spectrum is still the same (can still test this if need be)
+        # load gbtidl result
+        # assuming the pre-baseline spectrum is still the same (can still test this if need be)
         hdu = fits.open(gbtidl_file)
         gbtidl_post = hdu[1].data["DATA"][0]
         hdu = fits.open(gbtidl_modelfile)
@@ -61,15 +55,13 @@ class TestGBTPSScan():
 
         diff = psscan - gbtidl_post
 
-        #check that the spectra are the same but this won't pass right now
-        #what is the tolerance for not passing?
-        #[TODO] Find the right threshold for this
-        #assert np.nanmean(diff) == 0
+        # check that the spectra are the same but this won't pass right now
+        # what is the tolerance for not passing?
+        # [TODO] Find the right threshold for this
+        # assert np.nanmean(diff) == 0
 
 
-
-class TestSubBeamNod():
-
+class TestSubBeamNod:
     def test_compare_with_GBTIDL(self):
         # get filenames
         # We still need a data file with a single scan in it
@@ -79,23 +71,21 @@ class TestSubBeamNod():
         # Generate the dysh result.
         # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sbn = sdf.subbeamnod(43, sig=None, cal=None,
-                        ifnum=0, fdnum=1, calibrate=True,
-                        weights='tsys',method='scan')
+        sbn = sdf.subbeamnod(43, sig=None, cal=None, ifnum=0, fdnum=1, calibrate=True, weights="tsys", method="scan")
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
         nodscan_gbtidl = hdu[1].data["DATA"][0]
 
         # Compare.
-        ratio = sbn.flux.value/nodscan_gbtidl
-        #print("DIFF ",np.nanmedian(sbn.flux.value - nodscan_gbtidl))
+        ratio = sbn.flux.value / nodscan_gbtidl
+        # print("DIFF ",np.nanmedian(sbn.flux.value - nodscan_gbtidl))
         # kluge for now since there is a small wavy pattern in
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
 
-class TestGBTTPScan():
 
+class TestGBTTPScan:
     def test_compare_with_GBTIDL_tsys_weights(self):
         """
         This test compares `gettp` when using radiometer weights.
@@ -113,7 +103,7 @@ class TestGBTTPScan():
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tp  = sdf.gettp(152)
+        tp = sdf.gettp(152)
         tpavg = tp.timeaverage()
 
         # Check that we know how to add.
@@ -135,7 +125,7 @@ class TestGBTTPScan():
         assert abs(tpavg.meta["TSYS"] - table["TSYS"][-1]) < 1e-10
         # Data, which uses float -- 32 bits.
         assert np.sum(tp._data - data[:-1]) == 0.0
-        assert np.nanmean((tpavg.flux.value - data[-1])/data[-1].mean()) < 2**-32
+        assert np.nanmean((tpavg.flux.value - data[-1]) / data[-1].mean()) < 2**-32
 
     def test_compare_with_GBTIDL_equal_weights(self):
         """
@@ -152,7 +142,7 @@ class TestGBTTPScan():
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tp  = sdf.gettp(152)
+        tp = sdf.gettp(152)
         tpavg = tp.timeaverage(weights=None)
 
         # Check that we know how to add.

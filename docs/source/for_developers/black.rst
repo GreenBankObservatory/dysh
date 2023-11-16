@@ -5,7 +5,7 @@ Black Formatting
 VSCode
 =================
 
-If you are developing in VSCode, you can install `black` directly into the IDE and have it run every time you save a Python file. 
+If you are developing in VSCode, you can install `black` directly into the IDE and have it run every time you save a Python file.
 
 1. Download the Black Formatter Extension by Microsoft
 
@@ -14,7 +14,7 @@ If you are developing in VSCode, you can install `black` directly into the IDE a
 
 2. (Optional) Download the Prettier Formatter
 
-`Prettier` will format files in languages besides Python. It is not required for `dysh`, but it does make it look nicer. 
+`Prettier` will format files in languages besides Python. It is not required for `dysh`, but it does make it look nicer.
 
 .. figure:: img/VSCode_Prettier_Installer.png
     :alt: A screenshot of the VSCode extension installer with the Prettier formatter selected

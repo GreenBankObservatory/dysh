@@ -1,25 +1,19 @@
-
 import os
-import pytest
 import pathlib
-import numpy as np
 
+import numpy as np
+import pytest
 from astropy.io import fits
-from astropy.utils.data import (
-                    get_pkg_data_filename,
-                    get_pkg_data_filenames,
-                    )
+from astropy.utils.data import get_pkg_data_filename, get_pkg_data_filenames
 
 import dysh
 from dysh.fits import gbtfitsload
 
-
 dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
 
-class TestGBTFITSLoad():
-    """
-    """
+class TestGBTFITSLoad:
+    """ """
 
     def setup_method(self):
         self._file_list = list(get_pkg_data_filenames("data/", pattern="*.fits"))
@@ -29,15 +23,16 @@ class TestGBTFITSLoad():
         Test loading 8 different sdfits files.
         Check: number of pandas tables loaded is equal to the expected number.
         """
-        expected = {"TGBT21A_501_11.raw.vegas.fits": 4,
-                    "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
-                    "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
-                    "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits": 1,
-                    "TGBT21A_501_11_ifnum_0_int_0-2.fits": 24,
-                    "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits": 1,
-                    "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_1.fits": 1,
-                    "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits": 1,
-                    }
+        expected = {
+            "TGBT21A_501_11.raw.vegas.fits": 4,
+            "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits": 1,
+            "TGBT21A_501_11_ifnum_0_int_0-2.fits": 24,
+            "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits": 1,
+            "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_1.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits": 1,
+        }
 
         for fnm in self._file_list:
             print(fnm)
@@ -45,7 +40,6 @@ class TestGBTFITSLoad():
             filename = os.path.basename(fnm)
             sdf = gbtfitsload.GBTFITSLoad(fnm)
             assert len(sdf._ptable[0]) == expected[filename]
-
 
     def test_getps_single_int(self):
         """
@@ -71,7 +65,6 @@ class TestGBTFITSLoad():
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
 
-
     def test_gettp_single_int(self):
         """
         Compare gbtidl result to dysh for a gettp spectrum from a single integration/pol/feed.
@@ -80,7 +73,9 @@ class TestGBTFITSLoad():
          - mean value is 0.0
         """
         # Get the answer from GBTIDL.
-        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits")
+        gbtidl_file = get_pkg_data_filename(
+            "data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits"
+        )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
 
@@ -95,7 +90,9 @@ class TestGBTFITSLoad():
 
         # Now with the noise diode Off.
         tps_off = sdf.gettp(152, sig=True, cal=False, calibrate=False)
-        gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits")
+        gbtidl_file = get_pkg_data_filename(
+            "data/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits"
+        )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         diff = tps_off.total_power(0).flux.value - gbtidl_gettp
@@ -104,7 +101,7 @@ class TestGBTFITSLoad():
         # Now, both on and off.
         tps = sdf.gettp(152, sig=True, cal=True)
         tps_tavg = tps.timeaverage()
-        #gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
+        # gbtidl_file = f"{dysh_root}/fits/tests/data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         gbtidl_file = get_pkg_data_filename("data/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits")
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data

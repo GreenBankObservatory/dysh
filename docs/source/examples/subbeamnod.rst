@@ -1,8 +1,8 @@
 **********
-SubBeamNod 
+SubBeamNod
 **********
 
-SubBeamNod scans with the GBT consist of using the subreflector to alternate between an on and an off position between two feeds on a receiver. 
+SubBeamNod scans with the GBT consist of using the subreflector to alternate between an on and an off position between two feeds on a receiver.
 
 Calibrating SubBeamNod Data
 ===========================
@@ -41,8 +41,8 @@ The returned `sdfits` can be probed for information
     >>> sdfits.info()
     Filename: /data/gbt/examples/subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits
     No.    Name      Ver    Type      Cards   Dimensions   Format
-      0  PRIMARY       1 PrimaryHDU      12   ()      
-      1  SINGLE DISH    1 BinTableHDU    245   5280R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '1024E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']   
+      0  PRIMARY       1 PrimaryHDU      12   ()
+      1  SINGLE DISH    1 BinTableHDU    245   5280R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '1024E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']
 
 You can also print a concise (or verbose if you choose `verbose=True`) :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.summary` of the data
 
@@ -75,4 +75,3 @@ The SubBeamNod scans are 43, 46, and 54.  Retrieve and calibrate a SubBeamNod sc
 
     >>> sbn = sdfits.subbeamnod(scan=43, fdnum=1, ifnum=0, weights='tsys')
     >>> sbn.plot()
-

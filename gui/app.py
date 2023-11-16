@@ -1,38 +1,39 @@
 # PACKAGE IMPORTS
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-import sys #, os, psutil, getpass, socket
-import wget
-#import numpy as np
-#import pyqtgraph as pg
-#from astropy.io import fits
-#from time import time
-#import pandas as pd
-#import argparse
-from screeninfo import get_monitors
-from qt_material import apply_stylesheet
-
-# LOCAL GUI IMPORTS
-from widgets.tables import FITSHeaderTable
-from widgets.graphs import *
-from widgets.QIPython import QIPythonConsoleWidget
-from util.dataload import FITSFileDialog
-
-from util.core import ThreadCallbacks, DyshWorker
-from widgets.splash import SplashScreen
-from widgets.graphs import *
-from widgets.layouts import *
-from util.dataload import DataLoader
-
-# DYSH IMPORTS
-from dysh.util.messages import *
-from dysh.util.parallelization import SingleThread 
-from dysh.fits.gbtfitsload import GBTFITSLoad
+import sys  # , os, psutil, getpass, socket
 
 # PARALLELIZATION
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
+
+import wget
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from qt_material import apply_stylesheet
+
+# import numpy as np
+# import pyqtgraph as pg
+# from astropy.io import fits
+# from time import time
+# import pandas as pd
+# import argparse
+from screeninfo import get_monitors
+from util.core import DyshWorker, ThreadCallbacks
+from util.dataload import DataLoader, FITSFileDialog
+from widgets.graphs import *
+from widgets.layouts import *
+from widgets.QIPython import QIPythonConsoleWidget
+from widgets.splash import SplashScreen
+
+# LOCAL GUI IMPORTS
+from widgets.tables import FITSHeaderTable
+
+from dysh.fits.gbtfitsload import GBTFITSLoad
+
+# DYSH IMPORTS
+from dysh.util.messages import *
+from dysh.util.parallelization import SingleThread
+
 
 class SelectPanel(QGridLayout):
     """The startup window of the GUI"""
@@ -44,7 +45,7 @@ class SelectPanel(QGridLayout):
 
     def _init_UI(self):
         """Creates the skeleton structure of the GUI"""
-        
+
         # Make the UI Items
         self.main_text = QLabel("Welcome to the Dysh GUI")
         self.button = QPushButton("Select file")
@@ -118,6 +119,7 @@ class SelectPanel(QGridLayout):
         # [TODO] Figure out why this makes you do it twice?
         self.file_dialog = FITSFileDialog()
 
+
 class DyshMainWindow(QMainWindow):
     """The main window of the GUI"""
 
@@ -130,9 +132,9 @@ class DyshMainWindow(QMainWindow):
         self._init_geometry(0.8)
 
         self.info_threads()
-        #self._init_select_panel()
+        # self._init_select_panel()
         self._init_main_panel()
-        
+
         self.show()
 
     def _init_geometry(self, mult):
@@ -168,11 +170,11 @@ class DyshMainWindow(QMainWindow):
             self.fpath = self.main_layout.file_dialog.selectedFiles()[0]
 
     def _init_main_panel(self):
-        #self._clear_all()
+        # self._clear_all()
         self._load_data()
         self._init_UI()
 
-    #@SingleThread
+    # @SingleThread
     def SDFITS_load_all(self, fpath):
         self.sdfits = GBTFITSLoad(fpath)
 
@@ -180,16 +182,16 @@ class DyshMainWindow(QMainWindow):
         """Opens up the FITS file"""
         # [TODO] Load lists in a QThread so the main screen can be created
         # [TODO] Add logic to determine if GBTFITSLoad or another
-        #s_load = DyshWorker(target=self.SDFITS_load_all, args=(self.fpath, 1))
-        #s_load.start()
-        #url = "https://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"
-        #self.fpath = wget.download(url)
+        # s_load = DyshWorker(target=self.SDFITS_load_all, args=(self.fpath, 1))
+        # s_load.start()
+        # url = "https://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"
+        # self.fpath = wget.download(url)
         self.fpath = "TGBT21A_501_11.raw.vegas.fits"
 
-        self.SDFITS_load_all(self.fpath) #s_load.join()
+        self.SDFITS_load_all(self.fpath)  # s_load.join()
         self.scan = self.sdfits.getps(152, ifnum=0, plnum=0)
         self.scan.calibrate()
-        self.fdata = self.scan.timeaverage(weights='tsys')
+        self.fdata = self.scan.timeaverage(weights="tsys")
 
     def _init_UI(self):
         """Creates the skeleton structure of the GUI"""
@@ -204,7 +206,7 @@ class DyshMainWindow(QMainWindow):
 
         self.main_layout.addWidget(self.toggle_btn, 0, 0, 1, 1)
         self.main_layout.addWidget(self.sidebar, 1, 0, 1, 1)
-        
+
         self.main_layout.addWidget(self.tabs, 0, 1, 2, 2)
         self._init_tables()
         self._init_plots()
@@ -227,10 +229,10 @@ class DyshMainWindow(QMainWindow):
         self.tab3.setLayout(self.tab3_layout)
         self.tab4.setLayout(self.tab4_layout)
 
-        self.tabs.addTab(self.tab1,"File")
-        self.tabs.addTab(self.tab2,"Waterfall")
-        self.tabs.addTab(self.tab3,"Calibrated Spectrum")
-        self.tabs.addTab(self.tab4,"Console")
+        self.tabs.addTab(self.tab1, "File")
+        self.tabs.addTab(self.tab2, "Waterfall")
+        self.tabs.addTab(self.tab3, "Calibrated Spectrum")
+        self.tabs.addTab(self.tab4, "Console")
 
     def _init_sidebar(self):
         self.sidebar = CollapsibleSideBar()
@@ -284,17 +286,20 @@ class DyshMainWindow(QMainWindow):
         self.terminal.stop()
         FriendlyMessages.goodbye()
 
+
 class App(QApplication):
     def __init__(self, *args):
         QApplication.__init__(self, *args)
         self.main = DyshMainWindow()
         self.main.show()
 
+
 def main(args):
-    #global app
+    # global app
     app = App(args)
     apply_stylesheet(app, theme="dark_purple.xml")
     app.exec_()
+
 
 if __name__ == "__main__":
     main(sys.argv)
