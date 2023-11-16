@@ -23,12 +23,12 @@ class SDFITSLoad(object):
 
     Parameters
     ----------
-        filename : str
-            input file name
-        source  : str
-            target source to select from input file. Default: all sources
-        hdu : int or list
-            Header Data Unit to select from input file. Default: all HDUs
+    filename : str
+        input file name
+    source  : str
+        target source to select from input file. Default: all sources
+    hdu : int or list
+        Header Data Unit to select from input file. Default: all HDUs
 
     """
 
@@ -72,18 +72,21 @@ class SDFITSLoad(object):
         return self._filename
 
     def index(self, hdu=None, bintable=None):
-        """Return The index table
+        """
+        Return The index table.
+
         Parameters
         ----------
-            hdu : int or list
-                Header Data Unit to select from the index. Default: all HDUs
-            bintable :  int
-                The index of the `bintable` attribute, None means all bintables
+        hdu : int or list
+            Header Data Unit to select from the index. Default: all HDUs
+        bintable :  int
+            The index of the `bintable` attribute, None means all bintables
 
         Returns
-        --------
-            index : ~pandas.DataFrame
-                The index of this SDFITS file
+        -------
+        index : ~pandas.DataFrame
+            The index of this SDFITS file
+
         """
         df = self._index
         if hdu is None and bintable is None:
