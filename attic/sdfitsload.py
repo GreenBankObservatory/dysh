@@ -1,16 +1,21 @@
 #!/usr/bin/env python
+import copy
 import sys
 
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from astropy.io import fits
-from astropy.modeling.fitting import LinearLSQFitter
+from astropy.modeling import fitting, models
+from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
+from astropy.modeling.models import Gaussian1D
 from astropy.modeling.polynomial import Polynomial1D
 from astropy.table import Table
 from astropy.units import cds
 from astropy.wcs import WCS
-from specutils import Spectrum1D, SpectrumList
+from scipy.optimize import leastsq
+from specutils import SpectralRegion, Spectrum1D, SpectrumList
 from specutils.fitting import fit_continuum
 
 
@@ -222,9 +227,9 @@ class SDFITSLoad(object):
         self._binheader = []
         self._data = []
         self._nrows = []
-        kwargs.get("source", None)
-        kwargs.get("fix", False)
-        kwargs.get("wcs", False)
+        source = kwargs.get("source", None)
+        fix = kwargs.get("fix", False)
+        wcs = kwargs.get("wcs", False)
 
         if hdu is not None:
             ldu = list([hdu])
@@ -293,14 +298,14 @@ class SDFITSLoad(object):
                 crval1 = b["CRVAL1"][j]
                 cdelt1 = b["CDELT1"][j]
                 crpix1 = b["CRPIX1"][j]
-                b["CTYPE1"][j]
+                ctype1 = b["CTYPE1"][j]
                 # Ensure rest frequency is in Hertz
                 # CUNIT1 is not always present
                 restfrq = b["RESTFREQ"][j]
                 if "CUNIT1" in b.columns:
                     cunit1 = b["CUNIT1"][j]
                     rfq = restfrq * u.Unit(cunit1)
-                    rfq.to("Hz").value
+                    restfreq = rfq.to("Hz").value
                 cunit1 = "Hz"
                 crval2 = b["CRVAL2"][j]
                 crval3 = b["CRVAL3"][j]
