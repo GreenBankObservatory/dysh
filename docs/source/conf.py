@@ -18,9 +18,11 @@ import sys
 sys.path.insert(0, os.path.abspath("../../src"))
 sys.path.insert(0, os.path.abspath("."))
 
+import dysh
+from dysh import __version__
+
 # -- Project information -----------------------------------------------------
 
-from dysh import __version__
 
 project = "dysh"
 copyright = "2023, Green Bank Observatory"
