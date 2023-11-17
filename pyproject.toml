@@ -117,6 +117,10 @@ exclude_lines = [
 preview = true
 line-length = 120
 
+[tool.isort]
+profile = "black"
+filter_files = true
+
 [tool.ruff]
 select = [
   "F",    # https://beta.ruff.rs/docs/rules/#pyflakes-f
