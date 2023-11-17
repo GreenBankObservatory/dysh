@@ -13,7 +13,6 @@
 
 import glob
 import os
-import sys
 
 _debug = True
 
@@ -50,7 +49,7 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
     if os.path.exists(filename):
         return [filename]
 
-    if path == None:
+    if path is None:
         if wildcard:
             fname = "*" + filename + "*"
         else:
@@ -62,7 +61,7 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
 
         fn = glob.glob(fname, recursive=recursive)
 
-        if maxfiles == None:
+        if maxfiles is None:
             retval = fn
         else:
             retval = fn[:maxfiles]
@@ -86,7 +85,7 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
                     fname = "**/" + fname
                 fn = glob.glob(fname, recursive=recursive)
                 fn.sort()
-                if maxfiles != None:
+                if maxfiles is not None:
                     fn = fn[:maxfiles]
                 all = all + fn
             else:
