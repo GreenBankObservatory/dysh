@@ -1,11 +1,9 @@
 import astropy.units as u
 import numpy as np
-from astropy.io import fits, registry
-from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
-from astropy.modeling.polynomial import Chebyshev1D, Polynomial1D
+from astropy.io import registry
+from astropy.modeling.fitting import LinearLSQFitter
 from astropy.table import Table
-from astropy.wcs import WCS
-from specutils import SpectralRegion, Spectrum1D, SpectrumList
+from specutils import Spectrum1D
 
 from ..plot import specplot as sp
 from . import baseline
@@ -20,7 +18,7 @@ class Spectrum(Spectrum1D):
     have only one spectral axis conflicts with slight Doppler shifts.
     See `~specutils.Spectrum1D` for the instantiation arguments.
 
-    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  `~specutils.Spectrum1D` is wrong (there should not be a 'doppler\_' prefix).
+    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  `~specutils.Spectrum1D` is wrong (there should not be a 'doppler\\_' prefix).
     """
 
     def __init__(self, *args, **kwargs):
@@ -95,9 +93,9 @@ class Spectrum(Spectrum1D):
 
     def _undo_baseline(self):
         """
-        Undo the most recently computed baseline.  If the baseline
-        has been subtracted, it will be added back.  The `baseline_model`
-        attribute is set to None.   Exclude regions are untouched.
+        Undo the most recently computed baseline. If the baseline
+        has been subtracted, it will be added back. The `baseline_model`
+        attribute is set to None. Exclude regions are untouched.
         """
         if self._baseline_model is None:
             return
@@ -116,7 +114,7 @@ class Spectrum(Spectrum1D):
                 List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
                 In channel units.
 
-                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+                        Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
         """
         pass
@@ -170,7 +168,6 @@ class Spectrum(Spectrum1D):
         """Get the spectral axis equivalencies that can be used in converting the axis between km/s and frequency or wavelength"""
         equiv = u.spectral()
         sa = self.spectral_axis
-        convention = self.velocity_convention
         if sa.doppler_rest is not None:
             rfq = sa.doppler_rest
         elif "RESTFREQ" in self.meta:
@@ -187,13 +184,10 @@ class Spectrum(Spectrum1D):
                 convention = "radio"
                 equiv.extend(u.doppler_radio(rfq))
             elif "optical" in self.velocity_convention:
-                convention = "optical"
                 equiv.extend(u.doppler_optical(rfq))
             elif "relativistic" in self.velocity_convention:
-                convention = "relativistic"
                 equiv.extend(u.doppler_relativistic(rfq))
             elif "redshift" in self.velocity_convention:
-                convention = "redshift"
                 equiv.extend(u.doppler_redshift())
         return equiv
 
