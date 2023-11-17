@@ -1,14 +1,11 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "dysh"
 description = ''
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {file = "LICENSE"}
 keywords = []
+dynamic = ["version"]
 authors = [
   { name = "Marc Pound", email = "mpound@umd.edu" },
   { name = "Victoria Catlett", email = "vcatlett@nrao.edu" },
@@ -17,33 +14,44 @@ authors = [
   { name = "Pedro Salas", email = "psalas@nrao.edu" },
 ]
 classifiers = [
-  "Development Status :: 1 - Planning",
+  "Development Status :: 3 - Alpha",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["astropy",
-                "matplotlib",
-                "numpy",
-                "pandas",
-                "scipy",
-                "specutils",
-                "sphinx",
-                "myst-parser"
-               ]
+dependencies = [
+  "astropy",
+  "matplotlib",
+  "numpy",
+  "pandas",
+  "scipy",
+  "specutils",
+  "sphinx",
+  "myst-parser"
+ ]
 
-dynamic = ["version"]
+[project.optional-dependencies]
+dev = [
+  "ipdb",
+  "ipython",
+  "pytest",
+  "pytest-cov",
+  "wget",
+  "myst-parser",
+  "sphinx",
+  "sphinx-autobuild",
+  "sphinx-rtd-theme",
+  "sphinxcontrib-mermaid",
+  "numpydoc"
+]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
 Issues = "https://github.com/GreenBankObservatory/dysh/issues"
 Source = "https://github.com/GreenBankObservatory/dysh"
 
-#[project.scripts]
-#dysh = "dysh.dysh:main"
 [project.scripts]
 fdr = "dysh.util.files:main_cli"
 
@@ -51,21 +59,26 @@ fdr = "dysh.util.files:main_cli"
 path = "src/dysh/__init__.py"
 
 [tool.hatch.envs.default]
-dependencies = [
-  "pytest",
-  "pytest-cov",
-]
+# By default hatch will effectively do $ pip install dysh[dev]
+features = ["dev"]
 
+# run via: $ hatch run <script>
 [tool.hatch.envs.default.scripts]
+test = "pytest {args}"
+lint = "ruff check . {args}"
+lint-all = "ruff check --select ALL {args}"
+lint-fix = "ruff check --select ALL --fix {args}"
+docs = "sphinx-autobuild {root}/docs/source {root}/docs/build -b html {args}"
+docs-build = "sphinx-build {root}/docs/source {root}/docs/build -b html {args}"
+
+[tool.hatch.envs.test]
+
+# run via: $ hatch run test:<script>
+[tool.hatch.envs.test.scripts]
+matrix = "pytest {args}"
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/dysh --cov=tests {args}"
-no-cov = "cov --no-cov {args}"
 
-[tool.hatch.envs.docs]
-dependencies = [
-  "sphinx",
-  "myst-parser"
-]
-
+# Run tests across all supported version of Python
 [[tool.hatch.envs.test.matrix]]
 python = ["38", "39", "310", "311"]
 
@@ -100,16 +113,6 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
-[tool.black]
-preview = true
-line-length = 120
-
-[tool.ruff]
-line-length = 120
-
-[tool.pyright]
-reportImplicitStringConcatenation = false
-
 [tool.isort]
 # See: https://pycqa.github.io/isort/docs/configuration/options/#example-pyprojecttoml
 profile = "black"
@@ -121,7 +124,46 @@ sections = [
     "FIRSTPARTY",
     "LOCALFOLDER"
 ]
+filter_files = true
+
+[tool.black]
+preview = true
+line-length = 120
+
+[tool.pyright]
+reportImplicitStringConcatenation = false
+[tool.ruff]
+select = [
+  "F",    # https://beta.ruff.rs/docs/rules/#pyflakes-f
+  "E",    # https://beta.ruff.rs/docs/rules/#error-e
+  "W",    # https://beta.ruff.rs/docs/rules/#warning-w
+  "B",    # https://beta.ruff.rs/docs/rules/#flake8-bugbear-b
+  "I",    # https://beta.ruff.rs/docs/rules/#isort-i
+  "NPY",  # https://beta.ruff.rs/docs/rules/#numpy-specific-rules-npy
+  "PD",   # https://beta.ruff.rs/docs/rules/#pandas-vet-pd
+  "RUF",  # https://beta.ruff.rs/docs/rules/#ruff-specific-rules-ruf
+]
+fixable = ["ALL"]
+unfixable = ["B"]
+ignore = [
+  "E741",  # ambiguous-variable-name
+]
+line-length = 120
+
+[tool.ruff.per-file-ignores]
+# Ignore  in all `__init__.py` files
+"__init__.py" = ["E402", "F405", "F403"]
+"**/{tests,docs,tools}/*" = ["E402", "B011"]
+# The stuff in the attic doesn't need to be linted at all
+"attic/**" = ["ALL"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = ["tests", "src", "docs"]
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
