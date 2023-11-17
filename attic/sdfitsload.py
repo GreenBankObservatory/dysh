@@ -93,7 +93,7 @@ def dcmeantsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     mode=1     do the mean after the division
     """
     nchan = len(calon)
-    if nedge == None:
+    if nedge is None:
         nedge = nchan // fedge  # 10 %
     if mode == 0:
         meanoff = np.mean(caloff[nedge:-nedge])
