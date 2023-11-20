@@ -2,6 +2,8 @@
 Core utility classes and functions
 """
 
+from pathlib import Path
+
 import numpy as np
 
 
@@ -30,7 +32,6 @@ def sq_weighted_avg(a, axis=0, weights=None):
     # @todo make a generic moment or use scipy.stats.moment
     r"""Compute the mean square weighted average of an array (2nd moment).
 
-    :math:`v = \sqrt{\frac{\sum_i{w_i~a_i^{2}}}{\sum_i{w_i}}}`
 
     Parameters
     ----------
@@ -54,6 +55,20 @@ def sq_weighted_avg(a, axis=0, weights=None):
         w = weights
     v = np.sqrt(np.average(a * a, axis=axis, weights=weights))
     return v
+
+
+def get_project_root() -> Path:
+    """
+    Returns the project root directory.
+    """
+    return Path(__file__).parent.parent.parent.parent
+
+
+def get_project_testdata() -> Path:
+    """
+    Returns the project testdata directory
+    """
+    return get_project_root() / "testdata"
 
 
 def get_size(obj, seen=None):
