@@ -32,6 +32,7 @@ def sq_weighted_avg(a, axis=0, weights=None):
     # @todo make a generic moment or use scipy.stats.moment
     r"""Compute the mean square weighted average of an array (2nd moment).
 
+    :math:`v = \sqrt{\frac{\sum_i{w_i~a_i^{2}}}{\sum_i{w_i}}}`
 
     Parameters
     ----------
