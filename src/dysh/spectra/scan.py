@@ -159,7 +159,7 @@ class ScanBlock(UserList, ScanMixin):
         weights: str
             'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+             :math:`w = t_{exp} \times \\delta\nu/T_{sys}^2`
 
             Default: 'tsys'
         Returns
@@ -179,7 +179,7 @@ class ScanBlock(UserList, ScanMixin):
         weights: str
             'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+             :math:`w = t_{exp} \times \\delta\nu/T_{sys}^2`
 
             Default: 'tsys'
         Returns
@@ -711,7 +711,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         Weighting scheme to use when averaging the signal and reference scans
         'tsys' or None.  If 'tsys' the weight will be calculated as:
 
-         :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+         :math:`w = t_{exp} \times \\delta\nu/T_{sys}^2`
 
         Default: 'tsys'
     """
