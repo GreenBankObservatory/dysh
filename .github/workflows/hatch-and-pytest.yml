@@ -5,13 +5,14 @@ name: Build and Pytest
 
 on:
   push:
-    branches: [ "main", "release-0.1.0", "cat-devel", "mwp-devel", "pedro-devel", "evan-devel" ]
+    branches: [ "main", "release-*", "cat-devel", "mwp-devel", "pedro-devel", "evan-devel" ]
   pull_request:
-    branches: [ "main", "release-0.1.0", "cat-devel", "mwp-devel", "pedro-devel", "evan-devel" ]
+    branches: [ "main", "release-*", "cat-devel", "mwp-devel", "pedro-devel", "evan-devel" ]
   workflow_dispatch: # needed for "Run" button to show up in action
 jobs:
   build:
     runs-on:  ${{ matrix.os }}
+    environment: hatch build
 
     strategy:
       fail-fast: false
