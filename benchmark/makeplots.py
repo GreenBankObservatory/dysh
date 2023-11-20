@@ -3,7 +3,9 @@ import argparse
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from astropy.table import Table
+from matplotlib.ticker import FormatStrFormatter
 
 
 def add_patch(legend, fc, label):
@@ -25,9 +27,10 @@ def add_patch(legend, fc, label):
 
 def lineplots(file):
     t = Table.read(file, format="ipac")
+    colors = ["red", "tan", "lime"]
     df = t.to_pandas()  # .sort_values('N_rows')
     time_cols = ["Load", "Index", "Create_Obsblocks", "Baseline_1", "Baseline_2", "Baseline_3"]
-    [s.replace("_", " ") for s in time_cols]
+    tc = [s.replace("_", " ") for s in time_cols]
     size_col = "Size"
     df[time_cols] /= 1000.0
     df[size_col] = np.rint(df[size_col]).astype(int)
@@ -125,6 +128,7 @@ def lineplots(file):
     for j in range(axindex, len(axf)):
         axf[j].axis("off")
     plt.subplots_adjust(wspace=0.35, hspace=0.25)
+    fontdict = {"size": 14, "fontweight": "bold"}
     fig.suptitle(args.title, size=14, weight="bold")
     if args.outfile:
         plt.savefig(args.outfile, dpi=300)
@@ -186,35 +190,14 @@ def barplots(file, x_col="N_rows"):
     pure_numpy = {0: 0.0, 1: 0, 2: 0, 3: 3.6, 4: 7.2, 5: 10.86}
     ax.bar(ind + 2 * width, list(pure_numpy.values()), width, log=args.logy, label="pure numpy", color=colors[0])
     # from peter
-    if False:
-        pure_c = {0: 0.6, 1: 0, 2: 0, 3: 0.58, 4: 0.81, 5: 1.16}
-        # take 0.75 because peter did the whole spectrum
-        # could also * 0.5 because he used doubles
-        ax.bar(ind[0] + 2 * width, 0.75 * np.array(list(pure_c.values())[0]), width, log=args.logy, color=colors[8])
-        ax.bar(
-            ind[1:] + 3 * width,
-            0.75 * np.array(list(pure_c.values())[1:]),
-            width,
-            log=args.logy,
-            label="pure C",
-            color=colors[8],
-        )
+    pure_c = {0: 0.6, 1: 0, 2: 0, 3: 0.58, 4: 0.81, 5: 1.16}
+    pure_c = {0: 0.0, 1: 0, 2: 0, 3: 0.58, 4: 0.81, 5: 1.16}
+    # take 0.75 because peter did the whole spectrum
+    ax.bar(
+        ind + 3 * width, 0.75 * np.array(list(pure_c.values())), width, log=args.logy, label="pure C", color=colors[8]
+    )
 
-        # ax.hlines(pure_numpy,2.75,4.,lw=3,color=colors[0],label="pure numpy")
-    else:
-        pure_c = {0: 0.6, 1: 0, 2: 0, 3: 0.58, 4: 0.81, 5: 1.16}
-        pure_c = {0: 0.0, 1: 0, 2: 0, 3: 0.58, 4: 0.81, 5: 1.16}
-        # take 0.75 because peter did the whole spectrum
-        ax.bar(
-            ind + 3 * width,
-            0.75 * np.array(list(pure_c.values())),
-            width,
-            log=args.logy,
-            label="pure C",
-            color=colors[8],
-        )
-
-        # ax.hlines(pure_numpy,2.75,4.,lw=3,color=colors[0],label="pure numpy")
+    # ax.hlines(pure_numpy,2.75,4.,lw=3,color=colors[0],label="pure numpy")
     handles, labels = ax.get_legend_handles_labels()
     # print(handles)
     # print(sorted(labels))
