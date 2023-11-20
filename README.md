@@ -7,7 +7,7 @@
 ## Getting Started
 ### Installation
 
-dysh requires Python 3.8+ and recent versions of [astropy]( https://astropy.org), [numpy](https://numpy.org), [scipy](https://scipy.org), [pandas](https://pandas.pydata.org), [specutils](https://specutils.readthedocs.io/en/stable/),  and [matplotlib](https://matplotlib.org).
+dysh requires Python 3.9+ and recent versions of [astropy]( https://astropy.org), [numpy](https://numpy.org), [scipy](https://scipy.org), [pandas](https://pandas.pydata.org), [specutils](https://specutils.readthedocs.io/en/stable/),  and [matplotlib](https://matplotlib.org).
 
 #### With pip from PyPi
 dysh is most easily installed with *pip*, which will take care of any dependencies.  The packaged code is hosted at the [Python Packaging Index](https://pypi.org/project/dysh).
