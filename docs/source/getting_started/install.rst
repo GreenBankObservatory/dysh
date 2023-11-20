@@ -2,7 +2,7 @@
 Installing ``dysh``
 *******************
 
-``dysh`` requires Python 3.8+ and recent versions of
+``dysh`` requires Python 3.9+ and recent versions of
 `astropy <https://astropy.org>`_,
 `numpy <https://numpy.org>`_,
 `scipy <https://scipy.org>`_,

@@ -44,6 +44,9 @@ In a `Python` instance, type
 
 Keep the `Python` instance open, we will start working with `dysh` now.
 
+.. note::
+    The data used for this tutorial is ~800 MB. Make sure you have enough disk space and bandwidth to download it.
+
 Inspecting the raw data
 -----------------------
 

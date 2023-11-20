@@ -2,6 +2,8 @@
 Core utility classes and functions
 """
 
+from pathlib import Path
+
 import numpy as np
 
 
@@ -54,6 +56,20 @@ def sq_weighted_avg(a, axis=0, weights=None):
         w = weights
     v = np.sqrt(np.average(a * a, axis=axis, weights=weights))
     return v
+
+
+def get_project_root() -> Path:
+    """
+    Returns the project root directory.
+    """
+    return Path(__file__).parent.parent.parent.parent
+
+
+def get_project_testdata() -> Path:
+    """
+    Returns the project testdata directory
+    """
+    return get_project_root() / "testdata"
 
 
 def get_size(obj, seen=None):

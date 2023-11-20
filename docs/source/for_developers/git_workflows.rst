@@ -43,7 +43,7 @@ Releases
 Release branches will be locked once work on the next release begins.
 
 Setting up your own development branch
-========
+======================================
 
 In the directory you want to work in, set up the repo:
 
