@@ -9,7 +9,9 @@ jobs:
   build:
     runs-on:  ${{ matrix.os }}
     environment: release
-
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -30,7 +32,4 @@ jobs:
       run: |
         hatch build -c
     - name: upload release to PyPI
-      permissions:
-        # IMPORTANT: this permission is mandatory for trusted publishing
-        id-token: write
       uses: pypa/gh-action-pypi-publish@release/v1
