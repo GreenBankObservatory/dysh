@@ -14,7 +14,7 @@ BANNER = f"""-------------------------------------------------------------------
                          Welcome to Dysh v{__version__}
 
     Example usage: https://dysh.readthedocs.io/en/latest/example.html
-    Bug repots:    https://github.com/GreenBankObservatory/dysh/issues
+    Bug reports:    https://github.com/GreenBankObservatory/dysh/issues
 
     For help with a Dysh routine from the command line,
     use the builtin 'help'. e.g.:
