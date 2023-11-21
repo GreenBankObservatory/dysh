@@ -177,7 +177,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         return self._sdf[fitsindex].rawspectrum(i, bintable)
 
-    def summary(self, scans=None, verbose=False, show_index=False):  # selected=False
+    def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
