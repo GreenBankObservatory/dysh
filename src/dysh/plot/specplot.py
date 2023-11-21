@@ -1,5 +1,4 @@
 """Plot a spectrum using matplotlib"""
-import copy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -7,10 +6,10 @@ import numpy as np
 
 
 class SpectrumPlot:
-    """
+    r"""
     The SpectrumPlot class is for simple plotting of a ~spectrum.Spectrum
     using matplotlib functions.   Plots attributes are modified using keywords
-    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    (**kwargs) described below SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
     The attributes are "sticky" meaning that an attribute set via
     instantiation or by the `plot()` method will stay set until changed
@@ -20,7 +19,7 @@ class SpectrumPlot:
     ----------
     spectrum : `~spectra.spectrum.Spectrum`
         The spectrum to plot
-    \**kwargs : dict
+    **kwargs : dict
         Plot attribute keyword arguments, see below.
 
     Other Parameters
@@ -88,12 +87,12 @@ class SpectrumPlot:
         return self._spectrum
 
     def plot(self, **kwargs):
-        """
+        r"""
         Plot the spectrum.
 
         Parameters
         ----------
-        \**kwargs : various
+        **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
         # xtype = 'velocity, 'frequency', 'wavelength'
@@ -164,7 +163,7 @@ class SpectrumPlot:
         }
 
     def _set_labels(self, title=None, xlabel=None, ylabel=None, **kwargs):
-        """Set x and y labels according to spectral units
+        r"""Set x and y labels according to spectral units
 
         Parameters
         ----------
@@ -174,7 +173,7 @@ class SpectrumPlot:
             x-axis label
         ylabel : str
             x-axis label
-        \*\*kwargs : various
+        **kwargs : various
             other keyword=value arguments
         """
         if title is not None:

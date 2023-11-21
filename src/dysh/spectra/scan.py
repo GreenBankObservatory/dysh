@@ -152,7 +152,7 @@ class ScanBlock(UserList, ScanMixin):
         return self._timeaveraged
 
     def polaverage(self, weights="tsys"):
-        """Average all polarizations in all scans in this ScanBlock
+        r"""Average all polarizations in all scans in this ScanBlock
 
         Parameters
         ----------
@@ -172,7 +172,7 @@ class ScanBlock(UserList, ScanMixin):
         return self._polaveraged
 
     def finalspectrum(self, weights="tsys"):
-        """Average all times and polarizations in all scans this ScanBlock
+        r"""Average all times and polarizations in all scans this ScanBlock
 
         Parameters
         ----------
@@ -362,7 +362,7 @@ class TPScan(ScanMixin):
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
         naxis1 = len(self._data[i])
-        ctype1 = meta["CTYPE1"]
+        meta["CTYPE1"]
         ctype2 = meta["CTYPE2"]
         ctype3 = meta["CTYPE3"]
         crval1 = meta["CRVAL1"]
@@ -536,7 +536,7 @@ class PSScan(ScanMixin):
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self._exposure[i]
         naxis1 = len(self._calibrated[i])
-        ctype1 = meta["CTYPE1"]
+        meta["CTYPE1"]
         ctype2 = meta["CTYPE2"]
         ctype3 = meta["CTYPE3"]
         crval1 = meta["CRVAL1"]
@@ -694,7 +694,7 @@ class PSScan(ScanMixin):
 
 
 class SubBeamNodScan(ScanMixin):  # SBNodScan?
-    """
+    r"""
     Parameters
     ----------
     sigtp:  list of ~spectra.scan.TPScan
@@ -758,8 +758,6 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
                 self._calibrated[i] = ta
 
         elif self._method == "scan":
-            tpon = self._sigtp
-            tpoff = self._reftp
             # Process the whole scan as a single block.
             # This is less accurate, but might be needed if
             # the scan was aborted and there are not enough
@@ -784,7 +782,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         meta = deepcopy(self._sigtp[i].timeaverage().meta)
         meta["TSYS"] = self._tsys[i]
         naxis1 = len(self._calibrated[i])
-        ctype1 = meta["CTYPE1"]
+        meta["CTYPE1"]
         ctype2 = meta["CTYPE2"]
         ctype3 = meta["CTYPE3"]
         crval1 = meta["CRVAL1"]
@@ -883,8 +881,8 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
                 ta_avg[:] += data[i] * self.tsys[i] ** -2.0
             wt1 = self.tsys**-2.0
             wt2 = tsys_weight(self.exposure, self.delta_freq, self.tsys)
-            tavg2 = average(data, 0, wt1)
-            tsysavg2 = average(self.tsys, 0, wt2)
+            average(data, 0, wt1)
+            average(self.tsys, 0, wt2)
             ta_avg /= wt_avg
             tsys_avg /= tsys_wt
             self._timeaveraged._data = ta_avg
