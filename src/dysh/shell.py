@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import IPython
 from traitlets.config import Config
@@ -51,7 +51,7 @@ def parse_args():
     return parser.parse_known_args()
 
 
-def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: str | Path = "DEFAULT_PROFILE", sdfits_files=None):
+def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] = "DEFAULT_PROFILE", sdfits_files=None):
     c = Config()
     import numpy as np
     import pandas as pd
