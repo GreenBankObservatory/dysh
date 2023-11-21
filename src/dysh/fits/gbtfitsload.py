@@ -310,8 +310,10 @@ class GBTFITSLoad(SDFITSLoad):
             compressed_df = pd.concat([compressed_df, ser.to_frame().T], ignore_index=True)
         compressed_df = compressed_df.astype(col_dtypes)
         if not show_index:
-            return compressed_df.style.hide(axis="index")
-        return compressed_df
+            print(compressed_df.to_string(index=False))
+            # return compressed_df.style.hide(axis="index")
+        else:
+            return compressed_df
 
     def velocity_convention(self, veldef, velframe):
         # GBT uses VELDEF and VELFRAME incorrectly.
