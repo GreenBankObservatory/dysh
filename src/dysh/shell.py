@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import IPython
 from traitlets.config import Config
@@ -14,7 +14,7 @@ BANNER = f"""-------------------------------------------------------------------
                          Welcome to Dysh v{__version__}
 
     Example usage: https://dysh.readthedocs.io/en/latest/example.html
-    Bug repots:    https://github.com/GreenBankObservatory/dysh/issues
+    Bug reports:    https://github.com/GreenBankObservatory/dysh/issues
 
     For help with a Dysh routine from the command line,
     use the builtin 'help'. e.g.:
@@ -28,6 +28,9 @@ BANNER = f"""-------------------------------------------------------------------
 --------------------------------------------------------------------------
 """
 
+DEFAULT_PROFILE = "dysh"
+DEFAULT_COLORS = "LightBG"
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -37,15 +40,18 @@ def parse_args():
         )
     )
     parser.add_argument("paths", help="FITS file paths to load initially", nargs="*", type=Path)
-    parser.add_argument("-p", "--profile", help="The IPython profile to use", default="dysh")
+    parser.add_argument("-p", "--profile", help="The IPython profile to use", default=DEFAULT_PROFILE)
     parser.add_argument("-L", "--fits-loader", help="The SDFITS loader class name to use", default="GBTFITSLoad")
     parser.add_argument(
-        "--colors", help="Set the color scheme", choices=["NoColor", "Neutral", "Linux", "LightBG"], default="LightBG"
+        "--colors",
+        help="Set the color scheme",
+        choices=["NoColor", "Neutral", "Linux", "LightBG"],
+        default=DEFAULT_COLORS,
     )
     return parser.parse_known_args()
 
 
-def init_shell(colors: str, profile: str | Path, *ipython_args, sdfits_files=None):
+def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] = "DEFAULT_PROFILE", sdfits_files=None):
     c = Config()
     import numpy as np
     import pandas as pd
@@ -81,7 +87,7 @@ def open_sdfits_files(paths: List[Path], loader_class_name="GBTFITSLoad") -> Lis
 def main():
     args, remaining_args = parse_args()
     sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
-    init_shell(colors=args.colors, profile=args.profile, *remaining_args, sdfits_files=sdfits_files)
+    init_shell(*remaining_args, colors=args.colors, profile=args.profile, sdfits_files=sdfits_files)
 
 
 if __name__ == "__main__":
