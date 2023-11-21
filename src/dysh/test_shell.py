@@ -11,6 +11,11 @@ def test_shell_cli():
     subprocess.check_call(["dysh"])
 
 
+def test_shell_cli_with_args():
+    """Simply prove that we can launch $ dysh from CLI"""
+    subprocess.check_call(["dysh", "--colors", "Linux", "--no-banner", "--profile", "foo"])
+
+
 def test_init_shell(monkeypatch):
     """Prove that we can open the shell, print something, and exit without error"""
 
