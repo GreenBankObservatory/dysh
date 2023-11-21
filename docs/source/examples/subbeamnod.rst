@@ -39,7 +39,7 @@ The returned `sdfits` can be probed for information
 .. code:: python
 
     >>> sdfits.info()
-    Filename: /data/gbt/examples/subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits
+    Filename: TRCO_230413_Ka.raw.vegas.A.fits
     No.    Name      Ver    Type      Cards   Dimensions   Format
       0  PRIMARY       1 PrimaryHDU      12   ()
       1  SINGLE DISH    1 BinTableHDU    245   5280R x 74C   ['32A', '1D', '22A', '1D', '1D', '1D', '1024E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1D', '1D', '1D', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']
@@ -48,7 +48,7 @@ You can also print a concise (or verbose if you choose `verbose=True`) :meth:`~d
 
 .. code:: python
 
-    >>> sdfits.summary()
+    >>> sdfits.summary(show_index=True)
         SCAN     OBJECT VELOCITY        PROC  PROCSEQN RESTFREQ DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
     0     32  1256-0547      0.0         Nod         1     26.5    26.5    1     2    60      2  160.975324  43.884984
     1     33  1256-0547      0.0         Nod         2     26.5    26.5    1     2    60      2  161.174093  43.928449
@@ -74,4 +74,4 @@ The SubBeamNod scans are 43, 46, and 54.  Retrieve and calibrate a SubBeamNod sc
 .. code:: python
 
     >>> sbn = sdfits.subbeamnod(scan=43, fdnum=1, ifnum=0, weights='tsys')
-    >>> sbn.plot()
+    >>> sbn[0].plot()
