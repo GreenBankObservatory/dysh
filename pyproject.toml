@@ -30,13 +30,13 @@ dependencies = [
   "scipy",
   "specutils",
   "sphinx",
-  "myst-parser"
+  "myst-parser",
+  "ipython"
  ]
 
 [project.optional-dependencies]
 dev = [
   "ipdb",
-  "ipython",
   "pytest",
   "pytest-cov",
   "wget",
