@@ -145,7 +145,7 @@ The system temperature array (`numpy.ndarray`) is stored in `tsys`
 
 .. code:: python
 
-    >>> print(f"T_sys = {pscan.tsys.mean():.2f} K")
+    >>> print(f"T_sys = {psscan[0].tsys.mean():.2f} K")
         T_sys = 17.17 K
 
 Then time average the data, using system temperature weighting (other option is 'equal' weighting; 'tsys' is the default if no `weights` parameter is given. Future upgrade will allow the user to provide a numeric weights array). The returned object is :class:`~dysh.spectra.spectrum.Spectrum`, which has a default `matplotlib`-based plotter attached
@@ -153,7 +153,7 @@ Then time average the data, using system temperature weighting (other option is 
 .. code:: python
 
     >>> ta = psscan.timeaverage(weights='tsys')
-    >>> ta.plot()
+    >>> ta[0].plot()
 
 .. figure:: img/ps_152.png
     :alt: A frequency versus temperature spectrum plot. The spectrum is noisy and spans 1.390 to 1.415 GHz.
@@ -162,7 +162,7 @@ The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis
 
 .. code:: python
 
-    >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
+    >>> ta[0].plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
 
 .. figure:: img/ps_152_zoom.png
     :alt: The spectrum plot zoomed in along both axes to frame a central emission line.
@@ -181,7 +181,7 @@ is also .  The baseline is removed if `remove=True`.
 .. code:: python
 
     >>> kms = u.km/u.s
-    >>> ta.baseline(order=2,exclude=[3600,4100]*kms, remove=True)
+    >>> ta.baseline(degree=2, exclude=[3600,4100]*kms, remove=True)
     EXCLUDING [Spectral Region, 1 sub-regions:
       (1401242184.363393 Hz, 1403551474.1090915 Hz)
     ]
