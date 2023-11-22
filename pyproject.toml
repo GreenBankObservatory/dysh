@@ -31,7 +31,8 @@ dependencies = [
   "specutils",
   "sphinx",
   "myst-parser",
-  "ipython"
+  "ipython",
+  "wget"
  ]
 
 [project.optional-dependencies]
@@ -39,7 +40,6 @@ dev = [
   "ipdb",
   "pytest",
   "pytest-cov",
-  "wget",
   "myst-parser",
   "sphinx",
   "sphinx-autobuild",
