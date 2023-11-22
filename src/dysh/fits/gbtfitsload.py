@@ -504,7 +504,8 @@ class GBTFITSLoad(SDFITSLoad):
                 print("TPROWS len=", len(tprows))
                 print("CALROWS on len=", len(calrows["ON"]))
                 print("fitsindex=", i)
-
+            if len(tprows) == 0:
+                continue
             g = TPScan(
                 self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, kwargs_opts["calibrate"]
             )
