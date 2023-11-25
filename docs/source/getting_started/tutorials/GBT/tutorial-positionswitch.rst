@@ -29,6 +29,14 @@ You can install `dysh` using `pip`. From a terminal type
 
     pip install dysh
 
+
+After installing `dysh` you can start it by typing `dysh` in a shell. Alternatively, you can import it as any other `Python` module.
+
+.. code:: bash
+
+    dysh
+
+
 Downloading the raw data
 ------------------------
 
@@ -61,7 +69,7 @@ Now you will load the raw data and show a summary of its contents
 .. code:: python
 
     >>> sdfits = GBTFITSLoad(filename)
-    >>> sdfits.summary()
+    >>> sdfits.summary(show_index=True)
         SCAN   OBJECT VELOCITY   PROC PROCSEQN  RESTFREQ   DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
     0    152  NGC2415   3784.0  OnOff        1  1.617185  1.420406    5     2   151      1  286.218008   41.62843
     1    153  NGC2415   3784.0  OnOff        2  1.617185  1.420406    5     2   151      1  286.886521  41.118134
@@ -74,7 +82,6 @@ The following lines will let you calibrate and time average the position switche
 .. code:: python
 
     >>> psscan = sdfits.getps(152, ifnum=0, plnum=0)
-        PSSCAN nrows = 302
     >>> psscan.calibrate()
     >>> ta = psscan.timeaverage(weights='tsys')
 
@@ -83,7 +90,7 @@ Plotting the calibrated data
 
 .. code:: python
 
-    >>> ta.plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
+    >>> ta[0].plot(xaxis_unit="km/s",yaxis_unit="mK",ymin=-100,ymax=500,xmin=3000,xmax=4500)
 
 .. figure:: img/ps_152_zoom.png
     :alt: The spectrum plot zoomed in along both axes to frame a central emission line.

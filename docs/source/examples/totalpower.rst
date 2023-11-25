@@ -36,7 +36,7 @@ You can also print a concise (or verbose if you choose `verbose=True`) summary :
 
 .. code:: python
 
-    >>> sdfits.summary()
+    >>> sdfits.summary(show_index=True)
         SCAN   OBJECT VELOCITY   PROC PROCSEQN  RESTFREQ   DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
     0  152.0  NGC2415   3784.0  OnOff      1.0  1.617185  1.420406    5     2   151      1  286.218008   41.62843
     1  153.0  NGC2415   3784.0  OnOff      2.0  1.617185  1.420406    5     2   151      1  286.886521  41.118134
@@ -46,13 +46,12 @@ Retrieve a scan, selecting and IF number and polarization
 .. code:: python
 
     >>> tpscan = sdfits.gettp(152, ifnum=0, plnum=0)
-        TPSCAN nrows = 302
 
 The `~dysh.spectra.scan.GBTTPScan` contains the individual integrations.  The system temperatures per integration are calculated from the CALON and CALOFF data
 
 .. code:: python
 
-    >>> print('%s' % (np.array2string(tps.tsys,precision=2)))
+    >>> print('%s' % (np.array2string(tpscan[0].tsys, precision=2)))
         [16.89 16.89 16.94 16.77 16.96 16.94 16.87 16.86 16.92 16.86 16.85 16.97
          16.79 16.86 16.96 17.02 16.94 16.89 16.87 16.92 16.88 16.86 16.92 17.02
          16.77 16.8  17.   16.91 16.91 16.86 16.98 16.81 16.88 17.03 16.96 16.95
@@ -71,7 +70,7 @@ You can time-average the data, in this example with equal weighting per integrat
 
 .. code:: python
 
-    >>> tps.timeaverage(weights=None).plot()
+    >>> tpscan.timeaverage(weights=None)[0].plot()
 
 .. figure:: img/tp_153_eqweight.png
     :alt: A plot of the time-averaged data

@@ -177,7 +177,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         return self._sdf[fitsindex].rawspectrum(i, bintable)
 
-    def summary(self, scans=None, verbose=False, show_index=False):  # selected=False
+    def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
@@ -310,8 +310,10 @@ class GBTFITSLoad(SDFITSLoad):
             compressed_df = pd.concat([compressed_df, ser.to_frame().T], ignore_index=True)
         compressed_df = compressed_df.astype(col_dtypes)
         if not show_index:
-            return compressed_df.style.hide(axis="index")
-        return compressed_df
+            print(compressed_df.to_string(index=False))
+            # return compressed_df.style.hide(axis="index")
+        else:
+            return compressed_df
 
     def velocity_convention(self, veldef, velframe):
         # GBT uses VELDEF and VELFRAME incorrectly.
