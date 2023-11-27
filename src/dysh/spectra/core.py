@@ -1,30 +1,19 @@
 """
+Core functions for spectral data.
 """
 
 import warnings
 
 import astropy.units as u
-import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
 from astropy.wcs import WCS
-from specutils import SpectralRegion, Spectrum1D, SpectrumList
+from specutils import SpectralRegion, Spectrum1D
 from specutils.fitting import fit_continuum
 
 from ..util import uniq
-
-# def baseline_all(speclist,order,exclude=None,**kwargs):
-#    kwargs_opts = {
-#        'remove': False,
-#        'show': False,
-#        'model':'polynomial',
-#        'fitter':  LinearLSQFitter(calc_uncertainties=True),
-#    }
-#    kwargs_opts.update(kwargs)
-#    for p in speclist:
-#        p.baseline(order,exclude,**kwargs)
 
 
 def average(data, axis=0, weights=None):
