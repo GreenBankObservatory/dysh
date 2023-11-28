@@ -38,4 +38,53 @@ Example feedback
 Here are examples of feedback on GitHub
 
 * reporting an issue, `Issue #88 <https://github.com/GreenBankObservatory/dysh/issues/88>`_
-* requesting a modification, `Issue #78, <https://github.com/GreenBankObservatory/dysh/issues/78>`_
+* requesting a modification, `Issue #78 <https://github.com/GreenBankObservatory/dysh/issues/78>`_
+
+
+Installing `dysh`
+=================
+
+Here we provide additional installation steps that include creating a virtual environment to keep `dysh` isolated from your system `Python` version.
+We provide steps for working in one of `GBO data reduction hosts <https://greenbankobservatory.org/science/gbt-observers/public-access-data-reduction/>`_ (e.g., fourier), and if you're working outside one of the GBO data reduction hosts.
+
+.. tab:: At GBO
+
+    Create a `Python3.11` virtual environment
+
+    .. code:: bash
+
+        /users/gbosdd/python/bin/python3.11 -m venv /home/scratch/$USER/dysh-0.2-env
+
+    Activate your virtual environment
+
+    .. code:: bash
+
+        source /home/scratch/$USER/dysh-0.2-env/bin/activate
+
+    Install `dysh` and Jupyter Lab
+
+    .. code:: bash
+
+        pip install jupyterlab dysh==0.2.0b
+
+.. tab:: Outside of GBO
+
+    Create a `Python3.9+` virtual environment
+
+    .. code:: bash
+
+        python3 -m venv /path/to/venv
+
+    Activate your virtual environment
+
+    .. code:: bash
+
+        source /path/to/venv/bin/activate
+
+    Install `dysh` and Jupyter Lab
+
+    .. code:: bash
+
+        pip install jupyterlab dysh==0.2.0b
+
+In the future we will provide `dysh` executables at GBO.
