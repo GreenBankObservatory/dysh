@@ -57,6 +57,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxcontrib.mermaid",
     "numpydoc",
+    "sphinx_tabs.tabs",
 ]
 
 numpydoc_show_class_members = True
