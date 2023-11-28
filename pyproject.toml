@@ -31,7 +31,7 @@ dependencies = [
   "specutils",
   "sphinx",
   "myst-parser",
-  "sphinx-tabs",
+  "sphinx-inline-tabs",
   "ipython",
   "wget"
  ]
