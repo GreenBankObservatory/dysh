@@ -29,11 +29,8 @@ dependencies = [
   "pandas",
   "scipy",
   "specutils",
-  "sphinx",
-  "myst-parser",
-  "sphinx-inline-tabs",
   "ipython",
-  "wget"
+  "wget",
  ]
 
 [project.optional-dependencies]
@@ -46,8 +43,14 @@ dev = [
   "sphinx-autobuild",
   "sphinx-rtd-theme",
   "sphinxcontrib-mermaid",
-  "numpydoc"
+  "numpydoc",
+  "sphinx-inline-tabs",
 ]
+nb = [
+  "jupyter",
+  "jupyterlab",
+]
+all = ["dysh[dev]", "dysh[nb]"]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
