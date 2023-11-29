@@ -30,7 +30,6 @@ dependencies = [
   "scipy",
   "specutils",
   "ipython",
-  "wget",
  ]
 
 [project.optional-dependencies]

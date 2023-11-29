@@ -527,8 +527,6 @@ webencodings==0.5.1
     #   tinycss2
 websocket-client==1.7.0
     # via jupyter-server
-wget==3.2
-    # via dysh (pyproject.toml)
 widgetsnbextension==4.0.9
     # via ipywidgets
 zipp==3.17.0
