@@ -10,7 +10,8 @@ from . import baseline
 
 
 class Spectrum(Spectrum1D):
-    """This class contains a spectrum and its attributes. It is built on
+    """
+    This class contains a spectrum and its attributes. It is built on
     `~specutils.Spectrum1D` with added attributes like baseline model.
     Note that `~specutils.Spectrum1D` can contain multiple spectra but
     we probably will not use that because the restriction that it can
@@ -48,32 +49,34 @@ class Spectrum(Spectrum1D):
         return self._baseline_model
 
     def baseline(self, degree, exclude=None, **kwargs):
-        """Compute and optionally remove a baseline.  The model for the
-                baseline can be either a
-                `1D polynomial model <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html>`_ or a
-                `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.  The code uses `astropy.modeling`
-                and `astropy.fitter` to compute the baseline.  See the documentation for those modules.  This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
+        """
+        Compute and optionally remove a baseline.  The model for the
+        baseline can be either a
+        `1D polynomial model <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html>`_ or a
+        `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.  The code uses `astropy.modeling`
+        and `astropy.fitter` to compute the baseline.  See the documentation for those modules.  This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
 
-                Parameters
-                ----------
-                    degree : int
-                        The degree of the polynomial series, a.k.a. baseline order
-                    exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
-                        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
-        in channel units.
+        Parameters
+        ----------
+            degree : int
+                The degree of the polynomial series, a.k.a. baseline order
+            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+                In channel units.
 
-                        Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
-                        Default: no exclude region
+                Default: no exclude region
 
-                        TODO: Are these OR'd with the existing mask? make that an option
-                        TODO: Allow these to be Quantities (spectral axis units or equivalent). See list_to_spectral_region()
-                    model : str
-                        One of 'polynomial' or 'chebyshev', Default: 'polynomial'
-                    fitter  :  `~astropy.fitting._FitterMeta`
-                        The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True).  Be care when choosing a different fitter to be sure it is optimized for this problem.
-                    remove : bool
-                        If True, the baseline is removed from the spectrum. Default: False
+                TODO: Are these OR'd with the existing mask? make that an option
+                TODO: Allow these to be Quantities (spectral axis units or equivalent). See list_to_spectral_region()
+            model : str
+                One of 'polynomial' or 'chebyshev', Default: 'polynomial'
+            fitter  :  `~astropy.fitting._FitterMeta`
+                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+            remove : bool
+                If True, the baseline is removed from the spectrum. Default: False
+
         """
         kwargs_opts = {
             "remove": False,
@@ -89,9 +92,10 @@ class Spectrum(Spectrum1D):
             self._subtracted = True
 
     def _undo_baseline(self):
-        """Undo the most recently computed baseline.  If the baseline
-        has been subtracted, it will be added back.  The `baseline_model`
-        attribute is set to None.   Exclude regions are untouched.
+        """
+        Undo the most recently computed baseline. If the baseline
+        has been subtracted, it will be added back. The `baseline_model`
+        attribute is set to None. Exclude regions are untouched.
         """
         if self._baseline_model is None:
             return
@@ -101,13 +105,14 @@ class Spectrum(Spectrum1D):
             self._baseline_model = None
 
     def _set_exclude_regions(self, exclude):
-        """Set the mask for the regions to exclude.
+        """
+        Set the mask for the regions to exclude.
 
-                Parameters
-                ----------
-                    exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
-                        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
-        in channel units.
+        Parameters
+        ----------
+            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+                In channel units.
 
                         Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
@@ -133,7 +138,8 @@ class Spectrum(Spectrum1D):
         return self._plotter
 
     def stats(self):
-        """Compute some statistics of this `Spectrum`.  The mean, rms,
+        """
+        Compute some statistics of this `Spectrum`.  The mean, rms,
         data minimum and data maximum are calculated.  Note this works
         with slicing, so, e.g.,  `myspectrum[45:153].stats()` will return
         the statistics of the slice.
@@ -143,6 +149,7 @@ class Spectrum(Spectrum1D):
         stats : tuple
             Tuple consisting of (mean,rms,datamin,datamax)
             TODO: maybe make this a dict
+
         """
         mean = self.mean()
         rms = self.data.std()
@@ -174,6 +181,7 @@ class Spectrum(Spectrum1D):
             if "radio" in self.velocity_convention:
                 # Yeesh, the doppler_convention parameter for SpectralAxis.to does not match the doppler_convention list for Spectrum1D!
                 # This is actually bug in Spectrum1D documentation https://github.com/astropy/specutils/issues/1067
+                convention = "radio"
                 equiv.extend(u.doppler_radio(rfq))
             elif "optical" in self.velocity_convention:
                 equiv.extend(u.doppler_optical(rfq))
@@ -190,7 +198,8 @@ class Spectrum(Spectrum1D):
         self._plotter.figure.savefig(file, **kwargs)
 
     def _write_table(self, fileobj, format, **kwargs):
-        """Write this `Spectrum` as an ~astropy.table.Table.
+        """
+        Write this `Spectrum` as an ~astropy.table.Table.
 
         Parameters
         ----------
@@ -201,6 +210,7 @@ class Spectrum(Spectrum1D):
             The output format. Must be a format supported by ~astropy.table.Table.write
         kwargs : variable
             Additional keyword arguments supported by ~astropy.table.Table.write
+
         """
 
         flux = self.flux

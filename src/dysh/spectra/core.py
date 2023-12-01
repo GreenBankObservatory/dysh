@@ -1,26 +1,19 @@
-# import sys
-# import copy
+"""
+Core functions for spectral data.
+"""
+
 import warnings
 
 import astropy.units as u
 import numpy as np
-from astropy.modeling.fitting import LinearLSQFitter
-
-# from astropy.table import Table
-from astropy.modeling.polynomial import Chebyshev1D, Polynomial1D
-from specutils import SpectralRegion
+from astropy.io import fits
+from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
+from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
+from astropy.wcs import WCS
+from specutils import SpectralRegion, Spectrum1D
 from specutils.fitting import fit_continuum
 
-# def baseline_all(speclist,order,exclude=None,**kwargs):
-#    kwargs_opts = {
-#        'remove': False,
-#        'show': False,
-#        'model':'polynomial',
-#        'fitter':  LinearLSQFitter(calc_uncertainties=True),
-#    }
-#    kwargs_opts.update(kwargs)
-#    for p in speclist:
-#        p.baseline(order,exclude,**kwargs)
+from ..util import uniq
 
 
 def average(data, axis=0, weights=None):
@@ -44,45 +37,74 @@ def average(data, axis=0, weights=None):
     average : `~numpy.ndarray`
         The average along the input axis
     """
-    return np.average(data, axis, weights)
+    # Spectra that are blanked will have all channels set to NaN
+    # indices = ~np.isnan(data)
+    # Find indices with ANY spectra (rows) that have a NaN or Inf
+    # goodindices = ~np.ma.fix_invalid(data).mask.any(axis=1)
+    # c = data[goodindices]
+    # if len(c) == 0:
+    #    return np.nan
+    # Find indices that have any spectra with all channels = NaN
+    # badindices = np.where(np.isnan(data).all(axis=1))
+    goodindices = find_non_blanks(data)
+    if weights is not None:
+        return np.average(data[goodindices], axis, weights[goodindices])
+    else:
+        return np.average(data[goodindices], axis, weights)
+
+
+def find_non_blanks(data):
+    """
+    Finds the indices of blanked integrations.
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        The spectral data, typically with shape (nspect,nchan).
+
+    Returns
+    -------
+    blanks : `~numpy.ndarray`
+        Array with indices of blanked integrations.
+    """
+
+    return np.where(~np.isnan(data).all(axis=1))
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
     """Convert an exclude list to a list of ~specutuls.SpectralRegion.
 
-     Parameters
-     ----------
-
-          exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-              List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:
-
-              One channel-based region:
-
-              >>> [11,51]
-
-              Two channel-based regions:
-
-              >>> [(11,51),(99,123)]
-
-              One `~astropy.units.Quantity` region:
-
-              >>> [110.198*u.GHz,110.204*u.GHz].
-
-              One compound `~specutils.SpectralRegion`:
-
-              >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
-
-          refspec: `~spectra.spectrum.Spectrum`
-              The reference spectrum whose spectral axis will be used
-              when converting between exclude and axis units (e.g. channels to GHz).
-          fix_exclude: bool
-              If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
-
-    Returns
+    Parameters
     ----------
-          regionlist : list of `~specutil.SpectralRegion`
-              A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
+    exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.    Examples:
 
+                One channel-based region:
+
+                >>> [11,51]
+
+                Two channel-based regions:
+
+                >>> [(11,51),(99,123)]
+
+                One `~astropy.units.Quantity` region:
+
+                >>> [110.198*u.GHz,110.204*u.GHz].
+
+                One compound `~specutils.SpectralRegion`:
+
+                >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+
+    refspec: `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used
+        when converting between exclude and axis units (e.g. channels to GHz).
+    fix_exclude: bool
+        If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
+
+      Returns
+      -------
+      regionlist : list of `~specutil.SpectralRegion`
+        A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
     """
     regionlist = []
     p = refspec
@@ -158,18 +180,19 @@ def region_to_axis_indices(region, refspec):
     """
     Parameters
     ----------
-        region : `~specutils.SpectralRegion`
-        refspec: `~spectra.spectrum.Spectrum`
-            The reference spectrum whose spectral axis will be used
-            when converting between exclude and axis units (e.g., channels to GHz).
+    region : `~specutils.SpectralRegion`
+    refspec: `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used
+        when converting between exclude and axis units (e.g., channels to GHz).
 
     Returns
     -------
-        indices : 2-tuple of int
-            The array indices in `refspec` corresponding to `region.bounds`
+    indices : 2-tuple of int
+        The array indices in `refspec` corresponding to `region.bounds`
     """
     # Spectral region to indices in an input spectral axis.
     # @TODO needs to work for multiple spectral regions? or just loop outside this call
+    p = refspec
     sa = refspec.spectral_axis
     if region.lower.unit != sa.unit:
         # @todo if they are conformable, then allow it and convert
@@ -235,7 +258,7 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     }
     kwargs_opts.update(kwargs)
 
-    _valid_models = ["polynomial", "chebyshev"]
+    _valid_models = ["polynomial", "chebyshev", "legendre", "hermite"]
     _valid_exclude_actions = ["replace", "append", None]
     # @todo replace with minimum_string_match
     if kwargs_opts["model"] not in _valid_models:
@@ -244,6 +267,10 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         model = Polynomial1D(degree=order)
     elif kwargs_opts["model"] == "chebyshev":
         model = Chebyshev1D(degree=order)
+    elif kwargs_opts["model"] == "legendre":
+        model = Legendre1D(degree=order)
+    elif kwargs_opts["model"] == "hermite":
+        model = Hermite1D(degree=order)
     else:
         # should never get here, unless we someday allow user to input a astropy.model
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
@@ -308,7 +335,7 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     """
     # @todo Pedro thinks about a version that takes a spectrum with multiple SpectralRegions to exclude.
     nchan = len(calon)
-    if nedge is None:
+    if nedge == None:
         nedge = nchan // fedge  # 10 %
     # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
     # Therefore we have to add a channel to the upper edge of the range
@@ -323,7 +350,7 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
 
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.nanmean(caloff[chrng])
-        meandiff = np.nanmean(calon[chrng]) - np.nanmean(caloff[chrng])
+        meandiff = np.nanmean(calon[chrng] - caloff[chrng])
         if False:
             if meandiff < 0:
                 print(f"moff {meanoff}, mdif {meandiff}, tc {tcal}")
@@ -341,18 +368,49 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     return np.abs(meanTsys)
 
 
+def sq_weighted_avg(a, axis=0, weights=None):
+    # @todo make a generic moment or use scipy.stats.moment
+    r"""Compute the mean square weighted average of an array (2nd moment).
+
+    :math:`v = \sqrt{\frac{\sum_i{w_i~a_i^{2}}}{\sum_i{w_i}}}`
+
+    Parameters
+    ----------
+    a : `~numpy.ndarray`
+        The data to average.
+    axis : int
+        The axis over which to average the data.  Default: 0
+    weights : `~numpy.ndarray` or None
+        The weights to use in averaging.  The weights array must be the
+        length of the axis over which the average is taken.  Default:
+        `None` will use equal weights.
+
+    Returns
+    -------
+    average : `~numpy.ndarray`
+        The square root of the squared average of a along the input axis.
+    """
+    # if weights is None:
+    #    w = np.ones_like(a)
+    # else:
+    #    w = weights
+    a2 = a * a
+    v = np.sqrt(np.average(a2, axis=axis, weights=weights))
+    return v
+
+
 def veldef_to_convention(veldef):
     """given a VELDEF, return the velocity convention expected by Spectrum(1D)
 
     Parameters
     ----------
-        veldef : str
-            velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'
+    veldef : str
+        Velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'
 
     Returns
     -------
-        convention : str
-        velocity convention string, one of {'radio', 'optical', 'relativistic'}  or None if `velframe` can't be parsed
+    convention : str
+        Velocity convention string, one of {'radio', 'optical', 'relativistic'}  or None if `velframe` can't be parsed
     """
 
     # @TODO GBT defines these wrong.  Need to sort out and have special version for GBT
@@ -368,16 +426,12 @@ def veldef_to_convention(veldef):
 
 def tsys_weight(exposure, delta_freq, tsys):
     r"""Compute the system temperature based weight(s) using the expression:
-
-     :math:`w = t_{exp} \times \delta_\nu / T_{sys}^2,`
-
-    where :math:`t_{exp}` is the exposure time, :math:`\delta_\nu` is the frequency resolution, and :math:`T_{sys}` is the system temperature.
+        :math:`w = t_{exp} \times \delta_\nu / T_{sys}^2,`
 
     If `exposure`, `delta_freq`, or `tsys` parameters are given as `~astropy.units.Quantity`,
     they will be converted to seconds, Hz, K, respectively for the calculation.
     (Not that this really matters since weights are relative to each other)
 
-    **Note:** The parameters cannot be given as arrays of `~astropy.units.Quantity`, e.g.,
 
      >>> import astropy.units as u
      >>> [3*u.s, 4*u.s]   ### WRONG
@@ -402,7 +456,10 @@ def tsys_weight(exposure, delta_freq, tsys):
     """
 
     # Quantitys work with abs and power!
-    weight = abs(delta_freq) * exposure * np.power(tsys, -2)
+    # Using `numpy.power` like this results in increased
+    # precision over the calculation used by GBTIDL:
+    # weight = abs(delta_freq) * exposure / tsys**2.
+    weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
     if type(weight) == u.Quantity:
         return weight.value.astype(np.longdouble)
     else:

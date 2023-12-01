@@ -19,6 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
@@ -29,16 +30,17 @@ dependencies = [
   "scipy",
   "specutils",
   "sphinx",
-  "myst-parser"
+  "myst-parser",
+  "sphinx-inline-tabs",
+  "ipython",
+  "wget"
  ]
 
 [project.optional-dependencies]
 dev = [
   "ipdb",
-  "ipython",
   "pytest",
   "pytest-cov",
-  "wget",
   "myst-parser",
   "sphinx",
   "sphinx-autobuild",
@@ -54,6 +56,7 @@ Source = "https://github.com/GreenBankObservatory/dysh"
 
 [project.scripts]
 fdr = "dysh.util.files:main_cli"
+dysh = "dysh.shell:main"
 
 [tool.hatch.version]
 path = "src/dysh/__init__.py"
@@ -68,8 +71,8 @@ test = "pytest {args}"
 lint = "ruff check . {args}"
 lint-all = "ruff check --select ALL {args}"
 lint-fix = "ruff check --select ALL --fix {args}"
-docs = "sphinx-autobuild {root}/docs {root}/docs/build -b html {args}"
-docs-build = "sphinx-build {root}/docs {root}/docs/build -b html {args}"
+docs = "sphinx-autobuild {root}/docs/source {root}/docs/build -b html {args}"
+docs-build = "sphinx-build {root}/docs/source {root}/docs/build -b html {args}"
 
 [tool.hatch.envs.test]
 
@@ -80,7 +83,7 @@ cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/dy
 
 # Run tests across all supported version of Python
 [[tool.hatch.envs.test.matrix]]
-python = ["39", "310", "311"]
+python = ["39", "310", "311", "312"]
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/tests", "/bin"]
@@ -113,10 +116,25 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
+[tool.isort]
+# See: https://pycqa.github.io/isort/docs/configuration/options/#example-pyprojecttoml
+profile = "black"
+combine_as_imports = true
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "THIRDPARTY",
+    "FIRSTPARTY",
+    "LOCALFOLDER"
+]
+filter_files = true
+
 [tool.black]
 preview = true
 line-length = 120
 
+[tool.pyright]
+reportImplicitStringConcatenation = false
 [tool.ruff]
 select = [
   "F",    # https://beta.ruff.rs/docs/rules/#pyflakes-f
@@ -145,6 +163,9 @@ line-length = 120
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = ["tests", "src", "docs"]
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]
 
 [build-system]
 requires = ["hatchling"]

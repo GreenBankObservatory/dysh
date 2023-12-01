@@ -5,8 +5,8 @@
 SPHINXOPTS    =
 SPHINXBUILD   = python -m sphinx
 SPHINXPROJ    = dysh
-SOURCEDIR     = .
-BUILDDIR      = _build
+SOURCEDIR     = ./source
+BUILDDIR      = ./_build
 
 # Put it first so that "make" without argument is like "make help".
 help:

@@ -1,15 +1,15 @@
+"""Plot a spectrum using matplotlib"""
+
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 
-"""Plot a spectrum using matplotlib"""
-
 
 class SpectrumPlot:
-    """
+    r"""
     The SpectrumPlot class is for simple plotting of a ~spectrum.Spectrum
     using matplotlib functions.   Plots attributes are modified using keywords
-    (\\*\\*kwargs) described below SpectrumPlot will attempt to make smart default
+    (**kwargs) described below SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
     The attributes are "sticky" meaning that an attribute set via
     instantiation or by the `plot()` method will stay set until changed
@@ -19,43 +19,43 @@ class SpectrumPlot:
     ----------
     spectrum : `~spectra.spectrum.Spectrum`
         The spectrum to plot
-    \\**kwargs : dict
+    **kwargs : dict
         Plot attribute keyword arguments, see below.
 
-    Keyword Arguments
-    -----------------
-        xaxis_unit : str or ~astrpy.unit.Unit
-            The units to use on the x-axis, e.g. "km/s" to plot velocity
-        yaxis_unit : str or ~astrpy.unit.Unit
-            The units to use on the y-axis
-        xmin : float
-            Minimum x-axis value
-        xmax : float
-            Maximum x-axis value
-        ymin : float
-            Minimum y-axis value
-        ymax : float
-            Maximum y-axis value
-        xlabel : str
-            x-axis label
-        ylabel : str
-            y-axis label
-        grid : bool
-            Show a plot grid or not
-        figsize : tuple
-            Figure size (see matplotlib)
-        linewidth : float
-            Line width, default: 2.0.  lw also works
-        linestyle : str
-            Line style, default 'steps-mid'.  ls also works
-        color : str
-            Line color, c also works
-        title : str
-            Plot title
-        aspect : str
-            plot aspect ratio, default: 'auto'
-        show_baseline : bool
-            show the baseline - not yet implemented
+    Other Parameters
+    ----------------
+    xaxis_unit : str or ~astropy.unit.Unit
+        The units to use on the x-axis, e.g. "km/s" to plot velocity
+    yaxis_unit : str or ~astropy.unit.Unit
+        The units to use on the y-axis
+    xmin : float
+        Minimum x-axis value
+    xmax : float
+        Maximum x-axis value
+    ymin : float
+        Minimum y-axis value
+    ymax : float
+        Maximum y-axis value
+    xlabel : str
+        x-axis label
+    ylabel : str
+        y-axis label
+    grid : bool
+        Show a plot grid or not
+    figsize : tuple
+        Figure size (see matplotlib)
+    linewidth : float
+        Line width, default: 2.0.  lw also works
+    linestyle : str
+        Line style, default 'steps-mid'.  ls also works
+    color : str
+        Line color, c also works
+    title : str
+        Plot title
+    aspect : str
+        plot aspect ratio, default: 'auto'
+    show_baseline : bool
+        show the baseline - not yet implemented
     """
 
     # loc, legend, bbox_to_anchor
@@ -87,12 +87,12 @@ class SpectrumPlot:
         return self._spectrum
 
     def plot(self, **kwargs):
-        """
+        r"""
         Plot the spectrum.
 
         Parameters
         ----------
-        \\**kwargs : various
+        **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
         # xtype = 'velocity, 'frequency', 'wavelength'
@@ -163,7 +163,7 @@ class SpectrumPlot:
         }
 
     def _set_labels(self, title=None, xlabel=None, ylabel=None, **kwargs):
-        """Set x and y labels according to spectral units
+        r"""Set x and y labels according to spectral units
 
         Parameters
         ----------
@@ -173,7 +173,7 @@ class SpectrumPlot:
             x-axis label
         ylabel : str
             x-axis label
-        \\*\\*kwargs : various
+        **kwargs : various
             other keyword=value arguments
         """
         if title is not None:

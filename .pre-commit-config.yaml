@@ -1,7 +1,7 @@
 ---
 # See https://pre-commit.com for more information
 default_language_version:
-  python: python3.9
+  python: python3.10
 
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
@@ -9,6 +9,7 @@ repos:
     rev: v4.4.0
     hooks:
       - id: trailing-whitespace
+        exclude: '(notebooks|attic|benchmark|testdata)/.*'
       - id: end-of-file-fixer
         exclude: LICENSE
       - id: check-yaml
@@ -19,33 +20,20 @@ repos:
       - id: mixed-line-ending
         args:
           - '--fix=lf'
-
-  # - repo: https://github.com/astral-sh/ruff-pre-commit
-  #   rev: v0.0.285
-  #   hooks:
-  #   - id: ruff
-  #     alias: autoformat
-  #     args:
-  #       - '--fix'
-  #       - '--exit-non-zero-on-fix'
-  #       - '--select=F,E,B,I'
-  #       - '--ignore=E501'  # Ignore line-too-long errors; these are only long comment lines
-
+      - id: check-docstring-first
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        exclude: '(notebooks|attic|benchmark|testdata)/.*'
   - repo: 'https://github.com/psf/black'
-    rev: 23.7.0
+    rev: 23.1.0
     hooks:
       - id: black
-
-
-  - repo: https://github.com/jazzband/pip-tools
-    rev: 7.3.0
-    hooks:
-      - id: pip-compile
-        args:
-          - 'pyproject.toml'
-          - '--all-extras'
-          - '--resolver=backtracking'
-          - '--output-file=requirements.txt'
-          - '--no-strip-extras'
-          - '--quiet'
-          - '--no-emit-trusted-host'
+        exclude: '(notebooks|attic|benchmark|testdata)/.*'
+#  - repo: https://github.com/jazzband/pip-tools
+#    rev: 6.12.3
+#    hooks:
+#      - id: pip-compile
+#        args:
+#          - '--resolver=backtracking'

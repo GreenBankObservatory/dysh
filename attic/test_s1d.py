@@ -8,6 +8,7 @@ import numpy as np
 import objgraph
 from astropy.modeling.models import Gaussian1D
 from astropy.modeling.polynomial import Polynomial1D
+from memory_profiler import profile
 from specutils import SpectralRegion, Spectrum1D, SpectrumList
 from specutils.fitting import fit_continuum
 
