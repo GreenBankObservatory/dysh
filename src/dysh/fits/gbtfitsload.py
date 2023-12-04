@@ -18,6 +18,7 @@ from ..spectra.core import tsys_weight
 from ..spectra.scan import PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..spectra.spectrum import Spectrum
 from ..util import consecutive, uniq
+from . import decode_veldef
 from .sdfitsload import SDFITSLoad
 
 # from GBT IDL users guide Table 6.7
@@ -315,9 +316,39 @@ class GBTFITSLoad(SDFITSLoad):
         else:
             return compressed_df
 
-    def velocity_convention(self, veldef, velframe):
-        # GBT uses VELDEF and VELFRAME incorrectly.
-        return "doppler_radio"
+    def velocity_convention(self, veldef):
+        """Given the GBT VELDEF FITS string return the specutils
+        velocity convention, e.g., "doppler_radio"
+
+        Parameters
+        ----------
+            veldef : str
+                The FITS header VELDEF string
+
+        Returns
+        -------
+            convention : str
+                The velocity convention
+        """
+        (convention, frame) = decode_veldef(veldef)
+        return convention
+
+    def velocity_frame(self, veldef):
+        """Given the GBT VELDEF FITS string return the
+        velocity frame, e.g., "heliocentric".
+
+        Parameters
+        ----------
+            veldef : str
+                The FITS header VELDEF string
+
+        Returns
+        -------
+            frame: str
+                The velocity frame
+        """
+        (convention, frame) = decode_veldef(veldef)
+        return frame
 
     def select_scans(self, scans, df):
         return df[(df["SCAN"] >= scans[0]) & (df["SCAN"] <= scans[1])]
