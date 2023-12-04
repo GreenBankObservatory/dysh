@@ -46,6 +46,10 @@ class GBTFITSLoad(SDFITSLoad):
             "index": True,
             "verbose": False,
         }
+        j = [1,
+        2,
+        3
+        ]
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
         self._sdf = []
