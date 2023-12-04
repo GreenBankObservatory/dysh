@@ -473,8 +473,8 @@ class SDFITSLoad(object):
         return self._bintable[bintable].data[i]
 
     def getspec(self, i, bintable=0):
-        """get a row (record) as a Spectrum"""
-        meta = self._index[bintable].iloc[i]
+        """Get a row (record) as a Spectrum"""
+        meta = self._index.iloc[i]
         data = self.rawspectrum(i, bintable)
         naxis1 = len(data)
         ctype1 = meta["CTYPE1"]
