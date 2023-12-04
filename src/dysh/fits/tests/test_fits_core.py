@@ -18,15 +18,15 @@ class TestCore:
             "OPTI-HEL",
         ]
         outputs = [
-            ("doppler_radio", "LSRK"),
-            ("doppler_radio", "LSRK"),
-            ("doppler_radio", "LSRD"),
-            ("doppler_optical", "cmb"),
-            ("doppler_relativistic", "barycentric"),
-            ("doppler_optical", "barycentric"),
-            ("doppler_relativistic", "topocentric"),
-            ("doppler_radio", "galactic"),
-            ("doppler_optical", "heliocentric"),
+            ("radio", "LSRK"),
+            ("radio", "LSRK"),
+            ("radio", "LSRD"),
+            ("optical", "cmb"),
+            ("relativistic", "barycentric"),
+            ("optical", "barycentric"),
+            ("relativistic", "topocentric"),
+            ("radio", "galactic"),
+            ("optical", "heliocentric"),
         ]
         for i, j in zip(inputs, outputs):
             assert decode_veldef(i) == j

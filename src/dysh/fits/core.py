@@ -36,10 +36,10 @@ frame_dict = {
 # At GBT, VELO was written by sdfits filler for some unknown amount of
 # time instead of RELA, so allow for it here
 vconv_dict = {
-    "OPTI": "doppler_optical",
-    "RADI": "doppler_radio",
-    "RELA": "doppler_relativistic",
-    "VELO": "doppler_relativistic",
+    "OPTI": "optical",
+    "RADI": "radio",
+    "RELA": "relativistic",
+    "VELO": "relativistic",
 }
 
 
@@ -57,7 +57,7 @@ def decode_veldef(veldef):
 
     Returns
     -------
-    A str tuple of velocity convention and velocity frame type, e.g., ('doppler_radio', 'LSRK')
+    A str tuple of velocity convention and velocity frame type, e.g., ('radio', 'LSRK')
     """
     if len(veldef) > 8:
         # in future, possibly relax this requirement
