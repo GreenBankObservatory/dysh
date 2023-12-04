@@ -28,7 +28,7 @@ class GBTFITSLoad(SDFITSLoad):
     """
     GBT-specific container to reprensent one or more SDFITS files
 
-    Parameters
+    P
     ----------
     fileobj : str or `pathlib.Path`
         File to read or directory path.  If a directory, all
