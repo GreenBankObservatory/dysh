@@ -44,11 +44,11 @@ In a `Python` instance, type
 
 .. code:: python
 
-    >>> import wget
+    >>> from dysh.util.data import download_file
     >>> url = "http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"
-    >>> filename = wget.download(url)
-    >>> print(filename)
-    TGBT21A_501_11.raw.vegas.fits
+    >>> path = download_file(url)
+    >>> print(path)
+    [...]TGBT21A_501_11.raw.vegas.fits
 
 Keep the `Python` instance open, we will start working with `dysh` now.
 
@@ -68,7 +68,7 @@ Now you will load the raw data and show a summary of its contents
 
 .. code:: python
 
-    >>> sdfits = GBTFITSLoad(filename)
+    >>> sdfits = GBTFITSLoad(path)
     >>> sdfits.summary(show_index=True)
         SCAN   OBJECT VELOCITY   PROC PROCSEQN  RESTFREQ   DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
     0    152  NGC2415   3784.0  OnOff        1  1.617185  1.420406    5     2   151      1  286.218008   41.62843

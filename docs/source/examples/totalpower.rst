@@ -10,7 +10,7 @@ Single beam total power (TP) data is retrieved using :meth:`~dysh.fits.gbtfitslo
 .. code:: python
 
     >>> from dysh.fits.gbtfitsload import GBTFITSLoad
-    >>> import wget
+    >>> from dysh.util.data import download_file
     >>> import numpy as np
 
 ..  (TODO need to replace fixed path with get_example_data() and explanation thereof)::
@@ -19,9 +19,9 @@ Download the data from GBO
 
 .. code:: python
 
-    >>> filename = wget.download("http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits")
-    >>> print(filename)
-        TGBT21A_501_11.raw.vegas.fits
+    >>> path = download_file("http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits")
+    >>> print(path)
+        [...]TGBT21A_501_11.raw.vegas.fits
 
 .. note::
     The data used for this tutorial is ~800 MB. Make sure you have enough disk space and bandwidth to download it.
@@ -31,7 +31,7 @@ Then load your SDFITS file containing TP data. In this example, we use a
 
 .. code:: python
 
-    >>> sdfits = GBTFITSLoad(filename)
+    >>> sdfits = GBTFITSLoad(path)
 
 The returned `sdfits` can be probed for information
 

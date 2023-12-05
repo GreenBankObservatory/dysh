@@ -21,7 +21,6 @@ Contents
    for_developers/index
    performance_testing/index
    design/index
-   gui/index
 
 Indices and tables
 ==================

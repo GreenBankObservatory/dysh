@@ -11,11 +11,11 @@ For this example we will be using data from a receiver checkout, TRCO_230413_Ka.
 
 .. code:: python
 
-    >>> import wget
+    >>> from dysh.util.data import download_file
     >>> url = "http://www.gb.nrao.edu/dysh/example_data/subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits"
-    >>> filename = wget.download(url)
-    >>> print(filename)
-    TRCO_230413_Ka.raw.vegas.A.fits
+    >>> path = download_file(url)
+    >>> print(path)
+    [...]TRCO_230413_Ka.raw.vegas.A.fits
 
 SubBeamNod data is retrieved using :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.subbeamnod` which returns a :class:`~dysh.spectra.spectra.Spectrum` object.
 
@@ -31,8 +31,8 @@ Then load your SDFITS file containing SubBeamNod data
 
 .. code:: python
 
-    >>> filename = 'TRCO_230413_Ka.raw.vegas.A.fits'
-    >>> sdfits = GBTFITSLoad(filename)
+    >>> path = 'TRCO_230413_Ka.raw.vegas.A.fits'
+    >>> sdfits = GBTFITSLoad(path)
 
 The returned `sdfits` can be probed for information
 

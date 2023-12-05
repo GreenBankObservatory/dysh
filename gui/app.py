@@ -5,7 +5,6 @@ import sys  # , os, psutil, getpass, socket
 from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 
-import wget
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -29,6 +28,7 @@ from widgets.splash import SplashScreen
 from widgets.tables import FITSHeaderTable
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.util.data import download_file
 
 # DYSH IMPORTS
 from dysh.util.messages import *
@@ -185,7 +185,7 @@ class DyshMainWindow(QMainWindow):
         # s_load = DyshWorker(target=self.SDFITS_load_all, args=(self.fpath, 1))
         # s_load.start()
         # url = "https://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"
-        # self.fpath = wget.download(url)
+        # self.fpath = download_file(url)
         self.fpath = "TGBT21A_501_11.raw.vegas.fits"
 
         self.SDFITS_load_all(self.fpath)  # s_load.join()
