@@ -24,33 +24,32 @@ classifiers = [
 ]
 dependencies = [
   "astropy",
+  "ipython",
   "matplotlib",
   "numpy",
   "pandas",
   "scipy",
   "specutils",
-  "ipython",
   "wget",
  ]
 
 [project.optional-dependencies]
 dev = [
   "ipdb",
+  "numpydoc",
   "pytest",
   "pytest-cov",
-  "myst-parser",
   "sphinx",
   "sphinx-autobuild",
+  "sphinx-inline-tabs",
   "sphinx-rtd-theme",
   "sphinxcontrib-mermaid",
-  "numpydoc",
-  "sphinx-inline-tabs",
 ]
 nb = [
   "jupyter",
   "jupyterlab",
 ]
-all = ["dysh[dev]", "dysh[nb]"]
+all = ["dysh[dev,nb]"]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
