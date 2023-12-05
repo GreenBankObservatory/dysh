@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Feature description**
-What problem are you trying to solve that you currently can't? What
+What problem are you trying to solve that you currently can't?
 
 **Solution**
 If you have an idea of how to solve the problem, please describe it!
