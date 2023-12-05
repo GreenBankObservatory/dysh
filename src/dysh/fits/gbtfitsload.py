@@ -781,6 +781,7 @@ class GBTFITSLoad(SDFITSLoad):
         kwargs_opts.update(kwargs)
         ifnum = kwargs_opts["ifnum"]
         fdnum = kwargs_opts["fdnum"]
+        plnum = kwargs_opts["plnum"]
         docal = kwargs_opts["calibrate"]
         w = kwargs_opts["weights"]
         method = kwargs_opts["method"]
