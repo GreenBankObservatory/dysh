@@ -10,9 +10,13 @@ from dysh.spectra import core
 LOCALDIR = os.path.dirname(os.path.realpath(__file__))
 
 
+class TestFindBlanks:
+    'This should trigger black'
+
+
 class TestMeanTsys:
     """
-    Tests for `dysh.spectra.core.dcmeantsys` function.
+    Tests for `dysh.spectra.core.mean_tsys` function.
     """
 
     def setup_method(self):
