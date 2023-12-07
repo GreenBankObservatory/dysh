@@ -11,7 +11,7 @@ LOCALDIR = os.path.dirname(os.path.realpath(__file__))
 
 
 class TestFindBlanks:
-    'This should trigger black'
+    "This should trigger black"
 
 
 class TestMeanTsys:
