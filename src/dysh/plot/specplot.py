@@ -1,4 +1,6 @@
-"""Plot a spectrum using matplotlib"""
+"""
+Plot a spectrum using matplotlib
+"""
 
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -7,9 +9,9 @@ import numpy as np
 
 class SpectrumPlot:
     r"""
-    The SpectrumPlot class is for simple plotting of a ~spectrum.Spectrum
-    using matplotlib functions.   Plots attributes are modified using keywords
-    (**kwargs) described below SpectrumPlot will attempt to make smart default
+    The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
+    using matplotlib functions. Plots attributes are modified using keywords
+    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
     The attributes are "sticky" meaning that an attribute set via
     instantiation or by the `plot()` method will stay set until changed
@@ -24,9 +26,9 @@ class SpectrumPlot:
 
     Other Parameters
     ----------------
-    xaxis_unit : str or ~astropy.unit.Unit
+    xaxis_unit : str or `~astropy.unit.Unit`
         The units to use on the x-axis, e.g. "km/s" to plot velocity
-    yaxis_unit : str or ~astropy.unit.Unit
+    yaxis_unit : str or `~astropy.unit.Unit`
         The units to use on the y-axis
     xmin : float
         Minimum x-axis value
