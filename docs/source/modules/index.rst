@@ -1,6 +1,8 @@
-****************
-Modules and APIs
-****************
+*****************
+API Documentation
+*****************
+
+Documentation for Dysh's public API
 
 .. toctree::
    :maxdepth: 2

@@ -17,11 +17,11 @@ Contents
    background/index
    getting_started/index
    examples/index
-   modules/index
    for_beta_testers/index
    for_developers/index
    performance_testing/index
    design/index
+   modules/index
 
 Indices and tables
 ==================
@@ -44,9 +44,10 @@ Credits
 
 Dev Team
 --------
-| Marc Pound (UMD)
-| Victoria Catlett (GBO)
-| Peter Teuben (UMD)
-| Pedro Salas (GBO)
-| Evan Smith (GBO)
-| Thomas Chamberlain (GBO)
+
+- Marc Pound (UMD)
+- Victoria Catlett (GBO)
+- Peter Teuben (UMD)
+- Pedro Salas (GBO)
+- Evan Smith (GBO)
+- Thomas Chamberlin (GBO)
