@@ -22,6 +22,8 @@ class Spectrum(Spectrum1D):
     """
 
     def __init__(self, *args, **kwargs):
+        self._target = kwargs.pop("target", None)
+        self._observer = kwargs.pop("observer", None)
         Spectrum1D.__init__(self, *args, **kwargs)
         # if mask is not set via the flux input (NaNs in flux or flux.mask),
         # then set the mask to all False == good
