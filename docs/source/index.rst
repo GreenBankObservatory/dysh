@@ -1,6 +1,7 @@
-******************
+**********************
 ``dysh`` Documentation
-******************
+**********************
+
 ``dysh`` is a Python spectral line data reduction and analysis program for singledish data with specific emphasis on data from the Green Bank Telescope.  It is currently under development in collaboration between the
 `Green Bank Observatory <https:/greenbankobservatory.org>`_
 and the Laboratory for Millimeter-Wave Astronomy (LMA)
@@ -21,7 +22,6 @@ Contents
    for_developers/index
    performance_testing/index
    design/index
-   gui/index
 
 Indices and tables
 ==================
