@@ -8,11 +8,13 @@ class TestUtil:
     """Test dysh.fits core functions"""
 
     def test_observatory(self):
+        """Test the Observator class"""
         obs = du.Observatory()
         for k in ["alma", "gbt", "Hat Creek"]:
             assert obs[k] == EarthLocation.of_site(k)
 
     def test_sq_weighted_avg(self):
+        """Test square weighted average function"""
         a = np.random.rand(1024)
         w = np.random.rand(1024)
         u = 0
