@@ -1,12 +1,14 @@
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import SkyCoord, SpectralCoord
+from astropy.coordinates.spectral_coordinate import DEFAULT_DISTANCE
 from astropy.io import registry
 from astropy.modeling.fitting import LinearLSQFitter
 from astropy.table import Table
 from specutils import Spectrum1D
 
 from ..plot import specplot as sp
-from . import baseline
+from . import baseline, get_spectral_equivalency
 
 
 class Spectrum(Spectrum1D):
@@ -18,13 +20,21 @@ class Spectrum(Spectrum1D):
     have only one spectral axis conflicts with slight Doppler shifts.
     See `~specutils.Spectrum1D` for the instantiation arguments.
 
-    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  `~specutils.Spectrum1D` is wrong (there should not be a 'doppler\\_' prefix).
+    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  old `~specutils.Spectrum1D` documentation is wrong (there should not be a 'doppler\\_' prefix).
     """
 
     def __init__(self, *args, **kwargs):
         self._target = kwargs.pop("target", None)
-        self._observer = kwargs.pop("observer", None)
+        if self._target is not None:
+            self._ensure_target_is_transformable()
+            self._velocity_frame = self._target.frame.name
+        else:
+            self._velocity_frame = None
+        # self._observer = kwargs.pop("observer", None)
         Spectrum1D.__init__(self, *args, **kwargs)
+        self._spectral_axis._target = target
+        # self._spectral_axis._observer = observer
+
         # if mask is not set via the flux input (NaNs in flux or flux.mask),
         # then set the mask to all False == good
         if self.mask is None:
@@ -33,6 +43,18 @@ class Spectrum(Spectrum1D):
         self._subtracted = False
         self._exclude_regions = None
         self._plotter = None
+
+    def _ensure_target_is_transformable(self):
+        # Ensure the target has zero proper motion if it was left as None
+        if not isinstance(self._target, SkyCoord):
+            raise TypeError("Target must be instance of astropy.coordinates.SkyCoord")
+        if self._target.pm_dec is None:
+            self._target.pm_dec = 0.0 * u.mas / u.yr
+        if self._target.pm_ra_cosdec is None:
+            self._target.pm_ra_cosdec = 0.0 * u.mas / u.yr
+        # Set distance to astropy's default large distance if it was None
+        if self._target.distance is None:
+            self._target.distance = DEFAULT_DISTANCE
 
     @property
     def exclude_regions(self):
@@ -166,8 +188,8 @@ class Spectrum(Spectrum1D):
 
     @property
     def equivalencies(self):
-        # @todo encapsulate take into account velframe and veldef
-        """Get the spectral axis equivalencies that can be used in converting the axis between km/s and frequency or wavelength"""
+        """Get the spectral axis equivalencies that can be used in converting the axis
+        between km/s and frequency or wavelength"""
         equiv = u.spectral()
         sa = self.spectral_axis
         if sa.doppler_rest is not None:
@@ -178,20 +200,34 @@ class Spectrum(Spectrum1D):
             rfq = self.meta["RESTFREQ"] * cunit1
         else:
             rfq = None
-        # print("RESTFREQ is ",rfq)
         if rfq is not None:
-            if "radio" in self.velocity_convention:
-                # Yeesh, the doppler_convention parameter for SpectralAxis.to does not match the doppler_convention list for Spectrum1D!
-                # This is actually bug in Spectrum1D documentation https://github.com/astropy/specutils/issues/1067
-                convention = "radio"
-                equiv.extend(u.doppler_radio(rfq))
-            elif "optical" in self.velocity_convention:
-                equiv.extend(u.doppler_optical(rfq))
-            elif "relativistic" in self.velocity_convention:
-                equiv.extend(u.doppler_relativistic(rfq))
-            elif "redshift" in self.velocity_convention:
-                equiv.extend(u.doppler_redshift())
+            equiv.extend(get_spectral_equivalency(rfq, self._velocity_convention))
         return equiv
+
+    @property
+    def velocity_frame(self):
+        return self._velocity_frame
+
+    def velocity_axis_to(self, unit, toframe=None, toconvention=None):
+        if toframe is not None:
+            self.shift_to_frame(toframe)
+        if toconvention is not None:
+            return self._spectra_axis.to(doppler_convention=toconvention).velocity.to(unit)
+        else:
+            return self.velocity.to(unit)
+
+    def get_velocity_shift_to(self, toframe):
+        return self._target.transform_to(toframe).radial_velocity
+
+    def shift_to_frame(self, toframe):
+        self._target = self._target.transform_to(toframe)
+        self.set_radial_velocity_to(self._target.radial_velocity)
+
+    # Not sure we ever actually want to do this.
+    # The convention is a "display" parameter.
+    def _change_convention(self, toconvention):
+        new_sp_axis = self.spectral_axis.replicate(doppler_convention=toconvention)
+        self._spectral_axis = new_sp_axis
 
     def savefig(self, file, **kwargs):
         """Save the plot"""

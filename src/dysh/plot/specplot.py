@@ -56,17 +56,23 @@ class SpectrumPlot:
         plot aspect ratio, default: 'auto'
     show_baseline : bool
         show the baseline - not yet implemented
+    vel_frame : str
+        The velocity frame (see VELDEF FITS Keyword)
+    vel_convention: str
+        The velocity convention (see VELDEF FITS Keyword)
     """
 
     # loc, legend, bbox_to_anchor
 
     def __init__(self, spectrum, **kwargs):
         self.reset()
+        self._spectrum = spectrum
+        self._plot_kwargs["vel_convention"] = spectrum.velocity_convention
+        self._plot_kwargs["vel_frame"] = spectrum.velocity_frame
         self._plot_kwargs.update(kwargs)
         self._plt = plt
         self._figure = None
         self._axis = None
-        self._spectrum = spectrum
         self._title = self._plot_kwargs["title"]
 
     # def __call__ (see pyspeckit)
@@ -116,7 +122,7 @@ class SpectrumPlot:
                 # convert the x axis to the requested
                 # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
                 # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
-                sa = s.velocity.to(self._plot_kwargs["xaxis_unit"], equivalencies=s.equivalencies)
+                sa = s.velocity_axis_to(self._plot_kwargs["xaxis_unit"])
                 self._plot_kwargs["xlabel"] = f"Velocity ({xunit})"
         sf = s.flux
         if yunit is not None:

@@ -464,3 +464,18 @@ def tsys_weight(exposure, delta_freq, tsys):
         return weight.value.astype(np.longdouble)
     else:
         return weight.astype(np.longdouble)
+
+
+def get_spectral_equivalency(restfreq, velocity_convention):
+    # Yeesh, the doppler_convention parameter for SpectralAxis.to does not match the doppler_convention list for Spectrum1D!
+    # This is actually bug in Spectrum1D documentation https://github.com/astropy/specutils/issues/1067
+    if "radio" in velocity_convention:
+        return u.doppler_radio(restfreq)
+    elif "optical" in velocity_convention:
+        return u.doppler_optical(restfreq)
+    elif "relativistic" in elocity_convention:
+        return u.doppler_relativistic(restfreq)
+    elif "redshift" in velocity_convention:
+        return u.doppler_redshift()
+    else:
+        raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
