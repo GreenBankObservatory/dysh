@@ -2,40 +2,41 @@
 Documentation
 *************
 
-Setting Up Sphinx Autobuilds
-============================
+How does it work, and how can you contribute to it?
 
-Here are the steps to set up Sphinx autobuilds so that you can check your documentation edits live.
+How to Contribute to Dysh Docs
+==============================
 
-1. First, navigate to your `dysh` root directory and activate the `hatch` environment.
+Local Builds
+++++++++++++
 
-.. code-block:: bash
+The first thing you'll want to do is get the docs building locally. This makes it very easy to develop, and you can be *nearly certain* that the docs will build on Read the Docs if they have successfully built locally (assuming you've rememembered to commit all your files...)
 
-    $ hatch shell
+To run a live docs server (i.e. reload on changes)
 
-2. Next, tell hatch to run the docs. The docs will be published at `http://127.0.0.1:8000/`.
+.. code-block:: sh
 
-.. code-block:: bash
+    cd "$DYSH_REPO_ROOT"
+    hatch run docs
 
-    (dysh) $ hatch run docs
+You can pass any arguments through to ``sphinx-autobuild``, e.g. to bind to a specific host and port:
 
-3. If you would like the docs to publish at a specific host and port, such as `http://thales:9876`, then add the appropriate flags:
+.. code-block:: sh
 
-.. code-block:: bash
-
-    (dysh) $ hatch run docs --host thales --port 9876
-
-4. You may now make changes in the `dysh/docs/` directory and see the live changes at the appropriate URL in your browser. To close the server, simply `CTRL+C`.
+    cd "$DYSH_REPO_ROOT"
+    hatch run docs --host 0.0.0.0 --port 8001
 
 Docstring Format
 ================
 
 All Python functions must contain a docstring which follows the NumPy convention. You can learn more about this convention here: https://numpydoc.readthedocs.io/en/latest/format.html
 
-Mermaid Diagrams
-================
+Flowcharts/Diagrams
++++++++++++++++++++
 
-Diagrams can be directly in these text files by using the `sphinxcontrib-mermaid` package. Here's an example:
+Where possible, please prefer Mermaid to pre-rendered flowcharts/diagrams. It makes it easy to embed the full source in the docs, which makes future edits significantly easier.
+
+Dysh supports Mermaid Diagrams via the ``sphinxcontrib-mermaid`` package. Here's an example:
 
 .. mermaid::
 
@@ -43,4 +44,15 @@ Diagrams can be directly in these text files by using the `sphinxcontrib-mermaid
         A[Item 1] --> B[Item 2]
         B --> C[Item 3]
 
-To learn more, see the `package documentation <https://sphinxcontrib-mermaid-demo.readthedocs.io/en/latest/>`_. Mermaid also offers an `online editor <https://mermaid.live>`_ which can be used to design diagrams.
+To learn more, see the `sphinxcontrib-mermaid documentation <https://sphinxcontrib-mermaid-demo.readthedocs.io/en/latest/>`_. Mermaid also offers an `online editor <https://mermaid.live>`_ which can be used to design diagrams.
+
+Read the Docs
+=============
+
+Dysh's documentation is hosted on Read the Docs, at https://readthedocs.org/projects/dysh/. Docs are built directly from the Dysh GitHub repo.
+
+RTD hosts several different active versions of Dysh documentation:
+
+- ``latest``: built from the latest commit on ``main``
+- ``stable``: built from that latest stable version tag
+- ``release-X.Y``/``vX.Y``: built from the latest commit on a given release branch

@@ -2,15 +2,16 @@
 For Developers
 **************
 
-Here's some info that developers might find useful
+Documentation specifically for people who want to contribute code to Dysh
 
 .. toctree::
    :maxdepth: 2
 
+   setup_dev_env
    contributing
-   install
-   doc_standards
-   github_integrations
    git_workflows
+   doc_standards
+
+   install
+   github_integrations
    black
-   terminal_messages
