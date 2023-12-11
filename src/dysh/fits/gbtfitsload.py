@@ -17,7 +17,7 @@ from astropy.wcs import WCS
 from ..spectra.core import tsys_weight
 from ..spectra.scan import PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..spectra.spectrum import Spectrum
-from ..util import consecutive, uniq
+from ..util import Observatory, consecutive, uniq
 from . import decode_veldef
 from .sdfitsload import SDFITSLoad
 
@@ -51,6 +51,7 @@ class GBTFITSLoad(SDFITSLoad):
         path = Path(fileobj)
         self._sdf = []
         self._index = None
+        self.GBT = Observatory()["GBT"]
         if path.is_file():
             self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
         elif path.is_dir():
