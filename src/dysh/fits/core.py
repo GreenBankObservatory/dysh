@@ -2,8 +2,33 @@
 Core functions for FITS/SDFITS
 """
 
+import astropy.coordinates as coord
+
 # Velocity frame conventions, partially stolen from pyspeckit.
 # See also Section6.2.5.2 of the GBT observer's guide https://www.gb.nrao.edu/scienceDocs/GBTog.pdf
+
+# Todo:
+# Deal with galactic and cmb which will require custom frames
+# See https://docs.astropy.org/en/stable/coordinates/spectralcoord.html#defining-custom-velocity-frames
+# Also deal with 'rest' frame
+astropy_frame_dict = {
+    "VLSR": "lsrk",
+    "VRAD": "lsrk",
+    "VELO": "lsrk",
+    "VOPT": "lsrk",
+    "LSRD": "lsrd",
+    "LSRK": "lsrk",
+    "-LSR": "lsrk",
+    "-HEL": "hcrs",
+    "-BAR": "icrs",
+    "BAR": "icrs",
+    "BARY": "icrs",
+    "barycentric": "icrs",
+    "VHEL": "hcrs",
+    "heliocentric": "hcrs",
+    "VGEO": "gcrs",
+    "topocentric": "gcrs",
+}
 
 frame_dict = {
     "VLSR": "LSRK",
