@@ -20,6 +20,11 @@ class Observatory:
         obs = Observatory()
         print(obs['GBT'])
 
+    Alternatively,
+
+    .. code-block::
+        gbt = Observatory()["GBT"]
+
     """
 
     def __init__(self):
