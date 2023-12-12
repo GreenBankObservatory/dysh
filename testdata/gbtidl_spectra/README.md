@@ -2,18 +2,25 @@
 
 All of the raw data used to generate these examples should be available in the [dysh data server](https://www.gb.nrao.edu/dysh/example_data/).
 
-Here we provide the commands used to generate individual files.
-
-## Table of contents
-1. [spider-C](#spider)
-2. [Some paragraph](#paragraph1)
-    1. [Sub paragraph](#subparagraph1)
-    3. [Another paragraph](#paragraph2)
+Here we provide the `GBTIDL` commands used to generate individual files.
 
 
-## spider-C <a name="spider"></a>
+## OnOff L <a name="onoff"></a>
 ``` IDL
-filein,"spider-C/data/AGBT20B_424_02.raw.vegas/AGBT20B_424_02.raw.vegas.A.fits"
-gettp,136,intnum=0
-write_ascii,"spider-C_gettp_136_intnum_0.ascii"
+filein,"onoff-L/data/TGBT21A_501_11.raw.vegas/TGBT21A_501_11.raw.vegas.A.fits"
+gettp,156,intnum=0
+setframe,"TOPO"
+write_ascii,"onoff-L_gettp_156_intnum_0_TOPO.ascii"
+setframe,"GEO"
+write_ascii,"onoff-L_gettp_156_intnum_0_GEO.ascii"
+setframe,"HEL"
+write_ascii,"onoff-L_gettp_156_intnum_0_HEL.ascii"
+setframe,"BAR"
+write_ascii,"onoff-L_gettp_156_intnum_0_BAR.ascii"
+setframe,"LSR"
+write_ascii,"onoff-L_gettp_156_intnum_0_LSR.ascii"
+setframe,"LSD"
+write_ascii,"onoff-L_gettp_156_intnum_0_LSD.ascii"
+setframe,"GAL"
+write_ascii,"onoff-L_gettp_156_intnum_0_GAL.ascii"
 ```
