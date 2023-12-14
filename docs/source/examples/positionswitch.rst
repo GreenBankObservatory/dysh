@@ -147,7 +147,7 @@ You can also print a concise (or verbose if you choose `verbose=True`) summary :
 Retrieve a scan and its partner ON or OFF, selecting an IF number and polarization, then calibrate it
 
 .. note::
-    In `dysh` the summary shows the mean of the AZIMUTH and ELEVATIO columns, while `GBTIDL` shows the first value for a scan.
+    For each scan in the summary `dysh` shows the mean of the VELOCITY, RESTFREQ, DOPFREQ, AZIMUTH and ELEVATIO columns, while `GBTIDL` reports the value of the first integration for a scan. If you use `verbose=True` in `dysh` you get all the integrations.
 
 .. code:: python
 
