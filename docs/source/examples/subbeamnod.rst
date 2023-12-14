@@ -71,6 +71,9 @@ You can also print a concise (or verbose if you choose `verbose=True`) :meth:`~d
 
 The SubBeamNod scans are 43, 46, and 54.  Retrieve and calibrate a SubBeamNod scan, then plot it
 
+.. note::
+    In `dysh` the summary shows the mean of the AZIMUTH and ELEVATIO columns, while `GBTIDL` shows the first value for a scan.
+
 .. code:: python
 
     >>> sbn = sdfits.subbeamnod(scan=43, fdnum=1, ifnum=0, weights='tsys')

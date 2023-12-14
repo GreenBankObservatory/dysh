@@ -146,6 +146,9 @@ You can also print a concise (or verbose if you choose `verbose=True`) summary :
 
 Retrieve a scan and its partner ON or OFF, selecting an IF number and polarization, then calibrate it
 
+.. note::
+    In `dysh` the summary shows the mean of the AZIMUTH and ELEVATIO columns, while `GBTIDL` shows the first value for a scan.
+
 .. code:: python
 
     >>> psscan = sdfits.getps(152, ifnum=0, plnum=0)

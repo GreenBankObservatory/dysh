@@ -54,6 +54,9 @@ You can also print a concise (or verbose if you choose `verbose=True`) summary :
 
 Retrieve a scan, selecting and IF number and polarization
 
+.. note::
+    In `dysh` the summary shows the mean of the AZIMUTH and ELEVATIO columns, while `GBTIDL` shows the first value for a scan.
+
 .. code:: python
 
     >>> tpscan = sdfits.gettp(152, ifnum=0, plnum=0)
