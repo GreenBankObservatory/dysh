@@ -6,6 +6,10 @@ import warnings
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import GCRS, HCRS, ICRS, LSRK, SkyCoord
+from astropy.coordinates.spectral_coordinate import (
+    DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
+)
 from astropy.io import fits
 from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
@@ -14,6 +18,8 @@ from specutils import SpectralRegion, Spectrum1D
 from specutils.fitting import fit_continuum
 
 from ..util import uniq
+
+_PMZERO = 0.0 * u.mas / u.yr
 
 
 def average(data, axis=0, weights=None):
@@ -479,3 +485,49 @@ def get_spectral_equivalency(restfreq, velocity_convention):
         return u.doppler_redshift()
     else:
         raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
+
+
+def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
+    """Compute the radial velocity of a source in a new velocity frame.
+
+    Parameters
+    ----------
+        target: `~astropy.coordinates.SkyCoord`
+            The sky coordinates of the object including proper motion and distance.
+            Note: In order to get around a bug in astropy (link), if the `target` frame or `toframe` is 'lsrk' (`~astropy.coordinates.LSRK`),
+
+            done:
+
+            * If proper motions attributes of `target` are not set, they will be set to zero.
+            * Similarly, if distance attribute of `target` is not set, it will
+            be set to a very large number.
+            * This is done on a copy of the coordinate so as not to change the input object.
+
+        toframe: str
+            The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
+            See astropy-supported reference frames (link)
+
+    Returns
+    -------
+        radial_velocity : `~astropy.units.Quantity`
+            The radial velocity of the source in `toframe`
+
+    """
+    if target.distance == 1:
+        # distance was unset and astropy set it to 1 with a dimensionless composite unit
+        newdistance = _DEFAULT_DISTANCE
+    else:
+        newdistance = target.distance
+    # Handle astropy bug that distance and proper motions need to be explicitly set.
+    # See https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
+    _target = SkyCoord(
+        target.data.lon,
+        target.data.lat,
+        frame=target.frame,
+        distance=newdistance,
+        pm_ra_cosdec=target.pm_ra_cosdec,
+        pm_dec=target.pm_dec,
+        radial_velocity=target.radial_velocity,
+    )
+
+    return _target.transform_to(toframe).radial_velocity
