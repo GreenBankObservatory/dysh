@@ -12,9 +12,9 @@ from astropy.io import fits
 from astropy.units import cds
 from astropy.wcs import WCS
 
-from ..spectra import veldef_to_convention
 from ..spectra.spectrum import Spectrum
 from ..util import uniq
+from . import decode_veldef
 
 
 class SDFITSLoad(object):
@@ -517,7 +517,7 @@ class SDFITSLoad(object):
                 "NAXIS3": 1,
             },
         )
-        vc = veldef_to_convention(meta["VELDEF"])
+        vc = decode_veldef(meta["VELDEF"])[0]
 
         # raw data are in counts
         return Spectrum(data * u.count, wcs=wcs, meta=meta.to_dict(), velocity_convention=vc)
