@@ -30,10 +30,10 @@ class Spectrum(Spectrum1D):
             self._velocity_frame = self._target.frame.name
         else:
             self._velocity_frame = None
-        # self._observer = kwargs.pop("observer", None)
+        self._observer = kwargs.pop("observer", None)
         Spectrum1D.__init__(self, *args, **kwargs)
-        self._spectral_axis._target = target
-        # self._spectral_axis._observer = observer
+        self._spectral_axis._target = self._target
+        self._spectral_axis._observer = self._observer
 
         # if mask is not set via the flux input (NaNs in flux or flux.mask),
         # then set the mask to all False == good
@@ -205,14 +205,22 @@ class Spectrum(Spectrum1D):
         return equiv
 
     @property
+    def target(self):
+        return self._target
+
+    @property
+    def observer(self):
+        return self._observer
+
+    @property
     def velocity_frame(self):
         return self._velocity_frame
 
-    def velocity_axis_to(self, unit, toframe=None, toconvention=None):
+    def velocity_axis_to(self, unit=u.km / u.s, toframe=None, toconvention=None):
         if toframe is not None:
             self.shift_to_frame(toframe)
         if toconvention is not None:
-            return self._spectra_axis.to(doppler_convention=toconvention).velocity.to(unit)
+            return self._spectral_axis.to(unit=unit, doppler_convention=toconvention)
         else:
             return self.velocity.to(unit)
 
@@ -220,7 +228,10 @@ class Spectrum(Spectrum1D):
         return self._target.transform_to(toframe).radial_velocity
 
     def shift_to_frame(self, toframe):
+        if self._target is None:
+            raise Exception("Can't shift frame with because Spectrum.target is None")
         self._target = self._target.transform_to(toframe)
+        self._spectral_axis._target = self._target
         self.set_radial_velocity_to(self._target.radial_velocity)
 
     # Not sure we ever actually want to do this.
