@@ -8,26 +8,28 @@ import astropy.coordinates as coord
 # See also Section6.2.5.2 of the GBT observer's guide https://www.gb.nrao.edu/scienceDocs/GBTog.pdf
 
 # Todo:
-# Deal with galactic and cmb which will require custom frames
+# Deal with cmb which will require custom frame
 # See https://docs.astropy.org/en/stable/coordinates/spectralcoord.html#defining-custom-velocity-frames
 # Also deal with 'rest' frame
 astropy_frame_dict = {
-    "VLSR": "lsrk",
-    "VRAD": "lsrk",
-    "VELO": "lsrk",
-    "VOPT": "lsrk",
-    "LSRD": "lsrd",
-    "LSRK": "lsrk",
-    "-LSR": "lsrk",
-    "-HEL": "hcrs",
-    "-BAR": "icrs",
-    "BAR": "icrs",
-    "BARY": "icrs",
-    "barycentric": "icrs",
-    "VHEL": "hcrs",
-    "heliocentric": "hcrs",
-    "VGEO": "gcrs",
-    "topocentric": "gcrs",
+    "VLSR": coord.LSRK,
+    "VRAD": coord.LSRK,
+    "VELO": coord.LSRK,
+    "VOPT": coord.LSRK,
+    "LSRD": coord.LSRD,
+    "LSRK": coord.LSRK,
+    "-LSR": coord.LSRK,
+    "-HEL": coord.HCRS,
+    "-BAR": coord.ICRS,
+    "BAR": coord.ICRS,
+    "BARY": coord.ICRS,
+    "barycentric": coord.ICRS,
+    "VHEL": coord.HCRS,
+    "heliocentric": coord.HCRS,
+    "VGEO": coord.GCRS,
+    "GALAC": coord.Galactic,
+    "-GALA": coord.Galactic,
+    "topocentric": coord.GCRS,  # but need to add observatory position
 }
 
 frame_dict = {
