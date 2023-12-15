@@ -29,7 +29,7 @@ astropy_frame_dict = {
     "VGEO": coord.GCRS,
     "GALAC": coord.Galactic,
     "-GALA": coord.Galactic,
-    "topocentric": coord.GCRS,  # but need to add observatory position
+    "topocentric": coord.ITRS,  # but need to add observatory position
 }
 
 frame_dict = {
