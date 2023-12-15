@@ -6,7 +6,7 @@ import warnings
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import GCRS, HCRS, ICRS, LSRK, SkyCoord
+from astropy.coordinates import GCRS, HCRS, ICRS, LSRK, SkyCoord, SpectralCoord
 from astropy.coordinates.spectral_coordinate import (
     DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
 )
@@ -20,6 +20,8 @@ from specutils.fitting import fit_continuum
 from ..util import uniq
 
 _PMZERO = 0.0 * u.mas / u.yr
+_PMZERORAD = 0.0 * u.rad / u.s
+_VELZERO = 0.0 * u.km / u.s
 
 
 def average(data, axis=0, weights=None):
@@ -487,6 +489,116 @@ def get_spectral_equivalency(restfreq, velocity_convention):
         raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
 
 
+def topocentric_velocity_to_frame(target, toframe, observer, obstime):
+    """Compute the difference in topocentric velocity and the velocity in the input frame.
+    Parameters
+    ----------
+        target: `~astropy.coordinates.SkyCoord`
+            The sky coordinates of the object including proper motion and distance. Must be in ICRS
+
+        toframe: str
+            The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
+            The string 'topo' is interpreted as 'itrs'.
+            See astropy-supported reference frames (link)
+
+        observer: `~astropy.coords.EarthLocation`
+            The location of the observer
+
+        obstime: `~astropy.time.Time`
+            The time of the observation
+
+    Returns
+    -------
+        radial_velocity : `~astropy.units.Quantity`
+            The radial velocity of the source in `toframe`
+
+    """
+    if not isinstance(target.frame, ICRS):
+        _target = sanitize_skycoord(target.icrs)
+    else:
+        _target = sanitize_skycoord(target)
+    # raise Exception("input frame must be ICRS")
+    topocoord = observer.get_itrs(obstime=obstime)
+    sc = SpectralCoord(1 * u.Hz, observer=topocoord, target=_target)
+    return sc.with_observer_stationary_relative_to(toframe).radial_velocity
+
+
+def sanitize_skycoord(target):
+    # Handle astropy bug that distance and proper motions need to be explicitly set.
+    # See https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
+    try:
+        # This will actually raise an exception
+        # if radial velocity wasn't specified rather than
+        # just return False!
+        # (but only for Galactic!)
+        if hasattr(target, "radial_velocity"):
+            _rv = target.radial_velocity
+        else:
+            _rv = _VELZERO
+    except Exception:
+        _rv = _VELZERO
+
+    if target.distance == 1:
+        # distance was unset and astropy set it to 1 with a dimensionless composite unit
+        newdistance = _DEFAULT_DISTANCE
+    else:
+        newdistance = target.distance
+
+    if hasattr(target, "ra"):  # RADEC based
+        lon = target.ra
+        lat = target.dec
+        pm_lon = target.pm_ra_cosdec
+        pm_lat = target.pm_dec
+        # could probably be clever with kwargs
+        # and avoid doing this twice
+        _target = SkyCoord(
+            lon,
+            lat,
+            frame=target.frame,
+            distance=newdistance,
+            pm_ra_cosdec=pm_lon,
+            pm_dec=pm_lat,
+            radial_velocity=_rv,
+        )
+    elif hasattr(target, "l"):  # Galactic
+        lon = target.l
+        lat = target.b
+        try:
+            # This will actually raise an exception
+            # if proper motions weren't specified rather than
+            # just return False!
+            # (but only for Galactic!)
+            hasattr(target, "pm_l_cosb")
+            # WTF. If distance was give but no PM, then units come out at 'km rad /s'
+            if "km" in str(target.pm_l_cosb):
+                pm_lon = _PMZERORAD
+                pm_lat = _PMZERORAD
+            else:
+                pm_lon = target.pm_l_cosb
+                pm_lat = target.pm_b
+        except:
+            pm_lon = _PMZERORAD
+            pm_lat = _PMZERORAD
+        print(
+            f"_target = SkyCoord( {lon}, {lat}, frame={target.frame}, distance={newdistance}, pm_l_cosb={pm_lon},"
+            f" pm_b={pm_lat}, radial_velocity={_rv})"
+        )
+        _target = SkyCoord(
+            lon,
+            lat,
+            frame=target.frame,
+            distance=newdistance,
+            pm_l_cosb=pm_lon,
+            pm_b=pm_lat,
+            radial_velocity=_rv,
+        )
+    else:
+        print(f"Can't sanitize {target}")
+        return target
+
+    return _target
+
+
 def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
     """Compute the radial velocity of a source in a new velocity frame.
 
@@ -505,7 +617,14 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
 
         toframe: str
             The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
+            The string 'topo' is interpreted as 'itrs'.
             See astropy-supported reference frames (link)
+
+        observer: `~astropy.coords.EarthLocation`
+            The location of the observer required for certain transformations (e.g. to/from GCRS or ITRS)
+
+        obstime: `~astropy.time.Time`
+            The time of the observation, required for for certain transformations (e.g. to/from GCRS or ITRS)
 
     Returns
     -------
@@ -513,21 +632,10 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
             The radial velocity of the source in `toframe`
 
     """
-    if target.distance == 1:
-        # distance was unset and astropy set it to 1 with a dimensionless composite unit
-        newdistance = _DEFAULT_DISTANCE
-    else:
-        newdistance = target.distance
-    # Handle astropy bug that distance and proper motions need to be explicitly set.
-    # See https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
-    _target = SkyCoord(
-        target.data.lon,
-        target.data.lat,
-        frame=target.frame,
-        distance=newdistance,
-        pm_ra_cosdec=target.pm_ra_cosdec,
-        pm_dec=target.pm_dec,
-        radial_velocity=target.radial_velocity,
-    )
+    _target = sanitize_skycoord(target)
 
-    return _target.transform_to(toframe).radial_velocity
+    if toframe.lower() == "gcrs" and obstime is not None:
+        _toframe = GCRS(obstime=obstime)
+    else:
+        _toframe = toframe
+    return _target.transform_to(_toframe).radial_velocity
