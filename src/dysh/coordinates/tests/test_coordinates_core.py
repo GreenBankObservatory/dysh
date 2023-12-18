@@ -1,8 +1,22 @@
-from dysh.coordinates import decode_veldef
+from astropy.coordinates import EarthLocation, UnknownSiteException
+
+from dysh.coordinates import GBT, Observatory, decode_veldef
 
 
 class TestCore:
     """Test dysh.coordinates core functions"""
+
+    def test_observatory(self):
+        """Test the Observator class"""
+        obs = Observatory()
+        for k in ["alma", "Hat Creek", "La Silla Observatory", "Mars Hill", "Whipple"]:
+            assert obs[k] == EarthLocation.of_site(k)
+        assert obs["GBT"] is GBT()  # instance method
+        assert Observatory["GBT"] is GBT()  # static method
+        try:
+            Observatory["FOOBAR"]
+        except Exception as e:
+            assert isinstance(e, UnknownSiteException)
 
     def test_veldef(self):
         # first make sure we get correct answers for normal inputs
