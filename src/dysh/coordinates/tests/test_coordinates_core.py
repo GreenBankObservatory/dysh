@@ -1,8 +1,8 @@
-from dysh.fits import decode_veldef
+from dysh.coordinates import decode_veldef
 
 
 class TestCore:
-    """Test dysh.fits core functions"""
+    """Test dysh.coordinates core functions"""
 
     def test_veldef(self):
         # first make sure we get correct answers for normal inputs
