@@ -5,8 +5,15 @@ from astropy.coordinates.spectral_coordinate import DEFAULT_DISTANCE
 from astropy.io import registry
 from astropy.modeling.fitting import LinearLSQFitter
 from astropy.table import Table
+from astropy.time import Time
 from specutils import Spectrum1D
 
+from ..coordinates import (
+    get_velocity_in_frame,
+    sanitize_skycoord,
+    topocentric_velocity_to_frame,
+    veltofreq,
+)
 from ..plot import specplot as sp
 from . import baseline, get_spectral_equivalency
 
@@ -26,7 +33,8 @@ class Spectrum(Spectrum1D):
     def __init__(self, *args, **kwargs):
         self._target = kwargs.pop("target", None)
         if self._target is not None:
-            self._ensure_target_is_transformable()
+            self._target = sanitize_skycoord(target)
+            self._target.sanitized = True
             self._velocity_frame = self._target.frame.name
         else:
             self._velocity_frame = None
@@ -34,6 +42,10 @@ class Spectrum(Spectrum1D):
         Spectrum1D.__init__(self, *args, **kwargs)
         self._spectral_axis._target = self._target
         self._spectral_axis._observer = self._observer
+        if "DATE-OBS" in self.meta:
+            self._obstime = Time(self.meta["DATE-OBS"])
+        else:
+            self._obstime = None
 
         # if mask is not set via the flux input (NaNs in flux or flux.mask),
         # then set the mask to all False == good
@@ -43,18 +55,6 @@ class Spectrum(Spectrum1D):
         self._subtracted = False
         self._exclude_regions = None
         self._plotter = None
-
-    def _ensure_target_is_transformable(self):
-        # Ensure the target has zero proper motion if it was left as None
-        if not isinstance(self._target, SkyCoord):
-            raise TypeError("Target must be instance of astropy.coordinates.SkyCoord")
-        if self._target.pm_dec is None:
-            self._target.pm_dec = 0.0 * u.mas / u.yr
-        if self._target.pm_ra_cosdec is None:
-            self._target.pm_ra_cosdec = 0.0 * u.mas / u.yr
-        # Set distance to astropy's default large distance if it was None
-        if self._target.distance is None:
-            self._target.distance = DEFAULT_DISTANCE
 
     @property
     def exclude_regions(self):
@@ -158,6 +158,10 @@ class Spectrum(Spectrum1D):
         self._plotter.plot(**kwargs)
 
     @property
+    def obstime(self):
+        return self._obstime
+
+    @property
     def plotter(self):
         return self._plotter
 
@@ -216,6 +220,14 @@ class Spectrum(Spectrum1D):
     def velocity_frame(self):
         return self._velocity_frame
 
+    @property
+    def velocity_convention(self):
+        return self._spectral_axis.doppler_convention
+
+    @property
+    def doppler_convention(self):
+        return self.velocity_convention
+
     def velocity_axis_to(self, unit=u.km / u.s, toframe=None, toconvention=None):
         if toframe is not None:
             self.shift_to_frame(toframe)
@@ -225,14 +237,13 @@ class Spectrum(Spectrum1D):
             return self.velocity.to(unit)
 
     def get_velocity_shift_to(self, toframe):
-        return self._target.transform_to(toframe).radial_velocity
+        if self._target is None:
+            raise Exception("Can't calculate velocity because Spectrum.target is None")
+        return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
 
     def shift_to_frame(self, toframe):
-        if self._target is None:
-            raise Exception("Can't shift frame with because Spectrum.target is None")
-        self._target = self._target.transform_to(toframe)
-        self._spectral_axis._target = self._target
-        self.set_radial_velocity_to(self._target.radial_velocity)
+        v = self.get_velocity_shift_to(toframe)
+        self._spectral_axis = self._spectral_axis.with_radial_velocity_shift(target_shift=v)
 
     # Not sure we ever actually want to do this.
     # The convention is a "display" parameter.
