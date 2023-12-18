@@ -12,9 +12,9 @@ from astropy.io import fits
 from astropy.units import cds
 from astropy.wcs import WCS
 
+from ..coordinates import decode_veldef
 from ..spectra.spectrum import Spectrum
 from ..util import uniq
-from . import decode_veldef
 
 
 class SDFITSLoad(object):

@@ -14,11 +14,11 @@ from astropy.io import fits
 from astropy.units import cds
 from astropy.wcs import WCS
 
+from ..coordinates import Observatory, decode_veldef
 from ..spectra.core import tsys_weight
 from ..spectra.scan import PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..spectra.spectrum import Spectrum
-from ..util import Observatory, consecutive, uniq
-from . import decode_veldef
+from ..util import consecutive, uniq
 from .sdfitsload import SDFITSLoad
 
 # from GBT IDL users guide Table 6.7
@@ -51,7 +51,7 @@ class GBTFITSLoad(SDFITSLoad):
         path = Path(fileobj)
         self._sdf = []
         self._index = None
-        self.GBT = Observatory()["GBT"]
+        self.GBT = Observatory["GBT"]
         if path.is_file():
             self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
         elif path.is_dir():
