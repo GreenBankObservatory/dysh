@@ -9,10 +9,13 @@ import numpy as np
 from astropy.io import fits
 from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
+from astropy.wcs import WCS
 from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 
+from ..coordinates import Observatory, make_target, veldef_to_convention
 from ..util import uniq
+from .spectrum import Spectrum
 
 
 def average(data, axis=0, weights=None):
@@ -453,3 +456,16 @@ def get_spectral_equivalency(restfreq, velocity_convention):
         return u.doppler_redshift()
     else:
         raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
+
+
+def make_spectrum(data, meta, use_wcs=True, observer=Observatory["GBT"]):
+    # @TODO WCS is expensive.
+    # Possibly figure how to calculate spectral_axis instead.
+    if use_wcs:
+        wcs = WCS(header=meta)
+    else:
+        wcs = None
+    target = make_target(meta)
+    vc = veldef_to_convention(meta["VELDEF"])
+    s = Spectrum(data, wcs=wcs, meta=meta, velocity_convention=vc, observer=observer, target=target)
+    return s

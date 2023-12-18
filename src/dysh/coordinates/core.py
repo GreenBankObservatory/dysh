@@ -17,6 +17,7 @@ from astropy.coordinates.spectral_coordinate import (
 _PMZERO = 0.0 * u.mas / u.yr
 _PMZERORAD = 0.0 * u.rad / u.s
 _VELZERO = 0.0 * u.km / u.s
+_MPS = u.m / u.s
 
 # Velocity frame conventions, partially stolen from pyspeckit.
 # See also Section6.2.5.2 of the GBT observer's guide https://www.gb.nrao.edu/scienceDocs/GBTog.pdf
@@ -152,7 +153,7 @@ def veldef_to_convention(veldef):
 def sanitize_skycoord(target):
     # Handle astropy bug that distance and proper motions need to be explicitly set.
     # See https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
-    if not isinstance(target, SkyCoord):
+    if not isinstance(target, coord.SkyCoord):
         raise TypeError("Target must be instance of astropy.coordinates.SkyCoord")
     try:
         # This will actually raise an exception
@@ -166,10 +167,13 @@ def sanitize_skycoord(target):
     except Exception:
         _rv = _VELZERO
 
-    if target.distance == 1:
+    print(f"{type(target.distance)}, [{target.distance.unit}], {target.distance.unit == u.dimensionless_unscaled}")
+    if target.distance.unit == u.dimensionless_unscaled and round(target.distance.value) == 1:
         # distance was unset and astropy set it to 1 with a dimensionless composite unit
         newdistance = _DEFAULT_DISTANCE
+        print("DISTANCE WAS 1")
     else:
+        print("DISTANCE WAS NOT 1")
         newdistance = target.distance
 
     if hasattr(target, "ra"):  # RADEC based
@@ -179,7 +183,7 @@ def sanitize_skycoord(target):
         pm_lat = target.pm_dec
         # could probably be clever with kwargs
         # and avoid doing this twice
-        _target = SkyCoord(
+        _target = coord.SkyCoord(
             lon,
             lat,
             frame=target.frame,
@@ -211,7 +215,7 @@ def sanitize_skycoord(target):
             f"_target = SkyCoord( {lon}, {lat}, frame={target.frame}, distance={newdistance}, pm_l_cosb={pm_lon},"
             f" pm_b={pm_lat}, radial_velocity={_rv})"
         )
-        _target = SkyCoord(
+        _target = coord.SkyCoord(
             lon,
             lat,
             frame=target.frame,
@@ -367,18 +371,21 @@ def make_target(header):
 
     _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS"])
 
+    for k in _required:
+        print(f"{k} {k in header}")
     if not _required <= header.keys():
         raise ValueError(f"Header is missing one or more required keywords: {_required}")
 
-    target = sanitize_skycoord(
-        SkyCoord(
-            header["CRVAL2"],
-            header["CRVAL3"],
-            unit=(header["CUNIT2"], header["CUNIT3"]),
-            frame=header["RADESYS"],
-            radial_velocity=header["VELOCITY"],
-        )
+    t1 = coord.SkyCoord(
+        header["CRVAL2"],
+        header["CRVAL3"],
+        unit=(header["CUNIT2"], header["CUNIT3"]),
+        frame=header["RADESYS"].lower(),
+        radial_velocity=header["VELOCITY"] * _MPS,
+        distance=_DEFAULT_DISTANCE,  # need this or PMs get units m rad /s !
     )
+    print(f"{t1},{t1.pm_ra_cosdec},{t1.pm_dec},{t1.distance}")
+    target = sanitize_skycoord(t1)
 
 
 def gbt_location():
@@ -438,7 +445,13 @@ class Observatory:
         # might be confusing API to have everyting as obs[string]
         # and just GBT as an attribute. Leave this unadvertised for now
         # in case I remove it.
-        self.GBT = gbt_location()
+        self.GBT = GBT()
+
+    def __getitem__(self, key):
+        # For GBT we want to use the GBO official location
+        if key == "GBT":
+            return self.GBT
+        return coord.EarthLocation.of_site(key)
 
     def __class_getitem__(self, key):
         # For GBT we want to use the GBO official location
