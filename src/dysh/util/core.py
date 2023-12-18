@@ -4,37 +4,9 @@ Core utility definitions, classes, and functions
 
 from pathlib import Path
 
+import astropy.units as u
 import numpy as np
-from astropy.coordinates import EarthLocation
-
-
-class Observatory:
-    """Class that returns (latitude, longitude, altitude) of known
-    observatories, using :class:`astropy.coordinates.EarthLocation`.
-    This can be used for instance in transforming velocities between
-    different reference frames.
-
-    Example usage
-    -------------
-    .. code-block::
-        obs = Observatory()
-        print(obs['GBT'])
-
-    Alternatively,
-
-    .. code-block::
-        gbt = Observatory()["GBT"]
-
-    """
-
-    def __init__(self):
-        # might be confusing API to have everyting as obs[string]
-        # and just GBT as an attribute. Leave this unadvertised for now
-        # in case I remove it.
-        self.GBT = EarthLocation.of_site("GBT")
-
-    def __getitem__(self, key):
-        return EarthLocation.of_site(key)
+from astropy.coordinates import EarthLocation, SkyCoord
 
 
 def consecutive(data, stepsize=1):
