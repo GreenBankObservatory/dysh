@@ -1,17 +1,23 @@
+import warnings
+
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord, SpectralCoord
-from astropy.coordinates.spectral_coordinate import DEFAULT_DISTANCE
 from astropy.io import registry
+from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
 from astropy.table import Table
 from astropy.time import Time
+from astropy.wcs import WCS, FITSFixedWarning
 from specutils import Spectrum1D
 
 from ..coordinates import (
+    Observatory,
     get_velocity_in_frame,
+    make_target,
     sanitize_skycoord,
     topocentric_velocity_to_frame,
+    veldef_to_convention,
     veltofreq,
 )
 from ..plot import specplot as sp
@@ -281,6 +287,43 @@ class Spectrum(Spectrum1D):
             t.add_column(self.uncertainty._array, name="uncertainty")
         # f=kwargs.pop("format")
         t.write(fileobj, format=format, **kwargs)
+
+    @classmethod
+    def make_spectrum(cls, data, meta, use_wcs=True, observer=Observatory["GBT"]):
+        """Create a Spectrum object from a data and header
+
+        Parameters
+        ----------
+        data :  `~numpy.ndarray`
+            The data array. See `~specutils.Spectrum1D`
+        meta : dict
+            The metadata, typically derived from an SDFITS header.  Required items in `meta` are 'CRVAL2', 'CRVAL3', 'CUNIT2', 'CUNIT3', 'VELOCITY', 'EQUINOX', 'RADESYS'
+        use_wcs : bool
+            If True, create a WCS object from `meta`
+
+        observer : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`
+
+        Returns
+        -------
+        spectrum : `~dysh.spectra.Spectrum`
+            The spectrum object
+        """
+        # @TODO WCS is expensive.
+        # Possibly figure how to calculate spectral_axis instead.
+        if use_wcs:
+            # skip warnings about DATE-OBS being converted to MJD-OBS
+            warnings.filterwarnings("ignore", category=FITSFixedWarning)
+            # skip warnings FITS keywords longer than 8 chars or containing
+            # illegal characters (like _)
+            warnings.filterwarnings("ignore", category=VerifyWarning)
+            wcs = WCS(header=meta)
+        else:
+            wcs = None
+        target = make_target(meta)
+        vc = veldef_to_convention(meta["VELDEF"])
+        s = cls(data, wcs=wcs, meta=meta, velocity_convention=vc, observer=observer, target=target)
+        return s
 
 
 # @TODO figure how how to document write()

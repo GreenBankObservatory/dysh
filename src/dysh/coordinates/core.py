@@ -369,6 +369,7 @@ def make_target(header):
         A SkyCoord object based on the input coordinates and radial velocity
     """
 
+    # should we also require DATE-OBS or MJD-OBS?
     _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS"])
 
     for k in _required:

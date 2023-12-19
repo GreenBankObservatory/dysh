@@ -6,14 +6,7 @@ import numpy as np
 
 from ..coordinates import Observatory, make_target, veldef_to_convention
 from ..util import uniq
-from . import (
-    average,
-    find_non_blanks,
-    make_spectrum,
-    mean_tsys,
-    sq_weighted_avg,
-    tsys_weight,
-)
+from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
 
 
@@ -374,7 +367,7 @@ class TPScan(ScanMixin):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
 
-        s = make_spectrum(self._data[i] * u.ct, meta)
+        s = Spectrum.make_spectrum(self._data[i] * u.ct, meta)
         return s
 
     def timeaverage(self, weights="tsys"):
@@ -513,11 +506,13 @@ class PSScan(ScanMixin):
         meta["EXPOSURE"] = self.exposure[i]
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return make_spectrum(self._calibrated[i] * u.K, meta=meta)
+        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta)
 
     def calibrate(self, **kwargs):
         """
@@ -731,12 +726,14 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         meta["NAXIS1"] = len(self._calibrated[i])
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
 
-        return make_spectrum(self._calibrated[i] * u.K, meta)
+        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta)
 
     @property
     def exposure(self):
