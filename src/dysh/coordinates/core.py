@@ -8,8 +8,6 @@ import astropy.constants as const
 import astropy.coordinates as coord
 import astropy.units as u
 import numpy as np
-
-# from astropy.coordinates import GCRS, HCRS, ICRS, LSRK, SkyCoord, SpectralCoord, ITRS
 from astropy.coordinates.spectral_coordinate import (
     DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
 )
@@ -26,26 +24,26 @@ _MPS = u.m / u.s
 # Deal with cmb which will require custom frame
 # See https://docs.astropy.org/en/stable/coordinates/spectralcoord.html#defining-custom-velocity-frames
 # Also deal with 'rest' frame
-astropy_frame_dict = {  # currently unused -- don't need?
-    "VLSR": coord.LSRK,
-    "VRAD": coord.LSRK,
-    "VELO": coord.LSRK,
-    "VOPT": coord.LSRK,
-    "LSRD": coord.LSRD,
-    "LSRK": coord.LSRK,
-    "-LSR": coord.LSRK,
-    "-HEL": coord.HCRS,
-    "-BAR": coord.ICRS,
-    "BAR": coord.ICRS,
-    "BARY": coord.ICRS,
-    "barycentric": coord.ICRS,
-    "VHEL": coord.HCRS,
-    "heliocentric": coord.HCRS,
-    "VGEO": coord.GCRS,
-    "GALAC": coord.Galactic,
-    "-GALA": coord.Galactic,
-    "topocentric": coord.ITRS,  # but need to add observatory position
-}
+# astropy_frame_dict = {  # currently unused -- don't need?
+#    "VLSR": coord.LSRK,
+#    "VRAD": coord.LSRK,
+#    "VELO": coord.LSRK,
+#    "VOPT": coord.LSRK,
+#    "LSRD": coord.LSRD,
+#    "LSRK": coord.LSRK,
+#    "-LSR": coord.LSRK,
+#    "-HEL": coord.HCRS,
+#    "-BAR": coord.ICRS,
+#    "BAR": coord.ICRS,
+#    "BARY": coord.ICRS,
+#    "barycentric": coord.ICRS,
+#    "VHEL": coord.HCRS,
+#    "heliocentric": coord.HCRS,
+#    "VGEO": coord.GCRS,
+#    "GALAC": coord.Galactic,
+#    "-GALA": coord.Galactic,
+#    "topocentric": coord.ITRS,  # but need to add observatory position
+# }
 
 frame_dict = {
     "VLSR": "LSRK",
@@ -171,9 +169,7 @@ def sanitize_skycoord(target):
     if target.distance.unit == u.dimensionless_unscaled and round(target.distance.value) == 1:
         # distance was unset and astropy set it to 1 with a dimensionless composite unit
         newdistance = _DEFAULT_DISTANCE
-        print("DISTANCE WAS 1")
     else:
-        print("DISTANCE WAS NOT 1")
         newdistance = target.distance
 
     if hasattr(target, "ra"):  # RADEC based
@@ -212,8 +208,8 @@ def sanitize_skycoord(target):
             pm_lon = _PMZERORAD
             pm_lat = _PMZERORAD
         print(
-            f"_target = SkyCoord( {lon}, {lat}, frame={target.frame}, distance={newdistance}, pm_l_cosb={pm_lon},"
-            f" pm_b={pm_lat}, radial_velocity={_rv})"
+            f"DEBUG\n: _target = SkyCoord( {lon}, {lat}, frame={target.frame}, distance={newdistance},"
+            f" pm_l_cosb={pm_lon}, pm_b={pm_lat}, radial_velocity={_rv})"
         )
         _target = coord.SkyCoord(
             lon,
@@ -262,7 +258,7 @@ def topocentric_velocity_to_frame(target, toframe, observer, obstime):
         _target = sanitize_skycoord(target)
     # raise Exception("input frame must be ICRS")
     topocoord = observer.get_itrs(obstime=obstime)
-    sc = SpectralCoord(1 * u.Hz, observer=topocoord, target=_target)
+    sc = coord.SpectralCoord(1 * u.Hz, observer=topocoord, target=_target)
     return sc.with_observer_stationary_relative_to(toframe).radial_velocity
 
 
@@ -302,10 +298,10 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
     _target = sanitize_skycoord(target)
 
     if toframe == "topo":
-        vshift = -topocentric_velocity_to_frame(_target, _target.frame, _observer, _obstime)
+        vshift = -topocentric_velocity_to_frame(_target, _target.frame, observer, obstime)
         return vshift
     elif isinstance(_target.frame, coord.ITRS):
-        vshift = topocentric_velocity_to_frame(_target, _target.frame, _observer, _obstime)
+        vshift = topocentric_velocity_to_frame(_target, _target.frame, observer, obstime)
         return vshift
     # really gcrs should raise an exception because astropy does it wrong.
     if toframe.lower() == "gcrs" and obstime is not None:
@@ -385,8 +381,9 @@ def make_target(header):
         radial_velocity=header["VELOCITY"] * _MPS,
         distance=_DEFAULT_DISTANCE,  # need this or PMs get units m rad /s !
     )
-    print(f"{t1},{t1.pm_ra_cosdec},{t1.pm_dec},{t1.distance}")
+    print(f"{t1},{t1.pm_ra_cosdec},{t1.pm_dec},{t1.distance},{t1.radial_velocity}")
     target = sanitize_skycoord(t1)
+    return target
 
 
 def gbt_location():
