@@ -2,17 +2,18 @@
     - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
 """
 
-import copy
-import sys
+# import copy
+# import sys
 
 import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.units import cds
+
+# from astropy.units import cds
 from astropy.wcs import WCS
 
-from ..coordinates import decode_veldef
+# from ..coordinates import decode_veldef
 from ..spectra.spectrum import Spectrum
 from ..util import uniq
 
@@ -42,7 +43,9 @@ class SDFITSLoad(object):
         kwargs_opts.update(kwargs)
         if kwargs_opts["verbose"]:
             print("==SDFITSLoad %s" % filename)
-        cds.enable()  # to get mmHg
+        # We cannot use this to get mmHg as it will disable all default astropy units!
+        # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
+        # u.cds.enable()  # to get mmHg
         self._filename = filename
         self._bintable = []
         self._index = None
@@ -160,127 +163,6 @@ class SDFITSLoad(object):
             self._bintable.append(self._hdu[i])
             self._binheader.append(self._hdu[i].header)
             self._nrows.append(self._binheader[j]["NAXIS2"])
-
-    def _loadlists(self, hdu, fix=False, wcs=False, maxspect=1e16):
-        """Create an obsblock from all rows in bintable.  For debug/performance testing only"""
-        self._obsblock = []
-        i = 0
-        k = -1
-        # print("HDU = ", hdu)
-        if hdu is not None:
-            b = self._index[hdu - 1]
-            rawspect = self._bintable[i].data["DATA"]
-            sl = SpectrumList()
-            maxload = int(np.min([maxspect, self.nrows(i)]))
-            # print(f"Creating {maxload} Spectrum in bintable {i} HDU {hdu}", file=sys.stderr)
-            for j in range(maxload):
-                k = k + 1
-                # need extra [[]] because we have 1x1 spatial NAXIS
-                # otherwise, slicing the spectrum won't work.
-                if dowcs:
-                    sp = np.array([[self.rawspectrum(i, j)]])
-                else:
-                    # sp = self.rawspectrum(i,j)*u.K
-                    sp = np.copy(rawspect[j])  # *u.K
-                    # sp = np.random.rand(32768)*u.K
-                naxis1 = sp.shape[0]  # self.nchan(i)
-                printme = int(0.1 * len(b))
-                if (k % printme) == 0:
-                    print(f"Row {k} nchan {naxis1} {type(sp)}", file=sys.stderr)
-                    # print(f"NAXIS1 is {naxis1}",file=sys.stderr)
-                crval1 = b["CRVAL1"][j]
-                cdelt1 = b["CDELT1"][j]
-                crpix1 = b["CRPIX1"][j]
-                ctype1 = b["CTYPE1"][j]
-                # Ensure rest frequency is in Hertz
-                # CUNIT1 is not always present
-                restfrq = b["RESTFREQ"][j]
-                if "CUNIT1" in b.columns:
-                    cunit1 = b["CUNIT1"][j]
-                    rfq = restfrq * u.Unit(cunit1)
-                    restfrq = rfq.to("Hz").value
-                cunit1 = "Hz"
-                crval2 = b["CRVAL2"][j]
-                crval3 = b["CRVAL3"][j]
-                ctype2 = b["CTYPE2"][j]
-                ctype3 = b["CTYPE3"][j]
-                # 'FREQ-OBS' to 'FREQ'; assuming SPECSYS='TOPOCENT'
-                # if ctype1 == 'FREQ-OBS': ctype1  = 'FREQ'
-                # only axis1 needs a full description, axis2,3,4 are all single points
-                if dowcs:
-                    wcs = WCS(
-                        header={
-                            "CDELT1": cdelt1,
-                            "CRVAL1": crval1,
-                            "CUNIT1": cunit1,
-                            "CTYPE1": "FREQ",
-                            "CRPIX1": crpix1,
-                            "RESTFRQ": restfrq,
-                            "CTYPE2": ctype2,
-                            "CRVAL2": crval2,
-                            "CRPIX2": 1,
-                            "CTYPE3": ctype3,
-                            "CRVAL3": crval3,
-                            "CRPIX3": 1,
-                            "CUNIT2": "deg",
-                            "CUNIT3": "deg",
-                            "NAXIS1": naxis1,
-                            "NAXIS2": 1,
-                            "NAXIS3": 1,
-                        },
-                        fix=fix,
-                    )
-                else:
-                    wcs = None
-                # GBT really fucks up FREQ/VELDEF/VELFRAME
-                # if False:
-                if "VELFRAME" in b.columns:
-                    vframe = b["VELFRAME"][j]
-                elif "VFRAME" in b.columns:
-                    vframe = b["VFRAME"][j]
-                else:
-                    vframe = None
-                if "VELDEF" in b.columns:
-                    vdef = b["VELDEF"][j]
-                else:
-                    vdef = None
-
-                meta = {
-                    "CDELT1": cdelt1,
-                    "CRVAL1": crval1,
-                    "CUNIT1": cunit1,
-                    "CTYPE1": "FREQ",
-                    "CRPIX1": crpix1,
-                    "RESTFRQ": restfrq,
-                    "CTYPE2": ctype2,
-                    "CRVAL2": crval2,
-                    "CRPIX2": 1,
-                    "CTYPE3": ctype3,
-                    "CRVAL3": crval3,
-                    "CRPIX3": 1,
-                    "CUNIT2": "deg",
-                    "CUNIT3": "deg",
-                    "NAXIS1": naxis1,
-                    "NAXIS2": 1,
-                    "NAXIS3": 1,
-                    "VELDEF": vdef,
-                    "VELFRAME": vframe,
-                }
-
-                convention = self.velocity_convention(vdef, vframe)
-                # meta = dict(b.loc[j])# Necessary? Since we are sending whole pandas table to Obsblock
-                if fix:
-                    self.fix_meta(meta)
-                if False:
-                    try:
-                        convention = self.velocity_convention(meta["VELDEF"], meta["VELFRAME"])
-                    except Exception:
-                        # print("WARNING: insufficient veldef/velframe, assuming convention is 'doppler_radio'")
-                        convention = "doppler_radio"
-                meta = {}
-                sl.append(Spectrum(flux=sp * u.K, wcs=wcs, meta=meta, velocity_convention=convention))
-            # self._obsblock.append(Obsblock(sl,self._index[i]))
-            i = i + 1
 
     def fix_meta(self, meta):
         """
@@ -476,51 +358,20 @@ class SDFITSLoad(object):
     def getspec(self, i, bintable=0):
         """Get a row (record) as a Spectrum"""
         df = self.index(bintable=bintable)
-        meta = df.iloc[i]
+        meta = df.iloc[i].dropna().to_dict()
         data = self.rawspectrum(i, bintable)
-        naxis1 = len(data)
-        ctype1 = meta["CTYPE1"]
-        ctype2 = meta["CTYPE2"]
-        ctype3 = meta["CTYPE3"]
-        crval1 = meta["CRVAL1"]
-        crval2 = meta["CRVAL2"]
-        crval3 = meta["CRVAL3"]
-        crpix1 = meta["CRPIX1"]
-        cdelt1 = meta["CDELT1"]
+        meta["NAXIS1"] = len(data)
+        if "CUNIT1" not in meta:
+            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
-        if "CUNIT1" in meta:
-            cunit1 = meta["CUNIT1"]
-        else:
-            cunit1 = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        rfq = restfrq * u.Unit(cunit1)
+        rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
+        meta["RESTFRQ"] = restfreq  # WCS wants no E
 
-        # @TODO WCS is expensive.  Figure how to calculate spectral_axis instead.
-        wcs = WCS(
-            header={
-                "CDELT1": cdelt1,
-                "CRVAL1": crval1,
-                "CUNIT1": cunit1,
-                "CTYPE1": "FREQ",
-                "CRPIX1": crpix1,
-                "RESTFRQ": restfreq,
-                "CTYPE2": ctype2,
-                "CRVAL2": crval2,
-                "CRPIX2": 1,
-                "CTYPE3": ctype3,
-                "CRVAL3": crval3,
-                "CRPIX3": 1,
-                "CUNIT2": "deg",
-                "CUNIT3": "deg",
-                "NAXIS1": naxis1,
-                "NAXIS2": 1,
-                "NAXIS3": 1,
-            },
-        )
-        vc = decode_veldef(meta["VELDEF"])[0]
-
-        # raw data are in counts
-        return Spectrum(data * u.count, wcs=wcs, meta=meta.to_dict(), velocity_convention=vc)
+        s = Spectrum.make_spectrum(data * u.ct, meta)
+        return s
 
     def nrows(self, bintable):
         """
