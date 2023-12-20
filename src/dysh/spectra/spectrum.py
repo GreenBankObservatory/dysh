@@ -2,7 +2,6 @@ import warnings
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
@@ -11,14 +10,11 @@ from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
 from specutils import Spectrum1D
 
-from ..coordinates import (
-    Observatory,
+from ..coordinates import (  # Observatory,
     get_velocity_in_frame,
     make_target,
     sanitize_skycoord,
-    topocentric_velocity_to_frame,
     veldef_to_convention,
-    veltofreq,
 )
 from ..plot import specplot as sp
 from . import baseline, get_spectral_equivalency
@@ -37,9 +33,11 @@ class Spectrum(Spectrum1D):
     """
 
     def __init__(self, *args, **kwargs):
+        # print(f"ARGS={args}")
         self._target = kwargs.pop("target", None)
         if self._target is not None:
-            self._target = sanitize_skycoord(target)
+            # print(f"self._target is {self._target}")
+            self._target = sanitize_skycoord(self._target)
             self._target.sanitized = True
             self._velocity_frame = self._target.frame.name
         else:
@@ -289,8 +287,8 @@ class Spectrum(Spectrum1D):
         t.write(fileobj, format=format, **kwargs)
 
     @classmethod
-    def make_spectrum(cls, data, meta, use_wcs=True, observer=Observatory["GBT"]):
-        """Create a Spectrum object from a data and header
+    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None):
+        """Factory method to create a Spectrum object from a data and header.
 
         Parameters
         ----------
@@ -301,8 +299,8 @@ class Spectrum(Spectrum1D):
         use_wcs : bool
             If True, create a WCS object from `meta`
 
-        observer : `~astropy.coordinates.EarthLocation`
-            Location of the observatory. See `~dysh.coordinates.Observatory`
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`. This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
 
         Returns
         -------
@@ -311,6 +309,7 @@ class Spectrum(Spectrum1D):
         """
         # @TODO WCS is expensive.
         # Possibly figure how to calculate spectral_axis instead.
+        # @TODO allow fix=False in WCS constructor?
         if use_wcs:
             # skip warnings about DATE-OBS being converted to MJD-OBS
             warnings.filterwarnings("ignore", category=FITSFixedWarning)
@@ -318,11 +317,44 @@ class Spectrum(Spectrum1D):
             # illegal characters (like _)
             warnings.filterwarnings("ignore", category=VerifyWarning)
             wcs = WCS(header=meta)
+            # reset warnings?
         else:
             wcs = None
         target = make_target(meta)
         vc = veldef_to_convention(meta["VELDEF"])
-        s = cls(data, wcs=wcs, meta=meta, velocity_convention=vc, observer=observer, target=target)
+        if observer_location is None:
+            obsitrs = None
+        else:
+            if "DATE-OBS" in meta:
+                obsitrs = observer_location.get_itrs(location=observer_location, obstime=Time(meta["DATE-OBS"]))
+            elif "MJD-OBS" in meta:
+                obsitrs = observer_location.get_itrs(location=observer_location, obstime=Time(meta["MJD-OBS"]))
+            else:
+                warnings.warn(
+                    "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
+                    " frames"
+                )
+                obsitrs = None
+        s = cls(
+            data,
+            wcs=wcs,
+            meta=meta,
+            velocity_convention=vc,
+            radial_velocity=target.radial_velocity,
+            rest_value=meta["RESTFRQ"] * u.Hz,
+            observer=obsitrs,
+            target=target,
+        )
+        # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
+        # the radial velocity. In fact, they get no radial_velocity attribute at all!
+        # This method creates a new spectral_axis with the given radial velocity.
+        # if observer_location is None:
+        #    s.set_radial_velocity_to(target.radial_velocity)
+        print(f"target is {target},target is {target},  s.target is {s.target}")
+        print(f"target RV is {target.radial_velocity}")
+        print(f"class is {cls}")
+        print(f"spect RV is {s.radial_velocity}")
+        print(f"spect RF is {s.rest_value}")
         return s
 
 
