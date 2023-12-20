@@ -357,7 +357,6 @@ class TPScan(ScanMixin):
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
         meta["NAXIS1"] = len(self._data[i])
-        meta["CTYPE1"]
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
