@@ -23,5 +23,5 @@ Then, we can generate the output for the tests
 ``` IDL
 fileout,"gdigs-testdata-getps-outputs.fits"
 filein,"gdigs-testdata.fits"
-for plnum=0,1,1 do begin & for i=0,2,1 do begin & getps,6,ifnum=ifnums[i],plnum=plnum & keep & endfor & endfor
+for plnum=0,1,1 do begin & for i=0,2,1 do begin & getps,6,ifnum=ifnums[i],plnum=plnum & keep & velo & write_ascii,"ifnum_"+strcompress(string(ifnums[i]), /remove_all)+"_plnum_"+strcompress(string(plnum),/remove_all)+".ascii" & endfor & endfor
 ```
