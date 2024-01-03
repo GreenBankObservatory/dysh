@@ -13,29 +13,24 @@ Here are the steps to set up Sphinx autobuilds so that you can check your docume
 
     $ hatch shell
 
-2. Next, copy the environment file template.
+2. Next, tell hatch to run the docs. The docs will be published at `http://127.0.0.1:8000/`.
 
 .. code-block:: bash
 
-    (dysh) $ cp .env.template .env
+    (dysh) $ hatch run docs
 
-3. Add values for ``DOCS_ROOT``, ``DOCS_HOST``, and ``DOCS_PORT`` in `.env`
-4. Start the autobuild
+3. If you would like the docs to publish at a specific host and port, such as `http://thales:9876`, then add the appropriate flags:
 
 .. code-block:: bash
 
-    (dysh) $ source .env
-    (dysh) $ startdocs
+    (dysh) $ hatch run docs --host thales --port 9876
 
-5. Go to `http://{$DOCS_HOST}:{$DOCS_PORT}` in a web browser. You should now see the documentation with live edits as you save changes.
-
-.. note::
-    Do not commit the `.env` file to `git`.
+4. You may now make changes in the `dysh/docs/` directory and see the live changes at the appropriate URL in your browser. To close the server, simply `CTRL+C`.
 
 Docstring Format
 ================
 
-Gotta format the docstrings
+All Python functions must contain a docstring which follows the NumPy convention. You can learn more about this convention here: https://numpydoc.readthedocs.io/en/latest/format.html
 
 Mermaid Diagrams
 ================
