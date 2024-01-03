@@ -24,26 +24,26 @@ _MPS = u.m / u.s
 # Deal with cmb which will require custom frame
 # See https://docs.astropy.org/en/stable/coordinates/spectralcoord.html#defining-custom-velocity-frames
 # Also deal with 'rest' frame
-# astropy_frame_dict = {  # currently unused -- don't need?
-#    "VLSR": coord.LSRK,
-#    "VRAD": coord.LSRK,
-#    "VELO": coord.LSRK,
-#    "VOPT": coord.LSRK,
-#    "LSRD": coord.LSRD,
-#    "LSRK": coord.LSRK,
-#    "-LSR": coord.LSRK,
-#    "-HEL": coord.HCRS,
-#    "-BAR": coord.ICRS,
-#    "BAR": coord.ICRS,
-#    "BARY": coord.ICRS,
-#    "barycentric": coord.ICRS,
-#    "VHEL": coord.HCRS,
-#    "heliocentric": coord.HCRS,
-#    "VGEO": coord.GCRS,
-#    "GALAC": coord.Galactic,
-#    "-GALA": coord.Galactic,
-#    "topocentric": coord.ITRS,  # but need to add observatory position
-# }
+astropy_frame_dict = {  # currently unused -- don't need?
+    "VLSR": coord.LSRK,
+    "VRAD": coord.LSRK,
+    "VELO": coord.LSRK,
+    "VOPT": coord.LSRK,
+    "LSRD": coord.LSRD,
+    "LSRK": coord.LSRK,
+    "-LSR": coord.LSRK,
+    "-HEL": coord.HCRS,
+    "-BAR": coord.ICRS,
+    "BAR": coord.ICRS,
+    "BARY": coord.ICRS,
+    "barycentric": coord.ICRS,
+    "VHEL": coord.HCRS,
+    "heliocentric": coord.HCRS,
+    "VGEO": coord.GCRS,
+    "GALAC": coord.Galactic,
+    "-GALA": coord.Galactic,
+    "topocentric": coord.ITRS,  # but need to add observatory position
+}
 
 frame_dict = {
     "VLSR": "LSRK",
@@ -57,7 +57,7 @@ frame_dict = {
     "-BAR": "barycentric",
     "BAR": "barycentric",
     "BARY": "barycentric",
-    "-OBS": "obs",
+    "-OBS": "topocentric",
     "VHEL": "heliocentric",
     "VGEO": "geocentric",
     "TOPO": "topocentric",
@@ -84,6 +84,9 @@ vconv_dict = {
 }
 
 
+# This gives the wrong answer for GBT which always writes data as topocentric
+# regardless of what VELDEF says.
+# Kluge for GBT: pass in CTYPE1 which is always 'FREQ-OBS'
 def is_topocentric(veldef):
     return decode_veldef(veldef)[1] == "topocentric"
 
@@ -259,6 +262,9 @@ def topocentric_velocity_to_frame(target, toframe, observer, obstime):
     # raise Exception("input frame must be ICRS")
     topocoord = observer.get_itrs(obstime=obstime)
     sc = coord.SpectralCoord(1 * u.Hz, observer=topocoord, target=_target)
+    print(f"SC is {sc}")
+    sc2 = sc.with_observer_stationary_relative_to(toframe)
+    print(f"SC2 is {sc2}")
     return sc.with_observer_stationary_relative_to(toframe).radial_velocity
 
 
@@ -368,8 +374,8 @@ def make_target(header):
     # should we also require DATE-OBS or MJD-OBS?
     _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS"])
 
-    for k in _required:
-        print(f"{k} {k in header}")
+    # for k in _required:
+    #    print(f"{k} {k in header}")
     if not _required <= header.keys():
         raise ValueError(f"Header is missing one or more required keywords: {_required}")
 

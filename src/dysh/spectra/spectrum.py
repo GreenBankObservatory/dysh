@@ -11,9 +11,14 @@ from astropy.wcs import WCS, FITSFixedWarning
 from specutils import Spectrum1D
 
 from ..coordinates import (  # Observatory,
+    Observatory,
+    astropy_frame_dict,
+    decode_veldef,
     get_velocity_in_frame,
+    is_topocentric,
     make_target,
     sanitize_skycoord,
+    topocentric_velocity_to_frame,
     veldef_to_convention,
 )
 from ..plot import specplot as sp
@@ -287,7 +292,7 @@ class Spectrum(Spectrum1D):
         t.write(fileobj, format=format, **kwargs)
 
     @classmethod
-    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None):
+    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, shift_topo=False):
         """Factory method to create a Spectrum object from a data and header.
 
         Parameters
@@ -295,7 +300,7 @@ class Spectrum(Spectrum1D):
         data :  `~numpy.ndarray`
             The data array. See `~specutils.Spectrum1D`
         meta : dict
-            The metadata, typically derived from an SDFITS header.  Required items in `meta` are 'CRVAL2', 'CRVAL3', 'CUNIT2', 'CUNIT3', 'VELOCITY', 'EQUINOX', 'RADESYS'
+            The metadata, typically derived from an SDFITS header.  Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
         use_wcs : bool
             If True, create a WCS object from `meta`
 
@@ -307,6 +312,28 @@ class Spectrum(Spectrum1D):
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
+        # @TODO generic check_required method since I now have this code in two places (coordinates/core.py).
+        # should we also require DATE-OBS or MJD-OBS?
+        _required = set([
+            "CRVAL1",
+            "CRVAL2",
+            "CRVAL3",
+            "CTYPE1",
+            "CTYPE2",
+            "CTYPE3",
+            "CUNIT1",
+            "CUNIT2",
+            "CUNIT3",
+            "VELOCITY",
+            "EQUINOX",
+            "RADESYS",
+        ])
+
+        # for k in _required:
+        #    print(f"{k} {k in header}")
+        if not _required <= meta.keys():
+            raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
+
         # @TODO WCS is expensive.
         # Possibly figure how to calculate spectral_axis instead.
         # @TODO allow fix=False in WCS constructor?
@@ -320,15 +347,18 @@ class Spectrum(Spectrum1D):
             # reset warnings?
         else:
             wcs = None
+        is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         target = make_target(meta)
         vc = veldef_to_convention(meta["VELDEF"])
+        vf = astropy_frame_dict[decode_veldef(meta["VELDEF"])[1]]
+        obstime = Time(meta["DATE-OBS"])
         if observer_location is None:
             obsitrs = None
         else:
             if "DATE-OBS" in meta:
-                obsitrs = observer_location.get_itrs(location=observer_location, obstime=Time(meta["DATE-OBS"]))
+                obsitrs = observer_location.get_itrs(location=observer_location, obstime=obstime)
             elif "MJD-OBS" in meta:
-                obsitrs = observer_location.get_itrs(location=observer_location, obstime=Time(meta["MJD-OBS"]))
+                obsitrs = observer_location.get_itrs(location=observer_location, obstime=obstime)
             else:
                 warnings.warn(
                     "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
@@ -348,13 +378,18 @@ class Spectrum(Spectrum1D):
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
-        # if observer_location is None:
-        #    s.set_radial_velocity_to(target.radial_velocity)
+        if observer_location is None:
+            s.set_radial_velocity_to(target.radial_velocity)
         print(f"target is {target},target is {target},  s.target is {s.target}")
         print(f"target RV is {target.radial_velocity}")
         print(f"class is {cls}")
         print(f"spect RV is {s.radial_velocity}")
         print(f"spect RF is {s.rest_value}")
+        print(f"VF is {vf}")
+        if shift_topo:  # and is_topo
+            vshift = topocentric_velocity_to_frame(target, vf, observer=Observatory["GBT"], obstime=obstime)
+            print(f"VSHIFT IS {vshift}")
+
         return s
 
 
