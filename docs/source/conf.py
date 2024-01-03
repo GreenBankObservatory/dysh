@@ -164,15 +164,13 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-    (
-        master_doc,
-        "dysh.tex",
-        "dysh Documentation",
-        ["Marc Pound", "Victoria Catlett", "Peter Teuben"],
-        "manual",
-    )
-]
+latex_documents = [(
+    master_doc,
+    "dysh.tex",
+    "dysh Documentation",
+    ["Marc Pound", "Victoria Catlett", "Peter Teuben"],
+    "manual",
+)]
 
 
 # -- Options for manual page output ------------------------------------------
@@ -187,17 +185,15 @@ man_pages = [(master_doc, "dysh", "dysh Documentation", [author], 1)]
 # Grouping the document tree into Texinfo files. List of tuples
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
-texinfo_documents = [
-    (
-        master_doc,
-        "dysh",
-        "dysh Documentation",
-        author,
-        "dysh",
-        "One line description of project.",
-        "Miscellaneous",
-    )
-]
+texinfo_documents = [(
+    master_doc,
+    "dysh",
+    "dysh Documentation",
+    author,
+    "dysh",
+    "One line description of project.",
+    "Miscellaneous",
+)]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents. Set to the "smart" one.
