@@ -72,43 +72,6 @@ class ScanMixin(object):
         return self._nrows
 
 
-class TPScan(object):
-    r"""
-    Holds a total power scan.
-
-    Parameters
-    ----------
-    sdfits : ~SDFITSLoad
-        Input SDFITSLoad object (or derivative).
-    scan: int
-        Scan number.
-    sigstate : str
-        One of 'SIG' or 'REF' to indicate if this is the signal or reference scan.
-    scanrows : list-like
-        The list of rows in `sdfits` corresponding to sig_state integrations.
-    bintable : int
-        The index for BINTABLE in `sdfits` containing the scans.
-    """
-
-    def __init__(self, sdfits, scan, sigstate, calstate, scanrows, bintable):
-        self._sdfits = sdfits  # parent class
-        self._scan = scan
-        self._sigstate = sigstate
-        self._calstate = calstate
-        self._scanrows = scanrows
-        self._bintable_index = bintable
-        self._data = self._sdfits.rawspectra(bintable)[scanrows]  # all cal states
-        self._status = 0  # @TODO make these an enumeration, possibly dict
-        #                           # ex1:
-        self._nint = 0  # 11
-        self._npol = 0  #  2
-        self._timeaveraged = None  #  2
-        self._polaveraged = None  #  1
-        self._nrows = len(scanrows)
-        self._tsys = None
-        print(f"TPSCAN nrows = {self.nrows}")
-
-
 class ScanBlock(UserList, ScanMixin):
     def __init__(self, *args):
         super().__init__(*args)
@@ -209,7 +172,18 @@ class TPScan(ScanMixin):
     """
 
     # @TODO get rid of calrows and calc tsys in gettp and pass it in.
-    def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable, calibrate=True):
+    def __init__(
+        self,
+        gbtfits,
+        scan,
+        sigstate,
+        calstate,
+        scanrows,
+        calrows,
+        bintable,
+        calibrate=True,
+        observer_location=Observatory["GBT"],
+    ):
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate  # ignored?
@@ -221,6 +195,7 @@ class TPScan(ScanMixin):
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
             self._bintable_index = bintable
+        self._observer_location = observer_location
         self._data = self._sdfits.rawspectra(self._bintable_index)[scanrows]  # all cal states
         df = self._sdfits._index
         df = df.iloc[scanrows]
@@ -338,6 +313,23 @@ class TPScan(ScanMixin):
         """
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
 
+    def tpmeta(self, i):
+        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
+        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
+        meta = ser.dropna().to_dict()
+        meta["TSYS"] = self._tsys[i]
+        meta["EXPOSURE"] = self.exposure[i]
+        meta["NAXIS1"] = len(self._data[i])
+        if "CUNIT1" not in meta:
+            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
+        restfrq = meta["RESTFREQ"]
+        rfq = restfrq * u.Unit(meta["CUNIT1"])
+        restfreq = rfq.to("Hz").value
+        meta["RESTFRQ"] = restfreq  # WCS wants no E
+        return meta
+
     def total_power(self, i):
         """Return the total power spectrum
 
@@ -365,9 +357,7 @@ class TPScan(ScanMixin):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-
-        s = Spectrum.make_spectrum(self._data[i] * u.ct, meta)
-        return s
+        return Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
 
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of scans.
@@ -425,7 +415,9 @@ class PSScan(ScanMixin):
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
     """
 
-    def __init__(self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True):
+    def __init__(
+        self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
+    ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
         self._scans = scans
@@ -444,6 +436,7 @@ class PSScan(ScanMixin):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
+        self._observer_location = observer_location
         df = self._sdfits._index
         df = df.iloc[scanrows["ON"]]
         self._feeds = uniq(df["FDNUM"])
@@ -511,7 +504,7 @@ class PSScan(ScanMixin):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta)
+        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
 
     def calibrate(self, **kwargs):
         """
@@ -651,7 +644,9 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         Default: 'tsys'
     """
 
-    def __init__(self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, **kwargs):
+    def __init__(
+        self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, observer_location=Observatory["GBT"], **kwargs
+    ):
         kwargs_opts = {
             "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
@@ -674,6 +669,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        self._observer_location = observer_location
         self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
@@ -731,8 +727,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-
-        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta)
+        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta, observer_location=self._observer_location)
 
     @property
     def exposure(self):

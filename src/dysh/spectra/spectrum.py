@@ -2,6 +2,7 @@ import warnings
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import SpectralCoord
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
@@ -10,9 +11,10 @@ from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
 from specutils import Spectrum1D
 
-from ..coordinates import (  # Observatory,
+from ..coordinates import (
     Observatory,
     astropy_frame_dict,
+    change_ctype,
     decode_veldef,
     get_velocity_in_frame,
     is_topocentric,
@@ -55,6 +57,9 @@ class Spectrum(Spectrum1D):
             self._obstime = Time(self.meta["DATE-OBS"])
         else:
             self._obstime = None
+        if "CTYPE1" in self.meta:
+            self._target.topocentric = is_topocentric(self.meta["CTYPE1"])
+            self.topocentric = is_topocentric(self.meta["CTYPE1"])
 
         # if mask is not set via the flux input (NaNs in flux or flux.mask),
         # then set the mask to all False == good
@@ -251,8 +256,15 @@ class Spectrum(Spectrum1D):
         return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
 
     def shift_to_frame(self, toframe):
-        v = self.get_velocity_shift_to(toframe)
-        self._spectral_axis = self._spectral_axis.with_radial_velocity_shift(target_shift=v)
+        # v = self.get_velocity_shift_to(toframe)
+        # self._spectral_axis = self._spectral_axis.with_radial_velocity_shift(target_shift=v)
+        actualframe = astropy_frame_dict.get(toframe, toframe)
+        # print(f"actual frame is {actualframe}")
+        self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
+        self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
+        # @todo shouldn't have two variables for the same thing.
+        # Still needed?
+        self.topocentric = self._target.topocentric = "topo" in toframe
 
     # Not sure we ever actually want to do this.
     # The convention is a "display" parameter.
@@ -351,20 +363,24 @@ class Spectrum(Spectrum1D):
         target = make_target(meta)
         vc = veldef_to_convention(meta["VELDEF"])
         vf = astropy_frame_dict[decode_veldef(meta["VELDEF"])[1]]
-        obstime = Time(meta["DATE-OBS"])
-        if observer_location is None:
-            obsitrs = None
-        else:
-            if "DATE-OBS" in meta:
-                obsitrs = observer_location.get_itrs(location=observer_location, obstime=obstime)
-            elif "MJD-OBS" in meta:
-                obsitrs = observer_location.get_itrs(location=observer_location, obstime=obstime)
-            else:
-                warnings.warn(
-                    "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
-                    " frames"
-                )
+        # could be clever:
+        # obstime = Time(meta.get("DATE-OBS",meta.get("MJD-OBS",None)))
+        # if obstime is not None: blah blah
+        if "DATE-OBS" in meta:
+            obstime = Time(meta["DATE-OBS"])
+        elif "MJD-OBS" in meta:
+            obstime = Time(meta["MJD-OBS"])
+        if "DATE-OBS" in meta or "MJD-OBS" in meta:
+            if observer_location is None:
                 obsitrs = None
+            else:
+                obsitrs = SpectralCoord._validate_coordinate(observer_location.get_itrs(obstime=obstime))
+        else:
+            warnings.warn(
+                "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
+                " frames"
+            )
+            obsitrs = None
         s = cls(
             data,
             wcs=wcs,
@@ -375,17 +391,20 @@ class Spectrum(Spectrum1D):
             observer=obsitrs,
             target=target,
         )
+        print(f"SA observer is {s.spectral_axis.observer}")
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
         if observer_location is None:
             s.set_radial_velocity_to(target.radial_velocity)
-        print(f"target is {target},target is {target},  s.target is {s.target}")
-        print(f"target RV is {target.radial_velocity}")
-        print(f"class is {cls}")
-        print(f"spect RV is {s.radial_velocity}")
-        print(f"spect RF is {s.rest_value}")
-        print(f"VF is {vf}")
+        if False:
+            print(f"target is {target},target is {target},  s.target is {s.target}")
+            print(f"target RV is {target.radial_velocity}")
+            print(f"class is {cls}")
+            print(f"spect RV is {s.radial_velocity}")
+            print(f"spect RF is {s.rest_value}")
+            print(f"VF is {vf}")
+        # I THINK THIS IS NO LONGER NEEDED
         if shift_topo:  # and is_topo
             vshift = topocentric_velocity_to_frame(target, vf, observer=Observatory["GBT"], obstime=obstime)
             print(f"VSHIFT IS {vshift}")

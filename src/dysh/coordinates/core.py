@@ -36,13 +36,15 @@ astropy_frame_dict = {  # currently unused -- don't need?
     "-BAR": coord.ICRS,
     "BAR": coord.ICRS,
     "BARY": coord.ICRS,
+    "bary": coord.ICRS,
     "barycentric": coord.ICRS,
     "VHEL": coord.HCRS,
     "heliocentric": coord.HCRS,
+    "helio": coord.HCRS,
     "VGEO": coord.GCRS,
-    "GALAC": coord.Galactic,
-    "-GALA": coord.Galactic,
+    "-GAL": coord.Galactocentric,
     "topocentric": coord.ITRS,  # but need to add observatory position
+    "topo": coord.ITRS,  # but need to add observatory position
 }
 
 frame_dict = {
@@ -73,6 +75,22 @@ frame_dict = {
     "ALAC": "galactic",
 }
 
+reverse_frame_dict = {
+    "bary": "-BAR",
+    "barycentric": "-BAR",
+    "icrs": "-BAR",
+    "gcrs": "-GEO",  # ??
+    "geocentric": "-GEO",  # ??
+    "heliocentric": "-HEL",
+    "hcrs": "-HEL",
+    "helio": "-HEL",
+    "heli": "-HEL",
+    "lsr": "-LSR",
+    "lsrk": "-LSR",
+    "lsrd": "LSRD",
+    "topo": "-OBS",
+    "topocentric": "-OBS",
+}
 # Dictionary to convert from FITS velocity convention to specutils string.
 # At GBT, VELO was written by sdfits filler for some unknown amount of
 # time instead of RELA, so allow for it here
@@ -88,7 +106,11 @@ vconv_dict = {
 # regardless of what VELDEF says.
 # Kluge for GBT: pass in CTYPE1 which is always 'FREQ-OBS'
 def is_topocentric(veldef):
-    return decode_veldef(veldef)[1] == "topocentric"
+    if veldef[0:4] == "FREQ":  # workaround for GBT nonsense
+        nvd = "VELO" + veldef[4:]
+        return decode_veldef(nvd)[1] == "topocentric"
+    else:
+        return decode_veldef(veldef)[1] == "topocentric"
 
 
 def decode_veldef(veldef):
@@ -156,6 +178,9 @@ def sanitize_skycoord(target):
     # See https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
     if not isinstance(target, coord.SkyCoord):
         raise TypeError("Target must be instance of astropy.coordinates.SkyCoord")
+    if hasattr(target, "sanitized"):  # don't do it twice.
+        if target.sanitized:
+            return target
     try:
         # This will actually raise an exception
         # if radial velocity wasn't specified rather than
@@ -227,6 +252,7 @@ def sanitize_skycoord(target):
         warnings.warn(f"Can't sanitize {target}")
         return target
 
+    _target.sanitized = True
     return _target
 
 
@@ -235,6 +261,8 @@ def topocentric_velocity_to_frame(target, toframe, observer, obstime):
     """Compute the difference in topocentric velocity and the velocity in the input frame.
     Parameters
     ----------
+        target: `~astropy.coordinates.SkyCoord`
+            The sky coordinates of the object including proper motion and distance. Must be in ICRS
         target: `~astropy.coordinates.SkyCoord`
             The sky coordinates of the object including proper motion and distance. Must be in ICRS
 
@@ -351,6 +379,16 @@ def veltofreq(velocity, restfreq, veldef):
         # should never get here.
         raise ValueError(f"Unrecognized velocity convention: {vdef}")
     return frequency
+
+
+def change_ctype(ctype, toframe):
+    # when changing frame, we should also change CTYPE1. Pretty sure GBTIDL does not do this
+    prefix = ctype[0:4]
+    postfix = ctype[4:]
+    newpostfix = reverse_frame_dict[toframe]
+    newctype = prefix + newpostfix
+    # print(f"changing {ctype} to {newctype}")
+    return newctype
 
 
 def make_target(header):
