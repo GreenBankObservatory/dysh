@@ -999,7 +999,7 @@ class GBTFITSLoad(SDFITSLoad):
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
         df_out = []
         rows = []
-        scanidx = self.index[self.index["SCAN"].isin(scans)]
+        scanidx = self._index[self._index["SCAN"].isin(scans)]
         bt = self.udata("BINTABLE")
         for j in bt:
             df = scanidx[scanidx["BINTABLE"] == j]
@@ -1038,12 +1038,13 @@ class GBTFITSLoad(SDFITSLoad):
         """
         # get the rows that contain the scans in all bintables
         rows = self._scan_rows_all(scans)
-        # print("Using rows",rows)
-        hdu0 = self._hdu[0].copy()
+        # @TODO deal with multipl sdfs
+        # copy the PrimaryHDU, but not the BinTableHDU
+        hdu0 = self._sdf[0]._hdu[0].copy()
         outhdu = fits.HDUList(hdu0)
         # get the bintables rows as new bintables.
         for i in range(len(rows)):
-            ob = self._bintable_from_rows(rows[i], i)
+            ob = self._sdf[0]._bintable_from_rows(rows[i], i)
             # print(f"bintable {i} #rows {len(rows[i])} data length {len(ob.data)}")
             if len(ob.data) > 0:
                 outhdu.append(ob)
