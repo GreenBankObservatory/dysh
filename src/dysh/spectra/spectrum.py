@@ -391,23 +391,14 @@ class Spectrum(Spectrum1D):
             observer=obsitrs,
             target=target,
         )
-        print(f"SA observer is {s.spectral_axis.observer}")
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
         if observer_location is None:
             s.set_radial_velocity_to(target.radial_velocity)
-        if False:
-            print(f"target is {target},target is {target},  s.target is {s.target}")
-            print(f"target RV is {target.radial_velocity}")
-            print(f"class is {cls}")
-            print(f"spect RV is {s.radial_velocity}")
-            print(f"spect RF is {s.rest_value}")
-            print(f"VF is {vf}")
         # I THINK THIS IS NO LONGER NEEDED
         if shift_topo:  # and is_topo
             vshift = topocentric_velocity_to_frame(target, vf, observer=Observatory["GBT"], obstime=obstime)
-            print(f"VSHIFT IS {vshift}")
 
         return s
 

@@ -24,3 +24,15 @@ write_ascii,"onoff-L_gettp_156_intnum_0_LSD.ascii"
 setframe,"GAL"
 write_ascii,"onoff-L_gettp_156_intnum_0_GAL.ascii"
 ```
+
+A small SDFITS file capable of testing this in dysh can be generated with:
+```
+filein,'onoff-L/data/TGBT21A_501_11.raw.vegas/TGBT21A_501_11.raw.vegas.A.fits'
+fileout,"TGBT21A_501_11.raw.156.fits"
+freeze
+for i=43680,43686 do begin
+    getrec,i
+    keep
+endfor
+end
+```
