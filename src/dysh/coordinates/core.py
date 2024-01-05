@@ -79,6 +79,7 @@ reverse_frame_dict = {
     "bary": "-BAR",
     "barycentric": "-BAR",
     "icrs": "-BAR",
+    "galactocentric": "-GAL",
     "gcrs": "-GEO",  # ??
     "geocentric": "-GEO",  # ??
     "heliocentric": "-HEL",
