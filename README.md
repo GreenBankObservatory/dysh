@@ -1,6 +1,4 @@
 [![Documentation Status](https://readthedocs.org/projects/dysh/badge/?version=latest)](https://dysh.readthedocs.io/en/latest/?badge=latest)
-[![pre-commit.ci Status](https://results.pre-commit.ci/badge/github/GreenBankObservatory/dysh/main.svg)](https://results.pre-commit.ci/latest/github/GreenBankObservatory/dysh/main)
-[![CI Workflow Build Status](https://github.com/GreenBankObservatory/dysh/actions/workflows/ci.yml/badge.svg)](https://github.com/GreenBankObservatory/dysh/actions/workflows/ci.yml)
 
 # dysh
 

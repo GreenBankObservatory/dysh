@@ -1,8 +1,4 @@
-"""
-Plot a spectrum using matplotlib
-"""
-
-from copy import deepcopy
+"""Plot a spectrum using matplotlib"""
 
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -11,9 +7,9 @@ import numpy as np
 
 class SpectrumPlot:
     r"""
-    The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
-    using matplotlib functions. Plots attributes are modified using keywords
-    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    The SpectrumPlot class is for simple plotting of a ~spectrum.Spectrum
+    using matplotlib functions.   Plots attributes are modified using keywords
+    (**kwargs) described below SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
     The attributes are "sticky" meaning that an attribute set via
     instantiation or by the `plot()` method will stay set until changed
@@ -28,9 +24,9 @@ class SpectrumPlot:
 
     Other Parameters
     ----------------
-    xaxis_unit : str or `~astropy.unit.Unit`
+    xaxis_unit : str or ~astropy.unit.Unit
         The units to use on the x-axis, e.g. "km/s" to plot velocity
-    yaxis_unit : str or `~astropy.unit.Unit`
+    yaxis_unit : str or ~astropy.unit.Unit
         The units to use on the y-axis
     xmin : float
         Minimum x-axis value
@@ -100,43 +96,40 @@ class SpectrumPlot:
             keyword=value arguments (need to describe these in a central place)
         """
         # xtype = 'velocity, 'frequency', 'wavelength'
+        self._plot_kwargs.update(kwargs)
         # if self._figure is None:
-
-        # plot arguments for this call of plot(). i.e. non-sticky plot attributes
-        this_plot_kwargs = deepcopy(self._plot_kwargs)
-        this_plot_kwargs.update(kwargs)
-        if True:  # @todo deal with plot reuse (notebook vs script)
-            self._figure, self._axis = self._plt.subplots(figsize=this_plot_kwargs["figsize"])
+        if True:
+            self._figure, self._axis = self._plt.subplots(figsize=self._plot_kwargs["figsize"])
         # else:
         #    self._axis.cla()
 
         s = self._spectrum
         sa = s.spectral_axis
-        lw = this_plot_kwargs["linewidth"]
-        xunit = this_plot_kwargs["xaxis_unit"]
-        yunit = this_plot_kwargs["yaxis_unit"]
+        lw = self._plot_kwargs["linewidth"]
+        xunit = self._plot_kwargs["xaxis_unit"]
+        yunit = self._plot_kwargs["yaxis_unit"]
         if xunit is not None:
             if "chan" in xunit:
                 sa = np.arange(len(sa))
-                this_plot_kwargs["xlabel"] = "Channel"
+                self._plot_kwargs["xlabel"] = "Channel"
             else:
                 # convert the x axis to the requested
                 # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
-                # sa = s.spectral_axis.to( this_plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
-                sa = s.velocity.to(this_plot_kwargs["xaxis_unit"], equivalencies=s.equivalencies)
-                this_plot_kwargs["xlabel"] = f"Velocity ({xunit})"
+                # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
+                sa = s.velocity.to(self._plot_kwargs["xaxis_unit"], equivalencies=s.equivalencies)
+                self._plot_kwargs["xlabel"] = f"Velocity ({xunit})"
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
-        self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
-        self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
-        self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
+        self._axis.plot(sa, sf, color=self._plot_kwargs["color"], lw=lw)
+        self._axis.set_xlim(self._plot_kwargs["xmin"], self._plot_kwargs["xmax"])
+        self._axis.set_ylim(self._plot_kwargs["ymin"], self._plot_kwargs["ymax"])
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
-        if this_plot_kwargs["grid"]:
+        if self._plot_kwargs["grid"]:
             self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
             self._axis.grid(visible=True, which="minor", axis="both", lw=lw / 2, color="k", alpha=0.22, linestyle="--")
 
-        self._set_labels(**this_plot_kwargs)
+        self._set_labels(**self._plot_kwargs)
         # self._axis.axhline(y=0,color='red',lw=2)
         self.refresh()
 
