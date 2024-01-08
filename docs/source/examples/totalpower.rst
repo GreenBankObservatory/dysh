@@ -54,10 +54,6 @@ You can also print a concise (or verbose if you choose `verbose=True`) summary :
 
 Retrieve a scan, selecting and IF number and polarization
 
-.. note::
-    For each scan in the summary `dysh` shows the mean of the VELOCITY, RESTFREQ, DOPFREQ, AZIMUTH and ELEVATIO columns, while `GBTIDL` reports the value of the first integration for a scan. If you use `verbo
-    se=True` in `dysh` you get all the integrations.
-
 .. code:: python
 
     >>> tpscan = sdfits.gettp(152, ifnum=0, plnum=0)

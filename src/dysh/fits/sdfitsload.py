@@ -1,7 +1,6 @@
 """Load generic SDFITS files
     - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
 """
-
 import copy
 import sys
 
@@ -474,9 +473,8 @@ class SDFITSLoad(object):
         return self._bintable[bintable].data[i]
 
     def getspec(self, i, bintable=0):
-        """Get a row (record) as a Spectrum"""
-        df = self.index(bintable=bintable)
-        meta = df.iloc[i]
+        """get a row (record) as a Spectrum"""
+        meta = self._index[bintable].iloc[i]
         data = self.rawspectrum(i, bintable)
         naxis1 = len(data)
         ctype1 = meta["CTYPE1"]
