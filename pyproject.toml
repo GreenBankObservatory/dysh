@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
   "astropy",
   "ipython",
+  "jplephem",
   "matplotlib",
   "numpy",
   "pandas",
