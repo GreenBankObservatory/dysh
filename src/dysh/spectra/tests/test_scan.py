@@ -137,7 +137,9 @@ class TestSubBeamNod:
         # Generate the dysh result.
         # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sbn = sdf.subbeamnod(43, sig=None, cal=None, ifnum=0, fdnum=1, calibrate=True, weights="tsys", method="scan")
+        sbn = sdf.subbeamnod(
+            43, sig=None, cal=None, ifnum=0, fdnum=1, plnum=0, calibrate=True, weights="tsys", method="scan"
+        )
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
