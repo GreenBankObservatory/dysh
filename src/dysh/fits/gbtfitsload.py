@@ -794,7 +794,12 @@ class GBTFITSLoad(SDFITSLoad):
         if len(rx) > 1:
             raise TypeError("More than one receiver for the selected scan.")
         elif rx[0] == "Rcvr26_40":  # and df["DATE-OBS"][-1] < xxxx
-            # Switch the polarizations to match the beams.
+            # Switch the polarizations to match the beams
+            # for this receiver only because it has had its feeds
+            # mislabelled since $DATE.
+            # For the rest of the receivers the method should use
+            # the same polarization for the selected feeds.
+            # See also issue #160
             if fdnum == 0:
                 plnum = 1
             elif fdnum == 1:
