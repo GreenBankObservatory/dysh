@@ -772,6 +772,7 @@ class GBTFITSLoad(SDFITSLoad):
         kwargs_opts = {
             "ifnum": 0,
             "fdnum": 0,
+            "plnum": 1,
             "timeaverage": True,
             "weights": "tsys",  # or None or ndarray
             "calibrate": True,
