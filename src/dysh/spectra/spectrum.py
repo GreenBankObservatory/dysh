@@ -1,4 +1,5 @@
 import warnings
+from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
@@ -12,6 +13,7 @@ from astropy.wcs import WCS, FITSFixedWarning
 from specutils import Spectrum1D
 
 from ..coordinates import (
+    KMS,
     Observatory,
     astropy_frame_dict,
     change_ctype,
@@ -19,6 +21,7 @@ from ..coordinates import (
     get_velocity_in_frame,
     is_topocentric,
     make_target,
+    replace_convention,
     sanitize_skycoord,
     topocentric_velocity_to_frame,
     veldef_to_convention,
@@ -58,7 +61,9 @@ class Spectrum(Spectrum1D):
         else:
             self._obstime = None
         if "CTYPE1" in self.meta:
-            self._target.topocentric = is_topocentric(self.meta["CTYPE1"])
+            # may not need these attributes anymore.
+            if self._target is not None:
+                self._target.topocentric = is_topocentric(self.meta["CTYPE1"])
             self.topocentric = is_topocentric(self.meta["CTYPE1"])
 
         # if mask is not set via the flux input (NaNs in flux or flux.mask),
@@ -234,21 +239,29 @@ class Spectrum(Spectrum1D):
     def velocity_frame(self):
         return self._velocity_frame
 
-    @property
-    def velocity_convention(self):
-        return self._spectral_axis.doppler_convention
+    # This is already in specutils.OneDSpectrumMixin
+    # @property
+    # def velocity_convention(self):
+    #    return self._spectral_axis.doppler_convention
 
     @property
     def doppler_convention(self):
         return self.velocity_convention
 
-    def velocity_axis_to(self, unit=u.km / u.s, toframe=None, toconvention=None):
-        if toframe is not None:
-            self.shift_to_frame(toframe)
-        if toconvention is not None:
-            return self._spectral_axis.to(unit=unit, doppler_convention=toconvention)
-        else:
-            return self.velocity.to(unit)
+    def axis_velocity(self, unit=KMS):
+        """Get the spectral axis in velocity units.
+        *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
+        """
+        return self._spectral_axis.to(unit)
+
+    # not needed
+    # def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
+    #    if toframe is not None:
+    #        self.shift_to_frame(toframe)
+    #    if doppler_convention is not None:
+    #        return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
+    #    else:
+    #        return self.velocity.to(unit)
 
     def get_velocity_shift_to(self, toframe):
         if self._target is None:
@@ -266,11 +279,49 @@ class Spectrum(Spectrum1D):
         # Still needed?
         self.topocentric = self._target.topocentric = "topo" in toframe
 
-    # Not sure we ever actually want to do this.
-    # The convention is a "display" parameter.
-    def _change_convention(self, toconvention):
-        new_sp_axis = self.spectral_axis.replicate(doppler_convention=toconvention)
+    def _change_velocity_convention(self, doppler_convention):
+        """Change the velocity convention in place.  The spectral axis of this Spectrum will be replaced
+        with a new spectral axis with the input velocity convention.  The header 'VELDEF' value will
+        be changed accordingly.
+
+        To make a copy of this Spectrum with a new velocity convention instead, use `with_velocity_convention`.
+
+        Parameters
+        ----------
+        doppler_convention - str
+            The velocity convention, one of 'radio', 'optical', 'relativistic'
+
+        """
+        # replicate() gives the same asnwer as
+        # self._spectral_axis.to(unit=self._spectral_axis.unit, doppler_convention=doppler_convention)
+        new_sp_axis = self.spectral_axis.replicate(doppler_convention=doppler_convention)
         self._spectral_axis = new_sp_axis
+        self.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
+
+    def with_velocity_convention(self, doppler_convention):
+        """Returns a copy of this Spectrum with the input velocity convention.  The header 'VELDEF' value will
+        be changed accordingly.
+
+        Parameters
+        ----------
+        doppler_convention - str
+            The velocity convention, one of 'radio', 'optical', 'relativistic'
+
+        Returns
+        -------
+        spectrum : `~dysh.spectra.Spectrum`
+            A new Spectrum object
+        """
+        s = self.__class__(
+            flux=self.flux,
+            wcs=self.wcs,
+            meta=self.meta,
+            velocity_convention=doppler_convention,
+            target=self._target,
+            observer=self._observer,
+        )
+        s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
+        return s
 
     def savefig(self, file, **kwargs):
         """Save the plot"""
@@ -302,6 +353,33 @@ class Spectrum(Spectrum1D):
             t.add_column(self.uncertainty._array, name="uncertainty")
         # f=kwargs.pop("format")
         t.write(fileobj, format=format, **kwargs)
+
+    def _copy(self, **kwargs):
+        """
+        Perform deep copy operations on each attribute of the ``Spectrum``
+        object.
+        This overrides the ``specutils.Spectrum1D`` method so that
+        target and observer attributes get copied.
+        """
+        alt_kwargs = dict(
+            flux=deepcopy(self.flux),
+            spectral_axis=deepcopy(self.spectral_axis),
+            uncertainty=deepcopy(self.uncertainty),
+            wcs=deepcopy(self.wcs),
+            mask=deepcopy(self.mask),
+            meta=deepcopy(self.meta),
+            unit=deepcopy(self.unit),
+            velocity_convention=deepcopy(self.velocity_convention),
+            rest_value=deepcopy(self.rest_value),
+            target=deepcopy(self.target),
+            observer=deepcopy(self.observer),
+        )
+
+        alt_kwargs.update(kwargs)
+
+        s = self.__class__(**alt_kwargs)
+        s.topocentric = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
+        return s
 
     @classmethod
     def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, shift_topo=False):

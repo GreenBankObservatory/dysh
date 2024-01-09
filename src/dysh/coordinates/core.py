@@ -16,6 +16,7 @@ _PMZERO = 0.0 * u.mas / u.yr
 _PMZERORAD = 0.0 * u.rad / u.s
 _VELZERO = 0.0 * u.km / u.s
 _MPS = u.m / u.s
+KMS = u.km / u.s
 
 # Velocity frame conventions, partially stolen from pyspeckit.
 # See also Section6.2.5.2 of the GBT observer's guide https://www.gb.nrao.edu/scienceDocs/GBTog.pdf
@@ -95,12 +96,18 @@ reverse_frame_dict = {
 # Dictionary to convert from FITS velocity convention to specutils string.
 # At GBT, VELO was written by sdfits filler for some unknown amount of
 # time instead of RELA, so allow for it here
-vconv_dict = {
+velocity_convention_dict = {
     "OPTI": "optical",
     "RADI": "radio",
     "RELA": "relativistic",
     "VELO": "relativistic",
 }
+
+reverse_velocity_convention_dict = {"optical": "OPTI", "radio": "RADI", "relativistic": "VELO"}
+
+
+def replace_convention(veldef, doppler_convention):
+    return reverse_velocity_convention_dict[doppler_convention] + veldef[4:]
 
 
 # This gives the wrong answer for GBT which always writes data as topocentric
@@ -136,7 +143,7 @@ def decode_veldef(veldef):
         raise ValueError(f"VELDEF string {veldef} must be no more than 8 characters.")
     vconv = veldef[:4]
     try:
-        velocity_convention = vconv_dict[vconv]
+        velocity_convention = velocity_convention_dict[vconv]
     except KeyError:
         raise KeyError(f"Velocity convention {vconv} not recognized.")
 
