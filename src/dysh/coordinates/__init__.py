@@ -2,3 +2,4 @@
 
 __all__ = ["core"]
 from .core import *
+from .core import KMS
