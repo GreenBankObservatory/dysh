@@ -7,7 +7,7 @@ import pytest
 from dysh.fits import gbtfitsload
 
 
-class TestDoppler:
+class TestVelocityFrames:
     def read_ascii(self, filename):
         values = np.loadtxt(filename, skiprows=3, unpack=True)
         # print(np.shape(values))
