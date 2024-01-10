@@ -12,18 +12,16 @@ from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
 from specutils import Spectrum1D
 
-from ..coordinates import (
+from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
     Observatory,
     astropy_frame_dict,
     change_ctype,
     decode_veldef,
     get_velocity_in_frame,
-    is_topocentric,
     make_target,
     replace_convention,
     sanitize_skycoord,
-    topocentric_velocity_to_frame,
     veldef_to_convention,
 )
 from ..plot import specplot as sp
@@ -60,11 +58,11 @@ class Spectrum(Spectrum1D):
             self._obstime = Time(self.meta["DATE-OBS"])
         else:
             self._obstime = None
-        if "CTYPE1" in self.meta:
-            # may not need these attributes anymore.
-            if self._target is not None:
-                self._target.topocentric = is_topocentric(self.meta["CTYPE1"])
-            self.topocentric = is_topocentric(self.meta["CTYPE1"])
+        # if "CTYPE1" in self.meta:
+        #    # may not need these attributes anymore.
+        #    if self._target is not None:
+        #        self._target.topocentric = is_topocentric(self.meta["CTYPE1"])
+        #    self.topocentric = is_topocentric(self.meta["CTYPE1"])
 
         # if mask is not set via the flux input (NaNs in flux or flux.mask),
         # then set the mask to all False == good
@@ -257,7 +255,7 @@ class Spectrum(Spectrum1D):
     # not needed
     # def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
     #    if toframe is not None:
-    #        self.shift_to_frame(toframe)
+    #        self.set_frame(toframe)
     #    if doppler_convention is not None:
     #        return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
     #    else:
@@ -268,19 +266,46 @@ class Spectrum(Spectrum1D):
             raise Exception("Can't calculate velocity because Spectrum.target is None")
         return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
 
-    def shift_to_frame(self, toframe):
-        # v = self.get_velocity_shift_to(toframe)
-        # self._spectral_axis = self._spectral_axis.with_radial_velocity_shift(target_shift=v)
+    def set_frame(self, toframe):
+        # @TODO VELDEF should be changed as well?
+        """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
+
+        To make a copy of this Spectrum with new coordinate referece frmae instead, use `with_frame`.
+
+        Parameters
+        ----------
+        toframe - str
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
+        """
+
         actualframe = astropy_frame_dict.get(toframe, toframe)
         # print(f"actual frame is {actualframe}")
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
         self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
         # @todo shouldn't have two variables for the same thing.
         # Still needed?
-        self.topocentric = self._target.topocentric = "topo" in toframe
+        # self.topocentric = self._target.topocentric = "topo" in toframe
 
-    def _change_velocity_convention(self, doppler_convention):
-        """Change the velocity convention in place.  The spectral axis of this Spectrum will be replaced
+    def with_frame(self, toframe):
+        """Return a copy of this Spectrum with a new coordinate reference frame.
+
+        Parameters
+        ----------
+        toframe - str
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
+
+        Returns
+        -------
+        spectrum : `~dysh.spectra.Spectrum`
+            A new Spectrum object
+        """
+
+        s = deepcopy(self)
+        s.set_frame(toframe)
+        return s
+
+    def set_convention(self, doppler_convention):
+        """Set the velocity convention of this Spectrum.  The spectral axis of this Spectrum will be replaced
         with a new spectral axis with the input velocity convention.  The header 'VELDEF' value will
         be changed accordingly.
 
@@ -326,7 +351,7 @@ class Spectrum(Spectrum1D):
             )
             s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
         s = deepcopy(self)
-        s._change_velocity_convention(doppler_convention)
+        s.set_convention(doppler_convention)
         return s
 
     def savefig(self, file, **kwargs):
@@ -384,11 +409,12 @@ class Spectrum(Spectrum1D):
         alt_kwargs.update(kwargs)
 
         s = self.__class__(**alt_kwargs)
-        s.topocentric = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
+        # s.topocentric = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         return s
 
     @classmethod
-    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, shift_topo=False):
+    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None):
+        # , shift_topo=False):
         """Factory method to create a Spectrum object from a data and header.
 
         Parameters
@@ -443,7 +469,7 @@ class Spectrum(Spectrum1D):
             # reset warnings?
         else:
             wcs = None
-        is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
+        # is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         target = make_target(meta)
         vc = veldef_to_convention(meta["VELDEF"])
         vf = astropy_frame_dict[decode_veldef(meta["VELDEF"])[1]]
@@ -481,9 +507,9 @@ class Spectrum(Spectrum1D):
         if observer_location is None:
             s.set_radial_velocity_to(target.radial_velocity)
         # I THINK THIS IS NO LONGER NEEDED
-        if shift_topo:  # and is_topo
-            vshift = topocentric_velocity_to_frame(target, vf, observer=Observatory["GBT"], obstime=obstime)
-
+        # if shift_topo:  # and is_topo
+        #    vshift = topocentric_velocity_to_frame(target, vf, observer=Observatory["GBT"], obstime=obstime)
+        #
         return s
 
 

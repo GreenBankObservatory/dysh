@@ -32,7 +32,7 @@ class TestDopplerConvention:
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sp = sdf.getps(152)[0].calibrated(0)
-        sp.shift_to_frame("hcrs")  # data were tracked in heliocentric
+        sp.set_frame("hcrs")  # data were tracked in heliocentric. change in place.
 
         conventions = {"OPTI-HEL": "optical", "RADI-HEL": "radio", "TRUE-HEL": "relativistic"}
         maxdiff = 1.0
