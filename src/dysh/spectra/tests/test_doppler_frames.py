@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import astropy.units as u
 import numpy as np
 import pytest
@@ -7,6 +5,8 @@ import pytest
 from dysh.fits import gbtfitsload
 
 
+# @TODO consolidate methods with test_doppler_conventions,
+# possibly in util module
 class TestVelocityFrames:
     def read_ascii(self, filename):
         values = np.loadtxt(filename, skiprows=3, unpack=True)
@@ -17,8 +17,8 @@ class TestVelocityFrames:
 
     def compare_gbtidl(self, spectrum, filename, frame, maxdiff):
         freqGHz, flux = self.read_ascii(filename)
-        s = deepcopy(spectrum)
-        s.shift_to_frame(frame)
+        # use version of method that makes a copy, so it gets some test coverage.
+        s = spectrum.with_frame(frame)
         x = np.mean(freqGHz - s.spectral_axis)
         y = np.nanmean(flux - s.flux)
         # print(x, x.to("Hz"))
