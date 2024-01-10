@@ -1,4 +1,5 @@
 from copy import deepcopy
+from gzip import GzipFile
 
 import astropy.units as u
 import numpy as np
@@ -8,8 +9,12 @@ from dysh.fits import gbtfitsload
 
 
 class TestDopplerConvention:
-    def read_ascii(self, filename):
-        values = np.loadtxt(filename, skiprows=3, unpack=True)
+    def read_ascii(self, filename, unzip=True):
+        if unzip:
+            g = GzipFile(filename)
+        else:
+            g = filename
+        values = np.loadtxt(g, skiprows=3, unpack=True)
         velokms = values[:][0] * u.km / u.s
         flux = values[:][1] * u.ct
         return velokms, flux
@@ -32,5 +37,5 @@ class TestDopplerConvention:
         conventions = {"OPTI-HEL": "optical", "RADI-HEL": "radio", "TRUE-HEL": "relativistic"}
         maxdiff = 1.0
         for k, v in conventions.items():
-            gbtidl_file = f"{data_dir}/gbtidl_spectra/onoff-L_getps_152_{k}.ascii"
+            gbtidl_file = f"{data_dir}/gbtidl_spectra/onoff-L_getps_152_{k}.ascii.gz"
             self.compare_gbtidl(filename=gbtidl_file, spectrum=sp, doppler_convention=v, maxdiff=maxdiff)
