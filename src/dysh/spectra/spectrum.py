@@ -50,6 +50,8 @@ class Spectrum(Spectrum1D):
             self._velocity_frame = self._target.frame.name
         else:
             self._velocity_frame = None
+        # @TODO - have _observer_location attribute instead
+        # and observer property returns getITRS(observer_location,obstime)
         self._observer = kwargs.pop("observer", None)
         Spectrum1D.__init__(self, *args, **kwargs)
         self._spectral_axis._target = self._target
@@ -278,7 +280,10 @@ class Spectrum(Spectrum1D):
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
         """
 
-        actualframe = astropy_frame_dict.get(toframe, toframe)
+        if "topo" in toframe:
+            actualframe = self.observer  # ???
+        else:
+            actualframe = astropy_frame_dict.get(toframe, toframe)
         # print(f"actual frame is {actualframe}")
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
         self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
