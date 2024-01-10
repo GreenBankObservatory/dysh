@@ -224,7 +224,7 @@ class Spectrum(Spectrum1D):
         else:
             rfq = None
         if rfq is not None:
-            equiv.extend(get_spectral_equivalency(rfq, self._velocity_convention))
+            equiv.extend(get_spectral_equivalency(rfq, self.velocity_convention))
         return equiv
 
     @property
@@ -312,15 +312,21 @@ class Spectrum(Spectrum1D):
         spectrum : `~dysh.spectra.Spectrum`
             A new Spectrum object
         """
-        s = self.__class__(
-            flux=self.flux,
-            wcs=self.wcs,
-            meta=self.meta,
-            velocity_convention=doppler_convention,
-            target=self._target,
-            observer=self._observer,
-        )
-        s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
+        if False:
+            # this doesn't work.
+            # for some reason, the axis velocity
+            # still contains the difference between TOPO and observed frame
+            s = self.__class__(
+                flux=self.flux,
+                wcs=self.wcs,
+                meta=self.meta,
+                velocity_convention=doppler_convention,
+                target=self._target,
+                observer=self._spectral_axis.observer,
+            )
+            s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
+        s = deepcopy(self)
+        s._change_velocity_convention(doppler_convention)
         return s
 
     def savefig(self, file, **kwargs):
