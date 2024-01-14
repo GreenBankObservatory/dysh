@@ -5,7 +5,9 @@ All of the raw data used to generate these examples should be available in the [
 Here we provide the `GBTIDL` commands used to generate individual files.
 
 
-## OnOff L <a name="onoff"></a>
+## Velocity Frame Conversion<a name="vframe"></a>
+These data are to test dysh's capability of change the velocity reference frame in a spectrum.
+
 ``` IDL
 filein,"onoff-L/data/TGBT21A_501_11.raw.vegas/TGBT21A_501_11.raw.vegas.A.fits"
 gettp,156,intnum=0
@@ -35,4 +37,18 @@ for i=43680,43686 do begin
     keep
 endfor
 end
+```
+## Velocity Convention Conversion <a name="vconv"></a>
+These data are to test dysh's capability of changing velocity convention (aka doppler convention)
+Note 'TRUE' in GBTIDL  corresponds to 'relativistic' in dysh (astropy).
+```
+filein,"onoff-L/data/TGBT21A_501_11.raw.vegas/TGBT21A_501_11.raw.vegas.A.fits"
+getps,152
+setveldef('OPTICAL')
+write_ascii,'onoff-L_getps_152_OPTI-HEL.ascii'
+setveldef('RADIO')
+write_ascii,'onoff-L_getps_152_RADI-HEL.ascii' 
+setveldef('TRUE')
+write_ascii,'onoff-L_getps_152_TRUE-HEL.ascii'
+
 ```
