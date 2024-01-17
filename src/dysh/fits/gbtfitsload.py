@@ -7,18 +7,17 @@ import warnings
 from pathlib import Path
 
 import astropy.units as u
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.units import cds
-from astropy.wcs import WCS
 
-from ..spectra.core import tsys_weight
+from ..coordinates import Observatory, decode_veldef
 from ..spectra.scan import PSScan, ScanBlock, SubBeamNodScan, TPScan
-from ..spectra.spectrum import Spectrum
 from ..util import consecutive, uniq
 from .sdfitsload import SDFITSLoad
+
+# from astropy.units import cds
+
 
 # from GBT IDL users guide Table 6.7
 _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
@@ -50,6 +49,7 @@ class GBTFITSLoad(SDFITSLoad):
         path = Path(fileobj)
         self._sdf = []
         self._index = None
+        self.GBT = Observatory["GBT"]
         if path.is_file():
             self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
         elif path.is_dir():
@@ -64,7 +64,9 @@ class GBTFITSLoad(SDFITSLoad):
         if kwargs_opts["index"]:
             self._create_index_if_needed()
 
-        cds.enable()  # to get mmHg
+        # We cannot use this to get mmHg as it will disable all default astropy units!
+        # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
+        # cds.enable()  # to get mmHg
         self._compute_proc()
         if kwargs.get("verbose", None):
             print("==GBTLoad %s" % fileobj)
@@ -315,9 +317,39 @@ class GBTFITSLoad(SDFITSLoad):
         else:
             return compressed_df
 
-    def velocity_convention(self, veldef, velframe):
-        # GBT uses VELDEF and VELFRAME incorrectly.
-        return "doppler_radio"
+    def velocity_convention(self, veldef):
+        """Given the GBT VELDEF FITS string return the specutils
+        velocity convention, e.g., "doppler_radio"
+
+        Parameters
+        ----------
+            veldef : str
+                The FITS header VELDEF string
+
+        Returns
+        -------
+            convention : str
+                The velocity convention
+        """
+        (convention, frame) = decode_veldef(veldef)
+        return convention
+
+    def velocity_frame(self, veldef):
+        """Given the GBT VELDEF FITS string return the
+        velocity frame, e.g., "heliocentric".
+
+        Parameters
+        ----------
+            veldef : str
+                The FITS header VELDEF string
+
+        Returns
+        -------
+            frame: str
+                The velocity frame
+        """
+        (convention, frame) = decode_veldef(veldef)
+        return frame
 
     def select_scans(self, scans, df):
         return df[(df["SCAN"] >= scans[0]) & (df["SCAN"] <= scans[1])]
@@ -514,232 +546,6 @@ class GBTFITSLoad(SDFITSLoad):
             raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
-    # Inspired by Dave Frayer's snodka: /users/dfrayer/gbtidlpro/snodka
-    # TODO: Figure out when, if done, the fix to the Ka beam labelling took place.
-    # TODO: sig and ref parameters no longer needed? Fix description of calibrate keyword, or possibly eliminate it.
-    def _subbeamnod_old(self, scan, bintable=None, **kwargs):
-        """Get a subbeam nod power scan, optionally calibrating it.
-
-        Parameters
-        ----------
-        scan: int
-            scan number
-        method: str
-            Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
-        sig : bool
-            True to indicate if this is the signal scan, False if reference
-        cal: bool
-            True if calibration (diode) is on, False if off.
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans, None means use all bintables
-        calibrate: bool
-            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-        weights: str
-            'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
-
-        scan args - ifnum, fdnum, subref  (plnum depends on fdnum)
-
-        Returns
-        -------
-        data : `~spectra.spectrum.Spectrum`
-            A Spectrum object containing the data
-
-        """
-        kwargs_opts = {
-            "ifnum": 0,
-            "fdnum": 0,
-            "timeaverage": True,
-            "weights": "tsys",  # or None or ndarray
-            "calibrate": True,
-            "method": "cycle",
-            "debug": False,
-        }
-        kwargs_opts.update(kwargs)
-        ifnum = kwargs_opts["ifnum"]
-        fdnum = kwargs_opts["fdnum"]
-        docal = kwargs_opts["calibrate"]
-        w = kwargs_opts["weights"]
-        method = kwargs_opts["method"]
-
-        # Check if we are dealing with Ka data before the beam switch.
-        df = self.index(bintable=bintable)
-        df = df[df["SCAN"].isin([scan])]
-        rx = np.unique(df["FRONTEND"])
-        if len(rx) > 1:
-            raise TypeError("More than one receiver for the selected scan.")
-        elif rx[0] == "Rcvr26_40":  # and df["DATE-OBS"][-1] < xxxx
-            # Switch the polarizations to match the beams.
-            if fdnum == 0:
-                plnum = 1
-            elif fdnum == 1:
-                plnum = 0
-
-        scanblock = ScanBlock()
-        if method == "cycle":
-            # Calibrate each cycle individually and then
-            # average the calibrated data.
-
-            for sdfi in range(len(self._sdf)):
-                # Row selection.
-                df = self._sdf[sdfi].index(bintable=bintable)
-                df = df[df["SCAN"].isin([scan])]
-                df = df[df["IFNUM"].isin([ifnum])]
-                df = df[df["FDNUM"].isin([fdnum])]
-                df = df[df["PLNUM"].isin([plnum])]
-                df_on = df[df["CAL"] == "T"]
-                df_off = df[df["CAL"] == "F"]
-                df_on_sig = df_on[df_on["SUBREF_STATE"] == -1]
-                df_on_ref = df_on[df_on["SUBREF_STATE"] == 1]
-                df_off_sig = df_off[df_off["SUBREF_STATE"] == -1]
-                df_off_ref = df_off[df_off["SUBREF_STATE"] == 1]
-                sig_on_rows = df_on_sig.index.to_numpy()
-                ref_on_rows = df_on_ref.index.to_numpy()
-                sig_off_rows = df_off_sig.index.to_numpy()
-                ref_off_rows = df_off_ref.index.to_numpy()
-
-                # Define how large of a gap between rows we will tolerate to consider
-                # a row as part of a cycle.
-                # Thinking about it, we should use the SUBREF_STATE=0 as delimiter rather
-                # than this.
-                stepsize = len(self.udata("IFNUM", 0)) * len(self.udata("PLNUM", 0)) * 2 + 1
-
-                ref_on_groups = consecutive(ref_on_rows, stepsize=stepsize)
-                sig_on_groups = consecutive(sig_on_rows, stepsize=stepsize)
-                ref_off_groups = consecutive(ref_off_rows, stepsize=stepsize)
-                sig_off_groups = consecutive(sig_off_rows, stepsize=stepsize)
-
-                # Make sure we have enough signal and reference pairs.
-                # Same number of cycles or less signal cycles.
-                if len(sig_on_groups) <= len(ref_on_groups):
-                    pairs = {i: i for i in range(len(sig_on_groups))}
-                # One more signal cycle. Re-use one reference cycle.
-                elif len(sig_on_groups) - 1 == len(ref_on_groups):
-                    pairs = {i: i for i in range(len(sig_on_groups))}
-                    pairs[len(sig_on_groups) - 1] = len(ref_on_groups) - 1
-                else:
-                    e = f"""There are {len(sig_on_groups)} and {len(ref_on_groups)} signal and reference cycles.
-                            Try using method='scan'."""
-                    raise ValueError(e)
-
-                # Define the calibrated data array, and
-                # variables to store weights and exposure times.
-                # @TODO: using TDIM7 is fragile if the headers ever change.
-                #  nchan should be gotten from data length
-                # e.g. len(self._hdu[1].data[:]["DATA"][row])
-                # where row is a row number associated with this scan number
-                df = self._sdf[sdfi].index(bintable=bintable)
-                nchan = int(df["TDIM7"][0][1:-1].split(",")[0])
-                ta = np.empty((len(sig_on_groups)), dtype=object)
-                ta_avg = np.zeros(nchan, dtype="d")
-                wt_avg = 0.0  # A single value for now, but it should be an array once we implement vector TSYS.
-                tsys_wt = 0.0
-                tsys_avg = 0.0
-                exposure = 0.0
-
-                # print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
-                # Loop over cycles, calibrating each independently.
-                groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
-
-                for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):
-                    # Do it the dysh way.
-                    calrows = {"ON": rgon, "OFF": rgoff}
-                    tprows = np.sort(np.hstack((rgon, rgoff)))
-                    reftp = TPScan(
-                        self._sdf[sdfi], scan, "BOTH", "BOTH", tprows, calrows, bintable, kwargs_opts["calibrate"]
-                    )
-                    ref_avg = reftp.timeaverage(weights=w)
-                    calrows = {"ON": sgon, "OFF": sgoff}
-                    tprows = np.sort(np.hstack((sgon, sgoff)))
-                    sigtp = TPScan(
-                        self._sdf[sdfi], scan, "BOTH", "BOTH", tprows, calrows, bintable, kwargs_opts["calibrate"]
-                    )
-                    sig_avg = sigtp.timeaverage(weights=w)
-                    # Combine sig and ref.
-                    ta[i] = copy.deepcopy(sig_avg)
-                    ta[i] = ta[i].new_flux_unit("K", suppress_conversion=True)
-                    ta[i]._data = ((sig_avg - ref_avg) / ref_avg).flux.value * ref_avg.meta["WTTSYS"] * u.K
-                    # TUNIT7 is fragile as locations of specific header data could change in the future.
-                    ta[i].meta["TUNIT7"] = "Ta"
-                    ta[i].meta["TSYS"] = ref_avg.meta["WTTSYS"]
-
-                    # Add to the average, a-la accum.
-                    # @TODO possibly replace with a call to util.sq_weighted_avg
-                    wt_avg += ta[i].meta["TSYS"] ** -2.0
-                    ta_avg[:] += ta[i].flux.value * ta[i].meta["TSYS"] ** -2.0
-                    tsys_wt_ = tsys_weight(ta[i].meta["EXPOSURE"], ta[i].meta["CDELT1"], ta[i].meta["TSYS"])
-                    tsys_wt += tsys_wt_
-                    tsys_avg += ta[i].meta["TSYS"] * tsys_wt_
-                    exposure += ta[i].meta["EXPOSURE"]
-
-                # Divide by the sum of the weights.
-                ta_avg /= wt_avg
-                tsys_avg /= tsys_wt
-
-                # Set up a Spectrum1D object to return.
-                data = copy.deepcopy(ta[-1])
-                data._data = ta_avg
-                data.meta["TSYS"] = tsys_avg
-                data.meta["EXPOSURE"] = exposure
-
-                return data
-
-        elif method == "scan":
-            # Process the whole scan as a single block.
-            # This is less accurate, but might be needed if
-            # the scan was aborted and there are not enough
-            # sig/ref cycles to do a per cycle calibration.
-
-            tpon = self.gettp(
-                scan,
-                sig=None,
-                cal=None,
-                bintable=bintable,
-                fdnum=fdnum,
-                plnum=plnum,
-                ifnum=ifnum,
-                subref=-1,
-                weight=w,
-                calibrate=docal,
-            )
-            tpoff = self.gettp(
-                scan,
-                sig=None,
-                cal=None,
-                bintable=bintable,
-                fdnum=fdnum,
-                plnum=plnum,
-                ifnum=ifnum,
-                subref=1,
-                weight=w,
-                calibrate=docal,
-            )
-
-            on = tpon.timeaverage(weights=w)
-            off = tpoff.timeaverage(weights=w)
-
-            # in order to reproduce gbtidl tsys, we need to do a normal
-            # total power scan
-            fulltp = self.gettp(
-                scan,
-                sig=None,
-                cal=None,
-                bintable=bintable,
-                fdnum=fdnum,
-                plnum=plnum,
-                ifnum=ifnum,
-                weight=w,
-                calibrate=docal,
-            ).timeaverage(weights=w)
-            tsys = fulltp.meta["TSYS"]
-            data = tsys * (on - off) / off
-            data.meta["MEANTSYS"] = 0.5 * np.mean((on.meta["TSYS"] + off.meta["TSYS"]))
-            data.meta["WTTSYS"] = tsys
-            data.meta["TSYS"] = data.meta["WTTSYS"]
-            # if kwargs_opts['debug']:
-            #    data._on = tpon
-            #    data._off = tpoff
-            return data
-
     def subbeamnod(self, scan, bintable=None, **kwargs):
         # TODO fix sig/cal -- no longer needed?
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -765,8 +571,8 @@ class GBTFITSLoad(SDFITSLoad):
 
         Returns
         -------
-        data : `~spectra.spectrum.Spectrum`
-            A Spectrum object containing the data
+        data : `~spectra.scan.ScanBlock`
+            A ScanBlock object containing the data
 
         """
         kwargs_opts = {
@@ -1199,7 +1005,7 @@ class GBTFITSLoad(SDFITSLoad):
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
         df_out = []
         rows = []
-        scanidx = self.index[self.index["SCAN"].isin(scans)]
+        scanidx = self._index[self._index["SCAN"].isin(scans)]
         bt = self.udata("BINTABLE")
         for j in bt:
             df = scanidx[scanidx["BINTABLE"] == j]
@@ -1238,12 +1044,13 @@ class GBTFITSLoad(SDFITSLoad):
         """
         # get the rows that contain the scans in all bintables
         rows = self._scan_rows_all(scans)
-        # print("Using rows",rows)
-        hdu0 = self._hdu[0].copy()
+        # @TODO deal with multipl sdfs
+        # copy the PrimaryHDU, but not the BinTableHDU
+        hdu0 = self._sdf[0]._hdu[0].copy()
         outhdu = fits.HDUList(hdu0)
         # get the bintables rows as new bintables.
         for i in range(len(rows)):
-            ob = self._bintable_from_rows(rows[i], i)
+            ob = self._sdf[0]._bintable_from_rows(rows[i], i)
             # print(f"bintable {i} #rows {len(rows[i])} data length {len(ob.data)}")
             if len(ob.data) > 0:
                 outhdu.append(ob)
