@@ -1,7 +1,7 @@
 ##Steps for publishing a new dysh release
 
 0. Prerequisites
-    *  A release branch *release-M.m.p* ( **M**ajor, **m**inor, **p**atch) should have been created a few weeks before the release date.
+    *  A release branch *release-M.m.p* (**M**\ajor, **m**\inor, **p**\atch) should have been created a few weeks before the release date.
     * This branch is to be used for betas and other pre-releases, with versioning managed as described below.
 1. Housekeeping
 
