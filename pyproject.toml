@@ -24,30 +24,34 @@ classifiers = [
 ]
 dependencies = [
   "astropy",
+  "ipython",
+  "jplephem",
   "matplotlib",
   "numpy",
   "pandas",
   "scipy",
   "specutils",
-  "sphinx",
-  "myst-parser",
-  "sphinx-inline-tabs",
-  "ipython",
-  "wget"
+  "wget",
  ]
 
 [project.optional-dependencies]
 dev = [
+  "coverage[toml]",
   "ipdb",
+  "numpydoc",
   "pytest",
   "pytest-cov",
-  "myst-parser",
   "sphinx",
   "sphinx-autobuild",
+  "sphinx-inline-tabs",
   "sphinx-rtd-theme",
   "sphinxcontrib-mermaid",
-  "numpydoc"
 ]
+nb = [
+  "jupyter",
+  "jupyterlab",
+]
+all = ["dysh[dev,nb]"]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
@@ -79,7 +83,7 @@ docs-build = "sphinx-build {root}/docs/source {root}/docs/build -b html {args}"
 # run via: $ hatch run test:<script>
 [tool.hatch.envs.test.scripts]
 matrix = "pytest {args}"
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/dysh --cov=tests {args}"
+cov = "pytest --cov-report=xml --cov-config=pyproject.toml --cov=src/dysh --cov=tests {args}"
 
 # Run tests across all supported version of Python
 [[tool.hatch.envs.test.matrix]]
@@ -103,10 +107,16 @@ exclude = [
 packages = ["src/dysh"]
 
 [tool.coverage.run]
+
 branch = true
+source = [
+  "src/"
+]
 parallel = true
 omit = [
   "src/dysh/__about__.py",
+  "*/tests/*",
+  "test_*.py"
 ]
 
 [tool.coverage.report]
@@ -152,6 +162,7 @@ ignore = [
   "E741",  # ambiguous-variable-name
 ]
 line-length = 120
+src = ["src", "benchmark", "notebooks"]
 
 [tool.ruff.per-file-ignores]
 # Ignore  in all `__init__.py` files
@@ -166,6 +177,15 @@ testpaths = ["tests", "src", "docs"]
 filterwarnings = [
     "ignore::DeprecationWarning"
 ]
+
+[tool.pip-tools]
+src_files = ["pyproject.toml"]
+extra = ["nb", "dev"]
+resolver = "backtracking"
+output_file= "requirements.txt"
+no_strip_extras = true
+quiet = true
+no_emit_trusted_host = true
 
 [build-system]
 requires = ["hatchling"]

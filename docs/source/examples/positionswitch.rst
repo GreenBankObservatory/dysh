@@ -146,6 +146,9 @@ You can also print a concise (or verbose if you choose `verbose=True`) summary :
 
 Retrieve a scan and its partner ON or OFF, selecting an IF number and polarization, then calibrate it
 
+.. note::
+    For each scan in the summary `dysh` shows the mean of the VELOCITY, RESTFREQ, DOPFREQ, AZIMUTH and ELEVATIO columns, while `GBTIDL` reports the value of the first integration for a scan. If you use `verbose=True` in `dysh` you get all the integrations.
+
 .. code:: python
 
     >>> psscan = sdfits.getps(152, ifnum=0, plnum=0)

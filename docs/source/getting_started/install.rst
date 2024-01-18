@@ -21,6 +21,9 @@ Index <https://pypi.org/project/dysh>`_.
 
     $ pip install dysh
 
+.. warning::
+    `dysh` is currently in development and the above command will install the latest stable version of `dysh` which might not reflect the contents of the documentation. For beta testing please see :ref:`beta-install`.
+
 From github
 ===========
 

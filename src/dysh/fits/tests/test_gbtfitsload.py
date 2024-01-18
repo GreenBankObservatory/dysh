@@ -39,6 +39,7 @@ class TestGBTFITSLoad:
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits": 152,
             "TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits": 302,
             "getps_154_ifnum_0_plnum_0_intnum_0.fits": 1,
+            "TGBT21A_501_11.raw.156.fits": 7,
         }
 
         for fnm in self._file_list:
@@ -47,6 +48,15 @@ class TestGBTFITSLoad:
             filename = os.path.basename(fnm)
             sdf = gbtfitsload.GBTFITSLoad(fnm)
             assert len(sdf.index(bintable=0)) == expected[filename]
+
+    def test_getspec(self):
+        """
+        Test that a GBTFITSLoad object can use the `getspec` function.
+        """
+
+        sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        spec = sdf.getspec(0)
 
     def test_getps_single_int(self):
         """
