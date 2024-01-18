@@ -40,6 +40,7 @@ Here are examples of feedback on GitHub
 * reporting an issue, `Issue #88 <https://github.com/GreenBankObservatory/dysh/issues/88>`_
 * requesting a modification, `Issue #78 <https://github.com/GreenBankObservatory/dysh/issues/78>`_
 
+.. _beta-install
 
 Installing `dysh`
 =================

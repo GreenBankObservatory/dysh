@@ -1,10 +1,12 @@
 """
-Core utility classes and functions
+Core utility definitions, classes, and functions
 """
 
 from pathlib import Path
 
+import astropy.units as u
 import numpy as np
+from astropy.coordinates import EarthLocation, SkyCoord
 
 
 def consecutive(data, stepsize=1):

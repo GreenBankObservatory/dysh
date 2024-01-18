@@ -1,5 +1,8 @@
 ##Steps for publishing a new dysh release
 
+0. Prerequisites
+    *  A release branch *release-M.m.p* ( **M**ajor, **m**inor, **p**atch) should have been created a few weeks before the release date.
+    * This branch is to be used for betas and other pre-releases, with versioning managed as described below.
 1. Housekeeping
 
      * Switch to the release branch in your sandbox
@@ -22,4 +25,4 @@
          - If you want another pair of eyeballs, click *Save Draft*, otherwise click *Publish Release*.
          - The CI should create the release and upload it to pypi.org.
 
-* Monitor the `CI <https://github.com/GreenBankObservatory/dysh/actions>`_, `pypi.org <https://pypi.org/manage/project/dysh/releases/>`_, and `readthedocs.org <https://readthedocs.org/projects/dysh/>`_ for progress/problems.
+3. Monitor the `CI <https://github.com/GreenBankObservatory/dysh/actions>`_, `pypi.org <https://pypi.org/manage/project/dysh/releases/>`_, and `readthedocs.org <https://readthedocs.org/projects/dysh/>`_ for progress/problems.
