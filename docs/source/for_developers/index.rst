@@ -12,5 +12,6 @@ Here's some info that developers might find useful
    doc_standards
    github_integrations
    git_workflows
+   creating_a_release
    black
    terminal_messages
