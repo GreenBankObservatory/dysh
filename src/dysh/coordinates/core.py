@@ -48,6 +48,16 @@ astropy_frame_dict = {  # currently unused -- don't need?
     "topo": coord.ITRS,  # but need to add observatory position
 }
 
+yafd = {
+    "itrs": "Topocentric",
+    "hcrs": "Heliocentric",
+    "gcrs": "Geocentric",
+    "icrs": "Barycentric",
+    "fk5": "Barycentric",
+    "lsrk": "LSRK",
+    "lsrd": "LSRD",
+    "galactocentric": "Galactocentric",
+}
 frame_dict = {
     "VLSR": "LSRK",
     "VRAD": "LSRK",

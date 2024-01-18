@@ -8,6 +8,8 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 
+_KMS = u.km / u.s
+
 
 class SpectrumPlot:
     r"""
@@ -62,7 +64,7 @@ class SpectrumPlot:
         show the baseline - not yet implemented
     vel_frame : str
         The velocity frame (see VELDEF FITS Keyword)
-    vel_convention: str
+    doppler_convention: str
         The velocity convention (see VELDEF FITS Keyword)
     """
 
@@ -71,7 +73,7 @@ class SpectrumPlot:
     def __init__(self, spectrum, **kwargs):
         self.reset()
         self._spectrum = spectrum
-        self._plot_kwargs["vel_convention"] = spectrum.velocity_convention
+        self._plot_kwargs["doppler_convention"] = spectrum.doppler_convention
         self._plot_kwargs["vel_frame"] = spectrum.velocity_frame
         self._plot_kwargs.update(kwargs)
         self._plt = plt
@@ -129,8 +131,11 @@ class SpectrumPlot:
                 # convert the x axis to the requested
                 # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
                 # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
-                sa = s.velocity_axis_to(self.this_plot_kwargs["xaxis_unit"])
-                self._plot_kwargs["xlabel"] = f"Velocity ({xunit})"
+                sa = s.velocity_axis_to(
+                    unit=this_plot_kwargs["xaxis_unit"],
+                    toframe=this_plot_kwargs["vel_frame"],
+                    doppler_convention=this_plot_kwargs["doppler_convention"],
+                )
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
@@ -175,6 +180,26 @@ class SpectrumPlot:
             "test": False,
         }
 
+    def _compose_xlabel(self, **kwargs):
+        xlabel = kwargs.get("xlabel", None)
+        if xlabel:
+            return xlabel
+        if kwargs.get("xaxis_unit", None) is not None:
+            xunit = u.Unit(kwargs["xaxis_unit"])
+        else:
+            xunit = self.spectrum.spectral_axis.unit
+        if xunit.is_equivalent(u.Hz):
+            xname = "Frequency"
+        elif xunit.is_equivalent(_KMS):
+            xname = "Velocity"
+        elif xunit.is_equivalent(u.angstrom):
+            xname = "Wavelength"
+        # Channel is handled in plot() with kwargs['xlabel']
+        else:
+            raise ValueError(f"Unrecognized spectral axis unit: {xunit}")
+        xlabel = f"{kwargs['vel_frame']} {xname} ({xunit})"
+        return xlabel
+
     def _set_labels(self, title=None, xlabel=None, ylabel=None, **kwargs):
         r"""Set x and y labels according to spectral units
 
@@ -191,36 +216,36 @@ class SpectrumPlot:
         """
         if title is not None:
             self._title = title
-        if hasattr(self.spectrum.wcs, "wcs"):
-            ctype = self.spectrum.wcs.wcs.ctype
-        elif self.spectrum.meta is not None:
-            ctype = []
-            ctype.append(self.spectrum.meta.get("CTYPE1", None))
-            ctype.append(self.spectrum.meta.get("CTYPE2", None))
-            ctype.append(self.spectrum.meta.get("CTYPE3", None))
+        # if hasattr(self.spectrum.wcs, "wcs"):
+        #    ctype = self.spectrum.wcs.wcs.ctype
+        # elif self.spectrum.meta is not None:
+        #    ctype = []
+        #    ctype.append(self.spectrum.meta.get("CTYPE1", None))
+        #    ctype.append(self.spectrum.meta.get("CTYPE2", None))
+        #    ctype.append(self.spectrum.meta.get("CTYPE3", None))
         # print('ctype is ',ctype)
-        if kwargs.get("xaxis_unit", None) is not None:
-            xunit = kwargs["xaxis_unit"]
-        else:
-            xunit = self.spectrum.spectral_axis.unit
+        # if kwargs.get("xaxis_unit", None) is not None:
+        #    xunit = kwargs["xaxis_unit"]
+        # else:
+        #    xunit = self.spectrum.spectral_axis.unit
         if kwargs.get("yaxis_unit", None) is not None:
             yunit = u.Unit(kwargs["yaxis_unit"])
         else:
             yunit = self.spectrum.unit
-        if xlabel is not None:
-            self.axis.set_xlabel(xlabel)
-        elif ctype[0] in ["FREQ"]:
-            xlabel = f"Frequency ({xunit})"
-            self.axis.set_xlabel(xlabel)
-        elif ctype[0] in ["VELO", "VRAD", "VOPT"]:
-            xlabel = f"Velocity ({xunit})"
-            self.axis.set_xlabel(xlabel)
-        elif ctype[0] in ["WAVE", "AWAV"]:
-            xlabel = f"Wavelength({xunit})"
-            self.axis.set_xlabel(xlabel)
-        elif xunit is not None:
-            xlabel = xunit
-            self.axis.set_xlabel(xlabel)
+        # if xlabel is not None:
+        self.axis.set_xlabel(self._compose_xlabel(**kwargs))
+        # elif ctype[0] in ["FREQ"]:
+        #    xlabel = f"{frame} Frequency ({xunit})"
+        #    self.axis.set_xlabel(xlabel)
+        # elif ctype[0] in ["VELO", "VRAD", "VOPT"]:
+        #    xlabel = f"{frame} Velocity ({xunit})"
+        #    self.axis.set_xlabel(xlabel)
+        # elif ctype[0] in ["WAVE", "AWAV"]:
+        #    xlabel = f"{frame} Wavelength({xunit})"
+        #    self.axis.set_xlabel(xlabel)
+        # elif xunit is not None:
+        #    xlabel = xunit
+        #    self.axis.set_xlabel(xlabel)
         # print(f"ylabel {ylabel} yunit {yunit} sunit {self.spectrum.unit}")
         if ylabel is not None:
             self.axis.set_ylabel(ylabel)

@@ -23,6 +23,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     replace_convention,
     sanitize_skycoord,
     veldef_to_convention,
+    yafd,
 )
 from ..plot import specplot as sp
 from . import baseline, get_spectral_equivalency
@@ -47,8 +48,9 @@ class Spectrum(Spectrum1D):
             # print(f"self._target is {self._target}")
             self._target = sanitize_skycoord(self._target)
             self._target.sanitized = True
-            self._velocity_frame = self._target.frame.name
+            self._velocity_frame = yafd[self._target.frame.name]
         else:
+            self._target.sanitized = False
             self._velocity_frame = None
         # @TODO - have _observer_location attribute instead
         # and observer property returns getITRS(observer_location,obstime)
@@ -56,6 +58,8 @@ class Spectrum(Spectrum1D):
         Spectrum1D.__init__(self, *args, **kwargs)
         self._spectral_axis._target = self._target
         self._spectral_axis._observer = self._observer
+        if self._observer is not None:
+            self._velocity_frame = yafd[self._observer.name]
         if "DATE-OBS" in self.meta:
             self._obstime = Time(self.meta["DATE-OBS"])
         else:
@@ -239,11 +243,6 @@ class Spectrum(Spectrum1D):
     def velocity_frame(self):
         return self._velocity_frame
 
-    # This is already in specutils.OneDSpectrumMixin
-    # @property
-    # def velocity_convention(self):
-    #    return self._spectral_axis.doppler_convention
-
     @property
     def doppler_convention(self):
         return self.velocity_convention
@@ -254,14 +253,13 @@ class Spectrum(Spectrum1D):
         """
         return self._spectral_axis.to(unit)
 
-    # not needed
-    # def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
-    #    if toframe is not None:
-    #        self.set_frame(toframe)
-    #    if doppler_convention is not None:
-    #        return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
-    #    else:
-    #        return self.velocity.to(unit)
+    def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
+        if toframe is not None and toframe != self.velocity_frame:
+            self.set_frame(toframe)
+        if doppler_convention is not None:
+            return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
+        else:
+            return self.velocity.to(unit)
 
     def get_velocity_shift_to(self, toframe):
         if self._target is None:
