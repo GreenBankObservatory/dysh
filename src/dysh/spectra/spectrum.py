@@ -18,12 +18,12 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     astropy_frame_dict,
     change_ctype,
     decode_veldef,
+    frame_to_label,
     get_velocity_in_frame,
     make_target,
     replace_convention,
     sanitize_skycoord,
     veldef_to_convention,
-    yafd,
 )
 from ..plot import specplot as sp
 from . import baseline, get_spectral_equivalency
@@ -48,7 +48,7 @@ class Spectrum(Spectrum1D):
             # print(f"self._target is {self._target}")
             self._target = sanitize_skycoord(self._target)
             self._target.sanitized = True
-            self._velocity_frame = yafd[self._target.frame.name]
+            self._velocity_frame = self._target.frame.name
         else:
             self._target.sanitized = False
             self._velocity_frame = None
@@ -59,7 +59,7 @@ class Spectrum(Spectrum1D):
         self._spectral_axis._target = self._target
         self._spectral_axis._observer = self._observer
         if self._observer is not None:
-            self._velocity_frame = yafd[self._observer.name]
+            self._velocity_frame = self._observer.name
         if "DATE-OBS" in self.meta:
             self._obstime = Time(self.meta["DATE-OBS"])
         else:
@@ -237,29 +237,63 @@ class Spectrum(Spectrum1D):
 
     @property
     def observer(self):
+        """
+        Returns
+        -------
+            observer : `~astropy.coordinates.BaseCoordinateFrame` or derivative
+            The coordinate frame of the observer if present.
+        """
         return self._observer
 
     @property
     def velocity_frame(self):
+        """String representation of the velocity frame"""
         return self._velocity_frame
 
     @property
     def doppler_convention(self):
+        """String representation of the velocity (Doppler) convention"""
         return self.velocity_convention
 
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
         *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
+
+        Parameters
+        ----------
+        unit : `~astropy.units.Quantity` or str that can be converted to Quantity
+                The unit to which the axis is to be converted
+        Returns
+        -------
+        velocity : `~astropy.units.Quantity`
+                The converted spectral axis velocity
         """
         return self._spectral_axis.to(unit)
 
     def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
+        """
+        Parameters
+        ----------
+        unit : `~astropy.units.Quantity` or str that can be converted to Quantity
+            The unit to which the axis is to be converted
+
+        toframe : str
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'
+
+        doppler_convention : str
+            The Doppler velocity covention to use, one of 'optical', 'radio', or 'rest'
+
+        Returns
+        -------
+        velocity : `~astropy.units.Quantity`
+            The converted spectral axis velocity
+        """
         if toframe is not None and toframe != self.velocity_frame:
             self.set_frame(toframe)
         if doppler_convention is not None:
             return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
         else:
-            return self.velocity.to(unit)
+            return self.axis_velocity(unit)
 
     def get_velocity_shift_to(self, toframe):
         if self._target is None:
@@ -277,17 +311,14 @@ class Spectrum(Spectrum1D):
         toframe - str
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
         """
-
         if "topo" in toframe:
-            actualframe = self.observer  # ???
+            actualframe = self.observer
         else:
             actualframe = astropy_frame_dict.get(toframe, toframe)
-        # print(f"actual frame is {actualframe}")
+        # print(f"actual frame is {actualframe} {type(actualframe)}")
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
         self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
-        # @todo shouldn't have two variables for the same thing.
-        # Still needed?
-        # self.topocentric = self._target.topocentric = "topo" in toframe
+        self._velocity_frame = actualframe.name
 
     def with_frame(self, toframe):
         """Return a copy of this Spectrum with a new coordinate reference frame.
@@ -303,7 +334,7 @@ class Spectrum(Spectrum1D):
             A new Spectrum object
         """
 
-        s = deepcopy(self)
+        s = self._copy()
         s.set_frame(toframe)
         return s
 
@@ -353,7 +384,7 @@ class Spectrum(Spectrum1D):
                 observer=self._spectral_axis.observer,
             )
             s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
-        s = deepcopy(self)
+        s = self._copy(velocity_convention=doppler_convention)
         s.set_convention(doppler_convention)
         return s
 
