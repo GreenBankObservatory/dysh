@@ -8,6 +8,8 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 
+from ..coordinates import frame_to_label
+
 _KMS = u.km / u.s
 
 
@@ -136,6 +138,7 @@ class SpectrumPlot:
                     toframe=this_plot_kwargs["vel_frame"],
                     doppler_convention=this_plot_kwargs["doppler_convention"],
                 )
+                print("new spectral axis is ", sa)
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
@@ -181,23 +184,32 @@ class SpectrumPlot:
         }
 
     def _compose_xlabel(self, **kwargs):
+        """Create a sensible spectral axis label given units, velframe, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
         if xlabel:
             return xlabel
+        if kwargs["doppler_convention"] == "radio":
+            subscript = "_{rad}$"
+        elif kwargs["doppler_convention"] == "optical":
+            subscript = "_{opt}$"
+        elif kwargs["doppler_convention"] == "relativistic":
+            subscript = "_{rel}$"
+        else:  # should never happen
+            subscript = ""
         if kwargs.get("xaxis_unit", None) is not None:
             xunit = u.Unit(kwargs["xaxis_unit"])
         else:
             xunit = self.spectrum.spectral_axis.unit
         if xunit.is_equivalent(u.Hz):
-            xname = "Frequency"
+            xname = r"$\nu" + subscript
         elif xunit.is_equivalent(_KMS):
-            xname = "Velocity"
+            xname = r"V$" + subscript
         elif xunit.is_equivalent(u.angstrom):
-            xname = "Wavelength"
+            xname = r"$\lambda" + subscript
         # Channel is handled in plot() with kwargs['xlabel']
         else:
             raise ValueError(f"Unrecognized spectral axis unit: {xunit}")
-        xlabel = f"{kwargs['vel_frame']} {xname} ({xunit})"
+        xlabel = f"{frame_to_label[kwargs['vel_frame']]} {xname} ({xunit})"
         return xlabel
 
     def _set_labels(self, title=None, xlabel=None, ylabel=None, **kwargs):
@@ -216,37 +228,11 @@ class SpectrumPlot:
         """
         if title is not None:
             self._title = title
-        # if hasattr(self.spectrum.wcs, "wcs"):
-        #    ctype = self.spectrum.wcs.wcs.ctype
-        # elif self.spectrum.meta is not None:
-        #    ctype = []
-        #    ctype.append(self.spectrum.meta.get("CTYPE1", None))
-        #    ctype.append(self.spectrum.meta.get("CTYPE2", None))
-        #    ctype.append(self.spectrum.meta.get("CTYPE3", None))
-        # print('ctype is ',ctype)
-        # if kwargs.get("xaxis_unit", None) is not None:
-        #    xunit = kwargs["xaxis_unit"]
-        # else:
-        #    xunit = self.spectrum.spectral_axis.unit
         if kwargs.get("yaxis_unit", None) is not None:
             yunit = u.Unit(kwargs["yaxis_unit"])
         else:
             yunit = self.spectrum.unit
-        # if xlabel is not None:
         self.axis.set_xlabel(self._compose_xlabel(**kwargs))
-        # elif ctype[0] in ["FREQ"]:
-        #    xlabel = f"{frame} Frequency ({xunit})"
-        #    self.axis.set_xlabel(xlabel)
-        # elif ctype[0] in ["VELO", "VRAD", "VOPT"]:
-        #    xlabel = f"{frame} Velocity ({xunit})"
-        #    self.axis.set_xlabel(xlabel)
-        # elif ctype[0] in ["WAVE", "AWAV"]:
-        #    xlabel = f"{frame} Wavelength({xunit})"
-        #    self.axis.set_xlabel(xlabel)
-        # elif xunit is not None:
-        #    xlabel = xunit
-        #    self.axis.set_xlabel(xlabel)
-        # print(f"ylabel {ylabel} yunit {yunit} sunit {self.spectrum.unit}")
         if ylabel is not None:
             self.axis.set_ylabel(ylabel)
         elif yunit.is_equivalent(u.K):
@@ -274,5 +260,14 @@ class SpectrumPlot:
             self._plt.show()
 
     def savefig(self, file, **kwargs):
-        """Save the plot"""
+        r"""Save the plot
+
+        Parameters
+        ----------
+        file - str
+            The output file name
+        **kwargs : dict or key=value pairs
+            Other arguments to pass to `~matplotlib.pyplot.savefig`
+
+        """
         self.figure.savefig(file, *kwargs)
