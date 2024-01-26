@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on:  ${{ matrix.os }}
+    runs-on:  ubuntu-latest
     environment: release
     permissions:
       # IMPORTANT: this permission is mandatory for trusted publishing
