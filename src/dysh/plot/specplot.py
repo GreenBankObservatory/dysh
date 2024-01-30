@@ -138,7 +138,7 @@ class SpectrumPlot:
                     toframe=this_plot_kwargs["vel_frame"],
                     doppler_convention=this_plot_kwargs["doppler_convention"],
                 )
-                print("new spectral axis is ", sa)
+                # print("new spectral axis is ", sa)
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
