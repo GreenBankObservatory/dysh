@@ -37,8 +37,6 @@ class Spectrum(Spectrum1D):
     we probably will not use that because the restriction that it can
     have only one spectral axis conflicts with slight Doppler shifts.
     See `~specutils.Spectrum1D` for the instantiation arguments.
-
-    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  old `~specutils.Spectrum1D` documentation is wrong (there should not be a 'doppler\\_' prefix).
     """
 
     def __init__(self, *args, **kwargs):
@@ -52,7 +50,7 @@ class Spectrum(Spectrum1D):
         else:
             self._target.sanitized = False
             self._velocity_frame = None
-        # @TODO - have _observer_location attribute instead
+        # @todo - have _observer_location attribute instead?
         # and observer property returns getITRS(observer_location,obstime)
         self._observer = kwargs.pop("observer", None)
         Spectrum1D.__init__(self, *args, **kwargs)
@@ -115,8 +113,6 @@ class Spectrum(Spectrum1D):
 
                 Default: no exclude region
 
-                TODO: Are these OR'd with the existing mask? make that an option
-                TODO: Allow these to be Quantities (spectral axis units or equivalent). See list_to_spectral_region()
             model : str
                 One of 'polynomial' or 'chebyshev', Default: 'polynomial'
             fitter  :  `~astropy.fitting._FitterMeta`
@@ -125,6 +121,7 @@ class Spectrum(Spectrum1D):
                 If True, the baseline is removed from the spectrum. Default: False
 
         """
+        # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
         kwargs_opts = {
             "remove": False,
             "model": "polynomial",
@@ -167,7 +164,7 @@ class Spectrum(Spectrum1D):
         pass
 
     def list_to_spectral_region(self, inlist):
-        # todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit. This could go in core.py
+        # @todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit. This could go in core.py
         # combine this with _set_exclude_regions
         pass
 
@@ -199,9 +196,9 @@ class Spectrum(Spectrum1D):
         -------
         stats : tuple
             Tuple consisting of (mean,rms,datamin,datamax)
-            TODO: maybe make this a dict
 
         """
+        # @todo: maybe make this a dict return value a dict
         mean = self.mean()
         rms = self.data.std()
         dmin = self.min()
@@ -209,7 +206,7 @@ class Spectrum(Spectrum1D):
         return (mean, rms, dmin, dmax)
 
     def smooth(self):
-        # todo use specutils.manipulation.smoothing
+        # @todo use specutils.manipulation.smoothing
         # option to smooth baseline too?
         pass
 
@@ -301,7 +298,7 @@ class Spectrum(Spectrum1D):
         return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
 
     def set_frame(self, toframe):
-        # @TODO VELDEF should be changed as well?
+        # @todo VELDEF should be changed as well?
         """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
 
         To make a copy of this Spectrum with new coordinate referece frmae instead, use `with_frame`.
@@ -468,7 +465,7 @@ class Spectrum(Spectrum1D):
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
-        # @TODO generic check_required method since I now have this code in two places (coordinates/core.py).
+        # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # should we also require DATE-OBS or MJD-OBS?
         _required = set([
             "CRVAL1",
@@ -490,9 +487,9 @@ class Spectrum(Spectrum1D):
         if not _required <= meta.keys():
             raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
 
-        # @TODO WCS is expensive.
+        # @todo WCS is expensive.
         # Possibly figure how to calculate spectral_axis instead.
-        # @TODO allow fix=False in WCS constructor?
+        # @todo allow fix=False in WCS constructor?
         if use_wcs:
             # skip warnings about DATE-OBS being converted to MJD-OBS
             warnings.filterwarnings("ignore", category=FITSFixedWarning)
@@ -547,7 +544,7 @@ class Spectrum(Spectrum1D):
         return s
 
 
-# @TODO figure how how to document write()
+# @todo figure how how to document write()
 ####################################################################
 # There is probably a less brute-force way to do this but I haven't
 # been able to figure it out.  astropy.io.registry tools are not
