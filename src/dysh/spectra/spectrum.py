@@ -94,6 +94,7 @@ class Spectrum(Spectrum1D):
         return self._baseline_model
 
     def baseline(self, degree, exclude=None, **kwargs):
+        # fmt: off
         """
         Compute and optionally remove a baseline.  The model for the
         baseline can be either a
@@ -109,7 +110,15 @@ class Spectrum(Spectrum1D):
                 List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
                 In channel units.
 
-                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+                Examples:
+
+                One channel-based region: [11,51]
+
+                Two channel-based regions: [(11,51),(99,123)].
+
+                One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
+
+                One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
                 Default: no exclude region
 
@@ -121,6 +130,7 @@ class Spectrum(Spectrum1D):
                 If True, the baseline is removed from the spectrum. Default: False
 
         """
+        # fmt: on
         # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
         kwargs_opts = {
             "remove": False,
