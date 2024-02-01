@@ -221,7 +221,7 @@ class Spectrum(Spectrum1D):
         elif "RESTFREQ" in self.meta:
             cunit1 = self.meta.get("CUNIT1", self.wcs.wcs.cunit[0])
             # @todo this could be done with a dict str->function
-            rfq = self.meta["RESTFREQ"] * cunit1
+            rfq = self.meta["RESTFREQ"] * cunit1  # WCS wants no E
         else:
             rfq = None
         if rfq is not None:
