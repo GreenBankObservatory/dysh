@@ -19,9 +19,6 @@ class SpectrumPlot:
     using matplotlib functions. Plots attributes are modified using keywords
     (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
-    The attributes are "sticky" meaning that an attribute set via
-    instantiation or by the `plot()` method will stay set until changed
-    or reset using the `reset()` method.
 
     Parameters
     ----------
