@@ -16,9 +16,9 @@ from ..coordinates import Observatory, make_target, veldef_to_convention
 from ..util import uniq
 
 
+# @todo: allow data to be SpectrumList or array of Spectrum
 def average(data, axis=0, weights=None):
     """Average a group of spectra or scans.
-     TODO: allow data to be SpectrumList or array of Spectrum
 
     Parameters
     ----------
@@ -142,7 +142,7 @@ def exclude_to_region(exclude, refspec, fix_exclude=False):
                     pair = [sa[pair[0]], sa[pair[1]]]
                 # if it is already a spectral region no additional
                 # work is needed
-                # @TODO we should test that the SpectralRegion is not out of bounds
+                # @todo we should test that the SpectralRegion is not out of bounds
                 if isinstance(pair[0], SpectralRegion):
                     b = pair[0].bounds
                     if b[0] < sa[0] or b[1] > sa[1]:
@@ -191,7 +191,7 @@ def region_to_axis_indices(region, refspec):
         The array indices in `refspec` corresponding to `region.bounds`
     """
     # Spectral region to indices in an input spectral axis.
-    # @TODO needs to work for multiple spectral regions? or just loop outside this call
+    # @todo needs to work for multiple spectral regions? or just loop outside this call
     p = refspec
     sa = refspec.spectral_axis
     if region.lower.unit != sa.unit:
@@ -283,7 +283,7 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     # print(f"MODEL {model} FITTER {fitter}")
     p = spectrum
     if np.isnan(p.data).all():
-        # @Todo handle masks
+        # @todo handle masks
         return None  # or raise exception
     if exclude is not None:
         regionlist = exclude_to_region(exclude, spectrum, fix_exclude=kwargs_opts["fix_exclude"])
@@ -320,7 +320,6 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         mode : int
             mode=0  Do the mean before the division
             mode=1  Do the mean after the division
-            TODO: Ask PJT why the options?
 
         fedge : int
             Fraction of edge channels to exclude at each end, in percent. Default: 10, meaning the central 80% bandwidth is used

@@ -95,7 +95,7 @@ frame_dict = {
     "CMB": "cmb",
     "GALAC": "galactic",
     "GALA": "galactic",
-    "ALAC": "galactic",
+    "ALAC": "galactic",  # in case of 'VELGALAC', last 4 chars.
 }
 
 
@@ -388,7 +388,7 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
     return _target.transform_to(_toframe).radial_velocity
 
 
-# @TODO have a SpectralCoord version of this?
+# @todo have a SpectralCoord version of this?
 def veltofreq(velocity, restfreq, veldef):
     """Convert velocity to frequency using the given rest frequency and velocity definition.
 
