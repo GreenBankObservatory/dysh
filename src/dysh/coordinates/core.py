@@ -488,8 +488,8 @@ def gbt_location():
         gbt : `~astropy.coordinates.EarthLocation`
             astropy EarthLocation for the GBT
     """
-    gbt_lat = 38.433129 * u.deg
-    gbt_lon = -79.839839 * u.deg
+    gbt_lat = 38.4331291667 * u.deg
+    gbt_lon = -79.839838611 * u.deg
     gbt_height = 854.83 * u.m
     gbt = coord.EarthLocation.from_geodetic(lon=gbt_lon, lat=gbt_lat, height=gbt_height)
     return gbt
