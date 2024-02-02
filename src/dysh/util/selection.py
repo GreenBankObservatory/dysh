@@ -1,38 +1,128 @@
-import hashlib
-
 import numpy as np
 import pandas as pd
-from astropy.table import Table
+from astropy.table import Table, TableAttribute
+
+from ..fits import default_sdfits_columns
+from . import generate_tag
+
+# add ID and TAG to available keys before creating tag
+# why not move this to constructor?
+idtag = ["ID", "TAG"]
+DEFKEYS = np.array(default_sdfits_columns())
+DEFKEYS = np.insert(DEFKEYS, 0, idtag)
 
 
-class Selection(object):
-    def __init__(self, **kwargs):
-        # get these from a recent SDFITS file somehow
-        self._available_keys = []
-        # add ID and TAG to available keys before creating tag
-        updated = np.array(...)
-        dt = np.array([str] * len(updated))
+class Selection(Table):
+    foobar = TableAttribute()  # example of adding a custom attribute
+
+    def __init__(self, *args, **kwargs):
+        dt = np.array([str] * len(DEFKEYS))
+        dt[0] = int  # I
         # make a table with columns and str dtype
-        self._table = Table(data=none, names=updated, dtype=dt)
+        self.foobar = "hello"
+        print(DEFKEYS)
+        super().__init__(data=None, names=DEFKEYS, dtype=dt)
+        for t in idtag:
+            self.add_index(t)
 
     def _parse(self, key, value):
+        """
+
+
+        Parameters
+        ----------
+        key : TYPE
+            DESCRIPTION.
+        value : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         pass
 
     def _parse_coordinates(self, value):
+        """
+
+
+        Parameters
+        ----------
+        value : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         pass
 
     def _parse_time(self, value):
+        """
+
+
+        Parameters
+        ----------
+        value : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
         pass
 
     def _parse_value(self, value):
-        """return a string that can be stored in a Table cell"""
+        """
+        return a string that can be stored in a Table cell
+
+        Parameters
+        ----------
+        value : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+
+        """
+
         pass
 
     def _generate_tag(self, values, hashlen=9):
-        data = "".join(map(str, values))
-        hash_object = hashlib.sha256(data.encode())
-        unique_id = hash_object.hexdigest()
-        return unique_id[0:hashlen]
+        """
+        Generate a unique tag based on row values.  A hash object is
+        created from the input values using SHA256, and a hex representation is created.
+        The first `hashlen` characters of the hex string are returned.
+
+        Parameters
+        ----------
+        values : array-like
+            The values to use in creating the hash object
+        hashlen : int, optional
+            The length of the returned hash string. The default is 9.
+
+        Returns
+        -------
+        tag : str
+            The hash string
+
+        """
+        return generate_tag(values, hashlen)
+
+    def _next_id(self) -> int:
+        """
+        Get the next ID number in the table.
+
+        Returns
+        -------
+        id : int
+            The highest exsing ID number plus one
+        """
+        return sorted(self["ID"])[-1] + 1
 
     def select(self, tag=None, **kwargs):
         """Add a selection rule
@@ -42,14 +132,14 @@ class Selection(object):
             tag : str
                 An identifying tag by which the rule may be referred to later.
             key : str
-                The key value (SDFITS column name)
+                The key  (SDFITS column name)
             value : any
-                The value to match
+                The value or expression to select
 
         """
-        row = dict(zip(self.available_keys, [None] * len(self.available_keys)))
+        row = dict()
         for k in list(kwargs.keys()):
-            row[key] = self._parse_value(kwargs[k])
+            row[k] = self._parse_value(kwargs[k])
         if tag is not None:
             row["tag"] = tag
         else:
@@ -57,8 +147,9 @@ class Selection(object):
         self._table.add_row(list(row.values()))
 
     def remove(self, id=None, tag=None):
-        """Remove (delete) a selection rule
+        """Remove (delete) a selection rule.
         You must specifiy either `id` or `tag` but not both.
+
         Parameters
         ----------
             id : int
@@ -68,12 +159,17 @@ class Selection(object):
         """
         if id is not None and tag is not None:
             raise Exception("You can only specify one of id or tag")
-        # if id is None:
-        #    #remove row(s) based on tag
-
-    #
-    #        else:
-    #            table.
+        if id:
+            try:
+                row = self.loc["ID", id]
+            except KeyError:
+                raise KeyError(f"No ID = {id} found in this Selection")
+        else:
+            try:
+                row = self.loc["TAG", tag]
+            except KeyError:
+                raise KeyError(f"No TAG = {tag} found in this Selection")
+        self.remove_row(row.index)
 
     def show(self):
         pass
@@ -85,11 +181,4 @@ class Selection(object):
         -------
             df : ~pandas.DataFrame
         """
-        pass
-
-    @property
-    def available_keys(self):
-        pass
-
-    def add_key(self, key):
         pass
