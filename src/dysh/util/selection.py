@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from astropy.table import Table, TableAttribute
+from astropy.table import PprintIncludeExclude, Table, TableAttribute
 
 from ..fits import default_sdfits_columns
 from . import generate_tag
@@ -19,11 +19,27 @@ class Selection(Table):
         dt = np.array([str] * len(DEFKEYS))
         dt[0] = int  # I
         # make a table with columns and str dtype
-        self.foobar = "hello"
-        print(DEFKEYS)
+        # self.foobar = "hello"
+        # print(DEFKEYS)
         super().__init__(data=None, names=DEFKEYS, dtype=dt)
         for t in idtag:
             self.add_index(t)
+
+    def _set_pprint_exclude_names(self):
+        """Use pprint_exclude_names to set the list
+        columns that have no entries.
+        """
+        emptycols = np.array(self.colnames)[
+            [np.all([self[k].data[i] == "" for i in range(len(self))]) for k in self.colnames]
+        ]
+        self.pprint_exclude_names.set(emptycols)
+
+    def __repr__(self):
+        # when printing to screen we only want to include
+        # columns that are not empty.
+        # This will not affect writing to a file.
+        self._set_pprint_exclude_names()
+        return super().__repr__()
 
     def _parse(self, key, value):
         """
@@ -113,6 +129,7 @@ class Selection(Table):
         """
         return generate_tag(values, hashlen)
 
+    @property
     def _next_id(self) -> int:
         """
         Get the next ID number in the table.
@@ -120,9 +137,18 @@ class Selection(Table):
         Returns
         -------
         id : int
-            The highest exsing ID number plus one
+            The highest existing ID number plus one
         """
         return sorted(self["ID"])[-1] + 1
+
+    # all SDFITS keywords are uppercase, but we can allow
+    # for lower/mixed access this way.
+    # This may not actually be helpful
+    def __getitem__(self, item):
+        if isinstance(item, str):
+            return super().__getitem__(item.upper())
+        else:
+            return super().__getitem__(item)
 
     def select(self, tag=None, **kwargs):
         """Add a selection rule
@@ -141,14 +167,15 @@ class Selection(Table):
         for k in list(kwargs.keys()):
             row[k] = self._parse_value(kwargs[k])
         if tag is not None:
-            row["tag"] = tag
+            row["TAG"] = tag
         else:
-            row["tag"] = self._generate_tag(list(row.values()))
+            row["TAG"] = self._generate_tag(list(row.values()))
+        row["ID"] = self._nextid
         self._table.add_row(list(row.values()))
 
     def remove(self, id=None, tag=None):
         """Remove (delete) a selection rule.
-        You must specifiy either `id` or `tag` but not both.
+        You must specify either `id` or `tag` but not both.
 
         Parameters
         ----------
