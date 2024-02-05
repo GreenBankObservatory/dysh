@@ -2,11 +2,37 @@
 Core utility definitions, classes, and functions
 """
 
+import hashlib
 from pathlib import Path
 
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import EarthLocation, SkyCoord
+
+
+def generate_tag(values, hashlen):
+    """
+    Generate a unique tag based on input values.  A hash object is
+    created from the input values using SHA256, and a hex representation is created.
+    The first `hashlen` characters of the hex string are returned.
+
+    Parameters
+    ----------
+    values : array-like
+        The values to use in creating the hash object
+    hashlen : int, optional
+        The length of the returned hash string.
+
+    Returns
+    -------
+    tag : str
+        The hash string
+
+    """
+    data = "".join(map(str, values))
+    hash_object = hashlib.sha256(data.encode())
+    unique_id = hash_object.hexdigest()
+    return unique_id[0:hashlen]
 
 
 def consecutive(data, stepsize=1):
