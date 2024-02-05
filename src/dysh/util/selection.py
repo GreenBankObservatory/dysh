@@ -1,6 +1,8 @@
+import astropy.units as u
 import numpy as np
 import pandas as pd
-from astropy.table import PprintIncludeExclude, Table, TableAttribute
+from astropy.coordinates import Angle
+from astropy.table import Table  # , TableAttribute
 
 from ..fits import default_sdfits_columns
 from . import generate_tag
@@ -13,7 +15,7 @@ DEFKEYS = np.insert(DEFKEYS, 0, idtag)
 
 
 class Selection(Table):
-    foobar = TableAttribute()  # example of adding a custom attribute
+    # foobar = TableAttribute()  # example of adding a custom attribute
 
     def __init__(self, *args, **kwargs):
         dt = np.array([str] * len(DEFKEYS))
@@ -29,10 +31,11 @@ class Selection(Table):
         """Use pprint_exclude_names to set the list
         columns that have no entries.
         """
-        emptycols = np.array(self.colnames)[
-            [np.all([self[k].data[i] == "" for i in range(len(self))]) for k in self.colnames]
-        ]
-        self.pprint_exclude_names.set(emptycols)
+        if len(self) > 0:
+            emptycols = np.array(self.colnames)[
+                [np.all([self[k].data[i] == "" for i in range(len(self))]) for k in self.colnames]
+            ]
+            self.pprint_exclude_names.set(emptycols)
 
     def __repr__(self):
         # when printing to screen we only want to include
@@ -43,37 +46,51 @@ class Selection(Table):
 
     def _parse(self, key, value):
         """
-
-
+        Parse a selection key-value pair
         Parameters
         ----------
-        key : TYPE
-            DESCRIPTION.
-        value : TYPE
-            DESCRIPTION.
+        key : str
+            upper case key value
+        value : any
+            The value for the key
 
         Returns
         -------
-        None.
+        parsed_value : str
+            The parsed value.
 
         """
-        pass
+        _coords = ["RA", "DEC", "GALLON", "GALLAT"]
+        # @todo 1.  Allow minimum match str for key
+        #      2.  Allow synonyms, e.g. source for object, elevation for elevatio, etc.
+        if key not in self.colnames:
+            raise KeyError(f"{key} is not a recognized column name.")
+        if key in _coords:
+            return self._parse_coordinates(key, value)
 
-    def _parse_coordinates(self, value):
+    def _parse_coordinates(self, key, value):
         """
-
+        Parse a coordinate selection key-value pair. Coordinates will be
+        converted to floats before the final parsed value is created.
 
         Parameters
         ----------
-        value : TYPE
-            DESCRIPTION.
+        key : str
+            upper case key value
+
+        value : any
+            The value for the key
 
         Returns
         -------
-        None.
-
+        parsed_value : str
+            The parsed value.
         """
-        pass
+        if isinstance(value, float):
+            a = Angle(value * u.degree)
+        else:  # it should be a tr
+            a = Angle(value)
+        return str(a.degree)
 
     def _parse_time(self, value):
         """
@@ -106,7 +123,7 @@ class Selection(Table):
 
         """
 
-        pass
+        return str(value).upper()
 
     def _generate_tag(self, values, hashlen=9):
         """
@@ -139,6 +156,8 @@ class Selection(Table):
         id : int
             The highest existing ID number plus one
         """
+        if len(self) == 0:
+            return 1
         return sorted(self["ID"])[-1] + 1
 
     # all SDFITS keywords are uppercase, but we can allow
@@ -165,13 +184,14 @@ class Selection(Table):
         """
         row = dict()
         for k in list(kwargs.keys()):
-            row[k] = self._parse_value(kwargs[k])
+            ku = k.upper()
+            row[ku] = self._parse(ku, kwargs[k])
         if tag is not None:
             row["TAG"] = tag
         else:
             row["TAG"] = self._generate_tag(list(row.values()))
-        row["ID"] = self._nextid
-        self._table.add_row(list(row.values()))
+        row["ID"] = self._next_id
+        self.add_row(row)
 
     def remove(self, id=None, tag=None):
         """Remove (delete) a selection rule.
