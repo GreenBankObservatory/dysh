@@ -19,3 +19,5 @@ keep
 getfs,20,ifnum=0,plnum=1
 keep
 ```
+
+See also notebooks/developer/proto_getfs.ipynb  
