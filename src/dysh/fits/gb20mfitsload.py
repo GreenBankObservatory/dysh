@@ -1,4 +1,4 @@
-"""Load SDFITS files produced for GBO's 20m telescope """
+"""Load SDFITS files produced for GBO's 20m telescope"""
 
 from dysh.fits.sdfitsload import SDFITSLoad
 
