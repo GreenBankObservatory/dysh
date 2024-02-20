@@ -32,6 +32,7 @@ from astropy import units as u
 from astropy import constants as ac
 
 import dysh.util as util
+from astropy.table import Table
 
 
 # %%
@@ -292,6 +293,8 @@ def do_shift(table, offset, remove_wrap=False):
     
     ishift = int(np.round(offset)) # Integer shift.
     fshift = offset - ishift # Fractional shift.
+    
+    print("FOLD:  ishift=%d fshift=%g" % (ishift,fshift))
 
     dshape = out_table["DATA"].shape
     
