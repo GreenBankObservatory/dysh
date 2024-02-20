@@ -204,7 +204,6 @@ def veldef_to_convention(veldef):
         return "relativistic"
     return None
 
-src/dysh/coordinates/core.py
 def sanitize_skycoord(target):
     """Method to enforce certain attributes of input SkyCoordinate in
     order to workaround astropy bug that distance and proper motions
