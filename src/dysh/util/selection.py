@@ -26,6 +26,7 @@ class Selection(Table):
         super().__init__(data=None, names=DEFKEYS, dtype=dt)
         for t in idtag:
             self.add_index(t)
+        self._valid_coordinates = ["RA", "DEC", "GALLON", "GALLAT"]
 
     def _set_pprint_exclude_names(self):
         """Use pprint_exclude_names to set the list
@@ -44,6 +45,93 @@ class Selection(Table):
         self._set_pprint_exclude_names()
         return super().__repr__()
 
+    def _sanitize_input(self, key, value):
+        """
+        Sanitize a key-value pair for. List and coordinate types are checked for.
+
+        Parameters
+        ----------
+        key : str
+            upper case key value
+
+        value : any
+            The value for the key
+
+        Returns
+        -------
+        sanitized_value : str
+            The sanitized value
+        """
+        # @todo 1.  Allow minimum match str for key
+        #      2.  Allow synonyms, e.g. source for object, elevation for elevatio, etc.
+        if key not in self.colnames:
+            raise KeyError(f"{key} is not a recognized column name.")
+        v = self._sanitize_list(value)
+        v = self._sanitize_coordinates(key, value)
+        self._check_for_disallowed_chars(key, value)
+        return v
+
+    def _sanitize_list(self, value):
+        """
+        Sanitize a key-value pair for a value that might be a list.
+        If not recognized as a list (has commas and/or []), then the
+        input value is simply returned.
+
+        Parameters
+        ----------
+        key : str
+            upper case key value
+
+        value : any
+            The value for the key
+
+        Returns
+        -------
+        sanitized_value : str
+            The sanitized list.
+        """
+        # first remove any brackets that the user might have
+        # supplied.
+        v = value.replace("[", "").replace("]", "")
+        if "," not in v:
+            return v
+        # split by comma delimiter
+        v = v.split(",")
+        # remove any empty entries
+        v = [i for i in v if i != ""]
+        return v.split(",")
+
+    def _sanitize_coordinates(self, key, value):
+        """
+        Sanitize a coordinate selection key-value pair. Coordinates will be
+        converted to floats before the final value is created.
+
+        Parameters
+        ----------
+        key : str
+            upper case key value
+
+        value : any
+            The value for the key
+
+        Returns
+        -------
+        sanitized_value : str
+            The sanitized value.
+        """
+        if key not in self._valid_coordinates:
+            return value
+        if isinstance(value, float):
+            a = Angle(value * u.degree)
+        else:  # it should be a str or Quantity
+            a = Angle(value)
+        return str(a.degree)
+
+    def _check_for_disallowed_chars(self, key, value):
+        # are there any?  coordinates will already be transformed to decimal degrees
+        # I suppose some strings could have : in them.
+        pass
+
     def _parse(self, key, value):
         """
         Parse a selection key-value pair
@@ -60,37 +148,13 @@ class Selection(Table):
             The parsed value.
 
         """
-        _coords = ["RA", "DEC", "GALLON", "GALLAT"]
-        # @todo 1.  Allow minimum match str for key
-        #      2.  Allow synonyms, e.g. source for object, elevation for elevatio, etc.
-        if key not in self.colnames:
-            raise KeyError(f"{key} is not a recognized column name.")
-        if key in _coords:
-            return self._parse_coordinates(key, value)
+        pass
 
     def _parse_coordinates(self, key, value):
-        """
-        Parse a coordinate selection key-value pair. Coordinates will be
-        converted to floats before the final parsed value is created.
+        pass
 
-        Parameters
-        ----------
-        key : str
-            upper case key value
-
-        value : any
-            The value for the key
-
-        Returns
-        -------
-        parsed_value : str
-            The parsed value.
-        """
-        if isinstance(value, float):
-            a = Angle(value * u.degree)
-        else:  # it should be a tr
-            a = Angle(value)
-        return str(a.degree)
+    def _parse_range(self, value):
+        return value.split("~")
 
     def _parse_time(self, value):
         """
@@ -158,7 +222,7 @@ class Selection(Table):
         """
         if len(self) == 0:
             return 1
-        return sorted(self["ID"])[-1] + 1
+        return max(self["ID"]) + 1
 
     # all SDFITS keywords are uppercase, but we can allow
     # for lower/mixed access this way.
