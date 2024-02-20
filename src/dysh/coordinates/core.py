@@ -34,7 +34,7 @@ astropy_frame_dict = {
     "-LSR": coord.LSRK,
     "-HEL": coord.HCRS,
     "-BAR": coord.ICRS,
-     "BAR": coord.ICRS,
+    "BAR": coord.ICRS,
     "BARY": coord.ICRS,
     "icrs": coord.ICRS,
     "ICRS": coord.ICRS,
@@ -203,6 +203,7 @@ def veldef_to_convention(veldef):
     if prefix == "rela":
         return "relativistic"
     return None
+
 
 def sanitize_skycoord(target):
     """Method to enforce certain attributes of input SkyCoordinate in
