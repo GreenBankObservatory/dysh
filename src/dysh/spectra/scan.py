@@ -3,17 +3,10 @@ from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
-from astropy.wcs import WCS
 
+from ..coordinates import Observatory, make_target, veldef_to_convention
 from ..util import uniq
-from . import (
-    average,
-    find_non_blanks,
-    mean_tsys,
-    sq_weighted_avg,
-    tsys_weight,
-    veldef_to_convention,
-)
+from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
 
 
@@ -77,43 +70,6 @@ class ScanMixin(object):
 
     def __len__(self):
         return self._nrows
-
-
-class TPScan(object):
-    r"""
-    Holds a total power scan.
-
-    Parameters
-    ----------
-    sdfits : ~SDFITSLoad
-        Input SDFITSLoad object (or derivative).
-    scan: int
-        Scan number.
-    sigstate : str
-        One of 'SIG' or 'REF' to indicate if this is the signal or reference scan.
-    scanrows : list-like
-        The list of rows in `sdfits` corresponding to sig_state integrations.
-    bintable : int
-        The index for BINTABLE in `sdfits` containing the scans.
-    """
-
-    def __init__(self, sdfits, scan, sigstate, calstate, scanrows, bintable):
-        self._sdfits = sdfits  # parent class
-        self._scan = scan
-        self._sigstate = sigstate
-        self._calstate = calstate
-        self._scanrows = scanrows
-        self._bintable_index = bintable
-        self._data = self._sdfits.rawspectra(bintable)[scanrows]  # all cal states
-        self._status = 0  # @TODO make these an enumeration, possibly dict
-        #                           # ex1:
-        self._nint = 0  # 11
-        self._npol = 0  #  2
-        self._timeaveraged = None  #  2
-        self._polaveraged = None  #  1
-        self._nrows = len(scanrows)
-        self._tsys = None
-        print(f"TPSCAN nrows = {self.nrows}")
 
 
 class ScanBlock(UserList, ScanMixin):
@@ -216,7 +172,18 @@ class TPScan(ScanMixin):
     """
 
     # @TODO get rid of calrows and calc tsys in gettp and pass it in.
-    def __init__(self, gbtfits, scan, sigstate, calstate, scanrows, calrows, bintable, calibrate=True):
+    def __init__(
+        self,
+        gbtfits,
+        scan,
+        sigstate,
+        calstate,
+        scanrows,
+        calrows,
+        bintable,
+        calibrate=True,
+        observer_location=Observatory["GBT"],
+    ):
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate  # ignored?
@@ -228,6 +195,7 @@ class TPScan(ScanMixin):
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
             self._bintable_index = bintable
+        self._observer_location = observer_location
         self._data = self._sdfits.rawspectra(self._bintable_index)[scanrows]  # all cal states
         df = self._sdfits._index
         df = df.iloc[scanrows]
@@ -345,6 +313,23 @@ class TPScan(ScanMixin):
         """
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
 
+    def tpmeta(self, i):
+        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
+        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
+        meta = ser.dropna().to_dict()
+        meta["TSYS"] = self._tsys[i]
+        meta["EXPOSURE"] = self.exposure[i]
+        meta["NAXIS1"] = len(self._data[i])
+        if "CUNIT1" not in meta:
+            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
+        restfrq = meta["RESTFREQ"]
+        rfq = restfrq * u.Unit(meta["CUNIT1"])
+        restfreq = rfq.to("Hz").value
+        meta["RESTFRQ"] = restfreq  # WCS wants no E
+        return meta
+
     def total_power(self, i):
         """Return the total power spectrum
 
@@ -358,51 +343,21 @@ class TPScan(ScanMixin):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         # print(len(self._scanrows), i)
-        meta = dict(self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]])
+        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
+        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
+        meta = ser.dropna().to_dict()
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
-        naxis1 = len(self._data[i])
-        meta["CTYPE1"]
-        ctype2 = meta["CTYPE2"]
-        ctype3 = meta["CTYPE3"]
-        crval1 = meta["CRVAL1"]
-        crval2 = meta["CRVAL2"]
-        crval3 = meta["CRVAL3"]
-        crpix1 = meta["CRPIX1"]
-        cdelt1 = meta["CDELT1"]
+        meta["NAXIS1"] = len(self._data[i])
+        if "CUNIT1" not in meta:
+            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
-        if "CUNIT1" in meta:
-            cunit1 = meta["CUNIT1"]
-        else:
-            cunit1 = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        rfq = restfrq * u.Unit(cunit1)
+        rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
-
-        # @TODO WCS is expensive.  Figure how to calculate spectral_axis instead.
-        wcs = WCS(
-            header={
-                "CDELT1": cdelt1,
-                "CRVAL1": crval1,
-                "CUNIT1": cunit1,
-                "CTYPE1": "FREQ",
-                "CRPIX1": crpix1,
-                "RESTFRQ": restfreq,
-                "CTYPE2": ctype2,
-                "CRVAL2": crval2,
-                "CRPIX2": 1,
-                "CTYPE3": ctype3,
-                "CRVAL3": crval3,
-                "CRPIX3": 1,
-                "CUNIT2": "deg",
-                "CUNIT3": "deg",
-                "NAXIS1": naxis1,
-                "NAXIS2": 1,
-                "NAXIS3": 1,
-            },
-        )
-        vc = veldef_to_convention(meta["VELDEF"])
-        s = Spectrum(self._data[i] * u.ct, wcs=wcs, meta=meta, velocity_convention=vc)
-        return s
+        meta["RESTFRQ"] = restfreq  # WCS wants no E
+        return Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
 
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of scans.
@@ -460,7 +415,9 @@ class PSScan(ScanMixin):
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
     """
 
-    def __init__(self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True):
+    def __init__(
+        self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
+    ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
         self._scans = scans
@@ -479,6 +436,7 @@ class PSScan(ScanMixin):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
+        self._observer_location = observer_location
         df = self._sdfits._index
         df = df.iloc[scanrows["ON"]]
         self._feeds = uniq(df["FDNUM"])
@@ -532,51 +490,21 @@ class PSScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        meta = dict(self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]])
+        meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]].dropna().to_dict()
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self._exposure[i]
-        naxis1 = len(self._calibrated[i])
-        meta["CTYPE1"]
-        ctype2 = meta["CTYPE2"]
-        ctype3 = meta["CTYPE3"]
-        crval1 = meta["CRVAL1"]
-        crval2 = meta["CRVAL2"]
-        crval3 = meta["CRVAL3"]
-        crpix1 = meta["CRPIX1"]
-        cdelt1 = meta["CDELT1"]
+        meta["NAXIS1"] = len(self._calibrated[i])
+        meta["TSYS"] = self._tsys[i]
+        meta["EXPOSURE"] = self.exposure[i]
+        if "CUNIT1" not in meta:
+            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
-        if "CUNIT1" in meta:
-            cunit1 = meta["CUNIT1"]
-        else:
-            cunit1 = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        rfq = restfrq * u.Unit(cunit1)
+        rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
-
-        # @TODO WCS is expensive.  Figure how to calculate spectral_axis instead.
-        wcs = WCS(
-            header={
-                "CDELT1": cdelt1,
-                "CRVAL1": crval1,
-                "CUNIT1": cunit1,
-                "CTYPE1": "FREQ",
-                "CRPIX1": crpix1,
-                "RESTFRQ": restfreq,
-                "CTYPE2": ctype2,
-                "CRVAL2": crval2,
-                "CRPIX2": 1,
-                "CTYPE3": ctype3,
-                "CRVAL3": crval3,
-                "CRPIX3": 1,
-                "CUNIT2": "deg",
-                "CUNIT3": "deg",
-                "NAXIS1": naxis1,
-                "NAXIS2": 1,
-                "NAXIS3": 1,
-            },
-        )
-        vc = veldef_to_convention(meta["VELDEF"])
-
-        return Spectrum(self._calibrated[i] * u.K, wcs=wcs, meta=meta, velocity_convention=vc)
+        meta["RESTFRQ"] = restfreq  # WCS wants no E
+        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
 
     def calibrate(self, **kwargs):
         """
@@ -716,7 +644,9 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         Default: 'tsys'
     """
 
-    def __init__(self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, **kwargs):
+    def __init__(
+        self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, observer_location=Observatory["GBT"], **kwargs
+    ):
         kwargs_opts = {
             "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
@@ -739,6 +669,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        self._observer_location = observer_location
         self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
@@ -784,49 +715,19 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
 
     def calibrated(self, i):
         meta = deepcopy(self._sigtp[i].timeaverage().meta)
-        meta["TSYS"] = self._tsys[i]
         naxis1 = len(self._calibrated[i])
-        meta["CTYPE1"]
-        ctype2 = meta["CTYPE2"]
-        ctype3 = meta["CTYPE3"]
-        crval1 = meta["CRVAL1"]
-        crval2 = meta["CRVAL2"]
-        crval3 = meta["CRVAL3"]
-        crpix1 = meta["CRPIX1"]
-        cdelt1 = meta["CDELT1"]
+        meta["TSYS"] = self._tsys[i]
+        meta["EXPOSURE"] = self._exposure[i]
+        meta["NAXIS1"] = len(self._calibrated[i])
+        if "CUNIT1" not in meta:
+            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
-        if "CUNIT1" in meta:
-            cunit1 = meta["CUNIT1"]
-        else:
-            cunit1 = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        rfq = restfrq * u.Unit(cunit1)
+        rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
-
-        # @TODO WCS is expensive.  Figure how to calculate spectral_axis instead.
-        wcs = WCS(
-            header={
-                "CDELT1": cdelt1,
-                "CRVAL1": crval1,
-                "CUNIT1": cunit1,
-                "CTYPE1": "FREQ",
-                "CRPIX1": crpix1,
-                "RESTFRQ": restfreq,
-                "CTYPE2": ctype2,
-                "CRVAL2": crval2,
-                "CRPIX2": 1,
-                "CTYPE3": ctype3,
-                "CRVAL3": crval3,
-                "CRPIX3": 1,
-                "CUNIT2": "deg",
-                "CUNIT3": "deg",
-                "NAXIS1": naxis1,
-                "NAXIS2": 1,
-                "NAXIS3": 1,
-            },
-        )
-        vc = veldef_to_convention(meta["VELDEF"])
-
-        return Spectrum(self._calibrated[i] * u.K, wcs=wcs, meta=meta, velocity_convention=vc)
+        meta["RESTFRQ"] = restfreq  # WCS wants no E
+        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta, observer_location=self._observer_location)
 
     @property
     def exposure(self):

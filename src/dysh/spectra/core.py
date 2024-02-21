@@ -9,10 +9,10 @@ import numpy as np
 from astropy.io import fits
 from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
-from astropy.wcs import WCS
-from specutils import SpectralRegion, Spectrum1D
+from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 
+from ..coordinates import Observatory, make_target, veldef_to_convention
 from ..util import uniq
 
 
@@ -399,31 +399,6 @@ def sq_weighted_avg(a, axis=0, weights=None):
     return v
 
 
-def veldef_to_convention(veldef):
-    """given a VELDEF, return the velocity convention expected by Spectrum(1D)
-
-    Parameters
-    ----------
-    veldef : str
-        Velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'
-
-    Returns
-    -------
-    convention : str
-        Velocity convention string, one of {'radio', 'optical', 'relativistic'}  or None if `velframe` can't be parsed
-    """
-
-    # @TODO GBT defines these wrong.  Need to sort out and have special version for GBT
-    prefix = veldef[0:4].lower()
-    if prefix == "opti":
-        return "optical"
-    if prefix == "velo" or prefix == "radi":
-        return "radio"
-    if prefix == "rela":
-        return "relativistic"
-    return None
-
-
 def tsys_weight(exposure, delta_freq, tsys):
     r"""Compute the system temperature based weight(s) using the expression:
         :math:`w = t_{exp} \times \delta_\nu / T_{sys}^2,`
@@ -464,3 +439,18 @@ def tsys_weight(exposure, delta_freq, tsys):
         return weight.value.astype(np.longdouble)
     else:
         return weight.astype(np.longdouble)
+
+
+def get_spectral_equivalency(restfreq, velocity_convention):
+    # Yeesh, the doppler_convention parameter for SpectralAxis.to does not match the doppler_convention list for Spectrum1D!
+    # This is actually bug in Spectrum1D documentation https://github.com/astropy/specutils/issues/1067
+    if "radio" in velocity_convention:
+        return u.doppler_radio(restfreq)
+    elif "optical" in velocity_convention:
+        return u.doppler_optical(restfreq)
+    elif "relativistic" in velocity_convention:
+        return u.doppler_relativistic(restfreq)
+    elif "redshift" in velocity_convention:
+        return u.doppler_redshift()
+    else:
+        raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
