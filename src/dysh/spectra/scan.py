@@ -1,5 +1,5 @@
 """
-@pjt missing one liner here what this is about
+The classes that define various types of Scan and their calibration methods.
 """
 
 from collections import UserList
