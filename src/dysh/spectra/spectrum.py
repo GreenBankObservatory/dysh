@@ -1,5 +1,5 @@
 """
-@pjt missing one liner here what this is about
+The Spectrum class to contain and manipulate spectra.
 """
 
 import warnings
