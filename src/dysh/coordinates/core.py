@@ -137,9 +137,9 @@ def replace_convention(veldef, doppler_convention):
 
 # This gives the wrong answer for GBT which always writes data as topocentric
 # regardless of what VELDEF says.
-# Kluge for GBT: pass in CTYPE1 which is always 'FREQ-OBS'
+# Kludge for GBT: pass in CTYPE1 which is always 'FREQ-OBS'
 def is_topocentric(veldef):
-    if veldef[0:4] == "FREQ":  # workaround for GBT nonsense
+    if veldef[0:4] == "FREQ":  # workaround for GBT nonsense   # @pjt what if this is not GBT nonsense?
         nvd = "VELO" + veldef[4:]
         return decode_veldef(nvd)[1] == "topocentric"
     else:
@@ -206,8 +206,11 @@ def veldef_to_convention(veldef):
 
 
 def sanitize_skycoord(target):
-    """Method to enforce certain attributes of input SkyCoordinate in order to workaround astropy bug that distance and proper motions need to be explicitly set for certain coordinate conversions, even if they are zero.
-    See https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
+    """Method to enforce certain attributes of input SkyCoordinate in
+    order to workaround astropy bug that distance and proper motions
+    need to be explicitly set for certain coordinate conversions, even
+    if they are zero.  See
+    https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
 
 
     Parameters
@@ -219,6 +222,7 @@ def sanitize_skycoord(target):
     -------
         sanitized_target : `~astropy.coordinates.SkyCoordinate`
         Target with distance, radial velocity, and proper motion set.
+
     """
     if not isinstance(target, coord.SkyCoord):
         raise TypeError("Target must be instance of astropy.coordinates.SkyCoord")

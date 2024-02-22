@@ -1,3 +1,7 @@
+"""
+@pjt missing one liner here what this is about
+"""
+
 import warnings
 from copy import deepcopy
 
@@ -99,8 +103,10 @@ class Spectrum(Spectrum1D):
         Compute and optionally remove a baseline.  The model for the
         baseline can be either a
         `1D polynomial model <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html>`_ or a
-        `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.  The code uses `astropy.modeling`
-        and `astropy.fitter` to compute the baseline.  See the documentation for those modules.  This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
+        `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.
+        The code uses `astropy.modeling`
+        and `astropy.fitter` to compute the baseline.  See the documentation for those modules.
+        This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
 
         Parameters
         ----------
@@ -125,7 +131,8 @@ class Spectrum(Spectrum1D):
             model : str
                 One of 'polynomial' or 'chebyshev', Default: 'polynomial'
             fitter  :  `~astropy.fitting._FitterMeta`
-                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
+                Be care when choosing a different fitter to be sure it is optimized for this problem.
             remove : bool
                 If True, the baseline is removed from the spectrum. Default: False
 
@@ -168,14 +175,17 @@ class Spectrum(Spectrum1D):
                 List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
                 In channel units.
 
-                        Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+                Examples: One channel-based region: [11,51],
+                          Two channel-based regions: [(11,51),(99,123)].
+                          One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
+                          One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
         """
         pass
 
     def list_to_spectral_region(self, inlist):
-        # @todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit. This could go in core.py
-        # combine this with _set_exclude_regions
+        # @todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit.
+        # This could go in core.py combine this with _set_exclude_regions
         pass
 
     def bshow(self):
@@ -463,12 +473,14 @@ class Spectrum(Spectrum1D):
         data :  `~numpy.ndarray`
             The data array. See `~specutils.Spectrum1D`
         meta : dict
-            The metadata, typically derived from an SDFITS header.  Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
+            The metadata, typically derived from an SDFITS header.
+            Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
         use_wcs : bool
             If True, create a WCS object from `meta`
 
         observer_location : `~astropy.coordinates.EarthLocation`
-            Location of the observatory. See `~dysh.coordinates.Observatory`. This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
 
         Returns
         -------

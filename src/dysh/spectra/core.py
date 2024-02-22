@@ -335,7 +335,8 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     # @todo Pedro thinks about a version that takes a spectrum with multiple SpectralRegions to exclude.
     nchan = len(calon)
     if nedge == None:
-        nedge = nchan // fedge  # 10 %
+        nedge = nchan // fedge  # 10 %       # @pjt this seems wrong
+        nedge = int(fedge / 100.0 * nchan)  # @pjt - but check with issue 28 again when it's not 10%
     # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
     # Therefore we have to add a channel to the upper edge of the range
     # below in order to reproduce exactly what GBTIDL gets for Tsys.
@@ -350,7 +351,7 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.nanmean(caloff[chrng])
         meandiff = np.nanmean(calon[chrng] - caloff[chrng])
-        if False:
+        if False:  # @pjt  if this is some kind of private debug, why not use _debug = False in this file
             if meandiff < 0:
                 print(f"moff {meanoff}, mdif {meandiff}, tc {tcal}")
                 print(f"CALON: {calon[nedge:-(nedge-1)]}")
