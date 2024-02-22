@@ -136,10 +136,14 @@ def replace_convention(veldef, doppler_convention):
 
 
 # This gives the wrong answer for GBT which always writes data as topocentric
-# regardless of what VELDEF says.
-# Kludge for GBT: pass in CTYPE1 which is always 'FREQ-OBS'
+# regardless of what VELDEF says.  Therefore the kludge for GBT: Instead of
+# VELDEF, pass in CTYPE1  which is always 'FREQ-OBS'.
 def is_topocentric(veldef):
-    if veldef[0:4] == "FREQ":  # workaround for GBT nonsense   # @pjt what if this is not GBT nonsense?
+    # fmt: off
+    if veldef[0:4] == "FREQ":  # Workaround for GBT peculiarity described above.
+                               # We don't expect other observatories will
+                               # use GBT's convention.
+        # fmt: on
         nvd = "VELO" + veldef[4:]
         return decode_veldef(nvd)[1] == "topocentric"
     else:
