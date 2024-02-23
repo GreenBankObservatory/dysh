@@ -489,20 +489,22 @@ class Spectrum(Spectrum1D):
         """
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # should we also require DATE-OBS or MJD-OBS?
-        _required = set([
-            "CRVAL1",
-            "CRVAL2",
-            "CRVAL3",
-            "CTYPE1",
-            "CTYPE2",
-            "CTYPE3",
-            "CUNIT1",
-            "CUNIT2",
-            "CUNIT3",
-            "VELOCITY",
-            "EQUINOX",
-            "RADESYS",
-        ])
+        _required = set(
+            [
+                "CRVAL1",
+                "CRVAL2",
+                "CRVAL3",
+                "CTYPE1",
+                "CTYPE2",
+                "CTYPE3",
+                "CUNIT1",
+                "CUNIT2",
+                "CUNIT3",
+                "VELOCITY",
+                "EQUINOX",
+                "RADESYS",
+            ]
+        )
 
         # for k in _required:
         #    print(f"{k} {k in header}")

@@ -1,5 +1,5 @@
 """Load generic SDFITS files
-    - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
+- Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
 """
 
 # import copy
