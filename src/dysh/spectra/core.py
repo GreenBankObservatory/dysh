@@ -16,9 +16,9 @@ from ..coordinates import Observatory, make_target, veldef_to_convention
 from ..util import uniq
 
 
+# @todo: allow data to be SpectrumList or array of Spectrum
 def average(data, axis=0, weights=None):
     """Average a group of spectra or scans.
-     TODO: allow data to be SpectrumList or array of Spectrum
 
     Parameters
     ----------
@@ -142,7 +142,7 @@ def exclude_to_region(exclude, refspec, fix_exclude=False):
                     pair = [sa[pair[0]], sa[pair[1]]]
                 # if it is already a spectral region no additional
                 # work is needed
-                # @TODO we should test that the SpectralRegion is not out of bounds
+                # @todo we should test that the SpectralRegion is not out of bounds
                 if isinstance(pair[0], SpectralRegion):
                     b = pair[0].bounds
                     if b[0] < sa[0] or b[1] > sa[1]:
@@ -191,7 +191,7 @@ def region_to_axis_indices(region, refspec):
         The array indices in `refspec` corresponding to `region.bounds`
     """
     # Spectral region to indices in an input spectral axis.
-    # @TODO needs to work for multiple spectral regions? or just loop outside this call
+    # @todo needs to work for multiple spectral regions? or just loop outside this call
     p = refspec
     sa = refspec.spectral_axis
     if region.lower.unit != sa.unit:
@@ -283,7 +283,7 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     # print(f"MODEL {model} FITTER {fitter}")
     p = spectrum
     if np.isnan(p.data).all():
-        # @Todo handle masks
+        # @todo handle masks
         return None  # or raise exception
     if exclude is not None:
         regionlist = exclude_to_region(exclude, spectrum, fix_exclude=kwargs_opts["fix_exclude"])
@@ -300,7 +300,7 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     return fit_continuum(spectrum=p, model=model, fitter=fitter, exclude_regions=regionlist)
 
 
-def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
+def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     """
     Get the system temperature from the neighboring calon and caloff, which reflect the state of the noise diode.
     We define an extra way to set the edge size, nedge, if you prefer to use
@@ -320,10 +320,9 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
         mode : int
             mode=0  Do the mean before the division
             mode=1  Do the mean after the division
-            TODO: Ask PJT why the options?
 
-        fedge : int
-            Fraction of edge channels to exclude at each end, in percent. Default: 10, meaning the central 80% bandwidth is used
+        fedge : float
+            Fraction of edge channels to exclude at each end, a number between 0 and 1. Default: 0.1, meaning the central 80% bandwidth is used
 
         nedge : int
             Number of edge channels to exclude. Default: None, meaning use `fedge`
@@ -335,8 +334,8 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     """
     # @todo Pedro thinks about a version that takes a spectrum with multiple SpectralRegions to exclude.
     nchan = len(calon)
-    if nedge == None:
-        nedge = nchan // fedge  # 10 %
+    if nedge is None:
+        nedge = int(nchan * fedge)
     # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
     # Therefore we have to add a channel to the upper edge of the range
     # below in order to reproduce exactly what GBTIDL gets for Tsys.
@@ -351,13 +350,6 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=10, nedge=None):
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.nanmean(caloff[chrng])
         meandiff = np.nanmean(calon[chrng] - caloff[chrng])
-        if False:
-            if meandiff < 0:
-                print(f"moff {meanoff}, mdif {meandiff}, tc {tcal}")
-                print(f"CALON: {calon[nedge:-(nedge-1)]}")
-                print(f"CALOF: {caloff[nedge:-(nedge-1)]}")
-                print(f"DIFF: {calon[nedge:-(nedge-1)]-caloff[nedge:-(nedge-1)]}")
-                print(f"CALOF: {caloff[nedge:-(nedge-1)]}")
         meanTsys = meanoff / meandiff * tcal + tcal / 2.0
     else:
         meanTsys = np.mean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
