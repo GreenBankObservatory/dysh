@@ -1,16 +1,18 @@
+import os
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 
 from dysh import util
 
 root_dir = util.get_project_root()
+test_dir = util.get_project_testdata()
 
 def test_positionswitch():
     """
     """
 
-    notebook = f"{root_dir}/notebooks/examples/positionswitch-test.ipynb"
-    filename = f"{root_dir}/testdata/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+    notebook = os.path.join(root_dir, r"notebooks", r"examples", r"positionswitch-test.ipynb")
+    filename = os.path.join(test_dir, r"TGBT21A_501_11", r"TGBT21A_501_11.raw.vegas.fits")
 
     with open(notebook) as f:
         nb = nbformat.read(f, as_version=4)
@@ -21,7 +23,7 @@ def test_positionswitch():
         try:
             if "wget" in cell["metadata"]["tags"]:
                 has_filename = True
-                cell["source"] = f"filename = '{filename}'"
+                cell["source"] = f"filename = r'{filename}'"
         except KeyError:
             continue
 
