@@ -272,7 +272,7 @@ def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
     # ref_w = ref["EXPOSURE"][:,np.newaxis]*abs(ref["CDELT1"][:,np.newaxis])/np.power(ref["TSYS"], 2.)
     sig_w = (sig["EXPOSURE"]*abs(sig["CDELT1"])/np.power(sig["TSYS"], 2.))[:,np.newaxis]
     ref_w = (ref["EXPOSURE"]*abs(ref["CDELT1"])/np.power(ref["TSYS"], 2.))[:,np.newaxis]
-    
+    print('sig_w',sig_w)
     avg = (sig["DATA"]*sig_w + ref_shift["DATA"]*ref_w) / (sig_w + ref_w)
 
     out = copy(sig)
@@ -456,7 +456,7 @@ plt.figure()
 plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid')
 plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid')
 plt.xlim(1665.62, 1665.68)
-plt.ylim(-50,900)
+plt.ylim(-50,1000)
 plt.xlabel("Frequency (MHz)")
 plt.ylabel("Antenna Temperature (K)");
 plt.title("cal sig/ref fold - zoomed - notice 1/2 chan offset");
@@ -475,15 +475,29 @@ pol2 = table1['DATA'][1]
 #%%
 
 plt.figure()
+lw=4
 if plnum==0:
-    plt.plot(f[0]/1e6, pol1, label='GBTIDL plnum=0',drawstyle='steps-mid')
+    plt.plot(f[0]/1e6, pol1, label='GBTIDL plnum=0',drawstyle='steps-mid', linewidth=lw)
 elif plnum==1:
-    plt.plot(f[1]/1e6, pol2, label='GBTIDL_plnum=1',drawstyle='steps-mid')
+    plt.plot(f[1]/1e6, pol2, label='GBTIDL_plnum=1',drawstyle='steps-mid', linewidth=lw)
     
 plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid', label='dysh cal_sig')
 plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid', label='dysh sig_cal')
-    
+#  make tickmarks at every (sig) channel center
+if True:
+    f1=cal_sig_freq[0].to("MHz").value
+    n1=np.argwhere((f1>1665.62))
+    n2=np.argwhere((f1<1665.68))
+    idx = np.argwhere((f1<1665.68) & (f1>1665.62))[0]
+    print(idx)
+    # n1[-1] to n2[0]
+    ticks=f1[16081:16164]
+    #ticks=f1[n1[0]:n1[-1]]
+    #ticks=f1[idx]
+    plt.xticks(ticks)
+    plt.grid()
+
 plt.xlim(1665.62, 1665.68)
-plt.ylim(-50,900)
+plt.ylim(-50,1000)
 plt.title('TGBT21A_504_01.cal.vegas')
 plt.legend()
