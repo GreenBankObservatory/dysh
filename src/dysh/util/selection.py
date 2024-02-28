@@ -114,13 +114,6 @@ class Selection(DataFrame):
             ]
             self._table.pprint_exclude_names.set(emptycols)
 
-    # def __repr__(self):
-    # when printing to screen we only want to include
-    # columns that are not empty.
-    # This will not affect writing to a file.
-    #     self._set_pprint_exclude_names()
-    #     return super().__repr__()
-
     def _sanitize_input(self, key, value):
         """
         Sanitize a key-value pair for. List and coordinate types are checked for.
@@ -138,47 +131,14 @@ class Selection(DataFrame):
         sanitized_value : str
             The sanitized value
         """
-        # @todo 1.  Allow minimum match str for key
-        #      2.  Allow synonyms, e.g. source for object,
-        #         elevation for elevatio, etc.
+        # @todo   Allow minimum match str for key
         if key in self._aliases.keys():
             key = self._aliases[key]
         if key not in self:
             raise KeyError(f"{key} is not a recognized column name.")
-        # v = self._sanitize_list(value)
         v = self._sanitize_coordinates(key, value)
         self._check_for_disallowed_chars(key, value)
         return v
-
-    def _sanitize_list(self, value):
-        """
-        Sanitize a key-value pair for a value that might be a list.
-        If not recognized as a list (has commas and/or []), then the
-        input value is simply returned.
-
-        Parameters
-        ----------
-        key : str
-            upper case key value
-
-        value : any
-            The value for the key
-
-        Returns
-        -------
-        sanitized_value : str
-            The sanitized list.
-        """
-        # first remove any brackets that the user might have
-        # supplied.
-        v = value.replace("[", "").replace("]", "")
-        if "," not in v:
-            return v
-        # split by comma delimiter
-        v = v.split(",")
-        # remove any empty entries
-        v = [i for i in v if i != ""]
-        return v.split(",")
 
     def _sanitize_coordinates(self, key, value):
         """
@@ -302,6 +262,23 @@ class Selection(DataFrame):
     def _check_numbers(self, **kwargs):
         self._check_type(numbers.Number, "Expected numeric value for these keywords but did not get a number", **kwargs)
 
+    def _check_range(self, **kwargs):
+        bad = []
+        for k, v in kwargs.items():
+            ku = k.upper()
+            if not isinstance(v, (tuple, list, np.ndarray)):
+                raise ValueError(f"Invalid input for key {ku}={v}. Range inputs must be tuple or list.")
+            for a in v:
+                if a is not None:
+                    if isinstance(a, Quantity):
+                        a = self._sanitize_coordinates(ku, a)
+                    try:
+                        self._check_numbers(**{ku: a})
+                    except ValueError:
+                        bad.append(ku)
+        if len(bad) > 0:
+            raise ValueError(f"Expected numeric value for these keywords but did not get a number: {bad}")
+
     def _check_type(self, reqtype, msg, **kwargs):
         # @todo allow Quantities
         """
@@ -353,10 +330,11 @@ class Selection(DataFrame):
         None.
 
         """
-        for s in self._selection_rules.values():
+        for _id, s in self._selection_rules.items():
             if s.equals(df):
-                print(s, df)
-                raise Exception("A identical selection rule has already been added.")
+                # print(s, df)
+                tag = self._table.loc[_id]["TAG"]
+                raise Exception(f"A rule that results in an identical has already been added. ID: {_id}, TAG:{tag}")
 
     def _addrow(self, row, dataframe, tag=None):
         """
@@ -451,15 +429,25 @@ class Selection(DataFrame):
 
         """
         self._check_keys(kwargs.keys())
-        # self._check_numbers(**kwargs)
+        self._check_range(**kwargs)
         row = dict()
         df = self
-        # @todo need to handle upper and lower limits (None,v), (v,None), (v,)
         # @todo need to handle nested arrays [[v1,v2],[v3,v4]] - what's the use case?
         for k, v in list(kwargs.items()):
             ku = k.upper()
             if ku in self._aliases:
                 ku = self._aliases[ku]
+            # deal with a tuple quantity
+            if isinstance(v, Quantity):
+                v = v.value
+            vn = list()
+            # deal with quantity inside a tuple.
+            for q in v:
+                if isinstance(q, Quantity):
+                    vn.append(q.value)
+                else:
+                    vn.append(q)
+            v = vn
             row[ku] = str(v)
             if len(v) == 2:
                 if v[0] is not None and v[1] is not None:
@@ -471,7 +459,7 @@ class Selection(DataFrame):
             elif len(v) == 1:  # lower limit given
                 df = pd.merge(df, df[(df[ku] >= v[0])], how="inner")
             else:
-                raise Exception(f"Couldn't parse value tuple {v} for key {k}")
+                raise Exception(f"Couldn't parse value tuple {v} for key {k} as a range.")
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
             return
