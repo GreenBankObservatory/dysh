@@ -1,10 +1,13 @@
 import numbers
+import warnings
+from collections.abc import Sequence
 
 import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.coordinates import Angle
 from astropy.table import Table  # , TableAttribute
+from astropy.units.quantity import Quantity
 from pandas import DataFrame
 
 # from ..fits import default_sdfits_columns
@@ -15,10 +18,19 @@ from . import generate_tag
 idtag = ["ID", "TAG"]
 # DEFKEYS = np.array(default_sdfits_columns())
 # DEFKEYS = np.insert(DEFKEYS, 0, idtag)
+default_aliases = {
+    "freq": "crval1",
+    "velo": "crval1",
+    "ra": "crval2",
+    "dec": "crval3",
+    "glon": "crval2",
+    "glat": "crval3",
+    "elevation": "elevatio",
+}
 
 
 class Selection(DataFrame):
-    def __init__(self, sdfits, **kwargs):
+    def __init__(self, sdfits, aliases=default_aliases, **kwargs):
         super().__init__(sdfits._index, copy=True)
         DEFKEYS = np.array(sdfits._index.keys())
         DEFKEYS = np.insert(DEFKEYS, 0, idtag)
@@ -27,8 +39,70 @@ class Selection(DataFrame):
         self._table = Table(data=None, names=DEFKEYS, dtype=dt)
         for t in idtag:
             self._table.add_index(t)
-        self._valid_coordinates = ["RA", "DEC", "GALLON", "GALLAT"]
+        self._valid_coordinates = ["RA", "DEC", "GALLON", "GALLAT", "GLON", "GLAT", "CRVAL2", "CRVAL3"]
         self._selection_rules = dict()
+        self._aliases = dict()
+        self.alias(**aliases)
+
+    @property
+    def aliases(self):
+        """
+        The aliases that may be used to refer to SDFITS columns,
+        Returns
+        -------
+        dict
+            The dictionary of aliases and SDFITS column names
+
+        """
+        return self._aliases
+
+    def alias(self, **aliases):
+        """
+        Alias a set of keywords to existing columns. Multiple aliases for
+        a single column are allowed, e.g.,
+        { 'glon':'crval2', 'lon':'crval2'}
+
+        Parameters
+        ----------
+        aliases : dict()
+            The dictionary of keywords and column names
+            where the new alias is the key and
+            the column name is the value and , i.e., {alias:column}
+
+        Returns
+        -------
+        None.
+
+        Raises
+        ------
+            ValueError if the column name is not recognized.
+        """
+        self._check_keys(aliases.values())
+        for k, v in aliases.items():
+            self._alias(k, v)
+
+    def _alias(self, key, column):
+        """
+        Alias a new keyword to an existing column, e.g..
+        to alias the SDFITS column 'CRVAL2' as 'RA':
+
+            `alias('RA','CRVAL2')`
+
+        The map is case insensitive, so `alias('ra', 'crval2')` also works.
+
+        Parameters
+        ----------
+        key : str
+            The new keyword to use as an alias.
+        column : str
+            The existing SDFITS column name to alias
+
+        Returns
+        -------
+        None.
+
+        """
+        self._aliases[key.upper()] = column.upper()
 
     def _set_pprint_exclude_names(self):
         """Use pprint_exclude_names to set the list
@@ -67,6 +141,8 @@ class Selection(DataFrame):
         # @todo 1.  Allow minimum match str for key
         #      2.  Allow synonyms, e.g. source for object,
         #         elevation for elevatio, etc.
+        if key in self._aliases.keys():
+            key = self._aliases[key]
         if key not in self:
             raise KeyError(f"{key} is not a recognized column name.")
         # v = self._sanitize_list(value)
@@ -115,15 +191,23 @@ class Selection(DataFrame):
             upper case key value
 
         value : any
-            The value for the key
+            The value for the key.  It can be a single float,
+            a single Angle (Quantity), a tuple of Angles
+            (a1,a2,a3) or an Angle tuple, e.g., (n1,n2)*u.degree
 
         Returns
         -------
         sanitized_value : str
             The sanitized value.
         """
-        if key not in self._valid_coordinates:
+        if key not in self._valid_coordinates and key not in self.aliases:
             return value
+        # note Quantity is derivative of np.ndarray, so
+        # need to filter that out in the recursive call.
+        # This is to handle (q1,q2) as a range.
+        # (n1,n2)*u.degree is handled below
+        if isinstance(value, (tuple, np.ndarray, list)) and not isinstance(value, Quantity):
+            return [self._sanitize_coordinates(key, v) for v in value]
         if isinstance(value, float):
             a = Angle(value * u.degree)
         else:  # it should be a str or Quantity
@@ -187,13 +271,13 @@ class Selection(DataFrame):
             return 0
         return max(self._table["ID"]) + 1
 
-    def _check_keys(self, **kwargs):
+    def _check_keys(self, keys):
         """
-        Check a list for unrecognized keywords.  This method is called in any select method to check inputs.
+        Check a dictionary for unrecognized keywords.  This method is called in any select method to check inputs.
 
         Parameters
         ----------
-        **kwargs : dict or key=value
+        keys : list or array-like
            Keyword arguments
 
         Returns
@@ -207,22 +291,31 @@ class Selection(DataFrame):
 
         """
         unrecognized = []
-        ku = [k.upper() for k in kwargs.keys()]
+        ku = [k.upper() for k in keys]
         for k in ku:
-            if k not in self:
+            if k not in self and k not in self._aliases:
                 unrecognized.append(k)
         # print("KU, K", ku, k)
         if len(unrecognized) > 0:
             raise KeyError(f"The following keywords were not recognized: {unrecognized}")
 
-    # @todo this could be made generic to check for any type
     def _check_numbers(self, **kwargs):
+        self._check_type(numbers.Number, "Expected numeric value for these keywords but did not get a number", **kwargs)
+
+    def _check_type(self, reqtype, msg, **kwargs):
         # @todo allow Quantities
         """
-        Check that a list of keyword arguments is all numbers.
+        Check that a list of keyword arguments is all a specified type.
 
         Parameters
         ----------
+
+        reqtype : type
+            The object type to check against, e.g. numbers.Number, str, etc
+
+        msg : str
+            The exception message to show if the inputs are not the specific reqtype
+
         **kwargs : dict or key=value
            Keyword arguments
 
@@ -237,9 +330,9 @@ class Selection(DataFrame):
 
         """
         ku = np.ma.masked_array([k.upper() for k in kwargs.keys()])
-        ku.mask = np.array([isinstance(x, numbers.Number) for x in kwargs.values()])
+        ku.mask = np.array([isinstance(x, reqtype) for x in kwargs.values()])
         if not np.all(ku.mask):
-            raise ValueError(f"Expected numeric value for these keywords but did not get a number {ku[~ku.mask]}")
+            raise ValueError(f"{msg}: {ku[~ku.mask]}")
 
     def _check_for_duplicates(self, df):
         """
@@ -260,9 +353,9 @@ class Selection(DataFrame):
         None.
 
         """
-
         for s in self._selection_rules.values():
             if s.equals(df):
+                print(s, df)
                 raise Exception("A identical selection rule has already been added.")
 
     def _addrow(self, row, dataframe, tag=None):
@@ -308,14 +401,27 @@ class Selection(DataFrame):
                 The value to select
 
         """
-        self._check_keys(**kwargs)
+        self._check_keys(kwargs.keys())
         row = dict()
         df = self
         for k, v in list(kwargs.items()):
             ku = k.upper()
+            if ku in self._aliases:
+                ku = self._aliases[ku]
             v = self._sanitize_input(ku, v)
-            row[ku] = str(v)
+            # If a list is passed in, it must be composed of strings.
+            # Numeric lists are intepreted as ranges, so must be
+            # selected by user with select_range
+            if isinstance(v, (Sequence, np.ndarray)) and not isinstance(v, str):
+                print(ku, v)
+                self._check_type(
+                    str, "Numeric arrays are not allowed with exact selection, use select_range instead.", **{ku: v}
+                )
             df = pd.merge(df, df[df[ku] == v], how="inner")
+            row[ku] = str(v)
+        if df.empty:
+            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
+            return
         self._addrow(row, df, tag)
         # return df
 
@@ -344,13 +450,16 @@ class Selection(DataFrame):
         None.
 
         """
-        self._check_keys(**kwargs)
+        self._check_keys(kwargs.keys())
+        # self._check_numbers(**kwargs)
         row = dict()
         df = self
         # @todo need to handle upper and lower limits (None,v), (v,None), (v,)
         # @todo need to handle nested arrays [[v1,v2],[v3,v4]] - what's the use case?
         for k, v in list(kwargs.items()):
             ku = k.upper()
+            if ku in self._aliases:
+                ku = self._aliases[ku]
             row[ku] = str(v)
             if len(v) == 2:
                 if v[0] is not None and v[1] is not None:
@@ -360,10 +469,12 @@ class Selection(DataFrame):
                 else:  # lower limit given (v[1] is None)
                     df = pd.merge(df, df[(df[ku] >= v[0])], how="inner")
             elif len(v) == 1:  # lower limit given
-                df = pd.merge(df, df[(df[ku] <= v[1])], how="inner")
+                df = pd.merge(df, df[(df[ku] >= v[0])], how="inner")
             else:
                 raise Exception(f"Couldn't parse value tuple {v} for key {k}")
-
+        if df.empty:
+            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
+            return
         self._addrow(row, df, tag)
 
     def select_within(self, tag=None, **kwargs):
