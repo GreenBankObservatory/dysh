@@ -53,3 +53,6 @@ def test_positionswitch():
     idx = nb_tester.get_cell_idx_from_tag("print_tsys")
     assert len(idx) == 1 # make sure there is only one cell with the tag.
     assert nb_tester.nb.cells[idx[0]]["outputs"][0]["text"] == 'T_sys = 17.24\n'
+
+    # Cleanup.
+    nb_tester._cleanup_kernel()
