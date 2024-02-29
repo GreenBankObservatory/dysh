@@ -1,6 +1,7 @@
 import numbers
 import warnings
 from collections.abc import Sequence
+from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
@@ -16,22 +17,26 @@ from . import generate_tag
 # add ID and TAG to available keys before creating tag
 # why not move this to constructor?
 idtag = ["ID", "TAG"]
-# DEFKEYS = np.array(default_sdfits_columns())
-# DEFKEYS = np.insert(DEFKEYS, 0, idtag)
 default_aliases = {
     "freq": "crval1",
-    "velo": "crval1",
+    "velo": "crval1",  # MAYBE
     "ra": "crval2",
     "dec": "crval3",
     "glon": "crval2",
     "glat": "crval3",
+    "gallon": "crval2",
+    "gallat": "crval3",
     "elevation": "elevatio",
+    "source": "object",
 }
 
 
 class Selection(DataFrame):
+    """The selection object"""
+
     def __init__(self, sdfits, aliases=default_aliases, **kwargs):
         super().__init__(sdfits._index, copy=True)
+        warnings.simplefilter("ignore", category=UserWarning)
         DEFKEYS = np.array(sdfits._index.keys())
         DEFKEYS = np.insert(DEFKEYS, 0, idtag)
         dt = np.array([str] * len(DEFKEYS))
@@ -43,6 +48,7 @@ class Selection(DataFrame):
         self._selection_rules = dict()
         self._aliases = dict()
         self.alias(**aliases)
+        warnings.resetwarnings()
 
     @property
     def aliases(self):
@@ -86,7 +92,7 @@ class Selection(DataFrame):
         Alias a new keyword to an existing column, e.g..
         to alias the SDFITS column 'CRVAL2' as 'RA':
 
-            `alias('RA','CRVAL2')`
+            `alias('RA','CRVAL2')`https://www.senate.umd.edu/currentsenators
 
         The map is case insensitive, so `alias('ra', 'crval2')` also works.
 
@@ -105,7 +111,7 @@ class Selection(DataFrame):
         self._aliases[key.upper()] = column.upper()
 
     def _set_pprint_exclude_names(self):
-        """Use pprint_exclude_names to set the list
+        """Use `~astropy.Table.pprint_exclude_names` to set the list
         columns that have no entries.
         """
         if len(self._table) > 0:
@@ -116,7 +122,7 @@ class Selection(DataFrame):
 
     def _sanitize_input(self, key, value):
         """
-        Sanitize a key-value pair for. List and coordinate types are checked for.
+        Sanitize a key-value pair for. Coordinate types are checked for.
 
         Parameters
         ----------
@@ -177,22 +183,6 @@ class Selection(DataFrame):
     def _check_for_disallowed_chars(self, key, value):
         # are there any?  coordinates will already
         # be transformed to decimal degrees
-        pass
-
-    def _parse_time(self, value):
-        """
-
-
-        Parameters
-        ----------
-        value : TYPE
-            DESCRIPTION.
-
-        Returns
-        -------
-        None.
-
-        """
         pass
 
     def _generate_tag(self, values, hashlen=9):
@@ -392,10 +382,27 @@ class Selection(DataFrame):
             # selected by user with select_range
             if isinstance(v, (Sequence, np.ndarray)) and not isinstance(v, str):
                 print(ku, v)
-                self._check_type(
-                    str, "Numeric arrays are not allowed with exact selection, use select_range instead.", **{ku: v}
-                )
-            df = pd.merge(df, df[df[ku] == v], how="inner")
+                query = None
+                for vv in v:
+                    self._check_type(
+                        str,
+                        "Numeric arrays are not allowed with exact selection, use select_range instead.",
+                        **{ku: vv},
+                    )
+                    # if it is a string, then OR them.
+                    # e.g. object = ["NGC123", "NGC234"]
+                    thisq = f'{ku} == "{vv}"'
+                    if query is None:
+                        query = thisq
+                    else:
+                        query += f"| {thisq}"
+                    # for pd.merge to give the correct answer, we would
+                    # need "inner" on the first one and "outer" on subsequent
+                    # df = pd.merge(df, df[df[ku] == vv], how="inner")
+                # print("final query ", query)
+                df = df.query(query)
+            else:
+                df = pd.merge(df, df[df[ku] == v], how="inner")
             row[ku] = str(v)
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
@@ -432,7 +439,6 @@ class Selection(DataFrame):
         self._check_range(**kwargs)
         row = dict()
         df = self
-        # @todo need to handle nested arrays [[v1,v2],[v3,v4]] - what's the use case?
         for k, v in list(kwargs.items()):
             ku = k.upper()
             if ku in self._aliases:
@@ -443,6 +449,9 @@ class Selection(DataFrame):
             vn = list()
             # deal with quantity inside a tuple.
             for q in v:
+                # ultimately will need a map of
+                # desired units, so e.g. if
+                # GHz used, then the value is expressed in Hz
                 if isinstance(q, Quantity):
                     vn.append(q.value)
                 else:
@@ -537,6 +546,41 @@ class Selection(DataFrame):
                 del self._selection_rules[i]
                 # self._selection_rules.pop(i, None) # also works
 
+    # This method commented out until further notice.
+    # It has issues with multiple ways of removing table rows
+    # creating an inconsistent table
+    # def clear(self):
+    #   """
+    #    Remove all selection rules
+    #
+    #    Returns
+    ##    -------
+    #    None.
+    #
+    #    """
+    #   self._selection_rules = {}
+    # remove[0] will fail if the user has already
+    # removed it, which then screws up the index and no further
+    # modification becomes possible
+    #   self._table.remove_rows([0, len(self._table) - 1])
+
     def show(self):
+        """
+        Print the current selection rules
+
+        Returns
+        -------
+        None.
+
+        """
         self._set_pprint_exclude_names()
         print(self._table)
+
+    @property
+    def final(self):
+        # start with unfiltered index.
+        # make a copy to avoid reference to self
+        final = deepcopy(self)
+        for df in self._selection_rules.values():
+            final = pd.merge(final, df, how="inner")
+        return final
