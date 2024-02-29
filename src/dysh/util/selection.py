@@ -14,12 +14,8 @@ from pandas import DataFrame
 # from ..fits import default_sdfits_columns
 from . import generate_tag
 
-# add ID and TAG to available keys before creating tag
-# why not move this to constructor?
-idtag = ["ID", "TAG"]
 default_aliases = {
     "freq": "crval1",
-    "velo": "crval1",  # MAYBE
     "ra": "crval2",
     "dec": "crval3",
     "glon": "crval2",
@@ -28,19 +24,36 @@ default_aliases = {
     "gallat": "crval3",
     "elevation": "elevatio",
     "source": "object",
+    "pol": "plnum",
 }
 
 
 class Selection(DataFrame):
-    """The selection object"""
+    """This class contains the methods for selecting data from an SDFITS object.
+    Data (rows) can be selected using any column name in the input SDFITS object.
+    Exact selection, range selection, upper/lower limit selection, any-of selection
+    are all supported.
+    """
 
     def __init__(self, sdfits, aliases=default_aliases, **kwargs):
         super().__init__(sdfits._index, copy=True)
         warnings.simplefilter("ignore", category=UserWarning)
-        DEFKEYS = np.array(sdfits._index.keys())
-        DEFKEYS = np.insert(DEFKEYS, 0, idtag)
+        idtag = ["ID", "TAG"]
+        # if we want Selection to replace _index in sdfits
+        # construction this will have to change. if hasattr("_index") etc
+        DEFKEYS = list(sdfits._index.keys())
+        # add ID and TAG as the first columns
+        for i in range(len(idtag)):
+            DEFKEYS.insert(i, idtag[i])
+        # remove bintable
+        DEFKEYS.remove("BINTABLE")
+        DEFKEYS = np.array(DEFKEYS)
         dt = np.array([str] * len(DEFKEYS))
-        dt[0] = int
+        # add number selected column which is an int
+        DEFKEYS = np.insert(DEFKEYS, len(DEFKEYS), "# SELECTED")
+        dt = np.insert(dt, len(dt), np.int32)
+        # ID is also an int
+        dt[0] = np.int32
         self._table = Table(data=None, names=DEFKEYS, dtype=dt)
         for t in idtag:
             self._table.add_index(t)
@@ -92,7 +105,7 @@ class Selection(DataFrame):
         Alias a new keyword to an existing column, e.g..
         to alias the SDFITS column 'CRVAL2' as 'RA':
 
-            `alias('RA','CRVAL2')`https://www.senate.umd.edu/currentsenators
+            `alias('RA','CRVAL2')`
 
         The map is case insensitive, so `alias('ra', 'crval2')` also works.
 
@@ -174,7 +187,7 @@ class Selection(DataFrame):
         # (n1,n2)*u.degree is handled below
         if isinstance(value, (tuple, np.ndarray, list)) and not isinstance(value, Quantity):
             return [self._sanitize_coordinates(key, v) for v in value]
-        if isinstance(value, float):
+        if isinstance(value, numbers.Number):
             a = Angle(value * u.degree)
         else:  # it should be a str or Quantity
             a = Angle(value)
@@ -352,11 +365,15 @@ class Selection(DataFrame):
         else:
             row["TAG"] = self._generate_tag(list(row.values()))
         row["ID"] = self._next_id
+        row["# SELECTED"] = len(dataframe)
         self._selection_rules[row["ID"]] = dataframe
         self._table.add_row(row)
 
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
+        If `value` is array-like then a match to any of the array members will be selected.
+        For instance `select(object=['3C273', 'NGC1234']) will select data for either of those
+        objects and `select(ifnum=[0,2])` will select IF number 0 or IF number 2.
 
         Parameters
         ----------
@@ -384,14 +401,17 @@ class Selection(DataFrame):
                 print(ku, v)
                 query = None
                 for vv in v:
-                    self._check_type(
-                        str,
-                        "Numeric arrays are not allowed with exact selection, use select_range instead.",
-                        **{ku: vv},
-                    )
+                    # self._check_type(
+                    #     str,
+                    #    "Numeric arrays are not allowed with exact selection, use select_range instead.",
+                    #    **{ku: vv},
+                    # )
                     # if it is a string, then OR them.
                     # e.g. object = ["NGC123", "NGC234"]
-                    thisq = f'{ku} == "{vv}"'
+                    if isinstance(vv, str):
+                        thisq = f'{ku} == "{vv}"'
+                    else:
+                        thisq = f"{ku} == {vv}"
                     if query is None:
                         query = thisq
                     else:
@@ -443,6 +463,8 @@ class Selection(DataFrame):
             ku = k.upper()
             if ku in self._aliases:
                 ku = self._aliases[ku]
+            v = self._sanitize_input(ku, v)
+            print(f"{ku}={v}")
             # deal with a tuple quantity
             if isinstance(v, Quantity):
                 v = v.value
@@ -505,6 +527,42 @@ class Selection(DataFrame):
             kw[k] = (v1, v2)
         self.select_range(tag, **kw)
 
+    def select_channel(self, chan):
+        """
+        Select channels and/or channel ranges. These are NOT used in final()
+        but rather will be used to create a mask for calibration or
+        flagging.
+
+        Parameters
+        ----------
+        chan : number, or array-like
+            The channels to select
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
+
+    def select_time(self, time):
+        """
+        Select time(s)
+
+        Parameters
+        ----------
+        time : probably an astropy.Time object
+        or something that can be converted to it
+
+            The time(s) to select
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
+
     def remove(self, id=None, tag=None):
         """Remove (delete) a selection rule(s).
         You must specify either `id` or `tag` but not both. If there are
@@ -566,7 +624,12 @@ class Selection(DataFrame):
 
     def show(self):
         """
-        Print the current selection rules
+        Print the current selection rules. Only columns with a rule are shown.
+        The first two columns are ID number a TAG string. Either of these may be used
+        to :meth:remove a row.  The final column `# SELECTED` gives
+        the number of rows that a given rule selects from the original.
+        The :meth:final selection may be fewer rows because each selection rule
+        is logically OR'ed to create the final selection.
 
         Returns
         -------
@@ -578,6 +641,15 @@ class Selection(DataFrame):
 
     @property
     def final(self):
+        """
+        Create the final selection. This is done by a logical OR of each
+        of the selection rules (specifically `pandas.merge(how='inner')`).
+
+        Returns
+        -------
+        final : DataFrame
+            The resultant selection from all the rules.
+        """
         # start with unfiltered index.
         # make a copy to avoid reference to self
         final = deepcopy(self)
