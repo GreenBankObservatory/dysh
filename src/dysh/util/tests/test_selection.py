@@ -63,3 +63,12 @@ class TestSelection:
         # also note we aliased elevation for elevatio!
         s.select_within(eLEVaTIon=(18.0, 2))
         assert len(s.final) == 13
+
+        # test select_channel
+        a = [1, 4, (30, 40)]
+        s = Selection(sdf)
+        s.select_channel(a)
+        assert s._channel_selection == a
+        assert len(s.final) == len(s)
+        with pytest.raises(Exception):
+            s.select_channel(["10", "a", 103])
