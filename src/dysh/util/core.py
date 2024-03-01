@@ -7,7 +7,27 @@ from pathlib import Path
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.time import Time
+
+
+def gbt_timestamp_to_time(timestamp):
+    """Convert the GBT sdfits timestamp string format to
+    an ~astropy.Time object.  GBT SDFITS timestamps have the form
+    YYYY_MM_DD_HH:MM:SS.
+
+    Parameters
+    ----------
+    timestamp : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    time : ~astropy.Time
+        The time object
+    """
+    # convert to ISO FITS format  YYYY-MM-DDTHH:MM:SS(.SSS)
+    t = timestamp.replace("_", "-", 2).replace("_", "T")
+    return Time(t)  # scale = ?????
 
 
 def generate_tag(values, hashlen):
