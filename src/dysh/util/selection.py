@@ -7,7 +7,8 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.coordinates import Angle
-from astropy.table import Table  # , TableAttribute
+from astropy.table import Table
+from astropy.time import Time
 from astropy.units.quantity import Quantity
 from pandas import DataFrame
 
@@ -45,10 +46,14 @@ class Selection(DataFrame):
         # add ID and TAG as the first columns
         for i in range(len(idtag)):
             DEFKEYS.insert(i, idtag[i])
+
         # remove bintable
         DEFKEYS.remove("BINTABLE")
         DEFKEYS = np.array(DEFKEYS)
         dt = np.array([str] * len(DEFKEYS))
+        # add channel which is ndarray(dtype=int)
+        DEFKEYS = np.insert(DEFKEYS, len(DEFKEYS), "CHAN")
+        dt = np.insert(dt, len(dt), np.ndarray)
         # add number selected column which is an int
         DEFKEYS = np.insert(DEFKEYS, len(DEFKEYS), "# SELECTED")
         dt = np.insert(dt, len(dt), np.int32)
@@ -58,9 +63,10 @@ class Selection(DataFrame):
         for t in idtag:
             self._table.add_index(t)
         self._valid_coordinates = ["RA", "DEC", "GALLON", "GALLAT", "GLON", "GLAT", "CRVAL2", "CRVAL3"]
-        self._selection_rules = dict()
-        self._aliases = dict()
+        self._selection_rules = {}
+        self._aliases = {}
         self.alias(**aliases)
+        self._channel_selection = None
         warnings.resetwarnings()
 
     @property
@@ -83,7 +89,7 @@ class Selection(DataFrame):
 
         Parameters
         ----------
-        aliases : dict()
+        aliases : {}
             The dictionary of keywords and column names
             where the new alias is the key and
             the column name is the value and , i.e., {alias:column}
@@ -282,7 +288,7 @@ class Selection(DataFrame):
         if len(bad) > 0:
             raise ValueError(f"Expected numeric value for these keywords but did not get a number: {bad}")
 
-    def _check_type(self, reqtype, msg, **kwargs):
+    def _check_type(self, reqtype, msg, silent=False, **kwargs):
         # @todo allow Quantities
         """
         Check that a list of keyword arguments is all a specified type.
@@ -309,10 +315,31 @@ class Selection(DataFrame):
         None.
 
         """
-        ku = np.ma.masked_array([k.upper() for k in kwargs.keys()])
-        ku.mask = np.array([isinstance(x, reqtype) for x in kwargs.values()])
+        # deal with potential arrays first by calling
+        # this method recursively on each array member.
+        kw = deepcopy(kwargs)  # prevent concurrent modification
+        recursive_bad = []
+        for k, v in kwargs.items():
+            # if the input value is an array, then we want to
+            # check the type for each member of the array, but
+            # not raise an exception (silent=True) but collect
+            # the bad ones and pass them on.
+            if isinstance(v, (Sequence, np.ndarray)) and not isinstance(v, str):
+                bad = [self._check_type(reqtype, msg, **{k: x}, silent=True) for x in v]
+                # there's probably a smarter way to do this
+                for i in range(len(bad)):
+                    if len(bad[i]) != 0:
+                        recursive_bad.extend(bad[i])
+                kw.pop(k)
+        # now the main check
+        ku = np.ma.masked_array([k.upper() for k in kw.keys()])
+        ku.mask = np.array([isinstance(x, reqtype) for x in kw.values()])
+        if len(recursive_bad) != 0:
+            ku = np.ma.append(ku, recursive_bad)
+        if silent:
+            return list(ku[~ku.mask])
         if not np.all(ku.mask):
-            raise ValueError(f"{msg}: {ku[~ku.mask]}")
+            raise ValueError(f"{msg}: {np.squeeze(ku[~ku.mask])}")
 
     def _check_for_duplicates(self, df):
         """
@@ -346,14 +373,13 @@ class Selection(DataFrame):
 
         Parameters
         ----------
-        tag : str, optional
-            An identifying tag by which the rule may be referred to later.
-            If None, a  randomly generated tag will be created.
         row : dict
             key, value pairs of the selection
         dataframe : ~pandas.DataFrame
             The dataframe created by the selection.
-
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
         Returns
         -------
         None.
@@ -386,8 +412,13 @@ class Selection(DataFrame):
                 The value to select
 
         """
+        # @todo ?? MAYBE allow chan(nel) in here, e.g.
+        # chan = kwargs.pop(chan,None)
+        # if chan is not None:
+        #   self.select_channel(chan,tag=tag)
+        #
         self._check_keys(kwargs.keys())
-        row = dict()
+        row = {}
         df = self
         for k, v in list(kwargs.items()):
             ku = k.upper()
@@ -457,7 +488,7 @@ class Selection(DataFrame):
         """
         self._check_keys(kwargs.keys())
         self._check_range(**kwargs)
-        row = dict()
+        row = {}
         df = self
         for k, v in list(kwargs.items()):
             ku = k.upper()
@@ -468,7 +499,7 @@ class Selection(DataFrame):
             # deal with a tuple quantity
             if isinstance(v, Quantity):
                 v = v.value
-            vn = list()
+            vn = []
             # deal with quantity inside a tuple.
             for q in v:
                 # ultimately will need a map of
@@ -520,14 +551,14 @@ class Selection(DataFrame):
 
         """
         # This is just a type of range selection.
-        kw = dict()
+        kw = {}
         for k, v in kwargs.items():
             v1 = v[0] - v[1]
             v2 = v[0] + v[1]
             kw[k] = (v1, v2)
         self.select_range(tag, **kw)
 
-    def select_channel(self, chan):
+    def select_channel(self, chan, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in final()
         but rather will be used to create a mask for calibration or
@@ -543,7 +574,17 @@ class Selection(DataFrame):
         None.
 
         """
-        pass
+        # We don't want to get into trying to merge
+        # different, possibly exclusive, channel selections.
+        # This also avoids the side effect of using self to
+        # compute "# Selected" in _addrow
+        if self._channel_selection is not None:
+            raise Exception(
+                "You can only have one channel selection rule. Remove the old rule before creating a new one."
+            )
+        self._check_numbers(chan=chan)
+        self._channel_selection = chan
+        self._addrow({"CHAN": chan}, dataframe=self, tag=tag)
 
     def select_time(self, time):
         """
