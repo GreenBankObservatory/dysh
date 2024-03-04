@@ -30,10 +30,29 @@ default_aliases = {
 
 
 class Selection(DataFrame):
-    """This class contains the methods for selecting data from an SDFITS object.
+    """This class contains the methods for creating rules to select data from an SDFITS object.
     Data (rows) can be selected using any column name in the input SDFITS object.
-    Exact selection, range selection, upper/lower limit selection, any-of selection
+    Exact selection, range selection, upper/lower limit selection, and any-of selection
     are all supported.
+
+    Users create *selection rules* by specifying keyword (SDFITS columns) and value(s) to be selected.
+    Briefly, the selection methods are:
+
+         :meth:`select` - Select exact values
+
+         :meth:`select_range` - Select ranges of values
+
+         :meth:`select_within` - Select a value +/- epsilon
+
+         :meth:`select_channel` - Select channels or ranges of channels
+
+    The Selection object maintains a DataFrame for each selection rule created by the user. The
+    :meth:`final` selection is the logical OR of these rules. Users can examine the current selections
+    with :meth:`show` which will show the current
+    rules and how many rows each rule selects from the unfiltered data.
+
+    Aliases of keywords are supported. The user may add an alias for an existing SDFITS column
+    with :meth:`alias`.   Some default :meth:`aliases` have been defined.
     """
 
     def __init__(self, sdfits, aliases=default_aliases, **kwargs):
@@ -77,19 +96,18 @@ class Selection(DataFrame):
         Returns
         -------
         None.
-
         """
         self["UTC"] = [gbt_timestamp_to_time(q) for q in self.TIMESTAMP]
 
     @property
     def aliases(self):
         """
-        The aliases that may be used to refer to SDFITS columns,
+        The aliases that may be used to refer to SDFITS columns.
+
         Returns
         -------
         dict
             The dictionary of aliases and SDFITS column names
-
         """
         return self._aliases
 
@@ -340,7 +358,7 @@ class Selection(DataFrame):
 
         Returns
         -------
-        None.
+        None or, if silent is True,s a list of keywords that raised errors.
 
         """
         # deal with potential arrays first by calling
@@ -426,7 +444,7 @@ class Selection(DataFrame):
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
-        For instance `select(object=['3C273', 'NGC1234']) will select data for either of those
+        For instance `select(object=['3C273', 'NGC1234'])` will select data for either of those
         objects and `select(ifnum=[0,2])` will select IF number 0 or IF number 2.
 
         Parameters
@@ -494,7 +512,7 @@ class Selection(DataFrame):
         """
         Select a range of inclusive values for a given key(s).
         e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
-        Will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
         Upper and lower limits may be given by setting one of the tuple values
         to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
         `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
@@ -615,9 +633,12 @@ class Selection(DataFrame):
         self._channel_selection = chan
         self._addrow({"CHAN": str(chan)}, dataframe=self, tag=tag)
 
+    # NB: using ** in doc here because `id` will make a reference to the
+    # python built-in function.  Arguably we should pick a different
+    # keyword but 'id' is easy for user.
     def remove(self, id=None, tag=None):
         """Remove (delete) a selection rule(s).
-        You must specify either `id` or `tag` but not both. If there are
+        You must specify either **id** or **tag** but not both. If there are
         multiple rules with the same tag, they will all be deleted.
 
         Parameters
