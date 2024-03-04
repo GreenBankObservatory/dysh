@@ -83,7 +83,7 @@ class Selection(DataFrame):
         self._valid_coordinates = ["RA", "DEC", "GALLON", "GALLAT", "GLON", "GLAT", "CRVAL2", "CRVAL3"]
         self._selection_rules = {}
         self._aliases = {}
-        self.alias(**aliases)
+        self.alias(aliases)
         self._channel_selection = None
         warnings.resetwarnings()
 
@@ -111,7 +111,7 @@ class Selection(DataFrame):
         """
         return self._aliases
 
-    def alias(self, **aliases):
+    def alias(self, aliases):
         """
         Alias a set of keywords to existing columns. Multiple aliases for
         a single column are allowed, e.g.,
@@ -307,7 +307,7 @@ class Selection(DataFrame):
         badtime = []
         for k, v in kwargs.items():
             ku = k.upper()
-            print(ku)
+            # print(ku)
             if not isinstance(v, (tuple, list, np.ndarray)):
                 raise ValueError(f"Invalid input for key {ku}={v}. Range inputs must be tuple or list.")
             for a in v:
@@ -317,7 +317,7 @@ class Selection(DataFrame):
                     try:
                         if ku == "UTC":
                             badtime = self._check_type(Time, "Expected Time", silent=True, **{ku: a})
-                            print("BADTIME ", badtime)
+                            # print("BADTIME ", badtime)
                         else:
                             self._check_numbers(**{ku: a})
                     except ValueError:
@@ -475,7 +475,7 @@ class Selection(DataFrame):
             # Numeric lists are intepreted as ranges, so must be
             # selected by user with select_range
             if isinstance(v, (Sequence, np.ndarray)) and not isinstance(v, str):
-                print(ku, v)
+                # print(ku, v)
                 query = None
                 for vv in v:
                     if ku == "UTC":
@@ -542,7 +542,7 @@ class Selection(DataFrame):
             if ku in self._aliases:
                 ku = self._aliases[ku]
             v = self._sanitize_input(ku, v)
-            print(f"{ku}={v}")
+            # print(f"{ku}={v}")
             # deal with a tuple quantity
             if isinstance(v, Quantity):
                 v = v.value
@@ -670,10 +670,8 @@ class Selection(DataFrame):
             # to raise our own, unless we want to change the messgae.
             matching_indices = self._table.loc_indices["TAG", tag]
             #   raise KeyError(f"No TAG = {tag} found in this Selection")
-            matching = self._table[matching_indices]
-            if isinstance(matching, numbers.Number):
-                matching = [matching]  # handle if only one row
-            for i in matching:
+            matching = Table(self._table[matching_indices])
+            for i in matching["ID"]:
                 del self._selection_rules[i]
                 # self._selection_rules.pop(i, None) # also works
             self._table.remove_rows(matching_indices)
