@@ -2,6 +2,7 @@ import pathlib
 
 import astropy.units as u
 import pytest
+from astropy.time import Time
 
 import dysh
 from dysh import util
@@ -26,8 +27,8 @@ class TestSelection:
         sdf = gbtfitsload.GBTFITSLoad(self.file)
         s = Selection(sdf)
         # the unfilter sdfits index should be the same as
-        # the default selection
-        assert sdf._index.equals(s)
+        # the default selection except for addition of UTC column
+        assert sdf._index.equals(s.drop(columns="UTC", inplace=False))
         # polarization 0 and source name
         s.select(object="NGC2415", plnum=0)
         assert len(s._selection_rules[0]) == 5
@@ -64,6 +65,13 @@ class TestSelection:
         s.select_within(eLEVaTIon=(18.0, 2))
         assert len(s.final) == 13
 
+        # test selecting with a Time object.
+        s = Selection(sdf)
+        s.select_range(utc=(Time("2021-02-10T08:00", scale="utc"), Time("2021-02-10T09:00", scale="utc")))
+        # test that a non-Time object for utc raise exception
+        with pytest.raises(ValueError):
+
+            s.select_range(utc=["asdad", 123])
         # test select_channel
         a = [1, 4, (30, 40)]
         s = Selection(sdf)

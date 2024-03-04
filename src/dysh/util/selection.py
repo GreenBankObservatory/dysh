@@ -13,7 +13,7 @@ from astropy.units.quantity import Quantity
 from pandas import DataFrame
 
 # from ..fits import default_sdfits_columns
-from . import generate_tag
+from . import gbt_timestamp_to_time, generate_tag
 
 default_aliases = {
     "freq": "crval1",
@@ -38,24 +38,23 @@ class Selection(DataFrame):
 
     def __init__(self, sdfits, aliases=default_aliases, **kwargs):
         super().__init__(sdfits._index, copy=True)
+        # adding attributes that are not columns will result
+        # in a UserWarning, which we can safely ignore.
         warnings.simplefilter("ignore", category=UserWarning)
+        self._add_utc_column()
         idtag = ["ID", "TAG"]
         # if we want Selection to replace _index in sdfits
         # construction this will have to change. if hasattr("_index") etc
         DEFKEYS = list(sdfits._index.keys())
+        DEFKEYS.extend(["CHAN", "UTC", "# SELECTED"])
         # add ID and TAG as the first columns
         for i in range(len(idtag)):
             DEFKEYS.insert(i, idtag[i])
-
-        # remove bintable
-        DEFKEYS.remove("BINTABLE")
+        # add channel, astropy-based timestamp, and number rows selected
         DEFKEYS = np.array(DEFKEYS)
-        dt = np.array([str] * len(DEFKEYS))
-        # add channel which is ndarray(dtype=int)
-        DEFKEYS = np.insert(DEFKEYS, len(DEFKEYS), "CHAN")
-        dt = np.insert(dt, len(dt), np.ndarray)
+        # set up object types for the np.array
+        dt = np.array([str] * (len(DEFKEYS) - 1))
         # add number selected column which is an int
-        DEFKEYS = np.insert(DEFKEYS, len(DEFKEYS), "# SELECTED")
         dt = np.insert(dt, len(dt), np.int32)
         # ID is also an int
         dt[0] = np.int32
@@ -68,6 +67,19 @@ class Selection(DataFrame):
         self.alias(**aliases)
         self._channel_selection = None
         warnings.resetwarnings()
+
+    def _add_utc_column(self):
+        """
+        Add column to the selection dataframe with a
+        representation of the SDFITS UTC timestamp, which is a string,
+        as an ~astropy.time.Time.
+
+        Returns
+        -------
+        None.
+
+        """
+        self["UTC"] = [gbt_timestamp_to_time(q) for q in self.TIMESTAMP]
 
     @property
     def aliases(self):
@@ -156,12 +168,13 @@ class Selection(DataFrame):
         sanitized_value : str
             The sanitized value
         """
-        # @todo   Allow minimum match str for key
+        # @todo   Allow minimum match str for key?
         if key in self._aliases.keys():
             key = self._aliases[key]
         if key not in self:
             raise KeyError(f"{key} is not a recognized column name.")
         v = self._sanitize_coordinates(key, value)
+        # deal with Time here or later?
         self._check_for_disallowed_chars(key, value)
         return v
 
@@ -273,8 +286,10 @@ class Selection(DataFrame):
 
     def _check_range(self, **kwargs):
         bad = []
+        badtime = []
         for k, v in kwargs.items():
             ku = k.upper()
+            print(ku)
             if not isinstance(v, (tuple, list, np.ndarray)):
                 raise ValueError(f"Invalid input for key {ku}={v}. Range inputs must be tuple or list.")
             for a in v:
@@ -282,11 +297,24 @@ class Selection(DataFrame):
                     if isinstance(a, Quantity):
                         a = self._sanitize_coordinates(ku, a)
                     try:
-                        self._check_numbers(**{ku: a})
+                        if ku == "UTC":
+                            badtime = self._check_type(Time, "Expected Time", silent=True, **{ku: a})
+                            print("BADTIME ", badtime)
+                        else:
+                            self._check_numbers(**{ku: a})
                     except ValueError:
                         bad.append(ku)
-        if len(bad) > 0:
-            raise ValueError(f"Expected numeric value for these keywords but did not get a number: {bad}")
+        if len(bad) > 0 or len(badtime) > 0:
+            msg = "Expected"
+            a = " "
+            if len(badtime) > 0:
+                msg += f" Time object for {badtime}"
+                a = " and "
+            if len(bad) > 0:
+                msg += a
+                msg += f"numeric value(s) for {bad} "
+            msg += " but did not get that."
+            raise ValueError(msg)
 
     def _check_type(self, reqtype, msg, silent=False, **kwargs):
         # @todo allow Quantities
@@ -432,11 +460,12 @@ class Selection(DataFrame):
                 print(ku, v)
                 query = None
                 for vv in v:
-                    # self._check_type(
-                    #     str,
-                    #    "Numeric arrays are not allowed with exact selection, use select_range instead.",
-                    #    **{ku: vv},
-                    # )
+                    if ku == "UTC":
+                        self._check_type(
+                            Time,
+                            "Expected Time object but got something else.",
+                            **{ku: vv},
+                        )
                     # if it is a string, then OR them.
                     # e.g. object = ["NGC123", "NGC234"]
                     if isinstance(vv, str):
@@ -584,25 +613,7 @@ class Selection(DataFrame):
             )
         self._check_numbers(chan=chan)
         self._channel_selection = chan
-        self._addrow({"CHAN": chan}, dataframe=self, tag=tag)
-
-    def select_time(self, time):
-        """
-        Select time(s)
-
-        Parameters
-        ----------
-        time : probably an astropy.Time object
-        or something that can be converted to it
-
-            The time(s) to select
-
-        Returns
-        -------
-        None.
-
-        """
-        pass
+        self._addrow({"CHAN": str(chan)}, dataframe=self, tag=tag)
 
     def remove(self, id=None, tag=None):
         """Remove (delete) a selection rule(s).
@@ -639,29 +650,12 @@ class Selection(DataFrame):
             matching_indices = self._table.loc_indices["TAG", tag]
             #   raise KeyError(f"No TAG = {tag} found in this Selection")
             matching = self._table[matching_indices]
-            self._table.remove_rows(matching_indices)
-
-            for i in matching["ID"]:
+            if isinstance(matching, numbers.Number):
+                matching = [matching]  # handle if only one row
+            for i in matching:
                 del self._selection_rules[i]
                 # self._selection_rules.pop(i, None) # also works
-
-    # This method commented out until further notice.
-    # It has issues with multiple ways of removing table rows
-    # creating an inconsistent table
-    # def clear(self):
-    #   """
-    #    Remove all selection rules
-    #
-    #    Returns
-    ##    -------
-    #    None.
-    #
-    #    """
-    #   self._selection_rules = {}
-    # remove[0] will fail if the user has already
-    # removed it, which then screws up the index and no further
-    # modification becomes possible
-    #   self._table.remove_rows([0, len(self._table) - 1])
+            self._table.remove_rows(matching_indices)
 
     def show(self):
         """
