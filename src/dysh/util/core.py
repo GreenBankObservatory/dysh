@@ -13,7 +13,7 @@ from astropy.time import Time
 def gbt_timestamp_to_time(timestamp):
     """Convert the GBT sdfits timestamp string format to
     an ~astropy.Time object.  GBT SDFITS timestamps have the form
-    YYYY_MM_DD_HH:MM:SS.
+    YYYY_MM_DD_HH:MM:SS in UTC.
 
     Parameters
     ----------
@@ -27,7 +27,7 @@ def gbt_timestamp_to_time(timestamp):
     """
     # convert to ISO FITS format  YYYY-MM-DDTHH:MM:SS(.SSS)
     t = timestamp.replace("_", "-", 2).replace("_", "T")
-    return Time(t)  # scale = ?????
+    return Time(t, scale="utc")
 
 
 def generate_tag(values, hashlen):
