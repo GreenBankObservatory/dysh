@@ -44,8 +44,9 @@ class TestSelection:
         # selection
         assert len(s.final) == 3
         # test s.remove by both id and tag
-        # s.remove(0)
-        # s.remove(tag="ifnums")
+        s.remove(0)
+        s.remove(tag="ifnums")
+        assert len(s._selection_rules) == 0
         s = Selection(sdf)
         # test select_range
         # lower limit.
@@ -70,7 +71,6 @@ class TestSelection:
         s.select_range(utc=(Time("2021-02-10T08:00", scale="utc"), Time("2021-02-10T09:00", scale="utc")))
         # test that a non-Time object for utc raise exception
         with pytest.raises(ValueError):
-
             s.select_range(utc=["asdad", 123])
         # test select_channel
         a = [1, 4, (30, 40)]
