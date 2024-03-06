@@ -57,6 +57,15 @@ class SDFITSLoad(object):
         if doindex:
             self.create_index()
 
+    def __del__(self):
+        # We need to ensure that any open HDUs are properly
+        # closed in order to avoid the ResourceWarning about
+        # unclosed file(s)
+        try:
+            self._hdu.close()
+        except Exception:
+            pass
+
     def info(self):
         """Return the `~astropy.HDUList` info()"""
         return self._hdu.info()
