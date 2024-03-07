@@ -21,33 +21,55 @@ KMS = u.km / u.s
 # Velocity frame conventions, partially stolen from pyspeckit.
 # See also Section6.2.5.2 of the GBT observer's guide https://www.gb.nrao.edu/scienceDocs/GBTog.pdf
 
-# Todo:
-# Deal with cmb which will require custom frame
-# See https://docs.astropy.org/en/stable/coordinates/spectralcoord.html#defining-custom-velocity-frames
-# Also deal with 'rest' frame
-astropy_frame_dict = {  # currently unused -- don't need?
+# string to astropy coordinate frame class
+astropy_frame_dict = {
     "VLSR": coord.LSRK,
     "VRAD": coord.LSRK,
     "VELO": coord.LSRK,
     "VOPT": coord.LSRK,
     "LSRD": coord.LSRD,
+    "lsrd": coord.LSRD,
     "LSRK": coord.LSRK,
+    "lsrk": coord.LSRK,
     "-LSR": coord.LSRK,
     "-HEL": coord.HCRS,
     "-BAR": coord.ICRS,
     "BAR": coord.ICRS,
     "BARY": coord.ICRS,
+    "icrs": coord.ICRS,
+    "ICRS": coord.ICRS,
     "bary": coord.ICRS,
     "barycentric": coord.ICRS,
     "VHEL": coord.HCRS,
     "heliocentric": coord.HCRS,
     "helio": coord.HCRS,
+    "hcrs": coord.HCRS,
+    "HCRS": coord.HCRS,
     "VGEO": coord.GCRS,
+    "geocentric": coord.GCRS,
+    "gcrs": coord.GCRS,
+    "GCRS": coord.GCRS,
     "-GAL": coord.Galactocentric,
+    "galactocentric": coord.Galactocentric,
     "topocentric": coord.ITRS,  # but need to add observatory position
     "topo": coord.ITRS,  # but need to add observatory position
 }
 
+# astropy-sanctioned coordinate frame string to label
+frame_to_label = {
+    "itrs": "Topocentric",
+    "topocentric": "Topocentric",
+    "topo": "Topocentric",
+    "hcrs": "Heliocentric",
+    "gcrs": "Geocentric",
+    "icrs": "Barycentric",
+    "fk5": "Barycentric",
+    "lsrk": "LSRK",
+    "lsrd": "LSRD",
+    "galactocentric": "Galactocentric",
+}
+
+# velframe string to label
 frame_dict = {
     "VLSR": "LSRK",
     "VRAD": "LSRK",
@@ -73,16 +95,18 @@ frame_dict = {
     "CMB": "cmb",
     "GALAC": "galactic",
     "GALA": "galactic",
-    "ALAC": "galactic",
+    "ALAC": "galactic",  # in case of 'VELGALAC', last 4 chars.
 }
 
+
+# label to velframe string
 reverse_frame_dict = {
     "bary": "-BAR",
     "barycentric": "-BAR",
     "icrs": "-BAR",
     "galactocentric": "-GAL",
-    "gcrs": "-GEO",  # ??
-    "geocentric": "-GEO",  # ??
+    "gcrs": "-GEO",
+    "geocentric": "-GEO",
     "heliocentric": "-HEL",
     "hcrs": "-HEL",
     "helio": "-HEL",
@@ -103,6 +127,7 @@ velocity_convention_dict = {
     "VELO": "relativistic",
 }
 
+# reverse of above
 reverse_velocity_convention_dict = {"optical": "OPTI", "radio": "RADI", "relativistic": "VELO"}
 
 
@@ -111,10 +136,14 @@ def replace_convention(veldef, doppler_convention):
 
 
 # This gives the wrong answer for GBT which always writes data as topocentric
-# regardless of what VELDEF says.
-# Kluge for GBT: pass in CTYPE1 which is always 'FREQ-OBS'
+# regardless of what VELDEF says.  Therefore the kludge for GBT: Instead of
+# VELDEF, pass in CTYPE1  which is always 'FREQ-OBS'.
 def is_topocentric(veldef):
-    if veldef[0:4] == "FREQ":  # workaround for GBT nonsense
+    # fmt: off
+    if veldef[0:4] == "FREQ":  # Workaround for GBT peculiarity described above.
+                               # We don't expect other observatories will
+                               # use GBT's convention.
+        # fmt: on
         nvd = "VELO" + veldef[4:]
         return decode_veldef(nvd)[1] == "topocentric"
     else:
@@ -170,7 +199,6 @@ def veldef_to_convention(veldef):
         Velocity convention string, one of {'radio', 'optical', 'relativistic'}  or None if `velframe` can't be parsed
     """
 
-    # @TODO GBT defines these wrong.  Need to sort out and have special version for GBT
     prefix = veldef[0:4].lower()
     if prefix == "opti":
         return "optical"
@@ -182,8 +210,24 @@ def veldef_to_convention(veldef):
 
 
 def sanitize_skycoord(target):
-    # Handle astropy bug that distance and proper motions need to be explicitly set.
-    # See https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
+    """Method to enforce certain attributes of input SkyCoordinate in
+    order to workaround astropy bug that distance and proper motions
+    need to be explicitly set for certain coordinate conversions, even
+    if they are zero.  See
+    https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
+
+
+    Parameters
+    ----------
+        target : `~astropy.coordinates.SkyCoordinate`
+        The input Sky Coordinate
+
+    Returns
+    -------
+        sanitized_target : `~astropy.coordinates.SkyCoordinate`
+        Target with distance, radial velocity, and proper motion set.
+
+    """
     if not isinstance(target, coord.SkyCoord):
         raise TypeError("Target must be instance of astropy.coordinates.SkyCoord")
     if hasattr(target, "sanitized"):  # don't do it twice.
@@ -224,6 +268,7 @@ def sanitize_skycoord(target):
             pm_dec=pm_lat,
             radial_velocity=_rv,
         )
+    # ====== GALACTIC COORDS HAVE NOT BEEN FULLY TESTED. USE WITH CAUTION ====
     elif hasattr(target, "l"):  # Galactic
         lon = target.l
         lat = target.b
@@ -351,7 +396,7 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
     return _target.transform_to(_toframe).radial_velocity
 
 
-# @TODO have a SpectralCoord version of this?
+# @todo have a SpectralCoord version of this?
 def veltofreq(velocity, restfreq, veldef):
     """Convert velocity to frequency using the given rest frequency and velocity definition.
 
@@ -451,8 +496,8 @@ def gbt_location():
         gbt : `~astropy.coordinates.EarthLocation`
             astropy EarthLocation for the GBT
     """
-    gbt_lat = 38.433129 * u.deg
-    gbt_lon = -79.839839 * u.deg
+    gbt_lat = 38.4331291667 * u.deg
+    gbt_lon = -79.839838611 * u.deg
     gbt_height = 854.83 * u.m
     gbt = coord.EarthLocation.from_geodetic(lon=gbt_lon, lat=gbt_lat, height=gbt_height)
     return gbt

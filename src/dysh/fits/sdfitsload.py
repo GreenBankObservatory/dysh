@@ -1,5 +1,5 @@
 """Load generic SDFITS files
-    - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
+- Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
 """
 
 # import copy
@@ -56,6 +56,15 @@ class SDFITSLoad(object):
         doindex = kwargs_opts.get("index", True)
         if doindex:
             self.create_index()
+
+    def __del__(self):
+        # We need to ensure that any open HDUs are properly
+        # closed in order to avoid the ResourceWarning about
+        # unclosed file(s)
+        try:
+            self._hdu.close()
+        except Exception:
+            pass
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""

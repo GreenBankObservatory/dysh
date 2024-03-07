@@ -1,3 +1,7 @@
+"""
+The classes that define various types of Scan and their calibration methods.
+"""
+
 from collections import UserList
 from copy import deepcopy
 
@@ -171,7 +175,7 @@ class TPScan(ScanMixin):
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     """
 
-    # @TODO get rid of calrows and calc tsys in gettp and pass it in.
+    # @todo get rid of calrows and calc tsys in gettp and pass it in.
     def __init__(
         self,
         gbtfits,
@@ -190,7 +194,7 @@ class TPScan(ScanMixin):
         self._calstate = calstate  # ignored?
         self._scanrows = scanrows
         # print("BINTABLE = ", bintable)
-        # @TODO deal with data that crosses bintables
+        # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
@@ -203,7 +207,7 @@ class TPScan(ScanMixin):
         self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
         self._ifs = uniq(df["IFNUM"])
-        self._status = 0  # @TODO make these an enumeration, possibly dict
+        self._status = 0  # @todo make these an enumeration, possibly dict
         self._nint = 0
         self._npol = len(self._pols)
         self._nfeed = len(self._feeds)
@@ -213,7 +217,7 @@ class TPScan(ScanMixin):
         self._nrows = len(scanrows)
         self._tsys = None
         if False:
-            self._npol = gbtfits.npol(self._bintable_index)  # TODO deal with bintable
+            self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
             self._nint = gbtfits.nintegrations(self._bintable_index)
         self._calrows = calrows
         self._refonrows = self._calrows["ON"]
@@ -261,7 +265,7 @@ class TPScan(ScanMixin):
         # allcal = self._refonrows.copy()
         # allcal.extend(self._refoffrows)
         # tcal = list(self._sdfits.index(self._bintable_index).iloc[sorted(allcal)]["TCAL"])
-        # @Todo  this loop could be replaces with clever numpy
+        # @todo this loop could be replaces with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
@@ -321,7 +325,7 @@ class TPScan(ScanMixin):
         meta["EXPOSURE"] = self.exposure[i]
         meta["NAXIS1"] = len(self._data[i])
         if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
@@ -350,7 +354,7 @@ class TPScan(ScanMixin):
         meta["EXPOSURE"] = self.exposure[i]
         meta["NAXIS1"] = len(self._data[i])
         if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
@@ -431,7 +435,7 @@ class PSScan(ScanMixin):
         # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
         self._calrows = calrows
         # print("BINTABLE = ", bintable)
-        # @TODO deal with data that crosses bintables
+        # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
@@ -447,7 +451,7 @@ class PSScan(ScanMixin):
         self._nif = len(self._ifs)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
-        # todo use gbtfits.velocity_convention(veldef,velframe)
+        # @todo use gbtfits.velocity_convention(veldef,velframe)
         # so quick with slicing!
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
@@ -476,7 +480,7 @@ class PSScan(ScanMixin):
         """
         return self._tsys
 
-    # TODO something clever
+    # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self, i):
         """Return the calibrated Spectrum.
@@ -497,7 +501,7 @@ class PSScan(ScanMixin):
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
         if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
@@ -520,7 +524,7 @@ class PSScan(ScanMixin):
         self._exposure = np.empty(nspect, dtype="d")
 
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
-        # @Todo  this loop could be replaced with clever numpy
+        # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
@@ -720,7 +724,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         meta["EXPOSURE"] = self._exposure[i]
         meta["NAXIS1"] = len(self._calibrated[i])
         if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
