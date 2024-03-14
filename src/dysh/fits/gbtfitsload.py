@@ -294,7 +294,12 @@ class GBTFITSLoad(SDFITSLoad):
             nIF = uf["IFNUM"].nunique()
             nPol = uf["PLNUM"].nunique()
             nfeed = uf["FEED"].nunique()
-            nint = len(set(uf["DATE-OBS"]))  # see gbtidl io/line_index__define.pro
+            # For counting integrations, take care of out-of-sync samplers by just
+            # looking at the first instance of FEED, PLNUM, and IFNUM.
+            uf_int = self.select("FEED", uf["FEED"].iloc[0], uf)
+            uf_int = self.select("PLNUM", uf_int["PLNUM"].iloc[0], uf_int)
+            uf_int = self.select("IFNUM", uf_int["IFNUM"].iloc[0], uf_int)
+            nint = len(set(uf_int["DATE-OBS"]))  # see gbtidl io/line_index__define.pro
             obj = list(set(uf["OBJECT"]))[0]  # We assume they are all the same!
             proc = list(set(uf["PROC"]))[0]  # We assume they are all the same!
             # print(f"Uniq data for scan {s}: {nint} {nIF} {nPol} {nfeed} {obj} {proc}")
@@ -588,6 +593,7 @@ class GBTFITSLoad(SDFITSLoad):
         kwargs_opts.update(kwargs)
         ifnum = kwargs_opts["ifnum"]
         fdnum = kwargs_opts["fdnum"]
+        plnum = kwargs_opts["plnum"]
         docal = kwargs_opts["calibrate"]
         w = kwargs_opts["weights"]
         method = kwargs_opts["method"]
