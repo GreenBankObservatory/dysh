@@ -294,7 +294,8 @@ class GBTFITSLoad(SDFITSLoad):
             nIF = uf["IFNUM"].nunique()
             nPol = uf["PLNUM"].nunique()
             nfeed = uf["FEED"].nunique()
-            # Take care of out of sync samplers.
+            # For counting integrations, take care of out-of-sync samplers by just
+            # looking at the first instance of FEED, PLNUM, and IFNUM.
             uf_int = self.select("FEED", uf["FEED"].iloc[0], uf)
             uf_int = self.select("PLNUM", uf_int["PLNUM"].iloc[0], uf_int)
             uf_int = self.select("IFNUM", uf_int["IFNUM"].iloc[0], uf_int)
