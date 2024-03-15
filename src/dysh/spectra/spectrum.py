@@ -572,11 +572,11 @@ class Spectrum(Spectrum1D):
         return addition
 
     def __sub__(self, other):
-        subtraction = self.sub(other, **{"handle_meta": self._add_meta})
+        subtraction = self.subtract(other, **{"handle_meta": self._add_meta})
         subtraction._target = self._target
         return subtraction
 
-    def add_meta(self, operand, operand2=None, **kwargs):
+    def _add_meta(self, operand, operand2=None, **kwargs):
         meta = deepcopy(operand)
         meta["EXPOSURE"] = operand["EXPOSURE"] + operand2["EXPOSURE"]
         return meta
