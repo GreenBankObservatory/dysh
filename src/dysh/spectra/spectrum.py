@@ -52,7 +52,6 @@ class Spectrum(Spectrum1D):
             self._target.sanitized = True
             self._velocity_frame = self._target.frame.name
         else:
-            self._target.sanitized = False
             self._velocity_frame = None
         # @todo - have _observer_location attribute instead?
         # and observer property returns getITRS(observer_location,obstime)
@@ -566,6 +565,21 @@ class Spectrum(Spectrum1D):
         #    vshift = topocentric_velocity_to_frame(target, vf, observer=Observatory["GBT"], obstime=obstime)
         #
         return s
+
+    def __add__(self, other):
+        addition = self.add(other, **{"handle_meta": self._add_meta})
+        addition._target = self._target
+        return addition
+
+    def __sub__(self, other):
+        subtraction = self.sub(other, **{"handle_meta": self._add_meta})
+        subtraction._target = self._target
+        return subtraction
+
+    def add_meta(self, operand, operand2=None, **kwargs):
+        meta = deepcopy(operand)
+        meta["EXPOSURE"] = operand["EXPOSURE"] + operand2["EXPOSURE"]
+        return meta
 
 
 # @todo figure how how to document write()
