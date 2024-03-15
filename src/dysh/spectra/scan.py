@@ -455,8 +455,8 @@ class PSScan(ScanMixin):
         self._scans = scans
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
-        # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
+        print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
+        print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -470,11 +470,12 @@ class PSScan(ScanMixin):
             self._bintable_index = bintable
         print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
-        df = self._sdfits._index
-        df = df.iloc[scanrows["ON"]]
+        # df = selection.iloc[scanrows["ON"]]
+        df = self._sdfits._index.iloc[scanrows["ON"]]
         self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
         self._ifs = uniq(df["IFNUM"])
+        print(f"PSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
         self._nfeed = len(self._feeds)
         self._nif = len(self._ifs)
@@ -551,7 +552,7 @@ class PSScan(ScanMixin):
         self._calibrated = np.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        print("REFONROWS ", self._refonrows)
+        # print("REFONROWS ", self._refonrows)
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:

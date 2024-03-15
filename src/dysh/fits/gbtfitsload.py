@@ -445,59 +445,136 @@ class GBTFITSLoad(SDFITSLoad):
     def _adjust_scan_selection_for_ps(self, scans):
         pass
 
-    def getps_selection(
-        self, calibrate=True, timeaverage=True, polaverage=True, weights="tsys", tsys=None, bintable=None, **kwargs
-    ):
+    def getfs(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
+        """
+        Retrieve and calibrate frequency-switched data.
+
+        Parameters
+        ----------
+        calibrate : boolean, optional
+            Calibrate the scans. The default is True.
+        timeaverage : boolean, optional
+            Average the scans in time. The default is True.
+        polaverage : boolean, optional
+            Average the scans in polarization. The default is False.
+        weights : str or None, optional
+            How to weight the spectral data when averaging.  `tsys` means use system
+            temperature weighting (see e.g., :meth:`~spectra.scan.FSScan.timeaverage`);
+            None means uniform weighting. The default is "tsys".
+        bintable : int, optional
+            Limit to the input binary table index. The default is None which means use all binary tables.
+        **kwargs : dict
+            Optional additional selection (only?) keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `ifnum=1, plnum=[2,3]` etc.
+
+        Raises
+        ------
+        Exception
+            If scans matching the selection criteria are not found.
+
+        Returns
+        -------
+        scanblock : `~spectra.scan.ScanBlock`
+            ScanBlock containing the individual `~spectra.scan.FSScan`s
+
+        """
+        pass
+
+    def getps(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
+        """
+        Retrieve and calibrate position-switched data.
+
+        Parameters
+        ----------
+        calibrate : boolean, optional
+            Calibrate the scans. The default is True.
+        timeaverage : boolean, optional
+            Average the scans in time. The default is True.
+        polaverage : boolean, optional
+            Average the scans in polarization. The default is False.
+        weights : str or None, optional
+            How to weight the spectral data when averaging.  `tsys` means use system
+            temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
+            None means uniform weighting. The default is "tsys".
+        bintable : int, optional
+            Limit to the input binary table index. The default is None which means use all binary tables.
+            (This keyword should eventually go away)
+        **kwargs : dict
+            Optional additional selection (only?) keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `ifnum=1, plnum=[2,3]` etc.
+
+        Raises
+        ------
+        Exception
+            If scans matching the selection criteria are not found.
+
+        Returns
+        -------
+        scanblock : `~spectra.scan.ScanBlock`
+            ScanBlock containing the individual `~spectra.scan.PSScan`s
+
+        """
         print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
+        _final = self._selection.final
         scans = kwargs.pop("scan", None)
+        debug = kwargs.pop("debug", False)
         if type(scans) is int:
             scans = [scans]
         if scans is None:
-            scans = set(self._selection.final["SCANS"])
-        print("SCAN ", scans)
-        missing = self._onoff_scan_list_selection(scans, self._selection.final, check=True)
+            scans = set(_final["SCAN"])
+        missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = list(set(missing["ON"]).union(missing["OFF"]))
         ps_selection = copy.deepcopy(self._selection)
-        print("TYPE: ", type(ps_selection))
+        if debug:
+            print("SCAN ", scans)
+            print("TYPE: ", type(ps_selection))
         if len(scans_to_add) != 0:
             # add a rule selecting the missing scans :-)
-            print(f"adding rule scan={scans_to_add}")
+            if debug:
+                print(f"adding rule scan={scans_to_add}")
             ps_selection.select(scan=scans_to_add)
         # now downselect with any additional kwargs
-        print(f"SELECTION FROM MIXED KWARGS {kwargs}")
+        if debug:
+            print(f"SELECTION FROM MIXED KWARGS {kwargs}")
         ps_selection._select_from_mixed_kwargs(**kwargs)
-        print("FINAL")
         _sf = ps_selection.final
         # here we have to munge the scan list to ensure on and off scan numbers are selected
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
         scans = set(_sf["SCAN"])
-        print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
+        if debug:
+            print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
         # todo apply_selection(kwargs_opts)
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
-            df = df[df["PLNUM"].isin(plnum)]
-            # print(df.columns)
             for k in ifnum:
                 _df = select_from("IFNUM", k, df)
-                print(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                print(f"and PROC {set(_df['PROC'])}")
+
                 scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
-                print(f"SCANLIST {scanlist}")
+
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     # print("scans not found, continuing")
                     continue
+                if debug:
+                    print(f"SCANLIST {scanlist}")
+                    print(f"POLS {set(df['PLNUM'])}")
+                    print(f"Sending dataframe with scans {set(_df['SCAN'])}")
+                    print(f"and PROC {set(_df['PROC'])}")
                 rows = {}
                 # loop over scan pairs
                 for on, off in zip(scanlist["ON"], scanlist["OFF"]):
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
-                    rows["ON"] = list(_ondf.index)
-                    rows["OFF"] = list(_offdf.index)
+                    # rows["ON"] = list(_ondf.index)
+                    # rows["OFF"] = list(_offdf.index)
+                    rows["ON"] = list(_ondf["ROW"])
+                    rows["OFF"] = list(_offdf["ROW"])
                     for key in rows:
                         if len(rows[key]) == 0:
                             raise Exception(f"{key} scans not found in scan list {scans}")
@@ -506,11 +583,15 @@ class GBTFITSLoad(SDFITSLoad):
                     calrows = {}
                     dfcalT = select_from("CAL", "T", _df)
                     dfcalF = select_from("CAL", "F", _df)
-                    calrows["ON"] = list(dfcalT.index)
-                    calrows["OFF"] = list(dfcalF.index)
+                    # calrows["ON"] = list(dfcalT.index)
+                    # calrows["OFF"] = list(dfcalF.index)
+                    calrows["ON"] = list(dfcalT["ROW"])
+                    calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
-                    print(f"Sending PSScan({d},ROWS:{rows},CALROWS:{calrows},BT: {bintable}")
-
+                    # print(f"Sending PSScan({d},ROWS:{rows},CALROWS:{calrows},BT: {bintable}")
+                    if debug:
+                        print(f"SCANROWS {rows}")
+                        print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                     g = PSScan(self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable)
                     scanblock.append(g)
         if len(scanblock) == 0:
@@ -518,7 +599,7 @@ class GBTFITSLoad(SDFITSLoad):
         # warnings.warn("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
-    def getps(self, scans=None, bintable=None, **kwargs):
+    def _oldgetps(self, scans=None, bintable=None, **kwargs):
         """
         Get the rows that contain position-switched data.  These include ONs and OFFs.
 
@@ -562,6 +643,7 @@ class GBTFITSLoad(SDFITSLoad):
                 continue
             # add ifnum,plnum
             rows = self.onoff_rows(scans, ifnum=ifnum, plnum=plnum, bintable=bintable, fitsindex=i)
+            # print(f"xSCANROWS {rows}")
             # do not pass scan list here. We need all the cal rows. They will
             # be intersected with scan rows in PSScan
             # add ifnum,plnum
@@ -790,13 +872,13 @@ class GBTFITSLoad(SDFITSLoad):
                 # e.g. len(self._hdu[1].data[:]["DATA"][row])
                 # where row is a row number associated with this scan number
                 df = self._sdf[sdfi].index(bintable=bintable)
-                nchan = int(df["TDIM7"][0][1:-1].split(",")[0])
-                ta = np.empty((len(sig_on_groups)), dtype=object)
-                ta_avg = np.zeros(nchan, dtype="d")
-                wt_avg = 0.0  # A single value for now, but it should be an array once we implement vector TSYS.
-                tsys_wt = 0.0
-                tsys_avg = 0.0
-                exposure = 0.0
+                # nchan = int(df["TDIM7"][0][1:-1].split(",")[0])
+                # ta = np.empty((len(sig_on_groups)), dtype=object)
+                # ta_avg = np.zeros(nchan, dtype="d")
+                # wt_avg = 0.0  # A single value for now, but it should be an array once we implement vector TSYS.
+                # tsys_wt = 0.0
+                # tsys_avg = 0.0
+                # exposure = 0.0
 
                 # print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
                 # Loop over cycles, calibrating each independently.
@@ -897,11 +979,9 @@ class GBTFITSLoad(SDFITSLoad):
         """
         s = {"ON": [], "OFF": []}
         df2 = selection[selection["SCAN"].isin(scans)]
-        print("SELECTED SCAN LENGHT", len(df2))
         procset = set(df2["PROC"])
         lenprocset = len(procset)
         if lenprocset == 0:
-            print("PROCSET IS ZERO")
             # This is ok since not all files in a set have all the polarizations, feeds, or IFs
             return s
         if lenprocset > 1:
@@ -911,6 +991,9 @@ class GBTFITSLoad(SDFITSLoad):
         dfoff = select_from("_OBSTYPE", "PSWITCHOFF", selection)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
         offscans = uniq(list(dfoff["SCAN"]))
+        # pol1 = set(dfon["PLNUM"])
+        # pol2 = set(dfoff["PLNUM"])
+        # print(f"polON {pol1} polOFF {pol2}")
         # scans = list(selection["SCAN"])
         # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF).
         # First check the requested scan number(s) are in the ONs or OFFs of this bintable.
@@ -925,7 +1008,7 @@ class GBTFITSLoad(SDFITSLoad):
         # and build the final matched list of ONs and OFfs.
         sons = list(onrequested.copy())
         soffs = list(offrequested.copy())
-        print(f"SONS {sons} SOFFS {soffs}")
+        # print(f"SONS {sons} SOFFS {soffs}")
         missingoff = []
         missingon = []
         # Figure out the companion scan
@@ -1189,7 +1272,7 @@ class GBTFITSLoad(SDFITSLoad):
         # scans is now a dict of "ON" "OFF
         for key in _scans:
             rows[key] = self.scan_rows(_scans[key], ifnum, plnum, bintable, fitsindex=fitsindex)
-        print(f"ROWS {rows}")
+        # print(f"ROWS {rows}")
         return rows
 
     def scan_rows(self, scans, ifnum=0, plnum=0, bintable=None, fitsindex=0):

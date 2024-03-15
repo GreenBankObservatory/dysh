@@ -720,7 +720,7 @@ class Selection(DataFrame):
         print(self._table)
 
     @property
-    def final(self):
+    def _final(self):
         """
         Create the final selection. This is done by a logical OR of each
         of the selection rules (specifically `pandas.merge(how='inner')`).
@@ -731,16 +731,22 @@ class Selection(DataFrame):
             The resultant selection from all the rules.
         """
         # start with unfiltered index.
-        # make a copy to avoid reference to self
-        final = self  # (self)
+        final = self
         for df in self._selection_rules.values():
             final = pd.merge(final, df, how="inner")
         return final
 
-    def final2(self):
+    @property
+    def final(self):
+        if len(self._selection_rules.values()) == 0:
+            return deepcopy(self)
         final = None
         for df in self._selection_rules.values():
             if final is None:
+                # need a deepcopy here in case there
+                # is only one selection rule, because
+                # we don't want to return a reference to the rule
+                # which the reciever might modify.
                 final = deepcopy(df)
             else:
                 final = pd.merge(final, df, how="inner")
