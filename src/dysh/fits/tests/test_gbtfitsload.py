@@ -1,16 +1,16 @@
 import glob
 import os
-import pathlib
+from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from astropy.io import fits
+from pandas.testing import assert_series_equal
 
 import dysh
 from dysh import util
 from dysh.fits import gbtfitsload
-
-dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
 
 class TestGBTFITSLoad:
@@ -223,3 +223,50 @@ class TestGBTFITSLoad:
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
         assert table["EXPOSURE"] == ps_scans[0].calibrated(0).meta["EXPOSURE"]
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
+
+    def test_summary(self):
+        """Test that some of the columns in the summary
+        match the ones produced by `GBTIDL`."""
+
+        def read_gbtidl_summary(filename, idx=1):
+            """ """
+            with open(filename, "r") as log:
+                lines = log.readlines()
+            lines.pop(idx)
+            tmp = Path(f"{filename}.tmp")
+            with open(tmp, "w") as f:
+                for line in lines:
+                    f.write(line)
+
+            df = pd.read_fwf(f"{filename}.tmp")
+            # Clean up.
+            tmp.unlink()
+
+            return df
+
+        cols = {
+            "SCAN": "Scan",
+            "OBJECT": "Source",
+            "VELOCITY": "Vel",
+            # "PROC": "Proc", # GBTIDL trims the names.
+            "PROCSEQN": "Seq",
+            "# IF": "nIF",
+            "# INT": "nInt",
+            "# FEED": "nFd",
+        }
+
+        path = util.get_project_testdata() / "AGBT05B_047_01"
+        sdf_file = path / "AGBT05B_047_01.raw.acs"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        dysh_df = sdf.summary()
+
+        gbtidl_summary = read_gbtidl_summary(path / "gbtidl" / "AGBT05B_047_01.summary")
+
+        for col in cols.items():
+            assert_series_equal(
+                dysh_df[col[0]],  # .sort_values(),
+                gbtidl_summary[col[1]],  # .sort_values(),
+                check_dtype=False,
+                check_names=False,
+                check_index=False,
+            )
