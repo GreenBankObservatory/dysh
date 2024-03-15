@@ -576,7 +576,7 @@ class Spectrum(Spectrum1D):
         subtraction._target = self._target
         return subtraction
 
-    def _add_meta(self, operand, operand2=None, **kwargs):
+    def _add_meta(self, operand, operand2, **kwargs):
         meta = deepcopy(operand)
         meta["EXPOSURE"] = operand["EXPOSURE"] + operand2["EXPOSURE"]
         return meta
