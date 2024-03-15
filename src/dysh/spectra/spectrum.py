@@ -14,6 +14,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
+from ndcube import NDCube
 from specutils import Spectrum1D
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
@@ -567,40 +568,80 @@ class Spectrum(Spectrum1D):
         return s
 
     def __add__(self, other):
-        addition = self.add(other, **{"handle_meta": self._add_meta})
-        addition._target = self._target
-        addition._observer = self._observer
-        return addition
+        if isinstance(other, NDCube):
+            result = self.add(other, **{"handle_meta": self._add_meta})
+        elif isinstance(other, u.Quantity):
+            result = self.add(other, **{"handle_meta": self._add_meta, "meta_other_meta": False})
+        elif not isinstance(other, u.Quantity):
+            try:
+                other = u.Quantity(other, unit=self.unit)
+                result = self.add(other, **{"handle_meta": self._add_meta, "meta_other_meta": False})
+            except TypeError:
+                return NotImplemented
+        result._target = self._target
+        result._observer = self._observer
+        return result
 
     def __sub__(self, other):
+        if isinstance(other, NDCube):
+            subtraction = self.subtract(other, **{"handle_meta": self._add_meta})
+        elif isinstance(other, u.Quantity):
+            subtraction = self.subtract(other, **{"handle_meta": self._add_meta, "meta_other_meta": False})
+        elif not isinstance(other, u.Quantity):
+            try:
+                other = u.Quantity(other, unit=self.unit)
+                subtraction = self.add(other, **{"handle_meta": self._add_meta, "meta_other_meta": False})
+            except TypeError:
+                return NotImplemented
         subtraction = self.subtract(other, **{"handle_meta": self._add_meta})
         subtraction._target = self._target
         subtraction._observer = self._observer
         return subtraction
 
     def __mul__(self, other):
-        multiplication = self.multiply(other, **{"handle_meta": self._mul_meta})
-        multiplication._target = self._target
-        multiplication._observer = self._observer
-        return multiplication
+        if isinstance(other, NDCube):
+            result = self.add(other, **{"handle_meta": self._mul_meta})
+        elif isinstance(other, u.Quantity):
+            result = self.add(other, **{"handle_meta": self._mul_meta, "meta_other_meta": False})
+        elif not isinstance(other, u.Quantity):
+            try:
+                other = u.Quantity(other, unit=self.unit)
+                result = self.add(other, **{"handle_meta": self._mul_meta, "meta_other_meta": False})
+            except TypeError:
+                return NotImplemented
+        result._target = self._target
+        result._observer = self._observer
+        return result
 
     def __div__(self, other):
-        division = self.divide(other, **{"handle_meta": self._div_meta})
-        division._target = self._target
-        division._observer = self._observer
-        return division
+        if isinstance(other, NDCube):
+            result = self.divide(other, **{"handle_meta": self._div_meta})
+        elif isinstance(other, u.Quantity):
+            result = self.divide(other, **{"handle_meta": self._div_meta, "meta_other_meta": False})
+        elif not isinstance(other, u.Quantity):
+            try:
+                other = u.Quantity(other, unit=self.unit)
+                result = self.divide(other, **{"handle_meta": self._div_meta, "meta_other_meta": False})
+            except TypeError:
+                return NotImplemented
+        result._target = self._target
+        result._observer = self._observer
+        return result
 
     def _add_meta(self, operand, operand2, **kwargs):
+        kwargs.setdefault("other_meta", True)
         meta = deepcopy(operand)
-        meta["EXPOSURE"] = operand["EXPOSURE"] + operand2["EXPOSURE"]
-        meta["DURATION"] = operand["DURATION"] + operand2["DURATION"]
+        if kwargs["other_meta"]:
+            meta["EXPOSURE"] = operand["EXPOSURE"] + operand2["EXPOSURE"]
+            meta["DURATION"] = operand["DURATION"] + operand2["DURATION"]
+
         return meta
 
-    def _mul_meta(self, operand, operand2, **kwargs):
+    def _mul_meta(self, operand, operand2=None, **kwargs):
         # TBD
         return deepcopy(operand)
 
-    def _div_meta(self, operand, operand2, **kwargs):
+    def _div_meta(self, operand, operand2=None, **kwargs):
         # TBD
         return deepcopy(operand)
 
