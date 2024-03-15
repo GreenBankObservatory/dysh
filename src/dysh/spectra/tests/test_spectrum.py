@@ -24,3 +24,11 @@ class TestSpectrum:
         subtraction = self.ps0 - self.ps1
 
         assert subtraction.meta["EXPOSURE"] == (self.ps0.meta["EXPOSURE"] + self.ps1.meta["EXPOSURE"])
+
+    def test_mul(self):
+        """Test that we can multiply two `Spectrum`."""
+        multiplication = self.ps0 * self.ps1
+
+    def test_div(self):
+        """Test that we can divide two `Spectrum`."""
+        division = self.ps0 / self.ps1
