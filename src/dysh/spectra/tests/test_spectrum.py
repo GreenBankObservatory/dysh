@@ -19,11 +19,23 @@ class TestSpectrum:
 
         assert addition.meta["EXPOSURE"] == (self.ps0.meta["EXPOSURE"] + self.ps1.meta["EXPOSURE"])
 
+    def test_add_scalar(self):
+        """Test that we can add a scalar to a `Spectrum`."""
+        addition = self.ps0 + 10.0
+
+        assert addition.meta["EXPOSURE"] == self.ps0.meta["EXPOSURE"]
+
     def test_sub(self):
         """Test that we can subtract two `Spectrum`."""
         subtraction = self.ps0 - self.ps1
 
         assert subtraction.meta["EXPOSURE"] == (self.ps0.meta["EXPOSURE"] + self.ps1.meta["EXPOSURE"])
+
+    def test_sub_scalar(self):
+        """Test that we can subtract a scalar from a `Spectrum`."""
+        addition = self.ps0 - 10.0
+
+        assert addition.meta["EXPOSURE"] == self.ps0.meta["EXPOSURE"]
 
     def test_mul(self):
         """Test that we can multiply two `Spectrum`."""
