@@ -567,68 +567,47 @@ class Spectrum(Spectrum1D):
         #
         return s
 
-    def __add__(self, other):
+    def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
         if isinstance(other, NDCube):
-            result = self.add(other, **{"handle_meta": self._add_meta})
+            result = op(other, **{"handle_meta": handle_meta})
         elif isinstance(other, u.Quantity):
-            result = self.add(other, **{"handle_meta": self._add_meta, "meta_other_meta": False})
+            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
         elif not isinstance(other, u.Quantity):
             try:
                 other = u.Quantity(other, unit=self.unit)
-                result = self.add(other, **{"handle_meta": self._add_meta, "meta_other_meta": False})
+                result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
             except TypeError:
                 return NotImplemented
         result._target = self._target
         result._observer = self._observer
+        return result
+
+    def __add__(self, other):
+        op = self.add
+        handle_meta = self._add_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
     def __sub__(self, other):
-        if isinstance(other, NDCube):
-            subtraction = self.subtract(other, **{"handle_meta": self._add_meta})
-        elif isinstance(other, u.Quantity):
-            subtraction = self.subtract(other, **{"handle_meta": self._add_meta, "meta_other_meta": False})
-        elif not isinstance(other, u.Quantity):
-            try:
-                other = u.Quantity(other, unit=self.unit)
-                subtraction = self.add(other, **{"handle_meta": self._add_meta, "meta_other_meta": False})
-            except TypeError:
-                return NotImplemented
-        subtraction = self.subtract(other, **{"handle_meta": self._add_meta})
-        subtraction._target = self._target
-        subtraction._observer = self._observer
-        return subtraction
+        op = self.subtract
+        handle_meta = self._add_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
 
     def __mul__(self, other):
-        if isinstance(other, NDCube):
-            result = self.add(other, **{"handle_meta": self._mul_meta})
-        elif isinstance(other, u.Quantity):
-            result = self.add(other, **{"handle_meta": self._mul_meta, "meta_other_meta": False})
-        elif not isinstance(other, u.Quantity):
-            try:
-                other = u.Quantity(other, unit=self.unit)
-                result = self.add(other, **{"handle_meta": self._mul_meta, "meta_other_meta": False})
-            except TypeError:
-                return NotImplemented
-        result._target = self._target
-        result._observer = self._observer
+        op = self.multiply
+        handle_meta = self._mul_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
     def __div__(self, other):
-        if isinstance(other, NDCube):
-            result = self.divide(other, **{"handle_meta": self._div_meta})
-        elif isinstance(other, u.Quantity):
-            result = self.divide(other, **{"handle_meta": self._div_meta, "meta_other_meta": False})
-        elif not isinstance(other, u.Quantity):
-            try:
-                other = u.Quantity(other, unit=self.unit)
-                result = self.divide(other, **{"handle_meta": self._div_meta, "meta_other_meta": False})
-            except TypeError:
-                return NotImplemented
-        result._target = self._target
-        result._observer = self._observer
+        op = self.divide
+        handle_meta = self._div_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
     def _add_meta(self, operand, operand2, **kwargs):
+        print(kwargs)
         kwargs.setdefault("other_meta", True)
         meta = deepcopy(operand)
         if kwargs["other_meta"]:
