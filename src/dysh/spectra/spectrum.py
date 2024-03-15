@@ -578,11 +578,31 @@ class Spectrum(Spectrum1D):
         subtraction._observer = self._observer
         return subtraction
 
+    def __mul__(self, other):
+        multiplication = self.multiply(other, **{"handle_meta": self._mul_meta})
+        multiplication._target = self._target
+        multiplication._observer = self._observer
+        return multiplication
+
+    def __div__(self, other):
+        division = self.divide(other, **{"handle_meta": self._div_meta})
+        division._target = self._target
+        division._observer = self._observer
+        return division
+
     def _add_meta(self, operand, operand2, **kwargs):
         meta = deepcopy(operand)
         meta["EXPOSURE"] = operand["EXPOSURE"] + operand2["EXPOSURE"]
         meta["DURATION"] = operand["DURATION"] + operand2["DURATION"]
         return meta
+
+    def _mul_meta(self, operand, operand2, **kwargs):
+        # TBD
+        return deepcopy(operand)
+
+    def _div_meta(self, operand, operand2, **kwargs):
+        # TBD
+        return deepcopy(operand)
 
 
 # @todo figure how how to document write()
