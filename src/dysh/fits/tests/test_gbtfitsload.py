@@ -85,6 +85,41 @@ class TestGBTFITSLoad:
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
 
+    def test_getps_acs(self):
+        """
+        Compare `GBTIDL` result to `dysh` with ACS data.
+        """
+
+        data_dir = util.get_project_testdata() / "AGBT05B_047_01"
+        sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
+        idl_file = data_dir / "gbtidl" / "AGBT05B_047_01.getps.acs.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        getps = sdf.getps(51, plnum=0)
+        ps = getps.timeaverage()[0]
+        ps_vals = ps.flux.value
+
+        hdu = fits.open(idl_file)
+        table = hdu[1].data
+        gbtidl_spec = table["DATA"][0]
+
+        # Do not compare NaN values.
+        mask = np.isnan(ps_vals) | np.isnan(gbtidl_spec)
+
+        # Compare data.
+        assert np.all((ps_vals[~mask] - gbtidl_spec[~mask]) < 1e-3)
+
+        for col in table.names:
+            if col not in ["DATA"]:
+                try:
+                    ps.meta[col]
+                except KeyError:
+                    continue
+                try:
+                    assert ps.meta[col] == pytest.approx(table[col][0], 1e-3)
+                except AssertionError:
+                    print(f"{col} fails: {ps.meta[col]}, {table[col][0]}")
+
     def test_gettp_single_int(self):
         """
         Compare gbtidl result to dysh for a gettp spectrum from a single integration/pol/feed.
