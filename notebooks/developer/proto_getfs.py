@@ -33,7 +33,7 @@ from astropy import constants as ac
 
 import dysh.util as util
 from astropy.table import Table
-
+from scipy import ndimage 
 
 # %%
 def parse_query(query, op="and"):
@@ -126,6 +126,7 @@ def table_frequency(table):
 
     ndim = len(table["DATA"].shape)
     nint = table["DATA"].shape[0]
+
 
     if ndim == 1:
         nchan = np.array([int(table["TDIM7"][1:-1].split(",")[0])])
@@ -267,12 +268,14 @@ def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
 
     chan_shift = (sig_freq[0,0] - ref_freq[0,0])/np.abs(np.diff(sig_freq)).mean()
     ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
+    #print("do_fold: chan_shift=",chan_shift, 'CRPIX',ref_shift['CRPIX1'])
+    
 
     # sig_w = sig["EXPOSURE"][:,np.newaxis]*abs(sig["CDELT1"][:,np.newaxis])/np.power(sig["TSYS"], 2.)
     # ref_w = ref["EXPOSURE"][:,np.newaxis]*abs(ref["CDELT1"][:,np.newaxis])/np.power(ref["TSYS"], 2.)
     sig_w = (sig["EXPOSURE"]*abs(sig["CDELT1"])/np.power(sig["TSYS"], 2.))[:,np.newaxis]
     ref_w = (ref["EXPOSURE"]*abs(ref["CDELT1"])/np.power(ref["TSYS"], 2.))[:,np.newaxis]
-    print('sig_w',sig_w)
+    #print('sig_w',sig_w)
     avg = (sig["DATA"]*sig_w + ref_shift["DATA"]*ref_w) / (sig_w + ref_w)
 
     out = copy(sig)
@@ -294,8 +297,6 @@ def do_shift(table, offset, remove_wrap=False):
     ishift = int(np.round(offset)) # Integer shift.
     fshift = offset - ishift # Fractional shift.
     
-    print("FOLD:  ishift=%d fshift=%g" % (ishift,fshift))
-
     dshape = out_table["DATA"].shape
     
     # Shift the data by `ishift` channels.
@@ -313,13 +314,15 @@ def do_shift(table, offset, remove_wrap=False):
                 data[ishift:] = np.nan
             else:
                 data[:ishift] = np.nan
+                
+    # now the fractional shift, each row separate since ndimage.shift() cannot deal with np.nan
+    nt = data.shape[0]
+    for i in range(nt):
+        data[i] = ndimage.shift(data[0],[fshift])
     out_table["DATA"] = data
 
-    # Then we should handle wrapping and fractional shifts.
-    #
-    #
-    fshift = 0.0
-
+    print("FOLD:  ishift=%d fshift=%g" % (ishift,fshift))
+    # CRPIX1 is actually not used
     out_table["CRPIX1"] -= ishift + fshift
     
     return out_table
@@ -332,7 +335,7 @@ data_path = testdata  / "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.
 scan  = 20
 ifnum = 0    # only 0
 fdnum = 0    # only 0
-plnum = 0    # 0 or 1
+plnum = 1   # 0 or 1
 fold  = True     # when is this ever False?
 
 # %%
@@ -378,6 +381,26 @@ if nchan > chan_shift:
     in_band = True
 else:
     in_band = False
+    
+#%%
+def peak(x,y,imax=-1):
+    """ find or force a peak (when imax given)
+        then do a 3-point polynomial fit and find the peak location
+    """
+    if imax < -1:
+        raise ValueError("imax should be -1")
+            
+    if imax < 0:
+        imax = y.argmax()
+    y1 = y[imax-1]/y[imax]
+    y2 = 1.0
+    y3 = y[imax+1]/y[imax]
+    dx = x[imax]-x[imax-1]
+    loc = 0.5*(y1-y3)/(y1+y3-2*y2);
+    xpeak = x[imax] + 0.5*(y1-y3)/(y1+y3-2*y2)*dx;
+    print('@%d  %f %f  %g   %g %g' % (imax,x[imax],xpeak,y[imax],y1,y3)) 
+  
+   
 
 # %%
 # Fix TCAL to make everything consistent.
@@ -389,11 +412,15 @@ tp_ref = do_total_power(table[ref], table[ref_cal], tcal)#, tsys_med=False)
 print(table[ref]['DATA'][0])
 plt.figure()
 y=table[sig]['DATA'][0]
-plt.plot(np.arange(nchan),y)
+plt.plot(np.arange(nchan),y,label='sig')
+z=table[ref]['DATA'][0]
+plt.plot(np.arange(nchan),z,label='ref')
 print('MINMAX',y.min(),y.max())
 plt.title("RAW sig")
+plt.legend()
 
-
+peak(np.arange(nchan),y)
+peak(np.arange(nchan),z)
 # %%
 plt.figure()
 nchan = len(sig_freq[0])
@@ -406,6 +433,11 @@ plt.title("RAW")
 plt.legend()
 print('MINMAX2',tp_sig["DATA"][0].min(),tp_sig["DATA"][0].max())
 
+y=tp_sig["DATA"][0]
+z=tp_ref["DATA"][0]
+peak(np.arange(nchan),y)
+peak(np.arange(nchan),z)
+
 # %%
 plt.figure()
 plt.plot(sig_freq[0].to("MHz").value, tp_sig["DATA"][0])
@@ -413,6 +445,15 @@ plt.plot(ref_freq[0].to("MHz").value, tp_ref["DATA"][0])
 plt.xlabel("Frequency (MHz)")
 plt.ylabel("Counts (A.U.)");
 plt.title("tp_sig/ref RAW")
+plt.xlim(1665.62, 1665.68)
+
+peak(sig_freq[0].to("MHz").value,tp_sig["DATA"][0])
+peak(ref_freq[0].to("MHz").value,tp_ref["DATA"][0])
+
+
+#%%
+from scipy.signal import find_peaks
+ppp = find_peaks(y)
 
 # %%
 # Calibrate the data.
@@ -428,7 +469,10 @@ plt.ylabel("Antenna Temperature (K)");
 plt.title("calibrated")
 plt.legend()
 
-# %%
+peak(sig_freq[0].to("MHz").value, cal_sig["DATA"][0])
+peak(ref_freq[0].to("MHz").value, cal_ref["DATA"][0])
+
+#%%
 # Shift the reference for folding.
 # This should only take place when 
 # this is in-band frequency switching.
@@ -438,23 +482,39 @@ if in_band and fold:
 
 # %%
 cal_sig_freq = table_frequency(cal_sig_fold)
-cal_ref_freq = table_frequency(cal_ref_fold)
+cal_ref_freq = table_frequency(cal_ref_fold)  # @is this one wrong?
 
 # %%
 plt.figure()
-plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid')
-plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid')
+if True:
+    plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid')
+    plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid')
+else:
+    plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0]) 
+    plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0])
+#plt.xlim(1665.62, 1665.68)
 plt.xlabel("Frequency (MHz)")
 plt.ylabel("Antenna Temperature (K)");
-plt.title("cal sig/ref fold")
+plt.title("cal sig/ref fold - shifted")
+y=cal_sig_fold["DATA"][0]
+z=cal_ref_fold["DATA"][0]
 
-# %% [markdown]
+peak(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0])
+peak(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0])   
+     
+
+#%% [markdown]
 # Notice that there's still half a channel shift between spectra. This is also likely why the results does not match the one from GBTIDL.
 
-# %%
+#%%
 plt.figure()
-plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid')
-plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid')
+if False:
+    plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid')
+    plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid')
+else:
+    plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0])
+    plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0])
+
 plt.xlim(1665.62, 1665.68)
 plt.ylim(-50,1000)
 plt.xlabel("Frequency (MHz)")
@@ -474,15 +534,40 @@ pol2 = table1['DATA'][1]
 
 #%%
 
+# pjt0: plnum=0      pjt1:  plnum=1
+
+hdu1a = fits.open('pjt0.fits')
+table1a = hdu1a[1].data
+table1a.shape
+f0a = table_frequency(table1a)
+pjt0 = table1a['DATA'][0]
+
+hdu1b = fits.open('pjt1.fits')
+table1b = hdu1b[1].data
+table1b.shape
+f0b = table_frequency(table1b)
+pjt1 = table1b['DATA'][0]
+
+
+#%%
+
 plt.figure()
 lw=4
 if plnum==0:
     plt.plot(f[0]/1e6, pol1, label='GBTIDL plnum=0',drawstyle='steps-mid', linewidth=lw)
+    plt.plot(f0a[0]/1e6, pjt0, label='GBTIDL pjt plnum=0',drawstyle='steps-mid')
+
+    fmhz = np.array(f[0]/1e6)
+    peak(fmhz, pol1)
 elif plnum==1:
     plt.plot(f[1]/1e6, pol2, label='GBTIDL_plnum=1',drawstyle='steps-mid', linewidth=lw)
+    plt.plot(f0b[0]/1e6, pjt1, label='GBTIDL pjt plnum=1',drawstyle='steps-mid')
+    fmhz = np.array(f[1]/1e6)
+    peak(fmhz, pol2)
+    
     
 plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid', label='dysh cal_sig')
-plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid', label='dysh sig_cal')
+plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid', label='dysh cal_ref')
 #  make tickmarks at every (sig) channel center
 if True:
     f1=cal_sig_freq[0].to("MHz").value
