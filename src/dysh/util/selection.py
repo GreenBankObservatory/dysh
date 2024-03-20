@@ -12,7 +12,7 @@ from astropy.time import Time
 from astropy.units.quantity import Quantity
 from pandas import DataFrame
 
-# from ..fits import default_sdfits_columns
+from ..fits import default_sdfits_columns
 from . import gbt_timestamp_to_time, generate_tag
 
 default_aliases = {
@@ -24,9 +24,12 @@ default_aliases = {
     "gallon": "crval2",
     "gallat": "crval3",
     "elevation": "elevatio",
+    #   "scans": "scan",  # backward compatibility with calibration routine old arguments
     "source": "object",
     "pol": "plnum",
 }
+
+enumerated_keywords = []
 
 
 class Selection(DataFrame):
@@ -55,8 +58,13 @@ class Selection(DataFrame):
     with :meth:`alias`.   Some default :meth:`aliases` have been defined.
     """
 
-    def __init__(self, sdfits, aliases=default_aliases, **kwargs):
-        super().__init__(sdfits._index, copy=True)
+    def __init__(self, initobj, aliases=default_aliases, **kwargs):
+        if hasattr(initobj, "_index"):  # it's an SDFITSLoad object
+            super().__init__(initobj._index, copy=True)
+            DEFKEYS = list(initobj._index.keys())
+        else:
+            super().__init__(initobj, copy=True)  # it's a Selection or DataFrame
+            DEFKEYS = default_sdfits_columns()
         # adding attributes that are not columns will result
         # in a UserWarning, which we can safely ignore.
         warnings.simplefilter("ignore", category=UserWarning)
@@ -64,7 +72,7 @@ class Selection(DataFrame):
         idtag = ["ID", "TAG"]
         # if we want Selection to replace _index in sdfits
         # construction this will have to change. if hasattr("_index") etc
-        DEFKEYS = list(sdfits._index.keys())
+
         DEFKEYS.extend(["CHAN", "UTC", "# SELECTED"])
         # add ID and TAG as the first columns
         for i in range(len(idtag)):
@@ -465,7 +473,9 @@ class Selection(DataFrame):
         #
         self._check_keys(kwargs.keys())
         row = {}
-        df = self
+        # if called via _select_from_mixed_kwargs, then we want to merge all the
+        # selections
+        df = kwargs.pop("startframe", self)
         for k, v in list(kwargs.items()):
             ku = k.upper()
             if ku in self._aliases:
@@ -510,29 +520,33 @@ class Selection(DataFrame):
 
     def select_range(self, tag=None, **kwargs):
         """
-        Select a range of inclusive values for a given key(s).
-        e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
-        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
-        Upper and lower limits may be given by setting one of the tuple values
-        to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
-        `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
-        limits may also be specified by a one-element tuple `key1 = (v1,)`.
+                Select a range of inclusive values for a given key(s).
+                e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
+                will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+                Upper and lower limits may be given by setting one of the tuple values
+                to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
+                `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
+                limits may also be specified by a one-element tuple `key1 = (v1,)`.
 
-        Parameters
-        ----------
-        tag : str, optional
-            An identifying tag by which the rule may be referred to later.
-            If None, a  randomly generated tag will be created.
-        key : str
-            The key (SDFITS column name or other supported key)
-        value : array-like
-            Tuple or list giving the lower and upper limits of the range.
-
-        Returns
-        -------
-        None.
+                Parameters
+                ----------
+                tag : str, optional
+                    An identifying tag by which the rule may be referred to later.
+                    If None, a  randomly generated tag will be created.
+                key : str
+                    The key (SDFITS column name or other supported key)
+                value : array-like
+                    Tuple or list giving the lower and upper limits of the range.
+        if isinstance(v, (Sequence, np.ndarray)) and not isinstance(v, str):
+                Returns
+                -------
+                None.
 
         """
+        # @todo ?? MAYBE allow chan(nel) in here, e.g.
+        # chan = kwargs.pop(chan,None)
+        # if chan is not None:
+        #   self.select_channel(chan,tag=tag)
         self._check_keys(kwargs.keys())
         self._check_range(**kwargs)
         row = {}
@@ -607,9 +621,21 @@ class Selection(DataFrame):
 
     def select_channel(self, chan, tag=None):
         """
-        Select channels and/or channel ranges. These are NOT used in final()
+        Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
-        flagging.
+        flagging. Single arrays/tuples will be treated as channel lists;
+        nested arrays will be treated as ranges, for instance
+
+        ``
+        # selects channels 1 and 10
+        select_channel([1,10])
+        # selects channels 1 thru 10 inclusive
+        select_channel([[1,10]])
+        # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
+        select_channel([[1,10], [47,56], 75)])
+        # tuples also work, though can be harder for a human to read
+        select_channel(((1,10), [47,56], 75))
+        ``
 
         Parameters
         ----------
@@ -694,7 +720,7 @@ class Selection(DataFrame):
         print(self._table)
 
     @property
-    def final(self):
+    def _final(self):
         """
         Create the final selection. This is done by a logical OR of each
         of the selection rules (specifically `pandas.merge(how='inner')`).
@@ -705,8 +731,62 @@ class Selection(DataFrame):
             The resultant selection from all the rules.
         """
         # start with unfiltered index.
-        # make a copy to avoid reference to self
-        final = deepcopy(self)
+        final = self
         for df in self._selection_rules.values():
             final = pd.merge(final, df, how="inner")
         return final
+
+    @property
+    def final(self):
+        if len(self._selection_rules.values()) == 0:
+            return deepcopy(self)
+        final = None
+        for df in self._selection_rules.values():
+            if final is None:
+                # need a deepcopy here in case there
+                # is only one selection rule, because
+                # we don't want to return a reference to the rule
+                # which the reciever might modify.
+                final = deepcopy(df)
+            else:
+                final = pd.merge(final, df, how="inner")
+        return final
+
+    def _select_from_mixed_kwargs(self, **kwargs):
+        """
+        Called by calibration routines which may be mixing channel selections
+        and exact selections, but **not** 'within' or 'range' selections.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments.  key=value as in the public selection methods.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        # get the tag if given or generate one if not
+        tag = kwargs.pop("tag", self._generate_tag(kwargs))
+        if tag is None:  # in case user did tag=None (facepalm)
+            tag = self._generate_tag(kwargs)
+
+        # in order to pop channel we need to check case insensitively
+        ukwargs = {k.upper(): v for k, v in kwargs.items()}
+        chan = ukwargs.pop("CHANNEL", None)
+        if chan is not None:
+            self.select_channel(chan, tag)
+        if len(ukwargs) != 0:
+            self.select(**ukwargs, tag=tag)
+
+    def __deepcopy__(self, memo):
+        warnings.simplefilter("ignore", category=UserWarning)
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        warnings.resetwarnings()
+        return result

@@ -7,7 +7,30 @@ from pathlib import Path
 
 # import astropy.units as u
 import numpy as np
+import pandas as pd
 from astropy.time import Time
+
+
+def select_from(key, value, df):
+    """
+    Select data where key=value.
+
+    Parameters
+    ----------
+    key : str
+        The key value (SDFITS column name)
+    value : any
+        The value to match
+    df : `~pandas.DataFrame`
+        The DataFrame to search
+
+    Returns
+    -------
+    df : `~pandas.DataFrame`
+        The subselected DataFrame
+
+    """
+    return df[(df[key] == value)]
 
 
 def gbt_timestamp_to_time(timestamp):
