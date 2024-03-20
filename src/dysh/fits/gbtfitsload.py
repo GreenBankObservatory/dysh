@@ -522,7 +522,7 @@ class GBTFITSLoad(SDFITSLoad):
         # is in the starting selection.
         _final = self._selection.final
         scans = kwargs.pop("scan", None)
-        debug = kwargs.pop("debug", False)
+        debug = kwargs.get("debug", False)
         if type(scans) is int:
             scans = [scans]
         if scans is None:
@@ -537,7 +537,8 @@ class GBTFITSLoad(SDFITSLoad):
             # add a rule selecting the missing scans :-)
             if debug:
                 print(f"adding rule scan={scans_to_add}")
-            ps_selection.select(scan=scans_to_add)
+            # ps_selection.select(scan=scans_to_add)
+            kwargs["SCAN"] = scans_to_add
         # now downselect with any additional kwargs
         if debug:
             print(f"SELECTION FROM MIXED KWARGS {kwargs}")
