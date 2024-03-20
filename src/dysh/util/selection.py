@@ -770,15 +770,19 @@ class Selection(DataFrame):
 
         # get the tag if given or generate one if not
         tag = kwargs.pop("tag", self._generate_tag(kwargs))
+        debug = kwargs.pop("debug", False)
         if tag is None:  # in case user did tag=None (facepalm)
             tag = self._generate_tag(kwargs)
-
+        if debug:
+            print(f"working TAG IS {tag}")
         # in order to pop channel we need to check case insensitively
         ukwargs = {k.upper(): v for k, v in kwargs.items()}
         chan = ukwargs.pop("CHANNEL", None)
         if chan is not None:
             self.select_channel(chan, tag)
         if len(ukwargs) != 0:
+            if debug:
+                print(f"selection {ukwargs}")
             self.select(**ukwargs, tag=tag)
 
     def __deepcopy__(self, memo):
