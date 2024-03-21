@@ -1,12 +1,11 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
-import os
-import sys
-import warnings
+
+# import warnings
 from pathlib import Path
 
-import astropy.units as u
+# import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -328,7 +327,7 @@ class GBTFITSLoad(SDFITSLoad):
         scanset = set(uncompressed_df["SCAN"])
         avg_cols = ["SCAN", "VELOCITY", "PROCSEQN", "RESTFREQ", "DOPFREQ", "AZIMUTH", "ELEVATIO"]
         for s in scanset:
-            uf = self.select("SCAN", s, uncompressed_df)
+            uf = select_from("SCAN", s, uncompressed_df)
             # for some columns we will display
             # the mean value
             ser = uf.filter(avg_cols).mean(numeric_only=True)
@@ -602,7 +601,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         # print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with self.selection.selectXX(). In either case make sure the matching ON or OFF
+        # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
         _final = self._selection.final
         scans = kwargs.pop("scan", None)
@@ -1185,8 +1184,8 @@ class GBTFITSLoad(SDFITSLoad):
         if lenprocset > 1:
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
         proc = list(procset)[0]
-        dfon = self.select("_OBSTYPE", "PSWITCHON", df)
-        dfoff = self.select("_OBSTYPE", "PSWITCHOFF", df)
+        dfon = select_from("_OBSTYPE", "PSWITCHON", df)
+        dfoff = select_from("_OBSTYPE", "PSWITCHOFF", df)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
         offscans = uniq(list(dfoff["SCAN"]))
         if scans is not None:
@@ -1283,20 +1282,20 @@ class GBTFITSLoad(SDFITSLoad):
         df = self.index(bintable=bintable, fitsindex=fitsindex)
         if scans is not None:
             df = df[df["SCAN"].isin(scans)]
-        dfon = self.select("CAL", "T", df)
-        dfoff = self.select("CAL", "F", df)
+        dfon = select_from("CAL", "T", df)
+        dfoff = select_from("CAL", "F", df)
         if ifnum is not None:
-            dfon = self.select("IFNUM", ifnum, dfon)
-            dfoff = self.select("IFNUM", ifnum, dfoff)
+            dfon = select_from("IFNUM", ifnum, dfon)
+            dfoff = select_from("IFNUM", ifnum, dfoff)
         if plnum is not None:
-            dfon = self.select("PLNUM", plnum, dfon)
-            dfoff = self.select("PLNUM", plnum, dfoff)
+            dfon = select_from("PLNUM", plnum, dfon)
+            dfoff = select_from("PLNUM", plnum, dfoff)
         if fdnum is not None:
-            dfon = self.select("FDNUM", fdnum, dfon)
-            dfoff = self.select("FDNUM", fdnum, dfoff)
+            dfon = select_from("FDNUM", fdnum, dfon)
+            dfoff = select_from("FDNUM", fdnum, dfoff)
         if subref is not None:
-            dfon = self.select("SUBREF_STATE", subref, dfon)
-            dfoff = self.select("SUBREF_STATE", subref, dfoff)
+            dfon = select_from("SUBREF_STATE", subref, dfon)
+            dfoff = select_from("SUBREF_STATE", subref, dfoff)
         s["ON"] = list(dfon.index)
         s["OFF"] = list(dfoff.index)
         return s
