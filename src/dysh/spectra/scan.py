@@ -124,9 +124,19 @@ class ScanBlock(UserList, ScanMixin):
         self._timeaveraged = []
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
-        self._timeaveraged = np.array(self._timeaveraged)
+        if weights == "tsys":
+            w = np.array([k._tsys_weight for k in self.data]).squeeze()
+        else:
+            w = weights
+        timeavg = np.array([k.data for k in self._timeaveraged])
         # should the mean be weighted by TSYS too?
-        return np.mean(self._timeaveraged)
+
+        avgdata = average(timeavg, axis=0, weights=w)
+        avgspec = np.mean(self._timeaveraged)
+        avgspec.meta = self._timeaveraged[0].meta
+        avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
+        avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
+        return Spectrum.make_spectrum(avgdata * avgspec.flux.unit, meta=avgspec.meta)
 
     def polaverage(self, weights="tsys"):
         r"""Average all polarizations in all scans in this ScanBlock
