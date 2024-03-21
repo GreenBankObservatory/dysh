@@ -657,6 +657,7 @@ class GBTFITSLoad(SDFITSLoad):
                     print(f"and PROC {set(_df['PROC'])}")
                 rows = {}
                 # loop over scan pairs
+                c = 0
                 for on, off in zip(scanlist["ON"], scanlist["OFF"]):
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
@@ -679,10 +680,11 @@ class GBTFITSLoad(SDFITSLoad):
                     d = {"ON": on, "OFF": off}
                     # print(f"Sending PSScan({d},ROWS:{rows},CALROWS:{calrows},BT: {bintable}")
                     if debug:
-                        print(f"SCANROWS {rows}")
+                        print(f"{i, k, c} SCANROWS {rows}")
                         print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                     g = PSScan(self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable)
                     scanblock.append(g)
+                    c = c + 1
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock

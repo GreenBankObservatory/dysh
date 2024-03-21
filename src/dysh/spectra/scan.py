@@ -8,7 +8,7 @@ from copy import deepcopy
 import astropy.units as u
 import numpy as np
 
-from ..coordinates import Observatory, make_target, veldef_to_convention
+from ..coordinates import Observatory
 from ..util import uniq
 from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
@@ -94,7 +94,6 @@ class ScanMixin(object):
 class ScanBlock(UserList, ScanMixin):
     def __init__(self, *args):
         super().__init__(*args)
-        self._status = None
         self._nrows = 0
         self._npol = 0
         self._timeaveraged = []
@@ -125,7 +124,9 @@ class ScanBlock(UserList, ScanMixin):
         self._timeaveraged = []
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
-        return self._timeaveraged
+        self._timeaveraged = np.array(self._timeaveraged)
+        # should the mean be weighted by TSYS too?
+        return np.mean(self._timeaveraged)
 
     def polaverage(self, weights="tsys"):
         r"""Average all polarizations in all scans in this ScanBlock
@@ -272,8 +273,6 @@ class TPScan(ScanMixin):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
 
-        self._status = 1
-
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         nspect = len(tcal)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
@@ -396,10 +395,6 @@ class TPScan(ScanMixin):
         """
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        if self._nif > 1:
-            raise Exception("Can't yet time average multiple IFs")
-        if self._nfeed > 1:
-            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == "tsys":
             w = self._tsys_weight
@@ -530,8 +525,6 @@ class PSScan(ScanMixin):
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
-
-        self._status = 1
         nspect = self.nrows // 2
         self._calibrated = np.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
@@ -678,8 +671,6 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         self._nchan = len(reftp[0]._data[0])
         self._npol = 1
         self._nint = 0
-        self._nif = 1
-        self._nfeed = 1
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
@@ -767,10 +758,6 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        if self._nif > 1:
-            raise Exception("Can't yet time average multiple IFs")
-        if self._nfeed > 1:
-            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         nchan = len(data[0])

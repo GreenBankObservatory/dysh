@@ -17,7 +17,7 @@ class TestPSScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps = sdf.getps(152)
+        tps = sdf.getps(scan=152, ifnum=0)
         tsys = tps[0].tsys
 
         hdu = fits.open(gbtidl_file)
@@ -35,7 +35,7 @@ class TestPSScan:
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         # psscan is a ScanList.
-        psscan = sdf.getps(152, plnum=0)
+        psscan = sdf.getps(scan=152, plnum=0, ifnum=0)
         assert len(psscan) == 1
         psscan.calibrate()
         # psscan_tavg is a list.
@@ -63,7 +63,7 @@ class TestPSScan:
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_scans = sdf.getps([156, 158], plnum=0)
+        ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
         ta = ps_scans.timeaverage()
 
         hdu = fits.open(gbtidl_file)
@@ -110,7 +110,7 @@ class TestPSScan:
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_sb = sdf.getps([156], plnum=0)
+        ps_sb = sdf.getps(scan=[156], plnum=0, ifnum=0)
         ta1 = ps_sb.timeaverage()
         # This should not raise any errors.
         ta2 = ps_sb.timeaverage(None)
