@@ -92,12 +92,12 @@ class GBTFITSLoad(SDFITSLoad):
     @property
     def selection(self):
         """
-
+        The data selection object
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
+        ~dysh.util.Selection
+            The Selection object
 
         """
         return self._selection
@@ -105,12 +105,13 @@ class GBTFITSLoad(SDFITSLoad):
     @property
     def final_selection(self):
         """
-
+        The merged selection rules in the Selection object.
+        See :meth:`~dysh.util.Selection.final`
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
+        ~pandas.DataFrame
+            The final merged selection
 
         """
         return self._selection.final
@@ -307,7 +308,7 @@ class GBTFITSLoad(SDFITSLoad):
                 scans = [scans]
             if len(scans) == 1:
                 scans = [scans[0], scans[0]]  # or should this be [scans[0],lastscan]?
-            _df = self.select_scans(scans, _df).filter(show)
+            _df = self._select_scans(scans, _df).filter(show)
             if uncompressed_df is None:
                 uncompressed_df = _df
             else:  # no longer used
@@ -393,32 +394,118 @@ class GBTFITSLoad(SDFITSLoad):
         (convention, frame) = decode_veldef(veldef)
         return frame
 
-    def select_scans(self, scans, df):
+    def _select_scans(self, scans, df):
         return df[(df["SCAN"] >= scans[0]) & (df["SCAN"] <= scans[1])]
 
-    def select_onoff(self, df):
-        return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
+    # def _select_onoff(self, df):
+    #    return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
 
-    def select(self, key, value, df):
-        """
-        Select data where key=value.
+    # @todo move all selection methods to sdfitsload after adding Selection
+    # to sdfitsload
+    def select(self, tag=None, **kwargs):
+        """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
+        If `value` is array-like then a match to any of the array members will be selected.
+        For instance `select(object=['3C273', 'NGC1234'])` will select data for either of those
+        objects and `select(ifnum=[0,2])` will select IF number 0 or IF number 2.
+        See `~dysh.util.selection.Selection`.
 
         Parameters
         ----------
+            tag : str
+                An identifying tag by which the rule may be referred to later.
+                If None, a  randomly generated tag will be created.
+            key : str
+                The key  (SDFITS column name or other supported key)
+            value : any
+                The value to select
+
+        """
+        self._selection.select(tag=tag, **kwargs)
+
+    def select_range(self, tag=None, **kwargs):
+        """
+        Select a range of inclusive values for a given key(s).
+        e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
+        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+        Upper and lower limits may be given by setting one of the tuple values
+        to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
+        `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
+        limits may also be specified by a one-element tuple `key1 = (v1,)`.
+        See `~dysh.util.selection.Selection`.
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
         key : str
-            The key value (SDFITS column name)
-        value : any
-            The value to match
-        df : `~pandas.DataFrame`
-            The DataFrame to search
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the lower and upper limits of the range.
 
         Returns
         -------
-        df : `~pandas.DataFrame`
-            The subselected DataFrame
+        None.
 
         """
-        return df[(df[key] == value)]
+        self._selection.select_range(tag=tag, **kwargs)
+
+    def select_within(self, tag=None, **kwargs):
+        """
+        Select a value within a plus or minus for a given key(s).
+        e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
+        Will select data
+        `value1-epsilon1 <= data1 <= value1+epsilon1,`
+        `value2-epsilon2 <= data2 <= value2+epsilon2,...`
+
+        See `~dysh.util.selection.Selection`.
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the value and epsilon
+
+        Returns
+        -------
+        None.
+
+        """
+
+    def select_channel(self, chan, tag=None):
+        """
+        Select channels and/or channel ranges. These are NOT used in :meth:`final`
+        but rather will be used to create a mask for calibration or
+        flagging. Single arrays/tuples will be treated as channel lists;
+        nested arrays will be treated as ranges, for instance
+
+        ``
+        # selects channels 1 and 10
+        select_channel([1,10])
+        # selects channels 1 thru 10 inclusive
+        select_channel([[1,10]])
+        # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
+        select_channel([[1,10], [47,56], 75)])
+        # tuples also work, though can be harder for a human to read
+        select_channel(((1,10), [47,56], 75))
+        ``
+
+        See `~dysh.util.selection.Selection`.
+
+        Parameters
+        ----------
+        chan : number, or array-like
+            The channels to select
+
+        Returns
+        -------
+        None.
+        """
+        self._selection.select_channel(tag=tag, chan=chan)
 
     def _create_index_if_needed(self):
         i = 0
@@ -441,9 +528,6 @@ class GBTFITSLoad(SDFITSLoad):
 
     #        TODO: figure how to allow [startscan, endscan]
     #            [sampler], ap_eff [if requested units are Jy]
-
-    def _adjust_scan_selection_for_ps(self, scans):
-        pass
 
     def getfs(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
         """
@@ -516,7 +600,7 @@ class GBTFITSLoad(SDFITSLoad):
             ScanBlock containing the individual `~spectra.scan.PSScan`s
 
         """
-        print(kwargs)
+        # print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
@@ -525,10 +609,19 @@ class GBTFITSLoad(SDFITSLoad):
         debug = kwargs.get("debug", False)
         if type(scans) is int:
             scans = [scans]
+        scans_preselected = set(_final["SCAN"])
         if scans is None:
-            scans = set(_final["SCAN"])
+            scans = scans_preselected
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
-        scans_to_add = list(set(missing["ON"]).union(missing["OFF"]))
+        scans_to_add = set(missing["ON"]).union(missing["OFF"])
+        if debug:
+            print(f"after check scans_to_add={scans_to_add}")
+            for z in scans_to_add:
+                print(type(z))
+        # now remove any scans that have been pre-selected by the user.
+        # scans_to_add -= scans_preselected
+        if debug:
+            print(f"after removing preselected {scans_preselected}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
         if debug:
             print("SCAN ", scans)
@@ -537,26 +630,22 @@ class GBTFITSLoad(SDFITSLoad):
             # add a rule selecting the missing scans :-)
             if debug:
                 print(f"adding rule scan={scans_to_add}")
-            # ps_selection.select(scan=scans_to_add)
-            kwargs["SCAN"] = scans_to_add
+            kwargs["SCAN"] = list(scans_to_add)
         # now downselect with any additional kwargs
         if debug:
             print(f"SELECTION FROM MIXED KWARGS {kwargs}")
+            print(ps_selection.show())
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
-        # here we have to munge the scan list to ensure on and off scan numbers are selected
         ifnum = set(_sf["IFNUM"])
-        plnum = set(_sf["PLNUM"])
         scans = set(_sf["SCAN"])
-        if debug:
-            print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
-        # todo apply_selection(kwargs_opts)
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
                 _df = select_from("IFNUM", k, df)
-
+                # @todo Calling this method every loop may be expensive. If so, think of
+                # a way to tighten it up.
                 scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
 
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
@@ -597,7 +686,6 @@ class GBTFITSLoad(SDFITSLoad):
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
-        # warnings.warn("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
     def _oldgetps(self, scans=None, bintable=None, **kwargs):
@@ -1213,30 +1301,29 @@ class GBTFITSLoad(SDFITSLoad):
         s["OFF"] = list(dfoff.index)
         return s
 
-    def _onoff_rows_selection(self, scanlist):
-        """
-        Get individual ON/OFF (position switch) scan row numbers selected by ifnum,plnum, bintable.
+    # def _onoff_rows_selection(self, scanlist):
+    #    """
+    #    Get individual ON/OFF (position switch) scan row numbers selected by ifnum,plnum, bintable.
+    #
+    #   Parameters
+    #    scanlist : dict
+    #        dictionary of ON and OFF scans
+    #    bintable : int
+    #        the index for BINTABLE in `sdfits` containing the scans. Default:None
+    #    fitsindex: int
+    #         the index of the FITS file contained in this GBTFITSLoad.  Default:0
+    #
+    #     Returns
+    #     -------
+    #     rows : dict
+    #         A dictionary with keys 'ON' and 'OFF' giving the row indices of the ON and OFF data for the input scan(s)
 
-        Parameters
-        ----------
-        scanlist : dict
-            dictionary of ON and OFF scans
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans. Default:None
-        fitsindex: int
-            the index of the FITS file contained in this GBTFITSLoad.  Default:0
-
-        Returns
-        -------
-        rows : dict
-            A dictionary with keys 'ON' and 'OFF' giving the row indices of the ON and OFF data for the input scan(s)
-
-        """
-        rows = {"ON": [], "OFF": []}
-        # scans is now a dict of "ON" "OFF
-        for key in scanlist:
-            rows[key] = self.scan_rows(scanlist[key], ifnum, plnum, bintable, fitsindex=fitsindex)
-        return rows
+    #    """
+    #      rows = {"ON": [], "OFF": []}
+    #     # scans is now a dict of "ON" "OFF
+    #     for key in scanlist:
+    #         rows[key] = self.scan_rows(scanlist[key], ifnum, plnum, bintable, fitsindex=fitsindex)
+    #     return rows
 
     def onoff_rows(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
         """
@@ -1269,11 +1356,9 @@ class GBTFITSLoad(SDFITSLoad):
         if type(scans) is int:
             scans = [scans]
         _scans = self.onoff_scan_list(scans, ifnum, plnum, bintable, fitsindex=fitsindex)
-        print(f"SCANS {_scans}")
         # scans is now a dict of "ON" "OFF
         for key in _scans:
             rows[key] = self.scan_rows(_scans[key], ifnum, plnum, bintable, fitsindex=fitsindex)
-        # print(f"ROWS {rows}")
         return rows
 
     def scan_rows(self, scans, ifnum=0, plnum=0, bintable=None, fitsindex=0):

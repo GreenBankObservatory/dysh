@@ -20,11 +20,6 @@ class ScanMixin(object):
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    # @property
-    # def status(self):
-    #    """Status flag, will be used later for undo"""
-    #    return self._status
-
     @property
     def nchan(self):
         """
@@ -61,14 +56,6 @@ class ScanMixin(object):
 
         """
         return self._npol
-
-    # def nif(self):
-    #    """The number of IFs in this Scan"""
-    #    return self._nif
-    #
-    # def nfeed(self):
-    #     """The number of feeds in this Scan"""
-    #    return self._nfeed
 
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
@@ -135,6 +122,7 @@ class ScanBlock(UserList, ScanMixin):
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
         """
+        self._timeaveraged = []
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
         return self._timeaveraged
@@ -155,6 +143,7 @@ class ScanBlock(UserList, ScanMixin):
         polaverage: list of `~spectra.spectrum.Spectrum`
             List of all the polarization-averaged spectra
         """
+        self._polaveraged = []
         for scan in self.data:
             self._polaveraged.append(scan.polaverage(weights))
         return self._polaveraged
@@ -175,6 +164,7 @@ class ScanBlock(UserList, ScanMixin):
         finalspectra: list of `~spectra.spectrum.Spectrum`
             List of all the time- and polarization-averaged spectra
         """
+        self._finalspectrum = []
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
@@ -232,14 +222,11 @@ class TPScan(ScanMixin):
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
-        self._feeds = uniq(df["FDNUM"])
+        # self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
-        self._ifs = uniq(df["IFNUM"])
-        self._status = 0  # @todo make these an enumeration, possibly dict
+        # self._ifs = uniq(df["IFNUM"])
         self._nint = 0
         self._npol = len(self._pols)
-        self._nfeed = len(self._feeds)
-        self._nif = len(self._ifs)
         self._timeaveraged = None
         self._polaveraged = None
         self._nrows = len(scanrows)
@@ -428,7 +415,8 @@ class TPScan(ScanMixin):
 
 
 class PSScan(ScanMixin):
-    """GBT specific version of Position Switch Scan
+    """GBT specific version of Position Switch Scan. A position switch scan object has
+    one IF, one feed, and one or more polarizations.
 
     Parameters
     ----------
@@ -455,8 +443,8 @@ class PSScan(ScanMixin):
         self._scans = scans
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
-        print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
+        # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
+        # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -468,17 +456,13 @@ class PSScan(ScanMixin):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        print(f"bintable index is {self._bintable_index}")
+        # print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         # df = selection.iloc[scanrows["ON"]]
         df = self._sdfits._index.iloc[scanrows["ON"]]
-        self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
-        self._ifs = uniq(df["IFNUM"])
-        print(f"PSSCAN #pol = {self._pols}")
+        # print(f"PSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
-        self._nfeed = len(self._feeds)
-        self._nif = len(self._ifs)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # @todo use gbtfits.velocity_convention(veldef,velframe)
@@ -636,10 +620,6 @@ class PSScan(ScanMixin):
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        if self._nif > 1:
-            raise Exception("Can't yet time average multiple IFs")
-        if self._nfeed > 1:
-            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
@@ -829,54 +809,3 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
             self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
 
         return self._timeaveraged
-
-
-class PSScan2(PSScan):
-    def __init__(
-        self, gbtfits, scans, scanrows, calrows, calibrate=True, bintable=None, observer_location=Observatory["GBT"]
-    ):
-        self._sdfits = gbtfits  # parent class
-        self._scans = scans
-        self._scanrows = scanrows
-        self._nrows = len(self._scanrows["ON"])
-        # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
-        # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
-
-        # calrows perhaps not needed as input since we can get it from gbtfits object?
-        # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
-        # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
-        self._calrows = calrows
-        # print("BINTABLE = ", bintable)
-        # @todo deal with data that crosses bintables
-        if bintable is None:
-            self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
-        else:
-            self._bintable_index = bintable
-        self._observer_location = observer_location
-        df = self._sdfits._index
-        df = df.iloc[scanrows["ON"]]
-        self._feeds = uniq(df["FDNUM"])
-        self._pols = uniq(df["PLNUM"])
-        self._ifs = uniq(df["IFNUM"])
-        self._npol = len(self._pols)
-        self._nfeed = len(self._feeds)
-        self._nif = len(self._ifs)
-        if False:
-            self._nint = gbtfits.nintegrations(self._bintable_index)
-        # @todo use gbtfits.velocity_convention(veldef,velframe)
-        # so quick with slicing!
-        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
-        self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
-        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
-        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-        self._nchan = len(self._sigcalon[0])
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
-        self._tsys = None
-        self._exposure = None
-        self._calibrated = None
-        self._calibrate = calibrate
-        if self._calibrate:
-            self.calibrate()

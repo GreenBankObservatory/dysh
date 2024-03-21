@@ -520,27 +520,27 @@ class Selection(DataFrame):
 
     def select_range(self, tag=None, **kwargs):
         """
-                Select a range of inclusive values for a given key(s).
-                e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
-                will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
-                Upper and lower limits may be given by setting one of the tuple values
-                to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
-                `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
-                limits may also be specified by a one-element tuple `key1 = (v1,)`.
+        Select a range of inclusive values for a given key(s).
+        e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
+        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+        Upper and lower limits may be given by setting one of the tuple values
+        to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
+        `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
+        limits may also be specified by a one-element tuple `key1 = (v1,)`.
 
-                Parameters
-                ----------
-                tag : str, optional
-                    An identifying tag by which the rule may be referred to later.
-                    If None, a  randomly generated tag will be created.
-                key : str
-                    The key (SDFITS column name or other supported key)
-                value : array-like
-                    Tuple or list giving the lower and upper limits of the range.
-        if isinstance(v, (Sequence, np.ndarray)) and not isinstance(v, str):
-                Returns
-                -------
-                None.
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the lower and upper limits of the range.
+
+        Returns
+        -------
+        None.
 
         """
         # @todo ?? MAYBE allow chan(nel) in here, e.g.
@@ -720,10 +720,10 @@ class Selection(DataFrame):
         print(self._table)
 
     @property
-    def _final(self):
+    def final(self):
         """
         Create the final selection. This is done by a logical OR of each
-        of the selection rules (specifically `pandas.merge(how='inner')`).
+        of the selection rules (specifically `pandas.merge(how='outer')`).
 
         Returns
         -------
@@ -731,13 +731,24 @@ class Selection(DataFrame):
             The resultant selection from all the rules.
         """
         # start with unfiltered index.
-        final = self
-        for df in self._selection_rules.values():
-            final = pd.merge(final, df, how="inner")
-        return final
+        return self.merge(how="outer")
 
-    @property
-    def final(self):
+    def merge(self, how):
+        """
+        Merge selection rules using a specific
+        type of join.
+
+        Parameters
+        ----------
+        how : {‘left’, ‘right’, ‘outer’, ‘inner’, ‘cross’}, no default.
+            The type of join to be performed. See :meth:`pandas.merge()`.
+
+        Returns
+        -------
+        final : DataFrame
+            The resultant selection from all the rules.
+
+        """
         if len(self._selection_rules.values()) == 0:
             return deepcopy(self)
         final = None
@@ -749,7 +760,7 @@ class Selection(DataFrame):
                 # which the reciever might modify.
                 final = deepcopy(df)
             else:
-                final = pd.merge(final, df, how="inner")
+                final = pd.merge(final, df, how=how)
         return final
 
     def _select_from_mixed_kwargs(self, **kwargs):
@@ -771,12 +782,16 @@ class Selection(DataFrame):
         # get the tag if given or generate one if not
         tag = kwargs.pop("tag", self._generate_tag(kwargs))
         debug = kwargs.pop("debug", False)
+        # print(f"SMK KWARGS {kwargs} {len(kwargs)}")
+        if len(kwargs) == 0:
+            return  # user gave no additional kwargs
         if tag is None:  # in case user did tag=None (facepalm)
             tag = self._generate_tag(kwargs)
         if debug:
             print(f"working TAG IS {tag}")
         # in order to pop channel we need to check case insensitively
         ukwargs = {k.upper(): v for k, v in kwargs.items()}
+        # print(f"SMK UKWARGS {ukwargs} {len(ukwargs)}")
         chan = ukwargs.pop("CHANNEL", None)
         if chan is not None:
             self.select_channel(chan, tag)
