@@ -12,7 +12,7 @@ from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
 from ..spectra.scan import PSScan, ScanBlock, SubBeamNodScan, TPScan
-from ..util import consecutive, select_from, uniq
+from ..util import consecutive, keycase, select_from, uniq
 from ..util.selection import Selection
 from .sdfitsload import SDFITSLoad
 
@@ -605,23 +605,26 @@ class GBTFITSLoad(SDFITSLoad):
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
         _final = self._selection.final
+        print(kwargs)
         scans = kwargs.pop("scan", None)
-        debug = kwargs.get("debug", False)
+        debug = kwargs.pop("debug", False)
+        kwargs = keycase(kwargs)
+        print(f"case kwargs {kwargs}")
         if type(scans) is int:
             scans = [scans]
-        scans_preselected = set(_final["SCAN"])
+        preselected = {}
+        for kw in ["SCAN", "IFNUM", "PLNUM"]:
+            preselected[kw] = uniq(_final[kw])
         if scans is None:
-            scans = scans_preselected
+            scans = preselected["SCAN"]
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         if debug:
             print(f"after check scans_to_add={scans_to_add}")
-            for z in scans_to_add:
-                print(type(z))
         # now remove any scans that have been pre-selected by the user.
         # scans_to_add -= scans_preselected
         if debug:
-            print(f"after removing preselected {scans_preselected}, scans_to_add={scans_to_add}")
+            print(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
         if debug:
             print("SCAN ", scans)
@@ -631,14 +634,23 @@ class GBTFITSLoad(SDFITSLoad):
             if debug:
                 print(f"adding rule scan={scans_to_add}")
             kwargs["SCAN"] = list(scans_to_add)
+        for k, v in preselected.items():
+            if k not in kwargs:
+                kwargs[k] = v
         # now downselect with any additional kwargs
         if debug:
             print(f"SELECTION FROM MIXED KWARGS {kwargs}")
             print(ps_selection.show())
         ps_selection._select_from_mixed_kwargs(**kwargs)
+        if debug:
+            print("AFTER")
+            print(ps_selection.show())
         _sf = ps_selection.final
-        ifnum = set(_sf["IFNUM"])
-        scans = set(_sf["SCAN"])
+        ifnum = uniq(_sf["IFNUM"])
+        plnum = uniq(_sf["PLNUM"])
+        scans = uniq(_sf["SCAN"])
+        if debug:
+            print(f"FINAL i {ifnum} p {plnum} s {scans}")
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
