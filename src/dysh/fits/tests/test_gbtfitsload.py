@@ -81,6 +81,7 @@ class TestGBTFITSLoad:
         dysh_getps = psscan[0].calibrated(0).flux.to("K").value
 
         diff = gbtidl_getps - dysh_getps
+        hdu.close()
         assert np.nanmedian(diff) == 0.0
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
@@ -98,6 +99,7 @@ class TestGBTFITSLoad:
         )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
+        hdu.close()
 
         # Get the answer from dysh.
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
@@ -118,18 +120,18 @@ class TestGBTFITSLoad:
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         diff = tps_off[0].total_power(0).flux.value - gbtidl_gettp
+        hdu.close()
         assert np.nanmean(diff) == 0.0
 
         # Now, both on and off.
         tps = sdf.gettp(152, sig=True, cal=True)
         assert len(tps) == 1
-        tps_tavg = tps.timeaverage()
-        assert len(tps_tavg) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
         spec = table["DATA"][0]
         diff = tps[0].total_power(0).flux.value - spec
+        hdu.close()
         assert np.nanmean(diff) == 0.0
         # what about tps_tavg
 
@@ -184,6 +186,7 @@ class TestGBTFITSLoad:
         gbtidl_spec = table["DATA"]
 
         diff = ps_spec.astype(np.float32) - gbtidl_spec[0]
+        hdu.close()
         # assert np.all((ps_spec.astype(np.float32) - gbtidl_spec) == 0)
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
         assert table["EXPOSURE"] == ps_scans[0].calibrated(0).meta["EXPOSURE"]

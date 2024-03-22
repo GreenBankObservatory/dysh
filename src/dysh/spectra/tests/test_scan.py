@@ -23,6 +23,7 @@ class TestPSScan:
         hdu = fits.open(gbtidl_file)
         gbtidl_table = hdu[1].data
         gbtidl_tsys = gbtidl_table["TSYS"]
+        hdu.close()
 
         assert (tsys - gbtidl_tsys)[0] == 0.0
 
@@ -45,6 +46,7 @@ class TestPSScan:
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
         psscan_gbtidl = table["DATA"][0]
+        hdu.close()
 
         # Compare.
         diff = psscan_tavg.flux.value - psscan_gbtidl
@@ -67,7 +69,7 @@ class TestPSScan:
 
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
-
+        hdu.close()
         # changed from 1E-14 because I don't know how gbtidl calculated avg tsys
         assert ta.meta["TSYS"] == pytest.approx(table["TSYS"], rel=5e-6)
         assert ta.meta["EXPOSURE"] == table["EXPOSURE"]
@@ -104,8 +106,10 @@ class TestPSScan:
         # assuming the pre-baseline spectrum is still the same (can still test this if need be)
         hdu = fits.open(gbtidl_file)
         gbtidl_post = hdu[1].data["DATA"][0]
+        hdu.close()
         hdu = fits.open(gbtidl_modelfile)
         gbtidl_bline_model = hdu[1].data["DATA"][0]
+        hdu.close()
 
         diff = psscan - gbtidl_post
 
@@ -157,6 +161,7 @@ class TestSubBeamNod:
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
         nodscan_gbtidl = hdu[1].data["DATA"][0]
+        hdu.close()
 
         # Compare.
         ratio = sbn[0].calibrated(0).flux.value / nodscan_gbtidl
@@ -181,6 +186,7 @@ class TestTPScan:
         hdu = fits.open(gbtidl_file)
         gbtidl_table = hdu[1].data
         gbtidl_tsys = gbtidl_table["TSYS"]
+        hdu.close()
 
         assert (tsys - gbtidl_tsys)[0] == 0.0
 
@@ -197,6 +203,7 @@ class TestTPScan:
 
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
+        hdu.close()
 
         for i in range(len(tp[0]._scanrows) // 2):
             assert tp[0].total_power(i).meta["EXPOSURE"] == table["EXPOSURE"][i]
@@ -232,6 +239,7 @@ class TestTPScan:
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
         data = table["DATA"]
+        hdu.close()
 
         # Check exposure times.
         # The last row in the GBTIDL file is the averaged data.
@@ -273,6 +281,7 @@ class TestTPScan:
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
         data = table["DATA"]
+        hdu.close()
 
         # Compare Dysh and GBTIDL.
         assert table["EXPOSURE"][0] == tpavg.meta["EXPOSURE"]
