@@ -125,12 +125,19 @@ class ScanBlock(UserList, ScanMixin):
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
         if weights == "tsys":
-            w = np.array([k._tsys_weight for k in self.data]).squeeze()
+            # There may be multiple integrations, so need to
+            # average the Tsys weights
+            w = np.array([np.average(k._tsys_weight) for k in self.data])
+            if len(np.shape(w)) > 1:  # remove empty axes
+                w = w.squeeze()
         else:
             w = weights
         timeavg = np.array([k.data for k in self._timeaveraged])
-        # should the mean be weighted by TSYS too?
+        # print(
+        #    f"TAsh {np.shape(timeavg)} len(data) = {len(self.data)} weights={w}"
+        # )  # " tsysW={self.data[0]._tsys_weight}")
 
+        # Weight the average of the timeaverages by the weights.
         avgdata = average(timeavg, axis=0, weights=w)
         avgspec = np.mean(self._timeaveraged)
         avgspec.meta = self._timeaveraged[0].meta

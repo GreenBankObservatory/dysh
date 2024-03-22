@@ -1,10 +1,10 @@
-import pathlib
+# import pathlib
 
 import numpy as np
 import pytest
 from astropy.io import fits
 
-import dysh
+# import dysh
 from dysh.fits import gbtfitsload
 
 
@@ -70,7 +70,7 @@ class TestPSScan:
         table = hdu[1].data
 
         # changed from 1E-14 because I don't know how gbtidl calculated avg tsys
-        assert ta.meta["TSYS"] == pytest.approx(table["TSYS"], rel=1e-5)
+        assert ta.meta["TSYS"] == pytest.approx(table["TSYS"], rel=5e-6)
         assert ta.meta["EXPOSURE"] == table["EXPOSURE"]
         assert np.all(np.abs(table["DATA"][0] - ta.flux.value) < 3e-7)
 
