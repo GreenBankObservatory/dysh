@@ -115,14 +115,15 @@ class GBTFITSLoad(SDFITSLoad):
         """
         return self._selection.final
 
+    @property
     def files(self):
         """
-
+        The list of SDFITS file(s) that make up this GBTFITSLoad object
 
         Returns
         -------
-        files : TYPE
-            DESCRIPTION.
+        files : list
+            list of `~PosixPath` objects
 
         """
         files = []
@@ -1426,6 +1427,9 @@ class GBTFITSLoad(SDFITSLoad):
             df = scanidx[scanidx["BINTABLE"] == j]
             rows.append(list(df.index))
         return rows
+
+    def __repr__(self):
+        return str(self.files)
 
     def write_scans(self, fileobj, scans, output_verify="exception", overwrite=False, checksum=False):
         """
