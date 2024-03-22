@@ -40,7 +40,6 @@ class TestPSScan:
         psscan.calibrate()
         # psscan_tavg is a spectrum.
         psscan_tavg = psscan.timeaverage(weights="tsys")
-        # assert len(psscan_tavg) == 1
 
         # Load the GBTIDL result.
         hdu = fits.open(gbtidl_file)
@@ -73,6 +72,18 @@ class TestPSScan:
         assert ta.meta["TSYS"] == pytest.approx(table["TSYS"], rel=5e-6)
         assert ta.meta["EXPOSURE"] == table["EXPOSURE"]
         assert np.all(np.abs(table["DATA"][0] - ta.flux.value) < 3e-7)
+
+    def test_ps_with_selection(self, data_dir):
+        data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
+        sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ps_scans1 = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
+        sdf.select(scan=[156, 158], ifnum=0, plnum=0)
+        ps_scans2 = sdf.getps()
+        assert len(ps_scans1) == 2
+        assert len(ps_scans2) == 2
+        assert np.all(ps_scans1[0]._calibrated == ps_scans2[0]._calibrated)
+        assert np.all(ps_scans1[1]._calibrated == ps_scans2[1]._calibrated)
 
     @pytest.mark.skip(reason="We need to update this to work with multifits and ScanBlocks")
     def test_baseline_removal(self, data_dir):
