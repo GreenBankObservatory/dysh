@@ -13,7 +13,7 @@ from astropy.units.quantity import Quantity
 from pandas import DataFrame
 
 from ..fits import default_sdfits_columns
-from . import gbt_timestamp_to_time, generate_tag
+from . import gbt_timestamp_to_time, generate_tag, keycase
 
 default_aliases = {
     "freq": "crval1",
@@ -28,8 +28,6 @@ default_aliases = {
     "source": "object",
     "pol": "plnum",
 }
-
-enumerated_keywords = []
 
 
 class Selection(DataFrame):
@@ -782,7 +780,6 @@ class Selection(DataFrame):
         # get the tag if given or generate one if not
         tag = kwargs.pop("tag", self._generate_tag(kwargs))
         debug = kwargs.pop("debug", False)
-        # print(f"SMK KWARGS {kwargs} {len(kwargs)}")
         if len(kwargs) == 0:
             return  # user gave no additional kwargs
         if tag is None:  # in case user did tag=None (facepalm)
@@ -790,8 +787,7 @@ class Selection(DataFrame):
         if debug:
             print(f"working TAG IS {tag}")
         # in order to pop channel we need to check case insensitively
-        ukwargs = {k.upper(): v for k, v in kwargs.items()}
-        # print(f"SMK UKWARGS {ukwargs} {len(ukwargs)}")
+        ukwargs = keycase(kwargs)
         chan = ukwargs.pop("CHANNEL", None)
         if chan is not None:
             self.select_channel(chan, tag)
