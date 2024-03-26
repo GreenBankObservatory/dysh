@@ -14,6 +14,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
+from ndcube import NDCube
 from specutils import Spectrum1D
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
@@ -52,7 +53,6 @@ class Spectrum(Spectrum1D):
             self._target.sanitized = True
             self._velocity_frame = self._target.frame.name
         else:
-            self._target.sanitized = False
             self._velocity_frame = None
         # @todo - have _observer_location attribute instead?
         # and observer property returns getITRS(observer_location,obstime)
@@ -566,6 +566,63 @@ class Spectrum(Spectrum1D):
         #    vshift = topocentric_velocity_to_frame(target, vf, observer=Observatory["GBT"], obstime=obstime)
         #
         return s
+
+    def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
+        if isinstance(other, NDCube):
+            result = op(other, **{"handle_meta": handle_meta})
+        elif isinstance(other, u.Quantity):
+            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
+        elif not isinstance(other, u.Quantity):
+            try:
+                other = u.Quantity(other, unit=self.unit)
+                result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
+            except TypeError:
+                return NotImplemented
+        result._target = self._target
+        result._observer = self._observer
+        return result
+
+    def __add__(self, other):
+        op = self.add
+        handle_meta = self._add_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    def __sub__(self, other):
+        op = self.subtract
+        handle_meta = self._add_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    def __mul__(self, other):
+        op = self.multiply
+        handle_meta = self._mul_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    def __div__(self, other):
+        op = self.divide
+        handle_meta = self._div_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    def _add_meta(self, operand, operand2, **kwargs):
+        print(kwargs)
+        kwargs.setdefault("other_meta", True)
+        meta = deepcopy(operand)
+        if kwargs["other_meta"]:
+            meta["EXPOSURE"] = operand["EXPOSURE"] + operand2["EXPOSURE"]
+            meta["DURATION"] = operand["DURATION"] + operand2["DURATION"]
+
+        return meta
+
+    def _mul_meta(self, operand, operand2=None, **kwargs):
+        # TBD
+        return deepcopy(operand)
+
+    def _div_meta(self, operand, operand2=None, **kwargs):
+        # TBD
+        return deepcopy(operand)
 
 
 # @todo figure how how to document write()
