@@ -8,7 +8,7 @@ from copy import deepcopy
 import astropy.units as u
 import numpy as np
 
-from ..coordinates import Observatory, make_target, veldef_to_convention
+from ..coordinates import Observatory
 from ..util import uniq
 from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
@@ -19,11 +19,6 @@ class ScanMixin(object):
     A Scan represents one IF, one feed, and one or more polarizations.
     Derived classes *must* implement :meth:`calibrate`.
     """
-
-    # @property
-    # def status(self):
-    #    """Status flag, will be used later for undo"""
-    #    return self._status
 
     @property
     def nchan(self):
@@ -62,14 +57,6 @@ class ScanMixin(object):
         """
         return self._npol
 
-    # def nif(self):
-    #    """The number of IFs in this Scan"""
-    #    return self._nif
-    #
-    # def nfeed(self):
-    #     """The number of feeds in this Scan"""
-    #    return self._nfeed
-
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
         pass
@@ -107,7 +94,6 @@ class ScanMixin(object):
 class ScanBlock(UserList, ScanMixin):
     def __init__(self, *args):
         super().__init__(*args)
-        self._status = None
         self._nrows = 0
         self._npol = 0
         self._timeaveraged = []
@@ -135,9 +121,29 @@ class ScanBlock(UserList, ScanMixin):
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
         """
+        self._timeaveraged = []
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
-        return self._timeaveraged
+        if weights == "tsys":
+            # There may be multiple integrations, so need to
+            # average the Tsys weights
+            w = np.array([np.average(k._tsys_weight) for k in self.data])
+            if len(np.shape(w)) > 1:  # remove empty axes
+                w = w.squeeze()
+        else:
+            w = weights
+        timeavg = np.array([k.data for k in self._timeaveraged])
+        # print(
+        #    f"TAsh {np.shape(timeavg)} len(data) = {len(self.data)} weights={w}"
+        # )  # " tsysW={self.data[0]._tsys_weight}")
+
+        # Weight the average of the timeaverages by the weights.
+        avgdata = average(timeavg, axis=0, weights=w)
+        avgspec = np.mean(self._timeaveraged)
+        avgspec.meta = self._timeaveraged[0].meta
+        avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
+        avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
+        return Spectrum.make_spectrum(avgdata * avgspec.flux.unit, meta=avgspec.meta)
 
     def polaverage(self, weights="tsys"):
         r"""Average all polarizations in all scans in this ScanBlock
@@ -155,6 +161,7 @@ class ScanBlock(UserList, ScanMixin):
         polaverage: list of `~spectra.spectrum.Spectrum`
             List of all the polarization-averaged spectra
         """
+        self._polaveraged = []
         for scan in self.data:
             self._polaveraged.append(scan.polaverage(weights))
         return self._polaveraged
@@ -175,6 +182,7 @@ class ScanBlock(UserList, ScanMixin):
         finalspectra: list of `~spectra.spectrum.Spectrum`
             List of all the time- and polarization-averaged spectra
         """
+        self._finalspectrum = []
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
@@ -232,14 +240,11 @@ class TPScan(ScanMixin):
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
-        self._feeds = uniq(df["FDNUM"])
+        # self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
-        self._ifs = uniq(df["IFNUM"])
-        self._status = 0  # @todo make these an enumeration, possibly dict
+        # self._ifs = uniq(df["IFNUM"])
         self._nint = 0
         self._npol = len(self._pols)
-        self._nfeed = len(self._feeds)
-        self._nif = len(self._ifs)
         self._timeaveraged = None
         self._polaveraged = None
         self._nrows = len(scanrows)
@@ -284,8 +289,6 @@ class TPScan(ScanMixin):
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
-
-        self._status = 1
 
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         nspect = len(tcal)
@@ -409,10 +412,6 @@ class TPScan(ScanMixin):
         """
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        if self._nif > 1:
-            raise Exception("Can't yet time average multiple IFs")
-        if self._nfeed > 1:
-            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == "tsys":
             w = self._tsys_weight
@@ -428,7 +427,8 @@ class TPScan(ScanMixin):
 
 
 class PSScan(ScanMixin):
-    """GBT specific version of Position Switch Scan
+    """GBT specific version of Position Switch Scan. A position switch scan object has
+    one IF, one feed, and one or more polarizations.
 
     Parameters
     ----------
@@ -460,6 +460,8 @@ class PSScan(ScanMixin):
         print('PJT scans',scans)
         print('PJT scanrows',scanrows)
         print('PJT calrows',calrows)
+        # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
+        # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -471,17 +473,13 @@ class PSScan(ScanMixin):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        print(f"bintable index is {self._bintable_index}")
+        # print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         # df = selection.iloc[scanrows["ON"]]
         df = self._sdfits._index.iloc[scanrows["ON"]]
-        self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
-        self._ifs = uniq(df["IFNUM"])
-        print(f"PSSCAN #pol = {self._pols}")
+        # print(f"PSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
-        self._nfeed = len(self._feeds)
-        self._nif = len(self._ifs)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # @todo use gbtfits.velocity_convention(veldef,velframe)
@@ -778,8 +776,6 @@ class FSScan(ScanMixin):
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
-
-        self._status = 1
         nspect = self.nrows // 2
         self._calibrated = np.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
@@ -868,10 +864,6 @@ class FSScan(ScanMixin):
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        if self._nif > 1:
-            raise Exception("Can't yet time average multiple IFs")
-        if self._nfeed > 1:
-            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
@@ -930,8 +922,6 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         self._nchan = len(reftp[0]._data[0])
         self._npol = 1
         self._nint = 0
-        self._nif = 1
-        self._nfeed = 1
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
@@ -1019,10 +1009,6 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        if self._nif > 1:
-            raise Exception("Can't yet time average multiple IFs")
-        if self._nfeed > 1:
-            raise Exception("Can't yet time average multiple feeds")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         nchan = len(data[0])
@@ -1061,54 +1047,3 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
             self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
 
         return self._timeaveraged
-
-
-class PSScan2(PSScan):
-    def __init__(
-        self, gbtfits, scans, scanrows, calrows, calibrate=True, bintable=None, observer_location=Observatory["GBT"]
-    ):
-        self._sdfits = gbtfits  # parent class
-        self._scans = scans
-        self._scanrows = scanrows
-        self._nrows = len(self._scanrows["ON"])
-        # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
-        # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
-
-        # calrows perhaps not needed as input since we can get it from gbtfits object?
-        # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
-        # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
-        self._calrows = calrows
-        # print("BINTABLE = ", bintable)
-        # @todo deal with data that crosses bintables
-        if bintable is None:
-            self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
-        else:
-            self._bintable_index = bintable
-        self._observer_location = observer_location
-        df = self._sdfits._index
-        df = df.iloc[scanrows["ON"]]
-        self._feeds = uniq(df["FDNUM"])
-        self._pols = uniq(df["PLNUM"])
-        self._ifs = uniq(df["IFNUM"])
-        self._npol = len(self._pols)
-        self._nfeed = len(self._feeds)
-        self._nif = len(self._ifs)
-        if False:
-            self._nint = gbtfits.nintegrations(self._bintable_index)
-        # @todo use gbtfits.velocity_convention(veldef,velframe)
-        # so quick with slicing!
-        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
-        self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
-        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
-        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-        self._nchan = len(self._sigcalon[0])
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
-        self._tsys = None
-        self._exposure = None
-        self._calibrated = None
-        self._calibrate = calibrate
-        if self._calibrate:
-            self.calibrate()
