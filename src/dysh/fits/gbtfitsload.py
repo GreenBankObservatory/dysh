@@ -12,7 +12,7 @@ import pandas as pd
 from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
-from ..spectra.scan import PSScan, ScanBlock, SubBeamNodScan, TPScan
+from ..spectra.scan import PSScan, FSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, select_from, uniq
 from ..util.selection import Selection
 from .sdfitsload import SDFITSLoad
@@ -225,7 +225,7 @@ class GBTFITSLoad(SDFITSLoad):
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
-        # list is usually more useful.
+        # list is usually more useful.   @todo what's the dysh eqv. of list ?
         #
         # @todo perhaps return as a astropy.Table then we can have units
         """
@@ -399,6 +399,9 @@ class GBTFITSLoad(SDFITSLoad):
     def select_onoff(self, df):
         return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
 
+    def select_track(self, df):
+        return df[(df["PROC"] == "Track")]
+
     def select(self, key, value, df):
         """
         Select data where key=value.
@@ -479,7 +482,97 @@ class GBTFITSLoad(SDFITSLoad):
             ScanBlock containing the individual `~spectra.scan.FSScan`s
 
         """
-        pass
+        print(kwargs)
+        # either the user gave scans on the command line (scans !=None) or pre-selected them
+        # with self.selection.selectXX(). In either case make sure the matching ON or OFF
+        # is in the starting selection.
+        _final = self._selection.final
+        scans = kwargs.pop("scan", None)
+        debug = kwargs.get("debug", False)
+        if type(scans) is int:
+            scans = [scans]
+        if scans is None:
+            scans = set(_final["SCAN"])
+        # missing = self._onoff_scan_list_selection(scans, _final, check=True)
+        # scans_to_add = list(set(missing["ON"]).union(missing["OFF"]))
+        scans_to_add = scans
+        print("PJT scans:", scans)
+        fs_selection = copy.deepcopy(self._selection)
+        if debug:
+            print("SCAN ", scans)
+            print("TYPE: ", type(fs_selection))
+        if len(scans_to_add) != 0:
+            # add a rule selecting the missing scans :-)
+            if debug:
+                print(f"adding rule scan={scans_to_add}")
+            # fs_selection.select(scan=scans_to_add)
+            kwargs["SCAN"] = scans_to_add
+        # now downselect with any additional kwargs
+        if debug:
+            print(f"SELECTION FROM MIXED KWARGS {kwargs}")
+        fs_selection._select_from_mixed_kwargs(**kwargs)
+        _sf = fs_selection.final
+        # here we have to munge the scan list to ensure on and off scan numbers are selected
+        ifnum = set(_sf["IFNUM"])
+        plnum = set(_sf["PLNUM"])
+        scans = set(_sf["SCAN"])
+        if debug:
+            print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
+        # todo apply_selection(kwargs_opts)
+        scanblock = ScanBlock()
+        if True:
+            g = FSScan(self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable)
+            scanblock.append(g)
+
+        
+        for i in range(len(self._sdf)):
+            df = select_from("FITSINDEX", i, _sf)
+            for k in ifnum:
+                _df = select_from("IFNUM", k, df)
+
+                #PJT
+                #scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
+                    
+                if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                    # print("scans not found, continuing")
+                    continue
+                if debug:
+                    print(f"SCANLIST {scanlist}")
+                    print(f"POLS {set(df['PLNUM'])}")
+                    print(f"Sending dataframe with scans {set(_df['SCAN'])}")
+                    print(f"and PROC {set(_df['PROC'])}")
+                rows = {}
+                # loop over scan pairs
+                for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+                    _ondf = select_from("SCAN", on, _df)
+                    _offdf = select_from("SCAN", off, _df)
+                    # rows["ON"] = list(_ondf.index)
+                    # rows["OFF"] = list(_offdf.index)
+                    rows["ON"] = list(_ondf["ROW"])
+                    rows["OFF"] = list(_offdf["ROW"])
+                    for key in rows:
+                        if len(rows[key]) == 0:
+                            raise Exception(f"{key} scans not found in scan list {scans}")
+                    # do not pass scan list here. We need all the cal rows. They will
+                    # be intersected with scan rows in FSScan
+                    calrows = {}
+                    dfcalT = select_from("CAL", "T", _df)
+                    dfcalF = select_from("CAL", "F", _df)
+                    # calrows["ON"] = list(dfcalT.index)
+                    # calrows["OFF"] = list(dfcalF.index)
+                    calrows["ON"] = list(dfcalT["ROW"])
+                    calrows["OFF"] = list(dfcalF["ROW"])
+                    d = {"ON": on, "OFF": off}
+                    # print(f"Sending FSScan({d},ROWS:{rows},CALROWS:{calrows},BT: {bintable}")
+                    if debug:
+                        print(f"SCANROWS {rows}")
+                        print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
+                    g = FSScan(self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable)
+                    scanblock.append(g)
+        if len(scanblock) == 0:
+            raise Exception("Didn't find any scans matching the input selection criteria.")
+        # warnings.warn("Didn't find any scans matching the input selection criteria.")
+        return scanblock
 
     def getps(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
         """

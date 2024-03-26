@@ -455,8 +455,11 @@ class PSScan(ScanMixin):
         self._scans = scans
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
-        print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
+        print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
+        print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
+        print('PJT scans',scans)
+        print('PJT scanrows',scanrows)
+        print('PJT calrows',calrows)
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -476,6 +479,235 @@ class PSScan(ScanMixin):
         self._pols = uniq(df["PLNUM"])
         self._ifs = uniq(df["IFNUM"])
         print(f"PSSCAN #pol = {self._pols}")
+        self._npol = len(self._pols)
+        self._nfeed = len(self._feeds)
+        self._nif = len(self._ifs)
+        if False:
+            self._nint = gbtfits.nintegrations(self._bintable_index)
+        # @todo use gbtfits.velocity_convention(veldef,velframe)
+        # so quick with slicing!
+        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
+        self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
+        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
+        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
+        print("PJT1",self._sigonrows,self._sigoffrows)
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+        self._nchan = len(self._sigcalon[0])
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        self._tsys = None
+        self._exposure = None
+        self._calibrated = None
+        self._calibrate = calibrate
+        if self._calibrate:
+            self.calibrate()
+
+    @property
+    def tsys(self):
+        """The system temperature array. This will be `None` until calibration is done.
+
+        Returns
+        -------
+        tsys : `~numpy.ndarray`
+            System temperature values in K
+        """
+        return self._tsys
+
+    # @todo something clever
+    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
+    def calibrated(self, i):
+        """Return the calibrated Spectrum.
+
+        Parameters
+        ----------
+        i : int
+            The index into the calibrated array
+
+        Returns
+        -------
+        spectrum : `~spectra.spectrum.Spectrum`
+        """
+        meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]].dropna().to_dict()
+        meta["TSYS"] = self._tsys[i]
+        meta["EXPOSURE"] = self._exposure[i]
+        meta["NAXIS1"] = len(self._calibrated[i])
+        meta["TSYS"] = self._tsys[i]
+        meta["EXPOSURE"] = self.exposure[i]
+        if "CUNIT1" not in meta:
+            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+        meta["CUNIT2"] = "deg"  # is this always true?
+        meta["CUNIT3"] = "deg"  # is this always true?
+        restfrq = meta["RESTFREQ"]
+        rfq = restfrq * u.Unit(meta["CUNIT1"])
+        restfreq = rfq.to("Hz").value
+        meta["RESTFRQ"] = restfreq  # WCS wants no E
+        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+
+    def calibrate(self, **kwargs):
+        """
+        Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
+        """
+        kwargs_opts = {"verbose": False}
+        kwargs_opts.update(kwargs)
+
+        self._status = 1
+        nspect = self.nrows // 2
+        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._tsys = np.empty(nspect, dtype="d")
+        self._exposure = np.empty(nspect, dtype="d")
+        # print("REFONROWS ", self._refonrows)
+        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        # @todo  this loop could be replaced with clever numpy
+        if len(tcal) != nspect:
+            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+        for i in range(nspect):
+            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+            sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+            ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+            self._calibrated[i] = tsys * (sig - ref) / ref
+            self._tsys[i] = tsys
+            self._exposure[i] = self.exposure[i]
+
+    # tip o' the hat to Pedro S. for exposure and delta_freq
+    @property
+    def exposure(self):
+        """Get the array of exposure (integration) times
+
+        exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
+
+        Returns
+        -------
+        exposure : ~numpy.ndarray
+            The exposure time in units of the EXPOSURE keyword in the SDFITS header
+        """
+        exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+        exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+        exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
+        exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        exp_ref = exp_ref_on + exp_ref_off
+        exp_sig = exp_sig_on + exp_sig_off
+        # exposure = 0.5*(exp_ref + exp_sig)
+        # exposure = exp_ref + exp_sig
+        nsmooth = 1.0  # In case we start smoothing the reference spectra.
+        exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        return exposure
+
+    @property
+    def delta_freq(self):
+        """Get the array of channel frequency width
+
+        df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
+
+        Returns
+        -------
+             delta_freq: ~numpy.ndarray
+                 The channel frequency width in units of the CDELT1 keyword in the SDFITS header
+        """
+        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+        df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
+        df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
+        df_ref = 0.5 * (df_ref_on + df_ref_off)
+        df_sig = 0.5 * (df_sig_on + df_sig_off)
+        delta_freq = 0.5 * (df_ref + df_sig)
+        return delta_freq
+
+    @property
+    def _tsys_weight(self):
+        r"""The system temperature weighting array computed from current
+        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
+        """
+        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+
+    def timeaverage(self, weights="tsys"):
+        r"""Compute the time-averaged spectrum for this set of scans.
+
+        Parameters
+        ----------
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        Returns
+        -------
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
+        """
+        if self._calibrated is None or len(self._calibrated) == 0:
+            raise Exception("You can't time average before calibration.")
+        if self._npol > 1:
+            raise Exception("Can't yet time average multiple polarizations")
+        if self._nif > 1:
+            raise Exception("Can't yet time average multiple IFs")
+        if self._nfeed > 1:
+            raise Exception("Can't yet time average multiple feeds")
+        self._timeaveraged = deepcopy(self.calibrated(0))
+        data = self._calibrated
+        if weights == "tsys":
+            w = self._tsys_weight
+        else:
+            w = np.ones_like(self._tsys_weight)
+        self._timeaveraged._data = average(data, axis=0, weights=w)
+        non_blanks = find_non_blanks(data)
+        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
+        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
+        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        return self._timeaveraged
+
+class FSScan(ScanMixin):
+    """GBT specific version of Frequency Switch Scan
+
+    Parameters
+    ----------
+
+    gbtfits : `~fit.gbtfitsload.GBFITSLoad`
+        input GBFITSLoad object
+    scans : dict
+        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
+    scanrows : dict
+        dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
+        For FS we call this SIG/REF
+    calrows : dict
+        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
+    bintable : int
+        the index for BINTABLE in `sdfits` containing the scans
+    calibrate: bool
+        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
+    """
+
+    def __init__(
+        self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
+    ):
+        # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
+        self._sdfits = gbtfits  # parent class
+        self._scans = scans         # for FS everything is an "ON"
+        self._scanrows = scanrows   # for 
+        self._nrows = len(self._scanrows["ON"])
+        print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
+        print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
+
+        # calrows perhaps not needed as input since we can get it from gbtfits object?
+        # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
+        # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
+        self._calrows = calrows
+        # print("BINTABLE = ", bintable)
+        # @todo deal with data that crosses bintables
+        if bintable is None:
+            self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
+        else:
+            self._bintable_index = bintable
+        print(f"bintable index is {self._bintable_index}")
+        self._observer_location = observer_location
+        # df = selection.iloc[scanrows["ON"]]
+        df = self._sdfits._index.iloc[scanrows["ON"]]
+        self._feeds = uniq(df["FDNUM"])
+        self._pols = uniq(df["PLNUM"])
+        self._ifs = uniq(df["IFNUM"])
+        print(f"FSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
         self._nfeed = len(self._feeds)
         self._nif = len(self._ifs)
