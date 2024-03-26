@@ -605,11 +605,11 @@ class GBTFITSLoad(SDFITSLoad):
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
         _final = self._selection.final
-        print(kwargs)
+        # print(kwargs)
         scans = kwargs.pop("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
-        print(f"case kwargs {kwargs}")
+        # print(f"case kwargs {kwargs}")
         if type(scans) is int:
             scans = [scans]
         preselected = {}
