@@ -568,8 +568,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with self.selection.selectXX(). In either case make sure the matching ON or OFF
-        # is in the starting selection.
+        # with self.selection.selectXX(). 
         _final = self._selection.final
         scans = kwargs.pop("scan", None)
         debug = kwargs.get("debug", False)
@@ -577,20 +576,8 @@ class GBTFITSLoad(SDFITSLoad):
             scans = [scans]
         if scans is None:
             scans = set(_final["SCAN"])
-        # missing = self._onoff_scan_list_selection(scans, _final, check=True)
-        # scans_to_add = list(set(missing["ON"]).union(missing["OFF"]))
-        scans_to_add = scans
-        print("PJT scans:", scans)
+        print("PJT scans/w sel:", scans, self._selection)
         fs_selection = copy.deepcopy(self._selection)
-        if debug:
-            print("SCAN ", scans)
-            print("TYPE: ", type(fs_selection))
-        if len(scans_to_add) != 0:
-            # add a rule selecting the missing scans :-)
-            if debug:
-                print(f"adding rule scan={scans_to_add}")
-            # fs_selection.select(scan=scans_to_add)
-            kwargs["SCAN"] = scans_to_add
         # now downselect with any additional kwargs
         if debug:
             print(f"SELECTION FROM MIXED KWARGS {kwargs}")
@@ -604,10 +591,6 @@ class GBTFITSLoad(SDFITSLoad):
             print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
         # todo apply_selection(kwargs_opts)
         scanblock = ScanBlock()
-        if True:
-            g = FSScan(self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable)
-            scanblock.append(g)
-
         
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
@@ -617,46 +600,35 @@ class GBTFITSLoad(SDFITSLoad):
                 #PJT
                 #scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
                     
-                if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
-                    # print("scans not found, continuing")
-                    continue
                 if debug:
-                    print(f"SCANLIST {scanlist}")
+                    #print(f"SCANLIST {scanlist}")
                     print(f"POLS {set(df['PLNUM'])}")
                     print(f"Sending dataframe with scans {set(_df['SCAN'])}")
                     print(f"and PROC {set(_df['PROC'])}")
                 rows = {}
-                # loop over scan pairs
-                for on, off in zip(scanlist["ON"], scanlist["OFF"]):
-                    _ondf = select_from("SCAN", on, _df)
-                    _offdf = select_from("SCAN", off, _df)
-                    # rows["ON"] = list(_ondf.index)
-                    # rows["OFF"] = list(_offdf.index)
-                    rows["ON"] = list(_ondf["ROW"])
-                    rows["OFF"] = list(_offdf["ROW"])
-                    for key in rows:
-                        if len(rows[key]) == 0:
-                            raise Exception(f"{key} scans not found in scan list {scans}")
-                    # do not pass scan list here. We need all the cal rows. They will
-                    # be intersected with scan rows in FSScan
+                # loop over scans:
+                for scan in scans:
                     calrows = {}
                     dfcalT = select_from("CAL", "T", _df)
                     dfcalF = select_from("CAL", "F", _df)
+                    sigrows = {}
+                    dfsigT = select_from("SIG", "T", _df)
+                    dfsigF = select_from("SIG", "F", _df)
                     # calrows["ON"] = list(dfcalT.index)
                     # calrows["OFF"] = list(dfcalF.index)
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
-                    d = {"ON": on, "OFF": off}
-                    # print(f"Sending FSScan({d},ROWS:{rows},CALROWS:{calrows},BT: {bintable}")
-                    if debug:
-                        print(f"SCANROWS {rows}")
-                        print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
-                    g = FSScan(self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable)
+                    sigrows["ON"] = list(dfsigT["ROW"])
+                    sigrows["OFF"] = list(dfsigF["ROW"])
+                    print("CALROWS",calrows)
+                    print("SIGROWS",sigrows)
+                    g = FSScan(self._sdf[i], scan=scan, sigrows=sigrows, calrows=calrows, bintable=bintable)
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         # warnings.warn("Didn't find any scans matching the input selection criteria.")
         return scanblock
+        # end of getfs()
 
     def getps(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
         """

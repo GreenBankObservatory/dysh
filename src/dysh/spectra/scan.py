@@ -437,6 +437,8 @@ class PSScan(ScanMixin):
         input GBFITSLoad object
     scans : dict
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
+        NOTE: there should be one ON and one OFF, a pair
+        @todo   'scans' should become 'scan'
     scanrows : dict
         dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
     calrows : dict
@@ -664,11 +666,10 @@ class FSScan(ScanMixin):
 
     gbtfits : `~fit.gbtfitsload.GBFITSLoad`
         input GBFITSLoad object
-    scans : dict
-        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
-    scanrows : dict
-        dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
-        For FS we call this SIG/REF
+    scan : int
+        scan number that contains integrations with a series of sig/ref and calon/caloff states
+    sigrows:  dict
+        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to sig=T (ON) and sig=F (OFF) integrations.
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
@@ -678,30 +679,40 @@ class FSScan(ScanMixin):
     """
 
     def __init__(
-        self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
+            self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        self._sdfits = gbtfits  # parent class
-        self._scans = scans         # for FS everything is an "ON"
-        self._scanrows = scanrows   # for 
-        self._nrows = len(self._scanrows["ON"])
-        print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
-        print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
-
-        # calrows perhaps not needed as input since we can get it from gbtfits object?
-        # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
-        # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
+        self._sdfits = gbtfits    # parent class
+        self._scan = scan         # for FS everything is an "ON"
+        self._sigrows = sigrows
         self._calrows = calrows
+        
+        
+        self._sigonrows = sorted(list(set(self._calrows["ON"])))
+        self._sigoffrows = sorted(list(set(self._calrows["OFF"])))
+        self._refonrows = sorted(list(set(self._calrows["ON"])))
+        self._refoffrows = sorted(list(set(self._calrows["OFF"])))
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        nrefrows = len(self._refonrows) + len(self._refoffrows)
+        if nsigrows != nrefrows:
+            print("ERROR: sigrow != refrows")
+        print("sigonrows",nsigrows, self._sigonrows)
+        self._nrows = nsigrows
+
+        a_scanrow = self._sigonrows[0]
+        
         # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
-            self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
+            self._bintable_index = gbtfits._find_bintable_and_row(a_scanrow)[0]
         else:
             self._bintable_index = bintable
         print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         # df = selection.iloc[scanrows["ON"]]
-        df = self._sdfits._index.iloc[scanrows["ON"]]
+        #df = self._sdfits._index.iloc[scanrows["ON"]]
+        scanrows = list(range(88))
+        df = self._sdfits._index.iloc[scanrows]  # <--   no, the row number!!!
         self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
         self._ifs = uniq(df["IFNUM"])
@@ -713,10 +724,17 @@ class FSScan(ScanMixin):
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # @todo use gbtfits.velocity_convention(veldef,velframe)
         # so quick with slicing!
-        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
-        self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
-        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
-        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
+        self._sigonrows = sorted(list(set(self._calrows["ON"])))
+        self._sigoffrows = sorted(list(set(self._calrows["OFF"])))
+        self._refonrows = sorted(list(set(self._calrows["ON"])))
+        self._refoffrows = sorted(list(set(self._calrows["OFF"])))
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        nrefrows = len(self._refonrows) + len(self._refoffrows)
+        if nsigrows != nrefrows:
+            print("ERROR: sigrow != refrows")
+        print("sigonrows",nsigrows, self._sigonrows)
+        self._nrows = nsigrows
+                                       
         self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
         self._nchan = len(self._sigcalon[0])
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
@@ -772,19 +790,22 @@ class FSScan(ScanMixin):
 
     def calibrate(self, **kwargs):
         """
-        Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
+        Frequency switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         nspect = self.nrows // 2
+        print("PJT nspect",nspect)
         self._calibrated = np.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
         # print("REFONROWS ", self._refonrows)
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        print("TCAL",tcal)
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+        # @todo   do the proper FS shift and folding 
         for i in range(nspect):
             tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
             sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
