@@ -5,15 +5,14 @@ from dysh.util import get_project_testdata
 
 
 class TestSpectrum:
-
     def setup_method(self):
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
         getps0 = sdf.getps(51, plnum=0)
-        self.ps0 = getps0.timeaverage()[0]
+        self.ps0 = getps0.timeaverage()
         getps1 = sdf.getps(51, plnum=1)
-        self.ps1 = getps1.timeaverage()[0]
+        self.ps1 = getps1.timeaverage()
 
     def test_add(self):
         """Test that we can add two `Spectrum`."""

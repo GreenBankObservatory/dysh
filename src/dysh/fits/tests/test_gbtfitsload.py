@@ -97,7 +97,7 @@ class TestGBTFITSLoad:
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         getps = sdf.getps(51, plnum=0)
-        ps = getps.timeaverage()[0]
+        ps = getps.timeaverage(weights=None)
         ps_vals = ps.flux.value
 
         hdu = fits.open(idl_file)

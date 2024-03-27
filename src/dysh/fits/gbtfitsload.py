@@ -339,9 +339,9 @@ class GBTFITSLoad(SDFITSLoad):
             nfeed = uf["FEED"].nunique()
             # For counting integrations, take care of out-of-sync samplers by just
             # looking at the first instance of FEED, PLNUM, and IFNUM.
-            uf_int = self.select("FEED", uf["FEED"].iloc[0], uf)
-            uf_int = self.select("PLNUM", uf_int["PLNUM"].iloc[0], uf_int)
-            uf_int = self.select("IFNUM", uf_int["IFNUM"].iloc[0], uf_int)
+            uf_int = select_from("FEED", uf["FEED"].iloc[0], uf)
+            uf_int = select_from("PLNUM", uf_int["PLNUM"].iloc[0], uf_int)
+            uf_int = select_from("IFNUM", uf_int["IFNUM"].iloc[0], uf_int)
             nint = len(set(uf_int["DATE-OBS"]))  # see gbtidl io/line_index__define.pro
             obj = list(set(uf["OBJECT"]))[0]  # We assume they are all the same!
             proc = list(set(uf["PROC"]))[0]  # We assume they are all the same!
