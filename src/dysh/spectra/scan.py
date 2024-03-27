@@ -235,7 +235,7 @@ class TPScan(ScanMixin):
         self._calstate = calstate  # ignored?
         self._scanrows = scanrows
         # print("BINTABLE = ", bintable)
-        # @todo deal with data that tcalcrosses bintables
+        # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
