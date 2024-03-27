@@ -127,7 +127,7 @@ class ScanBlock(UserList, ScanMixin):
         if weights == "tsys":
             # There may be multiple integrations, so need to
             # average the Tsys weights
-            w = np.array([np.average(k._tsys_weight) for k in self.data])
+            w = np.array([np.nanmean(k._tsys_weight) for k in self.data])
             if len(np.shape(w)) > 1:  # remove empty axes
                 w = w.squeeze()
         else:
@@ -143,7 +143,12 @@ class ScanBlock(UserList, ScanMixin):
         avgspec.meta = self._timeaveraged[0].meta
         avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
         avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
-        return Spectrum.make_spectrum(avgdata * avgspec.flux.unit, meta=avgspec.meta)
+        # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
+        # hardcode to GBT for now
+
+        return Spectrum.make_spectrum(
+            avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
+        )
 
     def polaverage(self, weights="tsys"):
         r"""Average all polarizations in all scans in this ScanBlock

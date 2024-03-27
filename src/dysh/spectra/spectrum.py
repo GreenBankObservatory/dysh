@@ -463,6 +463,7 @@ class Spectrum(Spectrum1D):
         # s.topocentric = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         return s
 
+    # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
     def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None):
         # , shift_topo=False):
