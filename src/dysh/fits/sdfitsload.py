@@ -31,7 +31,6 @@ class SDFITSLoad(object):
         kwargs_opts = {
             "fix": False,  # fix non-standard header elements
             "verbose": False,
-            "wcs": False,  # create WCS in _loadlists (testing only)
         }
         kwargs_opts.update(kwargs)
         if kwargs_opts["verbose"]:
@@ -152,9 +151,7 @@ class SDFITSLoad(object):
         self._bintable = []
         self._binheader = []
         self._nrows = []
-        source = kwargs.get("source", None)
-        fix = kwargs.get("fix")
-        dowcs = kwargs.get("wcs")
+        # fix = kwargs.get("fix")
 
         if hdu is not None:
             ldu = list([hdu])
@@ -364,7 +361,7 @@ class SDFITSLoad(object):
         data = self.rawspectrum(i, bintable)
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
