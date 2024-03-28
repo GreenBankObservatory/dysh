@@ -601,10 +601,6 @@ class GBTFITSLoad(SDFITSLoad):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
                 _df = select_from("IFNUM", k, df)
-
-                #PJT
-                #scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
-                    
                 if debug:
                     #print(f"SCANLIST {scanlist}")
                     print(f"POLS {set(df['PLNUM'])}")
@@ -619,14 +615,11 @@ class GBTFITSLoad(SDFITSLoad):
                     sigrows = {}
                     dfsigT = select_from("SIG", "T", _df)
                     dfsigF = select_from("SIG", "F", _df)
-                    # calrows["ON"] = list(dfcalT.index)
-                    # calrows["OFF"] = list(dfcalF.index)
-                    calrows["ON"] = list(dfcalT["ROW"])
+                    #
+                    calrows["ON"]  = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
-                    sigrows["ON"] = list(dfsigT["ROW"])
+                    sigrows["ON"]  = list(dfsigT["ROW"])
                     sigrows["OFF"] = list(dfsigF["ROW"])
-                    print("CALROWS",calrows)
-                    print("SIGROWS",sigrows)
                     g = FSScan(self._sdf[i], scan=scan, sigrows=sigrows, calrows=calrows, bintable=bintable)
                     scanblock.append(g)
         if len(scanblock) == 0:
