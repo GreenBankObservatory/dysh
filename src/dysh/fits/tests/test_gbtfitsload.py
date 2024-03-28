@@ -96,7 +96,7 @@ class TestGBTFITSLoad:
         idl_file = data_dir / "gbtidl" / "AGBT05B_047_01.getps.acs.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        getps = sdf.getps(51, plnum=0)
+        getps = sdf.getps(scan=51, ifnum=0, plnum=0)
         ps = getps.timeaverage()
         ps_vals = ps.flux.value
 
@@ -109,10 +109,10 @@ class TestGBTFITSLoad:
 
         # Compare data.
         diff = ps_vals[~mask] - gbtidl_spec[~mask]
-        try:
-            assert np.all(diff < 1e-3)
-        except AssertionError:
-            print(f"Comparison with GBTIDL ACS Spectrum failed, mean difference is {np.nanmean(diff)}")
+        # try:
+        assert np.all(diff < 1e-3)
+        # except AssertionError:
+        #    print(f"Comparison with GBTIDL ACS Spectrum failed, mean difference is {np.nanmean(diff)}")
 
         for col in table.names:
             if col not in ["DATA"]:
@@ -123,6 +123,7 @@ class TestGBTFITSLoad:
                 try:
                     assert ps.meta[col] == pytest.approx(table[col][0], 1e-3)
                 except AssertionError:
+
                     print(f"{col} fails: {ps.meta[col]}, {table[col][0]}")
 
     def test_gettp_single_int(self):
