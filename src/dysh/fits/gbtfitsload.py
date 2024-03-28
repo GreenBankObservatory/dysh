@@ -407,6 +407,8 @@ class GBTFITSLoad(SDFITSLoad):
 
     # @todo move all selection methods to sdfitsload after adding Selection
     # to sdfitsload
+    # @todo write a Delegator class to autopass to Selection. See, e.g., https://michaelcho.me/article/method-delegation-in-python/
+    # the problem is I would rather use __getattr__ to allow us to do stuff like sdf["COLUMNAME"] to return a column via _index.
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
@@ -527,12 +529,9 @@ class GBTFITSLoad(SDFITSLoad):
                 i = i + 1
 
     def info(self):
-        """Return the `~astropy.HDUList` info()"""
+        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()"""
         for s in self._sdf:
             s.info()
-
-    #        TODO: figure how to allow [startscan, endscan]
-    #            [sampler], ap_eff [if requested units are Jy]
 
     def getfs(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
         """
@@ -560,7 +559,7 @@ class GBTFITSLoad(SDFITSLoad):
         Raises
         ------
         Exception
-            If scans matching the selection criteria are not found.
+            If no scans matching the selection criteria are found.
 
         Returns
         -------
