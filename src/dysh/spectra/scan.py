@@ -14,7 +14,7 @@ from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
 
 
-class ScanMixin(object):
+class ScanMixin:
     """This class describes the common interface to all Scan classes.
     A Scan represents one IF, one feed, and one or more polarizations.
     Derived classes *must* implement :meth:`calibrate`.
