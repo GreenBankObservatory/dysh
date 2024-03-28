@@ -3,11 +3,36 @@ Core utility definitions, classes, and functions
 """
 
 import hashlib
+import sys
 from pathlib import Path
 
 # import astropy.units as u
 import numpy as np
+
+# import pandas as pd
 from astropy.time import Time
+
+
+def select_from(key, value, df):
+    """
+    Select data where key=value.
+
+    Parameters
+    ----------
+    key : str
+        The key value (SDFITS column name)
+    value : any
+        The value to match
+    df : `~pandas.DataFrame`
+        The DataFrame to search
+
+    Returns
+    -------
+    df : `~pandas.DataFrame`
+        The subselected DataFrame
+
+    """
+    return df[(df[key] == value)]
 
 
 def gbt_timestamp_to_time(timestamp):
@@ -102,7 +127,7 @@ def sq_weighted_avg(a, axis=0, weights=None):
         w = np.ones_like(a)
     else:
         w = weights
-    v = np.sqrt(np.average(a * a, axis=axis, weights=weights))
+    v = np.sqrt(np.average(a * a, axis=axis, weights=w))
     return v
 
 
@@ -174,3 +199,27 @@ def uniq(seq):
     seen = set()
     seen_add = seen.add
     return [x for x in seq if x not in seen and not seen_add(x)]
+
+
+def keycase(d, case="upper"):
+    """
+    Change the case of dictionary keys
+
+    Parameters
+    ----------
+    d : dict
+        The input dictionary
+    case : str, one of 'upper', 'lower'
+        Case to change keys to The default is "upper".
+
+    Returns
+    -------
+    newDict : dict
+        A copy of the dictionary with keys changed according to `case`
+
+    """
+    if case == "upper":
+        newDict = {k.upper(): v for k, v in d.items()}
+    elif case == "lower":
+        newDict = {k.lower(): v for k, v in d.items()}
+    return newDict

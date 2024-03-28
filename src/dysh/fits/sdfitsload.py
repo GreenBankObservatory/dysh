@@ -2,18 +2,11 @@
 - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
 """
 
-# import copy
-# import sys
-
 import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
 
-# from astropy.units import cds
-from astropy.wcs import WCS
-
-# from ..coordinates import decode_veldef
 from ..spectra.spectrum import Spectrum
 from ..util import uniq
 
