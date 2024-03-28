@@ -608,7 +608,7 @@ class Spectrum(Spectrum1D):
         return result
 
     def _add_meta(self, operand, operand2, **kwargs):
-        print(kwargs)
+        # print(kwargs)
         kwargs.setdefault("other_meta", True)
         meta = deepcopy(operand)
         if kwargs["other_meta"]:
