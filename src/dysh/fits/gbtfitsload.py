@@ -561,7 +561,17 @@ class GBTFITSLoad(SDFITSLoad):
         for s in self._sdf:
             s.info()
 
-    def getfs(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
+    def getfs(
+        self,
+        calibrate=True,
+        fold=True,
+        timeaverage=True,
+        polaverage=False,
+        weights="tsys",
+        bintable=None,
+        observatory_location=Observatory["GBT"],
+        **kwargs,
+    ):
         """
         Retrieve and calibrate frequency-switched data.
 
@@ -569,6 +579,8 @@ class GBTFITSLoad(SDFITSLoad):
         ----------
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
+        fold : boolean, optional
+            Fold the sig and ref scans.  The default is True.
         timeaverage : boolean, optional
             Average the scans in time. The default is True.
         polaverage : boolean, optional
@@ -579,6 +591,11 @@ class GBTFITSLoad(SDFITSLoad):
             None means uniform weighting. The default is "tsys".
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of
+            observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is the location of the GBT.
         **kwargs : dict
             Optional additional selection (only?) keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -612,25 +629,22 @@ class GBTFITSLoad(SDFITSLoad):
             print(f"SELECTION FROM MIXED KWARGS {kwargs}")
         fs_selection._select_from_mixed_kwargs(**kwargs)
         _sf = fs_selection.final
-        # here we have to munge the scan list to ensure on and off scan numbers are selected
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
         scans = set(_sf["SCAN"])
         if debug:
             print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
-        # todo apply_selection(kwargs_opts)
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
-                _df = select_from("IFNUM", k, df)
+                _df = select_from("IFNUM", k, df)  # on FSScan per ifnum
                 if debug:
                     # print(f"SCANLIST {scanlist}")
                     print(f"POLS {set(df['PLNUM'])}")
                     print(f"Sending dataframe with scans {set(_df['SCAN'])}")
                     print(f"and PROC {set(_df['PROC'])}")
-                rows = {}
                 # loop over scans:
                 for scan in scans:
                     calrows = {}
@@ -644,7 +658,16 @@ class GBTFITSLoad(SDFITSLoad):
                     calrows["OFF"] = list(dfcalF["ROW"])
                     sigrows["ON"] = list(dfsigT["ROW"])
                     sigrows["OFF"] = list(dfsigF["ROW"])
-                    g = FSScan(self._sdf[i], scan=scan, sigrows=sigrows, calrows=calrows, bintable=bintable)
+                    g = FSScan(
+                        self._sdf[i],
+                        scan=scan,
+                        sigrows=sigrows,
+                        calrows=calrows,
+                        bintable=bintable,
+                        calibrate=calibrate,
+                        fold=fold,
+                        observatory_location=observatory_location,
+                    )
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
