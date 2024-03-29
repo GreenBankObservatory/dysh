@@ -11,7 +11,7 @@ import pandas as pd
 from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
-from ..spectra.scan import PSScan, FSScan, ScanBlock, SubBeamNodScan, TPScan
+from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, keycase, select_from, uniq
 from ..util.selection import Selection
 from .sdfitsload import SDFITSLoad
@@ -221,6 +221,31 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         return self._sdf[fitsindex].rawspectrum(i, bintable)
+
+    def getspec(self, i, bintable=0, observer_location=Observatory["GBT"], fitsindex=0):
+        """
+        Get a row (record) as a Spectrum
+
+        Parameters
+        ----------
+        i : int
+            The record (row) index to retrieve
+        bintable : int, optional
+             The index of the `bintable` attribute. default is 0.
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of
+            observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is the location of the GBT.
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        Returns
+        -------
+        s : `~dysh.spectra.spectrum.Spectrum`
+            The Spectrum object representing the data row.
+
+        """
+        return self._sdf[fitsindex].getspec(i, bintable, observer_location)
 
     def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
@@ -572,7 +597,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with self.selection.selectXX(). 
+        # with self.selection.selectXX().
         _final = self._selection.final
         scans = kwargs.pop("scan", None)
         debug = kwargs.get("debug", False)
@@ -595,13 +620,13 @@ class GBTFITSLoad(SDFITSLoad):
             print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
         # todo apply_selection(kwargs_opts)
         scanblock = ScanBlock()
-        
+
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
                 _df = select_from("IFNUM", k, df)
                 if debug:
-                    #print(f"SCANLIST {scanlist}")
+                    # print(f"SCANLIST {scanlist}")
                     print(f"POLS {set(df['PLNUM'])}")
                     print(f"Sending dataframe with scans {set(_df['SCAN'])}")
                     print(f"and PROC {set(_df['PROC'])}")
@@ -615,9 +640,9 @@ class GBTFITSLoad(SDFITSLoad):
                     dfsigT = select_from("SIG", "T", _df)
                     dfsigF = select_from("SIG", "F", _df)
                     #
-                    calrows["ON"]  = list(dfcalT["ROW"])
+                    calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
-                    sigrows["ON"]  = list(dfsigT["ROW"])
+                    sigrows["ON"] = list(dfsigT["ROW"])
                     sigrows["OFF"] = list(dfsigF["ROW"])
                     g = FSScan(self._sdf[i], scan=scan, sigrows=sigrows, calrows=calrows, bintable=bintable)
                     scanblock.append(g)
