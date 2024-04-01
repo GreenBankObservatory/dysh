@@ -536,24 +536,31 @@ class GBTFITSLoad(SDFITSLoad):
         for s in self._sdf:
             s.info()
 
-    def getfs(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
+    def getfs(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", fold=True, bintable=None, **kwargs):
         """
         Retrieve and calibrate frequency-switched data.
 
         Parameters
         ----------
         calibrate : boolean, optional
-            Calibrate the scans. The default is True.
+            Calibrate the scans.
+            The default is True.
         timeaverage : boolean, optional
-            Average the scans in time. The default is True.
+            Average the scans in time.
+            The default is True.
         polaverage : boolean, optional
-            Average the scans in polarization. The default is False.
+            Average the scans in polarization.
+            The default is False.
         weights : str or None, optional
             How to weight the spectral data when averaging.  `tsys` means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.FSScan.timeaverage`);
-            None means uniform weighting. The default is "tsys".
+            None means uniform weighting.
+            The default is "tsys".
+        fold: boolean, optional
+            The default is True
         bintable : int, optional
-            Limit to the input binary table index. The default is None which means use all binary tables.
+            Limit to the input binary table index.
+            The default is None which means use all binary tables.
         **kwargs : dict
             Optional additional selection (only?) keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -619,7 +626,7 @@ class GBTFITSLoad(SDFITSLoad):
                     calrows["OFF"] = list(dfcalF["ROW"])
                     sigrows["ON"]  = list(dfsigT["ROW"])
                     sigrows["OFF"] = list(dfsigF["ROW"])
-                    g = FSScan(self._sdf[i], scan=scan, sigrows=sigrows, calrows=calrows, bintable=bintable)
+                    g = FSScan(self._sdf[i], scan=scan, sigrows=sigrows, calrows=calrows, bintable=bintable, fold=fold)
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")

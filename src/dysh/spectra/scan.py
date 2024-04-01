@@ -672,17 +672,21 @@ class FSScan(ScanMixin):
     scan : int
         scan number that contains integrations with a series of sig/ref and calon/caloff states
     sigrows:  dict
-        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to sig=T (ON) and sig=F (OFF) integrations.
+        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
+        corresponding to sig=T (ON) and sig=F (OFF) integrations.
     calrows : dict
-        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
+        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
+        corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
-        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
+        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
+        Default: True
     """
 
     def __init__(
-            self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
+            self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, fold=True,
+            observer_location=Observatory["GBT"]
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits    # parent class
@@ -703,9 +707,7 @@ class FSScan(ScanMixin):
         nsigrows = len(self._sigonrows) + len(self._sigoffrows)
         nrefrows = len(self._refonrows) + len(self._refoffrows)
         if nsigrows != nrefrows:
-            print("ERROR: sigrow != refrows")
-            # @todo throw
-        print("sigonrows",nsigrows, self._sigonrows)
+            raise Exception("Number of sig rows does not match ref rows. Dangerous to proceed")
         self._nrows = nsigrows
 
         a_scanrow = self._sigonrows[0]
@@ -876,7 +878,7 @@ class FSScan(ScanMixin):
             """
             """
             chan_shift = (sig_freq[0] - ref_freq[0])/np.abs(np.diff(sig_freq)).mean()
-            print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
+            # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
             ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
             
         def do_shift(data, offset, remove_wrap=False):
@@ -909,8 +911,6 @@ class FSScan(ScanMixin):
         self._calibrated = np.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        print("REFONROWS ", self._refonrows)
-        print("SIGONROWS ", self._sigonrows)
         #
         sig_freq = self._sigcalon[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
