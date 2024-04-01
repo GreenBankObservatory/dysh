@@ -1024,7 +1024,7 @@ class GBTFITSLoad(SDFITSLoad):
                 # sig/ref cycles to do a per cycle calibration.
 
                 tpon = self.gettp(
-                    scan,
+                    scan=scan,
                     sig=None,
                     cal=None,
                     bintable=bintable,
@@ -1032,12 +1032,12 @@ class GBTFITSLoad(SDFITSLoad):
                     plnum=plnum,
                     ifnum=ifnum,
                     subref=-1,
-                    weight=w,
+                    weights=w,
                     calibrate=docal,
                 )
                 sigtp.append(tpon[0])
                 tpoff = self.gettp(
-                    scan,
+                    scan=scan,
                     sig=None,
                     cal=None,
                     bintable=bintable,
@@ -1052,14 +1052,14 @@ class GBTFITSLoad(SDFITSLoad):
                 # in order to reproduce gbtidl tsys, we need to do a normal
                 # total power scan
                 ftp = self.gettp(
-                    scan,
+                    scan=scan,
                     sig=None,
                     cal=None,
                     bintable=bintable,
                     fdnum=fdnum,
                     plnum=plnum,
                     ifnum=ifnum,
-                    weight=w,
+                    weights=w,
                     calibrate=docal,
                 )  # .timeaverage(weights=w)
                 fulltp.append(ftp[0])
