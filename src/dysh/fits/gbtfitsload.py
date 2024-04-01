@@ -851,7 +851,7 @@ class GBTFITSLoad(SDFITSLoad):
                     df = select_from("SIG", TF[sig], df)
                 if cal is not None:
                     df = select_from("CAL", TF[cal], df)
-                tprows = list(df.index)
+                tprows = list(df["ROW"])
                 if debug:
                     print("TPROWS len=", len(tprows))
                     print("CALROWS on len=", len(calrows["ON"]))
@@ -1045,7 +1045,7 @@ class GBTFITSLoad(SDFITSLoad):
                     plnum=plnum,
                     ifnum=ifnum,
                     subref=1,
-                    weight=w,
+                    weights=w,
                     calibrate=docal,
                 )
                 reftp.append(tpoff[0])
@@ -1420,7 +1420,7 @@ class GBTFITSLoad(SDFITSLoad):
             df = df[df["PLNUM"] == plnum]
         if ifnum is not None:
             df = df[df["IFNUM"] == ifnum]
-        rows = list(df.index)
+        rows = list(df["ROW"])
         if len(rows) == 0:
             raise Exception(f"Scans {scans} not found in bintable {bintable}")
         return rows

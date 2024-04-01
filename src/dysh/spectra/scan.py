@@ -247,6 +247,7 @@ class TPScan(ScanMixin):
         self._index = df
         # self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
+        print(f"TPSCAN pols={self._pols}")
         # self._ifs = uniq(df["IFNUM"])
         self._nint = 0
         self._npol = len(self._pols)
@@ -650,7 +651,7 @@ class PSScan(ScanMixin):
         return self._timeaveraged
 
 
-class SubBeamNodScan(ScanMixin):  # SBNodScan?
+class SubBeamNodScan(ScanMixin):
     r"""
     Parameters
     ----------
@@ -779,7 +780,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations")
+            raise Exception(f"Can't yet time average multiple polarizations {self._npol}")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         nchan = len(data[0])
