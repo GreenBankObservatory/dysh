@@ -822,7 +822,6 @@ class GBTFITSLoad(SDFITSLoad):
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
-                print(f"assigned { kwargs[k]} = {v}")
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
