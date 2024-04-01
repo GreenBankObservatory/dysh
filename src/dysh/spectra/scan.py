@@ -6,8 +6,8 @@ from collections import UserList
 from copy import deepcopy
 
 import astropy.units as u
-from astropy import constants as ac
 import numpy as np
+from astropy import constants as ac
 from scipy import ndimage
 
 from ..coordinates import Observatory
@@ -454,6 +454,11 @@ class PSScan(ScanMixin):
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
+    observer_location : `~astropy.coordinates.EarthLocation`
+        Location of the observatory. See `~dysh.coordinates.Observatory`.
+        This will be transformed to `~astropy.coordinates.ITRS` using the time of
+        observation DATE-OBS or MJD-OBS in
+        the SDFITS header.  The default is the location of the GBT.
     """
 
     def __init__(
@@ -466,9 +471,9 @@ class PSScan(ScanMixin):
         self._nrows = len(self._scanrows["ON"])
         print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
         print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
-        print('PJT scans',scans)
-        print('PJT scanrows',scanrows)
-        print('PJT calrows',calrows)
+        print("PJT scans", scans)
+        print("PJT scanrows", scanrows)
+        print("PJT calrows", calrows)
         # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
         # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
 
@@ -491,7 +496,6 @@ class PSScan(ScanMixin):
         self._npol = len(self._pols)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
-        # @todo use gbtfits.velocity_convention(veldef,velframe)
         # so quick with slicing!
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
@@ -523,7 +527,7 @@ class PSScan(ScanMixin):
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self, i):
-        """Return the calibrated Spectrum. 
+        """Return the calibrated Spectrum.
 
         Parameters
         ----------
@@ -661,6 +665,7 @@ class PSScan(ScanMixin):
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         return self._timeaveraged
 
+
 class FSScan(ScanMixin):
     """GBT specific version of Frequency Switch Scan
 
@@ -682,36 +687,45 @@ class FSScan(ScanMixin):
     calibrate: bool
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
         Default: True
+    fold: bool
+        whether or not to fold the spectrum. Default: True
+    observer_location : `~astropy.coordinates.EarthLocation`
+        Location of the observatory. See `~dysh.coordinates.Observatory`.
+        This will be transformed to `~astropy.coordinates.ITRS` using the time of
+        observation DATE-OBS or MJD-OBS in
+        the SDFITS header.  The default is the location of the GBT.
     """
 
     def __init__(
-            self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, fold=True,
-            observer_location=Observatory["GBT"]
+        self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, fold=True,
+        observer_location=Observatory["GBT"]
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        self._sdfits = gbtfits    # parent class
-        self._scan = scan         # for FS everything is an "ON"
-        self._sigrows = sigrows   # dict with "ON" and "OFF"
-        self._calrows = calrows   # dict with "ON" and "OFF"
-        
-        self._sigonrows  = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
+        self._sdfits = gbtfits  # parent class
+        self._scan = scan  # for FS everything is an "ON"
+        self._sigrows = sigrows  # dict with "ON" and "OFF"
+        self._calrows = calrows  # dict with "ON" and "OFF"
+        self._folded = False
+
+        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
-        self._refonrows  = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
+        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["OFF"]))))
 
         print("SigOff", self._sigoffrows)
-        print("SigOn",  self._sigonrows)
+        print("SigOn", self._sigonrows)
         print("RefOff", self._refoffrows)
-        print("RegOn",  self._refonrows)
-        
+        print("RegOn", self._refonrows)
+
         nsigrows = len(self._sigonrows) + len(self._sigoffrows)
         nrefrows = len(self._refonrows) + len(self._refoffrows)
         if nsigrows != nrefrows:
             raise Exception("Number of sig rows does not match ref rows. Dangerous to proceed")
+        print("sigonrows", nsigrows, self._sigonrows)
         self._nrows = nsigrows
 
         a_scanrow = self._sigonrows[0]
-        
+
         # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
@@ -721,24 +735,23 @@ class FSScan(ScanMixin):
         print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         # df = selection.iloc[scanrows["ON"]]
-        #df = self._sdfits._index.iloc[scanrows["ON"]]
+        # df = self._sdfits._index.iloc[scanrows["ON"]]
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
-        
+
         df = self._sdfits._index.iloc[self._scanrows]
-        print("PJT: len(df) = ",len(df))
+        print("PJT: len(df) = ", len(df))
         self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
         self._ifs = uniq(df["IFNUM"])
         print(f"FSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
         self._nfeed = len(self._feeds)
-        self._nif = len(self._ifs)       # should be 1
+        self._nif = len(self._ifs)  # should be 1
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # @todo use gbtfits.velocity_convention(veldef,velframe)
         # so quick with slicing!
 
-                                       
         self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
@@ -749,7 +762,19 @@ class FSScan(ScanMixin):
         self._calibrated = None
         self._calibrate = calibrate
         if self._calibrate:
-            self.calibrate()
+            self.calibrate(fold=fold)
+
+    @property
+    def folded(self):
+        """
+        Has the scan been folded?
+
+        Returns
+        -------
+        boolean
+            True if the signal and reference integrations have been folded. False if not.
+        """
+        return self._folded
 
     @property
     def tsys(self):
@@ -776,7 +801,7 @@ class FSScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        #meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]].dropna().to_dict()
+        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]].dropna().to_dict()
         meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self._exposure[i]
@@ -797,35 +822,34 @@ class FSScan(ScanMixin):
         """
         Frequency switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
         """
+
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
-            """
-            """
+            """ """
 
             # Compute the correction factor.
-            beta   = (vframe * u.m/u.s) /ac.c
-            vcorr  = np.sqrt((1.0 + beta)/(1.0 - beta))
+            beta = (vframe * u.m / u.s) / ac.c
+            vcorr = np.sqrt((1.0 + beta) / (1.0 - beta))
 
             # The +1 is to start counting from 1.
             indx = np.arange(nchan) + 1
             if ndim == 1:
-                freq = (crval1 + cdelt1*(indx - crpix1))
+                freq = crval1 + cdelt1 * (indx - crpix1)
                 freq *= vcorr
             elif ndim == 2:
-                indx = np.tile(indx, (nint,1))
-                freq = (crval1[:,np.newaxis] + cdelt1[:,np.newaxis]*(indx - crpix1[:,np.newaxis]))
-                freq *= vcorr[:,np.newaxis]
+                indx = np.tile(indx, (nint, 1))
+                freq = crval1[:, np.newaxis] + cdelt1[:, np.newaxis] * (indx - crpix1[:, np.newaxis])
+                freq *= vcorr[:, np.newaxis]
 
             return freq
-
-
 
         def index_frequency(df):
             """
             Create a frequency axis from an index.
             This assumes all entries in the index have the same number of channels.
             """
-    
+            # Could you do this with gbtfits.getspec(row).spectral_axis?
+
             ndim = len(df.shape)
             nint = df.shape[0]
 
@@ -837,8 +861,8 @@ class FSScan(ScanMixin):
             crval1 = df["CRVAL1"]
             crpix1 = df["CRPIX1"]
             cdelt1 = df["CDELT1"]
-            vframe = df['VFRAME'] # Use the velocity frame requested by the user.
-    
+            vframe = df["VFRAME"]  # Use the velocity frame requested by the user.
+
             if ndim == 2:
                 crval1 = crval1.to_numpy()
                 crpix1 = crpix1.to_numpy()
@@ -846,7 +870,7 @@ class FSScan(ScanMixin):
                 vframe = vframe.to_numpy()
 
             freq = channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan[0], nint, ndim=ndim)
-    
+
             # Apply units.
             try:
                 cunit1 = u.Unit(df["CUNIT1"])
@@ -857,41 +881,39 @@ class FSScan(ScanMixin):
 
             return freq * cunit1
 
-
         def do_total_power(no_cal, cal, tcal):
-            """
-            """
+            """ """
 
         def vec_mean_tsys(on, off, tcal):
             """
             mean_tsys implements this, albeit only in 1D
             """
             pass
-            
+
         def do_sig_ref(sig, ref, tsys, smooth=False):
             """
             smooth=True would implement smoothing the reference (or something)
             """
-            return (sig-ref)/ref * tsys
-        
+            return (sig - ref) / ref * tsys
+
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
             """
             """
-            chan_shift = (sig_freq[0] - ref_freq[0])/np.abs(np.diff(sig_freq)).mean()
+            chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
             # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
             ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
-            
+
         def do_shift(data, offset, remove_wrap=False):
             """
             Shift the data of a numpy array using roll/shift
-            
+
             @todo   can it be done in one step using ndimage.shift?
             @todo   use the fancier GBTIDL fft based shift
             """
 
-            ishift = int(np.round(offset))   # Integer shift.
-            fshift = offset - ishift         # Fractional shift.
-            print("FOLD:  ishift=%d fshift=%g" % (ishift,fshift))
+            ishift = int(np.round(offset))  # Integer shift.
+            fshift = offset - ishift  # Fractional shift.
+            print("FOLD:  ishift=%d fshift=%g" % (ishift, fshift))
             data2 = np.roll(data, ishift, axis=0)
             if remove_wrap:
                 if ishift < 0:
@@ -900,11 +922,9 @@ class FSScan(ScanMixin):
                     data2[:ishift] = np.nan
             # now the fractional shift, each row separate since ndimage.shift() cannot deal with np.nan
             #    data2 = ndimage.shift(data2,fshift)     this fails because fshift is a Quantity?, grrrr
-            data2 = ndimage.shift(data2,[fshift])
+            data2 = ndimage.shift(data2, [fshift])
             return data2
 
-
-            
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         nspect = self.nrows // 2
@@ -915,33 +935,36 @@ class FSScan(ScanMixin):
         sig_freq = self._sigcalon[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]
-        print("df_sig",type(df_sig),len(df_sig))
+        print("df_sig", type(df_sig), len(df_sig))
         sig_freq = index_frequency(df_sig)
         ref_freq = index_frequency(df_ref)
-        chan_shift = abs(sig_freq[0,0] - ref_freq[0,0])/np.abs(np.diff(sig_freq)).mean()
-        print("FS: shift=%g  nchan=%d" % (chan_shift,self._nchan))
+        chan_shift = abs(sig_freq[0, 0] - ref_freq[0, 0]) / np.abs(np.diff(sig_freq)).mean()
+        print("FS: shift=%g  nchan=%d" % (chan_shift, self._nchan))
 
         #  tcal is the same for REF and SIG, and the same for all integrations actually.
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["TCAL"])
-        print("TCAL:",len(tcal),tcal[0])
+        print("TCAL:", len(tcal), tcal[0])
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         # @todo   the nspect loop could be replaced with clever numpy?
         for i in range(nspect):
-            # @todo   do the proper FS shift and folding 
+            # @todo   do the proper FS shift and folding
             tsys_sig = mean_tsys(calon=self._sigcalon[i], caloff=self._sigcaloff[i], tcal=tcal[i])
             tsys_ref = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-            if i==0: print("Tsys(s/r)[0]=",tsys_sig,tsys_ref)
+            if i == 0:
+                print("Tsys(s/r)[0]=", tsys_sig, tsys_ref)
             tp_sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
             tp_ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
             #
             cal_sig = do_sig_ref(tp_sig, tp_ref, tsys_ref)
             cal_ref = do_sig_ref(tp_ref, tp_sig, tsys_sig)
             #
-            cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i])
-            cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
-            self._calibrated[i] = cal_sig        # for now, make this some <fold>
-            self._tsys[i] = tsys_ref             # for now
+            if kwargs.pop("fold"):
+                cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i])
+                cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
+                self._folded = True
+            self._calibrated[i] = cal_sig  # for now, make this some <fold>
+            self._tsys[i] = tsys_ref  # for now
             self._exposure[i] = self.exposure[i]
         print("Calibrated %d spectra" % nspect)
 

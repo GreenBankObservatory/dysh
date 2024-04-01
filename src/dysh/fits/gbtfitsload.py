@@ -11,7 +11,7 @@ import pandas as pd
 from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
-from ..spectra.scan import PSScan, FSScan, ScanBlock, SubBeamNodScan, TPScan
+from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, keycase, select_from, uniq
 from ..util.selection import Selection
 from .sdfitsload import SDFITSLoad
@@ -221,6 +221,31 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         return self._sdf[fitsindex].rawspectrum(i, bintable)
+
+    def getspec(self, i, bintable=0, observer_location=Observatory["GBT"], fitsindex=0):
+        """
+        Get a row (record) as a Spectrum
+
+        Parameters
+        ----------
+        i : int
+            The record (row) index to retrieve
+        bintable : int, optional
+             The index of the `bintable` attribute. default is 0.
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of
+            observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is the location of the GBT.
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        Returns
+        -------
+        s : `~dysh.spectra.spectrum.Spectrum`
+            The Spectrum object representing the data row.
+
+        """
+        return self._sdf[fitsindex].getspec(i, bintable, observer_location)
 
     def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
@@ -536,15 +561,26 @@ class GBTFITSLoad(SDFITSLoad):
         for s in self._sdf:
             s.info()
 
-    def getfs(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", fold=True, bintable=None, **kwargs):
+    def getfs(
+        self,
+        calibrate=True,
+        fold=True,
+        timeaverage=True,
+        polaverage=False,
+        weights="tsys",
+        bintable=None,
+        observatory_location=Observatory["GBT"],
+        **kwargs,
+    ):
         """
         Retrieve and calibrate frequency-switched data.
 
         Parameters
         ----------
         calibrate : boolean, optional
-            Calibrate the scans.
-            The default is True.
+            Calibrate the scans. The default is True.
+        fold : boolean, optional
+            Fold the sig and ref scans.  The default is True.
         timeaverage : boolean, optional
             Average the scans in time.
             The default is True.
@@ -559,8 +595,12 @@ class GBTFITSLoad(SDFITSLoad):
         fold: boolean, optional
             The default is True
         bintable : int, optional
-            Limit to the input binary table index.
-            The default is None which means use all binary tables.
+            Limit to the input binary table index. The default is None which means use all binary tables.
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of
+            observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is the location of the GBT.
         **kwargs : dict
             Optional additional selection (only?) keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -579,7 +619,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with self.selection.selectXX(). 
+        # with self.selection.selectXX().
         _final = self._selection.final
         scans = kwargs.pop("scan", None)
         debug = kwargs.get("debug", False)
@@ -594,25 +634,22 @@ class GBTFITSLoad(SDFITSLoad):
             print(f"SELECTION FROM MIXED KWARGS {kwargs}")
         fs_selection._select_from_mixed_kwargs(**kwargs)
         _sf = fs_selection.final
-        # here we have to munge the scan list to ensure on and off scan numbers are selected
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
         scans = set(_sf["SCAN"])
         if debug:
             print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
-        # todo apply_selection(kwargs_opts)
         scanblock = ScanBlock()
-        
+
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
-                _df = select_from("IFNUM", k, df)
+                _df = select_from("IFNUM", k, df)  # on FSScan per ifnum
                 if debug:
-                    #print(f"SCANLIST {scanlist}")
+                    # print(f"SCANLIST {scanlist}")
                     print(f"POLS {set(df['PLNUM'])}")
                     print(f"Sending dataframe with scans {set(_df['SCAN'])}")
                     print(f"and PROC {set(_df['PROC'])}")
-                rows = {}
                 # loop over scans:
                 for scan in scans:
                     calrows = {}
@@ -622,11 +659,20 @@ class GBTFITSLoad(SDFITSLoad):
                     dfsigT = select_from("SIG", "T", _df)
                     dfsigF = select_from("SIG", "F", _df)
                     #
-                    calrows["ON"]  = list(dfcalT["ROW"])
+                    calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
-                    sigrows["ON"]  = list(dfsigT["ROW"])
+                    sigrows["ON"] = list(dfsigT["ROW"])
                     sigrows["OFF"] = list(dfsigF["ROW"])
-                    g = FSScan(self._sdf[i], scan=scan, sigrows=sigrows, calrows=calrows, bintable=bintable, fold=fold)
+                    g = FSScan(
+                        self._sdf[i],
+                        scan=scan,
+                        sigrows=sigrows,
+                        calrows=calrows,
+                        bintable=bintable,
+                        calibrate=calibrate,
+                        fold=fold,
+                        observatory_location=observatory_location,
+                    )
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
