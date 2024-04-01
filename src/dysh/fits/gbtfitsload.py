@@ -808,7 +808,7 @@ class GBTFITSLoad(SDFITSLoad):
         sigstate = {True: "SIG", False: "REF", None: "BOTH"}
         calstate = {True: "ON", False: "OFF", None: "BOTH"}
         _final = self._selection.final
-        scan = kwargs.pop("scan", None)
+        scan = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         if type(scan) is int:
@@ -822,6 +822,7 @@ class GBTFITSLoad(SDFITSLoad):
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
+                print(f"assigned { kwargs[k]} = {v}")
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
@@ -842,6 +843,8 @@ class GBTFITSLoad(SDFITSLoad):
                 dfcalF = select_from("CAL", "F", df)
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
+                if len(calrows["ON"]) != len(calrows["OFF"]):
+                    raise Exception(f'unbalanaced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
                 # sig and cal are treated specially since
                 # they are not in kwargs and in SDFITS header
                 # they are not booleans but chars
