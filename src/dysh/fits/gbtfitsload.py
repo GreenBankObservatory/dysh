@@ -725,9 +725,8 @@ class GBTFITSLoad(SDFITSLoad):
         sig : bool or None
             True to use only integrations where signal state is True, False to use reference state (signal state is False). None to use all integrations.
         cal: bool or None
-            True to use only integrations where calibration (diode) is on, False if off. None to use all integrations regardless calibration state. The system temperature will be calculated from both states regardless of the value of this variable.
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
+            True to use only integrations where calibration (diode) is on, False if off. None to use all integrations regardless calibration state.
+            The system temperature will be calculated from both states regardless of the value of this variable.
         calibrate: bool
             whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
         timeaverage : boolean, optional
@@ -736,6 +735,8 @@ class GBTFITSLoad(SDFITSLoad):
             Average the scans in polarization. The default is False.
         weights: str or None
             None or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
+        bintable : int, optional
+            Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
             Optional additional selection (only?) keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -807,6 +808,7 @@ class GBTFITSLoad(SDFITSLoad):
             raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
+    # @todo sig/cal no longer needed?
     def subbeamnod(
         self,
         method="cycle",
@@ -829,8 +831,6 @@ class GBTFITSLoad(SDFITSLoad):
             True to indicate if this is the signal scan, False if reference
         cal: bool
             True if calibration (diode) is on, False if off.
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
         calibrate: bool
             whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
         timeaverage : boolean, optional
@@ -839,6 +839,8 @@ class GBTFITSLoad(SDFITSLoad):
             Average the scans in polarization. The default is False.
         weights: str or None
             None to indicate equal weighting or 'tsys' to indicate tsys weighting to use in time averaging. Default: 'tsys'
+        bintable : int, optional
+            Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
             Optional additional selection (only?) keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -855,19 +857,6 @@ class GBTFITSLoad(SDFITSLoad):
             A ScanBlock object containing the data
 
         """
-        # kwargs_opts = {
-        #    "ifnum": 0,
-        #    "fdnum": 0,
-        #    "plnum": 1,
-        #    "timeaverage": True,
-        #    "weights": "tsys",  # or None or ndarray
-        #    "calibrate": True,
-        #       #     "method": "cycle",
-        #    "debug": False,
-        #
-        # TF = {True: "T", False: "F"}
-        # sigstate = {True: "SIG", False: "REF", None: "BOTH"}
-        # calstate = {True: "ON", False: "OFF", None: "BOTH"}
         _final = self._selection.final
         scan = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
@@ -909,7 +898,6 @@ class GBTFITSLoad(SDFITSLoad):
         fdnum = uniq(_sf["FDNUM"])
         if debug:
             print(f"FINAL i {ifnum} p {plnum} s {scans} f {fdnum}")
-
         scanblock = ScanBlock()
         reftp = []
         sigtp = []
@@ -917,7 +905,6 @@ class GBTFITSLoad(SDFITSLoad):
         if method == "cycle":
             # Calibrate each cycle individually and then
             # average the calibrated data.
-
             for sdfi in range(len(self._sdf)):
                 _df = select_from("FITSINDEX", sdfi, _sf)
                 for k in ifnum:
@@ -957,22 +944,6 @@ class GBTFITSLoad(SDFITSLoad):
                         e = f"""There are {len(sig_on_groups)} and {len(ref_on_groups)} signal and reference cycles.
                                 Try using method='scan'."""
                         raise ValueError(e)
-
-                    # Define the calibrated data array, and
-                    # variables to store weights and exposure times.
-                    # @TODO: using TDIM7 is fragile if the headers ever change.
-                    #  nchan should be gotten from data length
-                    # e.g. len(self._hdu[1].data[:]["DATA"][row])
-                    # where row is a row number associated with this scan number
-                    # df = self._sdf[sdfi].index(bintable=bintable)
-                    # nchan = int(df["TDIM7"][0][1:-1].split(",")[0])
-                    # ta = np.empty((len(sig_on_groups)), dtype=object)
-                    # ta_avg = np.zeros(nchan, dtype="d")
-                    # wt_avg = 0.0  # A single value for now, but it should be an array once we implement vector TSYS.
-                    # tsys_wt = 0.0
-                    # tsys_avg = 0.0
-                    # exposure = 0.0
-
                     # print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
                     # Loop over cycles, calibrating each independently.
                     groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
