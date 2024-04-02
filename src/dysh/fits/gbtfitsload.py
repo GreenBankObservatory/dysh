@@ -861,6 +861,18 @@ class GBTFITSLoad(SDFITSLoad):
         scan = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
+        print(kwargs)
+
+        if type(scan) is int:
+            scan = [scan]
+        preselected = {}
+        for kw in ["SCAN", "IFNUM", "PLNUM", "FDNUM"]:
+            preselected[kw] = uniq(_final[kw])
+        if scan is None:
+            scan = preselected["SCAN"]
+        for k, v in preselected.items():
+            if k not in kwargs:
+                kwargs[k] = v
         # Check if we are dealing with Ka data before the beam switch.
         rx = np.unique(_final["FRONTEND"])
         if len(rx) > 1:
@@ -878,18 +890,8 @@ class GBTFITSLoad(SDFITSLoad):
                 kwargs["PLNUM"] = 1
             elif kwargs["FDNUM"] == 1:
                 kwargs["PLNUM"] = 0
-        if type(scan) is int:
-            scan = [scan]
-        preselected = {}
-        for kw in ["SCAN", "IFNUM", "PLNUM"]:
-            preselected[kw] = uniq(_final[kw])
-        if scan is None:
-            scan = preselected["SCAN"]
-        ps_selection = copy.deepcopy(self._selection)
-        for k, v in preselected.items():
-            if k not in kwargs:
-                kwargs[k] = v
         # now downselect with any additional kwargs
+        ps_selection = copy.deepcopy(self._selection)
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
         ifnum = uniq(_sf["IFNUM"])
