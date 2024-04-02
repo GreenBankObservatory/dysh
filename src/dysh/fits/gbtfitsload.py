@@ -763,14 +763,22 @@ class GBTFITSLoad(SDFITSLoad):
         # warnings.warn("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
-    def gettp(self, scan, sig=None, cal=None, bintable=None, **kwargs):
+    def gettp(
+        self,
+        sig=None,
+        cal=None,
+        calibrate=True,
+        timeaverage=True,
+        polaverage=False,
+        weights="tsys",
+        bintable=None,
+        **kwargs,
+    ):
         """
         Get a total power scan, optionally calibrating it.
 
         Parameters
         ----------
-        scan: int
-            scan number
         sig : bool or None
             True to use only integrations where signal state is True, False to use reference state (signal state is False). None to use all integrations.
         cal: bool or None
@@ -779,10 +787,16 @@ class GBTFITSLoad(SDFITSLoad):
             the index for BINTABLE in `sdfits` containing the scans
         calibrate: bool
             whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-        weights: str
-            'equal' or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
-
-        scan args - ifnum, plnum, fdnum, subref
+        timeaverage : boolean, optional
+            Average the scans in time. The default is True.
+        polaverage : boolean, optional
+            Average the scans in polarization. The default is False.
+        weights: str or None
+            None or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
+        **kwargs : dict
+            Optional additional selection (only?) keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `ifnum=1, plnum=[2,3]` etc.
 
         Returns
         -------
@@ -790,70 +804,62 @@ class GBTFITSLoad(SDFITSLoad):
             A ScanBlock containing one or more `~spectra.scan.TPScan`
 
         """
-        kwargs_opts = {
-            "ifnum": 0,
-            "plnum": 0,
-            "fdnum": None,
-            "subref": None,  # subreflector position
-            "timeaverage": True,
-            "polaverage": True,
-            "weights": "tsys",  # or 'tsys' or ndarray
-            "calibrate": True,
-            "debug": False,
-        }
-        kwargs_opts.update(kwargs)
         TF = {True: "T", False: "F"}
         sigstate = {True: "SIG", False: "REF", None: "BOTH"}
         calstate = {True: "ON", False: "OFF", None: "BOTH"}
-
-        ifnum = kwargs_opts["ifnum"]
-        plnum = kwargs_opts["plnum"]
-        fdnum = kwargs_opts["fdnum"]
-        subref = kwargs_opts["subref"]
+        _final = self._selection.final
+        scan = kwargs.get("scan", None)
+        debug = kwargs.pop("debug", False)
+        kwargs = keycase(kwargs)
+        if type(scan) is int:
+            scan = [scan]
+        preselected = {}
+        for kw in ["SCAN", "IFNUM", "PLNUM"]:
+            preselected[kw] = uniq(_final[kw])
+        if scan is None:
+            scan = preselected["SCAN"]
+        ps_selection = copy.deepcopy(self._selection)
+        for k, v in preselected.items():
+            if k not in kwargs:
+                kwargs[k] = v
+        # now downselect with any additional kwargs
+        ps_selection._select_from_mixed_kwargs(**kwargs)
+        _sf = ps_selection.final
+        ifnum = uniq(_sf["IFNUM"])
+        plnum = uniq(_sf["PLNUM"])
+        scans = uniq(_sf["SCAN"])
+        feeds = uniq(_sf["FDNUM"])
+        if debug:
+            print(f"FINAL i {ifnum} p {plnum} s {scans} f {feeds}")
         scanblock = ScanBlock()
+        calrows = {}
+        # @todo loop over feeds too?
         for i in range(len(self._sdf)):
-            df = self._sdf[i]._index
-            df = df[(df["SCAN"] == scan)]
-            if sig is not None:
-                sigch = TF[sig]
-                df = df[(df["SIG"] == sigch)]
-                if kwargs_opts["debug"]:
-                    print("S ", len(df))
-            if cal is not None:
-                calch = TF[cal]
-                df = df[df["CAL"] == calch]
-                if kwargs_opts["debug"]:
-                    print("C ", len(df))
-            if ifnum is not None:
-                df = df[df["IFNUM"] == ifnum]
-                if kwargs_opts["debug"]:
-                    print("I ", len(df))
-            if plnum is not None:
-                df = df[df["PLNUM"] == plnum]
-                if kwargs_opts["debug"]:
-                    print("P ", len(df))
-            if fdnum is not None:
-                df = df[df["FDNUM"] == fdnum]
-                if kwargs_opts["debug"]:
-                    print("F ", len(df))
-            if subref is not None:
-                df = df[df["SUBREF_STATE"] == subref]
-                if kwargs_opts["debug"]:
-                    print("SR ", len(df))
-            # TBD: if ifnum is none then we will have to sort these by ifnum, plnum and store separate arrays or something.
-            tprows = list(df.index)
-            # data = self.rawspectra(bintable)[tprows]
-            calrows = self.calonoff_rows(scans=scan, bintable=bintable, fitsindex=i, **kwargs_opts)
-            if kwargs_opts["debug"]:
-                print("TPROWS len=", len(tprows))
-                print("CALROWS on len=", len(calrows["ON"]))
-                print("fitsindex=", i)
-            if len(tprows) == 0:
-                continue
-            g = TPScan(
-                self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, kwargs_opts["calibrate"]
-            )
-            scanblock.append(g)
+            df = select_from("FITSINDEX", i, _sf)
+            for k in ifnum:
+                df = select_from("IFNUM", k, df)
+                dfcalT = select_from("CAL", "T", df)
+                dfcalF = select_from("CAL", "F", df)
+                calrows["ON"] = list(dfcalT["ROW"])
+                calrows["OFF"] = list(dfcalF["ROW"])
+                if len(calrows["ON"]) != len(calrows["OFF"]):
+                    raise Exception(f'unbalanaced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                # sig and cal are treated specially since
+                # they are not in kwargs and in SDFITS header
+                # they are not booleans but chars
+                if sig is not None:
+                    df = select_from("SIG", TF[sig], df)
+                if cal is not None:
+                    df = select_from("CAL", TF[cal], df)
+                tprows = list(df["ROW"])
+                if debug:
+                    print("TPROWS len=", len(tprows))
+                    print("CALROWS on len=", len(calrows["ON"]))
+                    print("fitsindex=", i)
+                if len(tprows) == 0:
+                    continue
+                g = TPScan(self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, calibrate)
+                scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock
@@ -1018,7 +1024,7 @@ class GBTFITSLoad(SDFITSLoad):
                 # sig/ref cycles to do a per cycle calibration.
 
                 tpon = self.gettp(
-                    scan,
+                    scan=scan,
                     sig=None,
                     cal=None,
                     bintable=bintable,
@@ -1026,12 +1032,12 @@ class GBTFITSLoad(SDFITSLoad):
                     plnum=plnum,
                     ifnum=ifnum,
                     subref=-1,
-                    weight=w,
+                    weights=w,
                     calibrate=docal,
                 )
                 sigtp.append(tpon[0])
                 tpoff = self.gettp(
-                    scan,
+                    scan=scan,
                     sig=None,
                     cal=None,
                     bintable=bintable,
@@ -1039,21 +1045,21 @@ class GBTFITSLoad(SDFITSLoad):
                     plnum=plnum,
                     ifnum=ifnum,
                     subref=1,
-                    weight=w,
+                    weights=w,
                     calibrate=docal,
                 )
                 reftp.append(tpoff[0])
                 # in order to reproduce gbtidl tsys, we need to do a normal
                 # total power scan
                 ftp = self.gettp(
-                    scan,
+                    scan=scan,
                     sig=None,
                     cal=None,
                     bintable=bintable,
                     fdnum=fdnum,
                     plnum=plnum,
                     ifnum=ifnum,
-                    weight=w,
+                    weights=w,
                     calibrate=docal,
                 )  # .timeaverage(weights=w)
                 fulltp.append(ftp[0])
@@ -1414,7 +1420,7 @@ class GBTFITSLoad(SDFITSLoad):
             df = df[df["PLNUM"] == plnum]
         if ifnum is not None:
             df = df[df["IFNUM"] == ifnum]
-        rows = list(df.index)
+        rows = list(df["ROW"])
         if len(rows) == 0:
             raise Exception(f"Scans {scans} not found in bintable {bintable}")
         return rows

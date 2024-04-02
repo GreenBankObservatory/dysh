@@ -144,7 +144,7 @@ class TestGBTFITSLoad:
         # Get the answer from dysh.
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps_on = sdf.gettp(152, sig=True, cal=True, calibrate=False)
+        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=False, ifnum=0, plnum=0)
         assert len(tps_on) == 1
 
         # Compare.
@@ -152,7 +152,7 @@ class TestGBTFITSLoad:
         assert np.nanmean(diff) == 0.0
 
         # Now with the noise diode Off.
-        tps_off = sdf.gettp(152, sig=True, cal=False, calibrate=False)
+        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=False, ifnum=0, plnum=0)
         assert len(tps_off) == 1
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits"
@@ -164,7 +164,7 @@ class TestGBTFITSLoad:
         assert np.nanmean(diff) == 0.0
 
         # Now, both on and off.
-        tps = sdf.gettp(152, sig=True, cal=True)
+        tps = sdf.gettp(scan=152, sig=True, cal=True, ifnum=0, plnum=0)
         assert len(tps) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         hdu = fits.open(gbtidl_file)

@@ -24,9 +24,10 @@ default_aliases = {
     "gallon": "crval2",
     "gallat": "crval3",
     "elevation": "elevatio",
-    #   "scans": "scan",  # backward compatibility with calibration routine old arguments
     "source": "object",
     "pol": "plnum",
+    "intnum": "row",  # integration number
+    "subref": "subref_state",  # subreflector state
 }
 
 
