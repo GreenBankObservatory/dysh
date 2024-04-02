@@ -579,9 +579,21 @@ class Spectrum(Spectrum1D):
                 result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
             except TypeError:
                 return NotImplemented
-        result._target = self._target
-        result._observer = self._observer
+        # result._target = self._target
+        # result._observer = self._observer
+        # result._velocity_frame = self._velocity_frame
+        self._shallow_copy_attributes(result)
         return result
+
+    def _shallow_copy_attributes(self, other):
+        other._target = self._target
+        other._observer = self._observer
+        other._velocity_frame = self._velocity_frame
+        other._obstime = self._obstime
+        other._baseline_model = self._baseline_model
+        other._exclude_regions = self._exclude_regions
+        other._mask = self._mask
+        other._subtracted = self._subtracted
 
     def __add__(self, other):
         op = self.add
