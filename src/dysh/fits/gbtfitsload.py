@@ -916,17 +916,17 @@ class GBTFITSLoad(SDFITSLoad):
                     df_on_ref = df_on[df_on["SUBREF_STATE"] == 1]
                     df_off_sig = df_off[df_off["SUBREF_STATE"] == -1]
                     df_off_ref = df_off[df_off["SUBREF_STATE"] == 1]
-                    sig_on_rows = df_on_sig.index.to_numpy()
-                    ref_on_rows = df_on_ref.index.to_numpy()
-                    sig_off_rows = df_off_sig.index.to_numpy()
-                    ref_off_rows = df_off_ref.index.to_numpy()
+                    sig_on_rows = df_on_sig["ROW"].to_numpy()
+                    ref_on_rows = df_on_ref["ROW"].to_numpy()
+                    sig_off_rows = df_off_sig["ROW"].to_numpy()
+                    ref_off_rows = df_off_ref["ROW"].to_numpy()
 
                     # Define how large of a gap between rows we will tolerate to consider
                     # a row as part of a cycle.
                     # Thinking about it, we should use the SUBREF_STATE=0 as delimiter rather
                     # than this.
-                    stepsize = len(ifnum) * len(plnum) * 2 + 1
-
+                    # stepsize = len(ifnum) * len(plnum) * 2 + 1
+                    stepsize = len(self.udata("IFNUM", 0)) * len(self.udata("PLNUM", 0)) * 2 + 1
                     ref_on_groups = consecutive(ref_on_rows, stepsize=stepsize)
                     sig_on_groups = consecutive(sig_on_rows, stepsize=stepsize)
                     ref_off_groups = consecutive(ref_off_rows, stepsize=stepsize)
