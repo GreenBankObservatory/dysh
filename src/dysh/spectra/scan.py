@@ -247,7 +247,6 @@ class TPScan(ScanMixin):
         self._index = df
         # self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
-        print(f"TPSCAN pols={self._pols}")
         # self._ifs = uniq(df["IFNUM"])
         self._nint = 0
         self._npol = len(self._pols)
