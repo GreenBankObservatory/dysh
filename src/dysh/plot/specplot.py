@@ -151,6 +151,8 @@ class SpectrumPlot:
 
         self._set_labels(**this_plot_kwargs)
         # self._axis.axhline(y=0,color='red',lw=2)
+        if self._title is not None:
+            self._axis.set_title(self._title)
         self.refresh()
 
     def reset(self):
