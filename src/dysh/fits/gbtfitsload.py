@@ -569,7 +569,7 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage=False,
         weights="tsys",
         bintable=None,
-        observatory_location=Observatory["GBT"],
+        observer_location=Observatory["GBT"],
         **kwargs,
     ):
         """
@@ -671,7 +671,7 @@ class GBTFITSLoad(SDFITSLoad):
                         bintable=bintable,
                         calibrate=calibrate,
                         fold=fold,
-                        observatory_location=observatory_location,
+                        observer_location=observer_location,
                     )
                     scanblock.append(g)
         if len(scanblock) == 0:
