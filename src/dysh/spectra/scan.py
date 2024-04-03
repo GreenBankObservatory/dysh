@@ -821,6 +821,7 @@ class FSScan(ScanMixin):
         """
         Frequency switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
         """
+        print(f'FOLD={kwargs["fold"]}')
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -945,6 +946,7 @@ class FSScan(ScanMixin):
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         # @todo   the nspect loop could be replaced with clever numpy?
+        _fold = kwargs.get("fold", False)
         for i in range(nspect):
             # @todo   do the proper FS shift and folding
             tsys_sig = mean_tsys(calon=self._sigcalon[i], caloff=self._sigcaloff[i], tcal=tcal[i])
@@ -957,7 +959,7 @@ class FSScan(ScanMixin):
             cal_sig = do_sig_ref(tp_sig, tp_ref, tsys_ref)
             cal_ref = do_sig_ref(tp_ref, tp_sig, tsys_sig)
             #
-            if kwargs.pop("fold"):
+            if _fold:
                 cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i])
                 cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
                 self._folded = True
@@ -1066,6 +1068,11 @@ class SubBeamNodScan(ScanMixin):
         Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
     calibrate: bool
         Whether or not to calibrate the data.
+    observer_location : `~astropy.coordinates.EarthLocation`
+        Location of the observatory. See `~dysh.coordinates.Observatory`.
+        This will be transformed to `~astropy.coordinates.ITRS` using the time of
+        observation DATE-OBS or MJD-OBS in
+        the SDFITS header.  The default is the location of the GBT.
     weights: str
         Weighting scheme to use when averaging the signal and reference scans
         'tsys' or None.  If 'tsys' the weight will be calculated as:
