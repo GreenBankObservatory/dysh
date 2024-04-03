@@ -155,7 +155,7 @@ class TestSubBeamNod:
         # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sbn = sdf.subbeamnod(
-            43, sig=None, cal=None, ifnum=0, fdnum=1, plnum=0, calibrate=True, weights="tsys", method="scan"
+            scan=43, sig=None, cal=None, ifnum=0, fdnum=1, plnum=0, calibrate=True, weights="tsys", method="scan"
         )
 
         # Load the GBTIDL result.
@@ -180,7 +180,7 @@ class TestTPScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps = sdf.gettp(153)
+        tps = sdf.gettp(scan=153, ifnum=0, plnum=0)
         tsys = tps[0].tsys
 
         hdu = fits.open(gbtidl_file)
@@ -199,7 +199,7 @@ class TestTPScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tp = sdf.gettp(152)
+        tp = sdf.gettp(scan=152, ifnum=0, plnum=0)
 
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
@@ -226,7 +226,7 @@ class TestTPScan:
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         # tp is a ScanList
-        tp = sdf.gettp(152)
+        tp = sdf.gettp(scan=152, ifnum=0, plnum=0)
         assert len(tp) == 1
         # tpavg is a  Spectrum
         tpavg = tp.timeaverage()
@@ -268,7 +268,7 @@ class TestTPScan:
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tp = sdf.gettp(152)
+        tp = sdf.gettp(scan=152, ifnum=0, plnum=0)
         assert len(tp) == 1
         # tpavg is a Spectrum
         tpavg = tp.timeaverage(weights=None)

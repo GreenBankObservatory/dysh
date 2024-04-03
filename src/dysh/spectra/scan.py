@@ -249,6 +249,7 @@ class TPScan(ScanMixin):
         self._index = df
         # self._feeds = uniq(df["FDNUM"])
         self._pols = uniq(df["PLNUM"])
+        print(f"TPSCAN pols={self._pols}")
         # self._ifs = uniq(df["IFNUM"])
         self._nint = 0
         self._npol = len(self._pols)
@@ -697,8 +698,7 @@ class FSScan(ScanMixin):
     """
 
     def __init__(
-        self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, fold=True,
-        observer_location=Observatory["GBT"]
+        self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, fold=True, observer_location=Observatory["GBT"]
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
@@ -897,8 +897,7 @@ class FSScan(ScanMixin):
             return (sig - ref) / ref * tsys
 
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
-            """
-            """
+            """ """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
             # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
             ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
@@ -1054,7 +1053,7 @@ class FSScan(ScanMixin):
         return self._timeaveraged
 
 
-class SubBeamNodScan(ScanMixin):  # SBNodScan?
+class SubBeamNodScan(ScanMixin):
     r"""
     Parameters
     ----------
@@ -1183,7 +1182,7 @@ class SubBeamNodScan(ScanMixin):  # SBNodScan?
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations")
+            raise Exception(f"Can't yet time average multiple polarizations {self._npol}")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         nchan = len(data[0])

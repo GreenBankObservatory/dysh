@@ -32,7 +32,7 @@ class TestVelocityFrames:
         sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.156.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sp = sdf.gettp(156)[0].total_power(0)
+        sp = sdf.gettp(scan=156, plnum=0, ifnum=0)[0].total_power(0)
 
         # dict of veldef frame type to astropy frame type string
         framedict = {

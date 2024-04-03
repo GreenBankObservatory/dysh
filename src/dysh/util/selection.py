@@ -27,6 +27,7 @@ default_aliases = {
     "source": "object",
     "pol": "plnum",
     "intnum": "row",  # integration number
+    "subref": "subref_state",  # subreflector state
 }
 
 
