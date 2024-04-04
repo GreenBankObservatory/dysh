@@ -184,6 +184,7 @@ def do_total_power(no_cal, cal, tcal):#, tsys_med=False):
     # else:
     #     tp["TSYS"] = np.nanmedian(tsys, axis=1)
     tp["TSYS"] = tsys
+    print("TSYS:",tsys)
 
     return tp
 
@@ -286,6 +287,31 @@ def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
 
     return out
 
+def do_fold2(sig, ref, sig_freq, ref_freq, remove_wrap=False):
+    """
+    Fold and align (smaller) arrays!
+    """
+
+    chan_shift = (sig_freq[0,0] - ref_freq[0,0])/np.abs(np.diff(sig_freq)).mean()
+    ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
+    #print("do_fold: chan_shift=",chan_shift, 'CRPIX',ref_shift['CRPIX1'])
+    
+
+    # sig_w = sig["EXPOSURE"][:,np.newaxis]*abs(sig["CDELT1"][:,np.newaxis])/np.power(sig["TSYS"], 2.)
+    # ref_w = ref["EXPOSURE"][:,np.newaxis]*abs(ref["CDELT1"][:,np.newaxis])/np.power(ref["TSYS"], 2.)
+    sig_w = (sig["EXPOSURE"]*abs(sig["CDELT1"])/np.power(sig["TSYS"], 2.))[:,np.newaxis]
+    ref_w = (ref["EXPOSURE"]*abs(ref["CDELT1"])/np.power(ref["TSYS"], 2.))[:,np.newaxis]
+    #print('sig_w',sig_w)
+    avg = (sig["DATA"]*sig_w + ref_shift["DATA"]*ref_w) / (sig_w + ref_w)
+
+    out = copy(sig)
+    out["DATA"] = avg
+    # This needs to be implemented.
+    # out["TSYS"] = 
+    out["EXPOSURE"] = sig["EXPOSURE"] + ref["EXPOSURE"]
+
+    return out
+
 
 def do_shift(table, offset, remove_wrap=False):
     """
@@ -335,7 +361,7 @@ data_path = testdata  / "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.
 scan  = 20
 ifnum = 0    # only 0
 fdnum = 0    # only 0
-plnum = 1   # 0 or 1
+plnum = 0   # 0 or 1
 fold  = True     # when is this ever False?
 
 # %%
@@ -368,7 +394,7 @@ q.update({"CAL": ("==", "'T'")})
 ref_cal = select_rows(df, q, op="and")
 
 # %%
-sig, ref, sig_cal, ref_cal
+plnum,sig, ref, sig_cal, ref_cal
 
 # %%
 # Determine if this is in-band or out-of-band frequency switching.
@@ -376,7 +402,7 @@ nchan = table["DATA"].shape[1]
 sig_freq = index_frequency(df.iloc[sig])
 ref_freq = index_frequency(df.iloc[ref])
 chan_shift = abs(sig_freq[0,0] - ref_freq[0,0])/np.abs(np.diff(sig_freq)).mean()
-print(chan_shift)
+print('Channel shift:',chan_shift)
 if nchan > chan_shift:
     in_band = True
 else:
@@ -398,7 +424,7 @@ def peak(x,y,imax=-1):
     dx = x[imax]-x[imax-1]
     loc = 0.5*(y1-y3)/(y1+y3-2*y2);
     xpeak = x[imax] + 0.5*(y1-y3)/(y1+y3-2*y2)*dx;
-    print('@%d  %f %f  %g   %g %g' % (imax,x[imax],xpeak,y[imax],y1,y3)) 
+    print('PEAK @%d  %f %f  %g   %g %g' % (imax,x[imax],xpeak,y[imax],y1,y3)) 
   
    
 
@@ -409,27 +435,31 @@ tp_sig = do_total_power(table[sig], table[sig_cal], tcal)#, tsys_med=False)
 tp_ref = do_total_power(table[ref], table[ref_cal], tcal)#, tsys_med=False)
 
 #%%
-print(table[ref]['DATA'][0])
-plt.figure()
+
+plt.figure(1)
+plt.clf()
 y=table[sig]['DATA'][0]
 plt.plot(np.arange(nchan),y,label='sig')
 z=table[ref]['DATA'][0]
 plt.plot(np.arange(nchan),z,label='ref')
-print('MINMAX',y.min(),y.max())
-plt.title("RAW sig")
+
+plt.title(f"RAW sig ; plnum={plnum}")
 plt.legend()
 
+print('MINMAX sig',y.min(),y.max())
 peak(np.arange(nchan),y)
+print('MINMAX ref',z.min(),z.max())
 peak(np.arange(nchan),z)
 # %%
-plt.figure()
+plt.figure(2)
+plt.clf()
 nchan = len(sig_freq[0])
 plt.plot(np.arange(nchan), tp_sig["DATA"][0],label='sig')
 plt.plot(np.arange(nchan), tp_ref["DATA"][0],label='ref')
 plt.xlabel("Channel")
 plt.ylabel("Counts (A.U.)");
 #plt.title(f"sig/ref RAW plnum={plnum} tcal={tcal:.2f	}")
-plt.title("RAW")
+plt.title(f"TP; plnum={plnum}")
 plt.legend()
 print('MINMAX2',tp_sig["DATA"][0].min(),tp_sig["DATA"][0].max())
 
@@ -439,7 +469,23 @@ peak(np.arange(nchan),y)
 peak(np.arange(nchan),z)
 
 # %%
-plt.figure()
+plt.figure(3)
+plt.clf()
+nchan = len(sig_freq[0])
+x = table[sig[0]]["DATA"]
+y = table[sig_cal[0]]["DATA"]
+
+plt.plot(np.arange(nchan), y-x,label='sig_cal - sig')
+plt.xlabel("Channel")
+plt.ylabel("Counts (A.U.)");
+plt.xlim(16070,16175)
+plt.title(f"RAW; sig_cal - sig  plnum={plnum}")
+plt.legend()
+
+
+# %%
+plt.figure(4)
+plt.clf()
 plt.plot(sig_freq[0].to("MHz").value, tp_sig["DATA"][0])
 plt.plot(ref_freq[0].to("MHz").value, tp_ref["DATA"][0])
 plt.xlabel("Frequency (MHz)")
@@ -448,7 +494,7 @@ plt.title("tp_sig/ref RAW")
 plt.xlim(1665.62, 1665.68)
 
 peak(sig_freq[0].to("MHz").value,tp_sig["DATA"][0])
-peak(ref_freq[0].to("MHz").value,tp_ref["DATA"][0])
+#peak(x2,tp_ref["DATA"][0])
 
 
 #%%
@@ -461,7 +507,8 @@ cal_sig = do_sig_ref(tp_sig, tp_ref, smooth=False)
 cal_ref = do_sig_ref(tp_ref, tp_sig, smooth=False)
 
 # %%
-plt.figure()
+plt.figure(5)
+plt.clf()
 plt.plot(sig_freq[0].to("MHz").value, cal_sig["DATA"][0], label="cal_sig")
 plt.plot(ref_freq[0].to("MHz").value, cal_ref["DATA"][0], label="cal_ref")
 plt.xlabel("Frequency (MHz)")
@@ -477,15 +524,18 @@ peak(ref_freq[0].to("MHz").value, cal_ref["DATA"][0])
 # This should only take place when 
 # this is in-band frequency switching.
 if in_band and fold:
-    cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq, ref_freq)
-    cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq, sig_freq)
+    cal_sig_fold  = do_fold( cal_sig, cal_ref, sig_freq, ref_freq)
+    cal_ref_fold  = do_fold( cal_ref, cal_sig, ref_freq, sig_freq)
+    cal_sig_fold2 = do_fold2(cal_sig, cal_ref, sig_freq, ref_freq)
+    cal_ref_fold2 = do_fold2(cal_ref, cal_sig, ref_freq, sig_freq)
 
 # %%
 cal_sig_freq = table_frequency(cal_sig_fold)
-cal_ref_freq = table_frequency(cal_ref_fold)  # @is this one wrong?
+cal_ref_freq = table_frequency(cal_ref_fold)  
 
 # %%
-plt.figure()
+plt.figure(6)
+plt.clf()
 if True:
     plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid')
     plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid')
@@ -507,7 +557,8 @@ peak(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0])
 # Notice that there's still half a channel shift between spectra. This is also likely why the results does not match the one from GBTIDL.
 
 #%%
-plt.figure()
+plt.figure(7)
+plt.clf()
 if False:
     plt.plot(cal_sig_freq[0].to("MHz").value, cal_sig_fold["DATA"][0], drawstyle='steps-mid')
     plt.plot(cal_ref_freq[0].to("MHz").value, cal_ref_fold["DATA"][0], drawstyle='steps-mid')
@@ -520,6 +571,10 @@ plt.ylim(-50,1000)
 plt.xlabel("Frequency (MHz)")
 plt.ylabel("Antenna Temperature (K)");
 plt.title("cal sig/ref fold - zoomed - notice 1/2 chan offset");
+
+# %%
+
+
 # %%
 testdata  = util.get_project_testdata()
 cal_data_path = testdata  / "TGBT21A_504_01/TGBT21A_504_01.cal.vegas.fits"
@@ -551,7 +606,8 @@ pjt1 = table1b['DATA'][0]
 
 #%%
 
-plt.figure()
+plt.figure(8)
+plt.clf()
 lw=4
 if plnum==0:
     plt.plot(f[0]/1e6, pol1, label='GBTIDL plnum=0',drawstyle='steps-mid', linewidth=lw)
