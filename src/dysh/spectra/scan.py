@@ -897,10 +897,14 @@ class FSScan(ScanMixin):
             return (sig - ref) / ref * tsys
 
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
-            """ """
+            """
+            """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
             # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
             ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
+            # @todo weights
+            avg = (sig + ref_shift)/2
+            return avg
 
         def do_shift(data, offset, remove_wrap=False):
             """
@@ -926,10 +930,16 @@ class FSScan(ScanMixin):
 
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
+        _fold = kwargs.get("fold", False)
         nspect = self.nrows // 2
-        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
-        self._tsys = np.empty(nspect, dtype="d")
-        self._exposure = np.empty(nspect, dtype="d")
+        if _fold:
+            self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+            self._tsys = np.empty(nspect, dtype="d")
+            self._exposure = np.empty(nspect, dtype="d")
+        else:
+            self._calibrated = np.empty((2*nspect, self._nchan), dtype="d")
+            self._tsys = np.empty(2*nspect, dtype="d")
+            self._exposure = np.empty(2*nspect, dtype="d")
         #
         sig_freq = self._sigcalon[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
@@ -946,13 +956,11 @@ class FSScan(ScanMixin):
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         # @todo   the nspect loop could be replaced with clever numpy?
-        _fold = kwargs.get("fold", False)
         for i in range(nspect):
-            # @todo   do the proper FS shift and folding
             tsys_sig = mean_tsys(calon=self._sigcalon[i], caloff=self._sigcaloff[i], tcal=tcal[i])
             tsys_ref = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
             if i == 0:
-                print("Tsys(s/r)[0]=", tsys_sig, tsys_ref)
+                print("Tsys(sig/ref)[0]=", tsys_sig, tsys_ref)
             tp_sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
             tp_ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
             #
@@ -963,10 +971,17 @@ class FSScan(ScanMixin):
                 cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i])
                 cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
                 self._folded = True
-            self._calibrated[i] = cal_sig  # for now, make this some <fold>
-            self._tsys[i] = tsys_ref  # for now
-            self._exposure[i] = self.exposure[i]
-        print("Calibrated %d spectra" % nspect)
+                self._calibrated[i] = cal_sig_fold  # for now, or should we <average> the two
+                self._tsys[i] = tsys_ref                 # for now
+                self._exposure[i] = 2*self.exposure[i]     # @todo
+            else:
+                self._calibrated[2*i] = cal_sig  
+                self._calibrated[2*i+1] = cal_ref
+                self._tsys[2*i] = tsys_ref                   # @todo
+                self._exposure[2*i] = self.exposure[i]       # @todo
+                self._tsys[2*i+1] = tsys_ref                 # @todo
+                self._exposure[2*i+1] = self.exposure[i]     # @todo
+        print("Calibrated %d spectra with fold=%s" % (nspect,repr(_fold)))
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
