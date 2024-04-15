@@ -287,3 +287,22 @@ class TestTPScan:
         assert table["EXPOSURE"][0] == tpavg.meta["EXPOSURE"]
         assert abs(table["TSYS"][0] - tpavg.meta["TSYS"]) < 2**-32
         assert np.all((data[0] - tpavg.flux.value.astype(np.float32)) == 0.0)
+
+
+class TestFScan:
+    def test_getfs_with_args(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
+        gbtidl_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.cal.vegas.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True)
+        ta = fsscan.timeaverage(weights="tsys")
+
+        hdu = fits.open(gbtidl_file)
+        table = hdu[1].data
+        data = table["DATA"]
+
+        assert True
+
+    def test_getfs_with_selection(self, data_dir):
+        assert True
