@@ -53,8 +53,8 @@ class Selection(DataFrame):
     with :meth:`show` which will show the current
     rules and how many rows each rule selects from the unfiltered data.
 
-    Aliases of keywords are supported. The user may add an alias for an existing SDFITS column
-    with :meth:`alias`.   Some default :meth:`aliases` have been defined.
+
+    Aliases of keywords are supported. The user may add an alias for an existing SDFITS column with :meth:`alias`.   Some default :meth:`aliases` have been defined.
     """
 
     def __init__(self, initobj, aliases=default_aliases, **kwargs):
