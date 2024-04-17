@@ -430,9 +430,9 @@ def tsys_weight(exposure, delta_freq, tsys):
     # weight = abs(delta_freq) * exposure / tsys**2.
     weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
     if type(weight) == u.Quantity:
-        return weight.value.astype(np.longdouble)
+        return weight.value.astype(np.float64)
     else:
-        return weight.astype(np.longdouble)
+        return weight.astype(np.float64)
 
 
 def get_spectral_equivalency(restfreq, velocity_convention):
