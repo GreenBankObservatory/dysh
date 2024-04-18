@@ -53,8 +53,8 @@ class Selection(DataFrame):
     with :meth:`show` which will show the current
     rules and how many rows each rule selects from the unfiltered data.
 
-    Aliases of keywords are supported. The user may add an alias for an existing SDFITS column
-    with :meth:`alias`.   Some default :meth:`aliases` have been defined.
+
+    Aliases of keywords are supported. The user may add an alias for an existing SDFITS column with :meth:`alias`.   Some default :meth:`aliases` have been defined.
     """
 
     def __init__(self, initobj, aliases=default_aliases, **kwargs):
@@ -68,14 +68,13 @@ class Selection(DataFrame):
         # in a UserWarning, which we can safely ignore.
         warnings.simplefilter("ignore", category=UserWarning)
         self._add_utc_column()
-        idtag = ["ID", "TAG"]
         # if we want Selection to replace _index in sdfits
         # construction this will have to change. if hasattr("_index") etc
-
+        self._idtag = ["ID", "TAG"]
         DEFKEYS.extend(["CHAN", "UTC", "# SELECTED"])
         # add ID and TAG as the first columns
-        for i in range(len(idtag)):
-            DEFKEYS.insert(i, idtag[i])
+        for i in range(len(self._idtag)):
+            DEFKEYS.insert(i, self._idtag[i])
         # add channel, astropy-based timestamp, and number rows selected
         DEFKEYS = np.array(DEFKEYS)
         # set up object types for the np.array
@@ -84,9 +83,9 @@ class Selection(DataFrame):
         dt = np.insert(dt, len(dt), np.int32)
         # ID is also an int
         dt[0] = np.int32
-        self._table = Table(data=None, names=DEFKEYS, dtype=dt)
-        for t in idtag:
-            self._table.add_index(t)
+        self._defkeys = DEFKEYS
+        self._deftypes = dt
+        self._make_table()
         self._valid_coordinates = ["RA", "DEC", "GALLON", "GALLAT", "GLON", "GLAT", "CRVAL2", "CRVAL3"]
         self._selection_rules = {}
         self._aliases = {}
@@ -105,6 +104,12 @@ class Selection(DataFrame):
         None.
         """
         self["UTC"] = [gbt_timestamp_to_time(q) for q in self.TIMESTAMP]
+
+    def _make_table(self):
+        """Create the table for displaying the selection rules"""
+        self._table = Table(data=None, names=self._defkeys, dtype=self._deftypes)
+        for t in self._idtag:
+            self._table.add_index(t)
 
     @property
     def aliases(self):
@@ -700,6 +705,11 @@ class Selection(DataFrame):
                 del self._selection_rules[i]
                 # self._selection_rules.pop(i, None) # also works
             self._table.remove_rows(matching_indices)
+
+    def clear(self):
+        """Remove all selection rules"""
+        self._selection_rules = {}
+        self._make_table()
 
     def show(self):
         """
