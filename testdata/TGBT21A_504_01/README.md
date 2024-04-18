@@ -10,13 +10,22 @@ To save space in the repo, we use only one of the scans that contains frequency 
 sdfits -scans=20 -backends=vegas TGBT21A_504_01/ScanLog.fits
 ```
 
-To generate the calibrated data used from comparison:
+To generate the calibrated folded data used from comparison.
 ``` IDL
 filein,"TGBT21A_504_01.raw.vegas"
 getfs,20,ifnum=0,plnum=0
 fileout,"TGBT21A_504_01.cal.vegas.fits"
 keep
 getfs,20,ifnum=0,plnum=1
+keep
+```
+To generate the calibrated UNfolded data used from comparison.
+``` IDL
+filein,"TGBT21A_504_01.raw.vegas"
+getfs,20,ifnum=0,plnum=0,/nofold
+fileout,"TGBT21A_504_01.nofold.vegas.fits"
+keep
+getfs,20,ifnum=0,plnum=1,/nofold
 keep
 ```
 
