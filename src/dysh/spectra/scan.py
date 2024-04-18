@@ -711,6 +711,8 @@ class FSScan(ScanMixin):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["OFF"]))))
 
+        print("---------------------------------------------------")
+        print("FSSCAN: ")
         print("SigOff", self._sigoffrows)
         print("SigOn", self._sigonrows)
         print("RefOff", self._refoffrows)
@@ -762,6 +764,7 @@ class FSScan(ScanMixin):
         self._calibrate = calibrate
         if self._calibrate:
             self.calibrate(fold=fold)
+        print("---------------------------------------------------")            
 
     @property
     def folded(self):
@@ -819,7 +822,8 @@ class FSScan(ScanMixin):
 
     def calibrate(self, **kwargs):
         """
-        Frequency switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
+        Frequency switch calibration, following equations ...
+        fold=True or fold=False is required
         """
         print(f'FOLD={kwargs["fold"]}')
 
@@ -910,13 +914,12 @@ class FSScan(ScanMixin):
             """
             Shift the data of a numpy array using roll/shift
 
-            @todo   can it be done in one step using ndimage.shift?
             @todo   use the fancier GBTIDL fft based shift
             """
 
             ishift = int(np.round(offset))  # Integer shift.
-            fshift = offset - ishift  # Fractional shift.
-            print("FOLD:  ishift=%d fshift=%g" % (ishift, fshift))
+            fshift = offset - ishift        # Fractional shift.
+            # print("FOLD:  ishift=%d fshift=%g" % (ishift, fshift))
             data2 = np.roll(data, ishift, axis=0)
             if remove_wrap:
                 if ishift < 0:
@@ -931,15 +934,11 @@ class FSScan(ScanMixin):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         _fold = kwargs.get("fold", False)
+        _mode = 1    #1: keep the sig    else: keep the ref     (not externally supported)
         nspect = self.nrows // 2
-        if _fold:
-            self._calibrated = np.empty((nspect, self._nchan), dtype="d")
-            self._tsys = np.empty(nspect, dtype="d")
-            self._exposure = np.empty(nspect, dtype="d")
-        else:
-            self._calibrated = np.empty((2*nspect, self._nchan), dtype="d")
-            self._tsys = np.empty(2*nspect, dtype="d")
-            self._exposure = np.empty(2*nspect, dtype="d")
+        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._tsys = np.empty(nspect, dtype="d")
+        self._exposure = np.empty(nspect, dtype="d")
         #
         sig_freq = self._sigcalon[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
@@ -971,17 +970,23 @@ class FSScan(ScanMixin):
                 cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i])
                 cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
                 self._folded = True
-                self._calibrated[i] = cal_sig_fold  # for now, or should we <average> the two
-                self._tsys[i] = tsys_ref                 # for now
-                self._exposure[i] = 2*self.exposure[i]     # @todo
+                if _mode == 1:
+                    self._calibrated[i] = cal_sig_fold           # for now, 
+                    self._tsys[i] = tsys_ref                     # for now
+                else:
+                    self._calibrated[i] = cal_ref_fold           # for now, 
+                    self._tsys[i] = tsys_sig                     # for now
+                self._exposure[i] = 2*self.exposure[i]           # @todo
             else:
-                self._calibrated[2*i] = cal_sig  
-                self._calibrated[2*i+1] = cal_ref
-                self._tsys[2*i] = tsys_ref                   # @todo
-                self._exposure[2*i] = self.exposure[i]       # @todo
-                self._tsys[2*i+1] = tsys_ref                 # @todo
-                self._exposure[2*i+1] = self.exposure[i]     # @todo
-        print("Calibrated %d spectra with fold=%s" % (nspect,repr(_fold)))
+                # @todo   should really only return one spectrum, not both
+                if _mode == 1:
+                    self._calibrated[i] = cal_sig                # only save the cal_sig
+                    self._tsys[i] = tsys_ref
+                else:
+                    self._calibrated[i] = cal_ref                # only save the cal_ref
+                    self._tsys[i] = tsys_sig
+                self._exposure[i] = self.exposure[i]
+        print("Calibrated %d spectra with fold=%s in mode=%s" % (nspect,repr(_fold),_mode))
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
@@ -1050,6 +1055,7 @@ class FSScan(ScanMixin):
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
         """
+        print("PJT:   timeaverage")
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
