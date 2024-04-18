@@ -699,7 +699,9 @@ class GBTFITSLoad(SDFITSLoad):
                     if debug:
                         print(f"{i, k, c} SCANROWS {rows}")
                         print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
-                    g = PSScan(self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable)
+                    g = PSScan(
+                        self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable, calibrate=calibrate
+                    )
                     scanblock.append(g)
                     c = c + 1
         if len(scanblock) == 0:
