@@ -25,6 +25,7 @@ calibration_kwargs = {
 }
 
 # from GBT IDL users guide Table 6.7
+# @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 
@@ -633,7 +634,12 @@ class GBTFITSLoad(SDFITSLoad):
         if debug:
             print(f"SELECTION FROM MIXED KWARGS {kwargs}")
         fs_selection._select_from_mixed_kwargs(**kwargs)
+        if debug:
+            print(fs_selection.show())
         _sf = fs_selection.final
+        if len(_sf) == 0:
+            raise Exception("Didn't find any scans matching the input selection criteria.")
+        #_sf = fs_selection.merge(how='inner')   ## ??? PJT
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
         scans = set(_sf["SCAN"])
@@ -644,7 +650,7 @@ class GBTFITSLoad(SDFITSLoad):
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
-                _df = select_from("IFNUM", k, df)  # on FSScan per ifnum
+                _df = select_from("IFNUM", k, df)  # one FSScan per ifnum
                 if debug:
                     # print(f"SCANLIST {scanlist}")
                     print(f"POLS {set(df['PLNUM'])}")
@@ -676,7 +682,6 @@ class GBTFITSLoad(SDFITSLoad):
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
-        # warnings.warn("Didn't find any scans matching the input selection criteria.")
         return scanblock
         # end of getfs()
 
@@ -760,7 +765,14 @@ class GBTFITSLoad(SDFITSLoad):
         if debug:
             print("AFTER")
             print(ps_selection.show())
-        _sf = ps_selection.final
+        print("PJT: ps_selection hack")
+        # PJT _sf = ps_selection.final
+        _sf = ps_selection.merge(how='inner')  ## ???
+        # @todo
+        if len(_sf) == 0:
+            raise Exception("Didn't find any scans matching the input selection criteria [1].")
+        else:
+            print("Len_SF = ",len(_sf))
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -898,7 +910,7 @@ class GBTFITSLoad(SDFITSLoad):
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
                 if len(calrows["ON"]) != len(calrows["OFF"]):
-                    raise Exception(f'unbalanaced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                    raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
                 # sig and cal are treated specially since
                 # they are not in kwargs and in SDFITS header
                 # they are not booleans but chars
