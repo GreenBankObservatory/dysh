@@ -721,8 +721,8 @@ class Selection(DataFrame):
     @property
     def final(self):
         """
-        Create the final selection. This is done by a logical OR of each
-        of the selection rules (specifically `pandas.merge(how='outer')`).
+        Create the final selection. This is done by a logical AND of each
+        of the selection rules (specifically `pandas.merge(how='inner')`).
 
         Returns
         -------
@@ -730,7 +730,8 @@ class Selection(DataFrame):
             The resultant selection from all the rules.
         """
         # start with unfiltered index.
-        return self.merge(how="outer")
+        #return self.merge(how="outer")
+        return self.merge(how="inner")    # @todo PJT check w/ MWP
 
     def merge(self, how):
         """
@@ -749,14 +750,17 @@ class Selection(DataFrame):
 
         """
         if len(self._selection_rules.values()) == 0:
-            return deepcopy(self)
+            # @todo bug or feature? -> returns everything now
+            warnings.warn("Selection.merge(): upselecting now")
+            return DataFrame()
+            #return deepcopy(self)
         final = None
         for df in self._selection_rules.values():
             if final is None:
                 # need a deepcopy here in case there
                 # is only one selection rule, because
                 # we don't want to return a reference to the rule
-                # which the reciever might modify.
+                # which the receiver might modify.
                 final = deepcopy(df)
             else:
                 final = pd.merge(final, df, how=how)
