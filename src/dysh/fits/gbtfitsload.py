@@ -771,10 +771,7 @@ class GBTFITSLoad(SDFITSLoad):
         if debug:
             print("AFTER")
             print(ps_selection.show())
-        print("PJT: ps_selection hack")
-        # PJT _sf = ps_selection.final
-        _sf = ps_selection.merge(how="inner")  ## ???
-        # @todo
+        _sf = ps_selection.final
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria [1].")
         else:
