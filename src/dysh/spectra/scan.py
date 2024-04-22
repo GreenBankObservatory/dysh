@@ -158,7 +158,7 @@ class ScanBlock(UserList, ScanMixin):
         for scan in self.data:
             scan.calibrate(**kwargs)
 
-    def timeaverage(self, weights="tsys"):
+    def timeaverage(self, weights="tsys", mode="old"):
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
@@ -174,34 +174,57 @@ class ScanBlock(UserList, ScanMixin):
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
         """
-        self._timeaveraged = []
-        for scan in self.data:
-            self._timeaveraged.append(scan.timeaverage(weights))
-        if weights == "tsys":
-            # There may be multiple integrations, so need to
-            # average the Tsys weights
-            w = np.array([np.nanmean(k._tsys_weight) for k in self.data])
-            if len(np.shape(w)) > 1:  # remove empty axes
-                w = w.squeeze()
+        if mode == "old":
+            # average of the averages
+            self._timeaveraged = []
+            for scan in self.data:
+                self._timeaveraged.append(scan.timeaverage(weights))
+            if weights == "tsys":
+                # There may be multiple integrations, so need to
+                # average the Tsys weights
+                w = np.array([np.nanmean(k._tsys_weight) for k in self.data])
+                if len(np.shape(w)) > 1:  # remove empty axes
+                    w = w.squeeze()
+            else:
+                w = weights
+            timeavg = np.array([k.data for k in self._timeaveraged])
+            # print(
+            #    f"TAsh {np.shape(timeavg)} len(data) = {len(self.data)} weights={w}"
+            # )  # " tsysW={self.data[0]._tsys_weight}")
+
+            # Weight the average of the timeaverages by the weights.
+            avgdata = average(timeavg, axis=0, weights=w)
+            avgspec = np.mean(self._timeaveraged)
+            avgspec.meta = self._timeaveraged[0].meta
+            avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
+            avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
+            # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
+            # hardcode to GBT for now
+
+            return Spectrum.make_spectrum(
+                avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
+            )
+        elif mode == "new":
+            # average of the integrations
+            allcal = np.all([d._calibrate for d in self.data])
+            if not allcal:
+                raise Exception("Data must be calibrated before time averaging.")
+            c = np.concatenate([d._calibrated for d in self.data])
+            if weights == "tsys":
+                w = np.concatenate([d._tsys_weight for d in self.data])
+                # if len(np.shape(w)) > 1:  # remove empty axes
+                #    w = w.squeeze()
+            else:
+                w = None
+            timeavg = average(c, weights=w)
+            avgspec = self.data[0].calibrated(0)
+            avgspec.meta["TSYS"] = np.average([d.tsys for d in self.data])
+            avgspec.meta["EXPOSURE"] = np.sum([d.exposure for d in self.data])
+            return Spectrum.make_spectrum(
+                timeavg * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
+            )
         else:
-            w = weights
-        timeavg = np.array([k.data for k in self._timeaveraged])
-        # print(
-        #    f"TAsh {np.shape(timeavg)} len(data) = {len(self.data)} weights={w}"
-        # )  # " tsysW={self.data[0]._tsys_weight}")
-
-        # Weight the average of the timeaverages by the weights.
-        avgdata = average(timeavg, axis=0, weights=w)
-        avgspec = np.mean(self._timeaveraged)
-        avgspec.meta = self._timeaveraged[0].meta
-        avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
-        avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
-        # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
-        # hardcode to GBT for now
-
-        return Spectrum.make_spectrum(
-            avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
-        )
+            raise Exception(f"unrecognized mode {mode}")
 
     def polaverage(self, weights="tsys"):
         r"""Average all polarizations in all scans in this ScanBlock
