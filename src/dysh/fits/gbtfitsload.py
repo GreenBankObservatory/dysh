@@ -621,7 +621,10 @@ class GBTFITSLoad(SDFITSLoad):
         print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX().
-        _final = self._selection.final
+        if len(self._selection._selection_rules) > 0:
+            _final = self._selection.final
+        else:
+            _final = self._index
         scans = kwargs.pop("scan", None)
         debug = kwargs.get("debug", False)
         if type(scans) is int:
@@ -639,7 +642,7 @@ class GBTFITSLoad(SDFITSLoad):
         _sf = fs_selection.final
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
-        #_sf = fs_selection.merge(how='inner')   ## ??? PJT
+        # _sf = fs_selection.merge(how='inner')   ## ??? PJT
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
         scans = set(_sf["SCAN"])
@@ -724,7 +727,10 @@ class GBTFITSLoad(SDFITSLoad):
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
-        _final = self._selection.final
+        if len(self._selection._selection_rules) > 0:
+            _final = self._selection.final
+        else:
+            _final = self._index
         # print(kwargs)
         scans = kwargs.pop("scan", None)
         debug = kwargs.pop("debug", False)
@@ -765,14 +771,11 @@ class GBTFITSLoad(SDFITSLoad):
         if debug:
             print("AFTER")
             print(ps_selection.show())
-        print("PJT: ps_selection hack")
-        # PJT _sf = ps_selection.final
-        _sf = ps_selection.merge(how='inner')  ## ???
-        # @todo
+        _sf = ps_selection.final
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria [1].")
         else:
-            print("Len_SF = ",len(_sf))
+            print("Len_SF = ", len(_sf))
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -874,7 +877,10 @@ class GBTFITSLoad(SDFITSLoad):
         TF = {True: "T", False: "F"}
         sigstate = {True: "SIG", False: "REF", None: "BOTH"}
         calstate = {True: "ON", False: "OFF", None: "BOTH"}
-        _final = self._selection.final
+        if len(self._selection._selection_rules) > 0:
+            _final = self._selection.final
+        else:
+            _final = self._index
         scan = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
@@ -980,7 +986,10 @@ class GBTFITSLoad(SDFITSLoad):
             A ScanBlock object containing the data
 
         """
-        _final = self._selection.final
+        if len(self._selection._selection_rules) > 0:
+            _final = self._selection.final
+        else:
+            _final = self._index
         scan = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)

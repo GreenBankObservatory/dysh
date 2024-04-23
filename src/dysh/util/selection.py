@@ -730,10 +730,10 @@ class Selection(DataFrame):
             The resultant selection from all the rules.
         """
         # start with unfiltered index.
-        #return self.merge(how="outer")
-        return self.merge(how="inner")    # @todo PJT check w/ MWP
+        # return self.merge(how="outer")
+        return self.merge(how="inner")
 
-    def merge(self, how):
+    def merge(self, how, on=None):
         """
         Merge selection rules using a specific
         type of join.
@@ -743,6 +743,11 @@ class Selection(DataFrame):
         how : {‘left’, ‘right’, ‘outer’, ‘inner’, ‘cross’}, no default.
             The type of join to be performed. See :meth:`pandas.merge()`.
 
+        on: label or list
+            Column or index level names to join on. These must be found in both DataFrames.
+            If on is None and not merging on indexes then this defaults to the intersection
+            of the columns in both DataFrames.
+
         Returns
         -------
         final : DataFrame
@@ -750,10 +755,8 @@ class Selection(DataFrame):
 
         """
         if len(self._selection_rules.values()) == 0:
-            # @todo bug or feature? -> returns everything now
-            warnings.warn("Selection.merge(): upselecting now")
+            # warnings.warn("Selection.merge(): upselecting now")
             return DataFrame()
-            #return deepcopy(self)
         final = None
         for df in self._selection_rules.values():
             if final is None:
@@ -763,7 +766,7 @@ class Selection(DataFrame):
                 # which the receiver might modify.
                 final = deepcopy(df)
             else:
-                final = pd.merge(final, df, how=how)
+                final = pd.merge(final, df, how=how, on=on)
         return final
 
     def _select_from_mixed_kwargs(self, **kwargs):

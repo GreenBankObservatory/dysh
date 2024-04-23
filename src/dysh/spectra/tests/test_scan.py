@@ -75,13 +75,16 @@ class TestPSScan:
         assert ta.meta["EXPOSURE"] == table["EXPOSURE"]
         assert np.all(np.abs(table["DATA"][0] - ta.flux.value) < 3e-7)
 
-    @pytest.mark.skip(reason="Currently failing until MWP updates selection.py")
     def test_ps_with_selection(self, data_dir):
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         ps_scans1 = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
-        sdf.select(scan=[156, 158], ifnum=0, plnum=0)
+        # because selection ANDs the selection rules, if the user selects [156,158]
+        # and then we select [157,159] under the hood the AND will be exlusive and
+        # the getps will fail. There is no easy way around this without a lot
+        # of klugy code.  See issue #230
+        sdf.select(scan=[156, 157, 158, 159], ifnum=0, plnum=0)
         ps_scans2 = sdf.getps()
         assert len(ps_scans1) == 2
         assert len(ps_scans2) == 2

@@ -59,6 +59,57 @@ class ScanMixin:
         """
         return self._npol
 
+    @property
+    def ifnum(self):
+        """The IF number
+
+        Returns
+        -------
+        int
+            The index of the Intermediate Frequency
+        """
+        return self._ifnum
+
+    @property
+    def fdnum(self):
+        """The feed number
+
+        Returns
+        -------
+        int
+            The index of the Feed
+        """
+        return self._fdnum
+
+    @property
+    def pols(self):
+        """The polarization number(s)
+
+        Returns
+        -------
+        list
+            The list of integer polarization number(s)
+        """
+        return self._pols
+
+    def _set_if_fd(self, df):
+        """Set the IF and FD numbers from the input dataframe and
+        raise an error of there are more than one
+
+        Parameters
+        ----------
+        df : ~pandas.DataFrame
+            The DataFrame describing the selected data
+        """
+        self._ifnum = uniq(df["IFNUM"])
+        self._fdnum = uniq(df["FDNUM"])
+        if len(self._ifnum) > 1:
+            raise Exception(f"Only one IFNUM is allowed per Scan, found {self.ifnum}")
+        if len(self._fdnum) > 1:
+            raise Exception(f"Only one FDNUM is allowed per Scan, found {self.fdnum}")
+        self._ifnum = self._ifnum[0]
+        self._fdnum = self._fdnum[0]
+
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
         pass
@@ -107,7 +158,7 @@ class ScanBlock(UserList, ScanMixin):
         for scan in self.data:
             scan.calibrate(**kwargs)
 
-    def timeaverage(self, weights="tsys"):
+    def timeaverage(self, weights="tsys", mode="old"):
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
@@ -123,34 +174,57 @@ class ScanBlock(UserList, ScanMixin):
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
         """
-        self._timeaveraged = []
-        for scan in self.data:
-            self._timeaveraged.append(scan.timeaverage(weights))
-        if weights == "tsys":
-            # There may be multiple integrations, so need to
-            # average the Tsys weights
-            w = np.array([np.nanmean(k._tsys_weight) for k in self.data])
-            if len(np.shape(w)) > 1:  # remove empty axes
-                w = w.squeeze()
+        if mode == "old":
+            # average of the averages
+            self._timeaveraged = []
+            for scan in self.data:
+                self._timeaveraged.append(scan.timeaverage(weights))
+            if weights == "tsys":
+                # There may be multiple integrations, so need to
+                # average the Tsys weights
+                w = np.array([np.nanmean(k._tsys_weight) for k in self.data])
+                if len(np.shape(w)) > 1:  # remove empty axes
+                    w = w.squeeze()
+            else:
+                w = weights
+            timeavg = np.array([k.data for k in self._timeaveraged])
+            # print(
+            #    f"TAsh {np.shape(timeavg)} len(data) = {len(self.data)} weights={w}"
+            # )  # " tsysW={self.data[0]._tsys_weight}")
+
+            # Weight the average of the timeaverages by the weights.
+            avgdata = average(timeavg, axis=0, weights=w)
+            avgspec = np.mean(self._timeaveraged)
+            avgspec.meta = self._timeaveraged[0].meta
+            avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
+            avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
+            # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
+            # hardcode to GBT for now
+
+            return Spectrum.make_spectrum(
+                avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
+            )
+        elif mode == "new":
+            # average of the integrations
+            allcal = np.all([d._calibrate for d in self.data])
+            if not allcal:
+                raise Exception("Data must be calibrated before time averaging.")
+            c = np.concatenate([d._calibrated for d in self.data])
+            if weights == "tsys":
+                w = np.concatenate([d._tsys_weight for d in self.data])
+                # if len(np.shape(w)) > 1:  # remove empty axes
+                #    w = w.squeeze()
+            else:
+                w = None
+            timeavg = average(c, weights=w)
+            avgspec = self.data[0].calibrated(0)
+            avgspec.meta["TSYS"] = np.average([d.tsys for d in self.data])
+            avgspec.meta["EXPOSURE"] = np.sum([d.exposure for d in self.data])
+            return Spectrum.make_spectrum(
+                timeavg * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
+            )
         else:
-            w = weights
-        timeavg = np.array([k.data for k in self._timeaveraged])
-        # print(
-        #    f"TAsh {np.shape(timeavg)} len(data) = {len(self.data)} weights={w}"
-        # )  # " tsysW={self.data[0]._tsys_weight}")
-
-        # Weight the average of the timeaverages by the weights.
-        avgdata = average(timeavg, axis=0, weights=w)
-        avgspec = np.mean(self._timeaveraged)
-        avgspec.meta = self._timeaveraged[0].meta
-        avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
-        avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
-        # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
-        # hardcode to GBT for now
-
-        return Spectrum.make_spectrum(
-            avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
-        )
+            raise Exception(f"unrecognized mode {mode}")
 
     def polaverage(self, weights="tsys"):
         r"""Average all polarizations in all scans in this ScanBlock
@@ -247,9 +321,8 @@ class TPScan(ScanMixin):
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
-        # self._feeds = uniq(df["FDNUM"])
+        self._set_if_fd(df)
         self._pols = uniq(df["PLNUM"])
-        # self._ifs = uniq(df["IFNUM"])
         self._nint = 0
         self._npol = len(self._pols)
         self._timeaveraged = None
@@ -469,11 +542,11 @@ class PSScan(ScanMixin):
         self._scans = scans
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
-        print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
-        print("PJT scans", scans)
-        print("PJT scanrows", scanrows)
-        print("PJT calrows", calrows)
+        # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
+        # print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
+        # print("PJT scans", scans)
+        # print("PJT scanrows", scanrows)
+        # print("PJT calrows", calrows)
         # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
         # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
 
@@ -491,8 +564,8 @@ class PSScan(ScanMixin):
         self._observer_location = observer_location
         # df = selection.iloc[scanrows["ON"]]
         df = self._sdfits._index.iloc[scanrows["ON"]]
+        self._set_if_fd(df)
         self._pols = uniq(df["PLNUM"])
-        # print(f"PSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
@@ -741,13 +814,10 @@ class FSScan(ScanMixin):
 
         df = self._sdfits._index.iloc[self._scanrows]
         print("PJT: len(df) = ", len(df))
-        self._feeds = uniq(df["FDNUM"])
+        self._set_if_fd(df)
         self._pols = uniq(df["PLNUM"])
-        self._ifs = uniq(df["IFNUM"])
         print(f"FSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
-        self._nfeed = len(self._feeds)
-        self._nif = len(self._ifs)  # should be 1
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # @todo use gbtfits.velocity_convention(veldef,velframe)
@@ -764,7 +834,7 @@ class FSScan(ScanMixin):
         self._calibrate = calibrate
         if self._calibrate:
             self.calibrate(fold=fold)
-        print("---------------------------------------------------")            
+        print("---------------------------------------------------")
 
     @property
     def folded(self):
@@ -901,13 +971,12 @@ class FSScan(ScanMixin):
             return (sig - ref) / ref * tsys
 
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
-            """
-            """
+            """ """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
             # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
             ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
             # @todo weights
-            avg = (sig + ref_shift)/2
+            avg = (sig + ref_shift) / 2
             return avg
 
         def do_shift(data, offset, remove_wrap=False):
@@ -918,7 +987,7 @@ class FSScan(ScanMixin):
             """
 
             ishift = int(np.round(offset))  # Integer shift.
-            fshift = offset - ishift        # Fractional shift.
+            fshift = offset - ishift  # Fractional shift.
             # print("FOLD:  ishift=%d fshift=%g" % (ishift, fshift))
             data2 = np.roll(data, ishift, axis=0)
             if remove_wrap:
@@ -934,7 +1003,7 @@ class FSScan(ScanMixin):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         _fold = kwargs.get("fold", False)
-        _mode = 1    #1: keep the sig    else: keep the ref     (not externally supported)
+        _mode = 1  # 1: keep the sig    else: keep the ref     (not externally supported)
         nspect = self.nrows // 2
         self._calibrated = np.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
@@ -971,22 +1040,22 @@ class FSScan(ScanMixin):
                 cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
                 self._folded = True
                 if _mode == 1:
-                    self._calibrated[i] = cal_sig_fold           # for now, 
-                    self._tsys[i] = tsys_ref                     # for now
+                    self._calibrated[i] = cal_sig_fold  # for now,
+                    self._tsys[i] = tsys_ref  # for now
                 else:
-                    self._calibrated[i] = cal_ref_fold           # for now, 
-                    self._tsys[i] = tsys_sig                     # for now
-                self._exposure[i] = 2*self.exposure[i]           # @todo
+                    self._calibrated[i] = cal_ref_fold  # for now,
+                    self._tsys[i] = tsys_sig  # for now
+                self._exposure[i] = 2 * self.exposure[i]  # @todo
             else:
                 # @todo   should really only return one spectrum, not both
                 if _mode == 1:
-                    self._calibrated[i] = cal_sig                # only save the cal_sig
+                    self._calibrated[i] = cal_sig  # only save the cal_sig
                     self._tsys[i] = tsys_ref
                 else:
-                    self._calibrated[i] = cal_ref                # only save the cal_ref
+                    self._calibrated[i] = cal_ref  # only save the cal_ref
                     self._tsys[i] = tsys_sig
                 self._exposure[i] = self.exposure[i]
-        print("Calibrated %d spectra with fold=%s in mode=%s" % (nspect,repr(_fold),_mode))
+        print("Calibrated %d spectra with fold=%s in mode=%s" % (nspect, repr(_fold), _mode))
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
@@ -1120,8 +1189,11 @@ class SubBeamNodScan(ScanMixin):
         self._sigtp = sigtp
         self._reftp = reftp
         self._fulltp = fulltp
+        self._ifnum = self._sigtp[0].ifnum
+        self._fdnum = self._sigtp[0].fdnum
+        self._npol = self._sigtp[0].npol
+        self._pols = self._sigtp[0]._pols
         self._nchan = len(reftp[0]._data[0])
-        self._npol = 1
         self._nint = 0
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
