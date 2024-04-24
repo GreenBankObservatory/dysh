@@ -14,6 +14,7 @@ _KMS = u.km / u.s
 
 
 class SpectrumPlot:
+    # @todo make xaxis_unit='chan[nel]' work
     r"""
     The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
     using matplotlib functions. Plots attributes are modified using keywords
@@ -34,13 +35,13 @@ class SpectrumPlot:
     yaxis_unit : str or `~astropy.unit.Unit`
         The units to use on the y-axis
     xmin : float
-        Minimum x-axis value
+        Minimum x-axis value, in `xaxis_unit`
     xmax : float
-        Maximum x-axis value
+        Maximum x-axis value, in `yaxis_unit`
     ymin : float
-        Minimum y-axis value
+        Minimum y-axis value, in `xaxis_unit`
     ymax : float
-        Maximum y-axis value
+        Maximum y-axis value, in `yaxis_unit`
     xlabel : str
         x-axis label
     ylabel : str
@@ -98,6 +99,7 @@ class SpectrumPlot:
         return self._spectrum
 
     def plot(self, **kwargs):
+        # @todo document kwargs here
         r"""
         Plot the spectrum.
 

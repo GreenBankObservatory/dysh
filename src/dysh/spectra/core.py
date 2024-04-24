@@ -6,14 +6,12 @@ import warnings
 
 import astropy.units as u
 import numpy as np
-from astropy.io import fits
 from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
 from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 
-from ..coordinates import Observatory, make_target, veldef_to_convention
-from ..util import uniq
+from ..coordinates import veltofreq
 
 
 # @todo: allow data to be SpectrumList or array of Spectrum
@@ -115,7 +113,7 @@ def exclude_to_region(exclude, refspec, fix_exclude=False):
         if isinstance(exclude, SpectralRegion):
             b = exclude.bounds
             if b[0] < sa[0] or b[1] > sa[1]:
-                msg = f"Exclude limits {pair} are not fully within the spectral axis {sa}"
+                msg = f"Exclude limits {b} are not fully within the spectral axis {sa}"
                 raise Exception(msg)
             regionlist.append(exclude)
         # list of int or Quantity or SpectralRegion was given
@@ -150,12 +148,16 @@ def exclude_to_region(exclude, refspec, fix_exclude=False):
                         raise Exception(msg)
                     regionlist.append(pair)
                 else:  # it is a Quantity that may need conversion to spectral_axis units
-                    if pair[0].unit.is_equivalent("km/s"):
-                        offset = p.rest_value - p.radial_velocity.to(sa.unit, equivalencies=p.equivalencies)
+                    q = [pair[0].value, pair[1].value] * pair[0].unit
+                    if q.unit.is_equivalent("km/s"):
+                        veldef = p.meta.get("VELDEF", None)
+                        if veldef is None:
+                            raise KeyError("Input spectrum has no VELDEF in header, can't convert to frequency units.")
+                        pair = veltofreq(q, p.rest_value, veldef)
+                        # offset = p.rest_value - p.radial_velocity.to(sa.unit, equivalencies=p.equivalencies)
                     else:
-                        offset = 0
-                    pair[0] = offset + pair[0].to(sa.unit, equivalencies=p.equivalencies)
-                    pair[1] = offset + pair[1].to(sa.unit, equivalencies=p.equivalencies)
+                        pair[0] = pair[0].to(sa.unit, equivalencies=p.equivalencies)
+                        pair[1] = pair[1].to(sa.unit, equivalencies=p.equivalencies)
                     # Ensure test is with sorted [lower,upper]
                     pair = sorted(pair)
                     salimits = sorted([sa[0], sa[-1]])
@@ -428,9 +430,9 @@ def tsys_weight(exposure, delta_freq, tsys):
     # weight = abs(delta_freq) * exposure / tsys**2.
     weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
     if type(weight) == u.Quantity:
-        return weight.value.astype(np.longdouble)
+        return weight.value.astype(np.float64)
     else:
-        return weight.astype(np.longdouble)
+        return weight.astype(np.float64)
 
 
 def get_spectral_equivalency(restfreq, velocity_convention):
