@@ -763,6 +763,8 @@ class FSScan(ScanMixin):
         Default: True
     fold: bool
         whether or not to fold the spectrum. Default: True
+    use_sig : bool
+        whether to use the sig as the sig, or the ref as the sig. Default: True
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -771,7 +773,8 @@ class FSScan(ScanMixin):
     """
 
     def __init__(
-        self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, fold=True, observer_location=Observatory["GBT"]
+        self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, fold=True, use_sig=True,
+            observer_location=Observatory["GBT"], debug=False
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
@@ -779,24 +782,29 @@ class FSScan(ScanMixin):
         self._sigrows = sigrows  # dict with "ON" and "OFF"
         self._calrows = calrows  # dict with "ON" and "OFF"
         self._folded = False
+        self._use_sig = use_sig        
 
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["OFF"]))))
 
-        print("---------------------------------------------------")
-        print("FSSCAN: ")
-        print("SigOff", self._sigoffrows)
-        print("SigOn", self._sigonrows)
-        print("RefOff", self._refoffrows)
-        print("RegOn", self._refonrows)
+        self._debug = debug
+
+        if self._debug:
+            print("---------------------------------------------------")
+            print("FSSCAN: ")
+            print("SigOff", self._sigoffrows)
+            print("SigOn", self._sigonrows)
+            print("RefOff", self._refoffrows)
+            print("RegOn", self._refonrows)
 
         nsigrows = len(self._sigonrows) + len(self._sigoffrows)
         nrefrows = len(self._refonrows) + len(self._refoffrows)
         if nsigrows != nrefrows:
             raise Exception("Number of sig rows does not match ref rows. Dangerous to proceed")
-        print("sigonrows", nsigrows, self._sigonrows)
+        if self._debug:
+            print("sigonrows", nsigrows, self._sigonrows)
         self._nrows = nsigrows
 
         a_scanrow = self._sigonrows[0]
@@ -807,17 +815,20 @@ class FSScan(ScanMixin):
             self._bintable_index = gbtfits._find_bintable_and_row(a_scanrow)[0]
         else:
             self._bintable_index = bintable
-        print(f"bintable index is {self._bintable_index}")
+        if self._debug:
+            print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         # df = selection.iloc[scanrows["ON"]]
         # df = self._sdfits._index.iloc[scanrows["ON"]]
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
 
         df = self._sdfits._index.iloc[self._scanrows]
-        print("PJT: len(df) = ", len(df))
+        if self._debug:
+            print("PJT: len(df) = ", len(df))
         self._set_if_fd(df)
         self._pols = uniq(df["PLNUM"])
-        print(f"FSSCAN #pol = {self._pols}")
+        if self._debug:
+            print(f"FSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
@@ -835,12 +846,13 @@ class FSScan(ScanMixin):
         self._calibrate = calibrate
         if self._calibrate:
             self.calibrate(fold=fold)
-        print("---------------------------------------------------")
+        if self._debug:
+            print("---------------------------------------------------")
 
     @property
     def folded(self):
         """
-        Has the scan been folded?
+        Has the FSscan been folded?
 
         Returns
         -------
@@ -863,7 +875,7 @@ class FSScan(ScanMixin):
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self, i):
-        """Return the calibrated Spectrum.
+        """Return the calibrated Spectrum of this FSscan
 
         Parameters
         ----------
@@ -896,7 +908,8 @@ class FSScan(ScanMixin):
         Frequency switch calibration, following equations ...
         fold=True or fold=False is required
         """
-        print(f'FOLD={kwargs["fold"]}')
+        if self._debug:
+            print(f'FOLD={kwargs["fold"]}')
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -1013,22 +1026,25 @@ class FSScan(ScanMixin):
         sig_freq = self._sigcalon[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]
-        print("df_sig", type(df_sig), len(df_sig))
+        if self._debug:
+            print("df_sig", type(df_sig), len(df_sig))
         sig_freq = index_frequency(df_sig)
         ref_freq = index_frequency(df_ref)
         chan_shift = abs(sig_freq[0, 0] - ref_freq[0, 0]) / np.abs(np.diff(sig_freq)).mean()
-        print("FS: shift=%g  nchan=%d" % (chan_shift, self._nchan))
+        if self._debug:
+            print("FS: shift=%g  nchan=%d" % (chan_shift, self._nchan))
 
         #  tcal is the same for REF and SIG, and the same for all integrations actually.
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["TCAL"])
-        print("TCAL:", len(tcal), tcal[0])
+        if self._debug:
+            print("TCAL:", len(tcal), tcal[0])
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         # @todo   the nspect loop could be replaced with clever numpy?
         for i in range(nspect):
             tsys_sig = mean_tsys(calon=self._sigcalon[i], caloff=self._sigcaloff[i], tcal=tcal[i])
             tsys_ref = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-            if i == 0:
+            if i == 0 and self._debug:
                 print("Tsys(sig/ref)[0]=", tsys_sig, tsys_ref)
             tp_sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
             tp_ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
@@ -1040,28 +1056,27 @@ class FSScan(ScanMixin):
                 cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i])
                 cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
                 self._folded = True
-                if _mode == 1:
-                    self._calibrated[i] = cal_sig_fold  # for now,
-                    self._tsys[i] = tsys_ref  # for now
-                else:
-                    self._calibrated[i] = cal_ref_fold  # for now,
-                    self._tsys[i] = tsys_sig  # for now
-                self._exposure[i] = 2 * self.exposure[i]  # @todo
-            else:
-                # @todo   should really only return one spectrum, not both
-                if _mode == 1:
-                    self._calibrated[i] = cal_sig  # only save the cal_sig
+                if self._use_sig:
+                    self._calibrated[i] = cal_sig_fold
                     self._tsys[i] = tsys_ref
                 else:
-                    self._calibrated[i] = cal_ref  # only save the cal_ref
+                    self._calibrated[i] = cal_ref_fold
+                    self._tsys[i] = tsys_sig
+                self._exposure[i] = 2 * self.exposure[i]  # @todo
+            else:
+                if self._use_sig:
+                    self._calibrated[i] = cal_sig
+                    self._tsys[i] = tsys_ref
+                else:
+                    self._calibrated[i] = cal_ref
                     self._tsys[i] = tsys_sig
                 self._exposure[i] = self.exposure[i]
-        print("Calibrated %d spectra with fold=%s in mode=%s" % (nspect, repr(_fold), _mode))
+        print("Calibrated %d spectra with fold=%s and use_sig=%s" % (nspect, repr(_fold), repr(self._use_sig)))
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times
+        """Get the array of exposure (integration) times for FSscan
 
         exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
 
@@ -1110,7 +1125,7 @@ class FSScan(ScanMixin):
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
 
     def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of scans.
+        r"""Compute the time-averaged spectrum for this set of FSscans.
 
         Parameters
         ----------

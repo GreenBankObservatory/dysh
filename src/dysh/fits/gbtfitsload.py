@@ -568,6 +568,7 @@ class GBTFITSLoad(SDFITSLoad):
         self,
         calibrate=True,
         fold=True,
+        use_sig=True,
         timeaverage=True,
         polaverage=False,
         weights="tsys",
@@ -584,6 +585,10 @@ class GBTFITSLoad(SDFITSLoad):
             Calibrate the scans. The default is True.
         fold : boolean, optional
             Fold the sig and ref scans.  The default is True.
+        use_sig : boolean, optional
+            Return the sig or ref based spectrum. This applies to both the folded
+            and unfolded option.  The default is True.
+            NOT IMPLEMENTED YET 
         timeaverage : boolean, optional
             Average the scans in time.
             The default is True.
@@ -622,7 +627,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with self.selection.selectXX().
+        # with self.selection.selectXX()
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
@@ -633,7 +638,10 @@ class GBTFITSLoad(SDFITSLoad):
             scans = [scans]
         if scans is None:
             scans = set(_final["SCAN"])
-        print("PJT scans/w sel:", scans, self._selection)
+        # @todo   we did a pop earlier, so need to push it back; but seems an int works just fine
+        kwargs['scan'] = scans
+        if debug:
+            print("PJT scans/w sel:", scans, self._selection)
         fs_selection = copy.deepcopy(self._selection)
         # now downselect with any additional kwargs
         if debug:
@@ -682,7 +690,9 @@ class GBTFITSLoad(SDFITSLoad):
                         bintable=bintable,
                         calibrate=calibrate,
                         fold=fold,
+                        use_sig=use_sig,
                         observer_location=observer_location,
+                        debug=debug,
                     )
                     scanblock.append(g)
         if len(scanblock) == 0:
