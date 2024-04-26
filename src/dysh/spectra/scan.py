@@ -218,7 +218,7 @@ class ScanBlock(UserList, ScanMixin):
                 w = None
             timeavg = average(c, weights=w)
             avgspec = self.data[0].calibrated(0)
-            avgspec.meta["TSYS"] = np.average([d.tsys for d in self.data])
+            avgspec.meta["TSYS"] = np.nanmean([d.tsys for d in self.data])
             avgspec.meta["EXPOSURE"] = np.sum([d.exposure for d in self.data])
             return Spectrum.make_spectrum(
                 timeavg * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
@@ -227,6 +227,7 @@ class ScanBlock(UserList, ScanMixin):
             raise Exception(f"unrecognized mode {mode}")
 
     def polaverage(self, weights="tsys"):
+        # @todo rewrite this to return a spectrum as timeaverage does now.
         r"""Average all polarizations in all scans in this ScanBlock
 
         Parameters
