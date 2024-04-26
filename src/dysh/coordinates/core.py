@@ -114,6 +114,7 @@ reverse_frame_dict = {
     "lsr": "-LSR",
     "lsrk": "-LSR",
     "lsrd": "LSRD",
+    "itrs": "-OBS",
     "topo": "-OBS",
     "topocentric": "-OBS",
 }
