@@ -1,8 +1,7 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
-
-# import warnings
+import warnings
 from pathlib import Path
 
 # import astropy.units as u
@@ -88,6 +87,9 @@ class GBTFITSLoad(SDFITSLoad):
             self.ushow(0, "OBSMODE")
             self.ushow(0, "SIDEBAND")
         self._selection = Selection(self)
+        lsdf = len(self._sdf)
+        if lsdf > 1:
+            warnings.warn(f"Found {lsdf} FITS files")  # or maybe just print()
 
     @property
     def selection(self):
@@ -825,7 +827,9 @@ class GBTFITSLoad(SDFITSLoad):
                     if debug:
                         print(f"{i, k, c} SCANROWS {rows}")
                         print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
-                    g = PSScan(self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable)
+                    g = PSScan(
+                        self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable, calibrate=calibrate
+                    )
                     scanblock.append(g)
                     c = c + 1
         if len(scanblock) == 0:
