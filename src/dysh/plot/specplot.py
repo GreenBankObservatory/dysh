@@ -135,7 +135,7 @@ class SpectrumPlot:
             this_plot_kwargs["vel_frame"] = s.velocity_frame
         if xunit is None:
             xunit = str(sa.unit)
-        if "chan" in str(xunit):
+        if "chan" in str(xunit).lower():
             sa = np.arange(len(sa))
             this_plot_kwargs["xlabel"] = "Channel"
         else:
@@ -160,7 +160,7 @@ class SpectrumPlot:
 
         self._set_labels(**this_plot_kwargs)
         # self._axis.axhline(y=0,color='red',lw=2)
-        self.refresh()
+        # self.refresh()  # needed?
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -194,7 +194,7 @@ class SpectrumPlot:
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
-        if xlabel:
+        if xlabel is not None:
             return xlabel
         if kwargs["doppler_convention"] == "radio":
             subscript = "_{rad}$"
@@ -220,20 +220,25 @@ class SpectrumPlot:
         xlabel = f"{frame_to_label[kwargs['vel_frame']]} {xname} ({xunit})"
         return xlabel
 
-    def _set_labels(self, title=None, xlabel=None, ylabel=None, **kwargs):
+    def _set_labels(self, **kwargs):
         r"""Set x and y labels according to spectral units
 
         Parameters
         ----------
-        title : str
-            plot title
-        xlabel : str
-            x-axis label
-        ylabel : str
-            x-axis label
+
         **kwargs : various
-            other keyword=value arguments
+            title : str
+                plot title
+            xlabel : str
+                x-axis label
+            ylabel : str
+                x-axis label
+
+            and other keyword=value arguments
         """
+        title = kwargs.get("title", None)
+        xlabel = kwargs.get("xlabel", None)
+        ylabel = kwargs.get("ylabel", None)
         if title is not None:
             self._title = title
         if kwargs.get("yaxis_unit", None) is not None:
