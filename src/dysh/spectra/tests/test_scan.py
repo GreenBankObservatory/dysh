@@ -308,7 +308,7 @@ class TestFScan:
         table = hdu[1].data
         data = table["DATA"]
         hdu.close()
-        level = 0.01
+        level = 1e-6
         nm = np.nanmean(data[0] - ta.flux.value.astype(np.float32))
         assert abs(nm) <= level
 
@@ -319,6 +319,8 @@ class TestFScan:
         table = hdu[1].data
         data = table["DATA"]
         hdu.close()
+        # @todo due to different shifting algorithms we tolerate a higher level, see issue ###
+        level = 0.02        
         nm = np.nanmean(data[1] - ta.flux.value.astype(np.float32))
         assert abs(nm) <= level
 
