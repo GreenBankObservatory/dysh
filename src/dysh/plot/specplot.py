@@ -120,7 +120,6 @@ class SpectrumPlot:
         self._set_xaxis_info()
         # plot arguments for this call of plot(). i.e. non-sticky plot attributes
         this_plot_kwargs = deepcopy(self._plot_kwargs)
-        print("BEFORE ", this_plot_kwargs)
         this_plot_kwargs.update(kwargs)
         if True:  # @todo deal with plot reuse (notebook vs script)
             self._figure, self._axis = self._plt.subplots(figsize=this_plot_kwargs["figsize"])
@@ -134,7 +133,6 @@ class SpectrumPlot:
         yunit = this_plot_kwargs["yaxis_unit"]
         if "vel_frame" not in this_plot_kwargs:
             this_plot_kwargs["vel_frame"] = s.velocity_frame
-        print("AFTER ", this_plot_kwargs)
         if xunit is None:
             xunit = str(sa.unit)
         if "chan" in str(xunit):
@@ -149,7 +147,6 @@ class SpectrumPlot:
                 toframe=this_plot_kwargs["vel_frame"],
                 doppler_convention=this_plot_kwargs["doppler_convention"],
             )
-            print("1 new spectral axis is ", sa)
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
@@ -266,7 +263,6 @@ class SpectrumPlot:
         """Refresh the plot"""
         if self.axis is not None:
             self.axis.figure.canvas.draw()
-            # print('redrawing')
             # self.axis.figure.canvas.draw_idle()
             self._plt.show()
 
