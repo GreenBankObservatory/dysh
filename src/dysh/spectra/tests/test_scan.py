@@ -302,7 +302,7 @@ class TestFScan:
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
 
         print("MWP: NO FOLD")
-        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=False)
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False)
         ta = fsscan.timeaverage(weights="tsys")
         hdu = fits.open(gbtidl_file_nofold)
         table = hdu[1].data
@@ -313,13 +313,13 @@ class TestFScan:
         assert abs(nm) <= level
 
         print("MWP: FOLD")
-        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True)
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True)
         ta = fsscan.timeaverage(weights="tsys")
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
         data = table["DATA"]
         hdu.close()
-        nm = np.nanmean(data[0] - ta.flux.value.astype(np.float32))
+        nm = np.nanmean(data[1] - ta.flux.value.astype(np.float32))
         assert abs(nm) <= level
 
     def test_getfs_with_selection(self, data_dir):
