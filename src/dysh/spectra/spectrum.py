@@ -335,7 +335,10 @@ class Spectrum(Spectrum1D):
         # print(f"actual frame is {actualframe} {type(actualframe)}")
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
         self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
-        self._velocity_frame = actualframe.name
+        if isinstance(actualframe, str):
+            self._velocity_frame = actualframe
+        else:
+            self._velocity_frame = actualframe.name
 
     def with_frame(self, toframe):
         """Return a copy of this Spectrum with a new coordinate reference frame.
