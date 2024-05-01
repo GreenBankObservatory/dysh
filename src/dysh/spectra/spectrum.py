@@ -589,11 +589,13 @@ class Spectrum(Spectrum1D):
         other._target = self._target
         other._observer = self._observer
         other._velocity_frame = self._velocity_frame
+        other._velocity_frame = self._velocity_frame
         other._obstime = self._obstime
         other._baseline_model = self._baseline_model
         other._exclude_regions = self._exclude_regions
         other._mask = self._mask
         other._subtracted = self._subtracted
+        other.spectral_axis.doppler_convention = self.doppler_convention
 
     def __add__(self, other):
         op = self.add

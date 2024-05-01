@@ -408,21 +408,26 @@ class Selection(DataFrame):
         df : ~pandas.DataFrame
             The selection to check
 
-        Raises
-        ------
-        Exception
-            If an identical rule (DataFrame) has already been added.
 
         Returns
         -------
         None.
 
         """
+        #        Raises
+        #        ------
+        #        Exception
+        #            If an identical rule (DataFrame) has already been added.
         for _id, s in self._selection_rules.items():
             if s.equals(df):
                 # print(s, df)
                 tag = self._table.loc[_id]["TAG"]
-                raise Exception(f"A rule that results in an identical has already been added. ID: {_id}, TAG:{tag}")
+                # raise Exception(
+                warnings.warn(
+                    f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
+                    " Ignoring."
+                )
+                # )
 
     def _addrow(self, row, dataframe, tag=None):
         """
@@ -739,8 +744,7 @@ class Selection(DataFrame):
         final : DataFrame
             The resultant selection from all the rules.
         """
-        # start with unfiltered index.
-        return self.merge(how="outer")
+        return self.merge(how="inner")
 
     def merge(self, how):
         """

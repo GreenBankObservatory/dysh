@@ -863,7 +863,8 @@ class GBTFITSLoad(SDFITSLoad):
         scan = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
-        print(kwargs)
+        if debug:
+            print(kwargs)
 
         if type(scan) is int:
             scan = [scan]
@@ -1006,6 +1007,10 @@ class GBTFITSLoad(SDFITSLoad):
                         reftp.append(tpoff[0])
                         # in order to reproduce gbtidl tsys, we need to do a normal
                         # total power scan
+                        # @todo this raises a warning (formerly exception) in
+                        # Selection._check_for_duplicates().  Need to look into this
+                        # and possibly figure out a way to refactor the selection steps
+                        # in all the cal methods.
                         ftp = self.gettp(
                             scan=scan,
                             sig=None,
