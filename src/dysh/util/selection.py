@@ -12,7 +12,7 @@ from astropy.time import Time
 from astropy.units.quantity import Quantity
 from pandas import DataFrame
 
-from ..fits import default_sdfits_columns
+# from ..fits import default_sdfits_columns
 from . import gbt_timestamp_to_time, generate_tag, keycase
 
 default_aliases = {
@@ -29,6 +29,13 @@ default_aliases = {
     "intnum": "row",  # integration number
     "subref": "subref_state",  # subreflector state
 }
+
+
+# workaround to avoid circular import error in sphinx (and only sphinx)
+def _default_sdfits_columns():
+    from ..fits import default_sdfits_columns
+
+    return default_sdfits_columns()
 
 
 class Selection(DataFrame):
@@ -63,7 +70,7 @@ class Selection(DataFrame):
             DEFKEYS = list(initobj._index.keys())
         else:
             super().__init__(initobj, copy=True)  # it's a Selection or DataFrame
-            DEFKEYS = default_sdfits_columns()
+            DEFKEYS = _default_sdfits_columns()
         # adding attributes that are not columns will result
         # in a UserWarning, which we can safely ignore.
         warnings.simplefilter("ignore", category=UserWarning)
