@@ -20,8 +20,6 @@ Contents
    modules/index
    for_beta_testers/index
    for_developers/index
-   performance_testing/index
-   design/index
 
 Indices and tables
 ==================
