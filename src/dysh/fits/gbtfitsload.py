@@ -852,12 +852,6 @@ class GBTFITSLoad(SDFITSLoad):
         -------
         data : `~spectra.scan.ScanBlock`
             A ScanBlock containing one or more `~spectra.scan.SubBeamNodScan`
-
-        Returns
-        -------
-        data : `~spectra.scan.ScanBlock`
-            A ScanBlock object containing the data
-
         """
         _final = self._selection.final
         scan = kwargs.get("scan", None)
