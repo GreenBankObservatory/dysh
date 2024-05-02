@@ -557,6 +557,7 @@ class PSScan(ScanMixin):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
         self._scans = scans
+        self._scan = scans["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
         # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
@@ -602,6 +603,16 @@ class PSScan(ScanMixin):
         self._calibrate = calibrate
         if self._calibrate:
             self.calibrate()
+
+    @property
+    def scans(self):
+        """The dictionary of the ON and OFF scan numbers in the PSScan.
+
+        Returns
+        scans : dict
+            The scan number dictionary
+        """
+        return self._scans
 
     @property
     def tsys(self):
