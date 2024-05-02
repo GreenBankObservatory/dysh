@@ -625,7 +625,8 @@ class GBTFITSLoad(SDFITSLoad):
             ScanBlock containing the individual `~spectra.scan.FSScan`s
 
         """
-        if kwargs["debug"]:
+        debug = kwargs.get("debug", False)
+        if debug:
             print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX()
@@ -634,7 +635,7 @@ class GBTFITSLoad(SDFITSLoad):
         else:
             _final = self._index
         scans = kwargs.pop("scan", None)
-        debug = kwargs.get("debug", False)
+
         if type(scans) is int:
             scans = [scans]
         if scans is None:
@@ -842,7 +843,12 @@ class GBTFITSLoad(SDFITSLoad):
                         print(f"{i, k, c} SCANROWS {rows}")
                         print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                     g = PSScan(
-                        self._sdf[i], scans=d, scanrows=rows, calrows=calrows, bintable=bintable, calibrate=calibrate
+                        self._sdf[i],
+                        scans=d,
+                        scanrows=rows,
+                        calrows=calrows,
+                        bintable=bintable,
+                        calibrate=calibrate,
                     )
                     scanblock.append(g)
                     c = c + 1
@@ -1013,7 +1019,8 @@ class GBTFITSLoad(SDFITSLoad):
         scans = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
-        print(kwargs)
+        if debug:
+            print(kwargs)
 
         if type(scans) is int:
             scans = [scans]
@@ -1095,7 +1102,6 @@ class GBTFITSLoad(SDFITSLoad):
                         sig_on_groups = consecutive(sig_on_rows, stepsize=stepsize)
                         ref_off_groups = consecutive(ref_off_rows, stepsize=stepsize)
                         sig_off_groups = consecutive(sig_off_rows, stepsize=stepsize)
-                        print(f"sig_ongroups; {sig_on_groups}")
                         # Make sure we have enough signal and reference pairs.
                         # Same number of cycles or less signal cycles.
                         if len(sig_on_groups) <= len(ref_on_groups):
@@ -1130,7 +1136,6 @@ class GBTFITSLoad(SDFITSLoad):
                             )
                             calrows = {"ON": sgon, "OFF": sgoff}
                             tprows = np.sort(np.hstack((sgon, sgoff)))
-                            print(f"sigtp[{i}] scan = {scan}")
                             sigtp.append(
                                 TPScan(
                                     self._sdf[sdfi],
