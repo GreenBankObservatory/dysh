@@ -15,12 +15,27 @@ from ..util import uniq
 from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
 
+# import warnings
+# from astropy.coordinates.spectral_coordinate import NoVelocityWarning
+
 
 class ScanMixin:
     """This class describes the common interface to all Scan classes.
     A Scan represents one IF, one feed, and one or more polarizations.
     Derived classes *must* implement :meth:`calibrate`.
     """
+
+    @property
+    def scan(self):
+        """
+        The scan number
+
+        Returns
+        -------
+        int
+            The scan number of the integrations in the Scan object
+        """
+        return self._scan
 
     @property
     def nchan(self):
@@ -174,6 +189,7 @@ class ScanBlock(UserList, ScanMixin):
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
         """
+        # warnings.simplefilter("ignore", NoVelocityWarning)
         if mode == "old":
             # average of the averages
             self._timeaveraged = []
@@ -773,8 +789,17 @@ class FSScan(ScanMixin):
     """
 
     def __init__(
-        self, gbtfits, scan, sigrows, calrows, bintable, calibrate=True, fold=True, use_sig=True,
-            observer_location=Observatory["GBT"], debug=False
+        self,
+        gbtfits,
+        scan,
+        sigrows,
+        calrows,
+        bintable,
+        calibrate=True,
+        fold=True,
+        use_sig=True,
+        observer_location=Observatory["GBT"],
+        debug=False,
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
@@ -782,7 +807,7 @@ class FSScan(ScanMixin):
         self._sigrows = sigrows  # dict with "ON" and "OFF"
         self._calrows = calrows  # dict with "ON" and "OFF"
         self._folded = False
-        self._use_sig = use_sig        
+        self._use_sig = use_sig
 
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
@@ -1202,6 +1227,7 @@ class SubBeamNodScan(ScanMixin):
             raise ValueError(
                 f"Reference and signal total power arrays are different lengths: {len(reftp)} != {len(sigtp)}"
             )
+        self._scan = sigtp[0]._scan
         self._sigtp = sigtp
         self._reftp = reftp
         self._fulltp = fulltp

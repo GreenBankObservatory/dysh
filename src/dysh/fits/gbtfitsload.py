@@ -588,7 +588,7 @@ class GBTFITSLoad(SDFITSLoad):
         use_sig : boolean, optional
             Return the sig or ref based spectrum. This applies to both the folded
             and unfolded option.  The default is True.
-            NOT IMPLEMENTED YET 
+            NOT IMPLEMENTED YET
         timeaverage : boolean, optional
             Average the scans in time.
             The default is True.
@@ -625,7 +625,8 @@ class GBTFITSLoad(SDFITSLoad):
             ScanBlock containing the individual `~spectra.scan.FSScan`s
 
         """
-        print(kwargs)
+        if kwargs["debug"]:
+            print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX()
         if len(self._selection._selection_rules) > 0:
@@ -639,7 +640,7 @@ class GBTFITSLoad(SDFITSLoad):
         if scans is None:
             scans = set(_final["SCAN"])
         # @todo   we did a pop earlier, so need to push it back; but seems an int works just fine
-        kwargs['scan'] = scans
+        kwargs["scan"] = scans
         if debug:
             print("PJT scans/w sel:", scans, self._selection)
         fs_selection = copy.deepcopy(self._selection)
@@ -663,15 +664,18 @@ class GBTFITSLoad(SDFITSLoad):
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
-                _df = select_from("IFNUM", k, df)  # one FSScan per ifnum
+                _ifdf = select_from("IFNUM", k, df)  # one FSScan per ifnum
                 if debug:
                     # print(f"SCANLIST {scanlist}")
                     print(f"POLS {set(df['PLNUM'])}")
-                    print(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                    print(f"and PROC {set(_df['PROC'])}")
+                    print(f"Sending dataframe with scans {set(_ifdf['SCAN'])}")
+                    print(f"and PROC {set(_ifdf['PROC'])}")
                 # loop over scans:
                 for scan in scans:
+                    if debug:
+                        print(f"doing scan {scan}")
                     calrows = {}
+                    _df = select_from("SCAN", scan, _ifdf)
                     dfcalT = select_from("CAL", "T", _df)
                     dfcalF = select_from("CAL", "F", _df)
                     sigrows = {}
@@ -895,16 +899,16 @@ class GBTFITSLoad(SDFITSLoad):
             _final = self._selection.final
         else:
             _final = self._index
-        scan = kwargs.get("scan", None)
+        scans = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
-        if type(scan) is int:
-            scan = [scan]
+        if type(scans) is int:
+            scans = [scans]
         preselected = {}
         for kw in ["SCAN", "IFNUM", "PLNUM"]:
             preselected[kw] = uniq(_final[kw])
-        if scan is None:
-            scan = preselected["SCAN"]
+        if scans is None:
+            scans = preselected["SCAN"]
         ps_selection = copy.deepcopy(self._selection)
         for k, v in preselected.items():
             if k not in kwargs:
@@ -924,29 +928,31 @@ class GBTFITSLoad(SDFITSLoad):
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
-                df = select_from("IFNUM", k, df)
-                dfcalT = select_from("CAL", "T", df)
-                dfcalF = select_from("CAL", "F", df)
-                calrows["ON"] = list(dfcalT["ROW"])
-                calrows["OFF"] = list(dfcalF["ROW"])
-                if len(calrows["ON"]) != len(calrows["OFF"]):
-                    raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
-                # sig and cal are treated specially since
-                # they are not in kwargs and in SDFITS header
-                # they are not booleans but chars
-                if sig is not None:
-                    df = select_from("SIG", TF[sig], df)
-                if cal is not None:
-                    df = select_from("CAL", TF[cal], df)
-                tprows = list(df["ROW"])
-                if debug:
-                    print("TPROWS len=", len(tprows))
-                    print("CALROWS on len=", len(calrows["ON"]))
-                    print("fitsindex=", i)
-                if len(tprows) == 0:
-                    continue
-                g = TPScan(self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, calibrate)
-                scanblock.append(g)
+                _ifdf = select_from("IFNUM", k, df)
+                for scan in scans:
+                    df = select_from("SCAN", scan, _ifdf)
+                    dfcalT = select_from("CAL", "T", df)
+                    dfcalF = select_from("CAL", "F", df)
+                    calrows["ON"] = list(dfcalT["ROW"])
+                    calrows["OFF"] = list(dfcalF["ROW"])
+                    if len(calrows["ON"]) != len(calrows["OFF"]):
+                        raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                    # sig and cal are treated specially since
+                    # they are not in kwargs and in SDFITS header
+                    # they are not booleans but chars
+                    if sig is not None:
+                        df = select_from("SIG", TF[sig], df)
+                    if cal is not None:
+                        df = select_from("CAL", TF[cal], df)
+                    tprows = list(df["ROW"])
+                    if debug:
+                        print("TPROWS len=", len(tprows))
+                        print("CALROWS on len=", len(calrows["ON"]))
+                        print("fitsindex=", i)
+                    if len(tprows) == 0:
+                        continue
+                    g = TPScan(self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, calibrate)
+                    scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock
@@ -1004,18 +1010,18 @@ class GBTFITSLoad(SDFITSLoad):
             _final = self._selection.final
         else:
             _final = self._index
-        scan = kwargs.get("scan", None)
+        scans = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         print(kwargs)
 
-        if type(scan) is int:
-            scan = [scan]
+        if type(scans) is int:
+            scans = [scans]
         preselected = {}
         for kw in ["SCAN", "IFNUM", "PLNUM", "FDNUM"]:
             preselected[kw] = uniq(_final[kw])
-        if scan is None:
-            scan = preselected["SCAN"]
+        if scans is None:
+            scans = preselected["SCAN"]
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
@@ -1047,9 +1053,7 @@ class GBTFITSLoad(SDFITSLoad):
         if debug:
             print(f"FINAL i {ifnum} p {plnum} s {scans} f {fdnum}")
         scanblock = ScanBlock()
-        reftp = []
-        sigtp = []
-        fulltp = []
+
         if method == "cycle":
             # Calibrate each cycle individually and then
             # average the calibrated data.
@@ -1057,63 +1061,90 @@ class GBTFITSLoad(SDFITSLoad):
                 _df = select_from("FITSINDEX", sdfi, _sf)
                 for k in ifnum:
                     # Row selection.
-                    df = select_from("IFNUM", k, _df)
-                    df_on = df[df["CAL"] == "T"]
-                    df_off = df[df["CAL"] == "F"]
-                    df_on_sig = df_on[df_on["SUBREF_STATE"] == -1]
-                    df_on_ref = df_on[df_on["SUBREF_STATE"] == 1]
-                    df_off_sig = df_off[df_off["SUBREF_STATE"] == -1]
-                    df_off_ref = df_off[df_off["SUBREF_STATE"] == 1]
-                    sig_on_rows = df_on_sig["ROW"].to_numpy()
-                    ref_on_rows = df_on_ref["ROW"].to_numpy()
-                    sig_off_rows = df_off_sig["ROW"].to_numpy()
-                    ref_off_rows = df_off_ref["ROW"].to_numpy()
+                    _ifdf = select_from("IFNUM", k, _df)
+                    for scan in scans:
+                        reftp = []
+                        sigtp = []
+                        fulltp = []
+                        if debug:
+                            print(f"doing scan {scan}")
+                        df = select_from("SCAN", scan, _ifdf)
+                        df_on = df[df["CAL"] == "T"]
+                        df_off = df[df["CAL"] == "F"]
+                        df_on_sig = df_on[df_on["SUBREF_STATE"] == -1]
+                        df_on_ref = df_on[df_on["SUBREF_STATE"] == 1]
+                        df_off_sig = df_off[df_off["SUBREF_STATE"] == -1]
+                        df_off_ref = df_off[df_off["SUBREF_STATE"] == 1]
+                        if debug:
+                            print(f"SCANs in df_on_sig {set(df_on_sig['SCAN'])}")
+                            print(f"SCANs in df_on_ref {set(df_on_ref['SCAN'])}")
+                            print(f"SCANs in df_off_sig {set(df_off_sig['SCAN'])}")
+                            print(f"SCANs in df_off_ref {set(df_off_ref['SCAN'])}")
+                        sig_on_rows = df_on_sig["ROW"].to_numpy()
+                        ref_on_rows = df_on_ref["ROW"].to_numpy()
+                        sig_off_rows = df_off_sig["ROW"].to_numpy()
+                        ref_off_rows = df_off_ref["ROW"].to_numpy()
 
-                    # Define how large of a gap between rows we will tolerate to consider
-                    # a row as part of a cycle.
-                    # Thinking about it, we should use the SUBREF_STATE=0 as delimiter rather
-                    # than this.
-                    # stepsize = len(ifnum) * len(plnum) * 2 + 1
-                    stepsize = len(self.udata("IFNUM", 0)) * len(self.udata("PLNUM", 0)) * 2 + 1
-                    ref_on_groups = consecutive(ref_on_rows, stepsize=stepsize)
-                    sig_on_groups = consecutive(sig_on_rows, stepsize=stepsize)
-                    ref_off_groups = consecutive(ref_off_rows, stepsize=stepsize)
-                    sig_off_groups = consecutive(sig_off_rows, stepsize=stepsize)
+                        # Define how large of a gap between rows we will tolerate to consider
+                        # a row as part of a cycle.
+                        # Thinking about it, we should use the SUBREF_STATE=0 as delimiter rather
+                        # than this.
+                        # stepsize = len(ifnum) * len(plnum) * 2 + 1
+                        stepsize = len(self.udata("IFNUM", 0)) * len(self.udata("PLNUM", 0)) * 2 + 1
+                        ref_on_groups = consecutive(ref_on_rows, stepsize=stepsize)
+                        sig_on_groups = consecutive(sig_on_rows, stepsize=stepsize)
+                        ref_off_groups = consecutive(ref_off_rows, stepsize=stepsize)
+                        sig_off_groups = consecutive(sig_off_rows, stepsize=stepsize)
+                        print(f"sig_ongroups; {sig_on_groups}")
+                        # Make sure we have enough signal and reference pairs.
+                        # Same number of cycles or less signal cycles.
+                        if len(sig_on_groups) <= len(ref_on_groups):
+                            pairs = {i: i for i in range(len(sig_on_groups))}
+                        # One more signal cycle. Re-use one reference cycle.
+                        elif len(sig_on_groups) - 1 == len(ref_on_groups):
+                            pairs = {i: i for i in range(len(sig_on_groups))}
+                            pairs[len(sig_on_groups) - 1] = len(ref_on_groups) - 1
+                        else:
+                            e = f"""There are {len(sig_on_groups)} and {len(ref_on_groups)} signal and reference cycles.
+                                    Try using method='scan'."""
+                            raise ValueError(e)
+                        # print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
+                        # Loop over cycles, calibrating each independently.
+                        groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
 
-                    # Make sure we have enough signal and reference pairs.
-                    # Same number of cycles or less signal cycles.
-                    if len(sig_on_groups) <= len(ref_on_groups):
-                        pairs = {i: i for i in range(len(sig_on_groups))}
-                    # One more signal cycle. Re-use one reference cycle.
-                    elif len(sig_on_groups) - 1 == len(ref_on_groups):
-                        pairs = {i: i for i in range(len(sig_on_groups))}
-                        pairs[len(sig_on_groups) - 1] = len(ref_on_groups) - 1
-                    else:
-                        e = f"""There are {len(sig_on_groups)} and {len(ref_on_groups)} signal and reference cycles.
-                                Try using method='scan'."""
-                        raise ValueError(e)
-                    # print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
-                    # Loop over cycles, calibrating each independently.
-                    groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
-
-                    for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):
-                        # Do it the dysh way.
-                        calrows = {"ON": rgon, "OFF": rgoff}
-                        tprows = np.sort(np.hstack((rgon, rgoff)))
-                        reftp.append(
-                            TPScan(
-                                self._sdf[sdfi], scan, "BOTH", "BOTH", tprows, calrows, bintable, calibrate=calibrate
+                        for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):
+                            # Do it the dysh way.
+                            calrows = {"ON": rgon, "OFF": rgoff}
+                            tprows = np.sort(np.hstack((rgon, rgoff)))
+                            reftp.append(
+                                TPScan(
+                                    self._sdf[sdfi],
+                                    scan,
+                                    "BOTH",
+                                    "BOTH",
+                                    tprows,
+                                    calrows,
+                                    bintable,
+                                    calibrate=calibrate,
+                                )
                             )
-                        )
-                        calrows = {"ON": sgon, "OFF": sgoff}
-                        tprows = np.sort(np.hstack((sgon, sgoff)))
-                        sigtp.append(
-                            TPScan(
-                                self._sdf[sdfi], scan, "BOTH", "BOTH", tprows, calrows, bintable, calibrate=calibrate
+                            calrows = {"ON": sgon, "OFF": sgoff}
+                            tprows = np.sort(np.hstack((sgon, sgoff)))
+                            print(f"sigtp[{i}] scan = {scan}")
+                            sigtp.append(
+                                TPScan(
+                                    self._sdf[sdfi],
+                                    scan,
+                                    "BOTH",
+                                    "BOTH",
+                                    tprows,
+                                    calrows,
+                                    bintable,
+                                    calibrate=calibrate,
+                                )
                             )
-                        )
-                    sb = SubBeamNodScan(sigtp, reftp, method=method, calibrate=calibrate, weights=weights)
-                    scanblock.append(sb)
+                        sb = SubBeamNodScan(sigtp, reftp, method=method, calibrate=calibrate, weights=weights)
+                        scanblock.append(sb)
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
                 # Process the whole scan as a single block.
@@ -1122,48 +1153,52 @@ class GBTFITSLoad(SDFITSLoad):
                 # sig/ref cycles to do a per cycle calibration.
                 for k in ifnum:
                     for fn in fdnum:
-                        tpon = self.gettp(
-                            scan=scan,
-                            sig=None,
-                            cal=None,
-                            bintable=bintable,
-                            fdnum=fn,
-                            plnum=plnum,
-                            ifnum=k,
-                            subref=-1,
-                            weights=weights,
-                            calibrate=calibrate,
-                        )
-                        sigtp.append(tpon[0])
-                        tpoff = self.gettp(
-                            scan=scan,
-                            sig=None,
-                            cal=None,
-                            bintable=bintable,
-                            fdnum=fn,
-                            plnum=plnum,
-                            ifnum=k,
-                            subref=1,
-                            weights=weights,
-                            calibrate=calibrate,
-                        )
-                        reftp.append(tpoff[0])
-                        # in order to reproduce gbtidl tsys, we need to do a normal
-                        # total power scan
-                        ftp = self.gettp(
-                            scan=scan,
-                            sig=None,
-                            cal=None,
-                            bintable=bintable,
-                            fdnum=fn,
-                            plnum=plnum,
-                            ifnum=k,
-                            weights=weights,
-                            calibrate=calibrate,
-                        )  # .timeaverage(weights=w)
-                        fulltp.append(ftp[0])
-                    sb = SubBeamNodScan(sigtp, reftp, fulltp, method=method, calibrate=calibrate, weights=weights)
-                    scanblock.append(sb)
+                        for scan in scans:
+                            reftp = []
+                            sigtp = []
+                            fulltp = []
+                            tpon = self.gettp(
+                                scan=scan,
+                                sig=None,
+                                cal=None,
+                                bintable=bintable,
+                                fdnum=fn,
+                                plnum=plnum,
+                                ifnum=k,
+                                subref=-1,
+                                weights=weights,
+                                calibrate=calibrate,
+                            )
+                            sigtp.append(tpon[0])
+                            tpoff = self.gettp(
+                                scan=scan,
+                                sig=None,
+                                cal=None,
+                                bintable=bintable,
+                                fdnum=fn,
+                                plnum=plnum,
+                                ifnum=k,
+                                subref=1,
+                                weights=weights,
+                                calibrate=calibrate,
+                            )
+                            reftp.append(tpoff[0])
+                            # in order to reproduce gbtidl tsys, we need to do a normal
+                            # total power scan
+                            ftp = self.gettp(
+                                scan=scan,
+                                sig=None,
+                                cal=None,
+                                bintable=bintable,
+                                fdnum=fn,
+                                plnum=plnum,
+                                ifnum=k,
+                                weights=weights,
+                                calibrate=calibrate,
+                            )  # .timeaverage(weights=w)
+                            fulltp.append(ftp[0])
+                        sb = SubBeamNodScan(sigtp, reftp, fulltp, method=method, calibrate=calibrate, weights=weights)
+                        scanblock.append(sb)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock
