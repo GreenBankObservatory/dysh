@@ -361,7 +361,7 @@ data_path = testdata  / "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.
 scan  = 20
 ifnum = 0    # only 0
 fdnum = 0    # only 0
-plnum = 0   # 0 or 1
+plnum = 1   # 0 (>800K) or 1 (~400K)
 fold  = True     # when is this ever False?
 
 # %%
