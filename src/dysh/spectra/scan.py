@@ -860,7 +860,7 @@ class FSScan(ScanMixin):
 
         df = self._sdfits._index.iloc[self._scanrows]
         if self._debug:
-            print("PJT: len(df) = ", len(df))
+            print("len(df) = ", len(df))
         self._set_if_fd(df)
         self._pols = uniq(df["PLNUM"])
         if self._debug:
@@ -1176,7 +1176,6 @@ class FSScan(ScanMixin):
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
         """
-        print("PJT:   timeaverage")
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:

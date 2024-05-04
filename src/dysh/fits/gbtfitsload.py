@@ -643,7 +643,7 @@ class GBTFITSLoad(SDFITSLoad):
         # @todo   we did a pop earlier, so need to push it back; but seems an int works just fine
         kwargs["scan"] = scans
         if debug:
-            print("PJT scans/w sel:", scans, self._selection)
+            print("scans/w sel:", scans, self._selection)
         fs_selection = copy.deepcopy(self._selection)
         # now downselect with any additional kwargs
         if debug:
