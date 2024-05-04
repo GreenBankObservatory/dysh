@@ -43,5 +43,3 @@ Using intnum=0 one can also test just a single  (first in this case) integration
 GBTIDL cannot (easily?) get a select number, it's one or all.
 
 See also notebooks/developer/proto_getfs.ipynb   and proto_getfs.py
-
-

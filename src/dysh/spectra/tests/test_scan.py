@@ -5,8 +5,7 @@ import pytest
 from astropy.io import fits
 
 # import dysh
-from dysh.fits import gbtfitsload
-from dysh.fits import sdfitsload
+from dysh.fits import gbtfitsload, sdfitsload
 
 
 class TestPSScan:
@@ -328,7 +327,7 @@ class TestFScan:
             hdu.close()
             sp = data[1]
         # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
-        level = 0.02        
+        level = 0.02
         print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
         nm = np.nanmean(sp - ta.flux.value.astype(np.float32))
         assert abs(nm) <= level
