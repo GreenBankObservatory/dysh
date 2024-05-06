@@ -418,7 +418,8 @@ class Selection(DataFrame):
 
         Returns
         -------
-        None.
+        bool
+           True if a duplicate was found, False if not.
 
         """
         #        Raises
@@ -434,7 +435,9 @@ class Selection(DataFrame):
                     f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
                     " Ignoring."
                 )
+                return True
                 # )
+        return False
 
     def _addrow(self, row, dataframe, tag=None):
         """
@@ -455,7 +458,8 @@ class Selection(DataFrame):
         None.
 
         """
-        self._check_for_duplicates(dataframe)
+        if self._check_for_duplicates(dataframe):
+            return
         if tag is not None:
             row["TAG"] = tag
         else:
