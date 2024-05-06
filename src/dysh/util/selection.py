@@ -459,7 +459,13 @@ class Selection(DataFrame):
         if tag is not None:
             row["TAG"] = tag
         else:
-            row["TAG"] = self._generate_tag(list(row.values()))
+            gentag = []
+            # guarantee a unique seed by
+            # including relevant key=value, which will be unique
+            for k, v in row.items():
+                if v is not None and v != "":
+                    gentag.append(f"{k}={v}")
+            row["TAG"] = self._generate_tag(gentag)
         row["ID"] = self._next_id
         row["# SELECTED"] = len(dataframe)
         self._selection_rules[row["ID"]] = dataframe
