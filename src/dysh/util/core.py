@@ -2,11 +2,82 @@
 Core utility definitions, classes, and functions
 """
 
+import hashlib
+import sys
 from pathlib import Path
 
-import astropy.units as u
+# import astropy.units as u
 import numpy as np
-from astropy.coordinates import EarthLocation, SkyCoord
+
+# import pandas as pd
+from astropy.time import Time
+
+
+def select_from(key, value, df):
+    """
+    Select data where key=value.
+
+    Parameters
+    ----------
+    key : str
+        The key value (SDFITS column name)
+    value : any
+        The value to match
+    df : `~pandas.DataFrame`
+        The DataFrame to search
+
+    Returns
+    -------
+    df : `~pandas.DataFrame`
+        The subselected DataFrame
+
+    """
+    return df[(df[key] == value)]
+
+
+def gbt_timestamp_to_time(timestamp):
+    """Convert the GBT sdfits timestamp string format to
+    an :class:`~astropy.time.Time` object.  GBT SDFITS timestamps have the form
+    YYYY_MM_DD_HH:MM:SS in UTC.
+
+    Parameters
+    ----------
+    timestamp : str
+        The GBT format timestamp as described above.
+
+    Returns
+    -------
+    time : `~astropy.time.Time`
+        The time object
+    """
+    # convert to ISO FITS format  YYYY-MM-DDTHH:MM:SS(.SSS)
+    t = timestamp.replace("_", "-", 2).replace("_", "T")
+    return Time(t, scale="utc")
+
+
+def generate_tag(values, hashlen):
+    """
+    Generate a unique tag based on input values.  A hash object is
+    created from the input values using SHA256, and a hex representation is created.
+    The first `hashlen` characters of the hex string are returned.
+
+    Parameters
+    ----------
+    values : array-like
+        The values to use in creating the hash object
+    hashlen : int, optional
+        The length of the returned hash string.
+
+    Returns
+    -------
+    tag : str
+        The hash string
+
+    """
+    data = "".join(map(str, values))
+    hash_object = hashlib.sha256(data.encode())
+    unique_id = hash_object.hexdigest()
+    return unique_id[0:hashlen]
 
 
 def consecutive(data, stepsize=1):
@@ -56,7 +127,7 @@ def sq_weighted_avg(a, axis=0, weights=None):
         w = np.ones_like(a)
     else:
         w = weights
-    v = np.sqrt(np.average(a * a, axis=axis, weights=weights))
+    v = np.sqrt(np.average(a * a, axis=axis, weights=w))
     return v
 
 
@@ -128,3 +199,27 @@ def uniq(seq):
     seen = set()
     seen_add = seen.add
     return [x for x in seq if x not in seen and not seen_add(x)]
+
+
+def keycase(d, case="upper"):
+    """
+    Change the case of dictionary keys
+
+    Parameters
+    ----------
+    d : dict
+        The input dictionary
+    case : str, one of 'upper', 'lower'
+        Case to change keys to The default is "upper".
+
+    Returns
+    -------
+    newDict : dict
+        A copy of the dictionary with keys changed according to `case`
+
+    """
+    if case == "upper":
+        newDict = {k.upper(): v for k, v in d.items()}
+    elif case == "lower":
+        newDict = {k.lower(): v for k, v in d.items()}
+    return newDict

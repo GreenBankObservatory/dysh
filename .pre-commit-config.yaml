@@ -6,7 +6,7 @@ default_language_version:
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: 'https://github.com/pre-commit/pre-commit-hooks'
-    rev: v4.5.0
+    rev: v4.6.0
     hooks:
       - id: trailing-whitespace
         exclude: '(notebooks|attic|benchmark|testdata)/.*'
@@ -16,7 +16,7 @@ repos:
       - id: check-toml
       - id: check-added-large-files
         args:
-          - '--maxkb=1024'
+          - '--maxkb=1024000'
       - id: debug-statements
       - id: detect-private-key
       - id: mixed-line-ending
@@ -30,7 +30,7 @@ repos:
       - id: isort
         exclude: '(notebooks|attic|benchmark|testdata)/.*'
   - repo: 'https://github.com/psf/black'
-    rev: 23.12.1
+    rev: 24.4.0
     hooks:
       - id: black
         exclude: '(notebooks|attic|benchmark|testdata)/.*'

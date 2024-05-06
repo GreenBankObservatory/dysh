@@ -1,19 +1,12 @@
 """Load generic SDFITS files
-    - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
+- Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
 """
-
-# import copy
-# import sys
 
 import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
 
-# from astropy.units import cds
-from astropy.wcs import WCS
-
-# from ..coordinates import decode_veldef
 from ..spectra.spectrum import Spectrum
 from ..util import uniq
 
@@ -38,7 +31,6 @@ class SDFITSLoad(object):
         kwargs_opts = {
             "fix": False,  # fix non-standard header elements
             "verbose": False,
-            "wcs": False,  # create WCS in _loadlists (testing only)
         }
         kwargs_opts.update(kwargs)
         if kwargs_opts["verbose"]:
@@ -56,6 +48,15 @@ class SDFITSLoad(object):
         doindex = kwargs_opts.get("index", True)
         if doindex:
             self.create_index()
+
+    def __del__(self):
+        # We need to ensure that any open HDUs are properly
+        # closed in order to avoid the ResourceWarning about
+        # unclosed file(s)
+        try:
+            self._hdu.close()
+        except Exception:
+            pass
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
@@ -150,9 +151,7 @@ class SDFITSLoad(object):
         self._bintable = []
         self._binheader = []
         self._nrows = []
-        source = kwargs.get("source", None)
-        fix = kwargs.get("fix")
-        dowcs = kwargs.get("wcs")
+        # fix = kwargs.get("fix")
 
         if hdu is not None:
             ldu = list([hdu])
@@ -271,7 +270,6 @@ class SDFITSLoad(object):
 
         """
 
-        data = self.rawspectra(bintable)
         if source is not None:
             df = self.select("OBJECT", source, self._index[bintable])
             # nfeed = df["FEED"].nunique()
@@ -355,14 +353,33 @@ class SDFITSLoad(object):
         """
         return self._bintable[bintable].data[i]
 
-    def getspec(self, i, bintable=0):
-        """Get a row (record) as a Spectrum"""
+    def getspec(self, i, bintable=0, observer_location=None):
+        """
+        Get a row (record) as a Spectrum
+
+        Parameters
+        ----------
+        i : int
+            The record (row) index to retrieve
+        bintable : int, optional
+             The index of the `bintable` attribute. default is 0.
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is None.
+
+        Returns
+        -------
+        s : `~dysh.spectra.spectrum.Spectrum`
+            The Spectrum object representing the data row.
+
+        """
         df = self.index(bintable=bintable)
         meta = df.iloc[i].dropna().to_dict()
         data = self.rawspectrum(i, bintable)
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @TODO this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
@@ -370,7 +387,7 @@ class SDFITSLoad(object):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
 
-        s = Spectrum.make_spectrum(data * u.ct, meta)
+        s = Spectrum.make_spectrum(data * u.ct, meta, observer_location=observer_location)
         return s
 
     def nrows(self, bintable):
