@@ -743,8 +743,8 @@ class Selection(DataFrame):
     @property
     def final(self):
         """
-        Create the final selection. This is done by a logical OR of each
-        of the selection rules (specifically `pandas.merge(how='outer')`).
+        Create the final selection. This is done by a logical AND of each
+        of the selection rules (specifically `pandas.merge(how='inner')`).
 
         Returns
         -------
@@ -753,7 +753,7 @@ class Selection(DataFrame):
         """
         return self.merge(how="inner")
 
-    def merge(self, how):
+    def merge(self, how, on=None):
         """
         Merge selection rules using a specific
         type of join.
@@ -763,6 +763,11 @@ class Selection(DataFrame):
         how : {‘left’, ‘right’, ‘outer’, ‘inner’, ‘cross’}, no default.
             The type of join to be performed. See :meth:`pandas.merge()`.
 
+        on: label or list
+            Column or index level names to join on. These must be found in both DataFrames.
+            If on is None and not merging on indexes then this defaults to the intersection
+            of the columns in both DataFrames.
+
         Returns
         -------
         final : DataFrame
@@ -770,17 +775,18 @@ class Selection(DataFrame):
 
         """
         if len(self._selection_rules.values()) == 0:
-            return deepcopy(self)
+            # warnings.warn("Selection.merge(): upselecting now")
+            return DataFrame()
         final = None
         for df in self._selection_rules.values():
             if final is None:
                 # need a deepcopy here in case there
                 # is only one selection rule, because
                 # we don't want to return a reference to the rule
-                # which the reciever might modify.
+                # which the receiver might modify.
                 final = deepcopy(df)
             else:
-                final = pd.merge(final, df, how=how)
+                final = pd.merge(final, df, how=how, on=on)
         return final
 
     def _select_from_mixed_kwargs(self, **kwargs):

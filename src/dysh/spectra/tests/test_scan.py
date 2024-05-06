@@ -5,7 +5,7 @@ import pytest
 from astropy.io import fits
 
 # import dysh
-from dysh.fits import gbtfitsload
+from dysh.fits import gbtfitsload, sdfitsload
 
 
 class TestPSScan:
@@ -80,7 +80,11 @@ class TestPSScan:
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         ps_scans1 = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
-        sdf.select(scan=[156, 158], ifnum=0, plnum=0)
+        # because selection ANDs the selection rules, if the user selects [156,158]
+        # and then we select [157,159] under the hood the AND will be exlusive and
+        # the getps will fail. There is no easy way around this without a lot
+        # of klugy code.  See issue #230
+        sdf.select(scan=[156, 157, 158, 159], ifnum=0, plnum=0)
         ps_scans2 = sdf.getps()
         assert len(ps_scans1) == 2
         assert len(ps_scans2) == 2
@@ -287,3 +291,46 @@ class TestTPScan:
         assert table["EXPOSURE"][0] == tpavg.meta["EXPOSURE"]
         assert abs(table["TSYS"][0] - tpavg.meta["TSYS"]) < 2**-32
         assert np.all((data[0] - tpavg.flux.value.astype(np.float32)) == 0.0)
+
+
+class TestFScan:
+    def test_getfs_with_args(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
+        gbtidl_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.cal.vegas.fits"
+        gbtidl_file_nofold = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.nofold.vegas.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        print("MWP: NO FOLD")
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False)
+        ta = fsscan.timeaverage(weights="tsys")
+        #    we're using astropy access here, and ujse sdfitsload.SDFITSLoad() in the other test
+        hdu = fits.open(gbtidl_file_nofold)
+        table = hdu[1].data
+        data = table["DATA"]
+        hdu.close()
+        level = 1e-6
+        nm = np.nanmean(data[0] - ta.flux.value.astype(np.float32))
+        assert abs(nm) <= level
+
+        print("MWP: FOLD")
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True)
+        ta = fsscan.timeaverage(weights="tsys")
+        # we will be using SDFITSLoad() here instead of astropy
+        if True:
+            sdf2 = sdfitsload.SDFITSLoad(gbtidl_file)
+            sp = sdf2.getspec(1).flux.value.astype(np.float32)
+        else:
+            hdu = fits.open(gbtidl_file)
+            table = hdu[1].data
+            data = table["DATA"]
+            hdu.close()
+            sp = data[1]
+        # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
+        level = 0.02
+        print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
+        nm = np.nanmean(sp - ta.flux.value.astype(np.float32))
+        assert abs(nm) <= level
+
+    def test_getfs_with_selection(self, data_dir):
+        assert True

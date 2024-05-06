@@ -73,8 +73,7 @@ class SpectrumPlot:
     def __init__(self, spectrum, **kwargs):
         self.reset()
         self._spectrum = spectrum
-        self._plot_kwargs["doppler_convention"] = spectrum.doppler_convention
-        self._plot_kwargs["vel_frame"] = spectrum.velocity_frame
+        self._set_xaxis_info()
         self._plot_kwargs.update(kwargs)
         self._plt = plt
         self._figure = None
@@ -82,6 +81,13 @@ class SpectrumPlot:
         self._title = self._plot_kwargs["title"]
 
     # def __call__ (see pyspeckit)
+
+    def _set_xaxis_info(self):
+        """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
+        self._plot_kwargs["doppler_convention"] = self._spectrum.doppler_convention
+        self._plot_kwargs["vel_frame"] = self._spectrum.velocity_frame
+        self._plot_kwargs["xaxis_unit"] = self._spectrum.spectral_axis.unit
+        self._plot_kwargs["yaxis_unit"] = self._spectrum.unit
 
     @property
     def axis(self):
@@ -111,6 +117,7 @@ class SpectrumPlot:
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:
 
+        self._set_xaxis_info()
         # plot arguments for this call of plot(). i.e. non-sticky plot attributes
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
@@ -126,20 +133,20 @@ class SpectrumPlot:
         yunit = this_plot_kwargs["yaxis_unit"]
         if "vel_frame" not in this_plot_kwargs:
             this_plot_kwargs["vel_frame"] = s.velocity_frame
-        if xunit is not None:
-            if "chan" in xunit:
-                sa = np.arange(len(sa))
-                this_plot_kwargs["xlabel"] = "Channel"
-            else:
-                # convert the x axis to the requested
-                # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
-                # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
-                sa = s.velocity_axis_to(
-                    unit=this_plot_kwargs["xaxis_unit"],
-                    toframe=this_plot_kwargs["vel_frame"],
-                    doppler_convention=this_plot_kwargs["doppler_convention"],
-                )
-                # print("new spectral axis is ", sa)
+        if xunit is None:
+            xunit = str(sa.unit)
+        if "chan" in str(xunit).lower():
+            sa = np.arange(len(sa))
+            this_plot_kwargs["xlabel"] = "Channel"
+        else:
+            # convert the x axis to the requested
+            # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
+            # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
+            sa = s.velocity_axis_to(
+                unit=xunit,
+                toframe=this_plot_kwargs["vel_frame"],
+                doppler_convention=this_plot_kwargs["doppler_convention"],
+            )
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
@@ -153,6 +160,8 @@ class SpectrumPlot:
 
         self._set_labels(**this_plot_kwargs)
         # self._axis.axhline(y=0,color='red',lw=2)
+        if self._title is not None:
+            self._axis.set_title(self._title)
         self.refresh()
 
     def reset(self):
@@ -187,7 +196,7 @@ class SpectrumPlot:
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
-        if xlabel:
+        if xlabel is not None:
             return xlabel
         if kwargs["doppler_convention"] == "radio":
             subscript = "_{rad}$"
@@ -213,20 +222,25 @@ class SpectrumPlot:
         xlabel = f"{frame_to_label[kwargs['vel_frame']]} {xname} ({xunit})"
         return xlabel
 
-    def _set_labels(self, title=None, xlabel=None, ylabel=None, **kwargs):
+    def _set_labels(self, **kwargs):
         r"""Set x and y labels according to spectral units
 
         Parameters
         ----------
-        title : str
-            plot title
-        xlabel : str
-            x-axis label
-        ylabel : str
-            x-axis label
+
         **kwargs : various
-            other keyword=value arguments
+            title : str
+                plot title
+            xlabel : str
+                x-axis label
+            ylabel : str
+                x-axis label
+
+            and other keyword=value arguments
         """
+        title = kwargs.get("title", None)
+        xlabel = kwargs.get("xlabel", None)
+        ylabel = kwargs.get("ylabel", None)
         if title is not None:
             self._title = title
         if kwargs.get("yaxis_unit", None) is not None:
@@ -256,7 +270,6 @@ class SpectrumPlot:
         """Refresh the plot"""
         if self.axis is not None:
             self.axis.figure.canvas.draw()
-            # print('redrawing')
             # self.axis.figure.canvas.draw_idle()
             self._plt.show()
 

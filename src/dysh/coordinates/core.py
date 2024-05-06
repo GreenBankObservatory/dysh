@@ -114,6 +114,7 @@ reverse_frame_dict = {
     "lsr": "-LSR",
     "lsrk": "-LSR",
     "lsrd": "LSRD",
+    "itrs": "-OBS",
     "topo": "-OBS",
     "topocentric": "-OBS",
 }
@@ -421,11 +422,14 @@ def veltofreq(velocity, restfreq, veldef):
         raise ValueError(f"Unrecognized VELDEF: {veldef}")
     vc = velocity / const.c
     if vdef == "radio":
-        frequency = 1.0 - vc * restfreq
+        radio = u.doppler_radio(restfreq)
+        frequency = velocity.to(u.Hz, equivalencies=radio)
     elif vdef == "optical":
-        frequency = restfreq / (1.0 + vc)
+        optical = u.doppler_optical(restfreq)
+        frequency = velocity.to(u.Hz, equivalencies=optical)
     elif vdef == "relativistic":
-        frequency = restfreq * np.sqrt((1.0 - vc) / (1.0 + vc))
+        relativistic = u.doppler_relativistic(restfreq)
+        frequency = velocity.to(u.Hz, equivalencies=relativistic)
     else:
         # should never get here.
         raise ValueError(f"Unrecognized velocity convention: {vdef}")

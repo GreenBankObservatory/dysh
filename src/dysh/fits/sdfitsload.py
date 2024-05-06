@@ -270,7 +270,6 @@ class SDFITSLoad(object):
 
         """
 
-        data = self.rawspectra(bintable)
         if source is not None:
             df = self.select("OBJECT", source, self._index[bintable])
             # nfeed = df["FEED"].nunique()
@@ -354,8 +353,27 @@ class SDFITSLoad(object):
         """
         return self._bintable[bintable].data[i]
 
-    def getspec(self, i, bintable=0):
-        """Get a row (record) as a Spectrum"""
+    def getspec(self, i, bintable=0, observer_location=None):
+        """
+        Get a row (record) as a Spectrum
+
+        Parameters
+        ----------
+        i : int
+            The record (row) index to retrieve
+        bintable : int, optional
+             The index of the `bintable` attribute. default is 0.
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is None.
+
+        Returns
+        -------
+        s : `~dysh.spectra.spectrum.Spectrum`
+            The Spectrum object representing the data row.
+
+        """
         df = self.index(bintable=bintable)
         meta = df.iloc[i].dropna().to_dict()
         data = self.rawspectrum(i, bintable)
@@ -369,7 +387,7 @@ class SDFITSLoad(object):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
 
-        s = Spectrum.make_spectrum(data * u.ct, meta)
+        s = Spectrum.make_spectrum(data * u.ct, meta, observer_location=observer_location)
         return s
 
     def nrows(self, bintable):
