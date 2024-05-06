@@ -620,6 +620,7 @@ class Spectrum(Spectrum1D):
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
+    # @todo replace with __truediv__. See issue #241
     def __div__(self, other):
         op = self.divide
         handle_meta = self._div_meta
