@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
 #
+# A script to extract specific rows from an SDFITS file and write them
+# out to a new SDFITS file.
 
 import sys
 import numpy as np
@@ -19,19 +21,19 @@ iname = sys.argv[1]
 oname = "junk.fits"
 
 if len(sys.argv[2:]) == 2:
-    rows = list(range(int(sys.argv[2]),int(sys.argv[3])+1))
+    rows = list(range(int(sys.argv[2]), int(sys.argv[3]) + 1))
 else:
     rows = []
     for r in sys.argv[2:]:
         rows.append(int(r))
-print("Selecting rows",rows)
+print("Selecting rows", rows)
 
 s2 = GBTFITSLoad(iname)
-hdu0  = s2._sdf[0]._hdu[0].copy()
+hdu0 = s2._sdf[0]._hdu[0].copy()
 nrows = len(s2._sdf[0]._hdu[1].data)
 table = s2._sdf[0]._hdu[1].data[np.ravel(rows)]
-head  = s2._sdf[0]._hdu[1].header
-hdu1  = fits.BinTableHDU(table, header=head)
-outhdu= fits.HDUList([hdu0,hdu1])
+head = s2._sdf[0]._hdu[1].header
+hdu1 = fits.BinTableHDU(table, header=head)
+outhdu = fits.HDUList([hdu0, hdu1])
 outhdu.writeto(oname, overwrite=True)
-print("Wrote",oname)
+print("Wrote", oname)
