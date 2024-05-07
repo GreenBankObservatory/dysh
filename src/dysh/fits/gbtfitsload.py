@@ -625,7 +625,7 @@ class GBTFITSLoad(SDFITSLoad):
             ScanBlock containing the individual `~spectra.scan.FSScan`s
 
         """
-        debug = kwargs.get("debug", False)
+        debug = kwargs.pop("debug", False)
         if debug:
             print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
@@ -635,13 +635,17 @@ class GBTFITSLoad(SDFITSLoad):
         else:
             _final = self._index
         scans = kwargs.pop("scan", None)
-
+        kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
+        preselected = {}
+        for kw in ["SCAN", "IFNUM", "PLNUM", "FDNUM"]:
+            preselected[kw] = uniq(_final[kw])
         if scans is None:
-            scans = set(_final["SCAN"])
-        # @todo   we did a pop earlier, so need to push it back; but seems an int works just fine
-        kwargs["scan"] = scans
+            scans = preselected["SCAN"]
+        for k, v in preselected.items():
+            if k not in kwargs:
+                kwargs[k] = v
         if debug:
             print("scans/w sel:", scans, self._selection)
         fs_selection = copy.deepcopy(self._selection)
@@ -790,9 +794,7 @@ class GBTFITSLoad(SDFITSLoad):
             print(ps_selection.show())
         _sf = ps_selection.final
         if len(_sf) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria [1].")
-        else:
-            print("Len_SF = ", len(_sf))
+            raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -1005,12 +1007,6 @@ class GBTFITSLoad(SDFITSLoad):
         -------
         data : `~spectra.scan.ScanBlock`
             A ScanBlock containing one or more `~spectra.scan.SubBeamNodScan`
-
-        Returns
-        -------
-        data : `~spectra.scan.ScanBlock`
-            A ScanBlock object containing the data
-
         """
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final

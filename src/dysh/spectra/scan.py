@@ -679,7 +679,7 @@ class PSScan(ScanMixin):
             self._calibrated[i] = tsys * (sig - ref) / ref
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
-        print("Calibrated %d spectra" % nspect)
+        # print("Calibrated %d spectra" % nspect)
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
@@ -1107,7 +1107,7 @@ class FSScan(ScanMixin):
                     self._calibrated[i] = cal_ref
                     self._tsys[i] = tsys_sig
                 self._exposure[i] = self.exposure[i]
-        print("Calibrated %d spectra with fold=%s and use_sig=%s" % (nspect, repr(_fold), repr(self._use_sig)))
+        # print("Calibrated %d spectra with fold=%s and use_sig=%s" % (nspect, repr(_fold), repr(self._use_sig)))
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
