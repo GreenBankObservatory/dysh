@@ -1,0 +1,7 @@
+[header]
+created = Fri Apr  5 13:52:30 2024
+version = 1.0
+created_by = sdfits
+[flags]
+#RECNUM,SCAN,INTNUM,PLNUM,IFNUM,FDNUM,BCHAN,ECHAN,IDSTRING
+*|6|*|*|2|0|3072|3072|VEGAS_SPUR

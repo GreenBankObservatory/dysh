@@ -12,7 +12,7 @@ from astropy.time import Time
 from astropy.units.quantity import Quantity
 from pandas import DataFrame
 
-from ..fits import default_sdfits_columns
+# from ..fits import default_sdfits_columns
 from . import gbt_timestamp_to_time, generate_tag, keycase
 
 default_aliases = {
@@ -29,6 +29,13 @@ default_aliases = {
     "intnum": "row",  # integration number
     "subref": "subref_state",  # subreflector state
 }
+
+
+# workaround to avoid circular import error in sphinx (and only sphinx)
+def _default_sdfits_columns():
+    from ..fits import default_sdfits_columns
+
+    return default_sdfits_columns()
 
 
 class Selection(DataFrame):
@@ -63,7 +70,7 @@ class Selection(DataFrame):
             DEFKEYS = list(initobj._index.keys())
         else:
             super().__init__(initobj, copy=True)  # it's a Selection or DataFrame
-            DEFKEYS = default_sdfits_columns()
+            DEFKEYS = _default_sdfits_columns()
         # adding attributes that are not columns will result
         # in a UserWarning, which we can safely ignore.
         warnings.simplefilter("ignore", category=UserWarning)
@@ -408,21 +415,29 @@ class Selection(DataFrame):
         df : ~pandas.DataFrame
             The selection to check
 
-        Raises
-        ------
-        Exception
-            If an identical rule (DataFrame) has already been added.
 
         Returns
         -------
-        None.
+        bool
+           True if a duplicate was found, False if not.
 
         """
+        #        Raises
+        #        ------
+        #        Exception
+        #            If an identical rule (DataFrame) has already been added.
         for _id, s in self._selection_rules.items():
             if s.equals(df):
                 # print(s, df)
                 tag = self._table.loc[_id]["TAG"]
-                raise Exception(f"A rule that results in an identical has already been added. ID: {_id}, TAG:{tag}")
+                # raise Exception(
+                warnings.warn(
+                    f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
+                    " Ignoring."
+                )
+                return True
+                # )
+        return False
 
     def _addrow(self, row, dataframe, tag=None):
         """
@@ -443,11 +458,18 @@ class Selection(DataFrame):
         None.
 
         """
-        self._check_for_duplicates(dataframe)
+        if self._check_for_duplicates(dataframe):
+            return
         if tag is not None:
             row["TAG"] = tag
         else:
-            row["TAG"] = self._generate_tag(list(row.values()))
+            gentag = []
+            # guarantee a unique seed by
+            # including relevant key=value, which will be unique
+            for k, v in row.items():
+                if v is not None and v != "":
+                    gentag.append(f"{k}={v}")
+            row["TAG"] = self._generate_tag(gentag)
         row["ID"] = self._next_id
         row["# SELECTED"] = len(dataframe)
         self._selection_rules[row["ID"]] = dataframe
@@ -731,18 +753,17 @@ class Selection(DataFrame):
     @property
     def final(self):
         """
-        Create the final selection. This is done by a logical OR of each
-        of the selection rules (specifically `pandas.merge(how='outer')`).
+        Create the final selection. This is done by a logical AND of each
+        of the selection rules (specifically `pandas.merge(how='inner')`).
 
         Returns
         -------
         final : DataFrame
             The resultant selection from all the rules.
         """
-        # start with unfiltered index.
-        return self.merge(how="outer")
+        return self.merge(how="inner")
 
-    def merge(self, how):
+    def merge(self, how, on=None):
         """
         Merge selection rules using a specific
         type of join.
@@ -752,6 +773,11 @@ class Selection(DataFrame):
         how : {‘left’, ‘right’, ‘outer’, ‘inner’, ‘cross’}, no default.
             The type of join to be performed. See :meth:`pandas.merge()`.
 
+        on: label or list
+            Column or index level names to join on. These must be found in both DataFrames.
+            If on is None and not merging on indexes then this defaults to the intersection
+            of the columns in both DataFrames.
+
         Returns
         -------
         final : DataFrame
@@ -759,17 +785,18 @@ class Selection(DataFrame):
 
         """
         if len(self._selection_rules.values()) == 0:
-            return deepcopy(self)
+            # warnings.warn("Selection.merge(): upselecting now")
+            return DataFrame()
         final = None
         for df in self._selection_rules.values():
             if final is None:
                 # need a deepcopy here in case there
                 # is only one selection rule, because
                 # we don't want to return a reference to the rule
-                # which the reciever might modify.
+                # which the receiver might modify.
                 final = deepcopy(df)
             else:
-                final = pd.merge(final, df, how=how)
+                final = pd.merge(final, df, how=how, on=on)
         return final
 
     def _select_from_mixed_kwargs(self, **kwargs):

@@ -33,16 +33,16 @@ class TestSelection:
         s.select(object="NGC2415", plnum=0)
         assert len(s._selection_rules[0]) == 5
         # Test that a duplicate selection results
-        # in an exception.  Note here, we are
+        # in a warning.  Note here, we are
         # also testing that the alias 'pol' is interpreted
         # as plnum.
-        with pytest.raises(Exception):
-            s.select(object="NGC2415", pol=0, tag="this will except")
+        with pytest.warns(UserWarning):
+            s.select(object="NGC2415", pol=0, tag="this will warn")
         s.select(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
-        # the OR of the selection rules becomes the final
+        # the AND of the selection rules becomes the final
         # selection
-        assert len(s.final) == 28
+        assert len(s.final) == 3
 
         # test s.remove by both id and tag
         s.remove(0)
@@ -50,7 +50,7 @@ class TestSelection:
         assert len(s._selection_rules) == 0
 
         s = Selection(sdf)
-        # This has DIFFERENT final result than selections on separate lines
+        # This has the same final result than selections on separate lines
         s.select(object="NGC2415", plnum=0, ifnum=[0, 2])
         assert len(s.final) == 3
 
@@ -63,8 +63,8 @@ class TestSelection:
         assert len(s.final) == 40
         # check that quantities work
         s.select_range(dec=[2400, 7500] * u.arcmin)
-        assert len(s.final) == 50
-        # again selection on the same line has a different final result
+        assert len(s.final) == 20
+        # again selection on the same line has a same final result
         s = Selection(sdf)
         s.select_range(ra=(114,), dec=[2400, 7500] * u.arcmin)
         assert len(s.final) == 20

@@ -8,6 +8,7 @@ from copy import deepcopy
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SpectralCoord
+from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
@@ -491,6 +492,7 @@ class Spectrum(Spectrum1D):
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
+        warnings.simplefilter("ignore", NoVelocityWarning)
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # should we also require DATE-OBS or MJD-OBS?
         _required = set(
@@ -597,6 +599,7 @@ class Spectrum(Spectrum1D):
         other._exclude_regions = self._exclude_regions
         other._mask = self._mask
         other._subtracted = self._subtracted
+        other.spectral_axis.doppler_convention = self.doppler_convention
 
     def __add__(self, other):
         op = self.add
@@ -616,6 +619,7 @@ class Spectrum(Spectrum1D):
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
+    # @todo replace with __truediv__. See issue #241
     def __div__(self, other):
         op = self.divide
         handle_meta = self._div_meta
