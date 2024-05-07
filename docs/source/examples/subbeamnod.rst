@@ -77,6 +77,6 @@ The SubBeamNod scans are 43, 46, and 54.  Retrieve and calibrate a SubBeamNod sc
 
 .. code:: python
 
-    >>> sbn = sdfits.subbeamnod(scan=43, fdnum=1, ifnum=0, weights='tsys')
+    >>> sbn = sdfits.subbeamnod(scan=43, fdnum=1, ifnum=0)
     >>> ta = sbn.timeaverage(weights="tsys")
     >>> ta.plot()
