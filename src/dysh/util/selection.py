@@ -115,8 +115,9 @@ class Selection(DataFrame):
     def _make_table(self):
         """Create the table for displaying the selection rules"""
         self._table = Table(data=None, names=self._defkeys, dtype=self._deftypes)
-        for t in self._idtag:
-            self._table.add_index(t)
+        self._table.add_index["ID"]
+        # for t in self._idtag:
+        #    self._table.add_index(t)
 
     @property
     def aliases(self):
