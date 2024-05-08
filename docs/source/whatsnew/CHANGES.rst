@@ -11,8 +11,8 @@ Functionality & Enhancements
     - The `Selection <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.util.html#dysh.util.selection.Selection>`_ class implements a very flexible way of selecting data rows from an SDFITS file using any column name.  (Column name aliases are also supported).  Multiple selection rules are logically combined to a final selection.
     - Data selection is implemented on `GBTFITSLoad <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.fits.html#module-dysh.fits.gbtfitsload>`_ via delegation to a Selection attribute.
 - Frequency switching calibration
-    - GBTFITSLoad.getfs() implemented
-    - FSScan implemented
+    - FS data can be calibrated using `GBTFITSLoad.getfs() <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getfs>`_  with the option to fold the signal and reference spectra.
+    - The Scan class for calibrating frequency switching, `FSScan <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.FSScan>`_, has been implemented.  Users should not need to create these directly, but rather through *getfs()*.
 
 - `ScanBlock <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock>`_  API change
     - `timeaverage() <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock.timeaverage>`_ now returns a Spectrum instead of a list.  Previously the list contained the time average of each Scan within the ScanBlock.   Now the time average across all Scans in the ScanBlock is returned.
