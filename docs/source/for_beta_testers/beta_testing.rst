@@ -46,7 +46,7 @@ Installing `dysh`
 =================
 
 Here we provide additional installation steps that include creating a virtual environment to keep `dysh` isolated from your system `Python` version.
-We provide steps for working in one of `GBO data reduction hosts <https://greenbankobservatory.org/science/gbt-observers/public-access-data-reduction/>`_ (e.g., fourier), and if you're working outside one of the GBO data reduction hosts.
+We provide steps for working in one of `GBO data reduction hosts <https://greenbankobservatory.org/science/gbt-observers/public-access-data-reduction/>`_ (e.g., fourier), and if you're working outside one of the GBO data reduction hosts. The provided command will install `dysh` and `jupyterlab`, which can be used to run the example notebooks locally.
 
 .. tab:: At GBO
 
@@ -66,7 +66,7 @@ We provide steps for working in one of `GBO data reduction hosts <https://greenb
 
     .. code:: bash
 
-        pip install jupyterlab dysh==0.3.0b
+        pip install "dysh[nb]==0.3.0b"
 
 .. tab:: Outside of GBO
 
@@ -86,7 +86,7 @@ We provide steps for working in one of `GBO data reduction hosts <https://greenb
 
     .. code:: bash
 
-        pip install jupyterlab dysh==0.3.0b
+        pip install "dysh[nb]==0.3.0b"
 
 In the future we will provide `dysh` executables at GBO.
 
