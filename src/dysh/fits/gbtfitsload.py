@@ -600,8 +600,6 @@ class GBTFITSLoad(SDFITSLoad):
             temperature weighting (see e.g., :meth:`~spectra.scan.FSScan.timeaverage`);
             None means uniform weighting.
             The default is "tsys".
-        fold: boolean, optional
-            The default is True
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         observer_location : `~astropy.coordinates.EarthLocation`
