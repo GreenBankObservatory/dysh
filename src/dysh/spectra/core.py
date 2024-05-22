@@ -260,6 +260,12 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     }
     kwargs_opts.update(kwargs)
 
+    # @todo allow minimum match here; need a tool for this, e.g.
+    # model = minmatch(kwargs_opts["model"], _valid_models)
+    # if model = None:
+    #      raise ValueError()
+    # elif model == "polynomial"
+    #  ...
     _valid_models = ["polynomial", "chebyshev", "legendre", "hermite"]
     _valid_exclude_actions = ["replace", "append", None]
     # @todo replace with minimum_string_match
