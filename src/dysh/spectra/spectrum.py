@@ -188,6 +188,7 @@ class Spectrum(Spectrum1D):
         if self._subtracted:
             if self._normalized:
                 warnings.warn('Cannot undo previously normalized baseline subtraction')
+                return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._baseline_model = None
