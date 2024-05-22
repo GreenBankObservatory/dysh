@@ -79,6 +79,7 @@ class Spectrum(Spectrum1D):
             self._mask = np.full(np.shape(self.flux), False)
         self._baseline_model = None
         self._subtracted = False
+        self._normalized = False
         self._exclude_regions = None
         self._plotter = None
 
@@ -130,28 +131,51 @@ class Spectrum(Spectrum1D):
                 Default: no exclude region
 
             model : str
-                One of 'polynomial' or 'chebyshev', Default: 'polynomial'
+                One of 'polynomial' 'chebyshev', 'legendre', or 'hermite'
+                Default: 'polynomial'
             fitter  :  `~astropy.fitting._FitterMeta`
                 The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
                 Be care when choosing a different fitter to be sure it is optimized for this problem.
             remove : bool
                 If True, the baseline is removed from the spectrum. Default: False
+            normalize : bool
+                If True, the frequency axis is internally rescaled from 0..nchan-1
+                to avoid roundoff problems (and make the coefficients slightly more
+                understandable). This is usually needed for a polynomial, though overkill
+                for the others who do their own normalization.
+                Default: True
 
         """
         # fmt: on
         # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
         kwargs_opts = {
-            "remove": False,
-            "model": "polynomial",
-            "fitter": LinearLSQFitter(calc_uncertainties=True),
+            "remove":    False,
+            "normalize": False,
+            "model":     "polynomial",
+            "fitter":    LinearLSQFitter(calc_uncertainties=True),
         }
         kwargs_opts.update(kwargs)
 
+        if kwargs_opts["normalize"]:
+            spectral_axis = np.copy(self._spectral_axis.value)
+            nchan = len(spectral_axis)
+            # sadly, there is no single setter for this
+            for i in range(nchan):
+                self._spectral_axis[i] = i * u.Hz     # would like to use "chan" units
+            self._normalized = True
+
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
+    
         if kwargs_opts["remove"]:
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._subtracted = True
+
+        if kwargs_opts["normalize"]:
+            for i in range(nchan):
+                self._spectral_axis[i] = spectral_axis[i] * u.Hz
+            del spectral_axis
+            
 
     def _undo_baseline(self):
         """
@@ -162,6 +186,8 @@ class Spectrum(Spectrum1D):
         if self._baseline_model is None:
             return
         if self._subtracted:
+            if self._normalized:
+                warnings.warn('Cannot undo previously normalized baseline subtraction')
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._baseline_model = None
