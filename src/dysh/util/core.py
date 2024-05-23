@@ -189,7 +189,6 @@ def minimum_string_match(s, valid_strings):
         Otherwise "None" is returned.
 
     """
-    print("PJT MIN_MATCH",s,valid_strings)
     n = len(valid_strings)
     m = []
     for i in range(n):
