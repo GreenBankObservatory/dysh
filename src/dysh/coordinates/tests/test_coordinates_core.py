@@ -1,5 +1,6 @@
 from astropy.coordinates import EarthLocation, UnknownSiteException
 
+import dysh.coordinates as coords
 from dysh.coordinates import GBT, Observatory, decode_veldef
 
 
@@ -60,3 +61,9 @@ class TestCore:
             decode_veldef("MAXILSRK")
         except KeyError:
             assert True
+
+    def test_veldef_to_convention(self):
+        pairs = {"OPTI-HELO": "optical", "VELO-LSR": "radio", "RADI-LSR": "radio", "RELA-LSR": "relativistic"}
+
+        for k, v in pairs.items():
+            assert coords.veldef_to_convention(k) == v
