@@ -157,6 +157,7 @@ class Spectrum(Spectrum1D):
         kwargs_opts.update(kwargs)
 
         if kwargs_opts["normalize"]:
+            print("Warning:  baseline fit done in channel space")
             spectral_axis = np.copy(self._spectral_axis.value)
             nchan = len(spectral_axis)
             # sadly, there is no single setter for this
