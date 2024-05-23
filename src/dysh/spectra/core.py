@@ -12,6 +12,7 @@ from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 
 from ..coordinates import veltofreq
+from ..util import minimum_string_match
 
 
 # @todo: allow data to be SpectrumList or array of Spectrum
@@ -267,22 +268,22 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     # elif model == "polynomial"
     #  ...
     _valid_models = ["polynomial", "chebyshev", "legendre", "hermite"]
-    _valid_exclude_actions = ["replace", "append", None]
-    # @todo replace with minimum_string_match
-    if kwargs_opts["model"] not in _valid_models:
+    model = minimum_string_match(kwargs_opts["model"], _valid_models)
+    if model == None:
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
-    if kwargs_opts["model"] == "polynomial":
+    elif model == "polynomial":
         model = Polynomial1D(degree=order)
-    elif kwargs_opts["model"] == "chebyshev":
+    elif model == "chebyshev":
         model = Chebyshev1D(degree=order)
-    elif kwargs_opts["model"] == "legendre":
+    elif model == "legendre":
         model = Legendre1D(degree=order)
-    elif kwargs_opts["model"] == "hermite":
+    elif model == "hermite":
         model = Hermite1D(degree=order)
     else:
-        # should never get here, unless we someday allow user to input a astropy.model
+        # should never get here, unless we someday allow user to input an astropy.model
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {_valid_models}')
 
+    _valid_exclude_actions = ["replace", "append", None]
     if kwargs_opts["exclude_action"] not in _valid_exclude_actions:
         raise ValueError(
             f'Unrecognized exclude region action {kwargs["exclude_region"]}. Must be one of {_valid_exclude_actions}'
