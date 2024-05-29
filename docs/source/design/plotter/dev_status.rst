@@ -2,12 +2,12 @@
 Status of Development
 *********************
 
-I've been having some trouble with using just `matplotlib` for the interactive plotter. 
+I've been having some trouble with using just `matplotlib` for the interactive plotter.
 
 PyQt with PyQtGraph
 ===================
 
-One option is to add the `PyQt` dependency back in. 
+One option is to add the `PyQt` dependency back in.
 
 Pros:
   * `PyQtGraph` is based off of `matplotlib`
@@ -20,7 +20,7 @@ Cons:
 Plotly with PyQt
 ================
 
-`Plotly` makes a lot of this interactive stuff easy. 
+`Plotly` makes a lot of this interactive stuff easy.
 
 Pros:
   * Lots of built-in interactivity options
