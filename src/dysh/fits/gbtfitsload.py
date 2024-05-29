@@ -560,7 +560,7 @@ class GBTFITSLoad(SDFITSLoad):
                 i = i + 1
 
     def info(self):
-        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()"""
+        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
         for s in self._sdf:
             s.info()
 
@@ -596,12 +596,10 @@ class GBTFITSLoad(SDFITSLoad):
             Average the scans in polarization.
             The default is False.
         weights : str or None, optional
-            How to weight the spectral data when averaging.  `tsys` means use system
+            How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.FSScan.timeaverage`);
             None means uniform weighting.
-            The default is "tsys".
-        fold: boolean, optional
-            The default is True
+            The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         observer_location : `~astropy.coordinates.EarthLocation`
@@ -610,7 +608,7 @@ class GBTFITSLoad(SDFITSLoad):
             observation DATE-OBS or MJD-OBS in
             the SDFITS header.  The default is the location of the GBT.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -722,14 +720,14 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage : boolean, optional
             Average the scans in polarization. The default is False.
         weights : str or None, optional
-            How to weight the spectral data when averaging.  `tsys` means use system
+            How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
-            None means uniform weighting. The default is "tsys".
+            None means uniform weighting. The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -890,7 +888,7 @@ class GBTFITSLoad(SDFITSLoad):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -999,7 +997,7 @@ class GBTFITSLoad(SDFITSLoad):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 

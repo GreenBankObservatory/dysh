@@ -14,6 +14,7 @@ Contents
 .. toctree::
    :maxdepth: 3
 
+   whatsnew/0.3
    background/index
    getting_started/index
    examples/index
