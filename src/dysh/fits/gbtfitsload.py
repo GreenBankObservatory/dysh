@@ -89,7 +89,7 @@ class GBTFITSLoad(SDFITSLoad):
         self._selection = Selection(self)
         lsdf = len(self._sdf)
         if lsdf > 1:
-            warnings.warn(f"Found {lsdf} FITS files")  # or maybe just print()
+            print(f"Loaded {lsdf} FITS files")
 
     @property
     def selection(self):
