@@ -16,6 +16,7 @@ Contents
 
    background/index
    getting_started/index
+   design/index
    examples/index
    modules/index
    for_beta_testers/index
