@@ -81,7 +81,7 @@ class Spectrum(Spectrum1D):
         self._subtracted = False
         self._normalized = False
         self._exclude_regions = None
-        self._include_regions = None    # do we really need this?
+        self._include_regions = None  # do we really need this?
         self._plotter = None
 
     @property
@@ -89,27 +89,27 @@ class Spectrum(Spectrum1D):
         return self._exclude_regions
 
     def _toggle_sections(self, nchan, s):
-        """ helper routine to toggle between an include= and exclude=
-            only works in channel (0..nchan-1) units
-            sections s need to be a list of (start_chan,end_chan) tuples,
-            for example [(100,200),(500,600)] would be an include=
-            An exclude= needs to start with 0
-            channels need to be ordered low to high, but there is no check
-            for this yet!
+        """helper routine to toggle between an include= and exclude=
+        only works in channel (0..nchan-1) units
+        sections s need to be a list of (start_chan,end_chan) tuples,
+        for example [(100,200),(500,600)] would be an include=
+        An exclude= needs to start with 0
+        channels need to be ordered low to high, but there is no check
+        for this yet!
         """
         ns = len(s)
         s1 = []
-        e=0           #  set this to 1 if you want to be exact complementary
+        e = 0  #  set this to 1 if you want to be exact complementary
         if s[0][0] == 0:
-            #print("toggle_sections: edged")
-            for i in range(ns-1):
-                s1.append( (s[i][1]+e, s[i+1][0]-e) )    
-        else:           
-            #print("toggle_sections: internal")
-            s1.append( (0,s[0][0]))
-            for i in range(ns-1):
-                s1.append( (s[i][1], s[i+1][0]) )
-            s1.append( (s[ns-1][1], nchan-1))
+            # print("toggle_sections: edged")
+            for i in range(ns - 1):
+                s1.append((s[i][1] + e, s[i + 1][0] - e))
+        else:
+            # print("toggle_sections: internal")
+            s1.append((0, s[0][0]))
+            for i in range(ns - 1):
+                s1.append((s[i][1], s[i + 1][0]))
+            s1.append((s[ns - 1][1], nchan - 1))
         return s1
 
     ##@todo
@@ -177,10 +177,10 @@ class Spectrum(Spectrum1D):
         # fmt: on
         # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
         kwargs_opts = {
-            "remove":    False,
+            "remove": False,
             "normalize": False,
-            "model":     "polynomial",
-            "fitter":    LinearLSQFitter(calc_uncertainties=True),
+            "model": "polynomial",
+            "fitter": LinearLSQFitter(calc_uncertainties=True),
         }
         kwargs_opts.update(kwargs)
 
@@ -190,7 +190,7 @@ class Spectrum(Spectrum1D):
             nchan = len(spectral_axis)
             # sadly, there is no single setter for this
             for i in range(nchan):
-                self._spectral_axis[i] = i * u.Hz     # would like to use "chan" units
+                self._spectral_axis[i] = i * u.Hz  # would like to use "chan" units
             self._normalized = True
             # allow include
             if include != None:
@@ -198,7 +198,7 @@ class Spectrum(Spectrum1D):
                 exclude = self._toggle_sections(nchan, include)
 
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
-    
+
         if kwargs_opts["remove"]:
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
@@ -208,7 +208,6 @@ class Spectrum(Spectrum1D):
             for i in range(nchan):
                 self._spectral_axis[i] = spectral_axis[i] * u.Hz
             del spectral_axis
-            
 
     def _undo_baseline(self):
         """
@@ -220,7 +219,7 @@ class Spectrum(Spectrum1D):
             return
         if self._subtracted:
             if self._normalized:
-                warnings.warn('Cannot undo previously normalized baseline subtraction')
+                warnings.warn("Cannot undo previously normalized baseline subtraction")
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
