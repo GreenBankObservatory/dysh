@@ -11,6 +11,7 @@ import numpy as np
 from astropy.coordinates.spectral_coordinate import (
     DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
 )
+from astropy.time import Time
 
 _PMZERO = 0.0 * u.mas / u.yr
 _PMZERORAD = 0.0 * u.rad / u.s
@@ -302,6 +303,21 @@ def sanitize_skycoord(target):
             pm_b=pm_lat,
             radial_velocity=_rv,
         )
+    elif hasattr(target, "az"):  # AzEl or AltAz
+        lon = target.az
+        lat = target.alt
+        pm_lon = target.pm_az_cosalt
+        pm_lat = target.pm_alt
+        _target = coord.SkyCoord(
+            lon,
+            lat,
+            frame=target.frame,
+            distance=newdistance,
+            pm_az_cosalt=pm_lon,
+            pm_alt=pm_lat,
+            radial_velocity=_rv,
+        )
+
     else:
         warnings.warn(f"Can't sanitize {target}")
         return target
@@ -479,6 +495,8 @@ def make_target(header):
         frame=header["RADESYS"].lower(),
         radial_velocity=header["VELOCITY"] * _MPS,
         distance=_DEFAULT_DISTANCE,  # need this or PMs get units m rad /s !
+        obstime=Time(header["DATE-OBS"]),
+        location=gbt_location(),
     )
     # print(f"{t1},{t1.pm_ra_cosdec},{t1.pm_dec},{t1.distance},{t1.radial_velocity}")
     target = sanitize_skycoord(t1)

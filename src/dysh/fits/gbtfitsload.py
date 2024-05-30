@@ -91,6 +91,8 @@ class GBTFITSLoad(SDFITSLoad):
         if lsdf > 1:
             warnings.warn(f"Found {lsdf} FITS files")  # or maybe just print()
 
+        self._update_radesys()
+
     @property
     def selection(self):
         """
@@ -1633,3 +1635,13 @@ class GBTFITSLoad(SDFITSLoad):
         # write it out!
         outhdu.update_extend()  # possibly unneeded
         outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+
+    def _update_radesys(self):
+        """ """
+
+        mask = self._index["RADESYS"] == ""
+        if mask.sum() > 0:
+            warnings.warn("No RADESYS specified.")
+            azel_mask = (self._index["CTYPE2"] == "AZ") & (self._index["CTYPE3"] == "EL")
+            azel_radesys = "AltAz"
+            self._index.loc[azel_mask, "RADESYS"] = azel_radesys
