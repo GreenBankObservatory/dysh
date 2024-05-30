@@ -199,25 +199,6 @@ def minimum_string_match(s, valid_strings):
     return None
 
 
-def stripTable(table):
-    """Remove leading and trailing chars from all strings from an input table.
-
-    Parameters
-    ----------
-     table: ~astropy.table.Table
-         The table to strip
-    """
-    for n in table.colnames:
-        if np.issubdtype(table.dtype[n], str):
-            table[n] = np.char.strip(table[n])
-
-
-# def strip(self,tables):
-#    '''remove leading and trailing chars from all strings in list of tables'''
-#    for b in tables:
-#        stripTable(b)
-
-
 def uniq(seq):
     """Remove duplicates from a list while preserving order.
     from http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-python-whilst-preserving-order

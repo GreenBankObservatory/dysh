@@ -7,6 +7,8 @@ Actions
 
 Tests should be named `test_*.py` and located within a `tests` directory of their parent module. To define a workflow that runs the tests, create a new `.yml` file in `dysh/.github/workflows/`.
 
+.. _githubissues:
+
 Issues
 ======
 

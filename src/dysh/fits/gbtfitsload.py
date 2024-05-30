@@ -89,7 +89,7 @@ class GBTFITSLoad(SDFITSLoad):
         self._selection = Selection(self)
         lsdf = len(self._sdf)
         if lsdf > 1:
-            warnings.warn(f"Found {lsdf} FITS files")  # or maybe just print()
+            print(f"Loaded {lsdf} FITS files")
 
     @property
     def selection(self):
@@ -560,7 +560,7 @@ class GBTFITSLoad(SDFITSLoad):
                 i = i + 1
 
     def info(self):
-        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()"""
+        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
         for s in self._sdf:
             s.info()
 
@@ -596,12 +596,10 @@ class GBTFITSLoad(SDFITSLoad):
             Average the scans in polarization.
             The default is False.
         weights : str or None, optional
-            How to weight the spectral data when averaging.  `tsys` means use system
+            How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.FSScan.timeaverage`);
             None means uniform weighting.
-            The default is "tsys".
-        fold: boolean, optional
-            The default is True
+            The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         observer_location : `~astropy.coordinates.EarthLocation`
@@ -610,7 +608,7 @@ class GBTFITSLoad(SDFITSLoad):
             observation DATE-OBS or MJD-OBS in
             the SDFITS header.  The default is the location of the GBT.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -625,7 +623,7 @@ class GBTFITSLoad(SDFITSLoad):
             ScanBlock containing the individual `~spectra.scan.FSScan`s
 
         """
-        debug = kwargs.get("debug", False)
+        debug = kwargs.pop("debug", False)
         if debug:
             print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
@@ -635,13 +633,17 @@ class GBTFITSLoad(SDFITSLoad):
         else:
             _final = self._index
         scans = kwargs.pop("scan", None)
-
+        kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
+        preselected = {}
+        for kw in ["SCAN", "IFNUM", "PLNUM", "FDNUM"]:
+            preselected[kw] = uniq(_final[kw])
         if scans is None:
-            scans = set(_final["SCAN"])
-        # @todo   we did a pop earlier, so need to push it back; but seems an int works just fine
-        kwargs["scan"] = scans
+            scans = preselected["SCAN"]
+        for k, v in preselected.items():
+            if k not in kwargs:
+                kwargs[k] = v
         if debug:
             print("scans/w sel:", scans, self._selection)
         fs_selection = copy.deepcopy(self._selection)
@@ -718,14 +720,14 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage : boolean, optional
             Average the scans in polarization. The default is False.
         weights : str or None, optional
-            How to weight the spectral data when averaging.  `tsys` means use system
+            How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
-            None means uniform weighting. The default is "tsys".
+            None means uniform weighting. The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -790,9 +792,7 @@ class GBTFITSLoad(SDFITSLoad):
             print(ps_selection.show())
         _sf = ps_selection.final
         if len(_sf) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria [1].")
-        else:
-            print("Len_SF = ", len(_sf))
+            raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -888,7 +888,7 @@ class GBTFITSLoad(SDFITSLoad):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -997,7 +997,7 @@ class GBTFITSLoad(SDFITSLoad):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -1005,12 +1005,6 @@ class GBTFITSLoad(SDFITSLoad):
         -------
         data : `~spectra.scan.ScanBlock`
             A ScanBlock containing one or more `~spectra.scan.SubBeamNodScan`
-
-        Returns
-        -------
-        data : `~spectra.scan.ScanBlock`
-            A ScanBlock object containing the data
-
         """
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final

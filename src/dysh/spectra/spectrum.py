@@ -659,6 +659,7 @@ class Spectrum(Spectrum1D):
         other._exclude_regions = self._exclude_regions
         other._mask = self._mask
         other._subtracted = self._subtracted
+        other.spectral_axis.doppler_convention = self.doppler_convention
 
     def __add__(self, other):
         op = self.add
@@ -678,6 +679,7 @@ class Spectrum(Spectrum1D):
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
+    # @todo replace with __truediv__. See issue #241
     def __div__(self, other):
         op = self.divide
         handle_meta = self._div_meta

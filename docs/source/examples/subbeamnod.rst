@@ -48,7 +48,7 @@ You can also print a concise (or verbose if you choose `verbose=True`) :meth:`~d
 
 .. code:: python
 
-    >>> sdfits.summary(show_index=True)
+    >>> sdfits.summary()
         SCAN     OBJECT VELOCITY        PROC  PROCSEQN RESTFREQ DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
     0     32  1256-0547      0.0         Nod         1     26.5    26.5    1     2    60      2  160.975324  43.884984
     1     33  1256-0547      0.0         Nod         2     26.5    26.5    1     2    60      2  161.174093  43.928449
@@ -72,11 +72,12 @@ You can also print a concise (or verbose if you choose `verbose=True`) :meth:`~d
 The SubBeamNod scans are 43, 46, and 54.  Retrieve and calibrate a SubBeamNod scan, then plot it
 
 .. note::
-    For each scan in the summary `dysh` shows the mean of the VELOCITY, RESTFREQ, DOPFREQ, AZIMUTH and ELEVATIO columns, while `GBTIDL` reports the value of the first integration for a scan. If you use `verbo
-    se=True` in `dysh` you get all the integrations.
+    For each scan in the summary `dysh` shows the mean of the VELOCITY, RESTFREQ, DOPFREQ, AZIMUTH and ELEVATIO columns, while `GBTIDL` reports the value of the first integration for a scan. If you use `verbose=True` in `dysh` you get all the integrations.
 
 .. code:: python
 
-    >>> sbn = sdfits.subbeamnod(scan=43, fdnum=1, ifnum=0, weights='tsys')
+    >>> sbn = sdfits.subbeamnod(scan=43, fdnum=1, ifnum=0)
     >>> ta = sbn.timeaverage(weights="tsys")
-    >>> ta[0].plot()
+    >>> ta.plot(xaxis_unit="GHz")
+
+.. figure:: img/subbeamnod.png
