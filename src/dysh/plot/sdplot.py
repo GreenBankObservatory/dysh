@@ -14,7 +14,7 @@ from ..coordinates import frame_to_label
 _KMS = u.km / u.s
 
 
-class SpectrumPlot:
+class SDPlot:
     # @todo make xaxis_unit='chan[nel]' work
     r"""
     The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
