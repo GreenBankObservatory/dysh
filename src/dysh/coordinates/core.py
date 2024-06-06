@@ -317,7 +317,20 @@ def sanitize_skycoord(target):
             pm_alt=pm_lat,
             radial_velocity=_rv,
         )
-
+    elif hasattr(target, "ha"):  # HADec
+        lon = target.ha
+        lat = target.dec
+        pm_lon = target.pm_ha_cosdec
+        pm_lat = target.pm_dec
+        _target = coord.SkyCoord(
+            lon,
+            lat,
+            frame=target.frame,
+            distance=newdistance,
+            pm_ha_cosdec=pm_lon,
+            pm_dec=pm_lat,
+            radial_velocity=_rv,
+        )
     else:
         warnings.warn(f"Can't sanitize {target}")
         return target
