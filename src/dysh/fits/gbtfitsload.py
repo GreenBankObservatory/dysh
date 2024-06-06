@@ -1637,11 +1637,26 @@ class GBTFITSLoad(SDFITSLoad):
         outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def _update_radesys(self):
-        """ """
+        """
+        Updates the 'RADESYS' column of the index for cases when it is empty.
+        """
 
-        mask = self._index["RADESYS"] == ""
-        if mask.sum() > 0:
-            warnings.warn("No RADESYS specified.")
-            azel_mask = (self._index["CTYPE2"] == "AZ") & (self._index["CTYPE3"] == "EL")
-            azel_radesys = "AltAz"
-            self._index.loc[azel_mask, "RADESYS"] = azel_radesys
+        radesys = {"AzEl": "AltAz", "HADec": "hadec"}
+
+        warning_msg = (
+            lambda scans, a, coord, limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be innacurate (e.g., switching velocity frames)."""
+        )
+
+        # Elevation below the GBT elevation limit (5 degrees) warning.
+        low_el_mask = self._index["ELEVATIO"] < 5
+        if low_el_mask.sum() > 0:
+            low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
+            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
+
+        # Azimuth and elevation case.
+        azel_mask = (self._index["CTYPE2"] == "AZ") & (self._index["CTYPE3"] == "EL")
+        self._index.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
+
+        # Hour angle and declination case.
+        hadec_mask = self._index["CTYPE2"] == "HA"
+        self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
