@@ -576,17 +576,8 @@ class Spectrum(Spectrum1D):
     def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
         if isinstance(other, NDCube):
             result = op(other, **{"handle_meta": handle_meta})
-        elif isinstance(other, u.Quantity):
+        else:
             result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
-        elif not isinstance(other, u.Quantity):
-            try:
-                other = u.Quantity(other, unit=self.unit)
-                result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
-            except TypeError:
-                return NotImplemented
-        # result._target = self._target
-        # result._observer = self._observer
-        # result._velocity_frame = self._velocity_frame
         self._shallow_copy_attributes(result)
         return result
 
@@ -604,25 +595,46 @@ class Spectrum(Spectrum1D):
     def __add__(self, other):
         op = self.add
         handle_meta = self._add_meta
+        if not isinstance(other, (NDCube, u.Quantity)):
+            try:
+                other = u.Quantity(other, unit=self.unit)
+            except TypeError:
+                return NotImplemented
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
     def __sub__(self, other):
         op = self.subtract
         handle_meta = self._add_meta
+        if not isinstance(other, (NDCube, u.Quantity)):
+            try:
+                other = u.Quantity(other, unit=self.unit)
+            except TypeError:
+                return NotImplemented
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
     def __mul__(self, other):
         op = self.multiply
         handle_meta = self._mul_meta
+        if not isinstance(other, NDCube):
+            other = u.Quantity(other)
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
-    # @todo replace with __truediv__. See issue #241
     def __div__(self, other):
         op = self.divide
         handle_meta = self._div_meta
+        if not isinstance(other, NDCube):
+            other = u.Quantity(other)
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    def __truediv__(self, other):
+        op = self.divide
+        handle_meta = self._div_meta
+        if not isinstance(other, NDCube):
+            other = u.Quantity(other)
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
