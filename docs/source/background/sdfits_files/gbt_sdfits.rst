@@ -254,7 +254,7 @@ HDU 1 (SINGLE DISH)
    * - RADESYS
      -
      - 8A
-     - Equitorial coordinate system name
+     - Equatorial coordinate system name
    * - TRGTLONG
      - deg
      - 1D
