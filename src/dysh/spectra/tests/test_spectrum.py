@@ -53,9 +53,23 @@ class TestSpectrum:
         assert np.all(multiplication.flux.value == (self.ps0.flux.value * self.ps1.flux.value))
         assert multiplication.flux.unit == self.ps0.flux.unit * self.ps1.flux.unit
 
+    def test_mul_scalar(self):
+        """Test that we can multiply a `Spectrum` and a scalar."""
+        multiplication = self.ps0 * 1.0
+
+        assert np.all(multiplication.flux.value == (self.ps0.flux.value))
+        assert multiplication.flux.unit == self.ps0.flux.unit
+
     def test_div(self):
         """Test that we can divide two `Spectrum`."""
         division = self.ps0 / self.ps1
 
         assert np.all(division.flux.value == (self.ps0.flux.value / self.ps1.flux.value))
         assert division.flux.unit == self.ps0.flux.unit / self.ps1.flux.unit
+
+    def test_div_scalar(self):
+        """Test that we can divide a `Spectrum` by a scalar."""
+        division = self.ps0 / 1.0
+
+        assert np.all(division.flux.value == (self.ps0.flux.value))
+        assert division.flux.unit == self.ps0.flux.unit
