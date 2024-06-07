@@ -603,6 +603,8 @@ class Spectrum(Spectrum1D):
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
+    __radd__ = __add__
+
     def __sub__(self, other):
         op = self.subtract
         handle_meta = self._add_meta
@@ -614,6 +616,9 @@ class Spectrum(Spectrum1D):
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
+    def __rsub__(self, other):
+        return -1 * (self - other)
+
     def __mul__(self, other):
         op = self.multiply
         handle_meta = self._mul_meta
@@ -621,6 +626,8 @@ class Spectrum(Spectrum1D):
             other = u.Quantity(other)
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
+
+    __rmul__ = __mul__
 
     def __div__(self, other):
         op = self.divide
