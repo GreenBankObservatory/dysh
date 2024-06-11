@@ -89,7 +89,9 @@ class GBTFITSLoad(SDFITSLoad):
         self._selection = Selection(self)
         lsdf = len(self._sdf)
         if lsdf > 1:
-            warnings.warn(f"Found {lsdf} FITS files")  # or maybe just print()
+            print(f"Loaded {lsdf} FITS files")
+
+        self._update_radesys()
 
     @property
     def selection(self):
@@ -560,7 +562,7 @@ class GBTFITSLoad(SDFITSLoad):
                 i = i + 1
 
     def info(self):
-        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()"""
+        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
         for s in self._sdf:
             s.info()
 
@@ -596,12 +598,10 @@ class GBTFITSLoad(SDFITSLoad):
             Average the scans in polarization.
             The default is False.
         weights : str or None, optional
-            How to weight the spectral data when averaging.  `tsys` means use system
+            How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.FSScan.timeaverage`);
             None means uniform weighting.
-            The default is "tsys".
-        fold: boolean, optional
-            The default is True
+            The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         observer_location : `~astropy.coordinates.EarthLocation`
@@ -610,7 +610,7 @@ class GBTFITSLoad(SDFITSLoad):
             observation DATE-OBS or MJD-OBS in
             the SDFITS header.  The default is the location of the GBT.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -722,14 +722,14 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage : boolean, optional
             Average the scans in polarization. The default is False.
         weights : str or None, optional
-            How to weight the spectral data when averaging.  `tsys` means use system
+            How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
-            None means uniform weighting. The default is "tsys".
+            None means uniform weighting. The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -890,7 +890,7 @@ class GBTFITSLoad(SDFITSLoad):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -999,7 +999,7 @@ class GBTFITSLoad(SDFITSLoad):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -1635,3 +1635,28 @@ class GBTFITSLoad(SDFITSLoad):
         # write it out!
         outhdu.update_extend()  # possibly unneeded
         outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+
+    def _update_radesys(self):
+        """
+        Updates the 'RADESYS' column of the index for cases when it is empty.
+        """
+
+        radesys = {"AzEl": "AltAz", "HADec": "hadec"}
+
+        warning_msg = (
+            lambda scans, a, coord, limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+        )
+
+        # Elevation below the GBT elevation limit (5 degrees) warning.
+        low_el_mask = self._index["ELEVATIO"] < 5
+        if low_el_mask.sum() > 0:
+            low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
+            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
+
+        # Azimuth and elevation case.
+        azel_mask = (self._index["CTYPE2"] == "AZ") & (self._index["CTYPE3"] == "EL")
+        self._index.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
+
+        # Hour angle and declination case.
+        hadec_mask = self._index["CTYPE2"] == "HA"
+        self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]

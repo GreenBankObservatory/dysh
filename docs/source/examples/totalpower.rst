@@ -55,18 +55,17 @@ You can also print a concise (or verbose if you choose `verbose=True`) summary :
 Retrieve a scan, selecting and IF number and polarization
 
 .. note::
-    For each scan in the summary `dysh` shows the mean of the VELOCITY, RESTFREQ, DOPFREQ, AZIMUTH and ELEVATIO columns, while `GBTIDL` reports the value of the first integration for a scan. If you use `verbo
-    se=True` in `dysh` you get all the integrations.
+    For each scan in the summary `dysh` shows the mean of the VELOCITY, RESTFREQ, DOPFREQ, AZIMUTH and ELEVATIO columns, while `GBTIDL` reports the value of the first integration for a scan. If you use `verbose=True` in `dysh` you get all the integrations.
 
 .. code:: python
 
     >>> tpscan = sdfits.gettp(scan=152, ifnum=0, plnum=0)
 
-The `~dysh.spectra.scan.GBTTPScan` contains the individual integrations.  The system temperatures per integration are calculated from the CALON and CALOFF data
+Inside the returns `~dysh.spectra.scan.ScanBlock` is one `~dysh.spectra.scan.TPScan` that contains the individual integrations.  The system temperatures per integration are calculated from the CALON and CALOFF data
 
 .. code:: python
 
-    >>> print('%s' % (np.array2string(tpscan.tsys, precision=2)))
+    >>> print('%s' % (np.array2string(tpscan[0].tsys, precision=2)))
     [17.46 17.47 17.51 17.48 17.27 17.24 17.43 17.51 17.36 17.41 17.27 17.36
      17.28 17.31 17.15 17.   17.54 17.21 17.4  17.38 17.49 17.43 17.15 17.2
      17.45 17.15 17.31 17.31 17.1  17.48 17.29 17.24 17.52 17.31 17.19 17.1
