@@ -169,7 +169,7 @@ latex_documents = [
         master_doc,
         "dysh.tex",
         "dysh Documentation",
-        ["Marc Pound", "Victoria Catlett", "Peter Teuben"],
+        ["Marc Pound", "Victoria Catlett", "Peter Teuben", "Pedro Salas", "Evan Smith", "Thomas Chamberlin"],
         "manual",
     )
 ]

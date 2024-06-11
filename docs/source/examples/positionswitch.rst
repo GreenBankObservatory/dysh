@@ -151,7 +151,7 @@ Retrieve a scan and its partner ON or OFF, selecting an IF number and polarizati
 
 .. code:: python
 
-    >>> psscan = sdfits.getps(152, ifnum=0, plnum=0)
+    >>> psscan = sdfits.getps(scan=152, ifnum=0, plnum=0)
 
 The system temperature array (`numpy.ndarray`) is stored in `tsys`
 
@@ -165,7 +165,7 @@ Then time average the data, using system temperature weighting (other option is 
 .. code:: python
 
     >>> ta = psscan.timeaverage(weights='tsys')
-    >>> ta[0].plot()
+    >>> ta.plot()
 
 .. figure:: img/ps_152.png
     :alt: A frequency versus temperature spectrum plot. The spectrum is noisy and spans 1.390 to 1.415 GHz.
@@ -174,14 +174,10 @@ The :meth:`~dysh.spectra.spectrum.Spectrum.plot` command allows changing of axis
 
 .. code:: python
 
-    >>> ta[0].plot(xaxis_unit="km/s", yaxis_unit="mK", ymin=-100, ymax=500, xmin=3000, xmax=4500)
+    >>> ta.plot(xaxis_unit="km/s", yaxis_unit="mK", ymin=-100, ymax=500, xmin=3000, xmax=4500)
 
 .. figure:: img/ps_152_zoom.png
     :alt: The spectrum plot zoomed in along both axes to frame a central emission line.
-
-.. WARNING::
-    At this point, `dysh` does not handle Doppler corrections.
-    So the frequency and velocity information will be offset for observations requesting a reference frame other than Topocentric.
 
 
 Removing a baseline
@@ -195,14 +191,14 @@ The baseline is removed if `remove=True`.
 .. code:: python
 
     >>> kms = u.km/u.s
-    >>> ta[0].baseline(degree=2, exclude=[3600*kms,4100*kms], remove=True)
+    >>> ta.baseline(degree=2, exclude=[3600*kms,4100*kms], remove=True)
     EXCLUDING [Spectral Region, 1 sub-regions:
       (1401242184.363393 Hz, 1403551474.1090915 Hz)
     ]
     WARNING: The fit may be poorly conditioned
      [astropy.modeling.fitting]
-    >>> ta[0].plot(ymin=-200)
-    >>> print(ta[0].baseline_model)
+    >>> ta.plot(xaxis_unit="km/s", yaxis_unit="mK", ymin=-200, ymax=500, xmin=3000, xmax=4500)
+    >>> print(ta.baseline_model)
     Model: Polynomial1D
     Inputs: ('x',)
     Outputs: ('y',)
