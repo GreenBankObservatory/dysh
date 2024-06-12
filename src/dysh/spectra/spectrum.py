@@ -17,6 +17,7 @@ from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum1D
+from specutils.manipulation import box_smooth, gaussian_smooth, trapezoid_smooth
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
@@ -206,7 +207,7 @@ class Spectrum(Spectrum1D):
     def plotter(self):
         return self._plotter
 
-    def stats(self):
+    def stats(self, roll=0):
         """
         Compute some statistics of this `Spectrum`.  The mean, rms,
         data minimum and data maximum are calculated.  Note this works
@@ -220,16 +221,69 @@ class Spectrum(Spectrum1D):
 
         """
         # @todo: maybe make this a dict return value a dict
-        mean = self.mean()
-        rms = self.data.std()
-        dmin = self.min()
-        dmax = self.max()
+        if roll==0:
+            mean = self.mean()
+            rms = self.data.std()
+            dmin = self.min()
+            dmax = self.max()
+        else:
+            d = self._data[roll:] - self._data[:-roll]
+            mean = d.mean()
+            rms = d.std()
+            dmin = d.min()
+            dmax = d.max()
         return (mean, rms, dmin, dmax)
 
-    def smooth(self):
-        # @todo use specutils.manipulation.smoothing
-        # option to smooth baseline too?
-        pass
+    def decimate(self, n, offset=0):
+        """Decimate a spectrum by n pixels, starting at pixel offset
+        """
+        nchan = len(self._data)
+        print("PJT decimate",nchan,offset,n);
+        idx = np.arange(offset,nchan,n)
+        new_data = self._data[idx] * u.K   # why units again?
+        s = Spectrum.make_spectrum(new_data,meta=self.meta)
+        s._spectral_axis = self._spectral_axis[idx]
+        return s
+
+    def smooth(self, method='hanning', width=1, decimate=-1, kernel=None):
+        """ smooth a spectrum
+            method:    hanning, boxcar, gaussian, fft (not implemented)
+            width:     in pixels
+            decimate:  -1  none
+                        0  use the width parameter 
+                       >0  use the decimate factor explicitly
+            kernel:    give your own array to convolve with (not implemented)
+        """
+        # option to smooth baseline_model too? or discard it when decimation was done?
+        #    @todo use the new min.match routine for method=
+        #    method = minimum_string_match(method, ['hanning', 'boxcar', 'gaussian', 'fft']
+        nchan = len(self._data)        
+        print("PJT smooth",method,nchan,width,decimate)
+        if method == 'hanning':
+            s0 = trapezoid_smooth(self, width=width)
+        elif method == 'boxcar':
+            s0 = box_smooth(self, width=width)
+        elif method == 'gaussian':
+            s0 = gaussian_smooth(self, stddev=width)
+        else:
+            print("bad boy")
+            pass
+        new_data = s0._data * u.K   # @todo why do we need a unit again?
+        if decimate >= 0:
+            if decimate == 0:
+                idx = np.arange(0,nchan,width)
+            else:
+                idx = np.arange(0,nchan,decimate)
+            new_data = new_data[idx]
+            s = Spectrum.make_spectrum(new_data, meta=self.meta)
+            s._spectral_axis = self._spectral_axis[idx]
+            if self._baseline_model is not None:
+                print("Warning: removing baseline_model");
+                s._baseline_model = None    # was already None
+        else:
+            s = Spectrum.make_spectrum(new_data, meta=self.meta)
+            s._baseline_model = self._baseline_model   # it never got copied
+        return s
 
     @property
     def equivalencies(self):
