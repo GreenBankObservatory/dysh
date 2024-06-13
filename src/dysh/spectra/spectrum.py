@@ -81,9 +81,16 @@ class Spectrum(Spectrum1D):
         self._subtracted = False
         self._exclude_regions = None
         self._plotter = None
+        self._weights = np.ones_like(self.flux)
+
+    @property
+    def weights(self):
+        """The channel weights of this spectrum"""
+        return self._weights
 
     @property
     def exclude_regions(self):
+        """The baseline exclusion region(s) of this spectrum"""
         return self._exclude_regions
 
     ##@todo
@@ -434,7 +441,10 @@ class Spectrum(Spectrum1D):
         flux = self.flux
         axis = self.spectral_axis
         mask = self.mask
-        t = Table([axis, flux, mask], names=["spectral_axis", "flux", "mask"], meta=self.meta)
+        w = self.weights
+        if self._baseline_model is None:
+            bl = np.zeros_like(flux)
+        t = Table([axis, flux, mask, w], names=["spectral_axis", "flux", "mask", "weights"], meta=self.meta)
         if self.uncertainty is not None:
             t.add_column(self.uncertainty._array, name="uncertainty")
         # f=kwargs.pop("format")
