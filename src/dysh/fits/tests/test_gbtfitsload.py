@@ -283,8 +283,8 @@ class TestGBTFITSLoad:
         that in the GBTIDL index file
         """
         p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
-        index_file = p / "AGBT20B_014_03.raw.vegas.A.index.gz"
-        data_file = p / "AGBT20B_014_03.raw.vegas.A.fits"
+        index_file = p / "AGBT20B_014_03.raw.vegas.A6.index"
+        data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
         g = gbtfitsload.GBTFITSLoad(data_file)
         gbtidl_index = pd.read_csv(index_file, skiprows=10, delim_whitespace=True)
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
