@@ -165,10 +165,11 @@ class ScanBlock(UserList):
     Each Scan object may have different spectral characteristics.
     In order to access the *i*-th Scan object, use ScanBlock[i].
     """
+
     def __init__(self, *args):
         super().__init__(*args)
-        #self._nrows = 0
-        #self._npol = 0
+        # self._nrows = 0
+        # self._npol = 0
         self._timeaveraged = []
         self._polaveraged = []
         self._finalspectrum = []
