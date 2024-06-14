@@ -159,11 +159,15 @@ class ScanMixin:
         return self._nrows
 
 
-class ScanBlock(UserList, ScanMixin):
+class ScanBlock(UserList):
+    """
+    This class contains a list of Scan objects, typically returned from e.g. `~fits.GBTFITSLoad.gettp`.
+    Each Scan object may have different spectral characteristics.
+    """
     def __init__(self, *args):
         super().__init__(*args)
-        self._nrows = 0
-        self._npol = 0
+        #self._nrows = 0
+        #self._npol = 0
         self._timeaveraged = []
         self._polaveraged = []
         self._finalspectrum = []
