@@ -123,7 +123,6 @@ class TestGBTFITSLoad:
                 try:
                     assert ps.meta[col] == pytest.approx(table[col][0], 1e-3)
                 except AssertionError:
-
                     print(f"{col} fails: {ps.meta[col]}, {table[col][0]}")
 
     def test_gettp_single_int(self):
@@ -278,3 +277,14 @@ class TestGBTFITSLoad:
                 check_names=False,
                 check_index=False,
             )
+
+    def test_contruct_integration_number(self):
+        """Test that construction of integration number (intnum) during FITS load matches
+        that in the GBTIDL index file
+        """
+        p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
+        index_file = p / "AGBT20B_014_03.raw.vegas.A6.index"
+        data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
+        g = gbtfitsload.GBTFITSLoad(data_file)
+        gbtidl_index = pd.read_csv(index_file, skiprows=10, delim_whitespace=True)
+        assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
