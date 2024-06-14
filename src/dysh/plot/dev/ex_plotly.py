@@ -162,8 +162,10 @@ class SpecPlot:
         self.plot_html = plotly.offline.plot(self.fig, output_type='div', include_plotlyjs='cdn') 
 
     def show(self):
-        pass
-        # self.app.run(debug=True)
+        # if self.renderer.render_type == "notebook":
+        #     self.fig.show()
+        # else:
+        make_window(self.plot_html)
     
     def build_html(self):
         self.html = '<html><body>'
@@ -208,43 +210,24 @@ class SpecPlot:
 
 class SpecPlotWindow(QMainWindow):
 
-    def __init__(self, spectrum, **kwargs):
+    def __init__(self, specplot_html, **kwargs):
 
         super(SpecPlotWindow, self).__init__()
 
         # some example data
-        my_plot = SpecPlot(spectrum, **kwargs)
-        my_plot.show()
+        #my_plot = SpecPlot(spectrum, **kwargs)
+        #my_plot.show()
         #breakpoint()
 
         # we create an instance of QWebEngineView and set the html code
         plot_widget = QWebEngineView()
-        plot_widget.setHtml(my_plot.html)
+        plot_widget.setHtml(specplot_html)
 
         # set the QWebEngineView instance as main widget
         self.setCentralWidget(plot_widget)
 
-def make_window():
+def make_window(specplot_html):
     app = QApplication([])
-    window = SpecPlotWindow(ta)
+    window = SpecPlotWindow(specplot_html)
     window.show()
     app.exec_()
-    # while True:
-    #     try:
-    #         print("it's open")
-    #         display.display(window)
-    #         display.clear_output(wait=True)
-    #         time.sleep(1)
-    #     except KeyboardInterrupt:
-    #         break
-
-if __name__ == '__main__':
-    from dysh.fits.gbtfitsload import GBTFITSLoad
-    filename = "/home/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"
-    sdfits = GBTFITSLoad(filename)
-    psscan = sdfits.getps(scan=152, ifnum=0, plnum=0)
-    ta = psscan.timeaverage(weights='tsys')
-    ta.mask[0:300] = True
-    # breakpoint()
-
-    make_window()
