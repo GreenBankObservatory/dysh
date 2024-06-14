@@ -538,7 +538,7 @@ class GBTFITSLoad(SDFITSLoad):
                 if s._index is None:
                     s._create_index()
                 # add a FITSINDEX column
-                s._index["FITSINDEX"] = i * np.ones(len(s._index))
+                s._index["FITSINDEX"] = i * np.ones(len(s._index), dtype=int)
                 if self._index is None:
                     self._index = s._index
                 else:
@@ -1621,52 +1621,113 @@ class GBTFITSLoad(SDFITSLoad):
     def __repr__(self):
         return str(self.files)
 
-    def write_scans(self, fileobj, scans, output_verify="exception", overwrite=False, checksum=False):
+    def write_scans(
+        self,
+        fileobj,
+        multifile=True,
+        verbose=False,
+        output_verify="exception",
+        overwrite=False,
+        checksum=False,
+        **kwargs,
+    ):
         """
-        Write specific scans of the `GBTFITSLoad` to a new file.
-        TBD: How does this work for multiple files??
+        Write all or a subset of the `GBTFITSLoad` data to a new file.
 
         Parameters
         ----------
         fileobj : str, file-like or `pathlib.Path`
             File to write to.  If a file object, must be opened in a
             writeable mode.
-
-        scans: int or list-like
-            Range of scans to write out. e.g. 0, [14,25,32].
-
+        multifile: bool, optional
+            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
+            Otherwise, write to a single SDFITS file.
+        verbose: bool, optional
+            If True, print out some information about number of rows written per file
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
             ``"exception"``.  May also be any combination of ``"fix"`` or
             ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
             (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
-
         overwrite : bool, optional
             If ``True``, overwrite the output file if it exists. Raises an
             ``OSError`` if ``False`` and the output file exists. Default is
             ``False``.
-
         checksum : bool
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
             to the headers of all HDU's written to the file.
+        **kwargs : dict
+            Optional additional selection keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `ifnum=1, plnum=[2,3]` etc.
         """
-        # get the rows that contain the scans in all bintables
-        rows = self._scan_rows_all(scans)
-        # @TODO deal with multipl sdfs
-        # copy the PrimaryHDU, but not the BinTableHDU
-        hdu0 = self._sdf[0]._hdu[0].copy()
-        outhdu = fits.HDUList(hdu0)
-        # get the bintables rows as new bintables.
-        for i in range(len(rows)):
-            ob = self._sdf[0]._bintable_from_rows(rows[i], i)
-            # print(f"bintable {i} #rows {len(rows[i])} data length {len(ob.data)}")
-            if len(ob.data) > 0:
-                outhdu.append(ob)
-        # print(outhdu.info())
-        # write it out!
-        outhdu.update_extend()  # possibly unneeded
-        outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+        debug = kwargs.pop("debug", False)
+        if debug:
+            print(kwargs)
+        selection = Selection(self._index)
+        selection._select_from_mixed_kwargs(**kwargs)
+        if debug:
+            print(selection.show())
+        _final = selection.final
+        if len(_final) == 0:
+            raise Exception("Your selection resulted in no rows to be written")
+        fi = list(set(_final["FITSINDEX"]))
+        if debug:
+            print(f"fitsindex {fi} ")
+        total_rows_written = 0
+        if multifile:
+            count = 0
+            for k in fi:
+                this_rows_written = 0
+                # copy the primary HDU
+                hdu = self._sdf[k]._hdu[0].copy()
+                outhdu = fits.HDUList(hdu)
+                # get the bintables rows as new bintables.
+                df = select_from("FITSINDEX", k, _final)
+                bintables = list(set(df.BINTABLE))
+                for b in bintables:
+                    rows = list(set(df.ROW))
+                    lr = len(rows)
+                    if lr > 0:
+                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        # print(f"bintable {b} #rows {len(rows[i])} data length {len(ob.data)}")
+                        if len(ob.data) > 0:
+                            outhdu.append(ob)
+                        total_rows_written += lr
+                        this_rows_written += lr
+                if len(fi) > 1:
+                    outfile = str(fileobj) + str(count)  # maybe should just be 0-N
+                    count += 1
+                else:
+                    outfile = fileobj
+
+                if verbose:
+                    print(f"Writing {this_rows_written} to {outfile}.")
+                outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            if verbose:
+                print(f"Total of {total_rows_written} rows written to files.")
+        else:
+            hdu = self._sdf[k]._hdu[fi[0]].copy()
+            outhdu = fits.HDUList(hdu)
+            for k in fi:
+                df = select_from("FITSINDEX", k, _final)
+                bintables = list(set(df.BINTABLE))
+                for b in bintables:
+                    rows = list(set(df.ROW))
+                    lr = len(rows)
+                    if lr > 0:
+                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        if len(ob.data) > 0:
+                            outhdu.append(ob)
+                        total_rows_written += lr
+            if total_rows_written == 0:  # shouldn't happen, caught earlier
+                raise Exception("Your selection resulted in no rows to be written")
+            else:
+                if verbose:
+                    print(f"Writing {total_rows_written} to {fileobj}")
+            # outhdu.update_extend()  # possibly unneeded
+            outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def _update_radesys(self):
         """
