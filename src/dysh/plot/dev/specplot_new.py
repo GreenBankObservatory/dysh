@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
-#from dysh.fits.gbtfitsload import GBTFITSLoad
+
+# from dysh.fits.gbtfitsload import GBTFITSLoad
+
 
 class SpectrumPlot:
     """Single plot"""
@@ -17,17 +19,17 @@ class SpectrumPlot:
     def fig(self):
         """The underlying :class:`~matplotlib.Axes` object"""
         return self._fig
-    
+
     @property
     def axes(self):
         """The underlying :class:`~matplotlib.Axes` object"""
         return self._axes
-    
+
     @property
     def spectrum(self):
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
-    
+
     def set_spectrum(self, spectrum):
         self.spectrum = spectrum
 
@@ -41,7 +43,7 @@ class SpectrumPlot:
         # lw = self._plot_kwargs["linewidth"]
         # xunit = self._plot_kwargs["xaxis_unit"]
         # yunit = self._plot_kwargs["yaxis_unit"]
-        self._plt.plot([1,2,3,4], [1,2,3,4], color=self._axes_kwargs["line_color"])
+        self._plt.plot([1, 2, 3, 4], [1, 2, 3, 4], color=self._axes_kwargs["line_color"])
 
     def update_kwargs(self):
         """Update the axis configuration"""
@@ -52,13 +54,13 @@ class SpectrumPlot:
         self._axes.xaxis.label.set_color(self._axes_kwargs["xlabel_color"])
         self._axes.yaxis.label.set_color(self._axes_kwargs["ylabel_color"])
 
-        self._axes.tick_params(axis='x', colors=self._axes_kwargs["tick_color"])
-        self._axes.tick_params(axis='y', colors=self._axes_kwargs["tick_color"])
+        self._axes.tick_params(axis="x", colors=self._axes_kwargs["tick_color"])
+        self._axes.tick_params(axis="y", colors=self._axes_kwargs["tick_color"])
 
-        self._axes.spines['left'].set_color(self._axes_kwargs["spine_color"])
-        self._axes.spines['right'].set_color(self._axes_kwargs["spine_color"])
-        self._axes.spines['top'].set_color(self._axes_kwargs["spine_color"])
-        self._axes.spines['bottom'].set_color(self._axes_kwargs["spine_color"])
+        self._axes.spines["left"].set_color(self._axes_kwargs["spine_color"])
+        self._axes.spines["right"].set_color(self._axes_kwargs["spine_color"])
+        self._axes.spines["top"].set_color(self._axes_kwargs["spine_color"])
+        self._axes.spines["bottom"].set_color(self._axes_kwargs["spine_color"])
 
     def reset_kwargs(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -75,33 +77,31 @@ class SpectrumPlot:
             "yaxis_unit": None,
             "tick_color": "white",
             "spine_color": "white",
-            
             "linewidth": 2.0,
             "linestyle": "steps-mid",
             "markersize": 8,
             "line_color": "red",
             "title": None,
             "title_color": "white",
-
             "aspect": "auto",
             "bbox_to_anchor": None,
             "loc": "best",
             "legend": None,
             "show_baseline": True,
             "test": False,
-
             "titlecolor": "white",
             "facecolor": "black",
             "edgecolor": "none",
         }
-    
+
     def show(self):
         """Show the plot"""
         self._plt.show()
-    
+
     def savefig(self, file, **kwargs):
         """Save the plot"""
         self.figure.savefig(file, facecolor=self.figure.get_facecolor(), edgecolor=self.figure.get_edgecolor())
+
 
 class GridPlot:
     """Plot that can have multiple subplots"""
@@ -125,14 +125,14 @@ class GridPlot:
     def figure(self):
         """The underlying :class:`~matplotlib.Figure` object"""
         return self._figure
-    
+
     def make_canvas(self, **kwargs):
         """Make a blank figure"""
         self._figure = self._plt.figure()
 
         self.reset_mosaic()
         self.set_mosaic(self._axes_mosaic)
-        #self.make_canvas()
+        # self.make_canvas()
         self.update_kwargs()
 
     def reset_mosaic(self):
@@ -140,7 +140,7 @@ class GridPlot:
         self._axes_mosaic = """
             A
             """
-        
+
     def identify_axes(ax_dict, fontsize=48):
         """
         Helper to identify the Axes in the examples below.
@@ -201,7 +201,6 @@ class GridPlot:
             "legend": None,
             "show_baseline": True,
             "test": False,
-
             "titlecolor": "white",
             "facecolor": "black",
             "edgecolor": "none",
@@ -210,7 +209,9 @@ class GridPlot:
     def show(self):
         """Show the plot"""
         self._figure.show()
-    
+
     def savefig(self, file, **kwargs):
         """Save the plot"""
-        self.figure.savefig(file, facecolor=self.figure.get_facecolor(), edgecolor=self.figure.get_edgecolor()) # *kwargs)
+        self.figure.savefig(
+            file, facecolor=self.figure.get_facecolor(), edgecolor=self.figure.get_edgecolor()
+        )  # *kwargs)

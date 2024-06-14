@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
-#from patchworklib import Brick
+
+# from patchworklib import Brick
+
 
 class SinglePlot:
     """Single plot"""
@@ -15,12 +17,12 @@ class SinglePlot:
     def fig(self):
         """The underlying :class:`~matplotlib.Axes` object"""
         return self._fig
-    
+
     @property
     def axis(self):
         """The underlying :class:`~matplotlib.Axes` object"""
         return self._axis
-    
+
     def make_canvas(self):
         self._fig, self._axis = plt.subplots(1)
         self.update_kwargs()
@@ -33,13 +35,13 @@ class SinglePlot:
         self._axis.xaxis.label.set_color(self._axis_kwargs["xlabel_color"])
         self._axis.yaxis.label.set_color(self._axis_kwargs["ylabel_color"])
 
-        self._axis.tick_params(axis='x', colors=self._axis_kwargs["tick_color"])
-        self._axis.tick_params(axis='y', colors=self._axis_kwargs["tick_color"])
+        self._axis.tick_params(axis="x", colors=self._axis_kwargs["tick_color"])
+        self._axis.tick_params(axis="y", colors=self._axis_kwargs["tick_color"])
 
-        self._axis.spines['left'].set_color(self._axis_kwargs["spine_color"])
-        self._axis.spines['right'].set_color(self._axis_kwargs["spine_color"])
-        self._axis.spines['top'].set_color(self._axis_kwargs["spine_color"])
-        self._axis.spines['bottom'].set_color(self._axis_kwargs["spine_color"])
+        self._axis.spines["left"].set_color(self._axis_kwargs["spine_color"])
+        self._axis.spines["right"].set_color(self._axis_kwargs["spine_color"])
+        self._axis.spines["top"].set_color(self._axis_kwargs["spine_color"])
+        self._axis.spines["bottom"].set_color(self._axis_kwargs["spine_color"])
 
     def reset_kwargs(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -56,25 +58,23 @@ class SinglePlot:
             "yaxis_unit": None,
             "tick_color": "white",
             "spine_color": "white",
-            
             "linewidth": 2.0,
             "linestyle": "steps-mid",
             "markersize": 8,
             "color": None,
             "title": None,
             "title_color": "white",
-
             "aspect": "auto",
             "bbox_to_anchor": None,
             "loc": "best",
             "legend": None,
             "show_baseline": True,
             "test": False,
-
             "titlecolor": "white",
             "facecolor": "black",
             "edgecolor": "none",
         }
+
 
 class GridPlot:
     """Plot that can have multiple subplots"""
@@ -107,14 +107,14 @@ class GridPlot:
     def spectrum(self):
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
-    
+
     def make_canvas(self, **kwargs):
         """Make a blank figure"""
         self._figure = self._plt.figure()
 
         self.reset_mosaic()
         self.set_mosaic(self._axis_mosaic)
-        #self.make_canvas()
+        # self.make_canvas()
         self.update_kwargs()
 
     def reset_mosaic(self):
@@ -122,7 +122,7 @@ class GridPlot:
         self._axis_mosaic = """
             A
             """
-        
+
     def identify_axes(ax_dict, fontsize=48):
         """
         Helper to identify the Axes in the examples below.
@@ -149,11 +149,11 @@ class GridPlot:
 
     def add_subplot(self, single_plot: SinglePlot, loc: str):
         """Add a subplot to the figure"""
-        #ax = self._figure.add_subplot(111)
-        #axis = SinglePlot()
-        #self._axis_grid.append(axis)
+        # ax = self._figure.add_subplot(111)
+        # axis = SinglePlot()
+        # self._axis_grid.append(axis)
         self._figure.add_subfigure(single_plot.fig)
-        #self._axis_dict[loc] = single_plot.axis
+        # self._axis_dict[loc] = single_plot.axis
 
     def update_kwargs(self):
         """Update the figure configuration"""
@@ -198,7 +198,6 @@ class GridPlot:
             "legend": None,
             "show_baseline": True,
             "test": False,
-
             "titlecolor": "white",
             "facecolor": "black",
             "edgecolor": "none",
@@ -207,15 +206,18 @@ class GridPlot:
     def show(self):
         """Show the plot"""
         self._plt.show()
-    
+
     def savefig(self, file, **kwargs):
         """Save the plot"""
-        self.figure.savefig(file, facecolor=self.figure.get_facecolor(), edgecolor=self.figure.get_edgecolor()) # *kwargs)
+        self.figure.savefig(
+            file, facecolor=self.figure.get_facecolor(), edgecolor=self.figure.get_edgecolor()
+        )  # *kwargs)
+
 
 if __name__ == "__main__":
     test_grid = GridPlot()
-    #test_grid.make_canvas()
-    #test_grid.update_kwargs()
+    # test_grid.make_canvas()
+    # test_grid.update_kwargs()
     test_grid.set_title("Suptitle")
 
     # test_mosaic = "AB;CD"

@@ -5,10 +5,11 @@ Plot a spectrum using matplotlib
 from copy import deepcopy
 
 import astropy.units as u
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib
-matplotlib.use('QtAgg')
+
+matplotlib.use("QtAgg")
 from ..coordinates import frame_to_label
 
 _KMS = u.km / u.s
@@ -81,7 +82,7 @@ class SpectrumPlot:
         self._title = self._plot_kwargs["title"]
         self._show_masked = True
 
-        #self.update_kwargs()
+        # self.update_kwargs()
         self._plot_kwargs.update(kwargs)
 
     # def __call__ (see pyspeckit)
@@ -178,13 +179,13 @@ class SpectrumPlot:
         self._axis.xaxis.label.set_color(this_plot_kwargs["xlabel_color"])
         self._axis.yaxis.label.set_color(this_plot_kwargs["ylabel_color"])
 
-        self._axis.tick_params(axis='x', colors=this_plot_kwargs["tick_color"])
-        self._axis.tick_params(axis='y', colors=this_plot_kwargs["tick_color"])
+        self._axis.tick_params(axis="x", colors=this_plot_kwargs["tick_color"])
+        self._axis.tick_params(axis="y", colors=this_plot_kwargs["tick_color"])
 
-        self._axis.spines['left'].set_color(this_plot_kwargs["spine_color"])
-        self._axis.spines['right'].set_color(this_plot_kwargs["spine_color"])
-        self._axis.spines['top'].set_color(this_plot_kwargs["spine_color"])
-        self._axis.spines['bottom'].set_color(this_plot_kwargs["spine_color"])
+        self._axis.spines["left"].set_color(this_plot_kwargs["spine_color"])
+        self._axis.spines["right"].set_color(this_plot_kwargs["spine_color"])
+        self._axis.spines["top"].set_color(this_plot_kwargs["spine_color"])
+        self._axis.spines["bottom"].set_color(this_plot_kwargs["spine_color"])
 
         self.refresh()
 
@@ -221,7 +222,6 @@ class SpectrumPlot:
             "legend": None,
             "show_baseline": True,
             "test": False,
-
             "titlecolor": "white",
             "facecolor": "black",
             "edgecolor": "none",

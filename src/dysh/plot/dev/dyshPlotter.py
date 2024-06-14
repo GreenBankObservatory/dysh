@@ -1,11 +1,15 @@
 # PACKAGE IMPORTS
-from PyQt5.QtGui import *
+import sys  # , os, psutil, getpass, socket
+
+import pyqtgraph as pg
+from IPython.display import display
 from PyQt5.QtCore import *
+from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from pyqtgraph import PlotWidget
 from pyqtgraph.jupyter import GraphicsLayoutWidget
-import pyqtgraph as pg
-import sys #, os, psutil, getpass, socket
+from qt_material import apply_stylesheet
+
 # import wget
 #import numpy as np
 #import pyqtgraph as pg
@@ -14,8 +18,10 @@ import sys #, os, psutil, getpass, socket
 #import pandas as pd
 #import argparse
 from screeninfo import get_monitors
-from qt_material import apply_stylesheet
-from IPython.display import display
+
+# DYSH IMPORTS
+from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.plot.renderer import Renderer
 
 # LOCAL GUI IMPORTS
 # from widgets.tables import FITSHeaderTable
@@ -29,9 +35,6 @@ from IPython.display import display
 # from widgets.layouts import *
 # from util.dataload import DataLoader
 
-# DYSH IMPORTS
-from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.plot.renderer import Renderer
 
 # PARALLELIZATION
 # from concurrent.futures import ThreadPoolExecutor
@@ -44,7 +47,7 @@ class CustomGLW(GraphicsLayoutWidget):
         # self.request_draw()
         #update()
         return super().get_frame()
-    
+
 class SingleSpectrum(PlotWidget):
     """ Spectrum Plot """
     def __init__(self,spectrum,**kwargs):
@@ -129,7 +132,7 @@ class DyshMainWindow(QMainWindow):
 
         self.info_threads()
         self._init_main_panel()
-        
+
         self.show()
 
     def _init_geometry(self, mult):
