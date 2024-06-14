@@ -1621,7 +1621,7 @@ class GBTFITSLoad(SDFITSLoad):
     def __repr__(self):
         return str(self.files)
 
-    def write_scans(
+    def write(
         self,
         fileobj,
         multifile=True,
@@ -1632,7 +1632,7 @@ class GBTFITSLoad(SDFITSLoad):
         **kwargs,
     ):
         """
-        Write all or a subset of the `GBTFITSLoad` data to a new file.
+        Write all or a subset of the `GBTFITSLoad` data to a new SDFITS file(s).
 
         Parameters
         ----------
