@@ -163,6 +163,7 @@ class ScanBlock(UserList):
     """
     This class contains a list of Scan objects, typically returned from e.g. `~fits.GBTFITSLoad.gettp`.
     Each Scan object may have different spectral characteristics.
+    In order to access the *i*-th Scan object, use ScanBlock[i].
     """
     def __init__(self, *args):
         super().__init__(*args)
