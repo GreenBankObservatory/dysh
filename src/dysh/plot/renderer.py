@@ -30,4 +30,4 @@ class Renderer:
         """
         self.in_interactive = bool(getattr(sys, "ps1", sys.flags.interactive))
         if self.in_interactive:
-            self.render_type = "iPython"
+            self.render_type = "notebook"

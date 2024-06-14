@@ -79,6 +79,7 @@ class SpectrumPlot:
         self._figure = None
         self._axis = None
         self._title = self._plot_kwargs["title"]
+        self._show_masked = True
 
         #self.update_kwargs()
         self._plot_kwargs.update(kwargs)
@@ -153,7 +154,10 @@ class SpectrumPlot:
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
-        self._axis.plot(sa, sf, color=this_plot_kwargs["line_color"], lw=lw)
+        plot_indx = self._spectrum.mask == False
+        self._axis.plot(sa[plot_indx], sf[plot_indx], color=this_plot_kwargs["line_color"], lw=lw)
+        if self._show_masked:
+            self._axis.plot(sa[~plot_indx], sf[~plot_indx], color=this_plot_kwargs["line_color_masked"], lw=lw)
         self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
@@ -205,7 +209,8 @@ class SpectrumPlot:
             "linewidth": 2.0,
             "linestyle": "steps-mid",
             "markersize": 8,
-            "line_color": "red",
+            "line_color": "white",
+            "line_color_masked": "red",
             "title": None,
             "title_color": "white",
             #'axis':None,
