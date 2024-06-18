@@ -300,3 +300,8 @@ class TestGBTFITSLoad:
         assert set(t._index["PLNUM"]) == set([1])
         # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
         assert set(t._index["INTNUM"]) == set([2])
+
+    # @todo MWP
+    def test_write_multi_file(self):
+        "Test that writing multiple SDFITS files works, including subselection of data"
+        assert True
