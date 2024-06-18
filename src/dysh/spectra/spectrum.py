@@ -24,7 +24,6 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     astropy_frame_dict,
     change_ctype,
     decode_veldef,
-    frame_to_label,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -33,6 +32,8 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 )
 from ..plot import specplot as sp
 from . import baseline, get_spectral_equivalency
+
+# from astropy.nddata import StdDevUncertainty
 
 
 class Spectrum(Spectrum1D):
@@ -51,27 +52,44 @@ class Spectrum(Spectrum1D):
         if self._target is not None:
             # print(f"self._target is {self._target}")
             self._target = sanitize_skycoord(self._target)
-            self._target.sanitized = True
             self._velocity_frame = self._target.frame.name
         else:
             self._velocity_frame = None
         # @todo - have _observer_location attribute instead?
         # and observer property returns getITRS(observer_location,obstime)
+        self._observer_location = kwargs.pop("observer_location", None)
         self._observer = kwargs.pop("observer", None)
+        if self._observer is not None and self._observer_location is not None:
+            raise Exception("YOu can only specify one of observer_location or observer")
         Spectrum1D.__init__(self, *args, **kwargs)
+        # Try making a target from meta. If it fails, don't worry about it.
+        if False:
+            if self._target is None:
+                try:
+                    self._target = make_target(self.meta)
+                    self._velocity_frame = self._target.frame.name
+                except Exception:
+                    pass
         self._spectral_axis._target = self._target
-        self._spectral_axis._observer = self._observer
-        if self._observer is not None:
-            self._velocity_frame = self._observer.name
+        if self.velocity_convention is None and "VELDEF" in self.meta:
+            self._spectral_axis._doppler_convention = veldef_to_convention(self.meta["VELDEF"])
+        # if "uncertainty" not in kwargs:
+        # self._uncertainty = StdDevUncertainty(np.ones_like(self.data), unit=self.flux.unit)
+        # Weights are Non here because can be defined
+        # separately from uncertainty by the user. Not really recommended
+        # but they can do so. See self.weights()
+        # self._weights = None
+        self._weights = np.ones(self.flux.shape)
+        #  Get observer quantity from observer location.
         if "DATE-OBS" in self.meta:
             self._obstime = Time(self.meta["DATE-OBS"])
+        elif "MJD-OBS" in self.meta:
+            self._obstime = Time(self.meta["MJD-OBS"])
         else:
             self._obstime = None
-        # if "CTYPE1" in self.meta:
-        #    # may not need these attributes anymore.
-        #    if self._target is not None:
-        #        self._target.topocentric = is_topocentric(self.meta["CTYPE1"])
-        #    self.topocentric = is_topocentric(self.meta["CTYPE1"])
+        self._spectral_axis._observer = self.observer
+        if self._spectral_axis._observer is not None:
+            self._velocity_frame = self._spectral_axis._observer.name
 
         # if mask is not set via the flux input (NaNs in flux or flux.mask),
         # then set the mask to all False == good
@@ -81,11 +99,14 @@ class Spectrum(Spectrum1D):
         self._subtracted = False
         self._exclude_regions = None
         self._plotter = None
-        self._weights = np.ones_like(self.flux)
 
     @property
     def weights(self):
         """The channel weights of this spectrum"""
+        # Cannot take power of NDUncertainty, so convert
+        # to a Quanity first.
+        # if self._weights is None:
+        #    return self._uncertainty.quantity**-2
         return self._weights
 
     @property
@@ -268,7 +289,10 @@ class Spectrum(Spectrum1D):
             observer : `~astropy.coordinates.BaseCoordinateFrame` or derivative
             The coordinate frame of the observer if present.
         """
-        return self._observer
+        if self._observer is None and self._observer_location is not None:
+            return SpectralCoord._validate_coordinate(self._observer_location.get_itrs(obstime=self._obstime))
+        else:
+            return self._observer
 
     @property
     def velocity_frame(self):
@@ -310,7 +334,7 @@ class Spectrum(Spectrum1D):
 
         Returns
         -------
-        velocity : `~astropy.units.Quantity`
+        test_spectrum.pyvelocity : `~astropy.units.Quantity`
             The converted spectral axis velocity
         """
         if toframe is not None and toframe != self.velocity_frame:
@@ -424,7 +448,17 @@ class Spectrum(Spectrum1D):
 
     def _write_table(self, fileobj, format, **kwargs):
         """
-        Write this `Spectrum` as an ~astropy.table.Table.
+        Write this `Spectrum` as an ~astropy.table.Table. The output columns will be
+            - frequency or velocity - in  the Spectrum's spectral axis units, or converted with `xaxis_unit` keyword
+            - flux - in the Spectrum's flux units, or converted with `yaxis_unit` keyword
+            - uncertainty - The channel-based uncertainty or zeroes if uncertainty was not defined
+            - weights - the channel weights
+            - mask - 0 is unmasked ('good'), 1 is masked ('bad')
+            - baseline model value - the value of the baseline model at each x axis point, regardless of whether it
+              has been subtracted from the Spectrum or not. This will be all zeroes if no baseline model
+              has been computed.
+
+
 
         Parameters
         ----------
@@ -437,17 +471,29 @@ class Spectrum(Spectrum1D):
             Additional keyword arguments supported by ~astropy.table.Table.write
 
         """
-
-        flux = self.flux
-        axis = self.spectral_axis
-        mask = self.mask
-        w = self.weights
+        # @todo support xaxis_unit, yaxis_unit, flux_unit
+        # @todo support wcs=True/False, metadata=True/False?? I think we always want these.
         if self._baseline_model is None:
-            bl = np.zeros_like(flux)
-        t = Table([axis, flux, mask, w], names=["spectral_axis", "flux", "mask", "weights"], meta=self.meta)
-        if self.uncertainty is not None:
-            t.add_column(self.uncertainty._array, name="uncertainty")
-        # f=kwargs.pop("format")
+            bl = np.zeros_like(self.flux)
+            bldesc = "Fitted baseline value at given channel (was not defined)"
+        else:
+            bl = self._baseline_model(self._spectral_axis)
+            bldesc = "Fitted baseline value at given channel"
+        mask = self.mask * 1
+        if self.uncertainty is None:
+            unc = np.zeros(self.flux.shape)  # , mask=False)
+            udesc = "Flux uncertainty (was not defined)"
+        else:
+            unc = self.uncertainty.quantity
+            udesc = "Flux uncertainty"
+        outarray = [self.spectral_axis, self.flux, unc, self.weights, mask, bl]
+        description = ["Spectral axis", "Flux", udesc, "Channel weights", "Mask 0=unmasked, 1=masked", bldesc]
+        if format == "mrt":
+            ulab = "e_flux"  # MRT convention that error on X is labeled e_X
+        else:
+            ulab = "uncertainty"
+        outnames = ["spectral_axis", "flux", ulab, "weight", "mask", "baseline"]
+        t = Table(outarray, names=outnames, meta=self.meta, descriptions=description)
         t.write(fileobj, format=format, **kwargs)
 
     def _copy(self, **kwargs):
@@ -477,6 +523,42 @@ class Spectrum(Spectrum1D):
         # s.topocentric = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         return s
 
+    @classmethod
+    def fake_spectrum(cls, nchan=1024):
+        """
+        Create a fake spectrum, useful for simple testing.
+
+        Parameters
+        ----------
+        nchan : int, optional
+            Number of channels. The default is 1024.
+
+        Returns
+        -------
+        spectrum : `~dysh.spectra.Spectrum`
+            The spectrum object
+        """
+        data = np.random.rand(nchan) * u.K
+
+        meta = {
+            "CTYPE1": "FREQ-OBS",
+            "CTYPE2": "RA---SIN",
+            "CTYPE3": "DEC--SIN",
+            "CRVAL1": 100.0,
+            "CRVAL2": 12.4321,
+            "CRVAL3": 44.44,
+            "CUNIT1": "GHz",
+            "CUNIT2": "deg",
+            "CUNIT3": "deg",
+            "VELOCITY": 1.23,
+            "EQUINOX": 2000.0,
+            "RADESYS": "ICRS",
+            "DATE-OBS": "2021-02-10T07:15:16.00",
+            "VELDEF": "RADI-LSR",
+            "RESTFRQ": 100.0,
+        }
+        return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"])
+
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
     def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None):
@@ -504,7 +586,8 @@ class Spectrum(Spectrum1D):
         """
         warnings.simplefilter("ignore", NoVelocityWarning)
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
-        # should we also require DATE-OBS or MJD-OBS?
+        # @todo requirement should be either DATE-OBS or MJD-OBS, but make_target() needs to be updated
+        # in that case as well.
         _required = set(
             [
                 "CRVAL1",
@@ -519,6 +602,9 @@ class Spectrum(Spectrum1D):
                 "VELOCITY",
                 "EQUINOX",
                 "RADESYS",
+                "DATE-OBS",
+                "VELDEF",
+                "RESTFRQ",
             ]
         )
 
@@ -543,7 +629,7 @@ class Spectrum(Spectrum1D):
         # is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         target = make_target(meta)
         vc = veldef_to_convention(meta["VELDEF"])
-        vf = astropy_frame_dict[decode_veldef(meta["VELDEF"])[1]]
+        # vf = astropy_frame_dict[decode_veldef(meta["VELDEF"])[1]]
         # could be clever:
         # obstime = Time(meta.get("DATE-OBS",meta.get("MJD-OBS",None)))
         # if obstime is not None: blah blah
@@ -570,6 +656,7 @@ class Spectrum(Spectrum1D):
             radial_velocity=target.radial_velocity,
             rest_value=meta["RESTFRQ"] * u.Hz,
             observer=obsitrs,
+            # observer_location=observer_location,
             target=target,
         )
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
@@ -600,7 +687,7 @@ class Spectrum(Spectrum1D):
         other._exclude_regions = self._exclude_regions
         other._mask = self._mask
         other._subtracted = self._subtracted
-        other.spectral_axis.doppler_convention = self.doppler_convention
+        other.spectral_axis._doppler_convention = self.doppler_convention
 
     def __add__(self, other):
         op = self.add
@@ -702,7 +789,16 @@ def spectrum_writer_votable(spectrum, fileobj, **kwargs):
     spectrum._write_table(fileobj, format="votable", **kwargs)
 
 
+def spectrum_writer_ecsv(spectrum, fileobj, **kwargs):
+    spectrum._write_table(fileobj, format="ascii.ecsv", **kwargs)
+
+
+def spectrum_writer_mrt(spectrum, fileobj, **kwargs):
+    spectrum._write_table(fileobj, format="mrt", **kwargs)
+
+
 with registry.delay_doc_updates(Spectrum):
+    # WRITERS
     registry.register_writer("ascii.basic", Spectrum, ascii_spectrum_writer_basic)
     registry.register_writer("basic", Spectrum, ascii_spectrum_writer_basic)
     registry.register_writer("ascii.commented_header", Spectrum, ascii_spectrum_writer_commented_header)
@@ -712,3 +808,9 @@ with registry.delay_doc_updates(Spectrum):
     registry.register_writer("ascii.ipac", Spectrum, ascii_spectrum_writer_ipac)
     registry.register_writer("ipac", Spectrum, ascii_spectrum_writer_ipac)
     registry.register_writer("votable", Spectrum, spectrum_writer_votable)
+    registry.register_writer("ecsv", Spectrum, spectrum_writer_ecsv)
+    registry.register_writer("mrt", Spectrum, spectrum_writer_mrt)
+    # READERS
+    # all the ascii above
+    # gbtidl
+    #
