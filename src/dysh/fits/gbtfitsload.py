@@ -577,6 +577,17 @@ class GBTFITSLoad(SDFITSLoad):
         if self._index is None:
             warnings.warn("Couldn't construct integration number: index is not yet created.")
             return
+        # check it hasn't been constructed before.
+        if "INTNUM" in self._index:
+            # print("INTNUM is alsready there")
+            return
+        # check that GBTIDL didn't write it out at some point.
+        if "INT" in self._index:
+            # print("INT is already there")
+            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)
+            for s in self._sdf:
+                s.rename_binary_table_column("int", "intnum")
+            return
         scan_changes = indices_where_value_changes("SCAN", self._index)
         time_changes = indices_where_value_changes("DATE-OBS", self._index)
         # there is probably some super clever pythonic way to do this in one line
@@ -592,6 +603,21 @@ class GBTFITSLoad(SDFITSLoad):
                     intnum += 1
             intnumarray.append(intnum)
         self._index["INTNUM"] = intnumarray
+        # Here need to add it as a new column in the BinTableHDU,
+        # but we have to sort out FITSINDEX.
+        # s.add_col("INTNUM",intnumarray)
+        fits_index_changes = indices_where_value_changes("FITSINDEX", self._index)
+        print("FITSINDEXCHANGES ", fits_index_changes)
+        lf = len(fits_index_changes)
+        for i in range(lf):
+            fic = fits_index_changes[i]
+            if i + 1 < lf:
+                fici = fits_index_changes[i + 1]
+            else:
+                fici = -1
+            fi = self._index["FITSINDEX"][fic]
+            # @todo fix this MWP
+            self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
 
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
@@ -1609,7 +1635,6 @@ class GBTFITSLoad(SDFITSLoad):
         """
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
-        df_out = []
         rows = []
         scanidx = self._index[self._index["SCAN"].isin(scans)]
         bt = self.udata("BINTABLE")

@@ -529,8 +529,56 @@ class SDFITSLoad(object):
         # print(f"bintable copy data length {len(outbintable.data)}")
         outbintable.data = outbintable.data[rows]
         # print(f"bintable rows data length {len(outbintable.data)}")
-        outbintable.update()
+        outbintable.update_header()
         return outbintable
+
+    def rename_binary_table_column(self, oldname, newname, bintable=None):
+        """
+        Rename a column in one or more binary tables of this SDFITSLoad
+
+        Parameters
+        ----------
+        oldname : str
+            The SDFITS binary table column to rename, e.g. 'SITELAT'
+        newname :  str
+            The new name for the SDFITS  binary table column.
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        ou = oldname.upper()
+        nu = newname.upper()
+        if bintable is None:
+            for b in self._bintable:
+                b.columns.change_attrib(ou, "name", nu)
+        else:
+            b = self._bintable[bintable]
+            b.columns.change_attrib(ou, "name", nu)
+
+    # @todo implement this MWP
+    def add_col(self, name, value, bintable=None):
+        """
+        Add a new column to the FITS binary table HDU
+
+        Parameters
+        ----------
+        name : str
+            column name to add
+        value : list-like
+            The column values
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
 
     def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
         """

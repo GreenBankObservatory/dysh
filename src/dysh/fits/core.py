@@ -93,6 +93,7 @@ def default_sdfits_columns():
         "PLNUM",
         "FDNUM",
         "INT",
+        "INTNUM",  # not all SDFITS files have INT, so we always create INTNUM
         "NSAVE",
         # The following are added by the GBTFITSLoad constructor.
         # Arguable whether they should be included or not.

@@ -288,3 +288,15 @@ class TestGBTFITSLoad:
         g = gbtfitsload.GBTFITSLoad(data_file)
         gbtidl_index = pd.read_csv(index_file, skiprows=10, delim_whitespace=True)
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
+
+    def test_write_single_file(self):
+        "Test that writing an SDFITS file works when subselecting data"
+        p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
+        data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
+        g = gbtfitsload.GBTFITSLoad(data_file)
+        out = "test_write_single.fits"
+        g.write(out, plnum=1, intnum=2, overwrite=True)
+        t = gbtfitsload.GBTFITSLoad(out)
+        assert set(t._index["PLNUM"]) == set([1])
+        # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
+        assert set(t._index["INTNUM"]) == set([2])
