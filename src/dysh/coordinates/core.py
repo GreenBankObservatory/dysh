@@ -494,7 +494,7 @@ def make_target(header):
     """
 
     # should we also require DATE-OBS or MJD-OBS?
-    _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS"])
+    _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"])
 
     # for k in _required:
     #    print(f"{k} {k in header}")
