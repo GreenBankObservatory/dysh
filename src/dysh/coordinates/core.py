@@ -586,3 +586,36 @@ class Observatory:
         if key == "GBT":
             return GBT()
         return coord.EarthLocation.of_site(key)
+
+    def get_earth_location(longitude, latitude, height=0.0, ellipsoid=None):
+        """
+        Location on Earth, initialized from geodetic coordinates.
+
+        Parameters
+        ----------
+        lon : `~astropy.coordinates.Longitude` or float
+            Earth East longitude.  Can be anything that initialises an
+            `~astropy.coordinates.Angle` object (if float, in degrees).
+        lat : `~astropy.coordinates.Latitude` or float
+            Earth latitude.  Can be anything that initialises an
+            `~astropy.coordinates.Latitude` object (if float, in degrees).
+        height : `~astropy.units.Quantity` ['length'] or float, optional
+            Height above reference ellipsoid (if float, in meters; default: 0).
+        ellipsoid : str, optional
+            Name of the reference ellipsoid to use (default: 'WGS84').
+            Available ellipsoids are:  'WGS84', 'GRS80', 'WGS72'.
+
+        Raises
+        ------
+        `~astropy.units.UnitsError`
+            If the units on ``lon`` and ``lat`` are inconsistent with angular
+            ones, or that on ``height`` with a length.
+        ValueError
+            If ``lon``, ``lat``, and ``height`` do not have the same shape, or
+            if ``ellipsoid`` is not recognized as among the ones implemented.
+
+        Notes
+        -----
+        See :meth:`~astropy.coordinates.EarthLocation.from_geodetic`
+        """
+        return coord.EarthLocation.from_geodetic(longitude, latitude, height, ellipsoid)
