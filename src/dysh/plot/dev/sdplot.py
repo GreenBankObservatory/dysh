@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 matplotlib.use("QtAgg")
-from ..coordinates import frame_to_label
+from ...coordinates import frame_to_label
 
 _KMS = u.km / u.s
 

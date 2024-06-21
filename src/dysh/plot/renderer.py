@@ -1,5 +1,4 @@
-import sys
-
+from IPython import get_ipython
 
 class Renderer:
     def __init__(self):
@@ -7,27 +6,17 @@ class Renderer:
         self.detect()
 
     def detect(self):
-        self.detect_notebook()
-        self.detect_interactive()
+        """Detect the renderer needed"""
+        ip = get_ipython()
+
+        if ip is None:
+            self.render_type = "script"
+        else:
+            if ip.has_trait('kernel'):
+                self.render_type = "notebook"
+            else:
+                self.render_type = "ipython"
 
     def info(self):
-        print(f"In notebook: {self.in_notebook}")
-        print(f"Interactive: {self.in_interactive}")
-
-    def detect_notebook(self):
-        """
-        Returns ``True`` if the module is running in IPython kernel,
-        ``False`` if in IPython shell or other Python shell.
-        """
-        self.in_notebook = "ipykernel" in sys.modules
-        if self.in_notebook:
-            self.render_type = "notebook"
-
-    def detect_interactive(self):
-        """
-        Returns ``True`` if the module is running in an interactive setting,
-        ``False`` otherwise.
-        """
-        self.in_interactive = bool(getattr(sys, "ps1", sys.flags.interactive))
-        if self.in_interactive:
-            self.render_type = "notebook"
+        """Print out the detected renderer"""
+        print(f"Renderer: {self.render_type}")
