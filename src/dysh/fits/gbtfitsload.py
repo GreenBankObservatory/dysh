@@ -68,7 +68,8 @@ class GBTFITSLoad(SDFITSLoad):
             raise Exception(f"{fileobj} is not a file or directory path")
         if kwargs_opts["index"]:
             self._create_index_if_needed()
-
+            self._selection = Selection(self)
+            self._update_radesys()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # cds.enable()  # to get mmHg
@@ -86,12 +87,10 @@ class GBTFITSLoad(SDFITSLoad):
             self.ushow(0, "PROCSIZE")
             self.ushow(0, "OBSMODE")
             self.ushow(0, "SIDEBAND")
-        self._selection = Selection(self)
+
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
-
-        self._update_radesys()
 
     @property
     def selection(self):
@@ -556,6 +555,9 @@ class GBTFITSLoad(SDFITSLoad):
         """
         if self._index is None:
             warnings.warn("Couldn't construct procedure string: index is not yet created.")
+            return
+        if "OBSMODE" not in self._index:
+            warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
             return
         df = self._index["OBSMODE"].str.split(":", expand=True)
         self._index["PROC"] = df[0]
