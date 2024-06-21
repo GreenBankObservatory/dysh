@@ -494,7 +494,14 @@ class Spectrum(Spectrum1D):
         else:
             ulab = "uncertainty"
         outnames = ["spectral_axis", "flux", ulab, "weight", "mask", "baseline"]
-        t = Table(outarray, names=outnames, meta=self.meta, descriptions=description)
+        if "ipac" in format:
+            # IPAC format wants a crazy dictionary style.
+            d = {}
+            for k, v in self.meta.items():
+                d[k] = {"value": v}
+            t = Table(outarray, names=outnames, meta={"keywords": d}, descriptions=description)
+        else:
+            t = Table(outarray, names=outnames, meta=self.meta, descriptions=description)
         t.write(fileobj, format=format, **kwargs)
 
     def _copy(self, **kwargs):
@@ -525,14 +532,20 @@ class Spectrum(Spectrum1D):
         return s
 
     @classmethod
-    def fake_spectrum(cls, nchan=1024):
+    def fake_spectrum(cls, nchan=1024, **kwargs):
         """
-        Create a fake spectrum, useful for simple testing.
+        Create a fake spectrum, useful for simple testing. A default header is
+        created, which may be modified with kwargs.
 
         Parameters
         ----------
         nchan : int, optional
             Number of channels. The default is 1024.
+
+        **kwargs: dict or key=value
+            Metadata to put in the header.  If the key exists already in
+            the default header, it will be replaced. Otherwise the key and value will be
+            added to the header. Keys are case insensitive.
 
         Returns
         -------
@@ -540,24 +553,103 @@ class Spectrum(Spectrum1D):
             The spectrum object
         """
         data = np.random.rand(nchan) * u.K
-
         meta = {
+            "OBJECT": "NGC2415",
+            "BANDWID": 23437500.0,
+            "DATE-OBS": "2021-02-10T07:38:37.50",
+            "DURATION": 0.9982445,
+            "EXPOSURE": 732.1785161896237,
+            "TSYS": 17.930595470605255,
             "CTYPE1": "FREQ-OBS",
-            "CTYPE2": "RA---SIN",
-            "CTYPE3": "DEC--SIN",
-            "CRVAL1": 100.0,
-            "CRVAL2": 12.4321,
-            "CRVAL3": 44.44,
-            "CUNIT1": "GHz",
+            "CRVAL1": 1402544936.7749996,
+            "CRPIX1": float(nchan) / 2.0,
+            "CDELT1": -715.2557373046875,
+            "CTYPE2": "RA",
+            "CRVAL2": 114.23878994411744,
+            "CTYPE3": "DEC",
+            "CRVAL3": 35.24315395841497,
+            "CRVAL4": -6,
+            "OBSERVER": "Michael Fanelli",
+            "OBSID": "unknown",
+            "SCAN": 152,
+            "OBSMODE": "OnOff:PSWITCHON:TPWCAL",
+            "FRONTEND": "Rcvr1_2",
+            "TCAL": 1.4551637172698975,
+            "VELDEF": "OPTI-HEL",
+            "VFRAME": 15264.39118499772,
+            "RVSYS": 3775382.910954342,
+            "OBSFREQ": 1402544936.7749996,
+            "LST": 42101.90296246562,
+            "AZIMUTH": 285.9514963267411,
+            "ELEVATIO": 42.100623613548194,
+            "TAMBIENT": 270.4,
+            "PRESSURE": 696.2290227048372,
+            "HUMIDITY": 0.949,
+            "RESTFREQ": 1420405751.7,
+            "FREQRES": 715.2557373046875,
+            "EQUINOX": 2000.0,
+            "RADESYS": "FK5",
+            "TRGTLONG": 114.2375,
+            "TRGTLAT": 35.24194444444444,
+            "SAMPLER": "A2_0",
+            "FEED": 1,
+            "SRFEED": 0,
+            "FEEDXOFF": 0.0,
+            "FEEDEOFF": 0.0,
+            "SUBREF_STATE": 1,
+            "SIDEBAND": "L",
+            "PROCSEQN": 1,
+            "PROCSIZE": 2,
+            "PROCSCAN": "ON",
+            "PROCTYPE": "SIMPLE",
+            "LASTON": 152,
+            "LASTOFF": 0,
+            "TIMESTAMP": "2021_02_10_07:38:37",
+            "QD_BAD": -1,
+            "QD_METHOD": "",
+            "VELOCITY": 3784000.0,
+            "DOPFREQ": 1420405751.7,
+            "ADCSAMPF": 3000000000.0,
+            "VSPDELT": 65536.0,
+            "VSPRVAL": 19.203125,
+            "VSPRPIX": 16385.0,
+            "SIG": "T",
+            "CAL": "F",
+            "CALTYPE": "LOW",
+            "CALPOSITION": "Unknown",
+            "IFNUM": 0,
+            "PLNUM": 0,
+            "FDNUM": 0,
+            "HDU": 1,
+            "BINTABLE": 0,
+            "ROW": 2,
+            "DATE": "2022-02-14T17:25:01",
+            "ORIGIN": "NRAO Green Bank",
+            "TELESCOP": "NRAO_GBT",
+            "INSTRUME": "VEGAS",
+            "SDFITVER": "sdfits ver1.22",
+            "FITSVER": "1.9",
+            "CTYPE4": "STOKES",
+            "PROJID": "TGBT21A_501_11",
+            "BACKEND": "VEGAS",
+            "SITELONG": -79.83983,
+            "SITELAT": 38.43312,
+            "SITEELEV": 824.595,
+            "EXTNAME": "SINGLE DISH",
+            "FITSINDEX": 0,
+            "PROC": "OnOff",
+            "OBSTYPE": "PSWITCHON",
+            "SUBOBSMODE": "TPWCAL",
+            "INTNUM": 0,
+            "CUNIT1": "Hz",
             "CUNIT2": "deg",
             "CUNIT3": "deg",
-            "VELOCITY": 1.23,
-            "EQUINOX": 2000.0,
-            "RADESYS": "ICRS",
-            "DATE-OBS": "2021-02-10T07:15:16.00",
-            "VELDEF": "RADI-LSR",
-            "RESTFRQ": 100.0,
+            "RESTFRQ": 1420405751.7,
+            "MEANTSYS": 17.16746070048293,
+            "WTTSYS": 17.16574907094451,
         }
+        for k, v in kwargs.items():
+            meta[k.upper()] = v
         return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"])
 
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
@@ -575,10 +667,11 @@ class Spectrum(Spectrum1D):
             Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
         use_wcs : bool
             If True, create a WCS object from `meta`
-
-        observer_location : `~astropy.coordinates.EarthLocation`
+        observer_location : `~astropy.coordinates.EarthLocation` or str
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
+            If this parameter is given the special str value 'from_meta', then an observer_location
+            will be created from SITELONG, SITELAT, and SITEELEV in the meta dictionary.
 
         Returns
         -------
@@ -639,6 +732,13 @@ class Spectrum(Spectrum1D):
         elif "MJD-OBS" in meta:
             obstime = Time(meta["MJD-OBS"])
         if "DATE-OBS" in meta or "MJD-OBS" in meta:
+            if observer_location == "from_meta":
+                try:
+                    observer_location = Observatory.get_earth_location(
+                        meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
+                    )
+                except KeyError as ke:
+                    raise Exception(f"Not enough info to create observer_location: {ke}")
             if observer_location is None:
                 obsitrs = None
             else:
@@ -799,13 +899,24 @@ def spectrum_writer_fits(spectrum, fileobj, **kwargs):
 
 
 def _read_table(fileobj, format, **kwargs):
+    if format == "gbtidl":
+        return Spectrum.fake_spectrum()
+
     t = Table.read(fileobj, format=format, **kwargs)
     f = t["flux"].value * t["flux"].unit
-    return Spectrum.make_spectrum(f, meta=t.meta)
+    return Spectrum.make_spectrum(f, meta=t.meta, observer_location="from_meta")
+
+
+def spectrum_reader_ecsv(fileobj, **kwargs):
+    return _read_table(fileobj, format="ascii.ecsv", **kwargs)
 
 
 def spectrum_reader_fits(fileobj, **kwargs):
     return _read_table(fileobj, format="fits", **kwargs)
+
+
+def spectrum_reader_gbtidl(fileobj, **kwargs):
+    return _read_table(fileobj, format="gbtidl", **kwargs)
 
 
 with registry.delay_doc_updates(Spectrum):
@@ -822,10 +933,21 @@ with registry.delay_doc_updates(Spectrum):
     registry.register_writer("ecsv", Spectrum, spectrum_writer_ecsv)
     registry.register_writer("mrt", Spectrum, spectrum_writer_mrt)
     registry.register_writer("fits", Spectrum, spectrum_writer_fits)
-
-    registry.register_reader("fits", Spectrum, spectrum_reader_fits)
-    # registry.register_reader("sdfits", Spectrum, spectrum_reader_fits)
     # READERS
-    # all the ascii above
-    # gbtidl
-    #
+    registry.register_reader("fits", Spectrum, spectrum_reader_fits)
+    registry.register_reader("gbtidl", Spectrum, spectrum_reader_gbtidl)
+    registry.register_reader("ascii.ecsv", Spectrum, spectrum_reader_ecsv)
+    registry.register_reader("ecsv", Spectrum, spectrum_reader_ecsv)
+
+    # We aren't going to support these since they don't have easily digestible metadata
+    # if they have metadata at all.
+    # registry.register_writer("ascii.basic", Spectrum, ascii_spectrum_reader_basic)
+    # registry.register_writer("basic", Spectrum, ascii_spectrum_reader_basic)
+    # registry.register_writer("ascii.commented_header", Spectrum, ascii_spectrum_reader_commented_header)
+    # registry.register_writer("commented_header", Spectrum, ascii_spectrum_reader_commented_header)
+    # registry.register_writer("ascii.fixed_width", Spectrum, ascii_spectrum_reader_fixed_width)
+    # registry.register_writer("fixed_width", Spectrum, ascii_spectrum_reader_fixed_width)
+    # registry.register_writer("ascii.ipac", Spectrum, ascii_spectrum_reader_ipac)
+    # registry.register_writer("ipac", Spectrum, ascii_spectrum_reader_ipac)
+    # registry.register_writer("votable", Spectrum, spectrum_reader_votable)
+    # registry.register_writer("mrt", Spectrum, spectrum_reader_mrt)

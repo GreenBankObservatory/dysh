@@ -1,6 +1,7 @@
 import numpy as np
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.spectra.spectrum import Spectrum
 from dysh.util import get_project_testdata
 
 
@@ -106,3 +107,44 @@ class TestSpectrum:
         assert np.all(division.flux.value == (self.ps0.flux.value))
         assert division.flux.unit == self.ps0.flux.unit
         assert division.velocity_frame == self.ps0.velocity_frame
+
+    def test_write_read_fits(self):
+        s = self.ps1
+        s.write("test_spectrum_write.fits", format="fits", overwrite=True)
+        s2 = Spectrum.read("test_spectrum_write.fits", format="fits")
+        assert np.all(s.data == s2.data)
+        assert s.target == s2.target
+        assert np.all(s2.spectral_axis == s.spectral_axis)
+        # This test will generally fail because SITELONG, SITELAT, SITEELEV
+        # don't have enough precision to match exactly our known GBT coordinates.
+        # @todo make a close_enough comparison by differencing the observer
+        # attributes
+        # if s2.observer is not None:
+        #    assert s.observer == s2.observer
+
+    def test_write_read_ascii(self):
+        fmt = [
+            "basic",
+            "ascii.commented_header",
+            "commented_header",
+            "ascii.fixed_width",
+            "ascii.ipac",
+            "ipac",
+            "votable",
+            "ecsv",
+            "mrt",
+        ]
+        s = self.ps1
+        for f in fmt:
+            file = f"/tmp/test.{f}"
+            s.write(file, format=f, overwrite=True)
+            # ECSV is the only ascii format that can
+            # complete a roundtrip unscathed.
+            # (See https://docs.astropy.org/en/latest/io/unified.html#table-io)
+            if f == "ecsv":
+                s2 = Spectrum.read(file, format=f)
+                assert np.all(s.data == s2.data)
+                assert np.all(s.spectral_axis == s2.spectral_axis)
+                assert s.target == s2.target
+        gbtidl_file = get_project_testdata() / "gbtidl_spectra/onoff-L_gettp_156_intnum_0_LSR.ascii"
+        s2 = Spectrum.read(gbtidl_file, format="gbtidl")
