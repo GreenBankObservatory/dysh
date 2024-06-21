@@ -12,6 +12,7 @@ from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
+from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
@@ -23,7 +24,6 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     Observatory,
     astropy_frame_dict,
     change_ctype,
-    decode_veldef,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -60,8 +60,9 @@ class Spectrum(Spectrum1D):
         self._observer_location = kwargs.pop("observer_location", None)
         self._observer = kwargs.pop("observer", None)
         if self._observer is not None and self._observer_location is not None:
-            raise Exception("YOu can only specify one of observer_location or observer")
+            raise Exception("You can only specify one of observer_location or observer")
         Spectrum1D.__init__(self, *args, **kwargs)
+        # super(Spectrum1D, self).__init__(*args, **kwargs)
         # Try making a target from meta. If it fails, don't worry about it.
         if False:
             if self._target is None:
@@ -649,7 +650,7 @@ class Spectrum(Spectrum1D):
             )
             obsitrs = None
         s = cls(
-            data,
+            flux=data,
             wcs=wcs,
             meta=meta,
             velocity_convention=vc,
@@ -663,11 +664,7 @@ class Spectrum(Spectrum1D):
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
         if observer_location is None:
-            s.set_radial_velocity_to(target.radial_velocity)
-        # I THINK THIS IS NO LONGER NEEDED
-        # if shift_topo:  # and is_topo
-        #    vshift = topocentric_velocity_to_frame(target, vf, observer=Observatory["GBT"], obstime=obstime)
-        #
+            s.set_radial_velocity_to(target.radial_velocity)  #
         return s
 
     def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
@@ -797,6 +794,20 @@ def spectrum_writer_mrt(spectrum, fileobj, **kwargs):
     spectrum._write_table(fileobj, format="mrt", **kwargs)
 
 
+def spectrum_writer_fits(spectrum, fileobj, **kwargs):
+    spectrum._write_table(fileobj, format="fits", **kwargs)
+
+
+def _read_table(fileobj, format, **kwargs):
+    t = Table.read(fileobj, format=format, **kwargs)
+    f = t["flux"].value * t["flux"].unit
+    return Spectrum.make_spectrum(f, meta=t.meta)
+
+
+def spectrum_reader_fits(fileobj, **kwargs):
+    return _read_table(fileobj, format="fits", **kwargs)
+
+
 with registry.delay_doc_updates(Spectrum):
     # WRITERS
     registry.register_writer("ascii.basic", Spectrum, ascii_spectrum_writer_basic)
@@ -810,6 +821,10 @@ with registry.delay_doc_updates(Spectrum):
     registry.register_writer("votable", Spectrum, spectrum_writer_votable)
     registry.register_writer("ecsv", Spectrum, spectrum_writer_ecsv)
     registry.register_writer("mrt", Spectrum, spectrum_writer_mrt)
+    registry.register_writer("fits", Spectrum, spectrum_writer_fits)
+
+    registry.register_reader("fits", Spectrum, spectrum_reader_fits)
+    # registry.register_reader("sdfits", Spectrum, spectrum_reader_fits)
     # READERS
     # all the ascii above
     # gbtidl
