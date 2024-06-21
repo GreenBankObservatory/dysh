@@ -132,10 +132,28 @@ class SDFITSLoad(object):
                 self._index = df
             else:
                 self._index = pd.concat([self._index, df], axis=0)
-        self.add_primary_hdu()
+        self._add_primary_hdu()
 
-    def add_primary_hdu(self):
-        pass
+    def _add_primary_hdu(self):
+        """
+        Add the columns to the index for header keywords that are not in primary header or not in the DATA column.
+        This will get handy things like SITELONG, SITELAT, TELESCOP, etc.
+
+        Returns
+        -------
+        None.
+
+        """
+        # T* are in the binary table header
+        # NAXIS* have a different meaning in the primary hdu, we want the bintable values
+        # BITPIX, GCOUNT,PCOUNT,XTENSION are FITS reserved keywords
+        ignore = ["TUNIT", "TTYPE", "TFORM", "TFIELDS", "NAXIS", "COMMENT", "GCOUNT", "PCOUNT", "XTENSION", "BITPIX"]
+        cols = {}
+        for h in self._hdu:
+            c = dict(filter(lambda item: not any(sub in item[0] for sub in ignore), h.header.items()))
+            cols.update(c)
+        for k, v in cols.items():
+            self._index[k] = v
 
     def load(self, hdu=None, **kwargs):
         """
