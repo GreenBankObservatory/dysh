@@ -1,6 +1,7 @@
 <<<<<<< HEAD:src/dysh/plot/dev_tests/test_plotting.py
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.plot.dev.ex_plotly import SpecPlot
+
 =======
 >>>>>>> f6d3f8953d59c3dbebf6d1ca22b994c2440478a1:src/dysh/plot/test_plotting.py
 import astropy.units as u

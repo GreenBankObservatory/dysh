@@ -1,5 +1,6 @@
 # PACKAGE IMPORTS
 import sys
+
 import pyqtgraph as pg
 from IPython.display import display
 from PyQt5.QtCore import *
@@ -14,17 +15,20 @@ from screeninfo import get_monitors
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.plot.renderer import Renderer
 
+
 class CustomGLW(GraphicsLayoutWidget):
     def get_frame(self):
         # rather than eating up cpu cycles by perpetually updating "Updating plot",
         # we will only update it opportunistically on a redraw.
         # self.request_draw()
-        #update()
+        # update()
         return super().get_frame()
 
+
 class SingleSpectrum(PlotWidget):
-    """ Spectrum Plot """
-    def __init__(self,spectrum,**kwargs):
+    """Spectrum Plot"""
+
+    def __init__(self, spectrum, **kwargs):
         super().__init__()
         self._spectrum = spectrum
         self.add_data()
@@ -32,7 +36,7 @@ class SingleSpectrum(PlotWidget):
     def config(self):
         # [TODO] connect spec_num to the hline value
         spec_num = 0
-        self.setLabels(left='Intensity', bottom='Frequency')
+        self.setLabels(left="Intensity", bottom="Frequency")
         self.setTitle(f"Spectrum {spec_num}")
 
     def update_data(self, spectrum):
@@ -41,8 +45,8 @@ class SingleSpectrum(PlotWidget):
         self.add_data()
 
     def add_data(self, **kwargs):
-        #self._plot_kwargs.update(kwargs)
-        #self.get_kwargs(**kwargs)
+        # self._plot_kwargs.update(kwargs)
+        # self.get_kwargs(**kwargs)
 
         s = self._spectrum
         sa = s.spectral_axis
@@ -54,14 +58,16 @@ class SingleSpectrum(PlotWidget):
         self.plot(sa[nomask], sf[nomask], color="red")
 
     def get_kwargs(self, **kwargs):
-        self.lw =  self._plot_kwargs['linewidth']
+        self.lw = self._plot_kwargs["linewidth"]
         self.xunit = self._plot_kwargs["xaxis_unit"]
         self.yunit = self._plot_kwargs["yaxis_unit"]
 
+
 class iSingleSpectrum:
-    """ Spectrum Plot """
-    def __init__(self,spectrum,**kwargs):
-        #self.app = pg.mkQApp()
+    """Spectrum Plot"""
+
+    def __init__(self, spectrum, **kwargs):
+        # self.app = pg.mkQApp()
         self.win = GraphicsLayoutWidget(css_width="1000px", css_height="600px")
         self._spectrum = spectrum
         self.add_data()
@@ -70,7 +76,7 @@ class iSingleSpectrum:
     def config(self):
         # [TODO] connect spec_num to the hline value
         spec_num = 0
-        self.setLabels(left='Intensity', bottom='Frequency')
+        self.setLabels(left="Intensity", bottom="Frequency")
         self.setTitle(f"Spectrum {spec_num}")
 
     def update_data(self, spectrum):
@@ -80,12 +86,14 @@ class iSingleSpectrum:
 
     def add_roi(self):
         "Add a ROI"
-        self.roi_rect = pg.RectROI(pos=(1.4E9,-1), size=(5E6,2), pen=pg.mkPen('r', width=2), movable=True, resizable=True)
+        self.roi_rect = pg.RectROI(
+            pos=(1.4e9, -1), size=(5e6, 2), pen=pg.mkPen("r", width=2), movable=True, resizable=True
+        )
         self.myplot.addItem(self.roi_rect)
 
     def add_data(self, **kwargs):
-        #self._plot_kwargs.update(kwargs)
-        #self.get_kwargs(**kwargs)
+        # self._plot_kwargs.update(kwargs)
+        # self.get_kwargs(**kwargs)
 
         s = self._spectrum
         sa = s.spectral_axis
@@ -97,9 +105,10 @@ class iSingleSpectrum:
         self.myplot.plot(sa[~plot_indx], sf[~plot_indx], color="red")
 
     def get_kwargs(self, **kwargs):
-        self.lw =  self._plot_kwargs['linewidth']
+        self.lw = self._plot_kwargs["linewidth"]
         self.xunit = self._plot_kwargs["xaxis_unit"]
         self.yunit = self._plot_kwargs["yaxis_unit"]
+
 
 class SpectrumROI:
 
@@ -127,7 +136,7 @@ class SpectrumROI:
         # self.roi = pg.RectROI(pos=self.roi_pos, size=self.roi_size, pen=pg.mkPen('r', width=2), movable=True, resizable=True)
         self.roi.setPos(self.roi_pos)
         self.roi.setSize(self.roi_size)
-        self.roi.setPen(pg.mkPen('r', width=2))
+        self.roi.setPen(pg.mkPen("r", width=2))
         self.roi.sigRegionChangeFinished.connect(self.get_ROI)
 
     def make_panel(self):
@@ -170,7 +179,7 @@ class SpectrumROI:
         self.panel_layout.addWidget(self.select_button, 5, 0, 1, 2)
 
     def get_ROI(self):
-        """ Gets the four corners of the ROI """
+        """Gets the four corners of the ROI"""
         # self.roi_xmin = self.roi.pos()[0]
         # self.roi_xmax = self.roi.pos()[0] + self.roi.size()[0]
         # self.roi_ymin = self.roi.pos()[1]
@@ -183,10 +192,10 @@ class SpectrumROI:
         self.roi_ymax_edit.setText(str(self.ylim[1]))
 
     def set_ROI(self):
-        """ Sets the ROI position based on the text boxes """
+        """Sets the ROI position based on the text boxes"""
         print("Setting ROI")
         self.roi_xmin = float(self.roi_xmin_edit.text())
-        self.roi_ymin = float(self.roi_ymin_edit.text())        
+        self.roi_ymin = float(self.roi_ymin_edit.text())
         self.roi_xmax = float(self.roi_xmax_edit.text())
         self.roi_ymax = float(self.roi_ymax_edit.text())
 
@@ -194,6 +203,7 @@ class SpectrumROI:
 
         self.roi.setPos(self.roi_pos)
         self.roi.setSize(self.roi_size)
+
 
 class DyshMainWindow(QMainWindow):
     """The main window of the GUI"""
@@ -237,7 +247,7 @@ class DyshMainWindow(QMainWindow):
         # print(f"You are using {self.threadCountActive} of the {self.threadCountTotal} available QThreads")
 
     def _init_main_panel(self):
-        """ Create the main panel """
+        """Create the main panel"""
         self._init_UI()
 
     def _init_UI(self):
@@ -251,17 +261,16 @@ class DyshMainWindow(QMainWindow):
         self.main_layout.addWidget(self.spec_plot, 0, 0, 1, 2)
 
     def _init_roi_tabs(self):
-        """ Creates the tabs with the ROI(s) """
+        """Creates the tabs with the ROI(s)"""
 
         self.roi_tabs = QTabWidget()
-        self.add_ROI_tab(1, (1.4E9, 1.405E9), (-1,1))
-        self.add_ROI_tab(2, (1.41E9, 1.415E9), (-1,1))
+        self.add_ROI_tab(1, (1.4e9, 1.405e9), (-1, 1))
+        self.add_ROI_tab(2, (1.41e9, 1.415e9), (-1, 1))
 
         self.main_layout.addWidget(self.roi_tabs, 0, 2, 1, 1)
-        
 
     def add_ROI_tab(self, n: int, xlim: tuple, ylim: tuple):
-        roi_rect_n = pg.RectROI(pos=(0,0), size=(1,1), movable=True, resizable=True)
+        roi_rect_n = pg.RectROI(pos=(0, 0), size=(1, 1), movable=True, resizable=True)
         self.add_ROI(roi_rect_n, n, xlim, ylim)
 
     def add_ROI(self, roi: pg.RectROI, n: int, xlim: tuple, ylim: tuple):
@@ -293,7 +302,8 @@ class DyshMainWindow(QMainWindow):
 
     def closeEvent(self, *args, **kwargs):
         super(QMainWindow, self).closeEvent(*args, **kwargs)
-        #self.terminal.stop()
+        # self.terminal.stop()
+
 
 class SpectrumSelectApp(QApplication):
     def __init__(self, spectrum, *args):
@@ -301,12 +311,13 @@ class SpectrumSelectApp(QApplication):
         self.main = DyshMainWindow(spectrum)
         self.main.show()
 
+
 class SpectrumSelect:
     def __init__(self, spectrum):
         self.spectrum = spectrum
         self._init_outputs()
         self.makePlot()
-    
+
     def _init_outputs(self):
         self.xmin = None
         self.xmax = None
@@ -323,6 +334,7 @@ class SpectrumSelect:
             app = SpectrumSelectApp(self.spectrum, sys.argv)
             apply_stylesheet(app, theme="dark_purple.xml")
             app.exec_()
+
 
 if __name__ == "__main__":
     from dysh.fits.gbtfitsload import GBTFITSLoad

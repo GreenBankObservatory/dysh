@@ -164,7 +164,7 @@ class SpecPlot:
         #     self.fig.show()
         # else:
         make_window(self.plot_html)
-    
+
 =======
         pass
         # self.app.run(debug=True)
