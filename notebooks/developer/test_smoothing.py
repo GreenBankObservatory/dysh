@@ -109,5 +109,8 @@ print("e han:", np.nanstd(e2h))
 print("e gau:", np.nanstd(e2g))
 
 #%%
+print('gauss',d1g[0:5])
+
+#%%
 
 from specutils.manipulation import box_smooth, gaussian_smooth, trapezoid_smooth
