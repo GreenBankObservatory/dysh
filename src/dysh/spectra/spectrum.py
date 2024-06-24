@@ -82,6 +82,8 @@ class Spectrum(Spectrum1D):
         self._subtracted = False
         self._exclude_regions = None
         self._plotter = None
+        # @todo fix resolution, including what units to use
+        self._resolution = 1     # placeholder
 
     @property
     def exclude_regions(self):
@@ -257,14 +259,18 @@ class Spectrum(Spectrum1D):
         # option to smooth baseline_model too? or discard it when decimation was done?
         #    @todo use the new min.match routine for method=
         #    method = minimum_string_match(method, ['hanning', 'boxcar', 'gaussian', 'fft']
-        nchan = len(self._data)        
-        print("PJT smooth",method,nchan,width,decimate)
+        nchan = len(self._data)
+        bmode = 'fill'     #  default in specutils
+        bmode = 'extend'   #  this will match gbtidl's /edge_truncate
+        print("PJT smooth",method,nchan,width,decimate,bmode)
+        print("    old resolution: ",self._resolution)
         if method == 'hanning':
-            s0 = trapezoid_smooth(self, width=width)
+            s0 = trapezoid_smooth(self, width=width)    #  boundary=bmode)
         elif method == 'boxcar':
             s0 = box_smooth(self, width=width)
         elif method == 'gaussian':
-            s0 = gaussian_smooth(self, stddev=width)
+            stddev = np.sqrt(width**2 - self._resolution**2) / 2.35482
+            s0 = gaussian_smooth(self, stddev=stddev)
         else:
             print("bad boy")
             pass
@@ -283,6 +289,9 @@ class Spectrum(Spectrum1D):
         else:
             s = Spectrum.make_spectrum(new_data, meta=self.meta)
             s._baseline_model = self._baseline_model   # it never got copied
+            s._resolution = width
+            # @todo   resolution is a mess if multiple methods are used in succession
+            print("new resolution: ",s._resolution)
         return s
 
     @property
@@ -546,6 +555,7 @@ class Spectrum(Spectrum1D):
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
+        # @todo add resolution being the channel separation, unless we use the FREQRES column
         warnings.simplefilter("ignore", NoVelocityWarning)
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # should we also require DATE-OBS or MJD-OBS?
