@@ -301,7 +301,10 @@ class TestGBTFITSLoad:
         # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
         assert set(t._index["INTNUM"]) == set([2])
 
-    # @todo MWP
     def test_write_multi_file(self):
         "Test that writing multiple SDFITS files works, including subselection of data"
-        assert True
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        # writes testmultia0,1,2,3.fits
+        g.write("testmulti.fits", multifile=True, scan=6, overwrite=True)
+        # @todo remove test output files in a teardown method

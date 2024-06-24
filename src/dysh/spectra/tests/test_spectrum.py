@@ -165,3 +165,4 @@ class TestSpectrum:
         assert s2.flux.unit == u.K
         assert s2.flux[0].value == -0.1042543
         assert s2.spectral_axis.unit == u.Unit("km/s")
+        # @todo remove the temporary files.  This should be done in a teardown() method

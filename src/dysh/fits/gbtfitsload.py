@@ -609,7 +609,6 @@ class GBTFITSLoad(SDFITSLoad):
         # but we have to sort out FITSINDEX.
         # s.add_col("INTNUM",intnumarray)
         fits_index_changes = indices_where_value_changes("FITSINDEX", self._index)
-        print("FITSINDEXCHANGES ", fits_index_changes)
         lf = len(fits_index_changes)
         for i in range(lf):
             fic = fits_index_changes[i]
@@ -1724,13 +1723,15 @@ class GBTFITSLoad(SDFITSLoad):
                         total_rows_written += lr
                         this_rows_written += lr
                 if len(fi) > 1:
-                    outfile = str(fileobj) + str(count)  # maybe should just be 0-N
+                    p = Path(fileobj)
+                    # Note this will not preserve "A","B" etc suffixes in original FITS files.
+                    outfile = p.stem + str(count) + p.suffix
                     count += 1
                 else:
                     outfile = fileobj
 
                 if verbose:
-                    print(f"Writing {this_rows_written} to {outfile}.")
+                    print(f"Writing {this_rows_written} rows to {outfile}.")
                 outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             if verbose:
                 print(f"Total of {total_rows_written} rows written to files.")
