@@ -1,3 +1,4 @@
+import astropy.units as u
 import numpy as np
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
@@ -146,5 +147,21 @@ class TestSpectrum:
                 assert np.all(s.data == s2.data)
                 assert np.all(s.spectral_axis == s2.spectral_axis)
                 assert s.target == s2.target
+        # Test reading in a GBTIDL ascii file
         gbtidl_file = get_project_testdata() / "gbtidl_spectra/onoff-L_gettp_156_intnum_0_LSR.ascii"
         s2 = Spectrum.read(gbtidl_file, format="gbtidl")
+        assert s2.meta["SCAN"] == 156
+        assert s2.meta["OBJECT"] == "NGC2782"
+        # veldef can't be determined from header.
+        assert s2.flux.unit == u.ct
+        assert s2.flux[0].value == 3608710.0
+        assert s2.spectral_axis.unit == u.GHz
+        # Now try a gbtidl file that is gzipped and Ta units
+        gbtidl_file = get_project_testdata() / "gbtidl_spectra/onoff-L_getps_152_OPTI-HEL.ascii.gz"
+        s2 = Spectrum.read(gbtidl_file, format="gbtidl")
+        assert s2.meta["SCAN"] == 152
+        assert s2.meta["OBJECT"] == "NGC2415"
+        assert s2.meta["VELDEF"] == "OPTI-HEL"
+        assert s2.flux.unit == u.K
+        assert s2.flux[0].value == -0.1042543
+        assert s2.spectral_axis.unit == u.Unit("km/s")

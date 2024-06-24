@@ -7,7 +7,8 @@ from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import SpectralCoord
+import pandas as pd
+from astropy.coordinates import SkyCoord, SpectralCoord
 from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
@@ -764,7 +765,7 @@ class Spectrum(Spectrum1D):
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
         if observer_location is None:
-            s.set_radial_velocity_to(target.radial_velocity)  #
+            s.set_radial_velocity_to(target.radial_velocity)  # open
         return s
 
     def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
@@ -899,8 +900,59 @@ def spectrum_writer_fits(spectrum, fileobj, **kwargs):
 
 
 def _read_table(fileobj, format, **kwargs):
+    # GBTIDL format example:
+    #    Scan:    152          NGC2415 2021-02-10 +07 38 37.5
+    #                             Ta
+    #     GHz-HEL                 YY
+    #   1.4143356980054205     -0.1042543
+    #   1.4143349827132639      0.0525000
+    #
+    # Note we don't get the full coordinates, just RA!
     if format == "gbtidl":
-        return Spectrum.fake_spectrum()
+        # Read it into a pandas dataframe, which will have one column
+        # with a name like 'Scan:    152          NGC2415 2021-02-10 +07 38 37.5'
+        # We can split out the data array
+        # We do not use e.g., Table.read(fileobs,data_start=3) because we need to
+        # get the header info and don't want to open the file twice.
+        # Note that functions like Table.read, pandas.read*, np.load_txt also natively
+        # recognize compressed files, which is why we aren't using raw Python I/O
+        # which does not.
+        # t = Table.read(fileobj, format="ascii.fixed_width")  # ,data_start=3,header_start=3)
+        df = pd.read_table(fileobj)
+        df2 = df[df.columns[0]][2:].str.split(expand=True).astype(float).add_prefix("col")
+        spectral_axis = df2["col0"]
+        flux = df2["col1"]
+        # Parse the first line of the header and put into meta
+        tmp, scan, target, date, ra = df.columns[0].split(maxsplit=4)
+        meta = {}
+        meta["SCAN"] = int(scan)
+        meta["OBJECT"] = target
+        meta["DATE-OBS"] = Time(date).to_string()
+        c = SkyCoord(ra + " 0 0 0.0", unit=(u.hour, u.deg))
+        meta["RA"] = c.ra.degree
+        # Parse the 2nd link of the header to get the veldef and flux unit
+        # Sometimes velocity_convention isn't there!
+        h2 = df[df.columns[0]][0].split()
+        if len(h2) == 2:
+            velocity_convention = h2[0][0:4]
+            flux_unit = h2[1]
+        else:
+            velocity_convention = "None"
+            flux_unit = h2[0]
+        if flux_unit == "Ta":
+            fu = u.K
+        elif flux_unit == "Counts":
+            fu = u.ct
+        else:
+            fu = u.dimensionless_unscaled
+        # parse the 3rd line column names, We only care about the ferquency axis
+        h3 = df[df.columns[0]][1].split()
+        units, vd = h3[0].split("-")
+        spectral_axis = spectral_axis.values * u.Unit(units)
+        meta["VELDEF"] = velocity_convention + "-" + vd
+        meta["POL"] = h3[1]
+        s = Spectrum(flux=flux.values * fu, spectral_axis=spectral_axis, meta=meta)
+        return s
 
     t = Table.read(fileobj, format=format, **kwargs)
     f = t["flux"].value * t["flux"].unit
