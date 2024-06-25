@@ -68,7 +68,7 @@ class TestMeanTsys:
         data0g = np.array([0, 1.3563e-5, 0.055554, 0.888865, 0.055554, 1.3563e-5, 0])
         data1h = core.smooth(data0,'hanning')
         assert data1h == pytest.approx(data0h)
-        data1b = core.smooth(data0,'box',5)
+        data1b = core.smooth(data0,'boxcar',5)
         assert data1b == pytest.approx(data0b)
         data1g = core.smooth(data0,'gaussian',1/2.35482)
         assert data1g == pytest.approx(data0g)

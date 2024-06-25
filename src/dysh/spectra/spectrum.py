@@ -18,6 +18,7 @@ from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum1D
 from specutils.manipulation import box_smooth, gaussian_smooth, trapezoid_smooth
+from dysh.spectra import core
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
@@ -259,22 +260,18 @@ class Spectrum(Spectrum1D):
         # option to smooth baseline_model too? or discard it when decimation was done?
         #    @todo use the new min.match routine for method=
         #    method = minimum_string_match(method, ['hanning', 'boxcar', 'gaussian', 'fft']
+
         nchan = len(self._data)
-        bmode = 'fill'     #  default in specutils
-        bmode = 'extend'   #  this will match gbtidl's /edge_truncate
-        print("PJT smooth",method,nchan,width,decimate,bmode)
+        print("PJT smooth",method,nchan,width,decimate)
         print("    old resolution: ",self._resolution)
-        if method == 'hanning':
-            s0 = trapezoid_smooth(self, width=width)    #  boundary=bmode)
-        elif method == 'boxcar':
-            s0 = box_smooth(self, width=width)
-        elif method == 'gaussian':
+
+        if method == 'gaussian':
             stddev = np.sqrt(width**2 - self._resolution**2) / 2.35482
-            s0 = gaussian_smooth(self, stddev=stddev)
+            s1 = core.smooth(self._data, method, stddev)
         else:
-            print("bad boy")
-            pass
-        new_data = s0._data * u.K   # @todo why do we need a unit again?
+            s1 = core.smooth(self._data, method, width)
+
+        new_data = s1 * u.K 
         if decimate >= 0:
             if decimate == 0:
                 idx = np.arange(0,nchan,width)

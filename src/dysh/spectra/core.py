@@ -460,7 +460,7 @@ def smooth(data, method='hanning', width=1, decimate=-1, kernel=None):
                        >0  use the decimate factor explicitly
             kernel:    give your own array to convolve with (not implemented)
         """
-    if method == 'box':
+    if method == 'boxcar':
         kernel = Box1DKernel(width)
         print('BOX:',kernel.array)
         new_data = convolve(data, kernel, boundary='extend')
