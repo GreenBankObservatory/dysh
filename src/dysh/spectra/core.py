@@ -10,6 +10,7 @@ from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
 from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
+from astropy.convolution import convolve, Gaussian1DKernel, Box1DKernel, Trapezoid1DKernel
 
 from ..coordinates import veltofreq
 
@@ -448,3 +449,30 @@ def get_spectral_equivalency(restfreq, velocity_convention):
         return u.doppler_redshift()
     else:
         raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
+
+
+def smooth(data, method='hanning', width=1, decimate=-1, kernel=None):
+    """ smooth a spectrum
+            method:    hanning, boxcar, gaussian, fft (not implemented)
+            width:     in pixels
+            decimate:  -1  none
+                        0  use the width parameter 
+                       >0  use the decimate factor explicitly
+            kernel:    give your own array to convolve with (not implemented)
+        """
+    if method == 'box':
+        kernel = Box1DKernel(width)
+        print('BOX:',kernel.array)
+        new_data = convolve(data, kernel, boundary='extend')
+    elif method == 'hanning':
+        kernel = Trapezoid1DKernel(width)       # width=1 is pure hanning width=2 is actually box(3)
+        print('HANNING:',kernel.array)
+        new_data = convolve(data, kernel, boundary='extend')
+    elif method == 'gaussian':
+        kernel = Gaussian1DKernel(width)
+        print('GAUSSIAN:',kernel.array)
+        new_data = convolve(data, kernel, boundary='extend')
+    else:
+        print(f"bad method {method}, returning original data")
+        return data
+    return new_data

@@ -60,3 +60,15 @@ class TestMeanTsys:
         gbtidl_tsys = gbtidl_table["TSYS"]
 
         assert tsys_dysh == gbtidl_tsys
+        
+    def test_smooth(self):
+        data0 = np.array([0,0,0,1,0,0,0])
+        data0h = np.array([0,0,0.25,0.5,0.25,0,0])
+        data0b = np.array([0,0.2,0.2,0.2,0.2,0.2,0])
+        data0g = np.array([0, 1.3563e-5, 0.055554, 0.888865, 0.055554, 1.3563e-5, 0])
+        data1h = core.smooth(data0,'hanning')
+        assert data1h == pytest.approx(data0h)
+        data1b = core.smooth(data0,'box',5)
+        assert data1b == pytest.approx(data0b)
+        data1g = core.smooth(data0,'gaussian',1/2.35482)
+        assert data1g == pytest.approx(data0g)
