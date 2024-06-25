@@ -547,7 +547,7 @@ class SDFITSLoad(object):
         # print(f"bintable copy data length {len(outbintable.data)}")
         outbintable.data = outbintable.data[rows]
         # print(f"bintable rows data length {len(outbintable.data)}")
-        outbintable.update_header()
+        outbintable.update()
         return outbintable
 
     def rename_binary_table_column(self, oldname, newname, bintable=None):
