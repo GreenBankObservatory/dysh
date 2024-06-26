@@ -81,7 +81,7 @@ The following lines will let you calibrate and time average the position switche
 
 .. code:: python
 
-    >>> psscan = sdfits.getps(152, ifnum=0, plnum=0)
+    >>> psscan = sdfits.getps(scan=152, ifnum=0, plnum=0)
     >>> ta = psscan.timeaverage(weights='tsys')
 
 Plotting the calibrated data
@@ -89,11 +89,7 @@ Plotting the calibrated data
 
 .. code:: python
 
-    >>> ta[0].plot(xaxis_unit="km/s", yaxis_unit="mK", ymin=-100, ymax=500, xmin=3000, xmax=4500)
+    >>> ta.plot(xaxis_unit="km/s", yaxis_unit="mK", ymin=-100, ymax=500, xmin=3000, xmax=4500)
 
 .. figure:: img/ps_152_zoom.png
     :alt: The spectrum plot zoomed in along both axes to frame a central emission line.
-
-.. WARNING::
-    At this point, `dysh` does not handle Doppler corrections.
-    So the frequency and velocity information will be offset for observations requesting a reference frame other than Topocentric.
