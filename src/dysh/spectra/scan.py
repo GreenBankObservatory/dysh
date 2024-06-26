@@ -4,6 +4,7 @@ The classes that define various types of Scan and their calibration methods.
 
 from collections import UserList
 from copy import deepcopy
+from typing import Literal
 
 import astropy.units as u
 import numpy as np
@@ -97,6 +98,74 @@ class ScanMixin:
         return self._fdnum
 
     @property
+    def is_calibrated(self):
+        """
+        Have the data been calibrated?
+
+        Returns
+        -------
+        bool
+            True if the data have been calibrated, False if not.
+
+        """
+        return self._calibrated is not None
+
+    @property
+    def meta(self):
+        """
+        The metadata of this Scan
+
+        Returns
+        -------
+        dict
+            Dictionary containing the metadata of this Scan
+
+        """
+        return self._meta
+
+    def _make_meta(self, rowindices):
+        """
+        Create the metadata for a Scan
+
+        Parameters
+        ----------
+        rowindices : list of int
+            The list of indices into the parent SDFITS index (DataFrame)
+
+        Returns
+        -------
+        None
+
+        """
+        print("ROWINDICES ", len(rowindices))
+        # FITS can't handle NaN in a header, so just drop any column where NaN appears
+        # Ideally this should be done on the individual record level in say, Spectrum.make_spectrum.
+        df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices].dropna(axis=1, how="any")
+        self._meta = df.to_dict("records")
+        print("META TYPE ", type(self._meta), " ", len(self._meta))
+        for i in range(len(self._meta)):
+            if "CUNIT1" not in self._meta[i]:
+                self._meta[i][
+                    "CUNIT1"
+                ] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            self._meta[i]["CUNIT2"] = "deg"  # is this always true?
+            self._meta[i]["CUNIT3"] = "deg"  # is this always true?
+            restfrq = self._meta[i]["RESTFREQ"]
+            rfq = restfrq * u.Unit(self._meta[i]["CUNIT1"])
+            restfreq = rfq.to("Hz").value
+            self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
+
+    def _add_calibration_meta(self):
+        if not self.is_calibrated:
+            raise Exception("Data have to be calibrated first to add calibration metadata")
+        for i in range(len(self._meta)):
+            self._meta[i]["TSYS"] = self._tsys[i]
+            self._meta[i]["EXPOSURE"] = self._exposure[i]
+            self._meta[i]["NAXIS1"] = len(self._calibrated[i])
+            self._meta[i]["TSYS"] = self._tsys[i]
+            self._meta[i]["EXPOSURE"] = self.exposure[i]
+
+    @property
     def pols(self):
         """The polarization number(s)
 
@@ -153,6 +222,17 @@ class ScanMixin:
 
     def finalspectrum(self, weights=None):
         """Average all times and polarizations in this Scan"""
+        pass
+
+    def write(
+        self,
+        fileobj,
+        which: Literal["calibrated", "uncalibrated", "all"],
+        output_verify="exception",
+        overwrite=False,
+        checksum=False,
+        **kwargs,
+    ):
         pass
 
     def __len__(self):
@@ -558,6 +638,7 @@ class PSScan(ScanMixin):
         self._scan = scans["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
+
         # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
         # print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
         # print("PJT scans", scans)
@@ -599,6 +680,7 @@ class PSScan(ScanMixin):
         self._exposure = None
         self._calibrated = None
         self._calibrate = calibrate
+        self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
 
@@ -638,21 +720,20 @@ class PSScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]].dropna().to_dict()
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self._exposure[i]
-        meta["NAXIS1"] = len(self._calibrated[i])
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self.exposure[i]
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+        return Spectrum.make_spectrum(
+            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+        )
+
+    def write(
+        self,
+        fileobj,
+        which: Literal["calibrated", "uncalibrated", "all"],
+        output_verify="exception",
+        overwrite=False,
+        checksum=False,
+        **kwargs,
+    ):
+        pass
 
     def calibrate(self, **kwargs):
         """
@@ -679,6 +760,7 @@ class PSScan(ScanMixin):
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
         # print("Calibrated %d spectra" % nspect)
+        self._add_calibration_meta()
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
@@ -853,8 +935,6 @@ class FSScan(ScanMixin):
         if self._debug:
             print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
-        # df = selection.iloc[scanrows["ON"]]
-        # df = self._sdfits._index.iloc[scanrows["ON"]]
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
 
         df = self._sdfits._index.iloc[self._scanrows]
@@ -879,6 +959,7 @@ class FSScan(ScanMixin):
         self._exposure = None
         self._calibrated = None
         self._calibrate = calibrate
+        self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate(fold=fold)
         if self._debug:
@@ -907,8 +988,6 @@ class FSScan(ScanMixin):
         """
         return self._tsys
 
-    # @todo something clever
-    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self, i):
         """Return the calibrated Spectrum of this FSscan
 
@@ -921,22 +1000,9 @@ class FSScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]].dropna().to_dict()
-        meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self._exposure[i]
-        meta["NAXIS1"] = len(self._calibrated[i])
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self.exposure[i]
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+        return Spectrum.make_spectrum(
+            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+        )
 
     def calibrate(self, **kwargs):
         """
@@ -1106,6 +1172,8 @@ class FSScan(ScanMixin):
                     self._calibrated[i] = cal_ref
                     self._tsys[i] = tsys_sig
                 self._exposure[i] = self.exposure[i]
+
+        self._add_calibration_meta()
         # print("Calibrated %d spectra with fold=%s and use_sig=%s" % (nspect, repr(_fold), repr(self._use_sig)))
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
@@ -1255,7 +1323,7 @@ class SubBeamNodScan(ScanMixin):
             self.calibrate(weights=w)
 
     def calibrate(self, **kwargs):
-        """Calibrate the Scan data"""
+        """Calibrate the SUbBeamNodScan data"""
         nspect = len(self._reftp)
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
@@ -1292,13 +1360,14 @@ class SubBeamNodScan(ScanMixin):
                 self._calibrated[i] = data
         else:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        # self._add_calibration_meta()
 
     def calibrated(self, i):
-        meta = deepcopy(self._sigtp[i].timeaverage().meta)
-        naxis1 = len(self._calibrated[i])
+        meta = deepcopy(self._sigtp[i].timeaverage().meta)  # use self._sigtp.meta? instead?
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self._exposure[i]
-        meta["NAXIS1"] = len(self._calibrated[i])
+        naxis1 = len(self._calibrated[i])
+        meta["NAXIS1"] = naxis1
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
