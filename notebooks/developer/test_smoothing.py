@@ -56,7 +56,7 @@ sdf1 = GBTFITSLoad(f1)
 sdf1.info()
 sdf1.summary(verbose=True)
 
-p1 = sdf1.getps(scan=152, ifnum=0, plnum=0, calibrate=True, debug=True)
+p1 = sdf1.getps(scan=152, ifnum=0, plnum=0, calibrate=True)
 
 sp1 = p1[0].calibrated(0)
 if False:
@@ -66,14 +66,21 @@ if False:
 if False:
     nchan = len(sp1.flux.value)
     sp1.flux.value[5000] = 1000
+    
 sp1b = sp1.smooth("boxcar",5)
 sp1h = sp1.smooth("hanning")
-sp1g = sp1.smooth("gaussian",6)
+sp1g = sp1.smooth("gaussian",5)
 
 d1=sp1.flux.value
 d1b=sp1b.flux.value
 d1h=sp1h.flux.value
 d1g=sp1g.flux.value
+
+# now the smoothref version
+
+p1s = sdf1.getps(scan=152, ifnum=0, plnum=0, calibrate=True, smoothref=32)
+sp1s = p1s[0].calibrated(0)
+d1s = sp1s.flux.value
 
 np.where(np.isnan(d1))   # 3072
 
@@ -91,26 +98,24 @@ base1 = base % ''
 base1b = base % '_boxcar_5'
 base1h = base % '_hanning'
 base1g = base % '_gsmooth_5'
+base1s = base % '_smthoff_32'
 
 d2  = fits.open(util.get_project_testdata() / base1)[1].data['DATA'][0]
 d2b = fits.open(util.get_project_testdata() / base1b)[1].data['DATA'][0]
 d2h = fits.open(util.get_project_testdata() / base1h)[1].data['DATA'][0]
 d2g = fits.open(util.get_project_testdata() / base1g)[1].data['DATA'][0]
+d2s = fits.open(util.get_project_testdata() / base1s)[1].data['DATA'][0]
 
 
 e2 = d1-d2
-e2b = (d1b-d2b)[10:-10]
-e2h = (d1h-d2h)[10:-10]
-e2g = (d1g-d2g)[20:-20]
+e2b = (d1b-d2b)
+e2h = (d1h-d2h)
+e2g = (d1g-d2g)
+e2s = (d1s-d2s)
 
 print("d1-d2:", np.nanstd(d1-d2))     # 3e-8
 print("e box:", np.nanstd(e2b))  
 print("e han:", np.nanstd(e2h))    
 print("e gau:", np.nanstd(e2g))
+print("e smth:", np.nanstd(e2s))
 
-#%%
-print('gauss',d1g[0:5])
-
-#%%
-
-from specutils.manipulation import box_smooth, gaussian_smooth, trapezoid_smooth
