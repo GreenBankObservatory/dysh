@@ -705,7 +705,7 @@ class GBTFITSLoad(SDFITSLoad):
         return scanblock
         # end of getfs()
 
-    def getps(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
+    def getps(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs):
         """
         Retrieve and calibrate position-switched data.
 
@@ -849,6 +849,7 @@ class GBTFITSLoad(SDFITSLoad):
                         calrows=calrows,
                         bintable=bintable,
                         calibrate=calibrate,
+                        smoothref=smoothref,
                     )
                     scanblock.append(g)
                     c = c + 1

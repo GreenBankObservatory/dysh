@@ -14,6 +14,7 @@ from ..coordinates import Observatory
 from ..util import uniq
 from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
+from dysh.spectra import core
 
 # import warnings
 # from astropy.coordinates.spectral_coordinate import NoVelocityWarning
@@ -552,7 +553,7 @@ class PSScan(ScanMixin):
     """
 
     def __init__(
-        self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
+            self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, smoothref=1, observer_location=Observatory["GBT"]
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
@@ -560,6 +561,7 @@ class PSScan(ScanMixin):
         self._scan = scans["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
+        self._smoothref = smoothref
         # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
         # print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
         # print("PJT scans", scans)
@@ -661,6 +663,8 @@ class PSScan(ScanMixin):
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
+        if self._smoothref > 1:
+            print(f"PS smoothref={self._smoothref}")
 
         self._status = 1
         nspect = self.nrows // 2
@@ -676,6 +680,8 @@ class PSScan(ScanMixin):
             tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
             sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
             ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+            if self._smoothref > 1:
+                ref = core.smooth(ref, "boxcar", self._smoothref)
             self._calibrated[i] = tsys * (sig - ref) / ref
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
