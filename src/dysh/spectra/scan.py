@@ -524,19 +524,17 @@ class TPScan(ScanMixin):
         return self._timeaveraged
 
 
+#        @todo   'scans' should become 'scan'
 class PSScan(ScanMixin):
     """GBT specific version of Position Switch Scan. A position switch scan object has
     one IF, one feed, and one or more polarizations.
 
     Parameters
     ----------
-
-    gbtfits : `~fit.gbtfitsload.GBFITSLoad`
+    gbtfits : `~fits.gbtfitsload.GBFITSLoad`
         input GBFITSLoad object
     scans : dict
-        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
-        NOTE: there should be one ON and one OFF, a pair
-        @todo   'scans' should become 'scan'
+        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers NOTE: there should be one ON and one OFF, a pair
     scanrows : dict
         dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
     calrows : dict
@@ -611,6 +609,7 @@ class PSScan(ScanMixin):
         """The dictionary of the ON and OFF scan numbers in the PSScan.
 
         Returns
+        -------
         scans : dict
             The scan number dictionary
         """

@@ -72,6 +72,7 @@ class TestMeanTsys:
         data1b = core.smooth(data0,'boxcar',5)
         assert data1b == pytest.approx(data0b)
         data1g = core.smooth(data0,'gaussian',1/2.35482)
+        
         assert data1g == pytest.approx(data0g)
 
     def test_tsys_weight(self):
