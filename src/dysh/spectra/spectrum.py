@@ -135,6 +135,8 @@ class Spectrum(Spectrum1D):
         and `astropy.fitter` to compute the baseline.  See the documentation for those modules.
         This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
 
+        Note that include= and exclude= are mutually exclusive.
+
         Parameters
         ----------
             degree : int
@@ -159,19 +161,19 @@ class Spectrum(Spectrum1D):
 
             model : str
                 One of 'polynomial' 'chebyshev', 'legendre', or 'hermite'
-                Default: 'polynomial'
+                Default: 'chebyshev'
             fitter  :  `~astropy.fitting._FitterMeta`
                 The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
                 Be care when choosing a different fitter to be sure it is optimized for this problem.
             remove : bool
                 If True, the baseline is removed from the spectrum. Default: False
             normalize : bool
-                If True, the frequency axis is internally rescaled from 0..nchan-1
+                If True, the frequency axis is internally rescaled from 0..1
                 to avoid roundoff problems (and make the coefficients slightly more
                 understandable). This is usually needed for a polynomial, though overkill
                 for the others who do their own normalization.
-                @todo maybe allow True, False, None; the latter will use True for polynamical, False for others
-                Default: True
+                CAVEAT:   with normalize=True, you cannot undo a baseline fit.
+                Default: False
 
         """
         # fmt: on
@@ -179,23 +181,27 @@ class Spectrum(Spectrum1D):
         kwargs_opts = {
             "remove": False,
             "normalize": False,
-            "model": "polynomial",
+            "model": "chebyshev",
             "fitter": LinearLSQFitter(calc_uncertainties=True),
         }
         kwargs_opts.update(kwargs)
 
         if kwargs_opts["normalize"]:
-            print("Warning:  baseline fit done in channel space")
-            spectral_axis = np.copy(self._spectral_axis.value)
+            print("Warning: baseline fit done in [0,1) space, even though it might say Hz (issue ###)")
+            spectral_axis = deepcopy(self._spectral_axis)      # save the old axis
+            self._normalized = True                            # remember it's now normalized
             nchan = len(spectral_axis)
-            # sadly, there is no single setter for this
             for i in range(nchan):
-                self._spectral_axis[i] = i * u.Hz  # would like to use "chan" units
-            self._normalized = True
-            # allow include
-            if include != None:
-                nchan = len(spectral_axis)
-                exclude = self._toggle_sections(nchan, include)
+                self._spectral_axis[i] = (i*1.0/nchan) * u.Hz  # would like to use "u.chan" units - not working yet
+            # some @todo here about single setter, units u.chan etc.
+
+        # include= and exclude= are mutually exclusive, but we allow include= 
+        # if include is used, transform it to exclude=
+        if include != None:
+            if exclude != None:
+                print(f"Warning: ignoring exclude={exclude}")
+            nchan = len(self._spectral_axis)
+            exclude = self._toggle_sections(nchan, include)
 
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
 
@@ -205,15 +211,16 @@ class Spectrum(Spectrum1D):
             self._subtracted = True
 
         if kwargs_opts["normalize"]:
-            for i in range(nchan):
-                self._spectral_axis[i] = spectral_axis[i] * u.Hz
+            self._spectral_axis = spectral_axis
             del spectral_axis
+    # baseline
 
-    def _undo_baseline(self):
+    def undo_baseline(self):
         """
         Undo the most recently computed baseline. If the baseline
         has been subtracted, it will be added back. The `baseline_model`
         attribute is set to None. Exclude regions are untouched.
+        @todo    this function may seem redundant
         """
         if self._baseline_model is None:
             return
