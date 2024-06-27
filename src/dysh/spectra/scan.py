@@ -9,6 +9,8 @@ from typing import Literal
 import astropy.units as u
 import numpy as np
 from astropy import constants as ac
+from astropy.io.fits import BinTableHDU, Column
+from astropy.table import Table
 from scipy import ndimage
 
 from ..coordinates import Observatory
@@ -233,7 +235,16 @@ class ScanMixin:
         checksum=False,
         **kwargs,
     ):
-        pass
+        """Write a binary table"""
+        print("mixin write")
+        t = Table(self._meta)
+        b = BinTableHDU(t)
+        cd = deepcopy(b.columns)
+        form = f"{np.shape(self._calibrated)[1]}E"
+        cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
+        b = BinTableHDU.from_columns(cd)
+        print("got ", b)
+        b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def __len__(self):
         return self._nrows
@@ -723,17 +734,6 @@ class PSScan(ScanMixin):
         return Spectrum.make_spectrum(
             self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
         )
-
-    def write(
-        self,
-        fileobj,
-        which: Literal["calibrated", "uncalibrated", "all"],
-        output_verify="exception",
-        overwrite=False,
-        checksum=False,
-        **kwargs,
-    ):
-        pass
 
     def calibrate(self, **kwargs):
         """

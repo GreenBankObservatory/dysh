@@ -123,6 +123,12 @@ class SDFITSLoad(object):
             # Select columns that are strings, decode them and remove white spaces.
             df_obj = df.select_dtypes(["object"])
             df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
+            # --- this doesn't actually work how we want---
+            # convert them to actual string types because FITS will want that later.
+            # This doe
+            # cols = list(df_obj.columns)
+            # df[cols] = df[cols].astype("string")
+            # ---
             ones = np.ones(len(df.index), dtype=int)
             # create columns to track HDU and BINTABLE numbers and original row index
             df["HDU"] = i * ones
