@@ -4,7 +4,6 @@ The classes that define various types of Scan and their calibration methods.
 
 from collections import UserList
 from copy import deepcopy
-from typing import Literal
 
 import astropy.units as u
 import numpy as np
@@ -18,10 +17,15 @@ from ..util import uniq
 from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
 
+# from typing import Literal
+
+
 # import warnings
 # from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 
 
+# @todo change this to an ABC class. https://docs.python.org/3/library/abc.html
+# and create a SpectrumAverageMixin for timeaverage, polaverage, finalspectrum
 class ScanMixin:
     """This class describes the common interface to all Scan classes.
     A Scan represents one IF, one feed, and one or more polarizations.
@@ -115,7 +119,8 @@ class ScanMixin:
     @property
     def meta(self):
         """
-        The metadata of this Scan
+        The metadata of this Scan. The metadata is a list of dictionaries, the length of which is
+        equal to the number of calibrated integrations in the Scan.
 
         Returns
         -------
@@ -127,24 +132,25 @@ class ScanMixin:
 
     def _make_meta(self, rowindices):
         """
-        Create the metadata for a Scan
+        Create the metadata for a Scan.  The metadata is a list of dictionaries, the length of which is
+        equal to the number of calibrated integrations in the Scan.
 
         Parameters
         ----------
         rowindices : list of int
-            The list of indices into the parent SDFITS index (DataFrame)
+            The list of indices into the parent SDFITS index (DataFrame). These typically point to the
+            indices for only the, e.g. the SIG data, since the resultant metadata will be used to make the calibrated spectra,
+            which SIGREF data result in N/2 spectra.
 
         Returns
         -------
         None
 
         """
-        print("ROWINDICES ", len(rowindices))
         # FITS can't handle NaN in a header, so just drop any column where NaN appears
         # Ideally this should be done on the individual record level in say, Spectrum.make_spectrum.
         df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices].dropna(axis=1, how="any")
-        self._meta = df.to_dict("records")
-        print("META TYPE ", type(self._meta), " ", len(self._meta))
+        self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
         for i in range(len(self._meta)):
             if "CUNIT1" not in self._meta[i]:
                 self._meta[i][
@@ -158,6 +164,7 @@ class ScanMixin:
             self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
 
     def _add_calibration_meta(self):
+        """Add metadata that are computed after calibration."""
         if not self.is_calibrated:
             raise Exception("Data have to be calibrated first to add calibration metadata")
         for i in range(len(self._meta)):
@@ -226,25 +233,63 @@ class ScanMixin:
         """Average all times and polarizations in this Scan"""
         pass
 
-    def write(
-        self,
-        fileobj,
-        which: Literal["calibrated", "uncalibrated", "all"],
-        output_verify="exception",
-        overwrite=False,
-        checksum=False,
-        **kwargs,
-    ):
-        """Write a binary table"""
-        print("mixin write")
-        t = Table(self._meta)
-        b = BinTableHDU(t)
+    def make_bintable(self):
+        """
+        Create a :class:`~astropy.io.fits.BinaryTableHDU` from the calibrated data of this Scan.
+
+
+        Returns
+        -------
+        b : :class:`~astropy.io.fits.BinaryTableHDU`
+           A FITS binary table HDU, suitable for writing out or appending to a `~astropy.io.fits.HDUList`.
+
+        """
+        # Creating a Table from the metadata dictionary and instantiating
+        # the BinTableHDU with that takes care of all the tricky
+        # numpy/pandas dtypes to FITS single character format string. No need
+        # to figure it out oneself (which I spent far too much time trying to do before I
+        # discovered this!)
+        if self._calibrated is None:
+            raise Exception("Data must be calibrated before writing.")
+        b = BinTableHDU(Table(self._meta))
         cd = deepcopy(b.columns)
         form = f"{np.shape(self._calibrated)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
         b = BinTableHDU.from_columns(cd)
-        print("got ", b)
-        b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+        return b
+
+    def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
+        """
+        Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this Scan
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+        multifile: bool, optional
+            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
+            Otherwise, write to a single SDFITS file.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def __len__(self):
         return self._nrows
@@ -375,6 +420,63 @@ class ScanBlock(UserList, ScanMixin):
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
+
+    def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
+        """
+        Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this Scan
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+        multifile: bool, optional
+            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
+            Otherwise, write to a single SDFITS file.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+
+        Returns
+        -------
+        None.
+
+        """
+        if len(self._data == 1):
+            self._data[0].write(fileobj, output_verify, overwrite, checksum)
+            return
+        b = self._data[0]._make_bintable()
+        # the keys of the first scans bintable except for DATA.
+        # We can use this to compare with the subsequent Scan
+        # keywords without have to create their bintables first.
+        defaultkeys = set(b.header.keys()) - set(["DATA"])
+        datashape = np.shape(self._data[0]._calibrated)
+        for scan in self._self.data[1:]:
+            # check data shapes are the same
+            thisshape = np.shape(scan._calibrated)
+            if thisshape != datashape:
+                # @todo Variable length arrays? https://docs.astropy.org/en/stable/io/fits/usage/unfamiliar.html#variable-length-array-tables
+                # or write to separate bintables.
+                raise Exception(
+                    f"Data shapes of scans are not equal {thisshape}!={datashape}. Can't combine Scans into single BinTableHDU"
+                )
+            # check that the header keywords are the same
+            diff = set(scan._meta[0].keys()) - defaultkeys
+            if len(diff) > 0:
+                raise Exception(
+                    f"Scan header keywords are not the same. These keywords were not present in all Scans: {diff}. Can't combine Scans into single BinTableHDU"
+                )
+            b = scan._make_bintable()
 
 
 class TPScan(ScanMixin):
