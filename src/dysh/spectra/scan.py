@@ -12,7 +12,14 @@ from scipy import ndimage
 
 from ..coordinates import Observatory
 from ..util import uniq
-from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
+from .core import (
+    average,
+    fft_shift,
+    find_non_blanks,
+    mean_tsys,
+    sq_weighted_avg,
+    tsys_weight,
+)
 from .spectrum import Spectrum
 
 # import warnings
@@ -807,6 +814,7 @@ class FSScan(ScanMixin):
         bintable,
         calibrate=True,
         fold=True,
+        shift_method="fft",
         use_sig=True,
         observer_location=Observatory["GBT"],
         debug=False,
@@ -880,7 +888,7 @@ class FSScan(ScanMixin):
         self._calibrated = None
         self._calibrate = calibrate
         if self._calibrate:
-            self.calibrate(fold=fold)
+            self.calibrate(fold=fold, shift_method=shift_method)
         if self._debug:
             print("---------------------------------------------------")
 
@@ -945,6 +953,7 @@ class FSScan(ScanMixin):
         """
         if self._debug:
             print(f'FOLD={kwargs["fold"]}')
+            print(f'METHOD={kwargs["shift_method"]}')
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -1019,16 +1028,16 @@ class FSScan(ScanMixin):
             """
             return (sig - ref) / ref * tsys
 
-        def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
+        def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
             """ """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
             # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
-            ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
+            ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
             avg = (sig + ref_shift) / 2
             return avg
 
-        def do_shift(data, offset, remove_wrap=False):
+        def do_shift(data, offset, remove_wrap=False, method="fft"):
             """
             Shift the data of a numpy array using roll/shift
 
@@ -1037,6 +1046,7 @@ class FSScan(ScanMixin):
 
             ishift = int(np.round(offset))  # Integer shift.
             fshift = offset - ishift  # Fractional shift.
+
             # print("FOLD:  ishift=%d fshift=%g" % (ishift, fshift))
             data2 = np.roll(data, ishift, axis=0)
             if remove_wrap:
@@ -1044,9 +1054,13 @@ class FSScan(ScanMixin):
                     data2[ishift:] = np.nan
                 else:
                     data2[:ishift] = np.nan
-            # now the fractional shift, each row separate since ndimage.shift() cannot deal with np.nan
-            #    data2 = ndimage.shift(data2,fshift)     this fails because fshift is a Quantity?, grrrr
-            data2 = ndimage.shift(data2, [fshift])
+            # Now the fractional shift, each row separate since ndimage.shift() cannot deal with np.nan
+            if method == "fft":
+                # Set `pad=False` to avoid edge effects.
+                # This needs to be sorted out.
+                data2 = fft_shift(data2, fshift, pad=False)
+            elif method == "interpolate":
+                data2 = ndimage.shift(data2, [fshift])
             return data2
 
         kwargs_opts = {"verbose": False}
@@ -1088,8 +1102,8 @@ class FSScan(ScanMixin):
             cal_ref = do_sig_ref(tp_ref, tp_sig, tsys_sig)
             #
             if _fold:
-                cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i])
-                cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
+                cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i], shift_method=kwargs["shift_method"])
+                cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i], shift_method=kwargs["shift_method"])
                 self._folded = True
                 if self._use_sig:
                     self._calibrated[i] = cal_sig_fold
