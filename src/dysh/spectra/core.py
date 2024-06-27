@@ -451,28 +451,24 @@ def get_spectral_equivalency(restfreq, velocity_convention):
         raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
 
 
-def smooth(data, method='hanning', width=1, decimate=-1, kernel=None):
+def smooth(data, method='hanning', width=1, kernel=None, show=False):
     """ smooth a spectrum
+            data:      input data array to smooth
             method:    hanning, boxcar, gaussian, fft (not implemented)
             width:     in pixels
-            decimate:  -1  none
-                        0  use the width parameter 
-                       >0  use the decimate factor explicitly
             kernel:    give your own array to convolve with (not implemented)
+            show:      return the kernel, instead of the convolved data
         """
     if method == 'boxcar':
         kernel = Box1DKernel(width)
-        print('BOX:',kernel.array)
-        new_data = convolve(data, kernel, boundary='extend')
     elif method == 'hanning':
         kernel = Trapezoid1DKernel(width)       # width=1 is pure hanning width=2 is actually box(3)
-        print('HANNING:',kernel.array)
-        new_data = convolve(data, kernel, boundary='extend')
     elif method == 'gaussian':
         kernel = Gaussian1DKernel(width)
-        print('GAUSSIAN:',kernel.array)
-        new_data = convolve(data, kernel, boundary='extend')
     else:
+        if show: return None
         print(f"bad method {method}, returning original data")
         return data
+    if show: return kernel        
+    new_data = convolve(data, kernel, boundary='extend')
     return new_data

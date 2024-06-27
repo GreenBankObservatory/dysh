@@ -35,6 +35,33 @@ def select_from(key, value, df):
     return df[(df[key] == value)]
 
 
+def indices_where_value_changes(colname, df):
+    """
+    Find the `~pandas.DataFrame` indices where the value of the input column name changes.
+
+    Parameters
+    ----------
+    colname : str
+        The column name to query.
+    df : `~pandas.DataFrame`
+            The DataFrame to search
+
+    Returns
+    -------
+    indices : ~numpy.ndarray
+        The indices of the Dataframe where `colname` changes value.
+
+    """
+    # This is some super panda kung-fu.
+    # See https://stackoverflow.com/questions/48673046/get-index-where-value-changes-in-pandas-dataframe-column
+    if colname not in df:
+        raise KeyError(f"Column {colname} not in input DataFrame")
+    # df.shift() shifts the index by one, so we are then comparing df[N] to df[N-1]. This gets us
+    # a truth table of where values change.  We filter on colname, then return a list of indices
+    # where the value is true. Finally, we squeeze out the empty dimensions of the np array.
+    return np.squeeze(df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).values)
+
+
 def gbt_timestamp_to_time(timestamp):
     """Convert the GBT sdfits timestamp string format to
     an :class:`~astropy.time.Time` object.  GBT SDFITS timestamps have the form
@@ -171,25 +198,6 @@ def get_size(obj, seen=None):
 def minimum_string_match(s, valid_strings):
     """return the valid string given a minimum string input"""
     pass
-
-
-def stripTable(table):
-    """Remove leading and trailing chars from all strings from an input table.
-
-    Parameters
-    ----------
-     table: ~astropy.table.Table
-         The table to strip
-    """
-    for n in table.colnames:
-        if np.issubdtype(table.dtype[n], str):
-            table[n] = np.char.strip(table[n])
-
-
-# def strip(self,tables):
-#    '''remove leading and trailing chars from all strings in list of tables'''
-#    for b in tables:
-#        stripTable(b)
 
 
 def uniq(seq):

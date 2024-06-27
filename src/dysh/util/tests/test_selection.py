@@ -33,11 +33,11 @@ class TestSelection:
         s.select(object="NGC2415", plnum=0)
         assert len(s._selection_rules[0]) == 5
         # Test that a duplicate selection results
-        # in an exception.  Note here, we are
+        # in a warning.  Note here, we are
         # also testing that the alias 'pol' is interpreted
         # as plnum.
-        with pytest.raises(Exception):
-            s.select(object="NGC2415", pol=0, tag="this will except")
+        with pytest.warns(UserWarning):
+            s.select(object="NGC2415", pol=0, tag="this will warn")
         s.select(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
         # the AND of the selection rules becomes the final
