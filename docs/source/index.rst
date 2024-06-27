@@ -14,14 +14,13 @@ Contents
 .. toctree::
    :maxdepth: 3
 
+   whatsnew/0.3
    background/index
    getting_started/index
    examples/index
    modules/index
    for_beta_testers/index
    for_developers/index
-   performance_testing/index
-   design/index
 
 Indices and tables
 ==================

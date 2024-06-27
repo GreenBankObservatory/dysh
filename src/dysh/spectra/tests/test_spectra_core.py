@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import pytest
+from astropy import units as u
 from astropy.io import fits
 
 from dysh import util
@@ -71,4 +72,19 @@ class TestMeanTsys:
         data1b = core.smooth(data0,'boxcar',5)
         assert data1b == pytest.approx(data0b)
         data1g = core.smooth(data0,'gaussian',1/2.35482)
+        
         assert data1g == pytest.approx(data0g)
+
+    def test_tsys_weight(self):
+        """Test that `dysh.spectra.core.tsys_weight` works."""
+
+        # Keys are the expected values, the rest the inputs.
+        pairs = {
+            1: {"exposure": 1, "delta_freq": 1, "tsys": 1},
+            1: {"exposure": 1 * u.s, "delta_freq": 1 * u.Hz, "tsys": 1 * u.K},
+            1: {"exposure": 1, "delta_freq": -1, "tsys": 1},
+            2: {"exposure": 1, "delta_freq": -1, "tsys": 0.5**0.5},
+        }
+
+        for k, v in pairs.items():
+            assert k == pytest.approx(core.tsys_weight(v["exposure"], v["delta_freq"], v["tsys"]))

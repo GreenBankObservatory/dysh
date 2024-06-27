@@ -1,6 +1,7 @@
 # Custom
 *.fits
 .ignore/
+.virtual_documents
 docs/source/_build/
 
 # Byte-compiled / optimized / DLL files
