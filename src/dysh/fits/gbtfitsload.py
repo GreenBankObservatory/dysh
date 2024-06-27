@@ -1692,10 +1692,13 @@ class GBTFITSLoad(SDFITSLoad):
         if debug:
             print(kwargs)
         selection = Selection(self._index)
-        selection._select_from_mixed_kwargs(**kwargs)
-        if debug:
-            print(selection.show())
-        _final = selection.final
+        if len(kwargs) > 0:
+            selection._select_from_mixed_kwargs(**kwargs)
+            if debug:
+                print(selection.show())
+            _final = selection.final
+        else:
+            _final = selection
         if len(_final) == 0:
             raise Exception("Your selection resulted in no rows to be written")
         fi = list(set(_final["FITSINDEX"]))
