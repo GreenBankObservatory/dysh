@@ -780,24 +780,28 @@ class FSScan(ScanMixin):
     ----------
 
     gbtfits : `~fit.gbtfitsload.GBFITSLoad`
-        input GBFITSLoad object
+        Input GBFITSLoad object
     scan : int
-        scan number that contains integrations with a series of sig/ref and calon/caloff states
-    sigrows:  dict
-        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
+        Scan number that contains integrations with a series of sig/ref and calon/caloff states
+    sigrows :dict
+        Dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
         corresponding to sig=T (ON) and sig=F (OFF) integrations.
     calrows : dict
-        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
+        Dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
         corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
-        the index for BINTABLE in `sdfits` containing the scans
-    calibrate: bool
-        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
+        The index for BINTABLE in `sdfits` containing the scans
+    calibrate : bool
+        Whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
         Default: True
-    fold: bool
-        whether or not to fold the spectrum. Default: True
+    fold : bool
+        Whether or not to fold the spectrum. Default: True
+    shift_method : str
+        Method to use when shifting the spectra for folding. One of 'fft' or 'interpolate'.
+        'fft' uses a phase shift in the time domain. 'interpolate' interpolates the signal.
+        Default: 'fft'
     use_sig : bool
-        whether to use the sig as the sig, or the ref as the sig. Default: True
+        Whether to use the sig as the sig, or the ref as the sig. Default: True
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of

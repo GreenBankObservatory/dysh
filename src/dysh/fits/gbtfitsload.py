@@ -618,6 +618,9 @@ class GBTFITSLoad(SDFITSLoad):
             Calibrate the scans. The default is True.
         fold : boolean, optional
             Fold the sig and ref scans.  The default is True.
+        shift_method : str
+            Method to use when shifting the spectra for folding. One of 'fft' or 'interpolate'.
+            'fft' uses a phase shift in the time domain. 'interpolate' interpolates the signal.
         use_sig : boolean, optional
             Return the sig or ref based spectrum. This applies to both the folded
             and unfolded option.  The default is True.
