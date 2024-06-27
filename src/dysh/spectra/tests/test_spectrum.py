@@ -137,7 +137,7 @@ class TestSpectrum:
         ]
         s = self.ps1
         for f in fmt:
-            file = f"/tmp/test.{f}"
+            file = f"testwrite.{f}"
             s.write(file, format=f, overwrite=True)
             # ECSV is the only ascii format that can
             # complete a roundtrip unscathed.

@@ -9,7 +9,7 @@ import astropy.units as u
 import numpy as np
 from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
-from astropy.table import Table
+from astropy.table import Table, vstack
 from scipy import ndimage
 
 from ..coordinates import Observatory
@@ -129,6 +129,10 @@ class ScanMixin:
 
         """
         return self._meta
+
+    def _meta_as_table(self):
+        """get the metadata as an astropy Table"""
+        return Table(self._meta)
 
     def _make_meta(self, rowindices):
         """
@@ -251,11 +255,10 @@ class ScanMixin:
         # discovered this!)
         if self._calibrated is None:
             raise Exception("Data must be calibrated before writing.")
-        b = BinTableHDU(Table(self._meta))
-        cd = deepcopy(b.columns)
+        cd = BinTableHDU(data=self._meta_as_table(), name="SINGLE DISH").columns
         form = f"{np.shape(self._calibrated)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
-        b = BinTableHDU.from_columns(cd)
+        b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
         return b
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
@@ -452,16 +455,18 @@ class ScanBlock(UserList, ScanMixin):
         None.
 
         """
-        if len(self._data == 1):
-            self._data[0].write(fileobj, output_verify, overwrite, checksum)
+        s0 = self.data[0]
+        # If there is only one scan, delegate to its write method
+        if len(self.data) == 1:
+            s0.write(fileobj, output_verify, overwrite, checksum)
             return
-        b = self._data[0]._make_bintable()
-        # the keys of the first scans bintable except for DATA.
+        # Meta are the keys of the first scan's bintable except for DATA.
         # We can use this to compare with the subsequent Scan
         # keywords without have to create their bintables first.
-        defaultkeys = set(b.header.keys()) - set(["DATA"])
-        datashape = np.shape(self._data[0]._calibrated)
-        for scan in self._self.data[1:]:
+        defaultkeys = set(s0._meta[0].keys())
+        datashape = np.shape(s0._calibrated)
+        tablelist = [s0._meta_as_table()]
+        for scan in self.data[1:]:
             # check data shapes are the same
             thisshape = np.shape(scan._calibrated)
             if thisshape != datashape:
@@ -476,7 +481,16 @@ class ScanBlock(UserList, ScanMixin):
                 raise Exception(
                     f"Scan header keywords are not the same. These keywords were not present in all Scans: {diff}. Can't combine Scans into single BinTableHDU"
                 )
-            b = scan._make_bintable()
+            tablelist.append(scan._meta_as_table())
+        # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
+        # astropy Tables can be concatenated with vstack thankfully.
+        table = vstack(tablelist, join_type="exact")
+        cd = BinTableHDU(table, name="SINGLE DISH").columns
+        data = np.concatenate([c._calibrated for c in self.data])
+        form = f"{np.shape(data)[1]}E"
+        cd.add_col(Column(name="DATA", format=form, array=data))
+        b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
+        b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
 class TPScan(ScanMixin):
