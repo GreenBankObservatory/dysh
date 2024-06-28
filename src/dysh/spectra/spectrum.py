@@ -220,7 +220,6 @@ class Spectrum(Spectrum1D):
         Undo the most recently computed baseline. If the baseline
         has been subtracted, it will be added back. The `baseline_model`
         attribute is set to None. Exclude regions are untouched.
-        @todo    this function may seem redundant
         """
         if self._baseline_model is None:
             return
