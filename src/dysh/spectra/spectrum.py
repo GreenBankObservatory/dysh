@@ -17,7 +17,6 @@ from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum1D
-from specutils.manipulation import box_smooth, gaussian_smooth, trapezoid_smooth
 from dysh.spectra import core
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
