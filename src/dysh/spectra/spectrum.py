@@ -460,8 +460,6 @@ class Spectrum(Spectrum1D):
               has been subtracted from the Spectrum or not. This will be all zeroes if no baseline model
               has been computed.
 
-
-
         Parameters
         ----------
         fileobj : str, file-like or `pathlib.Path`
@@ -474,7 +472,9 @@ class Spectrum(Spectrum1D):
 
         """
         # @todo support xaxis_unit, yaxis_unit, flux_unit
-        # @todo support wcs=True/False, metadata=True/False?? I think we always want these.
+        # xaxis_unit : str or :class:`astropy.units.Unit`
+        # yaxis_unit : str or :class:`astropy.units.Unit`
+        # flux_unit : str or :class:`astropy.units.Unit`
         if self._baseline_model is None:
             bl = np.zeros_like(self.flux)
             bldesc = "Fitted baseline value at given channel (was not defined)"
@@ -490,6 +490,11 @@ class Spectrum(Spectrum1D):
             udesc = "Flux uncertainty"
         outarray = [self.spectral_axis, self.flux, unc, self.weights, mask, bl]
         description = ["Spectral axis", "Flux", udesc, "Channel weights", "Mask 0=unmasked, 1=masked", bldesc]
+        # remove FITS reserve keywords
+        meta = deepcopy(self.meta)
+        meta.pop("NAXIS1")
+        meta.pop("TDIM7")
+        meta.pop("TUNIT7")
         if format == "mrt":
             ulab = "e_flux"  # MRT convention that error on X is labeled e_X
         else:
@@ -498,11 +503,15 @@ class Spectrum(Spectrum1D):
         if "ipac" in format:
             # IPAC format wants a crazy dictionary style.
             d = {}
-            for k, v in self.meta.items():
+            for k, v in meta.items():
                 d[k] = {"value": v}
             t = Table(outarray, names=outnames, meta={"keywords": d}, descriptions=description)
         else:
-            t = Table(outarray, names=outnames, meta=self.meta, descriptions=description)
+            t = Table(outarray, names=outnames, meta=meta, descriptions=description)
+
+        # for now ignore complaints about keywords until we clean them up.
+        # There are some that are more than 8 chars that should be fixed in GBTFISLOAD
+        warnings.simplefilter("ignore", VerifyWarning)
         t.write(fileobj, format=format, **kwargs)
 
     def _copy(self, **kwargs):
