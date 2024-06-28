@@ -579,6 +579,7 @@ class GBTFITSLoad(SDFITSLoad):
         if self._index is None:
             warnings.warn("Couldn't construct integration number: index is not yet created.")
             return
+
         # check it hasn't been constructed before.
         if "INTNUM" in self._index:
             # print("INTNUM is alsready there")
@@ -590,6 +591,7 @@ class GBTFITSLoad(SDFITSLoad):
             for s in self._sdf:
                 s.rename_binary_table_column("int", "intnum")
             return
+
         scan_changes = indices_where_value_changes("SCAN", self._index)
         time_changes = indices_where_value_changes("DATE-OBS", self._index)
         # there is probably some super clever pythonic way to do this in one line
@@ -605,6 +607,7 @@ class GBTFITSLoad(SDFITSLoad):
                     intnum += 1
             intnumarray.append(intnum)
         self._index["INTNUM"] = intnumarray
+
         # Here need to add it as a new column in the BinTableHDU,
         # but we have to sort out FITSINDEX.
         # s.add_col("INTNUM",intnumarray)
@@ -618,7 +621,7 @@ class GBTFITSLoad(SDFITSLoad):
                 fici = -1
             fi = self._index["FITSINDEX"][fic]
             # @todo fix this MWP
-            self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
+            #self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
 
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
