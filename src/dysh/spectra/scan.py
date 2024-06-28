@@ -308,6 +308,8 @@ class TPScan(ScanMixin):
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     """
 
     # @todo get rid of calrows and calc tsys in gettp and pass it in.
@@ -321,6 +323,7 @@ class TPScan(ScanMixin):
         calrows,
         bintable,
         calibrate=True,
+        smoothref=1,
         observer_location=Observatory["GBT"],
     ):
         self._sdfits = gbtfits  # parent class
@@ -328,6 +331,10 @@ class TPScan(ScanMixin):
         self._sigstate = sigstate  # ignored?
         self._calstate = calstate  # ignored?
         self._scanrows = scanrows
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            print(f"TP smoothref={self._smoothref} not implemented yet")
+        
         # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
@@ -543,6 +550,8 @@ class PSScan(ScanMixin):
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -797,6 +806,8 @@ class FSScan(ScanMixin):
         whether or not to fold the spectrum. Default: True
     use_sig : bool
         whether to use the sig as the sig, or the ref as the sig. Default: True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -814,6 +825,7 @@ class FSScan(ScanMixin):
         calibrate=True,
         fold=True,
         use_sig=True,
+        smoothref=1,
         observer_location=Observatory["GBT"],
         debug=False,
     ):
@@ -824,6 +836,9 @@ class FSScan(ScanMixin):
         self._calrows = calrows  # dict with "ON" and "OFF"
         self._folded = False
         self._use_sig = use_sig
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            print(f"FS smoothref={self._smoothref} not implemented yet")
 
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
@@ -1214,6 +1229,8 @@ class SubBeamNodScan(ScanMixin):
         Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
     calibrate: bool
         Whether or not to calibrate the data.
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1229,7 +1246,7 @@ class SubBeamNodScan(ScanMixin):
     """
 
     def __init__(
-        self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, observer_location=Observatory["GBT"], **kwargs
+            self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, smoothref=1, observer_location=Observatory["GBT"], **kwargs
     ):
         kwargs_opts = {
             "timeaverage": False,
@@ -1255,6 +1272,9 @@ class SubBeamNodScan(ScanMixin):
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            print(f"SubBeamNodS smoothref={self._smoothref} not implemented yet")
         self._observer_location = observer_location
         self._calibrated = None
         if calibrate:
