@@ -605,6 +605,7 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage=False,
         weights="tsys",
         bintable=None,
+        smoothref=1,             
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -731,6 +732,7 @@ class GBTFITSLoad(SDFITSLoad):
                         fold=fold,
                         use_sig=use_sig,
                         observer_location=observer_location,
+                        smoothref=1,
                         debug=debug,
                     )
                     scanblock.append(g)
@@ -898,6 +900,7 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage=False,
         weights="tsys",
         bintable=None,
+        smoothref=1,             
         **kwargs,
     ):
         """
@@ -990,7 +993,7 @@ class GBTFITSLoad(SDFITSLoad):
                         print("fitsindex=", i)
                     if len(tprows) == 0:
                         continue
-                    g = TPScan(self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, calibrate)
+                    g = TPScan(self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, calibrate, smoothref=smoothref)
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1007,6 +1010,7 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage=False,
         weights="tsys",
         bintable=None,
+        smoothref=1,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -1159,6 +1163,7 @@ class GBTFITSLoad(SDFITSLoad):
                                     calrows,
                                     bintable,
                                     calibrate=calibrate,
+                                    smoothref=smoothref,
                                 )
                             )
                             calrows = {"ON": sgon, "OFF": sgoff}
@@ -1173,9 +1178,10 @@ class GBTFITSLoad(SDFITSLoad):
                                     calrows,
                                     bintable,
                                     calibrate=calibrate,
+                                    smoothref=smoothref,                                    
                                 )
                             )
-                        sb = SubBeamNodScan(sigtp, reftp, method=method, calibrate=calibrate, weights=weights)
+                        sb = SubBeamNodScan(sigtp, reftp, method=method, calibrate=calibrate, weights=weights, smoothref=smoothref)
                         scanblock.append(sb)
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
@@ -1200,6 +1206,7 @@ class GBTFITSLoad(SDFITSLoad):
                                 subref=-1,
                                 weights=weights,
                                 calibrate=calibrate,
+                                smoothref=smoothref,
                             )
                             sigtp.append(tpon[0])
                             tpoff = self.gettp(
@@ -1213,6 +1220,7 @@ class GBTFITSLoad(SDFITSLoad):
                                 subref=1,
                                 weights=weights,
                                 calibrate=calibrate,
+                                smoothref=smoothref,                                
                             )
                             reftp.append(tpoff[0])
                             # in order to reproduce gbtidl tsys, we need to do a normal
@@ -1227,9 +1235,10 @@ class GBTFITSLoad(SDFITSLoad):
                                 ifnum=k,
                                 weights=weights,
                                 calibrate=calibrate,
+                                smoothref=smoothref,                                
                             )  # .timeaverage(weights=w)
                             fulltp.append(ftp[0])
-                        sb = SubBeamNodScan(sigtp, reftp, fulltp, method=method, calibrate=calibrate, weights=weights)
+                        sb = SubBeamNodScan(sigtp, reftp, fulltp, method=method, calibrate=calibrate, weights=weights, smoothref=smoothref) 
                         scanblock.append(sb)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
