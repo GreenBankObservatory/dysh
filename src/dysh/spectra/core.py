@@ -455,16 +455,16 @@ def smooth(data, method='hanning', width=1, kernel=None, show=False):
             kernel:    give your own array to convolve with (not implemented)
             show:      return the kernel, instead of the convolved data
         """
-    if method == 'boxcar':
-        kernel = Box1DKernel(width)
-    elif method == 'hanning':
-        kernel = Trapezoid1DKernel(width)       # width=1 is pure hanning width=2 is actually box(3)
-    elif method == 'gaussian':
-        kernel = Gaussian1DKernel(width)
-    else:
-        if show: return None
-        print(f"bad method {method}, returning original data")
-        return data
-    if show: return kernel        
+    available_methods = {
+        "boxcar" : Box1DKernel,
+        "hanning" : Trapezoid1DKernel,    # only for width=1
+        "gaussian" : Gaussian1DKernel
+    }
+    method = minimum_string_match(method, list(available_methods.keys()))
+    if method == None:
+        raise ValueError(f'Unrecognized input method {method}. Must be one of {list(available_methods.keys())}')
+    kernel = available_methods[method](width)
+    if show:
+        return kernel
     new_data = convolve(data, kernel, boundary='extend')
     return new_data
