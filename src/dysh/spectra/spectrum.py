@@ -188,14 +188,14 @@ class Spectrum(Spectrum1D):
 
         if kwargs_opts["normalize"]:
             print("Warning: baseline fit done in [0,1) space, even though it might say Hz (issue ###)")
-            spectral_axis = deepcopy(self._spectral_axis)      # save the old axis
-            self._normalized = True                            # remember it's now normalized
+            spectral_axis = deepcopy(self._spectral_axis)  # save the old axis
+            self._normalized = True  # remember it's now normalized
             nchan = len(spectral_axis)
             for i in range(nchan):
-                self._spectral_axis[i] = (i*1.0/nchan) * u.Hz  # would like to use "u.chan" units - not working yet
+                self._spectral_axis[i] = (i * 1.0 / nchan) * u.Hz  # would like to use "u.chan" units - not working yet
             # some @todo here about single setter, units u.chan etc.
 
-        # include= and exclude= are mutually exclusive, but we allow include= 
+        # include= and exclude= are mutually exclusive, but we allow include=
         # if include is used, transform it to exclude=
         if include != None:
             if exclude != None:
@@ -213,6 +213,7 @@ class Spectrum(Spectrum1D):
         if kwargs_opts["normalize"]:
             self._spectral_axis = spectral_axis
             del spectral_axis
+
     # baseline
 
     def undo_baseline(self):

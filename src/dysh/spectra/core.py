@@ -261,11 +261,12 @@ def baseline(spectrum, order, exclude=None, **kwargs):
     }
     kwargs_opts.update(kwargs)
 
-    available_models = { "chebyshev"  : Chebyshev1D,
-                         "hermite"    : Hermite1D,
-                         "legendre"   : Legendre1D,
-                         "polynomial" : Polynomial1D,
-                        }
+    available_models = {
+        "chebyshev": Chebyshev1D,
+        "hermite": Hermite1D,
+        "legendre": Legendre1D,
+        "polynomial": Polynomial1D,
+    }
     model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
     if model == None:
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {list(available_models.keys())}')
