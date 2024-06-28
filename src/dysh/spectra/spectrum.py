@@ -33,6 +33,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     veldef_to_convention,
 )
 from ..plot import specplot as sp
+from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
 
 
@@ -304,6 +305,7 @@ class Spectrum(Spectrum1D):
 
     def decimate(self, n, offset=0):
         """Decimate a spectrum by n pixels, starting at pixel offset
+        @todo deprecate?   decimation is in smooth
         """
         nchan = len(self._data)
         print("PJT decimate",nchan,offset,n);
@@ -323,39 +325,55 @@ class Spectrum(Spectrum1D):
                        >0  use the decimate factor explicitly
             kernel:    give your own array to convolve with (not implemented)
         """
-        # option to smooth baseline_model too? or discard it when decimation was done?
-        #    @todo use the new min.match routine for method=
-        #    method = minimum_string_match(method, ['hanning', 'boxcar', 'gaussian', 'fft']
-
         nchan = len(self._data)
+        decimate = int(decimate)
         print("PJT smooth",method,nchan,width,decimate)
         print("    old resolution: ",self._resolution)
 
-        if method == 'gaussian':
-            stddev = np.sqrt(width**2 - self._resolution**2) / 2.35482
-            s1 = core.smooth(self._data, method, stddev)
-        else:
-            s1 = core.smooth(self._data, method, width)
+        # @todo  see also core.smooth() for valid_methods
+        valid_methods = ['hanning', 'boxcar', 'gaussian']
+        this_method = minimum_string_match(method, valid_methods)
+        if this_method == None:
+            raise Exception(f"smooth({method}): valid methods are {valid_methods}")
 
-        new_data = s1 * u.K 
+        if this_method == 'gaussian':
+            stddev = np.sqrt(width**2 - self._resolution**2) / 2.35482
+            s1 = core.smooth(self._data, this_method, stddev)
+        else:
+            s1 = core.smooth(self._data, this_method, width)
+
+        new_data = s1 * u.K     #     self._data.flux._unit   # didn't work
         if decimate >= 0:
             if decimate == 0:
+                # take the default decimation by 'width'
                 idx = np.arange(0,nchan,width)
+                new_resolution = 1    # new resolution in the new pixel width
+                cell_shift = 0.5*(width-1)*(self._spectral_axis.value[1]-self._spectral_axis.value[0])
             else:
+                # user selected decimation (but should be <= width)
+                if decimate > width:
+                    raise Exception(f"Cannot decimate with more than width {width}")
                 idx = np.arange(0,nchan,decimate)
+                new_resolution = np.math(width**2 - decimate**2)    # @todo dangerous?
+                cell_shift = 0.5*(decimate-1)*(self._spectral_axis.value[1]-self._spectral_axis.value[0])
+            print("    cell_shift:",cell_shift)
             new_data = new_data[idx]
-            s = Spectrum.make_spectrum(new_data, meta=self.meta)
+            new_meta = deepcopy(self.meta)
+            new_meta['CDELT1'] = width * self.meta['CDELT1']        # @todo etc ???
+            s = Spectrum.make_spectrum(new_data, meta=new_meta)
             s._spectral_axis = self._spectral_axis[idx]
+            for i in range(len(s._spectral_axis)):                # grmpf, no proper setter
+                s._spectral_axis.value[i] += cell_shift
             if self._baseline_model is not None:
                 print("Warning: removing baseline_model");
                 s._baseline_model = None    # was already None
-            print("DECIMATE",self._meta)
+            s._resolution = new_resolution
             # @todo  fix WCS                
         else:
             s = Spectrum.make_spectrum(new_data, meta=self.meta)
             s._baseline_model = self._baseline_model   # it never got copied
             s._resolution = width
-            # @todo   resolution is a mess if multiple methods are used in succession
+            # @todo   resolution is not well defined multiple methods are used in succession
             print("new resolution: ",s._resolution)
         return s
 
