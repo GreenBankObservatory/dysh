@@ -311,9 +311,10 @@ class Spectrum(Spectrum1D):
         new_data = self._data[idx] * u.K   # why units again?
         s = Spectrum.make_spectrum(new_data,meta=self.meta)
         s._spectral_axis = self._spectral_axis[idx]
+        # @todo  fix WCS
         return s
 
-    def smooth(self, method='hanning', width=1, decimate=-1, kernel=None):
+    def smooth(self, method='hanning', width=1, decimate=0, kernel=None):
         """ smooth a spectrum
             method:    hanning, boxcar, gaussian, fft (not implemented)
             width:     in pixels
@@ -348,6 +349,8 @@ class Spectrum(Spectrum1D):
             if self._baseline_model is not None:
                 print("Warning: removing baseline_model");
                 s._baseline_model = None    # was already None
+            print("DECIMATE",self._meta)
+            # @todo  fix WCS                
         else:
             s = Spectrum.make_spectrum(new_data, meta=self.meta)
             s._baseline_model = self._baseline_model   # it never got copied
