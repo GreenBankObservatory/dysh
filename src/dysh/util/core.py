@@ -64,6 +64,7 @@ def indices_where_value_changes(colname, df):
     ary = df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).values
     return np.squeeze(ary, axis=1)
 
+
 def gbt_timestamp_to_time(timestamp):
     """Convert the GBT sdfits timestamp string format to
     an :class:`~astropy.time.Time` object.  GBT SDFITS timestamps have the form

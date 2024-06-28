@@ -621,7 +621,7 @@ class GBTFITSLoad(SDFITSLoad):
                 fici = -1
             fi = self._index["FITSINDEX"][fic]
             # @todo fix this MWP
-            #self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
+            # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
 
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
