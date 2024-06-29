@@ -21,6 +21,7 @@ Contents
    modules/index
    for_beta_testers/index
    for_developers/index
+   glossary
 
 Indices and tables
 ==================
