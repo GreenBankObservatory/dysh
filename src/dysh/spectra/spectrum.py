@@ -303,7 +303,7 @@ class Spectrum(Spectrum1D):
             dmax = d.max()
         return (mean, rms, dmin, dmax)
 
-    def decimate(self, n, offset=0):
+    def _decimate(self, n, offset=0):
         """Decimate a spectrum by n pixels, starting at pixel offset
         @todo deprecate?   decimation is in smooth
         """
@@ -327,8 +327,8 @@ class Spectrum(Spectrum1D):
         """
         nchan = len(self._data)
         decimate = int(decimate)
-        print("PJT smooth",method,nchan,width,decimate)
-        print("    old resolution: ",self._resolution)
+        #print("PJT smooth",method,nchan,width,decimate)
+        #print("    old resolution: ",self._resolution)
 
         # @todo  see also core.smooth() for valid_methods
         valid_methods = ['hanning', 'boxcar', 'gaussian']
@@ -354,7 +354,7 @@ class Spectrum(Spectrum1D):
                 if decimate > width:
                     raise Exception(f"Cannot decimate with more than width {width}")
                 idx = np.arange(0,nchan,decimate)
-                new_resolution = np.math(width**2 - decimate**2)    # @todo dangerous?
+                new_resolution = np.sqrt(width**2 - decimate**2)    # @todo dangerous?
                 cell_shift = 0.5*(decimate-1)*(self._spectral_axis.value[1]-self._spectral_axis.value[0])
             print("    cell_shift:",cell_shift)
             new_data = new_data[idx]
@@ -374,7 +374,7 @@ class Spectrum(Spectrum1D):
             s._baseline_model = self._baseline_model   # it never got copied
             s._resolution = width
             # @todo   resolution is not well defined multiple methods are used in succession
-            print("new resolution: ",s._resolution)
+            # print("new resolution: ",s._resolution)
         return s
 
     @property
