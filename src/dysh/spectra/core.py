@@ -455,8 +455,9 @@ def smooth(data, method='hanning', width=1, kernel=None, show=False):
             kernel:    give your own array to convolve with (not implemented)
             show:      return the kernel, instead of the convolved data
         """
+    # note that these methods always return odd number in the kernel
     available_methods = {
-        "boxcar" : Box1DKernel,
+        "boxcar" : Box1DKernel,           # (e.g. width=2 gives hanning)
         "hanning" : Trapezoid1DKernel,    # only for width=1
         "gaussian" : Gaussian1DKernel
     }
