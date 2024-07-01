@@ -516,6 +516,33 @@ def make_target(header):
     return target
 
 
+def gb20m_location():
+    """
+    Create an astropy EarthLocation for the 20 Meter using the same established by GBO.
+
+    Returns
+    -------
+    gb20m : `~astropy.coordinates.EarthLocation`
+        astropy EarthLocation for the GBT.
+    """
+    gb20m_lat = 38.43685 * u.deg
+    gb20m_lon = -79.82552 * u.deg
+    gb20m_height = 835.0 * u.m
+    gb20m = coord.EarthLocation.from_geodetic(lon=gb20m_lon, lat=gb20m_lat, height=gb20m_height)
+    return gb20m
+
+
+class GB20M:
+    """Singleton Green Bank 20 Meter Telescope EarthLocation object, using the Green Bank Observatory's official coordinates for the site."""
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = gb20m_location()
+        return cls._instance
+
+
 def gbt_location():
     """
     Create an astropy EarthLocation for the GBT using the same established by GBO.
@@ -574,17 +601,22 @@ class Observatory:
         # and just GBT as an attribute. Leave this unadvertised for now
         # in case I remove it.
         self.GBT = GBT()
+        self.GB20M = GB20M()
 
     def __getitem__(self, key):
         # For GBT we want to use the GBO official location
         if key == "GBT":
             return self.GBT
+        elif key == "GB20M":
+            return self.GB20M
         return coord.EarthLocation.of_site(key)
 
     def __class_getitem__(self, key):
         # For GBT we want to use the GBO official location
         if key == "GBT":
             return GBT()
+        elif key == "GB20M":
+            return GB20M()
         return coord.EarthLocation.of_site(key)
 
     def get_earth_location(longitude, latitude, height=0.0, ellipsoid=None):
