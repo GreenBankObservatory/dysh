@@ -4,6 +4,17 @@ Choosing a Renderer
 
 There are several different situations in which one might use the plotter, and it must render and be interactive in all of them.
 
+.. mermaid::
+
+    flowchart TD
+        A[Detect Renderer] --> B[Script]
+        A[Detect Renderer] --> C[iPython]
+        A[Detect Renderer] --> D[Notebook]
+
+        B --> E[SpectrumSelectApp]
+        C --> |new thread| E[SpectrumSelectApp]
+        D --> F[SingleSpectrum]
+
 Scripting
 =========
 

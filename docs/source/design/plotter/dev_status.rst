@@ -1,32 +1,34 @@
-*********************
-Status of Development
-*********************
+*****************
+Design and Status
+*****************
 
-I've been having some trouble with using just `matplotlib` for the interactive plotter.
+The plotter is based off of `PyQt` with `PyQtGraph`. 
 
-PyQt with PyQtGraph
-===================
+Plot Types
+==========
+Each type of plot will be defined by its own plot class with a specific `PyQtGraph` widget. 
 
-One option is to add the `PyQt` dependency back in.
+`SingleSpectrum`
+--------------
 
-Pros:
-  * `PyQtGraph` is based off of `matplotlib`
-  * Allows future extensibility into a full GUI
+A `SingleSpectrum` plot will display a single frquency-vs-intensity `spectrum` object.  
 
-Cons:
-  * Large package download
+Waterfall
+---------
 
+This plot type has not been implemented. 
 
-Plotly with PyQt
-================
+Selection Areas
+===============
 
-`Plotly` makes a lot of this interactive stuff easy.
+Different plot types may require different types of selection. 
 
-Pros:
-  * Lots of built-in interactivity options
-  * Easy to export interactive plots into Sphinx
+Single-Point selection
+----------------------
 
-Cons:
-  * Not based off of `matplotlib`
-  * Default behavior is to create an HTML file which gets rendered by a browser. Can specify renderer.
-  * Using `PyQt`` to create a popup window introduces the `PyQt`` dependency
+On spectra, users may one to be able to click on individual points to create a selection. This feature has not been implemented yet. 
+
+Rectangular Region of Interest (ROI)
+------------------------------------
+
+A selection object on the plot is defined as a rectangular  Region of Interest (ROI). 
