@@ -2,6 +2,8 @@
 - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
 """
 
+import warnings
+
 import astropy.units as u
 import numpy as np
 import pandas as pd
@@ -159,7 +161,14 @@ class SDFITSLoad(object):
             c = dict(filter(lambda item: not any(sub in item[0] for sub in ignore), h.header.items()))
             cols.update(c)
         for k, v in cols.items():
-            self._index[k] = v
+            if k not in self._index.columns:
+                self._index[k] = v
+            elif self._index[k][0] != v:
+                warnings.warn(
+                    f"Column {k} is defined in the primary header and in the binary table index, but their values do not match. Will not update this column in the index.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
     def load(self, hdu=None, **kwargs):
         """
