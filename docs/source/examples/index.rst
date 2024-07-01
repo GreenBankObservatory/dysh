@@ -6,5 +6,6 @@ Examples for GBT Data
    :maxdepth: 2
 
    positionswitch
+   frequencyswitch
    totalpower
    subbeamnod
