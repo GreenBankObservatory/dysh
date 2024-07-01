@@ -484,8 +484,7 @@ class SDFITSLoad(object):
 
     def scans(self, bintable):
         """
-        The number of scans resent in the input bintable.
-        TODO: move this to GBTFISLoad?
+        The number of scans present in the input bintable.
 
         Parameters
         ----------
@@ -503,7 +502,7 @@ class SDFITSLoad(object):
         j = bintable
         nrows = self.naxis(bintable=j, naxis=2)
         nflds = self._binheader[j]["TFIELDS"]
-        restfreq = np.unique(self._index[j]["RESTFREQ"]) / 1.0e9
+        restfreq = np.unique(self.index(bintable=j)["RESTFREQ"]) / 1.0e9
         #
         print("HDU       %d" % (j + 1))
         print("BINTABLE: %d rows x %d cols with %d chans" % (self._nrows[j], nflds, self.nchan(j)))
