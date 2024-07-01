@@ -1,0 +1,21 @@
+
+.. _whatsnew-0.3:
+
+***********************
+What's New in dysh 0.3?
+***********************
+
+Overview
+========
+In this release, `dysh` has the following new or updated features:
+
+* Conversion between standard velocity frames: heliocentric, barycentric, geocentric, topcentric, local standard of rest (kinematic and dynamical), and galactocentric rest frames.
+* Conversion between the radio, optical, and relativistic velocity definitions.
+* Data selection via any SDFITS column name.
+* Frequency switching calibration.
+
+Full change log
+===============
+
+To see a detailed list of all changes in version 0.3, including changes in
+API, please see the :ref:`changelog`.
