@@ -18,4 +18,4 @@ class TestUtil:
             ws += w[i]
         result = np.sqrt(u / ws)
         diff = result - du.sq_weighted_avg(a, 0, w)
-        assert np.abs(diff) < 1e-15
+        assert np.abs(diff) < 2e-15

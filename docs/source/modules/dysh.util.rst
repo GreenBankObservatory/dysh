@@ -7,6 +7,11 @@ Utility classes and functions
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: dysh.util.selection
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: dysh.util.core
    :members:
    :undoc-members:

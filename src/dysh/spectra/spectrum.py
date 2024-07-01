@@ -1,15 +1,21 @@
+"""
+The Spectrum class to contain and manipulate spectra.
+"""
+
 import warnings
 from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SpectralCoord
+from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
+from ndcube import NDCube
 from specutils import Spectrum1D
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
@@ -18,6 +24,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     astropy_frame_dict,
     change_ctype,
     decode_veldef,
+    frame_to_label,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -36,8 +43,6 @@ class Spectrum(Spectrum1D):
     we probably will not use that because the restriction that it can
     have only one spectral axis conflicts with slight Doppler shifts.
     See `~specutils.Spectrum1D` for the instantiation arguments.
-
-    *Note:* `velocity_convention` should be one of {'radio', 'optical', 'relativistic'}; the  old `~specutils.Spectrum1D` documentation is wrong (there should not be a 'doppler\\_' prefix).
     """
 
     def __init__(self, *args, **kwargs):
@@ -50,12 +55,14 @@ class Spectrum(Spectrum1D):
             self._velocity_frame = self._target.frame.name
         else:
             self._velocity_frame = None
-        # @TODO - have _observer_location attribute instead
+        # @todo - have _observer_location attribute instead?
         # and observer property returns getITRS(observer_location,obstime)
         self._observer = kwargs.pop("observer", None)
         Spectrum1D.__init__(self, *args, **kwargs)
         self._spectral_axis._target = self._target
         self._spectral_axis._observer = self._observer
+        if self._observer is not None:
+            self._velocity_frame = self._observer.name
         if "DATE-OBS" in self.meta:
             self._obstime = Time(self.meta["DATE-OBS"])
         else:
@@ -92,12 +99,15 @@ class Spectrum(Spectrum1D):
         return self._baseline_model
 
     def baseline(self, degree, exclude=None, **kwargs):
+        # fmt: off
         """
         Compute and optionally remove a baseline.  The model for the
         baseline can be either a
         `1D polynomial model <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html>`_ or a
-        `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.  The code uses `astropy.modeling`
-        and `astropy.fitter` to compute the baseline.  See the documentation for those modules.  This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
+        `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.
+        The code uses `astropy.modeling`
+        and `astropy.fitter` to compute the baseline.  See the documentation for those modules.
+        This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
 
         Parameters
         ----------
@@ -107,20 +117,29 @@ class Spectrum(Spectrum1D):
                 List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
                 In channel units.
 
-                Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+                Examples:
+
+                One channel-based region: [11,51]
+
+                Two channel-based regions: [(11,51),(99,123)].
+
+                One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
+
+                One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
                 Default: no exclude region
 
-                TODO: Are these OR'd with the existing mask? make that an option
-                TODO: Allow these to be Quantities (spectral axis units or equivalent). See list_to_spectral_region()
             model : str
                 One of 'polynomial' or 'chebyshev', Default: 'polynomial'
             fitter  :  `~astropy.fitting._FitterMeta`
-                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
+                Be care when choosing a different fitter to be sure it is optimized for this problem.
             remove : bool
                 If True, the baseline is removed from the spectrum. Default: False
 
         """
+        # fmt: on
+        # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
         kwargs_opts = {
             "remove": False,
             "model": "polynomial",
@@ -157,14 +176,17 @@ class Spectrum(Spectrum1D):
                 List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
                 In channel units.
 
-                        Examples: One channel-based region: [11,51], Two channel-based regions: [(11,51),(99,123)]. One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz]. One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+                Examples: One channel-based region: [11,51],
+                          Two channel-based regions: [(11,51),(99,123)].
+                          One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
+                          One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
         """
         pass
 
     def list_to_spectral_region(self, inlist):
-        # todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit. This could go in core.py
-        # combine this with _set_exclude_regions
+        # @todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit.
+        # This could go in core.py combine this with _set_exclude_regions
         pass
 
     def bshow(self):
@@ -195,9 +217,9 @@ class Spectrum(Spectrum1D):
         -------
         stats : tuple
             Tuple consisting of (mean,rms,datamin,datamax)
-            TODO: maybe make this a dict
 
         """
+        # @todo: maybe make this a dict return value a dict
         mean = self.mean()
         rms = self.data.std()
         dmin = self.min()
@@ -205,7 +227,7 @@ class Spectrum(Spectrum1D):
         return (mean, rms, dmin, dmax)
 
     def smooth(self):
-        # todo use specutils.manipulation.smoothing
+        # @todo use specutils.manipulation.smoothing
         # option to smooth baseline too?
         pass
 
@@ -220,7 +242,7 @@ class Spectrum(Spectrum1D):
         elif "RESTFREQ" in self.meta:
             cunit1 = self.meta.get("CUNIT1", self.wcs.wcs.cunit[0])
             # @todo this could be done with a dict str->function
-            rfq = self.meta["RESTFREQ"] * cunit1
+            rfq = self.meta["RESTFREQ"] * cunit1  # WCS wants no E
         else:
             rfq = None
         if rfq is not None:
@@ -233,35 +255,63 @@ class Spectrum(Spectrum1D):
 
     @property
     def observer(self):
+        """
+        Returns
+        -------
+            observer : `~astropy.coordinates.BaseCoordinateFrame` or derivative
+            The coordinate frame of the observer if present.
+        """
         return self._observer
 
     @property
     def velocity_frame(self):
+        """String representation of the velocity frame"""
         return self._velocity_frame
-
-    # This is already in specutils.OneDSpectrumMixin
-    # @property
-    # def velocity_convention(self):
-    #    return self._spectral_axis.doppler_convention
 
     @property
     def doppler_convention(self):
+        """String representation of the velocity (Doppler) convention"""
         return self.velocity_convention
 
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
         *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
+
+        Parameters
+        ----------
+        unit : `~astropy.units.Quantity` or str that can be converted to Quantity
+                The unit to which the axis is to be converted
+        Returns
+        -------
+        velocity : `~astropy.units.Quantity`
+                The converted spectral axis velocity
         """
         return self._spectral_axis.to(unit)
 
-    # not needed
-    # def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
-    #    if toframe is not None:
-    #        self.set_frame(toframe)
-    #    if doppler_convention is not None:
-    #        return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
-    #    else:
-    #        return self.velocity.to(unit)
+    def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
+        """
+        Parameters
+        ----------
+        unit : `~astropy.units.Quantity` or str that can be converted to Quantity
+            The unit to which the axis is to be converted
+
+        toframe : str
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'
+
+        doppler_convention : str
+            The Doppler velocity covention to use, one of 'optical', 'radio', or 'rest'
+
+        Returns
+        -------
+        velocity : `~astropy.units.Quantity`
+            The converted spectral axis velocity
+        """
+        if toframe is not None and toframe != self.velocity_frame:
+            self.set_frame(toframe)
+        if doppler_convention is not None:
+            return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
+        else:
+            return self.axis_velocity(unit)
 
     def get_velocity_shift_to(self, toframe):
         if self._target is None:
@@ -269,7 +319,7 @@ class Spectrum(Spectrum1D):
         return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
 
     def set_frame(self, toframe):
-        # @TODO VELDEF should be changed as well?
+        # @todo VELDEF should be changed as well?
         """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
 
         To make a copy of this Spectrum with new coordinate referece frmae instead, use `with_frame`.
@@ -279,17 +329,17 @@ class Spectrum(Spectrum1D):
         toframe - str
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
         """
-
         if "topo" in toframe:
-            actualframe = self.observer  # ???
+            actualframe = self.observer
         else:
             actualframe = astropy_frame_dict.get(toframe, toframe)
-        # print(f"actual frame is {actualframe}")
+        # print(f"actual frame is {actualframe} {type(actualframe)}")
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
         self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
-        # @todo shouldn't have two variables for the same thing.
-        # Still needed?
-        # self.topocentric = self._target.topocentric = "topo" in toframe
+        if isinstance(actualframe, str):
+            self._velocity_frame = actualframe
+        else:
+            self._velocity_frame = actualframe.name
 
     def with_frame(self, toframe):
         """Return a copy of this Spectrum with a new coordinate reference frame.
@@ -305,7 +355,7 @@ class Spectrum(Spectrum1D):
             A new Spectrum object
         """
 
-        s = deepcopy(self)
+        s = self._copy()
         s.set_frame(toframe)
         return s
 
@@ -355,7 +405,7 @@ class Spectrum(Spectrum1D):
                 observer=self._spectral_axis.observer,
             )
             s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
-        s = deepcopy(self)
+        s = self._copy(velocity_convention=doppler_convention)
         s.set_convention(doppler_convention)
         return s
 
@@ -417,6 +467,7 @@ class Spectrum(Spectrum1D):
         # s.topocentric = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         return s
 
+    # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
     def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None):
         # , shift_topo=False):
@@ -427,19 +478,22 @@ class Spectrum(Spectrum1D):
         data :  `~numpy.ndarray`
             The data array. See `~specutils.Spectrum1D`
         meta : dict
-            The metadata, typically derived from an SDFITS header.  Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
+            The metadata, typically derived from an SDFITS header.
+            Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
         use_wcs : bool
             If True, create a WCS object from `meta`
 
         observer_location : `~astropy.coordinates.EarthLocation`
-            Location of the observatory. See `~dysh.coordinates.Observatory`. This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
 
         Returns
         -------
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
-        # @TODO generic check_required method since I now have this code in two places (coordinates/core.py).
+        warnings.simplefilter("ignore", NoVelocityWarning)
+        # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # should we also require DATE-OBS or MJD-OBS?
         _required = set(
             [
@@ -463,9 +517,9 @@ class Spectrum(Spectrum1D):
         if not _required <= meta.keys():
             raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
 
-        # @TODO WCS is expensive.
+        # @todo WCS is expensive.
         # Possibly figure how to calculate spectral_axis instead.
-        # @TODO allow fix=False in WCS constructor?
+        # @todo allow fix=False in WCS constructor?
         if use_wcs:
             # skip warnings about DATE-OBS being converted to MJD-OBS
             warnings.filterwarnings("ignore", category=FITSFixedWarning)
@@ -519,8 +573,79 @@ class Spectrum(Spectrum1D):
         #
         return s
 
+    def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
+        if isinstance(other, NDCube):
+            result = op(other, **{"handle_meta": handle_meta})
+        elif isinstance(other, u.Quantity):
+            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
+        elif not isinstance(other, u.Quantity):
+            try:
+                other = u.Quantity(other, unit=self.unit)
+                result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
+            except TypeError:
+                return NotImplemented
+        # result._target = self._target
+        # result._observer = self._observer
+        # result._velocity_frame = self._velocity_frame
+        self._shallow_copy_attributes(result)
+        return result
 
-# @TODO figure how how to document write()
+    def _shallow_copy_attributes(self, other):
+        other._target = self._target
+        other._observer = self._observer
+        other._velocity_frame = self._velocity_frame
+        other._obstime = self._obstime
+        other._baseline_model = self._baseline_model
+        other._exclude_regions = self._exclude_regions
+        other._mask = self._mask
+        other._subtracted = self._subtracted
+        other.spectral_axis.doppler_convention = self.doppler_convention
+
+    def __add__(self, other):
+        op = self.add
+        handle_meta = self._add_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    def __sub__(self, other):
+        op = self.subtract
+        handle_meta = self._add_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    def __mul__(self, other):
+        op = self.multiply
+        handle_meta = self._mul_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    # @todo replace with __truediv__. See issue #241
+    def __div__(self, other):
+        op = self.divide
+        handle_meta = self._div_meta
+        result = self._arithmetic_apply(other, op, handle_meta)
+        return result
+
+    def _add_meta(self, operand, operand2, **kwargs):
+        # print(kwargs)
+        kwargs.setdefault("other_meta", True)
+        meta = deepcopy(operand)
+        if kwargs["other_meta"]:
+            meta["EXPOSURE"] = operand["EXPOSURE"] + operand2["EXPOSURE"]
+            meta["DURATION"] = operand["DURATION"] + operand2["DURATION"]
+
+        return meta
+
+    def _mul_meta(self, operand, operand2=None, **kwargs):
+        # TBD
+        return deepcopy(operand)
+
+    def _div_meta(self, operand, operand2=None, **kwargs):
+        # TBD
+        return deepcopy(operand)
+
+
+# @todo figure how how to document write()
 ####################################################################
 # There is probably a less brute-force way to do this but I haven't
 # been able to figure it out.  astropy.io.registry tools are not
