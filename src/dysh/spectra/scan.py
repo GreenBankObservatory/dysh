@@ -10,11 +10,12 @@ import numpy as np
 from astropy import constants as ac
 from scipy import ndimage
 
+from dysh.spectra import core
+
 from ..coordinates import Observatory
 from ..util import uniq
 from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
 from .spectrum import Spectrum
-from dysh.spectra import core
 
 # import warnings
 # from astropy.coordinates.spectral_coordinate import NoVelocityWarning
@@ -334,7 +335,7 @@ class TPScan(ScanMixin):
         self._smoothref = smoothref
         if self._smoothref > 1:
             print(f"TP smoothref={self._smoothref} not implemented yet")
-        
+
         # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
@@ -560,7 +561,15 @@ class PSScan(ScanMixin):
     """
 
     def __init__(
-            self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, smoothref=1, observer_location=Observatory["GBT"]
+        self,
+        gbtfits,
+        scans,
+        scanrows,
+        calrows,
+        bintable,
+        calibrate=True,
+        smoothref=1,
+        observer_location=Observatory["GBT"],
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
@@ -1246,7 +1255,15 @@ class SubBeamNodScan(ScanMixin):
     """
 
     def __init__(
-            self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, smoothref=1, observer_location=Observatory["GBT"], **kwargs
+        self,
+        sigtp,
+        reftp,
+        fulltp=None,
+        method="cycle",
+        calibrate=True,
+        smoothref=1,
+        observer_location=Observatory["GBT"],
+        **kwargs,
     ):
         kwargs_opts = {
             "timeaverage": False,

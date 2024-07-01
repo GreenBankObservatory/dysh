@@ -17,6 +17,7 @@ from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum1D
+
 from dysh.spectra import core
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
@@ -86,7 +87,7 @@ class Spectrum(Spectrum1D):
         self._include_regions = None  # do we really need this?
         self._plotter = None
         # @todo fix resolution, including what units to use
-        self._resolution = 1     # placeholder
+        self._resolution = 1  # placeholder
 
     @property
     def exclude_regions(self):
@@ -282,7 +283,7 @@ class Spectrum(Spectrum1D):
         data minimum and data maximum are calculated.  Note this works
         with slicing, so, e.g.,  `myspectrum[45:153].stats()` will return
         the statistics of the slice.
-        
+
         Parameters
         ----------
             roll : int
@@ -296,11 +297,11 @@ class Spectrum(Spectrum1D):
         -------
         stats : tuple
             Tuple consisting of (mean,rms,datamin,datamax)
- 
+
 
         """
         # @todo: maybe make this a dict return value a dict
-        if roll==0:
+        if roll == 0:
             mean = self.mean()
             rms = self.data.std()
             dmin = self.min()
@@ -318,18 +319,18 @@ class Spectrum(Spectrum1D):
         @todo deprecate?   decimation is in smooth
         """
         nchan = len(self._data)
-        print("PJT decimate",nchan,offset,n);
-        idx = np.arange(offset,nchan,n)
-        new_data = self._data[idx] * u.K   # why units again?
-        s = Spectrum.make_spectrum(new_data,meta=self.meta)
+        print("PJT decimate", nchan, offset, n)
+        idx = np.arange(offset, nchan, n)
+        new_data = self._data[idx] * u.K  # why units again?
+        s = Spectrum.make_spectrum(new_data, meta=self.meta)
         s._spectral_axis = self._spectral_axis[idx]
         # @todo  fix WCS
         return s
-       
-    def smooth(self, method='hanning', width=1, decimate=0, kernel=None):
+
+    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
         """
         Smooth or Convolve a spectrum, optionally decimating it.
-        
+
         Default smoothing is hanning.
 
         Parameters
@@ -339,12 +340,12 @@ class Spectrum(Spectrum1D):
             'gaussian'. Minimum match applies.
             The default is 'hanning'.
         width : int, optional
-            Effective width of the convolving kernel.  Should ideally be an 
+            Effective width of the convolving kernel.  Should ideally be an
             odd number.
-            For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel. 
+            For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
             signal at the edges, and will thus not reproduce GBTIDL.
-            For 'gaussian' this is the FWHM of the final beam. We normally 
+            For 'gaussian' this is the FWHM of the final beam. We normally
             assume the input beam has FWHM=1, pending resolution on cases
             where CDELT1 is not the same as FREQRES.
             The default is 1.
@@ -374,63 +375,63 @@ class Spectrum(Spectrum1D):
             The meta data are currently passed on,and hence will
             contain some original WCS parameters.
 
-        
-        
+
+
          smooth a spectrum
             method:    hanning, boxcar, gaussian, fft (not implemented)
             width:     in pixels
             decimate:  -1  none
-                        0  use the width parameter 
+                        0  use the width parameter
                        >0  use the decimate factor explicitly
             kernel:    give your own array to convolve with (not implemented)
         """
         nchan = len(self._data)
         decimate = int(decimate)
-        #print("PJT smooth",method,nchan,width,decimate)
-        #print("    old resolution: ",self._resolution)
+        # print("PJT smooth",method,nchan,width,decimate)
+        # print("    old resolution: ",self._resolution)
 
         # @todo  see also core.smooth() for valid_methods
-        valid_methods = ['hanning', 'boxcar', 'gaussian']
+        valid_methods = ["hanning", "boxcar", "gaussian"]
         this_method = minimum_string_match(method, valid_methods)
         if this_method == None:
             raise Exception(f"smooth({method}): valid methods are {valid_methods}")
 
-        if this_method == 'gaussian':
+        if this_method == "gaussian":
             stddev = np.sqrt(width**2 - self._resolution**2) / 2.35482
             s1 = core.smooth(self._data, this_method, stddev)
         else:
             s1 = core.smooth(self._data, this_method, width)
 
-        new_data = s1 * u.K     #     self._data.flux._unit   # didn't work
+        new_data = s1 * u.K  #     self._data.flux._unit   # didn't work
         if decimate >= 0:
             if decimate == 0:
                 # take the default decimation by 'width'
-                idx = np.arange(0,nchan,width)
-                new_resolution = 1    # new resolution in the new pixel width
-                cell_shift = 0.5*(width-1)*(self._spectral_axis.value[1]-self._spectral_axis.value[0])
+                idx = np.arange(0, nchan, width)
+                new_resolution = 1  # new resolution in the new pixel width
+                cell_shift = 0.5 * (width - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
             else:
                 # user selected decimation (but should be <= width)
                 if decimate > width:
                     raise Exception(f"Cannot decimate with more than width {width}")
-                idx = np.arange(0,nchan,decimate)
-                new_resolution = np.sqrt(width**2 - decimate**2)    # @todo dangerous?
-                cell_shift = 0.5*(decimate-1)*(self._spectral_axis.value[1]-self._spectral_axis.value[0])
-            print("    cell_shift:",cell_shift)
+                idx = np.arange(0, nchan, decimate)
+                new_resolution = np.sqrt(width**2 - decimate**2)  # @todo dangerous?
+                cell_shift = 0.5 * (decimate - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
+            print("    cell_shift:", cell_shift)
             new_data = new_data[idx]
             new_meta = deepcopy(self.meta)
-            new_meta['CDELT1'] = width * self.meta['CDELT1']        # @todo etc ???
+            new_meta["CDELT1"] = width * self.meta["CDELT1"]  # @todo etc ???
             s = Spectrum.make_spectrum(new_data, meta=new_meta)
             s._spectral_axis = self._spectral_axis[idx]
-            for i in range(len(s._spectral_axis)):                # grmpf, no proper setter
+            for i in range(len(s._spectral_axis)):  # grmpf, no proper setter
                 s._spectral_axis.value[i] += cell_shift
             if self._baseline_model is not None:
-                print("Warning: removing baseline_model");
-                s._baseline_model = None    # was already None
+                print("Warning: removing baseline_model")
+                s._baseline_model = None  # was already None
             s._resolution = new_resolution
-            # @todo  fix WCS                
+            # @todo  fix WCS
         else:
             s = Spectrum.make_spectrum(new_data, meta=self.meta)
-            s._baseline_model = self._baseline_model   # it never got copied
+            s._baseline_model = self._baseline_model  # it never got copied
             s._resolution = width
             # @todo   resolution is not well defined multiple methods are used in succession
             # print("new resolution: ",s._resolution)

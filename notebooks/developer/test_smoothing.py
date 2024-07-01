@@ -112,5 +112,3 @@ print("e box :", np.nanstd(e2b))
 print("e han :", np.nanstd(e2h))    
 print("e gau :", np.nanstd(e2g))
 print("e smth:", np.nanstd(e2s))
-
-
