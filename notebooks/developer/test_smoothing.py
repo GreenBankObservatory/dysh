@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
 
-Author:   Peter Teuben
-Created:  Wed Jun 12 12:41:38 2024
-Modified: Wed Jun 12 12:41:38 2024
+# fmt: off
 
-Description:
-------------
-"""
 import numpy as np
 import matplotlib.pyplot as plt
 
