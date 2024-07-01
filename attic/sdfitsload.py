@@ -485,3 +485,8 @@ class GBTLoad(SDFITSLoad):
         self.ushow(0, "PROCSIZE")
         self.ushow(0, "OBSMODE")
         self.ushow(0, "SIDEBAND")
+
+
+if __name__ == "__main__":
+    import sys
+    GBTLoad(sys.argv[1])

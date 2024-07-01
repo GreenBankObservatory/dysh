@@ -2,11 +2,109 @@
 Core utility definitions, classes, and functions
 """
 
+import hashlib
+import sys
 from pathlib import Path
 
-import astropy.units as u
+# import astropy.units as u
 import numpy as np
-from astropy.coordinates import EarthLocation, SkyCoord
+
+# import pandas as pd
+from astropy.time import Time
+
+
+def select_from(key, value, df):
+    """
+    Select data where key=value.
+
+    Parameters
+    ----------
+    key : str
+        The key value (SDFITS column name)
+    value : any
+        The value to match
+    df : `~pandas.DataFrame`
+        The DataFrame to search
+
+    Returns
+    -------
+    df : `~pandas.DataFrame`
+        The subselected DataFrame
+
+    """
+    return df[(df[key] == value)]
+
+
+def indices_where_value_changes(colname, df):
+    """
+    Find the `~pandas.DataFrame` indices where the value of the input column name changes.
+
+    Parameters
+    ----------
+    colname : str
+        The column name to query.
+    df : `~pandas.DataFrame`
+            The DataFrame to search
+
+    Returns
+    -------
+    indices : ~numpy.ndarray
+        The indices of the Dataframe where `colname` changes value.
+
+    """
+    # This is some super panda kung-fu.
+    # See https://stackoverflow.com/questions/48673046/get-index-where-value-changes-in-pandas-dataframe-column
+    if colname not in df:
+        raise KeyError(f"Column {colname} not in input DataFrame")
+    # df.shift() shifts the index by one, so we are then comparing df[N] to df[N-1]. This gets us
+    # a truth table of where values change.  We filter on colname, then return a list of indices
+    # where the value is true. Finally, we squeeze out the empty dimensions of the np array.
+    return np.squeeze(df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).values)
+
+
+def gbt_timestamp_to_time(timestamp):
+    """Convert the GBT sdfits timestamp string format to
+    an :class:`~astropy.time.Time` object.  GBT SDFITS timestamps have the form
+    YYYY_MM_DD_HH:MM:SS in UTC.
+
+    Parameters
+    ----------
+    timestamp : str
+        The GBT format timestamp as described above.
+
+    Returns
+    -------
+    time : `~astropy.time.Time`
+        The time object
+    """
+    # convert to ISO FITS format  YYYY-MM-DDTHH:MM:SS(.SSS)
+    t = timestamp.replace("_", "-", 2).replace("_", "T")
+    return Time(t, scale="utc")
+
+
+def generate_tag(values, hashlen):
+    """
+    Generate a unique tag based on input values.  A hash object is
+    created from the input values using SHA256, and a hex representation is created.
+    The first `hashlen` characters of the hex string are returned.
+
+    Parameters
+    ----------
+    values : array-like
+        The values to use in creating the hash object
+    hashlen : int, optional
+        The length of the returned hash string.
+
+    Returns
+    -------
+    tag : str
+        The hash string
+
+    """
+    data = "".join(map(str, values))
+    hash_object = hashlib.sha256(data.encode())
+    unique_id = hash_object.hexdigest()
+    return unique_id[0:hashlen]
 
 
 def consecutive(data, stepsize=1):
@@ -56,7 +154,7 @@ def sq_weighted_avg(a, axis=0, weights=None):
         w = np.ones_like(a)
     else:
         w = weights
-    v = np.sqrt(np.average(a * a, axis=axis, weights=weights))
+    v = np.sqrt(np.average(a * a, axis=axis, weights=w))
     return v
 
 
@@ -98,27 +196,34 @@ def get_size(obj, seen=None):
 
 
 def minimum_string_match(s, valid_strings):
-    """return the valid string given a minimum string input"""
-    pass
+    """
+    return the valid string from a list, given a minimum string input
 
-
-def stripTable(table):
-    """Remove leading and trailing chars from all strings from an input table.
+    Example:  minimum_string_match('a',['alpha','beta','gamma'])
+    returns:  'alpha'
 
     Parameters
     ----------
-     table: ~astropy.table.Table
-         The table to strip
+    s : string
+        string to use for minimum match
+    valid_strings : list of strings
+        list of full strings to min match on
+
+    Returns
+    -------
+    string
+        matched string, if one is found.
+        Otherwise "None" is returned.
+
     """
-    for n in table.colnames:
-        if np.issubdtype(table.dtype[n], str):
-            table[n] = np.char.strip(table[n])
-
-
-# def strip(self,tables):
-#    '''remove leading and trailing chars from all strings in list of tables'''
-#    for b in tables:
-#        stripTable(b)
+    n = len(valid_strings)
+    m = []
+    for i in range(n):
+        if valid_strings[i].find(s) == 0:
+            m.append(i)
+    if len(m) == 1:
+        return valid_strings[m[0]]
+    return None
 
 
 def uniq(seq):
@@ -128,3 +233,27 @@ def uniq(seq):
     seen = set()
     seen_add = seen.add
     return [x for x in seq if x not in seen and not seen_add(x)]
+
+
+def keycase(d, case="upper"):
+    """
+    Change the case of dictionary keys
+
+    Parameters
+    ----------
+    d : dict
+        The input dictionary
+    case : str, one of 'upper', 'lower'
+        Case to change keys to The default is "upper".
+
+    Returns
+    -------
+    newDict : dict
+        A copy of the dictionary with keys changed according to `case`
+
+    """
+    if case == "upper":
+        newDict = {k.upper(): v for k, v in d.items()}
+    elif case == "lower":
+        newDict = {k.lower(): v for k, v in d.items()}
+    return newDict
