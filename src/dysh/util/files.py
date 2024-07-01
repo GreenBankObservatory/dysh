@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 #
-#  Recursive data (file) finder
+#  Tools to operate on files
+#     dysh_data = simple file grabber frontend
+#     fdr       = Recursive data (file) finder
 #
 #  command line usage:
 #
@@ -11,10 +13,139 @@
 #  find . -name \*$a\* -print
 
 
-import glob
 import os
+import sys
+import glob
+import wget     # might get deprecated
+from ..util import minimum_string_match
+import dysh.util as util
 
 _debug = True
+
+
+# $DYSH/testdata
+valid_dysh_tests = {
+    "getps" : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
+    "getfs" : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
+}
+
+
+# http://www.gb.nrao.edu/dysh/example_data
+valid_dysh_examples = {
+    "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",
+    "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
+    "subbeamnod" : "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
+}
+
+
+def dysh_data(test=None,
+              example=None,
+              sdfits=None,
+              url="http://www.gb.nrao.edu/dysh/",
+              dysh_data = None):
+    r"""
+
+    Users that are not on the GBO system and need access to example_data could
+    rsync the /home/dysh/example_data tree.  For example inside their $HOME/dysh_data/
+    one would then set
+             export DYSH_DATA=$HOME/dysh_data
+
+    Locations of various dysh_data directory roots:
+    -----------------------------------------------
+    keyword       location                       method                           $DYSH_DATA root    
+    test:         $DYSH/testdata                 util.get_project_testdata()      $DYSH_DATA/testdata
+    example:      /home/dysh/example_data                                         $DYSH_DATA/example_data
+    sdfits:       /home/sdfits                                                    $DYSH_DATA/sdfits
+
+
+    Examples of use:
+    ----------------
+    fn = dysh_data(test='getps')
+    fn = dysh_data(example='getfs')
+    fn = dysh_data(sdfits='AGBT21B_024_54')         ->  /home/sdfits/AGBT21B_024_54
+                                               or:  -   /lma1/teuben/GBT-EDGE/rawdata/AGBT21B_024_54
+
+
+    Older Notes:
+
+    0) if a local file AGBT20B_014_03.raw.vegas.A.fits already exist, 
+       use it (thus supporting the old style)
+    1) if $DYSH_DATA exist (and this is a new proposal), it will prepend 
+       that to the argument of get_dysh_data() and check for existence
+    2) if /home/dysh exists, it will prepend this and check for existence
+       this will keep GBO people happy
+    3) if none of those gave a valid name, it will fall back to making a URL 
+       by prepending http://www.gb.nrao.edu/dysh/ and using
+       wget for as long we want to support that. 
+    """
+    if dysh_data == None and 'DYSH_DATA' in os.environ:
+        dysh_data = os.environ['DYSH_DATA']
+
+    print("DYSH_DATA:", dysh_data)
+
+    if test != None:
+        my_test = minimum_string_match(test, list(valid_dysh_tests.keys()))
+        fn = valid_dysh_tests[my_test]
+        if dysh_data != None:
+            fn = dysh_data + '/testdata/' + fn
+            print("final-1:",fn)
+            if os.path.exists(fn):    # @todo this catches files and directories
+                return fn
+            # weird, typo is need to check the code tree
+        fn = util.get_project_testdata() / fn
+        print('final-2:',fn)
+        if os.path.exists(fn):    # @todo this catches files and directories        
+            return fn
+        print("Could not find file",fn)
+        return None
+        
+
+    if example != None:
+        my_example = minimum_string_match(example, list(valid_dysh_examples.keys()))
+        fn = valid_dysh_examples[my_example]
+        print('example:',fn)
+        if dysh_data != None:
+            fn1 = dysh_data + '/example_data/' + fn
+            print("final-1",fn1)
+            if os.path.exists(fn1):    # @todo this catches files and directories
+                return fn1
+            # weird, typo is need to check the code tree
+        url = url + '/example_data/' + fn
+        print("url:",url)
+        filename = url.split('/')[-1]
+        if not os.path.exists(filename):    
+            print(f"Downloading {filename}")
+            wget.download(url,out=filename)
+            print(f"\nRetrieved {filename}")
+        else:
+            print(f"{filename} already downloaded")
+        return filename
+
+
+    if sdfits != None:
+        if dysh_data != None:
+            fn = dysh_data + '/sdfits/' + sdfits
+            if os.path.exists(fn):
+                return fn
+        print(f"could not handle sdfits={sdfits} yet")
+
+    print("You have not given one of:   test=, example=, sdfits=")
+    return None
+
+def get_dysh_data(target, test=None, bench=None):
+    """ a user friendly interface to get DYSH data for developers (and maybe users)
+    """
+    if test == 'getps':
+        # 795479040  http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"     
+        #    550080  testdata/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits
+        fn = util.get_project_testdata() / 'TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits'
+    elif test == 'getfs':
+        fn = "AGBT20B_014_03.raw.vegas.A.fits"
+        fn = "AGBT20B_014_03.raw.vegas.A6.fits"
+        # 783383040 AGBT20B_014_03.raw.vegas.A.fits
+        #  23313600 AGBT20B_014_03.raw.vegas.A.fits
+        #   5855040 AGBT20B_014_03.raw.vegas.A6.fits
+        #  23310720 AGBT20B_014_03.raw.vegas.A6.fits
 
 
 # def find_data_recursively(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
