@@ -374,21 +374,9 @@ class Spectrum(Spectrum1D):
             The new, possibly decimated, convolved spectrum.
             The meta data are currently passed on,and hence will
             contain some original WCS parameters.
-
-
-
-         smooth a spectrum
-            method:    hanning, boxcar, gaussian, fft (not implemented)
-            width:     in pixels
-            decimate:  -1  none
-                        0  use the width parameter
-                       >0  use the decimate factor explicitly
-            kernel:    give your own array to convolve with (not implemented)
         """
         nchan = len(self._data)
         decimate = int(decimate)
-        # print("PJT smooth",method,nchan,width,decimate)
-        # print("    old resolution: ",self._resolution)
 
         # @todo  see also core.smooth() for valid_methods
         valid_methods = ["hanning", "boxcar", "gaussian"]
@@ -434,7 +422,6 @@ class Spectrum(Spectrum1D):
             s._baseline_model = self._baseline_model  # it never got copied
             s._resolution = width
             # @todo   resolution is not well defined multiple methods are used in succession
-            # print("new resolution: ",s._resolution)
         return s
 
     @property
