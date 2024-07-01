@@ -282,11 +282,21 @@ class Spectrum(Spectrum1D):
         data minimum and data maximum are calculated.  Note this works
         with slicing, so, e.g.,  `myspectrum[45:153].stats()` will return
         the statistics of the slice.
-
+        
+        Parameters
+        ----------
+            roll : int
+                Return statistics on a 'rolled' array differenced with the
+                origibnal array. If no correllaton between subsequent point,
+                a roll=1 would return an RMS  sqrt(2) larger than that of the
+                input array. Another advantage of rolled statistics it will
+                remove most slow variations, thus RMS/sqrt(2) might be a better
+                indication of the underlying RMS.
         Returns
         -------
         stats : tuple
             Tuple consisting of (mean,rms,datamin,datamax)
+ 
 
         """
         # @todo: maybe make this a dict return value a dict
@@ -315,9 +325,58 @@ class Spectrum(Spectrum1D):
         s._spectral_axis = self._spectral_axis[idx]
         # @todo  fix WCS
         return s
-
+       
     def smooth(self, method='hanning', width=1, decimate=0, kernel=None):
-        """ smooth a spectrum
+        """
+        Smooth or Convolve a spectrum, optionally decimating it.
+        
+        Default smoothing is hanning.
+
+        Parameters
+        ----------
+        method : string, optional
+            Smoothing method. Valid are: 'hanning', 'boxcar' and
+            'gaussian'. Minimum match applies.
+            The default is 'hanning'.
+        width : int, optional
+            Effective width of the convolving kernel.  Should ideally be an 
+            odd number.
+            For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel. 
+            For 'boxcar' an even value triggers an odd one with half the
+            signal at the edges, and will thus not reproduce GBTIDL.
+            For 'gaussian' this is the FWHM of the final beam. We normally 
+            assume the input beam has FWHM=1, pending resolution on cases
+            where CDELT1 is not the same as FREQRES.
+            The default is 1.
+        decimate : int, optional
+            Decimation factor of the spectrum by returning every width channel.
+            -1:   no decimation
+            0:    use the width parameter
+            >1:   user supplied decimation (use with caution)
+            The default is 0, meaning decimation is by 'width'
+        kernel : `~numpy.ndarray`, optional
+            A numpy array which is the kernel by which the signal is convolved.
+            Use with caution, as it is assumed the kernel is normalized to
+            one, and is symmetric. Since width is ill-defined here, the user
+            should supply an appropriate number manually.
+            NOTE: not implemented yet.
+            The default is None.
+
+        Raises
+        ------
+        Exception
+            If no valid smoothing method is given.
+
+        Returns
+        -------
+        s : Spectrum
+            The new, possibly decimated, convolved spectrum.
+            The meta data are currently passed on,and hence will
+            contain some original WCS parameters.
+
+        
+        
+         smooth a spectrum
             method:    hanning, boxcar, gaussian, fft (not implemented)
             width:     in pixels
             decimate:  -1  none
