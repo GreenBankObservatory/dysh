@@ -79,12 +79,38 @@ class Spectrum(Spectrum1D):
             self._mask = np.full(np.shape(self.flux), False)
         self._baseline_model = None
         self._subtracted = False
+        self._normalized = False
         self._exclude_regions = None
+        self._include_regions = None  # do we really need this?
         self._plotter = None
 
     @property
     def exclude_regions(self):
         return self._exclude_regions
+
+    def _toggle_sections(self, nchan, s):
+        """helper routine to toggle between an include= and exclude=
+        only works in channel (0..nchan-1) units
+        sections s need to be a list of (start_chan,end_chan) tuples,
+        for example [(100,200),(500,600)] would be an include=
+        An exclude= needs to start with 0
+        channels need to be ordered low to high, but there is no check
+        for this yet!
+        """
+        ns = len(s)
+        s1 = []
+        e = 0  #  set this to 1 if you want to be exact complementary
+        if s[0][0] == 0:
+            # print("toggle_sections: edged")
+            for i in range(ns - 1):
+                s1.append((s[i][1] + e, s[i + 1][0] - e))
+        else:
+            # print("toggle_sections: internal")
+            s1.append((0, s[0][0]))
+            for i in range(ns - 1):
+                s1.append((s[i][1], s[i + 1][0]))
+            s1.append((s[ns - 1][1], nchan - 1))
+        return s1
 
     ##@todo
     # def exclude_region(self,region):
@@ -98,7 +124,7 @@ class Spectrum(Spectrum1D):
         """Returns the computed baseline model or None if it has not yet been computed."""
         return self._baseline_model
 
-    def baseline(self, degree, exclude=None, **kwargs):
+    def baseline(self, degree, exclude=None, include=None, **kwargs):
         # fmt: off
         """
         Compute and optionally remove a baseline.  The model for the
@@ -129,29 +155,59 @@ class Spectrum(Spectrum1D):
 
                 Default: no exclude region
 
+            include: list of 2-tuples of int (currently units not supported yet, pending issue 251/260)
+
             model : str
-                One of 'polynomial' or 'chebyshev', Default: 'polynomial'
+                One of 'polynomial' 'chebyshev', 'legendre', or 'hermite'
+                Default: 'polynomial'
             fitter  :  `~astropy.fitting._FitterMeta`
                 The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
                 Be care when choosing a different fitter to be sure it is optimized for this problem.
             remove : bool
                 If True, the baseline is removed from the spectrum. Default: False
+            normalize : bool
+                If True, the frequency axis is internally rescaled from 0..nchan-1
+                to avoid roundoff problems (and make the coefficients slightly more
+                understandable). This is usually needed for a polynomial, though overkill
+                for the others who do their own normalization.
+                @todo maybe allow True, False, None; the latter will use True for polynamical, False for others
+                Default: True
 
         """
         # fmt: on
         # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
         kwargs_opts = {
             "remove": False,
+            "normalize": False,
             "model": "polynomial",
             "fitter": LinearLSQFitter(calc_uncertainties=True),
         }
         kwargs_opts.update(kwargs)
 
+        if kwargs_opts["normalize"]:
+            print("Warning:  baseline fit done in channel space")
+            spectral_axis = np.copy(self._spectral_axis.value)
+            nchan = len(spectral_axis)
+            # sadly, there is no single setter for this
+            for i in range(nchan):
+                self._spectral_axis[i] = i * u.Hz  # would like to use "chan" units
+            self._normalized = True
+            # allow include
+            if include != None:
+                nchan = len(spectral_axis)
+                exclude = self._toggle_sections(nchan, include)
+
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
+
         if kwargs_opts["remove"]:
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._subtracted = True
+
+        if kwargs_opts["normalize"]:
+            for i in range(nchan):
+                self._spectral_axis[i] = spectral_axis[i] * u.Hz
+            del spectral_axis
 
     def _undo_baseline(self):
         """
@@ -162,6 +218,9 @@ class Spectrum(Spectrum1D):
         if self._baseline_model is None:
             return
         if self._subtracted:
+            if self._normalized:
+                warnings.warn("Cannot undo previously normalized baseline subtraction")
+                return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._baseline_model = None

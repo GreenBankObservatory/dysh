@@ -11,7 +11,7 @@ from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
-from ..util import consecutive, keycase, select_from, uniq
+from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Selection
 from .sdfitsload import SDFITSLoad
 
@@ -72,7 +72,7 @@ class GBTFITSLoad(SDFITSLoad):
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # cds.enable()  # to get mmHg
-        self._compute_proc()
+
         if kwargs.get("verbose", None):
             print("==GBTLoad %s" % fileobj)
             self.ushow(0, "OBJECT")
@@ -89,7 +89,7 @@ class GBTFITSLoad(SDFITSLoad):
         self._selection = Selection(self)
         lsdf = len(self._sdf)
         if lsdf > 1:
-            warnings.warn(f"Found {lsdf} FITS files")  # or maybe just print()
+            print(f"Loaded {lsdf} FITS files")
 
     @property
     def selection(self):
@@ -133,23 +133,6 @@ class GBTFITSLoad(SDFITSLoad):
         for sdf in self._sdf:
             files.append(sdf.filename)
         return files
-
-    def _compute_proc(self):
-        """
-        Compute the procedure string from obsmode and add to index
-
-        """
-        df = self._index["OBSMODE"].str.split(":", expand=True)
-        self._index["PROC"] = df[0]
-        # Assign these to something that might be useful later,
-        # since we have them
-        self._index["_OBSTYPE"] = df[1]
-        self._index["_SUBOBSMODE"] = df[2]
-        for sdf in self._sdf:
-            df = sdf._index["OBSMODE"].str.split(":", expand=True)
-            sdf._index["PROC"] = df[0]
-            sdf._index["_OBSTYPE"] = df[1]
-            sdf._index["_SUBOBSMODE"] = df[2]
 
     def index(self, hdu=None, bintable=None, fitsindex=None):
         """
@@ -300,6 +283,7 @@ class GBTFITSLoad(SDFITSLoad):
             "AZIMUTH",
             "ELEVATIO",
             "FDNUM",
+            "INTNUM",
             "PLNUM",
             "SIG",
             "CAL",
@@ -558,9 +542,57 @@ class GBTFITSLoad(SDFITSLoad):
                 else:
                     self._index = pd.concat([self._index, s._index], axis=0, ignore_index=True)
                 i = i + 1
+        self._construct_procedure()
+        self._construct_integration_number()
+
+    def _construct_procedure(self):
+        """
+        Construct the procedure string (PROC) from OBSMODE and add it to the index (i.e., a new SDFITS column).
+        OBSTYPE and SUBOBSMODE are also created here.  OBSMODE has the form like 'PROC:OBSTYPE:SUBOBSMODE', e.g.
+        OnOff:PSWITCHON:TPWCAL.
+
+        """
+        if self._index is None:
+            warnings.warn("Couldn't construct procedure string: index is not yet created.")
+            return
+        df = self._index["OBSMODE"].str.split(":", expand=True)
+        self._index["PROC"] = df[0]
+        # Assign these to something that might be useful later,
+        # since we have them
+        self._index["OBSTYPE"] = df[1]
+        self._index["SUBOBSMODE"] = df[2]
+        for sdf in self._sdf:
+            df = sdf._index["OBSMODE"].str.split(":", expand=True)
+            sdf._index["PROC"] = df[0]
+            sdf._index["OBSTYPE"] = df[1]
+            sdf._index["SUBOBSMODE"] = df[2]
+
+    def _construct_integration_number(self):
+        """Construct the integration number (INTNUM) for all scans and add it to the index (i.e., a new SDFITS column)
+        Integration number starts at zero and is incremented when the DATE-OBS changes. It resets to
+        zero when the scan number changes.
+        """
+        if self._index is None:
+            warnings.warn("Couldn't construct integration number: index is not yet created.")
+            return
+        scan_changes = indices_where_value_changes("SCAN", self._index)
+        time_changes = indices_where_value_changes("DATE-OBS", self._index)
+        # there is probably some super clever pythonic way to do this in one line
+        # but I am not that clever, so brute force it.
+        intnumarray = []
+        for i in self._index.index:
+            # print(i)
+            if i in scan_changes:
+                intnum = 0
+                # scindex += 1
+            else:
+                if i in time_changes:
+                    intnum += 1
+            intnumarray.append(intnum)
+        self._index["INTNUM"] = intnumarray
 
     def info(self):
-        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()"""
+        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
         for s in self._sdf:
             s.info()
 
@@ -596,12 +628,10 @@ class GBTFITSLoad(SDFITSLoad):
             Average the scans in polarization.
             The default is False.
         weights : str or None, optional
-            How to weight the spectral data when averaging.  `tsys` means use system
+            How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.FSScan.timeaverage`);
             None means uniform weighting.
-            The default is "tsys".
-        fold: boolean, optional
-            The default is True
+            The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         observer_location : `~astropy.coordinates.EarthLocation`
@@ -610,7 +640,7 @@ class GBTFITSLoad(SDFITSLoad):
             observation DATE-OBS or MJD-OBS in
             the SDFITS header.  The default is the location of the GBT.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -722,14 +752,14 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage : boolean, optional
             Average the scans in polarization. The default is False.
         weights : str or None, optional
-            How to weight the spectral data when averaging.  `tsys` means use system
+            How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
-            None means uniform weighting. The default is "tsys".
+            None means uniform weighting. The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -890,7 +920,7 @@ class GBTFITSLoad(SDFITSLoad):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -999,7 +1029,7 @@ class GBTFITSLoad(SDFITSLoad):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         **kwargs : dict
-            Optional additional selection (only?) keyword arguments, typically
+            Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
 
@@ -1236,8 +1266,8 @@ class GBTFITSLoad(SDFITSLoad):
         if lenprocset > 1:
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
         proc = list(procset)[0]
-        dfon = select_from("_OBSTYPE", "PSWITCHON", selection)
-        dfoff = select_from("_OBSTYPE", "PSWITCHOFF", selection)
+        dfon = select_from("OBSTYPE", "PSWITCHON", selection)
+        dfoff = select_from("OBSTYPE", "PSWITCHOFF", selection)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
         offscans = uniq(list(dfoff["SCAN"]))
         # pol1 = set(dfon["PLNUM"])
@@ -1345,8 +1375,8 @@ class GBTFITSLoad(SDFITSLoad):
         if lenprocset > 1:
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
         proc = list(procset)[0]
-        dfon = select_from("_OBSTYPE", "PSWITCHON", df)
-        dfoff = select_from("_OBSTYPE", "PSWITCHOFF", df)
+        dfon = select_from("OBSTYPE", "PSWITCHON", df)
+        dfoff = select_from("OBSTYPE", "PSWITCHOFF", df)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
         offscans = uniq(list(dfoff["SCAN"]))
         if scans is not None:
