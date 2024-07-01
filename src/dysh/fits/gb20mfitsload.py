@@ -112,8 +112,8 @@ class GB20MFITSLoad(SDFITSLoad):
         on_data = self.selected_data[list(self.selected_index.query("SWPVALID == 1 and OBSMODE == 'onoff:on'").index)]
         of_data = self.selected_data[list(self.selected_index.query("SWPVALID == 1 and OBSMODE == 'onoff:off'").index)]
 
-        on_avg = on_data["DATA"].mean(axis=0)
-        of_avg = of_data["DATA"].mean(axis=0)
+        on_avg = np.average(on_data["DATA"], axis=0, weights=on_data["EXPOSURE"])
+        of_avg = np.average(of_data["DATA"], axis=0, weights=of_data["EXPOSURE"])
 
         cal = self.do_sigref(on_avg, of_avg, tsys)
 
@@ -122,8 +122,6 @@ class GB20MFITSLoad(SDFITSLoad):
     def make_meta_ps(self, tsys):
         """ """
 
-        # on_data = self.selected_data[list(self.selected_index.query("SWPVALID == 1 and OBSMODE == 'onoff:on'").index)]
-        # meta = on_data[0].to_dict()
         cols = self.selected_index.query("SWPVALID == 1 and OBSMODE == 'onoff:on'")
         meta = cols.iloc[0].to_dict()
         meta["TSYS"] = tsys
@@ -140,7 +138,25 @@ class GB20MFITSLoad(SDFITSLoad):
         return meta
 
     def getps(self, ifnum=0, plnum=0):
-        """ """
+        r"""
+        Calibrate position switched observations.
+        It time averages the signal and reference spectra
+        and then calibrates using:
+
+        :math:`T_{\rm{sys}}\frac{\mathrm{SIG}}{\mathrm{SIG}-\mathrm{REF}}`
+
+        Parameters
+        ----------
+        ifnum : int
+            Spectral window to calibrate.
+        plnum : int
+            Polarization to calibrate.
+
+        Returns
+        -------
+        cal : :class:`~spectra.spectrum.Spectrum`
+            Calibrated spectrum.
+        """
 
         self.select(ifnum=ifnum, plnum=plnum)
         self._find_cal_idx()

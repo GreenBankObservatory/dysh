@@ -23,3 +23,10 @@ GBTFITSLoad
    :members:
    :undoc-members:
    :show-inheritance:
+
+GB20MFITSLoad
+-------------
+.. automodule:: dysh.fits.gb20mfitsload
+   :members:
+   :undoc-members:
+   :show-inheritance:
