@@ -103,6 +103,7 @@ class TestGBTFITSLoad:
         hdu = fits.open(idl_file)
         table = hdu[1].data
         gbtidl_spec = table["DATA"][0]
+        hdu.close()
 
         # Do not compare NaN values.
         mask = np.isnan(ps_vals) | np.isnan(gbtidl_spec)
