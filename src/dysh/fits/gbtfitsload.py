@@ -1731,7 +1731,7 @@ class GBTFITSLoad(SDFITSLoad):
                 if len(fi) > 1:
                     p = Path(fileobj)
                     # Note this will not preserve "A","B" etc suffixes in original FITS files.
-                    outfile = p.stem + str(count) + p.suffix
+                    outfile = p.parent / (p.stem + str(count) + p.suffix)
                     count += 1
                 else:
                     outfile = fileobj
