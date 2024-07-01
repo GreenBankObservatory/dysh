@@ -1,5 +1,6 @@
 # PACKAGE IMPORTS
-import sys, threading
+import sys
+import threading
 
 import pyqtgraph as pg
 from IPython.display import display
@@ -13,6 +14,7 @@ from screeninfo import get_monitors
 # DYSH IMPORTS
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.plot.renderer import Renderer
+
 
 class SingleSpectrum(PlotWidget):
     """Spectrum Plot"""
@@ -28,9 +30,9 @@ class SingleSpectrum(PlotWidget):
     def config(self):
         """Get plot configuration"""
         self.setLabels(
-            left=f'{self._plot_kwargs["ylabel"]} ({self._plot_kwargs["yaxis_unit"]})', 
+            left=f'{self._plot_kwargs["ylabel"]} ({self._plot_kwargs["yaxis_unit"]})',
             bottom=f'{self._plot_kwargs["xlabel"]} ({self._plot_kwargs["xaxis_unit"]})',
-            )
+        )
         self.setTitle(self._plot_kwargs["title"])
 
     def update_data(self, spectrum):
@@ -192,7 +194,7 @@ class DyshMainWindow(QMainWindow):
 
     def _init_roi(self):
         """Make the ROI"""
-        self.roi = pg.RectROI((1.39E9, -1), (1E6, 2), pen=pg.mkPen('r', width=2), movable=True, resizable=True)
+        self.roi = pg.RectROI((1.39e9, -1), (1e6, 2), pen=pg.mkPen("r", width=2), movable=True, resizable=True)
         self.spec_plot.addItem(self.roi)
         self.roi.sigRegionChangeFinished.connect(self.get_ROI)
         self.xlim, self.ylim = self.roi_pos2lim(self.roi.pos(), self.roi.size())
@@ -289,14 +291,16 @@ class SpectrumSelect:
         xunit = self.spectrum.spectral_axis.unit
         yunit = self.spectrum.unit
         self.selection = {
-            "x": (self.xmin*xunit, self.xmax*xunit),
-            "y": (self.ymin*yunit, self.ymax*yunit),
-            }
+            "x": (self.xmin * xunit, self.xmax * xunit),
+            "y": (self.ymin * yunit, self.ymax * yunit),
+        }
         return self.selection
+
 
 def main(spectrum):
     my_selection = SpectrumSelect(spectrum)
     return my_selection
+
 
 if __name__ == "__main__":
     from dysh.fits.gbtfitsload import GBTFITSLoad
@@ -306,9 +310,9 @@ if __name__ == "__main__":
     sdfits = GBTFITSLoad(filename)
     psscan = sdfits.getps(scan=152, ifnum=0, plnum=0)
     ta = psscan.timeaverage(weights="tsys")
-    #breakpoint()
-    #ta.mask[0:3000] = True
-    #print("LEN: ", len(ta.mask))
+    # breakpoint()
+    # ta.mask[0:3000] = True
+    # print("LEN: ", len(ta.mask))
 
     # my_selection = threading.Thread(target=main)
     # my_selection.daemon = True
