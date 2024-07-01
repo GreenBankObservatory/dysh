@@ -5,9 +5,11 @@ Plot a spectrum using matplotlib
 from copy import deepcopy
 
 import astropy.units as u
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+matplotlib.use("QtAgg")
 from ..coordinates import frame_to_label
 
 _KMS = u.km / u.s
@@ -71,14 +73,17 @@ class SpectrumPlot:
     # loc, legend, bbox_to_anchor
 
     def __init__(self, spectrum, **kwargs):
-        self.reset()
+        self.reset_kwargs()
         self._spectrum = spectrum
         self._set_xaxis_info()
-        self._plot_kwargs.update(kwargs)
         self._plt = plt
         self._figure = None
         self._axis = None
         self._title = self._plot_kwargs["title"]
+        self._show_masked = True
+
+        # self.update_kwargs()
+        self._plot_kwargs.update(kwargs)
 
     # def __call__ (see pyspeckit)
 
@@ -150,7 +155,10 @@ class SpectrumPlot:
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
-        self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        plot_indx = self._spectrum.mask == False
+        self._axis.plot(sa[plot_indx], sf[plot_indx], color=this_plot_kwargs["line_color"], lw=lw)
+        if self._show_masked:
+            self._axis.plot(sa[~plot_indx], sf[~plot_indx], color=this_plot_kwargs["line_color_masked"], lw=lw)
         self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
@@ -161,10 +169,27 @@ class SpectrumPlot:
         self._set_labels(**this_plot_kwargs)
         # self._axis.axhline(y=0,color='red',lw=2)
         if self._title is not None:
-            self._axis.set_title(self._title)
+            self._axis.set_title(self._title, color=this_plot_kwargs["titlecolor"])
+
+        self._figure.set_facecolor(this_plot_kwargs["facecolor"])
+        self._figure.set_edgecolor(this_plot_kwargs["edgecolor"])
+        self._axis.set_facecolor(this_plot_kwargs["facecolor"])
+
+        self._axis.title.set_color(this_plot_kwargs["title_color"])
+        self._axis.xaxis.label.set_color(this_plot_kwargs["xlabel_color"])
+        self._axis.yaxis.label.set_color(this_plot_kwargs["ylabel_color"])
+
+        self._axis.tick_params(axis="x", colors=this_plot_kwargs["tick_color"])
+        self._axis.tick_params(axis="y", colors=this_plot_kwargs["tick_color"])
+
+        self._axis.spines["left"].set_color(this_plot_kwargs["spine_color"])
+        self._axis.spines["right"].set_color(this_plot_kwargs["spine_color"])
+        self._axis.spines["top"].set_color(this_plot_kwargs["spine_color"])
+        self._axis.spines["bottom"].set_color(this_plot_kwargs["spine_color"])
+
         self.refresh()
 
-    def reset(self):
+    def reset_kwargs(self):
         """Reset the plot keyword arguments to their defaults."""
         self._plot_kwargs = {
             "xmin": None,
@@ -177,12 +202,18 @@ class SpectrumPlot:
             "yaxis_unit": None,
             "grid": False,
             "figsize": None,
+            "xlabel_color": "white",
+            "ylabel_color": "white",
+            "tick_color": "white",
+            "spine_color": "white",
             #'capsize':3,
             "linewidth": 2.0,
             "linestyle": "steps-mid",
             "markersize": 8,
-            "color": None,
+            "line_color": "white",
+            "line_color_masked": "red",
             "title": None,
+            "title_color": "white",
             #'axis':None,
             #'label':None,
             "aspect": "auto",
@@ -191,7 +222,23 @@ class SpectrumPlot:
             "legend": None,
             "show_baseline": True,
             "test": False,
+            "titlecolor": "white",
+            "facecolor": "black",
+            "edgecolor": "none",
         }
+
+    def update_kwargs(self):
+        """Update the figure configuration"""
+        self._figure.set_facecolor(self._plot_kwargs["facecolor"])
+        self._figure.set_edgecolor(self._plot_kwargs["edgecolor"])
+
+    def set_title(self, title: str):
+        """Add or update the title of the figure"""
+        self._figure.suptitle(title, color=self._plot_kwargs["titlecolor"])
+
+    def plot_selection(self):
+        if self._figure is not None:
+            pass
 
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
@@ -272,6 +319,10 @@ class SpectrumPlot:
             self.axis.figure.canvas.draw()
             # self.axis.figure.canvas.draw_idle()
             self._plt.show()
+
+    def show(self):
+        """Show the plot"""
+        self._figure.show()
 
     def savefig(self, file, **kwargs):
         r"""Save the plot

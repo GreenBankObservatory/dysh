@@ -9,3 +9,4 @@ Stuff about the overall design
 
    sdfits_loaders
    structure
+   plotter/index
