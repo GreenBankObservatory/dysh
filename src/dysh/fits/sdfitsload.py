@@ -123,6 +123,12 @@ class SDFITSLoad(object):
             # Select columns that are strings, decode them and remove white spaces.
             df_obj = df.select_dtypes(["object"])
             df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
+            # --- this doesn't actually work how we want---
+            # convert them to actual string types because FITS will want that later.
+            # This doe
+            # cols = list(df_obj.columns)
+            # df[cols] = df[cols].astype("string")
+            # ---
             ones = np.ones(len(df.index), dtype=int)
             # create columns to track HDU and BINTABLE numbers and original row index
             df["HDU"] = i * ones
@@ -132,10 +138,28 @@ class SDFITSLoad(object):
                 self._index = df
             else:
                 self._index = pd.concat([self._index, df], axis=0)
-        self.add_primary_hdu()
+        self._add_primary_hdu()
 
-    def add_primary_hdu(self):
-        pass
+    def _add_primary_hdu(self):
+        """
+        Add the columns to the index for header keywords that are not in primary header or not in the DATA column.
+        This will get handy things like SITELONG, SITELAT, TELESCOP, etc.
+
+        Returns
+        -------
+        None.
+
+        """
+        # T* are in the binary table header
+        # NAXIS* have a different meaning in the primary hdu, we want the bintable values
+        # BITPIX, GCOUNT,PCOUNT,XTENSION are FITS reserved keywords
+        ignore = ["TUNIT", "TTYPE", "TFORM", "TFIELDS", "NAXIS", "COMMENT", "GCOUNT", "PCOUNT", "XTENSION", "BITPIX"]
+        cols = {}
+        for h in self._hdu:
+            c = dict(filter(lambda item: not any(sub in item[0] for sub in ignore), h.header.items()))
+            cols.update(c)
+        for k, v in cols.items():
+            self._index[k] = v
 
     def load(self, hdu=None, **kwargs):
         """
@@ -531,6 +555,54 @@ class SDFITSLoad(object):
         # print(f"bintable rows data length {len(outbintable.data)}")
         outbintable.update()
         return outbintable
+
+    def rename_binary_table_column(self, oldname, newname, bintable=None):
+        """
+        Rename a column in one or more binary tables of this SDFITSLoad
+
+        Parameters
+        ----------
+        oldname : str
+            The SDFITS binary table column to rename, e.g. 'SITELAT'
+        newname :  str
+            The new name for the SDFITS  binary table column.
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        ou = oldname.upper()
+        nu = newname.upper()
+        if bintable is None:
+            for b in self._bintable:
+                b.columns.change_attrib(ou, "name", nu)
+        else:
+            b = self._bintable[bintable]
+            b.columns.change_attrib(ou, "name", nu)
+
+    # @todo implement this MWP
+    def add_col(self, name, value, bintable=None):
+        """
+        Add a new column to the FITS binary table HDU
+
+        Parameters
+        ----------
+        name : str
+            column name to add
+        value : list-like
+            The column values
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
 
     def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
         """
