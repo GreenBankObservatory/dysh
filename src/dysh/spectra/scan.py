@@ -725,7 +725,7 @@ class PSScan(ScanMixin):
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
-            nsmooth = 1.
+            nsmooth = 1.0
         exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
         return exposure
 

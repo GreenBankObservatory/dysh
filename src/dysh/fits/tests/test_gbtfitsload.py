@@ -291,8 +291,7 @@ class TestGBTFITSLoad:
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
 
     def test_getps_smoothref(self):
-        """
-        """
+        """ """
 
         path = util.get_project_testdata() / "TGBT21A_501_11"
         data_file = path / "TGBT21A_501_11.raw.vegas.fits"
@@ -311,7 +310,7 @@ class TestGBTFITSLoad:
 
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
         assert ta.meta["EXPOSURE"] == table["EXPOSURE"][0]
-        for k,v in ta.meta.items():
+        for k, v in ta.meta.items():
             if k in ["DURATION", "TUNIT7", "VSPRPIX", "CAL"]:
                 continue
             try:
