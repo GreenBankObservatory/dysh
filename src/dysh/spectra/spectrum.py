@@ -390,7 +390,7 @@ class Spectrum(Spectrum1D):
         else:
             s1 = core.smooth(self._data, this_method, width)
 
-        new_data = s1 * u.K  #     self._data.flux._unit   # didn't work
+        new_data = s1 * self.flux.unit
         if decimate >= 0:
             if decimate == 0:
                 # take the default decimation by 'width'
@@ -404,7 +404,7 @@ class Spectrum(Spectrum1D):
                 idx = np.arange(0, nchan, decimate)
                 new_resolution = np.sqrt(width**2 - decimate**2)  # @todo dangerous?
                 cell_shift = 0.5 * (decimate - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-            print("    cell_shift:", cell_shift)
+            #print("    cell_shift:", cell_shift)
             new_data = new_data[idx]
             new_meta = deepcopy(self.meta)
             new_meta["CDELT1"] = width * self.meta["CDELT1"]  # @todo etc ???
