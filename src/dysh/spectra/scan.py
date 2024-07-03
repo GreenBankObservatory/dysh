@@ -722,9 +722,10 @@ class PSScan(ScanMixin):
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
         exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
-        # exposure = 0.5*(exp_ref + exp_sig)
-        # exposure = exp_ref + exp_sig
-        nsmooth = 1.0  # In case we start smoothing the reference spectra.
+        if self._smoothref > 1:
+            nsmooth = self._smoothref
+        else:
+            nsmooth = 1.
         exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
         return exposure
 
@@ -1156,9 +1157,10 @@ class FSScan(ScanMixin):
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
         exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
-        # exposure = 0.5*(exp_ref + exp_sig)
-        # exposure = exp_ref + exp_sig
-        nsmooth = 1.0  # In case we start smoothing the reference spectra.
+        if self._smoothref > 1:
+            nsmooth = self._smoothref
+        else:
+            nsmooth = 1.0
         exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
         return exposure
 
