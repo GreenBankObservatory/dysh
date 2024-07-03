@@ -680,7 +680,7 @@ class PSScan(ScanMixin):
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
-        if self._smoothref > 1:
+        if self._smoothref > 1 and kwargs_opts["verbose"]:
             print(f"PS smoothref={self._smoothref}")
 
         self._status = 1
