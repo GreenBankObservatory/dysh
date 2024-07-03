@@ -23,3 +23,6 @@ Bug Fixes
 -  `Spectrum arithmetic operations not working <https://github.com/GreenBankObservatory/dysh/issues/208>`_
 -  `SDFITS summary() reports wrong number of integrations <https://github.com/GreenBankObservatory/dysh/issues/211>`_
 - `Certain old GBTIDL files could not be read by dysh <https://github.com/GreenBankObservatory/dysh/issues/216>`_
+- `Can't have xaxis unit as channels in SpectrumPlot <https://github.com/GreenBankObservatory/dysh/issues/229>`_
+- `Numeric operations on Spectrum do not copy attributes <https://github.com/GreenBankObservatory/dysh/issues/243>`_
+- Several smaller fixes

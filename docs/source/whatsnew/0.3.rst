@@ -13,6 +13,8 @@ In this release, `dysh` has the following new or updated features:
 * Conversion between the radio, optical, and relativistic velocity definitions.
 * Data selection via any SDFITS column name.
 * Frequency switching calibration.
+* An 'include' option for baseline selection
+* Expanded and improved example notebooks
 
 Full change log
 ===============
