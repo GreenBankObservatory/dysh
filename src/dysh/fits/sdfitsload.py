@@ -420,6 +420,33 @@ class SDFITSLoad(object):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
 
+        # @todo   could we safely store it in meta['BUNIT']
+        #  for now, loop over the binheader keywords to find the matching TUNITxx that belongs to TTYPExx='DATA'
+        #  if BUNIT was also found, a comparison is made, but TUNIT wins
+        if 'BUNIT' in meta:
+            bunit = meta['BUNIT']
+        else:
+            bunit = None
+            h = self.binheader()[0]
+            for k,v,c in h.cards:
+                if k == 'BUNIT':
+                    bunit = v
+            ukey = None
+            for k,v,c in h.cards:     # loop over the (key,val,comment) for all cards in the header
+                if v == 'DATA':
+                    ukey = 'TUNIT' + k[5:]
+                    break
+            for k,v,c in h.cards:
+                if k == ukey:
+                    if bunit != v:
+                        print("Found BUNIT=%s, now finding %s=%s, using the latter" % (bunit,ukey,v))
+                    bunit = v
+                    break
+        if bunit != None:
+            bunit = u.Unit(bunit)
+        else:
+            bunit = u.ct
+
         s = Spectrum.make_spectrum(data * u.ct, meta, observer_location=observer_location)
         return s
 
