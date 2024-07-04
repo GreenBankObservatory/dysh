@@ -23,14 +23,14 @@ import dysh.util as util
 _debug = True
 
 
-# $DYSH/testdata
+# $DYSH/testdata 
 valid_dysh_tests = {
     "getps" : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
     "getfs" : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
 }
 
 
-# http://www.gb.nrao.edu/dysh/example_data
+# http://www.gb.nrao.edu/dysh/example_data or /home/dysh/example_data
 valid_dysh_examples = {
     "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
@@ -131,22 +131,6 @@ def dysh_data(test=None,
 
     print("You have not given one of:   test=, example=, sdfits=")
     return None
-
-def get_dysh_data(target, test=None, bench=None):
-    """ a user friendly interface to get DYSH data for developers (and maybe users)
-    """
-    if test == 'getps':
-        # 795479040  http://www.gb.nrao.edu/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"     
-        #    550080  testdata/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits
-        fn = util.get_project_testdata() / 'TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits'
-    elif test == 'getfs':
-        fn = "AGBT20B_014_03.raw.vegas.A.fits"
-        fn = "AGBT20B_014_03.raw.vegas.A6.fits"
-        # 783383040 AGBT20B_014_03.raw.vegas.A.fits
-        #  23313600 AGBT20B_014_03.raw.vegas.A.fits
-        #   5855040 AGBT20B_014_03.raw.vegas.A6.fits
-        #  23310720 AGBT20B_014_03.raw.vegas.A6.fits
-
 
 # def find_data_recursively(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
 def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
