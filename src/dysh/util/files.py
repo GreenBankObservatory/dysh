@@ -20,8 +20,7 @@ import wget     # might get deprecated
 from ..util import minimum_string_match
 import dysh.util as util
 
-_debug = True
-
+_debug = False
 
 # $DYSH/testdata 
 valid_dysh_tests = {
@@ -44,10 +43,11 @@ def dysh_data(test=None,
               url="http://www.gb.nrao.edu/dysh/",
               dysh_data = None):
     r"""
+    Simple access to GBO data.  @todo configuration discussion
 
     Users that are not on the GBO system and need access to example_data could
-    rsync the /home/dysh/example_data tree.  For example inside their $HOME/dysh_data/
-    one would then set
+    rsync the /home/dysh/example_data tree to avoid repeated wgets on repeated
+    repos.  For example inside their $HOME/dysh_data/ one would then set
              export DYSH_DATA=$HOME/dysh_data
 
     Locations of various dysh_data directory roots:
@@ -80,20 +80,22 @@ def dysh_data(test=None,
     """
     if dysh_data == None and 'DYSH_DATA' in os.environ:
         dysh_data = os.environ['DYSH_DATA']
-
-    print("DYSH_DATA:", dysh_data)
+    if _debug:
+        print("DYSH_DATA:", dysh_data)
 
     if test != None:
         my_test = minimum_string_match(test, list(valid_dysh_tests.keys()))
         fn = valid_dysh_tests[my_test]
         if dysh_data != None:
             fn = dysh_data + '/testdata/' + fn
-            print("final-1:",fn)
+            if _debug:
+                print("final-1:",fn)
             if os.path.exists(fn):    # @todo this catches files and directories
                 return fn
             # weird, typo is need to check the code tree
         fn = util.get_project_testdata() / fn
-        print('final-2:',fn)
+        if _debug:
+            print('final-2:',fn)
         if os.path.exists(fn):    # @todo this catches files and directories        
             return fn
         print("Could not find file",fn)
@@ -103,15 +105,18 @@ def dysh_data(test=None,
     if example != None:
         my_example = minimum_string_match(example, list(valid_dysh_examples.keys()))
         fn = valid_dysh_examples[my_example]
-        print('example:',fn)
+        if _debug:
+            print('example:',fn)
         if dysh_data != None:
             fn1 = dysh_data + '/example_data/' + fn
-            print("final-1",fn1)
+            if _debug:
+                print("final-1",fn1)
             if os.path.exists(fn1):    # @todo this catches files and directories
                 return fn1
             # weird, typo is need to check the code tree
         url = url + '/example_data/' + fn
-        print("url:",url)
+        if _debug:
+            print("url:",url)
         filename = url.split('/')[-1]
         if not os.path.exists(filename):    
             print(f"Downloading {filename}")
