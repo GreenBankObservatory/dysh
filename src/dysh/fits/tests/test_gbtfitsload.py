@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from astropy.io import fits
-from pandas.testing import assert_series_equal
+from pandas.testing import assert_frame_equal, assert_series_equal
 
 import dysh
 from dysh import util
@@ -103,6 +103,7 @@ class TestGBTFITSLoad:
         hdu = fits.open(idl_file)
         table = hdu[1].data
         gbtidl_spec = table["DATA"][0]
+        hdu.close()
 
         # Do not compare NaN values.
         mask = np.isnan(ps_vals) | np.isnan(gbtidl_spec)
@@ -288,3 +289,42 @@ class TestGBTFITSLoad:
         g = gbtfitsload.GBTFITSLoad(data_file)
         gbtidl_index = pd.read_csv(index_file, skiprows=10, delim_whitespace=True)
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
+
+    def test_write_single_file(self, tmp_path):
+        "Test that writing an SDFITS file works when subselecting data"
+        p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
+        data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
+        g = gbtfitsload.GBTFITSLoad(data_file)
+        o = tmp_path / "sub"
+        o.mkdir()
+        out = o / "test_write_single.fits"
+        g.write(out, plnum=1, intnum=2, overwrite=True)
+        t = gbtfitsload.GBTFITSLoad(out)
+        assert set(t._index["PLNUM"]) == set([1])
+        # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
+        assert set(t._index["INTNUM"]) == set([2])
+
+    def test_write_multi_file(self, tmp_path):
+        "Test that writing multiple SDFITS files works, including subselection of data"
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        # writes testmultia0,1,2,3.fits
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "testmulti.fits"
+        g.write(output, multifile=True, scan=6, overwrite=True)
+        # @todo remove test output files in a teardown method
+        sdf = gbtfitsload.GBTFITSLoad(o)
+
+    def test_write_all(self, tmp_path):
+        """Test that we can write a loaded SDFITS file without any changes"""
+        p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
+        data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
+        org_sdf = gbtfitsload.GBTFITSLoad(data_file)
+        d = tmp_path / "sub"
+        d.mkdir()
+        output = d / "test_write_all.fits"
+        org_sdf.write(output, overwrite=True)
+        new_sdf = gbtfitsload.GBTFITSLoad(output)
+        # Compare the index for both SDFITS.
+        assert_frame_equal(org_sdf._index, new_sdf._index)
