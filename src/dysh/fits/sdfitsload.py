@@ -436,18 +436,19 @@ class SDFITSLoad(object):
                 if v == "DATA":
                     ukey = "TUNIT" + k[5:]
                     break
-            for k, v, c in h.cards:
-                if k == ukey:
-                    if bunit != v:
-                        print("Found BUNIT=%s, now finding %s=%s, using the latter" % (bunit, ukey, v))
-                    bunit = v
-                    break
-        if bunit != None:
+            if ukey is not None:          # ukey should almost never be "None" in standard SDFITS
+                for k, v, c in h.cards:
+                    if k == ukey:
+                        if bunit != v:
+                            print("Found BUNIT=%s, now finding %s=%s, using the latter" % (bunit, ukey, v))
+                        bunit = v
+                        break
+        if bunit is not None:
             bunit = u.Unit(bunit)
         else:
             bunit = u.ct
 
-        s = Spectrum.make_spectrum(data * u.ct, meta, observer_location=observer_location)
+        s = Spectrum.make_spectrum(data * bunit, meta, observer_location=observer_location)
         return s
 
     def nrows(self, bintable):
