@@ -241,7 +241,7 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         Default: no exclude region
 
     model : str
-        One of 'polynomial' or 'chebyshev', Default: 'polynomial'
+        One of 'polynomial', 'chebyshev', 'legendre', 'hermite'. Default: 'chebyshev'
     fitter : `~astropy.fitting._FitterMeta`
         The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
 
