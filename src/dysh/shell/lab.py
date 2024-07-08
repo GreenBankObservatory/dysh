@@ -5,7 +5,7 @@ import subprocess
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Dysh in Jupyter Lab.\n\nAll CLI arguments other than those defined below are passed through "
+            "dysh in Jupyter Lab.\n\nAll CLI arguments other than those defined below are passed through "
             "to jupyter; see $ jupyter lab --help for more details"
         )
     )
