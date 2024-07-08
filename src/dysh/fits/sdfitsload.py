@@ -436,7 +436,7 @@ class SDFITSLoad(object):
                 if v == "DATA":
                     ukey = "TUNIT" + k[5:]
                     break
-            if ukey is not None:          # ukey should almost never be "None" in standard SDFITS
+            if ukey is not None:  # ukey should almost never be "None" in standard SDFITS
                 for k, v, c in h.cards:
                     if k == ukey:
                         if bunit != v:
