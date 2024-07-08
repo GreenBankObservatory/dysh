@@ -1,3 +1,5 @@
+
+from unittest.mock import patch
 import astropy.units as u
 import numpy as np
 
@@ -167,7 +169,8 @@ class TestSpectrum:
         assert s2.spectral_axis.unit == u.Unit("km/s")
         # @todo remove the temporary files.  This should be done in a teardown() method
 
-    def test_slice(self):
+    @patch("dysh.plot.specplot.plt.show")
+    def test_slice(self, mock_show):
         """
         Test that we can slice a `Spectrum` using channels or units.
         For units we only consider frequencies for now.
