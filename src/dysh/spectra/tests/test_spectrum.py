@@ -166,3 +166,26 @@ class TestSpectrum:
         assert s2.flux[0].value == -0.1042543
         assert s2.spectral_axis.unit == u.Unit("km/s")
         # @todo remove the temporary files.  This should be done in a teardown() method
+
+    def test_slice(self):
+        """
+        Test that we can slice a `Spectrum` using channels or units.
+        For units we only consider frequencies for now.
+        """
+        s = slice(1000, 1100, 1)
+
+        trimmed = self.ps0[s]
+        assert trimmed.flux[0] == self.ps0.flux[s.start]
+        assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
+        assert np.all(trimmed.flux == self.ps0.flux[s])
+        assert np.all(trimmed.spectral_axis == self.ps0.spectral_axis[s])
+        # Check meta values. The trimmed spectrum has an additional
+        # key: 'original_wcs'.
+        for k, v in self.ps0.meta.items():
+            assert trimmed.meta[k] == v
+        # Check additional object properties.
+        # Not all of them make sense, since their shapes will be different.
+        for k in ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]:
+            assert vars(trimmed)[k] == vars(self.ps0)[k]
+        # Check that we can plot.
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK")

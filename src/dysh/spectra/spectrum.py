@@ -780,13 +780,16 @@ class Spectrum(Spectrum1D):
         # Possibly figure how to calculate spectral_axis instead.
         # @todo allow fix=False in WCS constructor?
         if use_wcs:
-            # skip warnings about DATE-OBS being converted to MJD-OBS
-            warnings.filterwarnings("ignore", category=FITSFixedWarning)
-            # skip warnings FITS keywords longer than 8 chars or containing
-            # illegal characters (like _)
-            warnings.filterwarnings("ignore", category=VerifyWarning)
-            wcs = WCS(header=meta)
-            # reset warnings?
+            with warnings.catch_warnings():
+                # Skip warnings about DATE-OBS being converted to MJD-OBS.
+                warnings.filterwarnings("ignore", category=FITSFixedWarning)
+                # Skip warnings FITS keywords longer than 8 chars or containing
+                # illegal characters (like _).
+                warnings.filterwarnings("ignore", category=VerifyWarning)
+                wcs = WCS(header=meta)
+                # Keep only spectral part of WCS.
+                wcs = wcs.spectral
+                # Reset warnings.
         else:
             wcs = None
         # is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
@@ -925,6 +928,18 @@ class Spectrum(Spectrum1D):
     def _div_meta(self, operand, operand2=None, **kwargs):
         # TBD
         return deepcopy(operand)
+
+    def __getitem__(self, item):
+
+        tmp_spec = super().__getitem__(item)
+        trimmed = tmp_spec._copy(
+            spectral_axis=tmp_spec.spectral_axis,
+            wcs=None,
+            meta=tmp_spec.meta,
+            observer=self.observer,
+            target=self.target,
+        )
+        return trimmed
 
 
 # @todo figure how how to document write()
