@@ -11,6 +11,7 @@ import numpy as np
 from astropy.coordinates.spectral_coordinate import (
     DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
 )
+from astropy.time import Time
 
 _PMZERO = 0.0 * u.mas / u.yr
 _PMZERORAD = 0.0 * u.rad / u.s
@@ -302,6 +303,34 @@ def sanitize_skycoord(target):
             pm_b=pm_lat,
             radial_velocity=_rv,
         )
+    elif hasattr(target, "az"):  # AzEl or AltAz
+        lon = target.az
+        lat = target.alt
+        pm_lon = target.pm_az_cosalt
+        pm_lat = target.pm_alt
+        _target = coord.SkyCoord(
+            lon,
+            lat,
+            frame=target.frame,
+            distance=newdistance,
+            pm_az_cosalt=pm_lon,
+            pm_alt=pm_lat,
+            radial_velocity=_rv,
+        )
+    elif hasattr(target, "ha"):  # HADec
+        lon = target.ha
+        lat = target.dec
+        pm_lon = target.pm_ha_cosdec
+        pm_lat = target.pm_dec
+        _target = coord.SkyCoord(
+            lon,
+            lat,
+            frame=target.frame,
+            distance=newdistance,
+            pm_ha_cosdec=pm_lon,
+            pm_dec=pm_lat,
+            radial_velocity=_rv,
+        )
     else:
         warnings.warn(f"Can't sanitize {target}")
         return target
@@ -465,7 +494,7 @@ def make_target(header):
     """
 
     # should we also require DATE-OBS or MJD-OBS?
-    _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS"])
+    _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"])
 
     # for k in _required:
     #    print(f"{k} {k in header}")
@@ -479,6 +508,8 @@ def make_target(header):
         frame=header["RADESYS"].lower(),
         radial_velocity=header["VELOCITY"] * _MPS,
         distance=_DEFAULT_DISTANCE,  # need this or PMs get units m rad /s !
+        obstime=Time(header["DATE-OBS"]),
+        location=gbt_location(),
     )
     # print(f"{t1},{t1.pm_ra_cosdec},{t1.pm_dec},{t1.distance},{t1.radial_velocity}")
     target = sanitize_skycoord(t1)
@@ -587,3 +618,36 @@ class Observatory:
         elif key == "GB20M":
             return GB20M()
         return coord.EarthLocation.of_site(key)
+
+    def get_earth_location(longitude, latitude, height=0.0, ellipsoid=None):
+        """
+        Location on Earth, initialized from geodetic coordinates.
+
+        Parameters
+        ----------
+        lon : `~astropy.coordinates.Longitude` or float
+            Earth East longitude.  Can be anything that initialises an
+            `~astropy.coordinates.Angle` object (if float, in degrees).
+        lat : `~astropy.coordinates.Latitude` or float
+            Earth latitude.  Can be anything that initialises an
+            `~astropy.coordinates.Latitude` object (if float, in degrees).
+        height : `~astropy.units.Quantity` ['length'] or float, optional
+            Height above reference ellipsoid (if float, in meters; default: 0).
+        ellipsoid : str, optional
+            Name of the reference ellipsoid to use (default: 'WGS84').
+            Available ellipsoids are:  'WGS84', 'GRS80', 'WGS72'.
+
+        Raises
+        ------
+        `~astropy.units.UnitsError`
+            If the units on ``lon`` and ``lat`` are inconsistent with angular
+            ones, or that on ``height`` with a length.
+        ValueError
+            If ``lon``, ``lat``, and ``height`` do not have the same shape, or
+            if ``ellipsoid`` is not recognized as among the ones implemented.
+
+        Notes
+        -----
+        See :meth:`~astropy.coordinates.EarthLocation.from_geodetic`
+        """
+        return coord.EarthLocation.from_geodetic(longitude, latitude, height, ellipsoid)

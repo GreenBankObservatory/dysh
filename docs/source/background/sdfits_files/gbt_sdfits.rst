@@ -156,8 +156,8 @@ HDU 1 (SINGLE DISH)
      - 4A
      - second axis is longitude-like
    * - CRVAL2
-     - 1D
      - deg
+     - 1D
      -
    * - CTYPE3
      -
@@ -232,8 +232,8 @@ HDU 1 (SINGLE DISH)
      - 1D
      - ambient temperature
    * - PRESSURE
-     - 1D
      - mmHg
+     - 1D
      - ambient pressure
    * - HUMIDITY
      -
@@ -254,7 +254,7 @@ HDU 1 (SINGLE DISH)
    * - RADESYS
      -
      - 8A
-     - Equitorial coordinate system name
+     - Equatorial coordinate system name
    * - TRGTLONG
      - deg
      - 1D
