@@ -71,7 +71,7 @@ d1s = sp1s.flux.value
 np.where(np.isnan(d1))   # 3072
 
 #%% grab GBTIDL data
-
+# fmt: off
 """
 filein,"TGBT21A_501_11.raw.vegas.fits"
 getps,152,ifnum=0,plnum=0,intnum=0
