@@ -17,7 +17,6 @@ from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
-from astropy.wcs.wcsapi import SlicedLowLevelWCS
 from ndcube import NDCube
 from specutils import Spectrum1D
 
