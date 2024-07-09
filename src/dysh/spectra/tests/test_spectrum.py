@@ -208,9 +208,9 @@ class TestSpectrum:
         assert trimmed.target == trimmed_read.target
 
         # Now slice using units.
-		# Hz.
+        # Hz.
         spec_ax = self.ps0.spectral_axis
-        trimmed_nu = self.ps0[spec_ax[s.start].to("Hz"):spec_ax[s.stop].to("Hz")]
+        trimmed_nu = self.ps0[spec_ax[s.start].to("Hz") : spec_ax[s.stop].to("Hz")]
         assert np.all(trimmed_nu.flux == self.ps0.flux[s])
         assert np.all(trimmed_nu.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
         for k, v in self.ps0.meta.items():
@@ -220,9 +220,9 @@ class TestSpectrum:
             assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
         trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK")
 
-		# km/s.
+        # km/s.
         spec_ax = self.ps0.spectral_axis.to("km/s")
-        trimmed_vel = self.ps0[spec_ax[s.start]:spec_ax[s.stop]]
+        trimmed_vel = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
         assert np.all(trimmed_vel.flux == self.ps0.flux[s])
         assert np.all(trimmed_vel.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
         for k, v in self.ps0.meta.items():
