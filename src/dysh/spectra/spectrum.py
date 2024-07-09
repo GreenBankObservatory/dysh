@@ -8,7 +8,7 @@ from copy import deepcopy
 import astropy.units as u
 import numpy as np
 import pandas as pd
-from astropy.coordinates import SkyCoord, SpectralCoord
+from astropy.coordinates import SkyCoord, SpectralCoord, StokesCoord
 from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
@@ -17,6 +17,7 @@ from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
+from astropy.wcs.wcsapi import SlicedLowLevelWCS
 from ndcube import NDCube
 from specutils import Spectrum1D
 
@@ -787,8 +788,10 @@ class Spectrum(Spectrum1D):
                 # illegal characters (like _).
                 warnings.filterwarnings("ignore", category=VerifyWarning)
                 wcs = WCS(header=meta)
-                # Keep only spectral part of WCS.
-                wcs = wcs.spectral
+                # It would probably be safer to add NAXISi to meta.
+                wcs.array_shape = (0,0,0,len(data))
+                # For some reason these aren't identified while creating the WCS object.
+                wcs.wcs.obsgeo[:3] = meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
                 # Reset warnings.
         else:
             wcs = None
@@ -931,15 +934,70 @@ class Spectrum(Spectrum1D):
 
     def __getitem__(self, item):
 
-        tmp_spec = super().__getitem__(item)
-        trimmed = tmp_spec._copy(
-            spectral_axis=tmp_spec.spectral_axis,
-            wcs=None,
-            meta=tmp_spec.meta,
-            observer=self.observer,
-            target=self.target,
-        )
-        return trimmed
+        def q2idx(q, wcs, spectral_axis, coo, sto):
+            """Quantity to index."""
+            if "velocity" in u.get_physical_type(q):
+                # Convert from velocity to channel.
+                idx = vel2idx(q, wcs, spectral_axis, coo, sto)
+            elif "frequency" in u.get_physical_type(q):
+                # Convert from frequency to channel.
+                idxs = wcs.world_to_pixel(coo, q, sto)
+                idx = int(np.round(idxs[0]))
+            return idx
+
+        def vel2idx(vel, wcs, spectral_axis, coo, sto):
+            eq = get_spectral_equivalency(spectral_axis.doppler_rest, 
+                                          spectral_axis.doppler_convention)
+            # Make `vel` a `SpectralCoord`.
+            vel_sp = spectral_axis.to(unit=vel.unit).replicate(value=vel.value, unit=vel.unit)
+            with u.set_enabled_equivalencies(eq):
+                idxs = wcs.world_to_pixel(coo, vel_sp, sto)
+            return int(np.round(idxs[0]))
+
+        # Only slicing along the spectral coordinate.
+        # Assumes that the WCS is in frequency.
+        if isinstance(item, slice):
+            if item.step is not None and item.step != 1:
+                raise NotImplementedError("Cannot slice with a step other than 1. Try smoothing and decimating if you want to downsample.")
+
+            spectral_axis = self.spectral_axis
+            # Use the WCS to convert from world to pixel values.
+            wcs = self.wcs
+            # We need a sky location to convert incorporating velocity shifts.
+            coo = SkyCoord(wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
+                           wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat], frame="fk5")
+            # Same for the Stokes axis.
+            sto = StokesCoord(0)
+            start = item.start
+            stop = item.stop
+
+            # Start.
+            if isinstance(start, u.Quantity):
+                start_idx = q2idx(start, wcs, spectral_axis, coo, sto)
+            else:
+                start_idx = start
+            
+            # Stop.
+            if isinstance(stop, u.Quantity):
+                stop_idx = q2idx(stop, wcs, spectral_axis, coo, sto)
+            else:
+                stop_idx = stop
+
+        else:
+            raise NotImplementedError("Use a slice for slicing.")
+            
+
+        # Slicing uses NumPY ordering by default.
+        sliced_wcs = wcs[0:1,0:1,0:1,start_idx:stop_idx]
+
+        # Update meta.
+        meta = self.meta.copy()
+        head = sliced_wcs.to_header()
+        for k in ["CRPIX1", "CRVAL1"]:
+            meta[k] = head[k]
+
+        # New Spectrum.
+        return self.make_spectrum(self.flux[start_idx:stop_idx], meta=meta, observer_location=Observatory[meta["TELESCOP"]])
 
 
 # @todo figure how how to document write()
