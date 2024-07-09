@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 from typing import List, Union
 
@@ -48,6 +49,7 @@ def parse_args():
         choices=["NoColor", "Neutral", "Linux", "LightBG"],
         default=DEFAULT_COLORS,
     )
+    parser.add_argument("-v", "--version", help="Print version and exit", action="store_true")
     return parser.parse_known_args()
 
 
@@ -86,6 +88,9 @@ def open_sdfits_files(paths: List[Path], loader_class_name="GBTFITSLoad") -> Lis
 
 def main():
     args, remaining_args = parse_args()
+    if args.version:
+        print(__version__)
+        sys.exit(0)
     sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
     init_shell(*remaining_args, colors=args.colors, profile=args.profile, sdfits_files=sdfits_files)
 
