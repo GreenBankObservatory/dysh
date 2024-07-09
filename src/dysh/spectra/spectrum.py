@@ -316,10 +316,10 @@ class Spectrum(Spectrum1D):
 
     def _decimate(self, n, offset=0):
         """Decimate a spectrum by n pixels, starting at pixel offset
-        @todo deprecate?   decimation is in smooth
+        @todo deprecate?   decimation is in smooth, do we need a separate one?
         """
         nchan = len(self._data)
-        print("PJT decimate", nchan, offset, n)
+        print("_decimate deprecated", nchan, offset, n)
         idx = np.arange(offset, nchan, n)
         new_data = self._data[idx] * u.K  # why units again?
         s = Spectrum.make_spectrum(new_data, meta=self.meta)
