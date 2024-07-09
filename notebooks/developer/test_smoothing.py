@@ -71,13 +71,13 @@ d1s = sp1s.flux.value
 np.where(np.isnan(d1))   # 3072
 
 #%% grab GBTIDL data
-# fmt: off
-"""
-filein,"TGBT21A_501_11.raw.vegas.fits"
-getps,152,ifnum=0,plnum=0,intnum=0
-fileout,"TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
-keep
-"""
+example1=\
+    """
+    filein,"TGBT21A_501_11.raw.vegas.fits"
+    getps,152,ifnum=0,plnum=0,intnum=0
+    fileout,"TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
+    keep
+    """
 
 base =  'TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0%s.fits'
 base1  = base % ''
