@@ -231,3 +231,9 @@ class TestSpectrum:
         for k in spec_pars:
             assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
         trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK")
+
+        # m.
+        spec_ax = self.ps0.spectral_axis.to("m")
+        trimmed_wav = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
+        assert np.all(trimmed_wav.flux == self.ps0.flux[s])
+        assert np.all(trimmed_wav.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)

@@ -938,6 +938,9 @@ class Spectrum(Spectrum1D):
             if "velocity" in u.get_physical_type(q):
                 # Convert from velocity to channel.
                 idx = vel2idx(q, wcs, spectral_axis, coo, sto)
+            elif "length" in u.get_physical_type(q):
+                # Convert wavelength to channel.
+                idx = wav2idx(q, wcs, spectral_axis, coo, sto)
             elif "frequency" in u.get_physical_type(q):
                 # Convert from frequency to channel.
                 idxs = wcs.world_to_pixel(coo, q, sto)
@@ -950,6 +953,12 @@ class Spectrum(Spectrum1D):
             vel_sp = spectral_axis.to(unit=vel.unit).replicate(value=vel.value, unit=vel.unit)
             with u.set_enabled_equivalencies(eq):
                 idxs = wcs.world_to_pixel(coo, vel_sp, sto)
+            return int(np.round(idxs[0]))
+
+        def wav2idx(wav, wcs, spectral_axis, coo, sto):
+            with u.set_enabled_equivalencies(u.spectral()):
+                wav_sp = spectral_axis.to(unit=wav.unit).replicate(value=wav.value, unit=wav.unit)
+                idxs = wcs.world_to_pixel(coo, wav_sp, sto)
             return int(np.round(idxs[0]))
 
         # Only slicing along the spectral coordinate.
