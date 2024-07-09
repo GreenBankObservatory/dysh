@@ -41,6 +41,7 @@ class TestGBTFITSLoad:
             "getps_154_ifnum_0_plnum_0_intnum_0.fits": 1,
             "TGBT21A_501_11.raw.156.fits": 7,
             "testselection.fits": 50,
+            "TGBT21A_501_11_getps_scan_152_ifnum_0_plnum_0_smthoff_15.fits": 1,
         }
 
         for fnm in self._file_list:
@@ -288,3 +289,31 @@ class TestGBTFITSLoad:
         g = gbtfitsload.GBTFITSLoad(data_file)
         gbtidl_index = pd.read_csv(index_file, skiprows=10, delim_whitespace=True)
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
+
+    def test_getps_smoothref(self):
+        """ """
+
+        path = util.get_project_testdata() / "TGBT21A_501_11"
+        data_file = path / "TGBT21A_501_11.raw.vegas.fits"
+        gbtidl_file = path / "TGBT21A_501_11_getps_scan_152_ifnum_0_plnum_0_smthoff_15.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(data_file)
+        sb = sdf.getps(scan=152, ifnum=0, plnum=0, smoothref=15)
+        ta = sb.timeaverage()
+
+        hdu = fits.open(gbtidl_file)
+        table = hdu[1].data
+        hdu.close()
+        gbtidl_spec = table["DATA"][0]
+
+        diff = ta.flux.to("K").value.astype(np.float32) - gbtidl_spec
+
+        assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
+        assert ta.meta["EXPOSURE"] == table["EXPOSURE"][0]
+        for k, v in ta.meta.items():
+            if k in ["DURATION", "TUNIT7", "VSPRPIX", "CAL"]:
+                continue
+            try:
+                assert v == table[k][0]
+            except KeyError:
+                continue
