@@ -6,6 +6,12 @@ import warnings
 
 import astropy.units as u
 import numpy as np
+from astropy.convolution import (
+    Box1DKernel,
+    Gaussian1DKernel,
+    Trapezoid1DKernel,
+    convolve,
+)
 from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
 from specutils import SpectralRegion
@@ -444,3 +450,69 @@ def get_spectral_equivalency(restfreq, velocity_convention):
         return u.doppler_redshift()
     else:
         raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
+
+
+def smooth(data, method="hanning", width=1, kernel=None, show=False):
+    """
+    Smooth or Convolve a spectrum, optionally decimating it.
+    A number of methods from astropy.convolution can be selected
+    with the method= keyword.
+
+    Default smoothing is hanning.
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        Input data array to smooth. Note smoothing array does not need a
+        WCS since it is channel based.
+    method : string, optional
+        Smoothing method. Valid are: 'hanning', 'boxcar' and
+        'gaussian'. Minimum match applies.
+        The default is 'hanning'.
+    width : int, optional
+        Effective width of the convolving kernel.  Should ideally be an
+        odd number.
+        For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
+        For 'boxcar' an even value triggers an odd one with half the
+        signal at the edges, and will thus not reproduce GBTIDL.
+        For 'gaussian' this is the FWHM of the final beam. We normally
+        assume the input beam has FWHM=1, pending resolution on cases
+        where CDELT1 is not the same as FREQRES.
+        The default is 1.
+    kernel : numpy array, optional
+        A numpy array which is the kernel by which the signal is convolved.
+        Use with caution, as it is assumed the kernel is normalized to
+        one, and is symmetric. Since width is ill-defined here, the user
+        should supply an appropriate number manually.
+        NOTE: not implemented yet.
+        The default is None.
+    show : bool, optional
+        If set, the kernel is returned, instead of the convolved array.
+        The default is False.
+
+    Raises
+    ------
+    Exception
+        If no valid smoothing method is given.
+
+    Returns
+    -------
+    s : `~numpy.ndarray`
+        The new convolved spectrum.
+
+    """
+    # note that these methods always return odd number in the kernel
+    available_methods = {
+        "boxcar": Box1DKernel,  # (e.g. width=2 gives hanning)
+        "hanning": Trapezoid1DKernel,  # only for width=1
+        "gaussian": Gaussian1DKernel,
+    }
+    method = minimum_string_match(method, list(available_methods.keys()))
+    if method == None:
+        raise ValueError(f"Unrecognized input method {method}. Must be one of {list(available_methods.keys())}")
+    kernel = available_methods[method](width)
+    if show:
+        return kernel
+    # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
+    new_data = convolve(data, kernel, boundary="extend")
+    return new_data
