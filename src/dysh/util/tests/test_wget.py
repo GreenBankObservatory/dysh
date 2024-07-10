@@ -4,7 +4,9 @@ import wget
 
 
 def test_flag_wget():
-    url = "https://www.gb.nrao.edu/dysh/example_data/nod-KFPA/data/TGBT22A_503_02.raw.vegas/TGBT22A_503_02.raw.vegas.A.flag"
+    """Test that wget is working"""
+
+    url = "https://github.com/GreenBankObservatory/dysh/raw/main/testdata/AGBT05B_047_01/gbtidl/AGBT05B_047_01.getps.acs.fits"
     try:
         fname = wget.download(url)
         os.remove(fname)
