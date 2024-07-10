@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import astropy.units as u
 import numpy as np
 
@@ -166,3 +168,72 @@ class TestSpectrum:
         assert s2.flux[0].value == -0.1042543
         assert s2.spectral_axis.unit == u.Unit("km/s")
         # @todo remove the temporary files.  This should be done in a teardown() method
+
+    @patch("dysh.plot.specplot.plt.show")
+    def test_slice(self, mock_show, tmp_path):
+        """
+        Test that we can slice a `Spectrum` using channels or units.
+        For units we only consider frequencies for now.
+        """
+        meta_ignore = ["CRPIX1", "CRVAL1"]
+        spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
+        s = slice(1000, 1100, 1)
+
+        trimmed = self.ps0[s]
+        assert trimmed.flux[0] == self.ps0.flux[s.start]
+        assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
+        assert np.all(trimmed.flux == self.ps0.flux[s])
+        # The slicing changes the values at the micro Hz level.
+        assert np.all(trimmed.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        # Check meta values. The trimmed spectrum has an additional
+        # key: 'original_wcs'.
+        for k, v in self.ps0.meta.items():
+            if k not in meta_ignore:
+                assert trimmed.meta[k] == v
+        # Check additional object properties.
+        # Not all of them make sense, since their shapes will be different.
+        for k in spec_pars:
+            assert vars(trimmed)[k] == vars(self.ps0)[k]
+        # Check that we can plot.
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK")
+        # Check that we can write.
+        o = tmp_path / "sub"
+        o.mkdir()
+        out = o / "test_spec_slice_write.fits"
+        trimmed.write(out, format="fits", overwrite=True)
+        # Check that we can read it back.
+        trimmed_read = Spectrum.read(out, format="fits")
+        assert np.all(trimmed.flux == trimmed_read.flux)
+        assert np.all(trimmed.spectral_axis == trimmed_read.spectral_axis)
+        assert trimmed.target == trimmed_read.target
+
+        # Now slice using units.
+        # Hz.
+        spec_ax = self.ps0.spectral_axis
+        trimmed_nu = self.ps0[spec_ax[s.start].to("Hz") : spec_ax[s.stop].to("Hz")]
+        assert np.all(trimmed_nu.flux == self.ps0.flux[s])
+        assert np.all(trimmed_nu.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        for k, v in self.ps0.meta.items():
+            if k not in meta_ignore:
+                assert trimmed_nu.meta[k] == v
+        for k in spec_pars:
+            assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
+        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK")
+
+        # km/s.
+        spec_ax = self.ps0.spectral_axis.to("km/s")
+        trimmed_vel = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
+        assert np.all(trimmed_vel.flux == self.ps0.flux[s])
+        assert np.all(trimmed_vel.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        for k, v in self.ps0.meta.items():
+            if k not in meta_ignore:
+                assert trimmed_vel.meta[k] == v
+        for k in spec_pars:
+            assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
+        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK")
+
+        # m.
+        spec_ax = self.ps0.spectral_axis.to("m")
+        trimmed_wav = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
+        assert np.all(trimmed_wav.flux == self.ps0.flux[s])
+        assert np.all(trimmed_wav.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
