@@ -969,8 +969,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         TF = {True: "T", False: "F"}
-        sigstate = {True: "SIG", False: "REF", None: "BOTH"}
-        calstate = {True: "ON", False: "OFF", None: "BOTH"}
+
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
@@ -1030,8 +1029,8 @@ class GBTFITSLoad(SDFITSLoad):
                     g = TPScan(
                         self._sdf[i],
                         scan,
-                        sigstate[sig],
-                        calstate[cal],
+                        sig,
+                        cal,
                         tprows,
                         calrows,
                         bintable,

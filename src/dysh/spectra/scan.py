@@ -504,10 +504,12 @@ class TPScan(ScanMixin):
         input GBFITSLoad object
     scan: int
         scan number
-    sigstate : str
-        one of 'SIG' or 'REF' to indicate if this is the signal or reference scan or 'BOTH' if it contains both
-    calstate : str
-        one of 'ON' or 'OFF' to indicate the calibration state of this scan, or 'BOTH' if it contains both
+    sigstate : bool
+        Select the signal state used to form the data.  True means select sig='T', False to select sig='F'.
+        None means select both.  See table below for explanation.
+    calstate : bool
+        Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
+        None means select both. See table below for explanation.
     scanrows : list-like
         the list of rows in `sdfits` corresponding to sig_state integrations
     calrows : dict
@@ -518,6 +520,28 @@ class TPScan(ScanMixin):
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
+
+    Notes
+    -----
+    How the total power and system temperature are calculated, depending on signal and reference state parameters:
+
+
+     ======   =====   ===================================================================       ==================================
+     CAL      SIG     RESULT                                                                    TSYS
+     ======   =====   ===================================================================       ==================================
+     None     None    data = 0.5* (REFCALON + REFCALOFF) , regardless of sig state              use all CAL states, all SIG states
+     None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'  (sig_state=1)        use all CAL states, SIG='T'
+     None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'  (sig_state=0)        use all CAL states, SIG='F'
+     True     None    data = REFCALON, regardless of sig_state                                  use all CAL states, all SIG states
+     False    None    data = REFCALOFF, regardless of sig_state                                 use all CAL states, all SIG states
+     True     True    data = REFCALON, where sig='T' (sig_state=1)                              use all CAL states, SIG='T'
+     True     False   data = REFCALON, where sig='F' (sig_state=0)                              use all CAL states, SIG='F'
+     False    True    data = REFCALOFF  where sig='T' (sig_state=1)                             use all CAL states, SIG='T'
+     False    False   data = REFCALOFF, where sig='F' (sig_state=0)                             use all CAL states, SIG='F'
+     ======   =====   ===================================================================       ==================================
+
+    where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
+
     """
 
     # @todo get rid of calrows and calc tsys in gettp and pass it in.
@@ -573,9 +597,14 @@ class TPScan(ScanMixin):
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         if self._calibrate:
-            self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
+            self.calibrate()
+
         # print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
         self.calc_tsys()
+
+    def calibrate(self):
+        if self.calstate is None and self.sigstate is None:
+            self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
 
     @property
     def sigstate(self):
