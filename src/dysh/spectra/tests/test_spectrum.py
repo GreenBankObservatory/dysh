@@ -111,10 +111,14 @@ class TestSpectrum:
         assert division.flux.unit == self.ps0.flux.unit
         assert division.velocity_frame == self.ps0.velocity_frame
 
-    def test_write_read_fits(self):
+    def test_write_read_fits(self, tmp_path):
+        """Test that we can read fits files written by dysh"""
         s = self.ps1
-        s.write("test_spectrum_write.fits", format="fits", overwrite=True)
-        s2 = Spectrum.read("test_spectrum_write.fits", format="fits")
+        o = tmp_path / "sub"
+        o.mkdir()
+        file = o / "test_spectrum_write.fits"
+        s.write(file, format="fits", overwrite=True)
+        s2 = Spectrum.read(file, format="fits")
         assert np.all(s.data == s2.data)
         assert s.target == s2.target
         assert np.all(s2.spectral_axis == s.spectral_axis)
@@ -125,7 +129,7 @@ class TestSpectrum:
         # if s2.observer is not None:
         #    assert s.observer == s2.observer
 
-    def test_write_read_ascii(self):
+    def test_write_read_ascii(self, tmp_path):
         fmt = [
             "basic",
             "ascii.commented_header",
@@ -138,8 +142,10 @@ class TestSpectrum:
             "mrt",
         ]
         s = self.ps1
+        o = tmp_path / "sub"
+        o.mkdir()
         for f in fmt:
-            file = f"testwrite.{f}"
+            file = o / f"testwrite.{f}"
             s.write(file, format=f, overwrite=True)
             # ECSV is the only ascii format that can
             # complete a roundtrip unscathed.
