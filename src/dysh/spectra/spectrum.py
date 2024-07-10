@@ -20,6 +20,8 @@ from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum1D
 
+from dysh.spectra import core
+
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
     Observatory,
@@ -32,6 +34,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     veldef_to_convention,
 )
 from ..plot import specplot as sp
+from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
 
 # from astropy.nddata import StdDevUncertainty
@@ -103,6 +106,8 @@ class Spectrum(Spectrum1D):
         self._exclude_regions = None
         self._include_regions = None  # do we really need this?
         self._plotter = None
+        # @todo fix resolution, including what units to use
+        self._resolution = 1  # placeholder
 
     @property
     def weights(self):
@@ -165,6 +170,8 @@ class Spectrum(Spectrum1D):
         and `astropy.fitter` to compute the baseline.  See the documentation for those modules.
         This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
 
+        Note that include= and exclude= are mutually exclusive.
+
         Parameters
         ----------
             degree : int
@@ -189,19 +196,19 @@ class Spectrum(Spectrum1D):
 
             model : str
                 One of 'polynomial' 'chebyshev', 'legendre', or 'hermite'
-                Default: 'polynomial'
+                Default: 'chebyshev'
             fitter  :  `~astropy.fitting._FitterMeta`
                 The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
                 Be care when choosing a different fitter to be sure it is optimized for this problem.
             remove : bool
                 If True, the baseline is removed from the spectrum. Default: False
             normalize : bool
-                If True, the frequency axis is internally rescaled from 0..nchan-1
+                If True, the frequency axis is internally rescaled from 0..1
                 to avoid roundoff problems (and make the coefficients slightly more
                 understandable). This is usually needed for a polynomial, though overkill
                 for the others who do their own normalization.
-                @todo maybe allow True, False, None; the latter will use True for polynamical, False for others
-                Default: True
+                CAVEAT:   with normalize=True, you cannot undo a baseline fit.
+                Default: False
 
         """
         # fmt: on
@@ -209,23 +216,27 @@ class Spectrum(Spectrum1D):
         kwargs_opts = {
             "remove": False,
             "normalize": False,
-            "model": "polynomial",
+            "model": "chebyshev",
             "fitter": LinearLSQFitter(calc_uncertainties=True),
         }
         kwargs_opts.update(kwargs)
 
         if kwargs_opts["normalize"]:
-            print("Warning:  baseline fit done in channel space")
-            spectral_axis = np.copy(self._spectral_axis.value)
+            print("Warning: baseline fit done in [0,1) space, even though it might say Hz (issue ###)")
+            spectral_axis = deepcopy(self._spectral_axis)  # save the old axis
+            self._normalized = True  # remember it's now normalized
             nchan = len(spectral_axis)
-            # sadly, there is no single setter for this
             for i in range(nchan):
-                self._spectral_axis[i] = i * u.Hz  # would like to use "chan" units
-            self._normalized = True
-            # allow include
-            if include != None:
-                nchan = len(spectral_axis)
-                exclude = self._toggle_sections(nchan, include)
+                self._spectral_axis[i] = (i * 1.0 / nchan) * u.Hz  # would like to use "u.chan" units - not working yet
+            # some @todo here about single setter, units u.chan etc.
+
+        # include= and exclude= are mutually exclusive, but we allow include=
+        # if include is used, transform it to exclude=
+        if include != None:
+            if exclude != None:
+                print(f"Warning: ignoring exclude={exclude}")
+            nchan = len(self._spectral_axis)
+            exclude = self._toggle_sections(nchan, include)
 
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
 
@@ -235,11 +246,12 @@ class Spectrum(Spectrum1D):
             self._subtracted = True
 
         if kwargs_opts["normalize"]:
-            for i in range(nchan):
-                self._spectral_axis[i] = spectral_axis[i] * u.Hz
+            self._spectral_axis = spectral_axis
             del spectral_axis
 
-    def _undo_baseline(self):
+    # baseline
+
+    def undo_baseline(self):
         """
         Undo the most recently computed baseline. If the baseline
         has been subtracted, it will be added back. The `baseline_model`
@@ -295,30 +307,152 @@ class Spectrum(Spectrum1D):
     def plotter(self):
         return self._plotter
 
-    def stats(self):
+    def stats(self, roll=0):
         """
         Compute some statistics of this `Spectrum`.  The mean, rms,
         data minimum and data maximum are calculated.  Note this works
         with slicing, so, e.g.,  `myspectrum[45:153].stats()` will return
         the statistics of the slice.
 
+        Parameters
+        ----------
+            roll : int
+                Return statistics on a 'rolled' array differenced with the
+                origibnal array. If no correllaton between subsequent point,
+                a roll=1 would return an RMS  sqrt(2) larger than that of the
+                input array. Another advantage of rolled statistics it will
+                remove most slow variations, thus RMS/sqrt(2) might be a better
+                indication of the underlying RMS.
         Returns
         -------
         stats : tuple
             Tuple consisting of (mean,rms,datamin,datamax)
 
+
         """
         # @todo: maybe make this a dict return value a dict
-        mean = self.mean()
-        rms = self.data.std()
-        dmin = self.min()
-        dmax = self.max()
+        if roll == 0:
+            mean = self.mean()
+            rms = self.data.std()
+            dmin = self.min()
+            dmax = self.max()
+        else:
+            d = self._data[roll:] - self._data[:-roll]
+            mean = d.mean()
+            rms = d.std()
+            dmin = d.min()
+            dmax = d.max()
         return (mean, rms, dmin, dmax)
 
-    def smooth(self):
-        # @todo use specutils.manipulation.smoothing
-        # option to smooth baseline too?
-        pass
+    def _decimate(self, n, offset=0):
+        """Decimate a spectrum by n pixels, starting at pixel offset
+        @todo deprecate?   decimation is in smooth, do we need a separate one?
+        """
+        nchan = len(self._data)
+        print("_decimate deprecated", nchan, offset, n)
+        idx = np.arange(offset, nchan, n)
+        new_data = self._data[idx] * u.K  # why units again?
+        s = Spectrum.make_spectrum(new_data, meta=self.meta)
+        s._spectral_axis = self._spectral_axis[idx]
+        # @todo  fix WCS
+        return s
+
+    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
+        """
+        Smooth or Convolve a spectrum, optionally decimating it.
+
+        Default smoothing is hanning.
+
+        Parameters
+        ----------
+        method : string, optional
+            Smoothing method. Valid are: 'hanning', 'boxcar' and
+            'gaussian'. Minimum match applies.
+            The default is 'hanning'.
+        width : int, optional
+            Effective width of the convolving kernel.  Should ideally be an
+            odd number.
+            For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
+            For 'boxcar' an even value triggers an odd one with half the
+            signal at the edges, and will thus not reproduce GBTIDL.
+            For 'gaussian' this is the FWHM of the final beam. We normally
+            assume the input beam has FWHM=1, pending resolution on cases
+            where CDELT1 is not the same as FREQRES.
+            The default is 1.
+        decimate : int, optional
+            Decimation factor of the spectrum by returning every width channel.
+            -1:   no decimation
+            0:    use the width parameter
+            >1:   user supplied decimation (use with caution)
+            The default is 0, meaning decimation is by 'width'
+        kernel : `~numpy.ndarray`, optional
+            A numpy array which is the kernel by which the signal is convolved.
+            Use with caution, as it is assumed the kernel is normalized to
+            one, and is symmetric. Since width is ill-defined here, the user
+            should supply an appropriate number manually.
+            NOTE: not implemented yet.
+            The default is None.
+
+        Raises
+        ------
+        Exception
+            If no valid smoothing method is given.
+
+        Returns
+        -------
+        s : Spectrum
+            The new, possibly decimated, convolved spectrum.
+            The meta data are currently passed on,and hence will
+            contain some original WCS parameters.
+        """
+        nchan = len(self._data)
+        decimate = int(decimate)
+
+        # @todo  see also core.smooth() for valid_methods
+        valid_methods = ["hanning", "boxcar", "gaussian"]
+        this_method = minimum_string_match(method, valid_methods)
+        if this_method == None:
+            raise Exception(f"smooth({method}): valid methods are {valid_methods}")
+
+        if this_method == "gaussian":
+            stddev = np.sqrt(width**2 - self._resolution**2) / 2.35482
+            s1 = core.smooth(self._data, this_method, stddev)
+        else:
+            s1 = core.smooth(self._data, this_method, width)
+
+        new_data = s1 * self.flux.unit
+        if decimate >= 0:
+            if decimate == 0:
+                # take the default decimation by 'width'
+                idx = np.arange(0, nchan, width)
+                new_resolution = 1  # new resolution in the new pixel width
+                cell_shift = 0.5 * (width - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
+            else:
+                # user selected decimation (but should be <= width)
+                if decimate > width:
+                    raise Exception(f"Cannot decimate with more than width {width}")
+                idx = np.arange(0, nchan, decimate)
+                new_resolution = np.sqrt(width**2 - decimate**2)  # @todo dangerous?
+                cell_shift = 0.5 * (decimate - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
+            # print("    cell_shift:", cell_shift)
+            new_data = new_data[idx]
+            new_meta = deepcopy(self.meta)
+            new_meta["CDELT1"] = width * self.meta["CDELT1"]  # @todo etc ???
+            s = Spectrum.make_spectrum(new_data, meta=new_meta)
+            s._spectral_axis = self._spectral_axis[idx]
+            for i in range(len(s._spectral_axis)):  # grmpf, no proper setter
+                s._spectral_axis.value[i] += cell_shift
+            if self._baseline_model is not None:
+                print("Warning: removing baseline_model")
+                s._baseline_model = None  # was already None
+            s._resolution = new_resolution
+            # @todo  fix WCS
+        else:
+            s = Spectrum.make_spectrum(new_data, meta=self.meta)
+            s._baseline_model = self._baseline_model  # it never got copied
+            s._resolution = width
+            # @todo   resolution is not well defined multiple methods are used in succession
+        return s
 
     @property
     def equivalencies(self):
@@ -747,6 +881,7 @@ class Spectrum(Spectrum1D):
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
+        # @todo add resolution being the channel separation, unless we use the FREQRES column
         warnings.simplefilter("ignore", NoVelocityWarning)
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # @todo requirement should be either DATE-OBS or MJD-OBS, but make_target() needs to be updated

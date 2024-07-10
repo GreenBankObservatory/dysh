@@ -12,6 +12,8 @@ from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
 from scipy import ndimage
 
+from dysh.spectra import core
+
 from ..coordinates import Observatory
 from ..util import uniq
 from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
@@ -514,6 +516,8 @@ class TPScan(ScanMixin):
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     """
 
     # @todo get rid of calrows and calc tsys in gettp and pass it in.
@@ -527,6 +531,7 @@ class TPScan(ScanMixin):
         calrows,
         bintable,
         calibrate=True,
+        smoothref=1,
         observer_location=Observatory["GBT"],
     ):
         self._sdfits = gbtfits  # parent class
@@ -534,6 +539,10 @@ class TPScan(ScanMixin):
         self._sigstate = sigstate  # ignored?
         self._calstate = calstate  # ignored?
         self._scanrows = scanrows
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            print(f"TP smoothref={self._smoothref} not implemented yet")
+
         # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
@@ -749,6 +758,8 @@ class PSScan(ScanMixin):
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -757,7 +768,15 @@ class PSScan(ScanMixin):
     """
 
     def __init__(
-        self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
+        self,
+        gbtfits,
+        scans,
+        scanrows,
+        calrows,
+        bintable,
+        calibrate=True,
+        smoothref=1,
+        observer_location=Observatory["GBT"],
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
@@ -765,7 +784,7 @@ class PSScan(ScanMixin):
         self._scan = scans["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-
+        self._smoothref = smoothref
         # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
         # print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
         # print("PJT scans", scans)
@@ -857,6 +876,8 @@ class PSScan(ScanMixin):
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
+        if self._smoothref > 1 and kwargs_opts["verbose"]:
+            print(f"PS smoothref={self._smoothref}")
 
         self._status = 1
         nspect = self.nrows // 2
@@ -872,6 +893,8 @@ class PSScan(ScanMixin):
             tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
             sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
             ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+            if self._smoothref > 1:
+                ref = core.smooth(ref, "boxcar", self._smoothref)
             self._calibrated[i] = tsys * (sig - ref) / ref
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
@@ -896,9 +919,10 @@ class PSScan(ScanMixin):
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
         exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
-        # exposure = 0.5*(exp_ref + exp_sig)
-        # exposure = exp_ref + exp_sig
-        nsmooth = 1.0  # In case we start smoothing the reference spectra.
+        if self._smoothref > 1:
+            nsmooth = self._smoothref
+        else:
+            nsmooth = 1.0
         exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
         return exposure
 
@@ -989,6 +1013,8 @@ class FSScan(ScanMixin):
         whether or not to fold the spectrum. Default: True
     use_sig : bool
         whether to use the sig as the sig, or the ref as the sig. Default: True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1006,6 +1032,7 @@ class FSScan(ScanMixin):
         calibrate=True,
         fold=True,
         use_sig=True,
+        smoothref=1,
         observer_location=Observatory["GBT"],
         debug=False,
     ):
@@ -1016,6 +1043,9 @@ class FSScan(ScanMixin):
         self._calrows = calrows  # dict with "ON" and "OFF"
         self._folded = False
         self._use_sig = use_sig
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            print(f"FS smoothref={self._smoothref} not implemented yet")
 
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
@@ -1310,9 +1340,10 @@ class FSScan(ScanMixin):
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
         exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
-        # exposure = 0.5*(exp_ref + exp_sig)
-        # exposure = exp_ref + exp_sig
-        nsmooth = 1.0  # In case we start smoothing the reference spectra.
+        if self._smoothref > 1:
+            nsmooth = self._smoothref
+        else:
+            nsmooth = 1.0
         exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
         return exposure
 
@@ -1392,6 +1423,8 @@ class SubBeamNodScan(ScanMixin):
         Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
     calibrate: bool
         Whether or not to calibrate the data.
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1407,7 +1440,15 @@ class SubBeamNodScan(ScanMixin):
     """
 
     def __init__(
-        self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, observer_location=Observatory["GBT"], **kwargs
+        self,
+        sigtp,
+        reftp,
+        fulltp=None,
+        method="cycle",
+        calibrate=True,
+        smoothref=1,
+        observer_location=Observatory["GBT"],
+        **kwargs,
     ):
         kwargs_opts = {
             "timeaverage": False,
@@ -1433,6 +1474,9 @@ class SubBeamNodScan(ScanMixin):
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            print(f"SubBeamNodS smoothref={self._smoothref} not implemented yet")
         self._observer_location = observer_location
         self._calibrated = None
         if calibrate:
