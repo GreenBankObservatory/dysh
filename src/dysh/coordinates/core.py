@@ -605,7 +605,7 @@ class Observatory:
 
     def __getitem__(self, key):
         # For GBT we want to use the GBO official location
-        if key == "GBT":
+        if key == "GBT" or key == "NRAO_GBT":
             return self.GBT
         elif key == "GB20M":
             return self.GB20M
@@ -613,7 +613,7 @@ class Observatory:
 
     def __class_getitem__(self, key):
         # For GBT we want to use the GBO official location
-        if key == "GBT":
+        if key == "GBT" or key == "NRAO_GBT":
             return GBT()
         elif key == "GB20M":
             return GB20M()

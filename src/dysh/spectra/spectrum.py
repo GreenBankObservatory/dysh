@@ -8,7 +8,7 @@ from copy import deepcopy
 import astropy.units as u
 import numpy as np
 import pandas as pd
-from astropy.coordinates import SkyCoord, SpectralCoord
+from astropy.coordinates import SkyCoord, SpectralCoord, StokesCoord
 from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
@@ -780,13 +780,18 @@ class Spectrum(Spectrum1D):
         # Possibly figure how to calculate spectral_axis instead.
         # @todo allow fix=False in WCS constructor?
         if use_wcs:
-            # skip warnings about DATE-OBS being converted to MJD-OBS
-            warnings.filterwarnings("ignore", category=FITSFixedWarning)
-            # skip warnings FITS keywords longer than 8 chars or containing
-            # illegal characters (like _)
-            warnings.filterwarnings("ignore", category=VerifyWarning)
-            wcs = WCS(header=meta)
-            # reset warnings?
+            with warnings.catch_warnings():
+                # Skip warnings about DATE-OBS being converted to MJD-OBS.
+                warnings.filterwarnings("ignore", category=FITSFixedWarning)
+                # Skip warnings FITS keywords longer than 8 chars or containing
+                # illegal characters (like _).
+                warnings.filterwarnings("ignore", category=VerifyWarning)
+                wcs = WCS(header=meta)
+                # It would probably be safer to add NAXISi to meta.
+                wcs.array_shape = (0, 0, 0, len(data))
+                # For some reason these aren't identified while creating the WCS object.
+                wcs.wcs.obsgeo[:3] = meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
+                # Reset warnings.
         else:
             wcs = None
         # is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
@@ -925,6 +930,87 @@ class Spectrum(Spectrum1D):
     def _div_meta(self, operand, operand2=None, **kwargs):
         # TBD
         return deepcopy(operand)
+
+    def __getitem__(self, item):
+
+        def q2idx(q, wcs, spectral_axis, coo, sto):
+            """Quantity to index."""
+            if "velocity" in u.get_physical_type(q):
+                # Convert from velocity to channel.
+                idx = vel2idx(q, wcs, spectral_axis, coo, sto)
+            elif "length" in u.get_physical_type(q):
+                # Convert wavelength to channel.
+                idx = wav2idx(q, wcs, spectral_axis, coo, sto)
+            elif "frequency" in u.get_physical_type(q):
+                # Convert from frequency to channel.
+                idxs = wcs.world_to_pixel(coo, q, sto)
+                idx = int(np.round(idxs[0]))
+            return idx
+
+        def vel2idx(vel, wcs, spectral_axis, coo, sto):
+            eq = get_spectral_equivalency(spectral_axis.doppler_rest, spectral_axis.doppler_convention)
+            # Make `vel` a `SpectralCoord`.
+            vel_sp = spectral_axis.to(unit=vel.unit).replicate(value=vel.value, unit=vel.unit)
+            with u.set_enabled_equivalencies(eq):
+                idxs = wcs.world_to_pixel(coo, vel_sp, sto)
+            return int(np.round(idxs[0]))
+
+        def wav2idx(wav, wcs, spectral_axis, coo, sto):
+            with u.set_enabled_equivalencies(u.spectral()):
+                wav_sp = spectral_axis.to(unit=wav.unit).replicate(value=wav.value, unit=wav.unit)
+                idxs = wcs.world_to_pixel(coo, wav_sp, sto)
+            return int(np.round(idxs[0]))
+
+        # Only slicing along the spectral coordinate.
+        # Assumes that the WCS is in frequency.
+        if isinstance(item, slice):
+            if item.step is not None and item.step != 1:
+                raise NotImplementedError(
+                    "Cannot slice with a step other than 1. Try smoothing and decimating if you want to downsample."
+                )
+
+            spectral_axis = self.spectral_axis
+            # Use the WCS to convert from world to pixel values.
+            wcs = self.wcs
+            # We need a sky location to convert incorporating velocity shifts.
+            coo = SkyCoord(
+                wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
+                wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
+                frame="fk5",
+            )
+            # Same for the Stokes axis.
+            sto = StokesCoord(0)
+            start = item.start
+            stop = item.stop
+
+            # Start.
+            if isinstance(start, u.Quantity):
+                start_idx = q2idx(start, wcs, spectral_axis, coo, sto)
+            else:
+                start_idx = start
+
+            # Stop.
+            if isinstance(stop, u.Quantity):
+                stop_idx = q2idx(stop, wcs, spectral_axis, coo, sto)
+            else:
+                stop_idx = stop
+
+        else:
+            raise NotImplementedError("Use a slice for slicing.")
+
+        # Slicing uses NumPY ordering by default.
+        sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
+
+        # Update meta.
+        meta = self.meta.copy()
+        head = sliced_wcs.to_header()
+        for k in ["CRPIX1", "CRVAL1"]:
+            meta[k] = head[k]
+
+        # New Spectrum.
+        return self.make_spectrum(
+            self.flux[start_idx:stop_idx], meta=meta, observer_location=Observatory[meta["TELESCOP"]]
+        )
 
 
 # @todo figure how how to document write()
