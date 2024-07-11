@@ -2,6 +2,7 @@
 The classes that define various types of Scan and their calibration methods.
 """
 
+import warnings
 from collections import UserList
 from copy import deepcopy
 
@@ -22,7 +23,6 @@ from .spectrum import Spectrum
 # from typing import Literal
 
 
-# import warnings
 # from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 
 
@@ -475,13 +475,15 @@ class ScanBlock(UserList, ScanMixin):
                 # @todo Variable length arrays? https://docs.astropy.org/en/stable/io/fits/usage/unfamiliar.html#variable-length-array-tables
                 # or write to separate bintables.
                 raise Exception(
-                    f"Data shapes of scans are not equal {thisshape}!={datashape}. Can't combine Scans into single BinTableHDU"
+                    f"Data shapes of scans are not equal {thisshape}!={datashape}. Can't combine Scans into single"
+                    " BinTableHDU"
                 )
             # check that the header keywords are the same
             diff = set(scan._meta[0].keys()) - defaultkeys
             if len(diff) > 0:
                 raise Exception(
-                    f"Scan header keywords are not the same. These keywords were not present in all Scans: {diff}. Can't combine Scans into single BinTableHDU"
+                    f"Scan header keywords are not the same. These keywords were not present in all Scans: {diff}."
+                    " Can't combine Scans into single BinTableHDU"
                 )
             tablelist.append(scan._meta_as_table())
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
@@ -511,7 +513,7 @@ class TPScan(ScanMixin):
         Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
         None means select both. See table below for explanation.
     scanrows : list-like
-        the list of rows in `sdfits` corresponding to sig_state integrations
+        the list of rows in `sdfits` corresponding to sigstate integrations
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
     bintable : int
@@ -529,22 +531,21 @@ class TPScan(ScanMixin):
      ======   =====   ===================================================================       ==================================
      CAL      SIG     RESULT                                                                    TSYS
      ======   =====   ===================================================================       ==================================
-     None     None    data = 0.5* (REFCALON + REFCALOFF) , regardless of sig state              use all CAL states, all SIG states
-     None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'  (sig_state=1)        use all CAL states, SIG='T'
-     None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'  (sig_state=0)        use all CAL states, SIG='F'
-     True     None    data = REFCALON, regardless of sig_state                                  use all CAL states, all SIG states
-     False    None    data = REFCALOFF, regardless of sig_state                                 use all CAL states, all SIG states
-     True     True    data = REFCALON, where sig='T' (sig_state=1)                              use all CAL states, SIG='T'
-     True     False   data = REFCALON, where sig='F' (sig_state=0)                              use all CAL states, SIG='F'
-     False    True    data = REFCALOFF  where sig='T' (sig_state=1)                             use all CAL states, SIG='T'
-     False    False   data = REFCALOFF, where sig='F' (sig_state=0)                             use all CAL states, SIG='F'
+     None     None    data = 0.5* (REFCALON + REFCALOFF), regardless of sig state               use all CAL states, all SIG states
+     None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'                       use all CAL states, SIG='T'
+     None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'                       use all CAL states, SIG='F'
+     True     None    data = REFCALON, regardless of sig state                                  use all CAL states, all SIG states
+     False    None    data = REFCALOFF, regardless of sig state                                 use all CAL states, all SIG states
+     True     True    data = REFCALON, where sig='T'                                            use all CAL states, SIG='T'
+     True     False   data = REFCALON, where sig='F'                                            use all CAL states, SIG='F'
+     False    True    data = REFCALOFF  where sig='T'                                           use all CAL states, SIG='T'
+     False    False   data = REFCALOFF, where sig='F'                                           use all CAL states, SIG='F'
      ======   =====   ===================================================================       ==================================
 
     where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
 
     """
 
-    # @todo get rid of calrows and calc tsys in gettp and pass it in.
     def __init__(
         self,
         gbtfits,
@@ -560,12 +561,12 @@ class TPScan(ScanMixin):
     ):
         self._sdfits = gbtfits  # parent class
         self._scan = scan
-        self._sigstate = sigstate  # ignored?
-        self._calstate = calstate  # ignored?
+        self._sigstate = sigstate
+        self._calstate = calstate
         self._scanrows = scanrows
         self._smoothref = smoothref
         if self._smoothref > 1:
-            print(f"TP smoothref={self._smoothref} not implemented yet")
+            warnings.warn(f"TP smoothref={self._smoothref} not implemented yet")
 
         # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
@@ -574,7 +575,6 @@ class TPScan(ScanMixin):
         else:
             self._bintable_index = bintable
         self._observer_location = observer_location
-        self._data = self._sdfits.rawspectra(self._bintable_index)[scanrows]  # all cal states
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
@@ -590,21 +590,36 @@ class TPScan(ScanMixin):
             self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
             self._nint = gbtfits.nintegrations(self._bintable_index)
         self._calrows = calrows
-        self._refonrows = self._calrows["ON"]
-        self._refoffrows = self._calrows["OFF"]
+        # all cal=T states where sig=sigstate
+        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
+        # all cal=F states where sig=sigstate
+        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
+        self._data = None
+        print(f"len(REFON) = {len(self._refonrows)} len(REFOFF) = {len(self._refoffrows)}")
         if self._calibrate:
             self.calibrate()
-
-        # print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
+        print(
+            f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}"
+        )
+        print(f"scanrows {self._scanrows}, calrows ON {self._calrows['ON']}  # calrows OFF {self._calrows['OFF']}")
         self.calc_tsys()
 
     def calibrate(self):
-        if self.calstate is None and self.sigstate is None:
+        """Calibrate the data according to the CAL/SIG table above"""
+        # the way the data are formed depend only on cal state
+        # since we have downselected based on sig state in the constructor
+        if self.calstate is None:
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
+        elif self.calstate:
+            self._data = self._refcalon.astype(float)
+        elif self.calstate == False:
+            self._data = self._refcaloff.astype(float)
+        else:
+            raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
 
     @property
     def sigstate(self):
@@ -627,11 +642,23 @@ class TPScan(ScanMixin):
 
     def calc_tsys(self, **kwargs):
         """
-        Calculate the system temperature array
+        Calculate the system temperature array, according to table above.
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
 
+        if False:
+            if self.calstate is None:
+                tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+                nspect = len(tcal)
+                calon = self._refcalcon
+                caloff = self._refcaloff
+            elif self.calstate:
+                tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+                nspect = len(tcal)
+                calon = self._refcalon
+            elif self.calstate == False:
+                pass
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         nspect = len(tcal)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
@@ -642,36 +669,57 @@ class TPScan(ScanMixin):
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
+            # tsys = mean_tsys(calon=calon[i], caloff=caloff[i], tcal=tcal[i])
             tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
             self._tsys[i] = tsys
 
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times
+        """Get the array of exposure (integration) times.  The value depends on the cal state:
 
-            exposure =  0.5*(exp_ref_on + exp_ref_off)
-
-        Note we only have access to the refon and refoff row indices so
-        can't use sig here.  This is probably incorrect
+            =====  ======================================
+            CAL    EXPOSURE
+            =====  ======================================
+            None   :math:`t_{EXP,REFON} + t_{EXP,REFOFF}`
+            True   :math:`t_{EXP,REFON}`
+            False  :math:`t_{EXP,REFOFF}`
+            =====  ======================================
 
         Returns
         -------
         exposure : `~numpy.ndarray`
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
-        exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-        exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+        if self.calstate is None:
+            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            )
+        elif self.calstate:
+            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = 0
+        elif self.calstate == False:
+            exp_ref_on = 0
+            exp_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            )
+
         exposure = exp_ref_on + exp_ref_off
         return exposure
 
     @property
     def delta_freq(self):
-        """Get the array of channel frequency width
+        """Get the array of channel frequency width. The value depends on the cal state:
 
-           df =  0.5*(df_ref_on + df_ref_off)
 
-        Note we only have access to the refon and refoff row indices so
-        can't use sig here.  This is probably incorrect
+        =====  ================================================================
+        CAL     :math:`\Delta\nu`
+        =====  ================================================================
+        None    :math:`0.5 * ( \Delta\nu_{REFON}}+ \Delta\nu_{REFOFF} )`
+        True    :math:`\Delta\nu_{REFON}`
+        False   :math:`\Delta\nu_{REFOFF}`
+        =====  ================================================================
+
 
         Returns
         -------
@@ -680,7 +728,12 @@ class TPScan(ScanMixin):
         """
         df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
         df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        delta_freq = 0.5 * (df_ref_on + df_ref_off)
+        if self.calstate is None:
+            delta_freq = 0.5 * (df_ref_on + df_ref_off)
+        elif self.calstate:
+            delta_freq = df_ref_on
+        elif self.calstate == False:
+            delta_freq = df_ref_off
         return delta_freq
 
     @property
@@ -719,6 +772,8 @@ class TPScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
+        if not self._calibrate:
+            raise Exception("You must calibrate first to get a total power spectrum")
         # print(len(self._scanrows), i)
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
         # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()

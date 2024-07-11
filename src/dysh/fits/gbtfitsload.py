@@ -1017,8 +1017,9 @@ class GBTFITSLoad(SDFITSLoad):
                     # they are not booleans but chars
                     if sig is not None:
                         df = select_from("SIG", TF[sig], df)
-                    if cal is not None:
-                        df = select_from("CAL", TF[cal], df)
+                    # if cal is not None:
+                    #    df = select_from("CAL", TF[cal], df)
+                    # the rows with the selected sig state and all cal states
                     tprows = list(df["ROW"])
                     if debug:
                         print("TPROWS len=", len(tprows))
