@@ -2,6 +2,8 @@
 - Not typically used directly.  Sub-class for specific telescope SDFITS flavors.
 """
 
+import warnings
+
 import astropy.units as u
 import numpy as np
 import pandas as pd
@@ -123,6 +125,12 @@ class SDFITSLoad(object):
             # Select columns that are strings, decode them and remove white spaces.
             df_obj = df.select_dtypes(["object"])
             df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
+            # --- this doesn't actually work how we want---
+            # convert them to actual string types because FITS will want that later.
+            # This doe
+            # cols = list(df_obj.columns)
+            # df[cols] = df[cols].astype("string")
+            # ---
             ones = np.ones(len(df.index), dtype=int)
             # create columns to track HDU and BINTABLE numbers and original row index
             df["HDU"] = i * ones
@@ -132,10 +140,35 @@ class SDFITSLoad(object):
                 self._index = df
             else:
                 self._index = pd.concat([self._index, df], axis=0)
-        self.add_primary_hdu()
+        self._add_primary_hdu()
 
-    def add_primary_hdu(self):
-        pass
+    def _add_primary_hdu(self):
+        """
+        Add the columns to the index for header keywords that are not in primary header or not in the DATA column.
+        This will get handy things like SITELONG, SITELAT, TELESCOP, etc.
+
+        Returns
+        -------
+        None.
+
+        """
+        # T* are in the binary table header
+        # NAXIS* have a different meaning in the primary hdu, we want the bintable values
+        # BITPIX, GCOUNT,PCOUNT,XTENSION are FITS reserved keywords
+        ignore = ["TUNIT", "TTYPE", "TFORM", "TFIELDS", "NAXIS", "COMMENT", "GCOUNT", "PCOUNT", "XTENSION", "BITPIX"]
+        cols = {}
+        for h in self._hdu:
+            c = dict(filter(lambda item: not any(sub in item[0] for sub in ignore), h.header.items()))
+            cols.update(c)
+        for k, v in cols.items():
+            if k not in self._index.columns:
+                self._index[k] = v
+            elif self._index[k][0] != v:
+                warnings.warn(
+                    f"Column {k} is defined in the primary header and in the binary table index, but their values do not match. Will not update this column in the index.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
     def load(self, hdu=None, **kwargs):
         """
@@ -387,7 +420,35 @@ class SDFITSLoad(object):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
 
-        s = Spectrum.make_spectrum(data * u.ct, meta, observer_location=observer_location)
+        # @todo   could we safely store it in meta['BUNIT']
+        #  for now, loop over the binheader keywords to find the matching TUNITxx that belongs to TTYPExx='DATA'
+        #  if BUNIT was also found, a comparison is made, but TUNIT wins
+        if "BUNIT" in meta:
+            bunit = meta["BUNIT"]
+        else:
+            bunit = None
+            h = self.binheader()[0]
+            for k, v, c in h.cards:
+                if k == "BUNIT":
+                    bunit = v
+            ukey = None
+            for k, v, c in h.cards:  # loop over the (key,val,comment) for all cards in the header
+                if v == "DATA":
+                    ukey = "TUNIT" + k[5:]
+                    break
+            if ukey is not None:  # ukey should almost never be "None" in standard SDFITS
+                for k, v, c in h.cards:
+                    if k == ukey:
+                        if bunit != v:
+                            print("Found BUNIT=%s, now finding %s=%s, using the latter" % (bunit, ukey, v))
+                        bunit = v
+                        break
+        if bunit is not None:
+            bunit = u.Unit(bunit)
+        else:
+            bunit = u.ct
+
+        s = Spectrum.make_spectrum(data * bunit, meta, observer_location=observer_location)
         return s
 
     def nrows(self, bintable):
@@ -460,8 +521,7 @@ class SDFITSLoad(object):
 
     def scans(self, bintable):
         """
-        The number of scans resent in the input bintable.
-        TODO: move this to GBTFISLoad?
+        The number of scans present in the input bintable.
 
         Parameters
         ----------
@@ -479,7 +539,7 @@ class SDFITSLoad(object):
         j = bintable
         nrows = self.naxis(bintable=j, naxis=2)
         nflds = self._binheader[j]["TFIELDS"]
-        restfreq = np.unique(self._index[j]["RESTFREQ"]) / 1.0e9
+        restfreq = np.unique(self.index(bintable=j)["RESTFREQ"]) / 1.0e9
         #
         print("HDU       %d" % (j + 1))
         print("BINTABLE: %d rows x %d cols with %d chans" % (self._nrows[j], nflds, self.nchan(j)))
@@ -531,6 +591,54 @@ class SDFITSLoad(object):
         # print(f"bintable rows data length {len(outbintable.data)}")
         outbintable.update()
         return outbintable
+
+    def rename_binary_table_column(self, oldname, newname, bintable=None):
+        """
+        Rename a column in one or more binary tables of this SDFITSLoad
+
+        Parameters
+        ----------
+        oldname : str
+            The SDFITS binary table column to rename, e.g. 'SITELAT'
+        newname :  str
+            The new name for the SDFITS  binary table column.
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        ou = oldname.upper()
+        nu = newname.upper()
+        if bintable is None:
+            for b in self._bintable:
+                b.columns.change_attrib(ou, "name", nu)
+        else:
+            b = self._bintable[bintable]
+            b.columns.change_attrib(ou, "name", nu)
+
+    # @todo implement this MWP
+    def add_col(self, name, value, bintable=None):
+        """
+        Add a new column to the FITS binary table HDU
+
+        Parameters
+        ----------
+        name : str
+            column name to add
+        value : list-like
+            The column values
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
 
     def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
         """
