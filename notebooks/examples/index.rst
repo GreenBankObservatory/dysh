@@ -3,8 +3,10 @@ Examples for GBT Data
 *********************
 
 .. toctree::
-   :maxdepth: 2
+   :glob:
+   :maxdepth: 1
 
+   frequencyswitch
    positionswitch
-   totalpower
    subbeamnod
+   velocity_frames
