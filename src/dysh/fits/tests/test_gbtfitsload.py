@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from astropy.io import fits
-from pandas.testing import assert_series_equal
+from pandas.testing import assert_frame_equal, assert_series_equal
 
 import dysh
 from dysh import util
@@ -41,6 +41,7 @@ class TestGBTFITSLoad:
             "getps_154_ifnum_0_plnum_0_intnum_0.fits": 1,
             "TGBT21A_501_11.raw.156.fits": 7,
             "testselection.fits": 50,
+            "TGBT21A_501_11_getps_scan_152_ifnum_0_plnum_0_smthoff_15.fits": 1,
         }
 
         for fnm in self._file_list:
@@ -103,6 +104,7 @@ class TestGBTFITSLoad:
         hdu = fits.open(idl_file)
         table = hdu[1].data
         gbtidl_spec = table["DATA"][0]
+        hdu.close()
 
         # Do not compare NaN values.
         mask = np.isnan(ps_vals) | np.isnan(gbtidl_spec)
@@ -288,3 +290,70 @@ class TestGBTFITSLoad:
         g = gbtfitsload.GBTFITSLoad(data_file)
         gbtidl_index = pd.read_csv(index_file, skiprows=10, delim_whitespace=True)
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
+
+    def test_getps_smoothref(self):
+        """ """
+
+        path = util.get_project_testdata() / "TGBT21A_501_11"
+        data_file = path / "TGBT21A_501_11.raw.vegas.fits"
+        gbtidl_file = path / "TGBT21A_501_11_getps_scan_152_ifnum_0_plnum_0_smthoff_15.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(data_file)
+        sb = sdf.getps(scan=152, ifnum=0, plnum=0, smoothref=15)
+        ta = sb.timeaverage()
+
+        hdu = fits.open(gbtidl_file)
+        table = hdu[1].data
+        hdu.close()
+        gbtidl_spec = table["DATA"][0]
+
+        diff = ta.flux.to("K").value.astype(np.float32) - gbtidl_spec
+
+        assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
+        assert ta.meta["EXPOSURE"] == table["EXPOSURE"][0]
+        for k, v in ta.meta.items():
+            if k in ["DURATION", "TUNIT7", "VSPRPIX", "CAL"]:
+                continue
+            try:
+                assert v == table[k][0]
+            except KeyError:
+                continue
+
+    def test_write_single_file(self, tmp_path):
+        "Test that writing an SDFITS file works when subselecting data"
+        p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
+        data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
+        g = gbtfitsload.GBTFITSLoad(data_file)
+        o = tmp_path / "sub"
+        o.mkdir()
+        out = o / "test_write_single.fits"
+        g.write(out, plnum=1, intnum=2, overwrite=True)
+        t = gbtfitsload.GBTFITSLoad(out)
+        assert set(t._index["PLNUM"]) == set([1])
+        # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
+        assert set(t._index["INTNUM"]) == set([2])
+
+    def test_write_multi_file(self, tmp_path):
+        "Test that writing multiple SDFITS files works, including subselection of data"
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        # writes testmultia0,1,2,3.fits
+        o = tmp_path / "sub"
+        o.mkdir()
+        output = o / "testmulti.fits"
+        g.write(output, multifile=True, scan=6, overwrite=True)
+        # @todo remove test output files in a teardown method
+        sdf = gbtfitsload.GBTFITSLoad(o)
+
+    def test_write_all(self, tmp_path):
+        """Test that we can write a loaded SDFITS file without any changes"""
+        p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
+        data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
+        org_sdf = gbtfitsload.GBTFITSLoad(data_file)
+        d = tmp_path / "sub"
+        d.mkdir()
+        output = d / "test_write_all.fits"
+        org_sdf.write(output, overwrite=True)
+        new_sdf = gbtfitsload.GBTFITSLoad(output)
+        # Compare the index for both SDFITS.
+        assert_frame_equal(org_sdf._index, new_sdf._index)

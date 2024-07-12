@@ -8,5 +8,7 @@ Examples for GBT Data
 
    frequencyswitch
    positionswitch
+   frequencyswitch
+   totalpower
    subbeamnod
    velocity_frames

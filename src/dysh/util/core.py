@@ -52,6 +52,8 @@ def indices_where_value_changes(colname, df):
         The indices of the Dataframe where `colname` changes value.
 
     """
+    # @todo add option to return changing values along with index
+    # e.g., [["A",0],["B",125],["C",246]]
     # This is some super panda kung-fu.
     # See https://stackoverflow.com/questions/48673046/get-index-where-value-changes-in-pandas-dataframe-column
     if colname not in df:
@@ -59,7 +61,8 @@ def indices_where_value_changes(colname, df):
     # df.shift() shifts the index by one, so we are then comparing df[N] to df[N-1]. This gets us
     # a truth table of where values change.  We filter on colname, then return a list of indices
     # where the value is true. Finally, we squeeze out the empty dimensions of the np array.
-    return np.squeeze(df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).values)
+    ary = df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).values
+    return np.squeeze(ary, axis=1)
 
 
 def gbt_timestamp_to_time(timestamp):
