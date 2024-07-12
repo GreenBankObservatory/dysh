@@ -166,6 +166,7 @@ class TestGBTFITSLoad:
         assert np.nanmean(diff) == 0.0
         assert abs(tp0.meta["EXPOSURE"] - 0.97587454) < 1e-8
         assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
+
         # Now, both on and off.
         tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0)
         assert len(tps) == 1
@@ -178,6 +179,42 @@ class TestGBTFITSLoad:
         assert np.nanmean(diff) == 0.0
         assert abs(tp0.meta["EXPOSURE"] - 1.9517491) < 1.5e-8
         assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
+        # now do some sig=F data
+
+        sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=True)
+        gbtidl_file = (
+            f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits"
+        )
+        hdu = fits.open(gbtidl_file)
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        tp0 = tps[0].timeaverage()
+        diff = tp0.flux.value - gbtidl_gettp
+        hdu.close()
+        assert np.nanmean(diff) == 0.0
+
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=False)
+        gbtidl_file = (
+            f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_0.fits"
+        )
+        hdu = fits.open(gbtidl_file)
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        tp0 = tps[0].timeaverage()
+        diff = tp0.flux.value - gbtidl_gettp
+        hdu.close()
+        assert np.nanmean(diff) == 0.0
+
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=None)
+        gbtidl_file = (
+            f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_all.fits"
+        )
+        hdu = fits.open(gbtidl_file)
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        tp0 = tps[0].timeaverage()
+        diff = tp0.flux.value - gbtidl_gettp
+        hdu.close()
+        assert np.nanmean(diff) == 0.0
 
     def test_load_multifits(self):
         """
