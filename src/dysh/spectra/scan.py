@@ -599,13 +599,15 @@ class TPScan(ScanMixin):
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         self._data = None
-        print(f"len(REFON) = {len(self._refonrows)} len(REFOFF) = {len(self._refoffrows)}")
         if self._calibrate:
             self.calibrate()
-        print(
-            f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}"
-        )
-        print(f"scanrows {self._scanrows}, calrows ON {self._calrows['ON']}  # calrows OFF {self._calrows['OFF']}")
+        # print(f"len(REFON) = {len(self._refonrows)} len(REFOFF) = {len(self._refoffrows)}")
+        # print(
+        #    f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}"
+        # )
+        # print(
+        #    f"scanrows {self._scanrows}, calrows ON {self._calrows['ON']}  # calrows OFF {self._calrows['OFF']} cal={self.calstate} sig={self.sigstate}"
+        # )
         self.calc_tsys()
 
     def calibrate(self):
@@ -613,10 +615,13 @@ class TPScan(ScanMixin):
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
         if self.calstate is None:
+            print("data = 0.5*(ON+OFF)")
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
+            print("data = ON")
             self._data = self._refcalon.astype(float)
         elif self.calstate == False:
+            print("data = OFF")
             self._data = self._refcaloff.astype(float)
         else:
             raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen

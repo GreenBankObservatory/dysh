@@ -991,6 +991,8 @@ class GBTFITSLoad(SDFITSLoad):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        if debug:
+            print("SF=", _sf)
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])

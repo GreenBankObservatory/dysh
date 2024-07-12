@@ -29,8 +29,8 @@ class TestGBTFITSLoad:
         expected = {
             "TGBT21A_501_11.raw.vegas.fits": 4,
             "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
-            "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
-            "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits": 1,
             "TGBT21A_501_11_ifnum_0_int_0-2.fits": 24,
             "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits": 1,
             "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_1.fits": 1,
@@ -127,17 +127,16 @@ class TestGBTFITSLoad:
                 except AssertionError:
                     print(f"{col} fails: {ps.meta[col]}, {table[col][0]}")
 
-    def test_gettp_single_int(self):
+    def test_gettp(self):
         """
-        Compare gbtidl result to dysh for a gettp spectrum from a single integration/pol/feed.
+        Compare gbtidl result to dysh for a gettp spectrum from a single polarization and feed and
+        different cal states.
         For the differenced spectrum (gbtidl - dysh) we check:
         For the noise calibration diode on, off, and both:
          - mean value is 0.0
         """
         # Get the answer from GBTIDL.
-        gbtidl_file = (
-            f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits"
-        )
+        gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         hdu.close()
@@ -149,32 +148,36 @@ class TestGBTFITSLoad:
         assert len(tps_on) == 1
 
         # Compare.
-        diff = tps_on[0].total_power(0).flux.value - gbtidl_gettp
+        tp0 = tps_on[0].total_power(0)
+        diff = tp0.flux.value - gbtidl_gettp
         assert np.nanmean(diff) == 0.0
+        assert abs(tp0.meta["EXPOSURE"] - 0.97587454) < 1e-8
+        assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
 
         # Now with the noise diode Off.
         tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0)
         assert len(tps_off) == 1
-        gbtidl_file = (
-            f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits"
-        )
+        gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
-        diff = tps_off[0].total_power(0).flux.value - gbtidl_gettp
+        tp0 = tps_off[0].total_power(0)
+        diff = tp0.flux.value - gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) == 0.0
-
+        assert abs(tp0.meta["EXPOSURE"] - 0.97587454) < 1e-8
+        assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
         # Now, both on and off.
-        tps = sdf.gettp(scan=152, sig=True, cal=True, ifnum=0, plnum=0)
+        tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0)
         assert len(tps) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         hdu = fits.open(gbtidl_file)
-        table = hdu[1].data
-        spec = table["DATA"][0]
-        diff = tps[0].total_power(0).flux.value - spec
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        tp0 = tps[0].total_power(0)
+        diff = tp0.flux.value - gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) == 0.0
-        # what about tps_tavg
+        assert abs(tp0.meta["EXPOSURE"] - 1.9517491) < 1.5e-8
+        assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
 
     def test_load_multifits(self):
         """
