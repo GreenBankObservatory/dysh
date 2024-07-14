@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 """
-some PS and FS benchmarks using pure numpy, should compare well
-to C code
+some PS and FS benchmarks using pure numpy, 
+should compare well to C code
 
 Data dimensions taken from example='getps' and 'getfs'
-Each almost 200M data points,  each took about  3sec   (%time in spyder)
+Each almost 200M data points in these multi-dimensional numpy arrays,
+each reduction to a spectrum took about  3s, but 2.5s of this
+was data initialization. The actual CPU was 0.5s
 
 
 """
@@ -17,7 +19,7 @@ import matplotlib.pyplot as plt
 
 #%% getps  --  dimensions taken from dysh_data(example='getps')
 
-# %time claims 3.0s
+# %time claims 3.0s, but 2.5s is the initialization
 
 nscan=2
 ntime=151
@@ -39,6 +41,9 @@ tcal = np.ones( (nscan,ntime,nif,npol,ncal)  )
 # reduction-1
 #     tsys:  tsys[nscan][ntime][nif][npol]
 
+#%% bench_ps
+
+# 0.45sec
 
 m1 =  data[:,:,:,:,0,nedge:-nedge].mean(axis=4)
 m2 = (data[:,:,:,:,1,nedge:-nedge]-data[:,:,:,:,0,nedge:-nedge]).mean(axis=4)
@@ -82,6 +87,10 @@ nchan = 16384
 data = np.random.normal(1,0.1,(nscan,nint,nif,npol,nsig,ncal,nchan))
 print("Size of FS data:",len(np.ravel(data)))
       
+#%% bench_fs
+
+# 
+
 t1 = data[:,:,:,:,:,0,:]
 t2 = data[:,:,:,:,:,1,:]
 tsys = np.mean(t1,axis=5)/np.mean(t1-t2, axis=5)
