@@ -596,6 +596,20 @@ class TPScan(ScanMixin):
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        # now remove blanked integrations
+        # seems like this should be done for all Scan classes!
+        nb1 = find_non_blanks(self._refcalon)
+        nb2 = find_non_blanks(self._refcaloff)
+        # print(nb1, nb2, np.intersect1d(nb1, nb2))
+        goodrows = np.intersect1d(nb1, nb2)
+        # nonblankedon = set(np.squeeze(nb1))
+        # nonblankedoff = set(np.squeeze(nb2))
+        # print(nonblankedon, nonblankedoff)
+        # goodrows = list(nonblankedon.intersection(nonblankedoff))
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         self._data = None
@@ -615,23 +629,37 @@ class TPScan(ScanMixin):
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
         if self.calstate is None:
-            print("data = 0.5*(ON+OFF)")
+            # print("data = 0.5*(ON+OFF)")
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
-            print("data = ON")
+            # print("data = ON")
             self._data = self._refcalon.astype(float)
         elif self.calstate == False:
-            print("data = OFF")
+            # print("data = OFF")
             self._data = self._refcaloff.astype(float)
         else:
             raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
 
     @property
     def sigstate(self):
+        """The requested signal state
+
+        Returns
+        -------
+        bool
+            True if signal state is on ('T' in the SDFITS header), False otherwise ('F')
+        """
         return self._sigstate
 
     @property
     def calstate(self):
+        """The requested calibration state
+
+        Returns
+        -------
+        bool
+            True if calibration state is on ('T' in the SDFITS header), False otherwise ('F')
+        """
         return self._calstate
 
     @property
@@ -664,18 +692,18 @@ class TPScan(ScanMixin):
                 calon = self._refcalon
             elif self.calstate == False:
                 pass
-        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
-        nspect = len(tcal)
+        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        nspect = len(self._tcal)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
         # allcal = self._refonrows.copy()
         # allcal.extend(self._refoffrows)
         # tcal = list(self._sdfits.index(self._bintable_index).iloc[sorted(allcal)]["TCAL"])
         # @todo this loop could be replaced with clever numpy
-        if len(tcal) != nspect:
+        if len(self._tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
             # tsys = mean_tsys(calon=calon[i], caloff=caloff[i], tcal=tcal[i])
-            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
             self._tsys[i] = tsys
 
     @property
@@ -714,13 +742,13 @@ class TPScan(ScanMixin):
 
     @property
     def delta_freq(self):
-        """Get the array of channel frequency width. The value depends on the cal state:
+        r"""Get the array of channel frequency width. The value depends on the cal state:
 
 
         =====  ================================================================
         CAL     :math:`\Delta\nu`
         =====  ================================================================
-        None    :math:`0.5 * ( \Delta\nu_{REFON}}+ \Delta\nu_{REFOFF} )`
+        None    :math:`0.5 * ( \Delta\nu_{REFON}+ \Delta\nu_{REFOFF} )`
         True    :math:`\Delta\nu_{REFON}`
         False   :math:`\Delta\nu_{REFOFF}`
         =====  ================================================================
@@ -820,11 +848,13 @@ class TPScan(ScanMixin):
         else:
             w = np.ones_like(self._tsys_weight)
         non_blanks = find_non_blanks(self._data)
+        print(f"found {len(non_blanks)} nonblanks out of {len(self._data)}")
         self._timeaveraged._data = average(self._data, axis=0, weights=w)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
+        print(self._timeaveraged.meta["MEANTSYS"], self._timeaveraged.meta["WTTSYS"], self._timeaveraged.meta["TSYS"])
         return self._timeaveraged
 
 

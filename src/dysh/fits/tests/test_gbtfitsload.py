@@ -190,7 +190,6 @@ class TestGBTFITSLoad:
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits"
         )
-        gbtidl_file = "/tmp/s0c1if0pl1.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         tp0 = tps[0].timeaverage()

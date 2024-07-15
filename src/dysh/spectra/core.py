@@ -58,9 +58,9 @@ def average(data, axis=0, weights=None):
         return np.average(data[goodindices], axis, weights)
 
 
-def find_non_blanks(data):
-    """
-    Finds the indices of blanked integrations.
+def integration_isnan(data):
+    """Helper function to calculate a boolean array that indicates whether
+    a collection of integrations is blanked.
 
     Parameters
     ----------
@@ -70,10 +70,46 @@ def find_non_blanks(data):
     Returns
     -------
     blanks : `~numpy.ndarray`
-        Array with indices of blanked integrations.
+        Array with length nspect with value True where an integration is blanked.
     """
 
-    return np.where(~np.isnan(data).all(axis=1))
+    return np.isnan(data).all(axis=1)
+
+
+def find_non_blanks(data):
+    """
+    Finds the indices of integrations that are not blanked.
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        The spectral data, typically with shape (nspect,nchan).
+
+    Returns
+    -------
+    blanks : `~numpy.ndarray`
+        Array with indices of non-blanked integrations.
+    """
+
+    return np.where(~integration_isnan(data))
+
+
+def find_blanks(data):
+    """
+    Finds the indices of blanked integrations
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        The spectral data, typically with shape (nspect,nchan).
+
+    Returns
+    -------
+    blanks : `~numpy.ndarray`
+        Array with indices of \blanked integrations.
+    """
+
+    return np.where(integration_isnan(data))
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
@@ -356,7 +392,7 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
         meandiff = np.nanmean(calon[chrng] - caloff[chrng])
         meanTsys = meanoff / meandiff * tcal + tcal / 2.0
     else:
-        meanTsys = np.mean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
+        meanTsys = np.nanmean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
         meanTsys = meanTsys * tcal + tcal / 2.0
 
     # meandiff can sometimes be negative, which makes Tsys negative!
