@@ -190,12 +190,14 @@ class TestGBTFITSLoad:
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits"
         )
+        gbtidl_file = "/tmp/s0c1if0pl1.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         tp0 = tps[0].timeaverage()
-        diff = tp0.flux.value - gbtidl_gettp
+        diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
-        # assert np.nanmean(diff) == 0.0
+        assert np.nanmean(diff) < 3e-8
+        assert abs(tp0.meta["TSYS"] - 24.953213) < 2e-6
 
         tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=False)
         gbtidl_file = (
@@ -204,9 +206,9 @@ class TestGBTFITSLoad:
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         tp0 = tps[0].timeaverage()
-        diff = tp0.flux.value - gbtidl_gettp
+        diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
-        # assert np.nanmean(diff) == 0.0
+        assert np.nanmean(diff) < 1e-7
 
         tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=None)
         gbtidl_file = (
@@ -215,9 +217,9 @@ class TestGBTFITSLoad:
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         tp0 = tps[0].timeaverage()
-        diff = tp0.flux.value - gbtidl_gettp
+        diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
-        # assert np.nanmean(diff) == 0.0
+        assert np.nanmean(diff) < 1e-7
 
     def test_load_multifits(self):
         """
