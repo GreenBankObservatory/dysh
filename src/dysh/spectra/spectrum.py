@@ -462,7 +462,7 @@ class Spectrum(Spectrum1D):
         sa = self.spectral_axis
         if sa.doppler_rest is not None:
             rfq = sa.doppler_rest
-        elif "RESTFREQ" in self.meta:
+        elif "RESTFREQ" in self.meta:    # @todo clarify RESTFREQ vs. RESTFRQ
             cunit1 = self.meta.get("CUNIT1", self.wcs.wcs.cunit[0])
             # @todo this could be done with a dict str->function
             rfq = self.meta["RESTFREQ"] * cunit1  # WCS wants no E
@@ -870,6 +870,7 @@ class Spectrum(Spectrum1D):
             Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
         use_wcs : bool
             If True, create a WCS object from `meta`
+            @todo  how else ?
         observer_location : `~astropy.coordinates.EarthLocation` or str
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
