@@ -854,7 +854,6 @@ class TPScan(ScanMixin):
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
-        print(self._timeaveraged.meta["MEANTSYS"], self._timeaveraged.meta["WTTSYS"], self._timeaveraged.meta["TSYS"])
         return self._timeaveraged
 
 
