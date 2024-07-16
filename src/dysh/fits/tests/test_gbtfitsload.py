@@ -142,6 +142,7 @@ class TestGBTFITSLoad:
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
         hdu.close()
 
         # Get the answer from dysh.
@@ -156,6 +157,7 @@ class TestGBTFITSLoad:
         assert np.nanmean(diff) == 0.0
         assert abs(tp0.meta["EXPOSURE"] - 0.97587454) < 1e-8
         assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now with the noise diode Off.
         tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0)
@@ -182,8 +184,8 @@ class TestGBTFITSLoad:
         assert np.nanmean(diff) == 0.0
         assert abs(tp0.meta["EXPOSURE"] - 1.9517491) < 1.5e-8
         assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
-        # now do some sig=F data
 
+        # Now do some sig=F data.
         sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=True)
@@ -192,11 +194,13 @@ class TestGBTFITSLoad:
         )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
         tp0 = tps[0].timeaverage()
         diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) < 3e-8
         assert abs(tp0.meta["TSYS"] - 24.953213) < 2e-6
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=False)
         gbtidl_file = (
@@ -204,10 +208,12 @@ class TestGBTFITSLoad:
         )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
         tp0 = tps[0].timeaverage()
         diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) < 1e-7
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=None)
         gbtidl_file = (
@@ -219,6 +225,46 @@ class TestGBTFITSLoad:
         diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) < 1e-7
+
+        # Self consistency check.
+        # This only makes sure that the output matches what is expected given the data selection.
+        data_path = f"{self.data_dir}/AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(data_path, verbose=False)
+        tests = {
+            0: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": None, "SIG": None},
+            1: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": True, "SIG": None},
+            2: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": None},
+            3: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": None, "SIG": True},
+            4: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": None, "SIG": False},
+            5: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": True, "SIG": True},
+            6: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": True, "SIG": False},
+            7: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": False},
+            8: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": True},
+        }
+        for k, v in tests.items():
+            if v["SIG"] == False:
+                with pytest.raises(Exception):
+                    tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], cal=v["CAL"], sig=v["SIG"])
+                continue
+            tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], cal=v["CAL"], sig=v["SIG"])
+            if v["CAL"]:
+                assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
+            tp = tps.timeaverage(weights=None)
+            if v["CAL"] is None:
+                cal = (0.5 * (tps[0]._refcalon + tps[0]._refcaloff)).astype(np.float64)
+            elif not v["CAL"]:
+                # CAL=False
+                cal = tps[0]._refcaloff.astype(np.float64)
+            else:
+                # CAL=True
+                cal = tps[0]._refcalon.astype(np.float64)
+            assert np.all(tp.flux.value == np.nanmean(cal, axis=0))
+
+        # Check that selection is being applied properly.
+        tp_scans = sdf.gettp(scan=[6, 7], plnum=0)
+        # Weird that the results are different for a bunch of channels.
+        assert np.all((sdf.gettp(scan=6, plnum=0).timeaverage().flux - tp_scans[0].timeaverage().flux).value < 2e-6)
+        assert np.all((sdf.gettp(scan=7, plnum=0).timeaverage().flux - tp_scans[1].timeaverage().flux).value < 2e-6)
 
     def test_load_multifits(self):
         """
