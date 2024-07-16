@@ -969,8 +969,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         TF = {True: "T", False: "F"}
-        sigstate = {True: "SIG", False: "REF", None: "BOTH"}
-        calstate = {True: "ON", False: "OFF", None: "BOTH"}
+
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
@@ -992,6 +991,8 @@ class GBTFITSLoad(SDFITSLoad):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        if debug:
+            print("SF=", _sf)
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -1018,8 +1019,9 @@ class GBTFITSLoad(SDFITSLoad):
                     # they are not booleans but chars
                     if sig is not None:
                         df = select_from("SIG", TF[sig], df)
-                    if cal is not None:
-                        df = select_from("CAL", TF[cal], df)
+                    # if cal is not None:
+                    #    df = select_from("CAL", TF[cal], df)
+                    # the rows with the selected sig state and all cal states
                     tprows = list(df["ROW"])
                     if debug:
                         print("TPROWS len=", len(tprows))
@@ -1030,8 +1032,8 @@ class GBTFITSLoad(SDFITSLoad):
                     g = TPScan(
                         self._sdf[i],
                         scan,
-                        sigstate[sig],
-                        calstate[cal],
+                        sig,
+                        cal,
                         tprows,
                         calrows,
                         bintable,
