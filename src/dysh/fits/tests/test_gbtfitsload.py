@@ -216,7 +216,7 @@ class TestGBTFITSLoad:
         gbtidl_gettp = hdu[1].data["DATA"][0]
         gbtidl_exp = hdu[1].data["EXPOSURE"][0]
         gbtidl_tsys = hdu[1].data["TSYS"][0]
-        tp0 = tps[0].timeaverage() < 2e-6
+        tp0 = tps[0].timeaverage()
         diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) < 1e-7
