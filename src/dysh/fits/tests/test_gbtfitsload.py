@@ -138,11 +138,13 @@ class TestGBTFITSLoad:
         For the noise calibration diode on, off, and both:
          - mean value is 0.0
         """
+        # @todo refactor the repeated gbtidl/tp0 sections here.
         # Get the answer from GBTIDL.
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
         hdu.close()
 
         # Get the answer from dysh.
@@ -155,8 +157,7 @@ class TestGBTFITSLoad:
         tp0 = tps_on[0].total_power(0)
         diff = tp0.flux.value - gbtidl_gettp
         assert np.nanmean(diff) == 0.0
-        assert abs(tp0.meta["EXPOSURE"] - 0.97587454) < 1e-8
-        assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now with the noise diode Off.
@@ -165,12 +166,14 @@ class TestGBTFITSLoad:
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
         tp0 = tps_off[0].total_power(0)
         diff = tp0.flux.value - gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) == 0.0
-        assert abs(tp0.meta["EXPOSURE"] - 0.97587454) < 1e-8
-        assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now, both on and off.
         tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0)
@@ -178,12 +181,14 @@ class TestGBTFITSLoad:
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
         tp0 = tps[0].total_power(0)
         diff = tp0.flux.value - gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) == 0.0
-        assert abs(tp0.meta["EXPOSURE"] - 1.9517491) < 1.5e-8
-        assert abs(tp0.meta["TSYS"] - 17.458052) < 1e-6
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now do some sig=F data.
         sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
@@ -195,11 +200,12 @@ class TestGBTFITSLoad:
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
         tp0 = tps[0].timeaverage()
         diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) < 3e-8
-        assert abs(tp0.meta["TSYS"] - 24.953213) < 2e-6
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=False)
@@ -209,10 +215,12 @@ class TestGBTFITSLoad:
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
         gbtidl_exp = hdu[1].data["EXPOSURE"][0]
-        tp0 = tps[0].timeaverage()
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
+        tp0 = tps[0].timeaverage() < 2e-6
         diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) < 1e-7
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=None)
@@ -221,10 +229,14 @@ class TestGBTFITSLoad:
         )
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
         tp0 = tps[0].timeaverage()
         diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) < 1e-7
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Self consistency check.
         # This only makes sure that the output matches what is expected given the data selection.
@@ -263,8 +275,21 @@ class TestGBTFITSLoad:
         # Check that selection is being applied properly.
         tp_scans = sdf.gettp(scan=[6, 7], plnum=0)
         # Weird that the results are different for a bunch of channels.
+        # This has to do with slight differences in Tsys weighting in ScanBlock.timeaverage() vs. Scan.timeaverage()
         assert np.all((sdf.gettp(scan=6, plnum=0).timeaverage().flux - tp_scans[0].timeaverage().flux).value < 2e-6)
         assert np.all((sdf.gettp(scan=7, plnum=0).timeaverage().flux - tp_scans[1].timeaverage().flux).value < 2e-6)
+        assert np.all(
+            (
+                sdf.gettp(scan=6, plnum=0).timeaverage(weights=None).flux - tp_scans[0].timeaverage(weights=None).flux
+            ).value
+            == 0
+        )
+        assert np.all(
+            (
+                sdf.gettp(scan=7, plnum=0).timeaverage(weights=None).flux - tp_scans[1].timeaverage(weights=None).flux
+            ).value
+            == 0
+        )
 
     def test_load_multifits(self):
         """
