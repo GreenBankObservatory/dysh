@@ -598,14 +598,14 @@ class TPScan(ScanMixin):
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         # now remove blanked integrations
         # seems like this should be done for all Scan classes!
+        # PS: yes.
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
-        # print(nb1, nb2, np.intersect1d(nb1, nb2))
         goodrows = np.intersect1d(nb1, nb2)
-        # nonblankedon = set(np.squeeze(nb1))
-        # nonblankedoff = set(np.squeeze(nb2))
-        # print(nonblankedon, nonblankedoff)
-        # goodrows = list(nonblankedon.intersection(nonblankedoff))
+        # Tell the user about blank integration(s) that will be ignored.
+        if len(goodrows) != len(self._refcalon):
+            nblanks = len(self._refcalon) - len(goodrows)
+            print(f"Ignoring {nblanks} blanked integration(s).")
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
@@ -615,13 +615,6 @@ class TPScan(ScanMixin):
         self._data = None
         if self._calibrate:
             self.calibrate()
-        # print(f"len(REFON) = {len(self._refonrows)} len(REFOFF) = {len(self._refoffrows)}")
-        # print(
-        #    f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}"
-        # )
-        # print(
-        #    f"scanrows {self._scanrows}, calrows ON {self._calrows['ON']}  # calrows OFF {self._calrows['OFF']} cal={self.calstate} sig={self.sigstate}"
-        # )
         self.calc_tsys()
 
     def calibrate(self):
@@ -847,14 +840,12 @@ class TPScan(ScanMixin):
             w = self._tsys_weight
         else:
             w = np.ones_like(self._tsys_weight)
-        non_blanks = find_non_blanks(self._data)
-        print(f"found {len(non_blanks)} nonblanks out of {len(self._data)}")
+        non_blanks = find_non_blanks(self._data)[0]
         self._timeaveraged._data = average(self._data, axis=0, weights=w)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
-        print(self._timeaveraged.meta["MEANTSYS"], self._timeaveraged.meta["WTTSYS"], self._timeaveraged.meta["TSYS"])
         return self._timeaveraged
 
 
