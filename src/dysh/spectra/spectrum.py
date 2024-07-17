@@ -440,7 +440,7 @@ class Spectrum(Spectrum1D):
             # need to change CDELT1 and CRPIX1, as CRVAL1 should stay the same
             # for CRPIX computation, see MIRIAD imbin, or NEMO ccdsub/ccdslice assuming centered pixels with step=width
             new_meta["CDELT1"] = width * self.meta["CDELT1"]
-            new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"]-1)/width + 0.5*(width-1)/width
+            new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / width + 0.5 * (width - 1) / width
             s = Spectrum.make_spectrum(new_data, meta=new_meta)
             s._spectral_axis = self._spectral_axis[idx]
             for i in range(len(s._spectral_axis)):  # grmpf, no proper setter
