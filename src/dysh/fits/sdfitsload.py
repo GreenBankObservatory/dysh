@@ -10,7 +10,7 @@ import pandas as pd
 from astropy.io import fits
 
 from ..spectra.spectrum import Spectrum
-from ..util import uniq
+from ..util import select_from, uniq
 
 
 class SDFITSLoad(object):
@@ -304,7 +304,7 @@ class SDFITSLoad(object):
         """
 
         if source is not None:
-            df = self.select("OBJECT", source, self._index[bintable])
+            df = select_from("OBJECT", source, self._index[bintable])
             # nfeed = df["FEED"].nunique()
             numsources = len(df)
             # nint = numsources//(self.npol(bintable)*nfeed)

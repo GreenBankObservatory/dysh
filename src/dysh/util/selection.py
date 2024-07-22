@@ -65,10 +65,10 @@ class Selection(DataFrame):
 
     def __init__(self, initobj, aliases=default_aliases, **kwargs):
         if hasattr(initobj, "_index"):  # it's an SDFITSLoad object
-            super().__init__(initobj._index, copy=True)
+            super().__init__(initobj._index)
             DEFKEYS = list(initobj._index.keys())
         else:
-            super().__init__(initobj, copy=True)  # it's a Selection or DataFrame
+            super().__init__(initobj)  # it's a Selection or DataFrame
             DEFKEYS = _default_sdfits_columns()
         # adding attributes that are not columns will result
         # in a UserWarning, which we can safely ignore.
