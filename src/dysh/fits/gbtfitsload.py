@@ -53,7 +53,7 @@ class GBTFITSLoad(SDFITSLoad):
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
         self._sdf = []
-        self._index = None
+        self._selection = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
             self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
@@ -68,7 +68,6 @@ class GBTFITSLoad(SDFITSLoad):
             raise Exception(f"{fileobj} is not a file or directory path")
         if kwargs_opts["index"]:
             self._create_index_if_needed()
-            self._selection = Selection(self)
             self._update_radesys()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
@@ -91,6 +90,12 @@ class GBTFITSLoad(SDFITSLoad):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
+
+    @property
+    def _index(self):
+        # for backwards compatibility after removing _index
+        # as a separate object
+        return self._selection
 
     @property
     def selection(self):
@@ -156,7 +161,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         if fitsindex is None:
-            df = self._index
+            df = self._selection
         else:
             df = self._sdf[fitsindex]._index
 
@@ -531,18 +536,22 @@ class GBTFITSLoad(SDFITSLoad):
         self._selection.select_channel(tag=tag, chan=chan)
 
     def _create_index_if_needed(self):
+        if self._selection is not None:
+            return
         i = 0
-        if self._index is None:
+        df = None
+        if self._selection is None:
             for s in self._sdf:
                 if s._index is None:
-                    s._create_index()
+                    s.create_index()
                 # add a FITSINDEX column
                 s._index["FITSINDEX"] = i * np.ones(len(s._index), dtype=int)
-                if self._index is None:
-                    self._index = s._index
+                if df is None:
+                    df = s._index
                 else:
-                    self._index = pd.concat([self._index, s._index], axis=0, ignore_index=True)
+                    df = pd.concat([df, s._index], axis=0, ignore_index=True)
                 i = i + 1
+        self._selection = Selection(df)
         self._construct_procedure()
         self._construct_integration_number()
 
@@ -553,7 +562,7 @@ class GBTFITSLoad(SDFITSLoad):
         OnOff:PSWITCHON:TPWCAL.
 
         """
-        if self._index is None:
+        if self._selection is None:
             warnings.warn("Couldn't construct procedure string: index is not yet created.")
             return
         if "OBSMODE" not in self._index:
