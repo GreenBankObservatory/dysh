@@ -98,6 +98,18 @@ class GBTFITSLoad(SDFITSLoad):
         return self._selection
 
     @property
+    def columns(self):
+        """The column names in the binary table, minus the DATA column
+
+        Returns
+        -------
+        ~pandas.Index
+            The column names as a DataFrame Index
+        """
+        # return a list instead?
+        return self._selection.columns
+
+    @property
     def selection(self):
         """
         The data selection object
@@ -429,7 +441,6 @@ class GBTFITSLoad(SDFITSLoad):
     # @todo move all selection methods to sdfitsload after adding Selection
     # to sdfitsload
     # @todo write a Delegator class to autopass to Selection. See, e.g., https://michaelcho.me/article/method-delegation-in-python/
-    # the problem is I would rather use __getattr__ to allow us to do stuff like sdf["COLUMNAME"] to return a column via _index.
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
@@ -1843,4 +1854,19 @@ class GBTFITSLoad(SDFITSLoad):
         return self._selection[items]
 
     def __setitem__(self, items, values):
-        pass
+        if isinstance(items, str):
+            items = items.upper()
+        elif isinstance(items, (Sequence, np.ndarray)):
+            items = [i.upper() for i in items]
+        else:
+            raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+        if "DATA" in items:
+            raise ValueError("Currently you are not allowed to set the DATA column")
+        # warn if changing an existing column
+        col_exists = len(set(self.columns).intersection(set(items))) > 0
+        # col_in_selection =
+        if col_exists:
+            warnings.warn("Changing an existing SDFITS column")
+        self._selection[items] = values
+        # now change the binary table
+        # recompute the selection?
