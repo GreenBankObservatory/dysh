@@ -8,7 +8,6 @@ import pytest
 from astropy.io import fits
 from pandas.testing import assert_frame_equal, assert_series_equal
 
-import dysh
 from dysh import util
 from dysh.fits import gbtfitsload
 
@@ -472,3 +471,11 @@ class TestGBTFITSLoad:
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
         assert_frame_equal(org_sdf._index, new_sdf._index)
+
+    def test_get_item(self):
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        assert list(set(g["PLNUM"])) == [0, 1]
+        assert list(set(g[["SCAN", "IFNUM"]].loc[0])) == [2, 6]
+        with pytest.raises(KeyError):
+            g["FOOBAR"]

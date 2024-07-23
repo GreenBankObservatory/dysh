@@ -3,6 +3,7 @@
 """
 
 import warnings
+from collections.abc import Sequence
 
 import astropy.units as u
 import numpy as np
@@ -694,3 +695,14 @@ class SDFITSLoad(object):
                 outbintable = self._bintable_from_rows(rows, bintable)
                 outhdu.append(outbintable)
                 outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+
+    def __getitem__(self, items):
+        # items can be a single string or a list of strings.
+        # Want case insensitivity
+        if isinstance(items, str):
+            items = items.upper()
+        elif isinstance(items, (Sequence, np.ndarray)):
+            items = [i.upper() for i in items]
+        else:
+            raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+        return self._index[items]

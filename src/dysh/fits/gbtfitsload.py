@@ -2,9 +2,9 @@
 
 import copy
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
 
-# import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -1830,3 +1830,14 @@ class GBTFITSLoad(SDFITSLoad):
         # Hour angle and declination case.
         hadec_mask = self._index["CTYPE2"] == "HA"
         self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
+
+    def __getitem__(self, items):
+        # items can be a single string or a list of strings.
+        # Want case insensitivity
+        if isinstance(items, str):
+            items = items.upper()
+        elif isinstance(items, (Sequence, np.ndarray)):
+            items = [i.upper() for i in items]
+        else:
+            raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+        return self._selection[items]
