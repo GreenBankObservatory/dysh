@@ -477,5 +477,7 @@ class TestGBTFITSLoad:
         g = gbtfitsload.GBTFITSLoad(f)
         assert list(set(g["PLNUM"])) == [0, 1]
         assert list(set(g[["SCAN", "IFNUM"]].loc[0])) == [2, 6]
+        # test case insensitivity
+        assert list(set(g["plnum"])) == [0, 1]
         with pytest.raises(KeyError):
             g["FOOBAR"]
