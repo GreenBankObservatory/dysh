@@ -9,6 +9,8 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
+from astropy.io.fits import BinTableHDU
+from astropy.table import Table
 
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
@@ -78,6 +80,11 @@ class SDFITSLoad(object):
     def filename(self):
         """The input SDFITS filename"""
         return self._filename
+
+    @property
+    def total_rows(self):
+        """Returns the total number of rows in all binary table HDUs"""
+        return np.sum(self._nrows)
 
     def index(self, hdu=None, bintable=None):
         """
@@ -558,8 +565,8 @@ class SDFITSLoad(object):
             print("i=", i)
             self._summary(i)
 
-    def __len__(self):
-        return self.nrows
+    # def __len__(self):  # this has no meaning for multiple bintables
+    #    return self._nrows
 
     def __repr__(self):
         return self._filename
@@ -620,10 +627,10 @@ class SDFITSLoad(object):
             b = self._bintable[bintable]
             b.columns.change_attrib(ou, "name", nu)
 
-    # @todo implement this MWP
-    def add_col(self, name, value, bintable=None):
+    def _add_binary_table_column(self, name, value, bintable=None):
         """
-        Add a new column to the FITS binary table HDU
+        Add a new column to the SDFITS binary table(s).  Length of value must match
+        number of rows in binary table `bintable`, or sum of all rows if `bintable=None`.
 
         Parameters
         ----------
@@ -639,7 +646,56 @@ class SDFITSLoad(object):
         None.
 
         """
-        pass
+        # If we pass the data through a astropy Table first, then the conversion of
+        # numpy array dtype to FITS format string (e.g, '12A') gets done automatically and correctly.
+        if bintable is not None:
+            t = BinTableHDU(Table(names=[name], data=[value]))
+            self._bintable[bintable].columns.add_col(t.columns[name])
+        else:
+            if len(value) != self.total_rows:
+                raise ValueError(
+                    f"Length of values array {len(value)} for column {name} and total number of rows {self.total_rows} don't match."
+                )
+            # Split values up by length of the individual binary tables
+            start = 0
+            for i in range(len(self._nrows)):
+                n = self._nrows[i]
+                t = BinTableHDU(Table(names=[name], data=[value[start : start + n]]))
+                self._bintable[i].columns.add_col(t.columns[name])
+                start = start + n + 1
+
+    def _update_binary_table_column(self, column_dict):
+        """Change or add one or more columns to the SDFITS binary table(s)
+
+        Parameters
+        ----------
+            column_dict : dict
+            Dictionary with column names as keys and column values
+        """
+        # if there is only one bintable, it is straightforward.
+        # BinTableHDU interface will take care of the types and data lengths matching.
+        # It will even allow the case where len(values) == 1 to replace all column values with
+        # a single value.
+        if len(self._bintable) == 1:
+            for k, v in column_dict.items():
+                if k in self._bintable[0].data:
+                    self._bintable[0].data[k] = v
+                # otherwise we need to add rather than replace/update
+            else:
+                self._add_binary_table_column(k, v, 0)
+        else:
+            start = 0
+            for k, v in column_dict.items():
+                if len(v) != self.total_rows:
+                    raise ValueError(
+                        f"Length of values array {len(v)} for column {k} and total number of rows {self.total_rows} don't match."
+                    )
+                # Split values up by length of the individual binary tables
+                for b in self._bintable:
+                    if k in b.data:
+                        n = len(b.data)
+                        b.data[start : start + n] = v
+                        start = start + n + 1
 
     def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
         """
@@ -706,3 +762,26 @@ class SDFITSLoad(object):
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
         return self._index[items]
+
+    def __setitem__(self, items, values):
+        if isinstance(items, str):
+            items = items.upper()
+            d = {items: values}
+        elif isinstance(items, (Sequence, np.ndarray)):
+            items = [i.upper() for i in items]
+            d = {i: values[i] for i in items}
+        else:
+            raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+        if "DATA" in items:
+            raise ValueError("Currently you are not allowed to set the DATA column")
+        # warn if changing an existing column
+        col_exists = len(set(self.columns).intersection(set(items))) > 0
+        # col_in_selection =
+        if col_exists:
+            warnings.warn("Changing an existing SDFITS column")
+        try:
+            self._update_binary_table_columns(d)
+        except Exception as e:
+            raise Exception(f"Could not update SDFITS binary table because {e}.")
+        # only update the index if the binary table could be updated.
+        self._index[items] = values
