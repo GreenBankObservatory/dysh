@@ -317,7 +317,7 @@ class GBTFITSLoad(SDFITSLoad):
         self._create_index_if_needed()
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-        _df = self._index[show].copy()
+        _df = self[show].copy()
         _df.loc[:, "VELOCITY"] /= 1e3  # convert to km/s
         _df["RESTFREQ"] = _df["RESTFREQ"] / 1.0e9  # convert to GHz
         _df["DOPFREQ"] = _df["DOPFREQ"] / 1.0e9  # convert to GHz
@@ -568,7 +568,7 @@ class GBTFITSLoad(SDFITSLoad):
         if "OBSMODE" not in self._index:
             warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
             return
-        df = self._index["OBSMODE"].str.split(":", expand=True)
+        df = self["OBSMODE"].str.split(":", expand=True)
         self._index["PROC"] = df[0]
         # Assign these to something that might be useful later,
         # since we have them
@@ -628,7 +628,7 @@ class GBTFITSLoad(SDFITSLoad):
                 fici = fits_index_changes[i + 1]
             else:
                 fici = -1
-            fi = self._index["FITSINDEX"][fic]
+            fi = self["FITSINDEX"][fic]
             # @todo fix this MWP
             # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
 
@@ -1683,7 +1683,7 @@ class GBTFITSLoad(SDFITSLoad):
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
         rows = []
-        scanidx = self._index[self._index["SCAN"].isin(scans)]
+        scanidx = self[self["SCAN"].isin(scans)]
         bt = self.udata("BINTABLE")
         for j in bt:
             df = scanidx[scanidx["BINTABLE"] == j]
@@ -1818,17 +1818,17 @@ class GBTFITSLoad(SDFITSLoad):
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.
-        low_el_mask = self._index["ELEVATIO"] < 5
+        low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
             warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
 
         # Azimuth and elevation case.
-        azel_mask = (self._index["CTYPE2"] == "AZ") & (self._index["CTYPE3"] == "EL")
+        azel_mask = (self["CTYPE2"] == "AZ") & (self["CTYPE3"] == "EL")
         self._index.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
 
         # Hour angle and declination case.
-        hadec_mask = self._index["CTYPE2"] == "HA"
+        hadec_mask = self["CTYPE2"] == "HA"
         self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
 
     def __getitem__(self, items):
@@ -1841,3 +1841,6 @@ class GBTFITSLoad(SDFITSLoad):
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
         return self._selection[items]
+
+    def __setitem__(self, items, values):
+        pass
