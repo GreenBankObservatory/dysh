@@ -68,10 +68,23 @@ class SDFITSLoad(object):
         return self._hdu.info()
 
     @property
+    def columns(self):
+        """The column names in the binary table, minus the DATA column
+
+        Returns
+        -------
+        ~pandas.Index
+            The column names as a DataFrame Index
+        """
+        # return a list instead?
+        return self._index.columns
+
+    @property
     def bintable(self):
         """The list of bintables"""
         return self._bintable
 
+    @property
     def binheader(self):
         """The list of bintable headers"""
         return self._binheader
@@ -435,7 +448,7 @@ class SDFITSLoad(object):
             bunit = meta["BUNIT"]
         else:
             bunit = None
-            h = self.binheader()[0]
+            h = self.binheader[0]
             for k, v, c in h.cards:
                 if k == "BUNIT":
                     bunit = v
@@ -569,7 +582,10 @@ class SDFITSLoad(object):
     #    return self._nrows
 
     def __repr__(self):
-        return self._filename
+        return str(self._filename)
+
+    def __str__(self):
+        return str(self._filename)
 
     def _bintable_from_rows(self, rows=None, bintable=None):
         """
@@ -678,11 +694,13 @@ class SDFITSLoad(object):
         # a single value.
         if len(self._bintable) == 1:
             for k, v in column_dict.items():
-                if k in self._bintable[0].data:
+                # data is an astropy.io.fits.fitsrec.FITS_rec
+                print(f"trying {k}={v}")
+                if k in self._bintable[0].data.names:
                     self._bintable[0].data[k] = v
                 # otherwise we need to add rather than replace/update
-            else:
-                self._add_binary_table_column(k, v, 0)
+                else:
+                    self._add_binary_table_column(k, v, 0)
         else:
             start = 0
             for k, v in column_dict.items():
@@ -692,9 +710,9 @@ class SDFITSLoad(object):
                     )
                 # Split values up by length of the individual binary tables
                 for b in self._bintable:
-                    if k in b.data:
+                    if k in b.data.names:
                         n = len(b.data)
-                        b.data[start : start + n] = v
+                        b.data[k][start : start + n] = v
                         start = start + n + 1
 
     def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
@@ -780,7 +798,7 @@ class SDFITSLoad(object):
         if col_exists:
             warnings.warn("Changing an existing SDFITS column")
         try:
-            self._update_binary_table_columns(d)
+            self._update_binary_table_column(d)
         except Exception as e:
             raise Exception(f"Could not update SDFITS binary table because {e}.")
         # only update the index if the binary table could be updated.

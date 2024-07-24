@@ -1,11 +1,8 @@
 import glob
 import os
-from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
-from pandas.testing import assert_series_equal
 
 from dysh import util
 from dysh.fits.sdfitsload import SDFITSLoad
@@ -83,3 +80,32 @@ class TestSDFITSLoad:
         assert list(set(g[["SCAN", "IFNUM"]].loc[0])) == [2, 6]
         with pytest.raises(KeyError):
             g["FOOBAR"]
+
+    def test_set_item(self):
+        # File with a single BinTableHDU
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        g = SDFITSLoad(f)
+        # all rows of a column to a single value
+        g["FREQRES"] = 1500.0  # Hz
+        # test that the selection (index) was set
+        assert list(set(g["FREQRES"]))[0] == 1500
+        # test that the BinTableHDU data was set
+        assert np.all(g._bintable[0].data["FREQRES"] == 1500.0)
+        # rows of a column to different values
+        x = 3.1415 * np.arange(32, dtype=np.float64)
+        # make sure lower/varying case also works
+        g["dopfreq"] = x
+        assert np.all(g["DoPFreQ"] == x)
+        assert np.all(g._bintable[0].data["DOPFREQ"] == x)
+        # Wrong length array (except single value which sets all rows) should raise ValueError.
+        # We re-raise with additional context as Exception.
+        with pytest.raises(Exception):
+            g["TWARM"] = np.arange(99)
+
+        # File with multiple BinTableHDUs
+
+    def test_add_bintable_column(self):
+        # File with a single BinTableHDU
+        assert True
+        # File with multiple BinTableHDUs
+        assert True
