@@ -670,7 +670,7 @@ class SDFITSLoad(object):
         else:
             if len(value) != self.total_rows:
                 raise ValueError(
-                    f"Length of values array {len(value)} for column {name} and total number of rows {self.total_rows} don't match."
+                    f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.total_rows}) aren't equal."
                 )
             # Split values up by length of the individual binary tables
             start = 0
@@ -704,16 +704,22 @@ class SDFITSLoad(object):
         else:
             start = 0
             for k, v in column_dict.items():
-                if len(v) != self.total_rows:
+                is_str = isinstance(v, str)
+                print(f"{v} is str? {is_str}")
+                if not is_str and len(v) != self.total_rows:
                     raise ValueError(
-                        f"Length of values array {len(v)} for column {k} and total number of rows {self.total_rows} don't match."
+                        f"Length of values array ({len(v)}) for column {k} and total number of rows ({self.total_rows}) aren't equal."
                     )
                 # Split values up by length of the individual binary tables
                 for b in self._bintable:
                     if k in b.data.names:
                         n = len(b.data)
-                        b.data[k][start : start + n] = v
-                        start = start + n + 1
+                        if is_str:
+                            b.data[k] = v
+                        else:
+                            print(f"doing bintable {b} {k} {v[start:start+n]}")
+                            b.data[k] = v[start : start + n]
+                        start = start + n
 
     def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
         """
@@ -800,6 +806,6 @@ class SDFITSLoad(object):
         try:
             self._update_binary_table_column(d)
         except Exception as e:
-            raise Exception(f"Could not update SDFITS binary table because {e}.")
+            raise Exception(f"Could not update SDFITS binary table because {e}")
         # only update the index if the binary table could be updated.
         self._index[items] = values

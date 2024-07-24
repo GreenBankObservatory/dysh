@@ -83,7 +83,8 @@ class TestSDFITSLoad:
 
     def test_set_item(self):
         # File with a single BinTableHDU
-        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        d = util.get_project_testdata()
+        f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
         g = SDFITSLoad(f)
         # all rows of a column to a single value
         g["FREQRES"] = 1500.0  # Hz
@@ -103,6 +104,27 @@ class TestSDFITSLoad:
             g["TWARM"] = np.arange(99)
 
         # File with multiple BinTableHDUs
+        # This is a rare case and in any event the multiple bintables make likely  have
+        # different shapes, in which case we can't do setitem operations.
+        # This file has 74 columns in each bintable, 3 rows in first table and 5 rows in 2nd
+        # (after adding primary HDU, it will have 91 columns)
+        f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
+        g = SDFITSLoad(f)
+        # first test setting all rows to same value
+        c = "MBM12"
+        g["OBJECT"] = c
+        assert np.all(g["object"] == c)
+        assert np.all(g.bintable[0].data["OBJECT"] == c)
+        assert np.all(g.bintable[1].data["OBJECT"] == c)
+        # now an array
+        c = ["NGC123"] * 3 + ["3C111"] * 5
+        g["object"] = c
+        assert np.all(g["object"] == c)
+        assert np.all(g.bintable[0].data["OBJECT"] == c[0:3])
+        assert np.all(g.bintable[1].data["OBJECT"] == c[3:])
+        c.append("ONETOOMANY")
+        with pytest.raises(Exception):
+            g["object"] = c
 
     def test_add_bintable_column(self):
         # File with a single BinTableHDU
