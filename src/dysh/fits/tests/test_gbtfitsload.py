@@ -458,6 +458,7 @@ class TestGBTFITSLoad:
         g.write(output, multifile=True, scan=6, overwrite=True)
         # @todo remove test output files in a teardown method
         sdf = gbtfitsload.GBTFITSLoad(o)
+        assert set(sdf["SCAN"]) == set([6])
 
     def test_write_all(self, tmp_path):
         """Test that we can write a loaded SDFITS file without any changes"""
@@ -481,3 +482,45 @@ class TestGBTFITSLoad:
         assert list(set(g["plnum"])) == [0, 1]
         with pytest.raises(KeyError):
             g["FOOBAR"]
+
+    def test_set_item(self):
+        # First test with a single number or string
+        keyval = {
+            "IFNUM": 12,
+            "FRONTEND": "Rx999",
+            "sitelong": 42.21,
+        }
+        d = util.get_project_testdata()
+        files = [
+            d / "AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A6.fits",  # single file
+            d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/",  # multiple files
+        ]
+        for f in files:
+            g = gbtfitsload.GBTFITSLoad(f)
+            for key, val in keyval.items():
+                _set = set([val])
+                g[key] = val
+                assert set(g[key]) == _set
+                for sdf in g._sdf:
+                    assert set(sdf[key]) == _set
+                    for b in sdf._bintable:
+                        assert set(b.data[key]) == _set
+
+        # now test array of numbers or strings
+        for f in files:
+            g = gbtfitsload.GBTFITSLoad(f)
+            for key, val in keyval.items():
+                array = [val] * g.total_rows
+                _set = set([val])
+                g[key] = array
+                assert set(g[key]) == _set
+                for sdf in g._sdf:
+                    for b in sdf._bintable:
+                        assert set(b.data[key]) == _set
+        # check that exception is handled for incorrect length
+        for f in files:
+            g = gbtfitsload.GBTFITSLoad(f)
+            for key, val in keyval.items():
+                array = [val] * 2 * g.total_rows
+                with pytest.raises(ValueError):
+                    g[key] = array

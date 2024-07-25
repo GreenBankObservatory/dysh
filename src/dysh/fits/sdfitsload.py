@@ -96,8 +96,8 @@ class SDFITSLoad(object):
 
     @property
     def total_rows(self):
-        """Returns the total number of rows in all binary table HDUs"""
-        return np.sum(self._nrows)
+        """Returns the total number of rows summed over all binary table HDUs"""
+        return sum(self._nrows)
 
     def index(self, hdu=None, bintable=None):
         """
@@ -885,6 +885,7 @@ class SDFITSLoad(object):
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
         # Want case insensitivity
+        # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
         elif isinstance(items, (Sequence, np.ndarray)):
@@ -894,18 +895,26 @@ class SDFITSLoad(object):
         return self._index[items]
 
     def __setitem__(self, items, values):
+        # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
             d = {items: values}
-        elif isinstance(items, (Sequence, np.ndarray)):
-            items = [i.upper() for i in items]
-            d = {i: values[i] for i in items}
+        # we won't support multiple keys for setting right now.
+        # ultimately it could be done with recursive call to __setitem__
+        # for each key/val pair
+        # elif isinstance(items, (Sequence, np.ndarray)):
+        #    items = [i.upper() for i in items]
+        #    d = {i: values[i] for i in items}
         else:
-            raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+            raise KeyError(f"Invalid key {items}. Keys must be str")
         if "DATA" in items:
             raise ValueError("Currently you are not allowed to set the DATA column")
         # warn if changing an existing column
-        col_exists = len(set(self.columns).intersection(set(items))) > 0
+        if isinstance(items, str):
+            iset = set([items])
+        else:
+            iset = set(items)
+        col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
             warnings.warn("Changing an existing SDFITS column")

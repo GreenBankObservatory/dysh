@@ -98,6 +98,11 @@ class GBTFITSLoad(SDFITSLoad):
         return self._selection
 
     @property
+    def total_rows(self):
+        """Returns the total number of rows summed over all files and binary table HDUs"""
+        return sum([s.total_rows for s in self._sdf])
+
+    @property
     def columns(self):
         """The column names in the binary table, minus the DATA column
 
@@ -1845,6 +1850,7 @@ class GBTFITSLoad(SDFITSLoad):
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
         # Want case insensitivity
+        # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
         elif isinstance(items, (Sequence, np.ndarray)):
@@ -1854,19 +1860,41 @@ class GBTFITSLoad(SDFITSLoad):
         return self._selection[items]
 
     def __setitem__(self, items, values):
+        # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
-        elif isinstance(items, (Sequence, np.ndarray)):
-            items = [i.upper() for i in items]
+        # we won't support multiple keys for setting right now.
+        # ultimately it could be done with recursive call to __setitem__
+        # for each key/val pair
+        # elif isinstance(items, (Sequence, np.ndarray)):
+        #    items = [i.upper() for i in items]
         else:
-            raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+            raise KeyError(f"Invalid key {items}. Keys must be str")
         if "DATA" in items:
             raise ValueError("Currently you are not allowed to set the DATA column")
-        # warn if changing an existing column
-        col_exists = len(set(self.columns).intersection(set(items))) > 0
+        if isinstance(items, str):
+            iset = set([items])
+        else:
+            iset = set(items)
+        col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
             warnings.warn("Changing an existing SDFITS column")
+        # now deal with values as arrays
+        is_array = False
+        if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
+            if len(values) != self.total_rows:
+                raise ValueError(
+                    f"Length of values array ({len(values)}) for column {items} and total number of rows ({self.total_rows}) aren't equal."
+                )
+            is_array = True
         self._selection[items] = values
-        # now change the binary table
-        # recompute the selection?
+        start = 0
+        # loop over the individual files
+        for s in self._sdf:
+            if not is_array:
+                s[items] = values
+            else:
+                s[items] = values[start : start + s.total_rows]
+                start = start + s.total_rows
+        # recompute the selection if meta have changed or just warn?
