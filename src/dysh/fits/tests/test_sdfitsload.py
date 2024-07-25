@@ -81,7 +81,7 @@ class TestSDFITSLoad:
         with pytest.raises(KeyError):
             g["FOOBAR"]
 
-    def test_set_item(self):
+    def test_set_item(self, tmp_path):
         # File with a single BinTableHDU
         d = util.get_project_testdata()
         f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
@@ -93,7 +93,7 @@ class TestSDFITSLoad:
         # test that the BinTableHDU data was set
         assert np.all(g._bintable[0].data["FREQRES"] == 1500.0)
         # rows of a column to different values
-        x = 3.1415 * np.arange(32, dtype=np.float64)
+        x = 3.1415 * np.arange(g.nrows(0), dtype=np.float64)
         # make sure lower/varying case also works
         g["dopfreq"] = x
         assert np.all(g["DoPFreQ"] == x)
@@ -101,7 +101,7 @@ class TestSDFITSLoad:
         # Wrong length array (except single value which sets all rows) should raise ValueError.
         # We re-raise with additional context as Exception.
         with pytest.raises(Exception):
-            g["TWARM"] = np.arange(99)
+            g["TWARM"] = np.arange(g.nrows(0) + 99)
 
         # File with multiple BinTableHDUs
         # This is a rare case and in any event the multiple bintables make likely  have
@@ -117,17 +117,119 @@ class TestSDFITSLoad:
         assert np.all(g.bintable[0].data["OBJECT"] == c)
         assert np.all(g.bintable[1].data["OBJECT"] == c)
         # now an array
-        c = ["NGC123"] * 3 + ["3C111"] * 5
+        c = ["NGC123"] * g.nrows(0) + ["3C111"] * g.nrows(1)
         g["object"] = c
         assert np.all(g["object"] == c)
-        assert np.all(g.bintable[0].data["OBJECT"] == c[0:3])
-        assert np.all(g.bintable[1].data["OBJECT"] == c[3:])
+        assert np.all(g.bintable[0].data["OBJECT"] == c[0 : g.nrows(0)])
+        assert np.all(g.bintable[1].data["OBJECT"] == c[g.nrows(0) :])
         c.append("ONETOOMANY")
         with pytest.raises(Exception):
             g["object"] = c
+        # now a number
+        num = 1.23e9
+        g["RESTFREQ"] = num
+        assert np.all(g["restfreq"] == num)
+        assert np.all(g.bintable[0].data["RESTFREQ"] == num)
+        assert np.all(g.bintable[1].data["RESTFREQ"] == num)
+        # now a sequence of numbers
+        num = np.arange(8) * 9.0e9
+        g["RESTFREQ"] = num
+        assert np.all(g["restfreq"] == num)
+        assert np.all(g.bintable[0].data["restfreq"] == num[0 : g.nrows(0)])  # wow astropy allows lowercase
+        assert np.all(g.bintable[1].data["restfreq"] == num[g.nrows(0) :])
+        # check that the change gets written
+        o = tmp_path / "setitem"
+        o.mkdir()
+        out = o / "test_write_setitem.fits"
+        g.write(out, overwrite=True)
+        g = SDFITSLoad(out)
+        assert np.all(g["object"] == c[0 : g.total_rows])
+        assert np.all(g.bintable[0].data["OBJECT"] == c[0 : g.nrows(0)])
+        assert np.all(g.bintable[1].data["OBJECT"] == c[g.nrows(0) : g.total_rows])
+        assert np.all(g["restFREQ"] == num)
+        assert np.all(g.bintable[0].data["RESTFREQ"] == num[0 : g.nrows(0)])
+        assert np.all(g.bintable[1].data["RESTFREQ"] == num[g.nrows(0) :])
 
-    def test_add_bintable_column(self):
+    def test_rename_column(self, tmp_path):
         # File with a single BinTableHDU
-        assert True
+        d = util.get_project_testdata()
+        f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        g = SDFITSLoad(f)
+        g.rename_column("object", "target")
+        assert "TARGET" in g.columns
+        assert "TARGET" in g._bintable[0].data.names
+        o = tmp_path / "rename"
+        o.mkdir()
+        out = o / "test_write_setitem.fits"
+        g.write(out, overwrite=True)
+        g = SDFITSLoad(out)
+        assert "TARGET" in g.columns
+        assert "TARGET" in g._bintable[0].data.names
+
         # File with multiple BinTableHDUs
-        assert True
+        f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
+        g = SDFITSLoad(f)
+        g.rename_column(
+            "AZIMUTH", "THESPINNYDIRECTION"
+        )  # believe it or not, FITS allows TTYPEs to be more than 8 chars
+        assert "THESPINNYDIRECTION" in g.columns
+        for b in g.bintable:
+            assert "THESPINNYDIRECTION" in b.data.names
+        # check that the change gets written
+        out = o / "test_write_setitem.fits"
+        g.write(out, overwrite=True)
+        g = SDFITSLoad(out)
+        assert "THESPINNYDIRECTION" in g.columns
+        for b in g.bintable:
+            assert "THESPINNYDIRECTION" in b.data.names
+
+    def test_add_column(self, tmp_path):
+        # File with a single BinTableHDU
+        d = util.get_project_testdata()
+        f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        g = SDFITSLoad(f)
+        # single value
+        num = 7.2e-6
+        meow = "Purrrrr"
+        # multivalue
+        e = 2.718
+        val = e * np.arange(g.nrows(0))
+        c = ["boy wonder"] * g.nrows(0)
+        colval = {"superman": num, "catwoman": meow, "batman": val, "robin": c}
+        for k, v in colval.items():
+            g[k] = v
+            assert np.all(g[k] == v)
+            assert np.all(g.bintable[0].data[k] == v)
+        with pytest.raises(Exception):
+            c.append("nope")
+            g["robin"] = c
+        c = ["boy wonder"] * g.nrows(0)
+        colval["robin"] = c
+        # write and check
+        o = tmp_path / "addcol"
+        o.mkdir()
+        out = o / "test_write_setitem.fits"
+        g.write(out, overwrite=True)
+        g = SDFITSLoad(out)
+        for k, v in colval.items():
+            assert np.all(g[k] == v)
+            assert np.all(g.bintable[0].data[k] == v)
+
+        # File with multiple BinTableHDUs
+        f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
+        g = SDFITSLoad(f)
+        val = e * np.arange(g.total_rows)
+        c = ["boy wonder"] * g.total_rows
+        colval = {"superman": num, "catwoman": meow, "batman": val, "robin": c}
+        for k, v in colval.items():
+            g[k] = v
+            assert np.all(g[k] == v)
+            print(g.bintable[0].data.names)
+            print(g.bintable[1].data.names)
+        #    assert np.all(g.bintable[0].data[k] == v)
+        #    assert np.all(g.bintable[1].data[k] == v)
+        with pytest.raises(Exception):
+            c.append("nope")
+            g["robin"] = c
+        c = ["boy wonder"] * g.total_rows
+        colval["robin"] = c
