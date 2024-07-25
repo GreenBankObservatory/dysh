@@ -241,7 +241,7 @@ class TestSDFITSLoad:
         g = SDFITSLoad(f)
         g.delete_column("dopfreq")
         assert "DOPFREQ" not in g.columns
-        assert "DOPFREQ" in g._bintable[0].data.names
+        assert "DOPFREQ" not in g._bintable[0].data.names
 
         # File with multiple BinTableHDUs
         f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
