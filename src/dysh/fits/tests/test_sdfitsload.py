@@ -233,3 +233,20 @@ class TestSDFITSLoad:
             g["robin"] = c
         c = ["boy wonder"] * g.total_rows
         colval["robin"] = c
+
+    def test_delete_column(self, tmp_path):
+        # File with a single BinTableHDU
+        d = util.get_project_testdata()
+        f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        g = SDFITSLoad(f)
+        g.delete_column("dopfreq")
+        assert "DOPFREQ" not in g.columns
+        assert "DOPFREQ" in g._bintable[0].data.names
+
+        # File with multiple BinTableHDUs
+        f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
+        g = SDFITSLoad(f)
+        g.delete_column("TWARM")
+        assert "TWARM" not in g.columns
+        for b in g._bintable:
+            assert "TWARM" not in b.data.names
