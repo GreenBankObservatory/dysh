@@ -609,7 +609,7 @@ class GBTFITSLoad(SDFITSLoad):
             # print("INT is already there")
             self._index.rename(columns={"INT": "INTNUM"}, inplace=True)
             for s in self._sdf:
-                s.rename_binary_table_column("int", "intnum")
+                s._rename_binary_table_column("int", "intnum")
             return
 
         scan_changes = indices_where_value_changes("SCAN", self._index)
