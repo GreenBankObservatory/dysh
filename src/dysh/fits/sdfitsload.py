@@ -616,6 +616,61 @@ class SDFITSLoad(object):
         outbintable.update()
         return outbintable
 
+    def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
+        """
+        Write the `SDFITSLoad` to a new file, potentially sub-selecting rows or bintables.
+
+        Parameters
+        ----------
+            fileobj : str, file-like or `pathlib.Path`
+                File to write to.  If a file object, must be opened in a
+                writeable mode.
+
+            rows: int or list-like
+                Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. Default: None, meaning all rows
+                Note: Currently `rows`, if given, must be contained in a single bintable and bintable must be given
+
+            bintable :  int
+                The index of the `bintable` attribute or None for all bintables. Default: None
+
+            output_verify : str
+                Output verification option.  Must be one of ``"fix"``,
+                ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+                ``"exception"``.  May also be any combination of ``"fix"`` or
+                ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+                (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+
+            overwrite : bool, optional
+                If ``True``, overwrite the output file if it exists. Raises an
+                ``OSError`` if ``False`` and the output file exists. Default is
+                ``False``.
+
+            checksum : bool
+                When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+                to the headers of all HDU's written to the file.
+
+        """
+        if bintable is None:
+            if rows is None:
+                # write out everything
+                self._hdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            else:
+                raise ValueError("You must specify bintable if you specify rows")
+        else:
+            if rows is None:
+                # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
+                self._hdu[0 : bintable + 2]._hdu.writeto(
+                    fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
+                )
+            else:
+                hdu0 = self._hdu[0].copy()
+                # need to get imports correct first
+                # hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
+                outhdu = fits.HDUList(hdu0)
+                outbintable = self._bintable_from_rows(rows, bintable)
+                outhdu.append(outbintable)
+                outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+
     def rename_column(self, oldname, newname):
         """
         Rename a column in both index table and any binary tables in this SDFITSLoad
@@ -827,61 +882,6 @@ class SDFITSLoad(object):
                             start = start + n
                         self._add_binary_table_column(k, v1, j)
 
-    def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
-        """
-        Write the `SDFITSLoad` to a new file, potentially sub-selecting rows or bintables.
-
-        Parameters
-        ----------
-            fileobj : str, file-like or `pathlib.Path`
-                File to write to.  If a file object, must be opened in a
-                writeable mode.
-
-            rows: int or list-like
-                Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32]. Default: None, meaning all rows
-                Note: Currently `rows`, if given, must be contained in a single bintable and bintable must be given
-
-            bintable :  int
-                The index of the `bintable` attribute or None for all bintables. Default: None
-
-            output_verify : str
-                Output verification option.  Must be one of ``"fix"``,
-                ``"silentfix"``, ``"ignore"``, ``"warn"``, or
-                ``"exception"``.  May also be any combination of ``"fix"`` or
-                ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
-                (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
-
-            overwrite : bool, optional
-                If ``True``, overwrite the output file if it exists. Raises an
-                ``OSError`` if ``False`` and the output file exists. Default is
-                ``False``.
-
-            checksum : bool
-                When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
-                to the headers of all HDU's written to the file.
-
-        """
-        if bintable is None:
-            if rows is None:
-                # write out everything
-                self._hdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
-            else:
-                raise ValueError("You must specify bintable if you specify rows")
-        else:
-            if rows is None:
-                # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
-                self._hdu[0 : bintable + 2]._hdu.writeto(
-                    fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
-                )
-            else:
-                hdu0 = self._hdu[0].copy()
-                # need to get imports correct first
-                # hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
-                outhdu = fits.HDUList(hdu0)
-                outbintable = self._bintable_from_rows(rows, bintable)
-                outhdu.append(outbintable)
-                outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
-
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
         # Want case insensitivity
@@ -892,6 +892,15 @@ class SDFITSLoad(object):
             items = [i.upper() for i in items]
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+        if "DATA" in items:
+            if not np.all([b.data["DATA"].shape == self._bintable[0].data["DATA"].shape for b in self._bintable]):
+                raise ValueError(
+                    "Data columns for multiple binary tables in this SDFITSLoad have different shapes. They can only be accessed via _bintable.data['DATA'] attribute."
+                )
+            if len(self._bintable) == 1:
+                return self._bintable[0].data["DATA"]
+            else:
+                return np.vstack([b.data["DATA"] for b in self._bintable])
         return self._index[items]
 
     def __setitem__(self, items, values):
@@ -908,7 +917,7 @@ class SDFITSLoad(object):
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str")
         if "DATA" in items:
-            raise ValueError("Currently you are not allowed to set the DATA column")
+            warnings.warn("Beware: you are changing the DATA column.")
         # warn if changing an existing column
         if isinstance(items, str):
             iset = set([items])
@@ -916,11 +925,13 @@ class SDFITSLoad(object):
             iset = set(items)
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
-        if col_exists:
+        if col_exists and "DATA" not in items:
             warnings.warn("Changing an existing SDFITS column")
         try:
             self._update_binary_table_column(d)
         except Exception as e:
             raise Exception(f"Could not update SDFITS binary table because {e}")
         # only update the index if the binary table could be updated.
-        self._index[items] = values
+        # DATA is not in the index.
+        if "DATA" not in items:
+            self._index[items] = values

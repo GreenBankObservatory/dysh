@@ -1857,6 +1857,8 @@ class GBTFITSLoad(SDFITSLoad):
             items = [i.upper() for i in items]
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+        if "DATA" in items:
+            return np.vstack([s["DATA"] for s in self._sdf])
         return self._selection[items]
 
     def __setitem__(self, items, values):
@@ -1870,8 +1872,6 @@ class GBTFITSLoad(SDFITSLoad):
         #    items = [i.upper() for i in items]
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str")
-        if "DATA" in items:
-            raise ValueError("Currently you are not allowed to set the DATA column")
         if isinstance(items, str):
             iset = set([items])
         else:
@@ -1888,7 +1888,8 @@ class GBTFITSLoad(SDFITSLoad):
                     f"Length of values array ({len(values)}) for column {items} and total number of rows ({self.total_rows}) aren't equal."
                 )
             is_array = True
-        self._selection[items] = values
+        if "DATA" not in items:  # DATA is not a column in the selection
+            self._selection[items] = values
         start = 0
         # loop over the individual files
         for s in self._sdf:
