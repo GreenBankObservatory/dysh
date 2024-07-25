@@ -524,3 +524,26 @@ class TestGBTFITSLoad:
                 array = [val] * 2 * g.total_rows
                 with pytest.raises(ValueError):
                     g[key] = array
+
+        def test_data_access(self):
+            """test getting and setting the DATA column of SDFITS"""
+            # File with a single BinTableHDU
+            d = util.get_project_testdata()
+            f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+            g = gbtfitsload.GBTFITSLoad(f)
+            data = g["DATA"]
+            assert data.shape == (32, 131072)
+            g["DATA"] = np.zeros([32, 131072])
+            assert np.all(g["DATA"] == 0)
+
+            # File with multiple BinTableHDUs
+            f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
+            g = gbtfitsload.GBTFITSLoad(f)
+            # The binary tables have different shapes, so setting and getting is not allowed.
+            with pytest.raises(Exception):
+                g["DATA"]
+            with pytest.raises(Exception):
+                g["DATA"] = np.random.rand(1024)
+            # Multiple files
+            f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+            g = gbtfitsload.GBTFITSLoad(f)

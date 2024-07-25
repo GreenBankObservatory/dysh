@@ -53,7 +53,6 @@ class TestSDFITSLoad:
         """
         Test that a SDFITSLoad object can use the `getspec` function.
         """
-
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = SDFITSLoad(sdf_file)
         spec = sdf.getspec(0)
@@ -234,7 +233,7 @@ class TestSDFITSLoad:
         c = ["boy wonder"] * g.total_rows
         colval["robin"] = c
 
-    def test_delete_column(self, tmp_path):
+    def test_delete_column(self):
         # File with a single BinTableHDU
         d = util.get_project_testdata()
         f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
@@ -250,3 +249,32 @@ class TestSDFITSLoad:
         assert "TWARM" not in g.columns
         for b in g._bintable:
             assert "TWARM" not in b.data.names
+
+        # DATA columns can't be deleted
+        with pytest.raises(Exception):
+            g.delete_column("dAtA")
+
+    def test_data_access(self):
+        """test getting and setting the DATA column of SDFITS"""
+        # File with a single BinTableHDU
+        d = util.get_project_testdata()
+        f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        g = SDFITSLoad(f)
+        data = g["DATA"]
+        assert data.shape == (32, 131072)
+        g["DATA"] = np.zeros([32, 131072])
+        assert np.all(g["DATA"] == 0)
+        # test some slicing
+        assert np.shape(g["DATA"][:, 0:10]) == (32, 10)
+        # assignment via slicing doesn't work.
+        # I think because copies of the data are being made
+        # g["DATA"][0][10:20] = np.random.rand(10)
+
+        # File with multiple BinTableHDUs
+        f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
+        g = SDFITSLoad(f)
+        # The binary tables have different shapes, so setting and getting is not allowed.
+        with pytest.raises(Exception):
+            g["DATA"]
+        with pytest.raises(Exception):
+            g["DATA"] = np.random.rand(1024)
