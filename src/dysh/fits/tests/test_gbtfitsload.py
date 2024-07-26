@@ -483,7 +483,7 @@ class TestGBTFITSLoad:
         with pytest.raises(KeyError):
             g["FOOBAR"]
 
-    def test_set_item(self):
+    def test_set_item(self, tmp_path):
         # First test with a single number or string
         keyval = {
             "IFNUM": 12,
@@ -495,8 +495,27 @@ class TestGBTFITSLoad:
             d / "AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A6.fits",  # single file
             d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/",  # multiple files
         ]
+        o = tmp_path / "gsetitem"
+        o.mkdir()
+        out = o / "test_write_gsetitem.fits"
+
         for f in files:
             g = gbtfitsload.GBTFITSLoad(f)
+            for key, val in keyval.items():
+                _set = set([val])
+                g[key] = val
+                assert set(g[key]) == _set
+                for sdf in g._sdf:
+                    assert set(sdf[key]) == _set
+                    for b in sdf._bintable:
+                        assert set(b.data[key]) == _set
+
+            # check that thing were written correclty.
+            g.write(out, overwrite=True)
+            if "A6" in f.name:
+                g = gbtfitsload.GBTFITSLoad(out)
+            else:
+                g = gbtfitsload.GBTFITSLoad(o)
             for key, val in keyval.items():
                 _set = set([val])
                 g[key] = val
@@ -517,6 +536,22 @@ class TestGBTFITSLoad:
                 for sdf in g._sdf:
                     for b in sdf._bintable:
                         assert set(b.data[key]) == _set
+
+            # check that thing were written correclty.
+            g.write(out, overwrite=True)
+            if "A6" in f.name:
+                g = gbtfitsload.GBTFITSLoad(out)
+            else:
+                g = gbtfitsload.GBTFITSLoad(o)
+            for key, val in keyval.items():
+                _set = set([val])
+                g[key] = val
+                assert set(g[key]) == _set
+                for sdf in g._sdf:
+                    assert set(sdf[key]) == _set
+                    for b in sdf._bintable:
+                        assert set(b.data[key]) == _set
+
         # check that exception is handled for incorrect length
         for f in files:
             g = gbtfitsload.GBTFITSLoad(f)
