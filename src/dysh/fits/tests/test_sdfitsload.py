@@ -223,8 +223,6 @@ class TestSDFITSLoad:
         for k, v in colval.items():
             g[k] = v
             assert np.all(g[k] == v)
-            print(g.bintable[0].data.names)
-            print(g.bintable[1].data.names)
         #    assert np.all(g.bintable[0].data[k] == v)
         #    assert np.all(g.bintable[1].data[k] == v)
         with pytest.raises(Exception):
