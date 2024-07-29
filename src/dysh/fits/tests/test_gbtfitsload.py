@@ -497,7 +497,7 @@ class TestGBTFITSLoad:
         ]
         o = tmp_path / "gsetitem"
         o.mkdir()
-        out = o / "test_write_gsetitem.fits"
+        # out = o / "test_write_gsetitem.fits"
 
         for f in files:
             g = gbtfitsload.GBTFITSLoad(f)
@@ -510,20 +510,21 @@ class TestGBTFITSLoad:
                     for b in sdf._bintable:
                         assert set(b.data[key]) == _set
 
-            # check that thing were written correclty.
-            g.write(out, overwrite=True)
-            if "A6" in f.name:
-                g = gbtfitsload.GBTFITSLoad(out)
-            else:
-                g = gbtfitsload.GBTFITSLoad(o)
-            for key, val in keyval.items():
-                _set = set([val])
-                g[key] = val
-                assert set(g[key]) == _set
-                for sdf in g._sdf:
-                    assert set(sdf[key]) == _set
-                    for b in sdf._bintable:
-                        assert set(b.data[key]) == _set
+            # check that thing were written correctly.
+            with o / "test_write_gsetitem.fits" as out:
+                g.write(out, overwrite=True)
+                if "A6" in f.name:
+                    g = gbtfitsload.GBTFITSLoad(out)
+                else:
+                    g = gbtfitsload.GBTFITSLoad(o)
+                for key, val in keyval.items():
+                    _set = set([val])
+                    g[key] = val
+                    assert set(g[key]) == _set
+                    for sdf in g._sdf:
+                        assert set(sdf[key]) == _set
+                        for b in sdf._bintable:
+                            assert set(b.data[key]) == _set
 
         # now test array of numbers or strings
         for f in files:
@@ -537,20 +538,21 @@ class TestGBTFITSLoad:
                     for b in sdf._bintable:
                         assert set(b.data[key]) == _set
 
-            # check that thing were written correclty.
-            g.write(out, overwrite=True)
-            if "A6" in f.name:
-                g = gbtfitsload.GBTFITSLoad(out)
-            else:
-                g = gbtfitsload.GBTFITSLoad(o)
-            for key, val in keyval.items():
-                _set = set([val])
-                g[key] = val
-                assert set(g[key]) == _set
-                for sdf in g._sdf:
-                    assert set(sdf[key]) == _set
-                    for b in sdf._bintable:
-                        assert set(b.data[key]) == _set
+            # check that thing were written correctly.
+            with o / "test_write_gsetitem.fits" as out:
+                g.write(out, overwrite=True)
+                if "A6" in f.name:
+                    g = gbtfitsload.GBTFITSLoad(out)
+                else:
+                    g = gbtfitsload.GBTFITSLoad(o)
+                for key, val in keyval.items():
+                    _set = set([val])
+                    g[key] = val
+                    assert set(g[key]) == _set
+                    for sdf in g._sdf:
+                        assert set(sdf[key]) == _set
+                        for b in sdf._bintable:
+                            assert set(b.data[key]) == _set
 
         # check that exception is handled for incorrect length
         for f in files:
