@@ -53,7 +53,7 @@ class GBTFITSLoad(SDFITSLoad):
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
         self._sdf = []
-        self._index = None
+        self._selection = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
             self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
@@ -68,7 +68,7 @@ class GBTFITSLoad(SDFITSLoad):
             raise Exception(f"{fileobj} is not a file or directory path")
         if kwargs_opts["index"]:
             self._create_index_if_needed()
-
+            self._update_radesys()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # cds.enable()  # to get mmHg
@@ -86,10 +86,16 @@ class GBTFITSLoad(SDFITSLoad):
             self.ushow(0, "PROCSIZE")
             self.ushow(0, "OBSMODE")
             self.ushow(0, "SIDEBAND")
-        self._selection = Selection(self)
+
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
+
+    @property
+    def _index(self):
+        # for backwards compatibility after removing _index
+        # as a separate object
+        return self._selection
 
     @property
     def selection(self):
@@ -155,7 +161,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         if fitsindex is None:
-            df = self._index
+            df = self._selection
         else:
             df = self._sdf[fitsindex]._index
 
@@ -530,18 +536,22 @@ class GBTFITSLoad(SDFITSLoad):
         self._selection.select_channel(tag=tag, chan=chan)
 
     def _create_index_if_needed(self):
+        if self._selection is not None:
+            return
         i = 0
-        if self._index is None:
+        df = None
+        if self._selection is None:
             for s in self._sdf:
                 if s._index is None:
-                    s._create_index()
+                    s.create_index()
                 # add a FITSINDEX column
-                s._index["FITSINDEX"] = i * np.ones(len(s._index))
-                if self._index is None:
-                    self._index = s._index
+                s._index["FITSINDEX"] = i * np.ones(len(s._index), dtype=int)
+                if df is None:
+                    df = s._index
                 else:
-                    self._index = pd.concat([self._index, s._index], axis=0, ignore_index=True)
+                    df = pd.concat([df, s._index], axis=0, ignore_index=True)
                 i = i + 1
+        self._selection = Selection(df)
         self._construct_procedure()
         self._construct_integration_number()
 
@@ -552,8 +562,11 @@ class GBTFITSLoad(SDFITSLoad):
         OnOff:PSWITCHON:TPWCAL.
 
         """
-        if self._index is None:
+        if self._selection is None:
             warnings.warn("Couldn't construct procedure string: index is not yet created.")
+            return
+        if "OBSMODE" not in self._index:
+            warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
             return
         df = self._index["OBSMODE"].str.split(":", expand=True)
         self._index["PROC"] = df[0]
@@ -575,6 +588,19 @@ class GBTFITSLoad(SDFITSLoad):
         if self._index is None:
             warnings.warn("Couldn't construct integration number: index is not yet created.")
             return
+
+        # check it hasn't been constructed before.
+        if "INTNUM" in self._index:
+            # print("INTNUM is alsready there")
+            return
+        # check that GBTIDL didn't write it out at some point.
+        if "INT" in self._index:
+            # print("INT is already there")
+            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)
+            for s in self._sdf:
+                s.rename_binary_table_column("int", "intnum")
+            return
+
         scan_changes = indices_where_value_changes("SCAN", self._index)
         time_changes = indices_where_value_changes("DATE-OBS", self._index)
         # there is probably some super clever pythonic way to do this in one line
@@ -591,6 +617,21 @@ class GBTFITSLoad(SDFITSLoad):
             intnumarray.append(intnum)
         self._index["INTNUM"] = intnumarray
 
+        # Here need to add it as a new column in the BinTableHDU,
+        # but we have to sort out FITSINDEX.
+        # s.add_col("INTNUM",intnumarray)
+        fits_index_changes = indices_where_value_changes("FITSINDEX", self._index)
+        lf = len(fits_index_changes)
+        for i in range(lf):
+            fic = fits_index_changes[i]
+            if i + 1 < lf:
+                fici = fits_index_changes[i + 1]
+            else:
+                fici = -1
+            fi = self._index["FITSINDEX"][fic]
+            # @todo fix this MWP
+            # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
+
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
         for s in self._sdf:
@@ -605,6 +646,7 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage=False,
         weights="tsys",
         bintable=None,
+        smoothref=1,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -731,6 +773,7 @@ class GBTFITSLoad(SDFITSLoad):
                         fold=fold,
                         use_sig=use_sig,
                         observer_location=observer_location,
+                        smoothref=1,
                         debug=debug,
                     )
                     scanblock.append(g)
@@ -739,7 +782,9 @@ class GBTFITSLoad(SDFITSLoad):
         return scanblock
         # end of getfs()
 
-    def getps(self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, **kwargs):
+    def getps(
+        self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
+    ):
         """
         Retrieve and calibrate position-switched data.
 
@@ -881,6 +926,7 @@ class GBTFITSLoad(SDFITSLoad):
                         calrows=calrows,
                         bintable=bintable,
                         calibrate=calibrate,
+                        smoothref=smoothref,
                     )
                     scanblock.append(g)
                     c = c + 1
@@ -897,6 +943,7 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage=False,
         weights="tsys",
         bintable=None,
+        smoothref=1,
         **kwargs,
     ):
         """
@@ -931,8 +978,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         TF = {True: "T", False: "F"}
-        sigstate = {True: "SIG", False: "REF", None: "BOTH"}
-        calstate = {True: "ON", False: "OFF", None: "BOTH"}
+
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
@@ -954,6 +1000,8 @@ class GBTFITSLoad(SDFITSLoad):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        if debug:
+            print("SF=", _sf)
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -980,8 +1028,9 @@ class GBTFITSLoad(SDFITSLoad):
                     # they are not booleans but chars
                     if sig is not None:
                         df = select_from("SIG", TF[sig], df)
-                    if cal is not None:
-                        df = select_from("CAL", TF[cal], df)
+                    # if cal is not None:
+                    #    df = select_from("CAL", TF[cal], df)
+                    # the rows with the selected sig state and all cal states
                     tprows = list(df["ROW"])
                     if debug:
                         print("TPROWS len=", len(tprows))
@@ -989,7 +1038,17 @@ class GBTFITSLoad(SDFITSLoad):
                         print("fitsindex=", i)
                     if len(tprows) == 0:
                         continue
-                    g = TPScan(self._sdf[i], scan, sigstate[sig], calstate[cal], tprows, calrows, bintable, calibrate)
+                    g = TPScan(
+                        self._sdf[i],
+                        scan,
+                        sig,
+                        cal,
+                        tprows,
+                        calrows,
+                        bintable,
+                        calibrate,
+                        smoothref=smoothref,
+                    )
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1006,6 +1065,7 @@ class GBTFITSLoad(SDFITSLoad):
         polaverage=False,
         weights="tsys",
         bintable=None,
+        smoothref=1,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -1158,6 +1218,7 @@ class GBTFITSLoad(SDFITSLoad):
                                     calrows,
                                     bintable,
                                     calibrate=calibrate,
+                                    smoothref=smoothref,
                                 )
                             )
                             calrows = {"ON": sgon, "OFF": sgoff}
@@ -1172,9 +1233,12 @@ class GBTFITSLoad(SDFITSLoad):
                                     calrows,
                                     bintable,
                                     calibrate=calibrate,
+                                    smoothref=smoothref,
                                 )
                             )
-                        sb = SubBeamNodScan(sigtp, reftp, method=method, calibrate=calibrate, weights=weights)
+                        sb = SubBeamNodScan(
+                            sigtp, reftp, method=method, calibrate=calibrate, weights=weights, smoothref=smoothref
+                        )
                         scanblock.append(sb)
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
@@ -1199,6 +1263,7 @@ class GBTFITSLoad(SDFITSLoad):
                                 subref=-1,
                                 weights=weights,
                                 calibrate=calibrate,
+                                smoothref=smoothref,
                             )
                             sigtp.append(tpon[0])
                             tpoff = self.gettp(
@@ -1212,6 +1277,7 @@ class GBTFITSLoad(SDFITSLoad):
                                 subref=1,
                                 weights=weights,
                                 calibrate=calibrate,
+                                smoothref=smoothref,
                             )
                             reftp.append(tpoff[0])
                             # in order to reproduce gbtidl tsys, we need to do a normal
@@ -1226,9 +1292,18 @@ class GBTFITSLoad(SDFITSLoad):
                                 ifnum=k,
                                 weights=weights,
                                 calibrate=calibrate,
+                                smoothref=smoothref,
                             )  # .timeaverage(weights=w)
                             fulltp.append(ftp[0])
-                        sb = SubBeamNodScan(sigtp, reftp, fulltp, method=method, calibrate=calibrate, weights=weights)
+                        sb = SubBeamNodScan(
+                            sigtp,
+                            reftp,
+                            fulltp,
+                            method=method,
+                            calibrate=calibrate,
+                            weights=weights,
+                            smoothref=smoothref,
+                        )
                         scanblock.append(sb)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1607,7 +1682,6 @@ class GBTFITSLoad(SDFITSLoad):
         """
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
-        df_out = []
         rows = []
         scanidx = self._index[self._index["SCAN"].isin(scans)]
         bt = self.udata("BINTABLE")
@@ -1619,49 +1693,140 @@ class GBTFITSLoad(SDFITSLoad):
     def __repr__(self):
         return str(self.files)
 
-    def write_scans(self, fileobj, scans, output_verify="exception", overwrite=False, checksum=False):
+    def write(
+        self,
+        fileobj,
+        multifile=True,
+        verbose=False,
+        output_verify="exception",
+        overwrite=False,
+        checksum=False,
+        **kwargs,
+    ):
         """
-        Write specific scans of the `GBTFITSLoad` to a new file.
-        TBD: How does this work for multiple files??
+        Write all or a subset of the `GBTFITSLoad` data to a new SDFITS file(s).
 
         Parameters
         ----------
         fileobj : str, file-like or `pathlib.Path`
             File to write to.  If a file object, must be opened in a
             writeable mode.
-
-        scans: int or list-like
-            Range of scans to write out. e.g. 0, [14,25,32].
-
+        multifile: bool, optional
+            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
+            Otherwise, write to a single SDFITS file.
+        verbose: bool, optional
+            If True, print out some information about number of rows written per file
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
             ``"exception"``.  May also be any combination of ``"fix"`` or
             ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
             (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
-
         overwrite : bool, optional
             If ``True``, overwrite the output file if it exists. Raises an
             ``OSError`` if ``False`` and the output file exists. Default is
             ``False``.
-
         checksum : bool
             When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
             to the headers of all HDU's written to the file.
+        **kwargs : dict
+            Optional additional selection keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `ifnum=1, plnum=[2,3]` etc.
         """
-        # get the rows that contain the scans in all bintables
-        rows = self._scan_rows_all(scans)
-        # @TODO deal with multipl sdfs
-        # copy the PrimaryHDU, but not the BinTableHDU
-        hdu0 = self._sdf[0]._hdu[0].copy()
-        outhdu = fits.HDUList(hdu0)
-        # get the bintables rows as new bintables.
-        for i in range(len(rows)):
-            ob = self._sdf[0]._bintable_from_rows(rows[i], i)
-            # print(f"bintable {i} #rows {len(rows[i])} data length {len(ob.data)}")
-            if len(ob.data) > 0:
-                outhdu.append(ob)
-        # print(outhdu.info())
-        # write it out!
-        outhdu.update_extend()  # possibly unneeded
-        outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+        debug = kwargs.pop("debug", False)
+        if debug:
+            print(kwargs)
+        selection = Selection(self._index)
+        if len(kwargs) > 0:
+            selection._select_from_mixed_kwargs(**kwargs)
+            if debug:
+                print(selection.show())
+            _final = selection.final
+        else:
+            _final = selection
+        if len(_final) == 0:
+            raise Exception("Your selection resulted in no rows to be written")
+        fi = list(set(_final["FITSINDEX"]))
+        if debug:
+            print(f"fitsindex {fi} ")
+        total_rows_written = 0
+        if multifile:
+            count = 0
+            for k in fi:
+                this_rows_written = 0
+                # copy the primary HDU
+                hdu = self._sdf[k]._hdu[0].copy()
+                outhdu = fits.HDUList(hdu)
+                # get the bintables rows as new bintables.
+                df = select_from("FITSINDEX", k, _final)
+                bintables = list(set(df.BINTABLE))
+                for b in bintables:
+                    rows = list(set(df.ROW))
+                    lr = len(rows)
+                    if lr > 0:
+                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        # print(f"bintable {b} #rows {len(rows[i])} data length {len(ob.data)}")
+                        if len(ob.data) > 0:
+                            outhdu.append(ob)
+                        total_rows_written += lr
+                        this_rows_written += lr
+                if len(fi) > 1:
+                    p = Path(fileobj)
+                    # Note this will not preserve "A","B" etc suffixes in original FITS files.
+                    outfile = p.parent / (p.stem + str(count) + p.suffix)
+                    count += 1
+                else:
+                    outfile = fileobj
+
+                if verbose:
+                    print(f"Writing {this_rows_written} rows to {outfile}.")
+                outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            if verbose:
+                print(f"Total of {total_rows_written} rows written to files.")
+        else:
+            hdu = self._sdf[fi[0]]._hdu[fi[0]].copy()
+            outhdu = fits.HDUList(hdu)
+            for k in fi:
+                df = select_from("FITSINDEX", k, _final)
+                bintables = list(set(df.BINTABLE))
+                for b in bintables:
+                    rows = list(set(df.ROW))
+                    lr = len(rows)
+                    if lr > 0:
+                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        if len(ob.data) > 0:
+                            outhdu.append(ob)
+                        total_rows_written += lr
+            if total_rows_written == 0:  # shouldn't happen, caught earlier
+                raise Exception("Your selection resulted in no rows to be written")
+            else:
+                if verbose:
+                    print(f"Writing {total_rows_written} to {fileobj}")
+            # outhdu.update_extend()  # possibly unneeded
+            outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+
+    def _update_radesys(self):
+        """
+        Updates the 'RADESYS' column of the index for cases when it is empty.
+        """
+
+        radesys = {"AzEl": "AltAz", "HADec": "hadec"}
+
+        warning_msg = (
+            lambda scans, a, coord, limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+        )
+
+        # Elevation below the GBT elevation limit (5 degrees) warning.
+        low_el_mask = self._index["ELEVATIO"] < 5
+        if low_el_mask.sum() > 0:
+            low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
+            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
+
+        # Azimuth and elevation case.
+        azel_mask = (self._index["CTYPE2"] == "AZ") & (self._index["CTYPE3"] == "EL")
+        self._index.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
+
+        # Hour angle and declination case.
+        hadec_mask = self._index["CTYPE2"] == "HA"
+        self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
