@@ -560,6 +560,12 @@ class TestGBTFITSLoad:
                 with pytest.raises(ValueError):
                     g[key] = array
 
+        # test that changed a previously selection column results in a warning
+        g = gbtfitsload.GBTFITSLoad(files[0])
+        g.select(ifnum=2)
+        with pytest.warns(UserWarning):
+            g["ifnum"] = 3
+
         def test_data_access(self):
             """test getting and setting the DATA column of SDFITS"""
             # File with a single BinTableHDU
