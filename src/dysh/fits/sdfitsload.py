@@ -670,6 +670,7 @@ class SDFITSLoad(object):
                 outbintable = self._bintable_from_rows(rows, bintable)
                 outhdu.append(outbintable)
                 outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+                outhdu.close()
 
     def rename_column(self, oldname, newname):
         """

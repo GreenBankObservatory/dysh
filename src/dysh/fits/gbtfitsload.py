@@ -1821,6 +1821,7 @@ class GBTFITSLoad(SDFITSLoad):
                     print(f"Writing {total_rows_written} to {fileobj}")
             # outhdu.update_extend()  # possibly unneeded
             outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            outhdu.close()
 
     def _update_radesys(self):
         """
