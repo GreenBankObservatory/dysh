@@ -513,7 +513,7 @@ class TestGBTFITSLoad:
             # check that thing were written correctly.
             print(f"trying to writing file #{i}")
             g.write(out, overwrite=True)
-            i+=1
+            i += 1
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
             else:
@@ -542,7 +542,7 @@ class TestGBTFITSLoad:
             # check that thing were written correctly.
             print(f"trying to writing file #{i}")
             g.write(out, overwrite=True)
-            i+=1
+            i += 1
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
             else:
