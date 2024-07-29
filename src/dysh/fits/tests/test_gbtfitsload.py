@@ -498,7 +498,7 @@ class TestGBTFITSLoad:
         o = tmp_path / "gsetitem"
         o.mkdir()
         out = o / "test_write_gsetitem.fits"
-
+        i = 0
         for f in files:
             g = gbtfitsload.GBTFITSLoad(f)
             for key, val in keyval.items():
@@ -511,6 +511,7 @@ class TestGBTFITSLoad:
                         assert set(b.data[key]) == _set
 
             # check that thing were written correctly.
+            print(f"trying to writing file #{i}")
             g.write(out, overwrite=True)
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
@@ -538,6 +539,7 @@ class TestGBTFITSLoad:
                         assert set(b.data[key]) == _set
 
             # check that thing were written correctly.
+            print(f"trying to writing file #{i}")
             g.write(out, overwrite=True)
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
