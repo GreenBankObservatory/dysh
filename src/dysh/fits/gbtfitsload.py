@@ -1898,4 +1898,8 @@ class GBTFITSLoad(SDFITSLoad):
             else:
                 s[items] = values[start : start + s.total_rows]
                 start = start + s.total_rows
-        # recompute the selection if meta have changed or just warn?
+        selected_cols = self.selection.columns_selected()
+        if items in selected_cols:
+            warnings.warn(
+                f"You have changed the metadata for a column that was previously used in a data selection [{items}]. You may wish to update the selection. "
+            )
