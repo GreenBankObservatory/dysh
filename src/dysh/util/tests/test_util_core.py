@@ -1,5 +1,4 @@
 import numpy as np
-from astropy.coordinates import EarthLocation
 
 import dysh.util as du
 
@@ -28,3 +27,10 @@ class TestUtil:
         assert du.minimum_string_match("g", s) == None
         assert du.minimum_string_match("ga", s) == "gamma"
         assert du.minimum_string_match("am", s) == None
+
+    def test_powerof2(self):
+        """Test powerof2 function"""
+        inout = {2**0: 0, 2**15: 15, 2**15.49: 15, 2**15.5: 16}
+
+        for k, v in inout.items():
+            assert du.powerof2(k) == v
