@@ -369,7 +369,7 @@ pytest==8.3.2
     # via
     #   dysh (pyproject.toml)
     #   pytest-cov
-pytest-cov==5.0.0
+pytest-cov==4.1.0
     # via dysh (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
