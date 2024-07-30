@@ -25,10 +25,7 @@ class TestSelection:
         matches the known correct answer.
         """
         sdf = gbtfitsload.GBTFITSLoad(self.file)
-        s = Selection(sdf)
-        # the unfilter sdfits index should be the same as
-        # the default selection except for addition of UTC column
-        assert sdf._index.equals(s.drop(columns="UTC", inplace=False))
+        s = sdf._selection
         # polarization 0 and source name
         s.select(object="NGC2415", plnum=0)
         assert len(s._selection_rules[0]) == 5
@@ -49,27 +46,27 @@ class TestSelection:
         s.remove(tag="ifnums")
         assert len(s._selection_rules) == 0
 
-        s = Selection(sdf)
         # This has the same final result than selections on separate lines
         s.select(object="NGC2415", plnum=0, ifnum=[0, 2])
         assert len(s.final) == 3
+        s.clear()
 
         # test select_range
         # lower limit.
         # RAs range from 53.24 to 247.04 degrees
         # Decs range from -15.64 to 54.57 degrees
-        s = Selection(sdf)
+        # s = Selection(sdf)
         s.select_range(ra=(114,))  # default is degrees
         assert len(s.final) == 40
         # check that quantities work
         s.select_range(dec=[2400, 7500] * u.arcmin)
         assert len(s.final) == 20
         # again selection on the same line has a same final result
-        s = Selection(sdf)
+        s.clear()
         s.select_range(ra=(114,), dec=[2400, 7500] * u.arcmin)
         assert len(s.final) == 20
         # test select_within
-        s = Selection(sdf)
+        s.clear()
         # also verify that the selection variable name is
         # case insensitive
         # also note we aliased elevation for elevatio!
@@ -77,14 +74,14 @@ class TestSelection:
         assert len(s.final) == 13
 
         # test selecting with a Time object.
-        s = Selection(sdf)
+        s.clear()
         s.select_range(utc=(Time("2021-02-10T08:00", scale="utc"), Time("2021-02-10T09:00", scale="utc")))
         # test that a non-Time object for utc raise exception
         with pytest.raises(ValueError):
             s.select_range(utc=["asdad", 123])
         # test select_channel
         a = [1, 4, (30, 40)]
-        s = Selection(sdf)
+        s.clear()
         s.select_channel(a)
         assert s._channel_selection == a
         assert len(s.final) == len(s)

@@ -61,13 +61,14 @@ Source = "https://github.com/GreenBankObservatory/dysh"
 [project.scripts]
 fdr = "dysh.util.files:main_cli"
 dysh = "dysh.shell:main"
+dysh-lab = "dysh.shell.lab:main"
 
 [tool.hatch.version]
 path = "src/dysh/__init__.py"
 
 [tool.hatch.envs.default]
-# By default hatch will effectively do $ pip install dysh[dev]
-features = ["dev"]
+# By default hatch will effectively do $ pip install dysh[all]
+features = ["all"]
 
 # run via: $ hatch run <script>
 [tool.hatch.envs.default.scripts]

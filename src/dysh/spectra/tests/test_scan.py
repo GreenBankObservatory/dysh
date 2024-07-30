@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
+import dysh.util as util
+
 # import dysh
 from dysh.fits import gbtfitsload, sdfitsload
 
@@ -146,6 +148,14 @@ class TestPSScan:
             # assert np.all(abs(ps_sb[0].calibrated(0).flux.value - ta1[0].flux.value) < 2e-19)
             # Set to 5E-16 because Windows OS tests fail below that.  Need to understand why.
             assert np.all(abs(ps_sb[0].calibrated(0).flux.value - ta1.flux.value) < 5e-16)
+
+    def test_scan_write(self, data_dir):
+        data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
+        sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ps_sb = sdf.getps(scan=[156], plnum=0, ifnum=0)
+        # @todo properly use tmpdir and remove
+        ps_sb[0].write("foobar.fits", overwrite=True)
 
 
 class TestSubBeamNod:
@@ -342,3 +352,14 @@ class TestFScan:
 
     def test_getfs_with_selection(self, data_dir):
         assert True
+
+
+class TestScanBlock:
+    def test_scanblock_write_read(self):
+        file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(file)
+        sb = g.getps(scan=6)
+        testfile = "test_scanblock_write.fits"
+        sb.write(fileobj=testfile, overwrite=True)
+        g2 = gbtfitsload.GBTFITSLoad(testfile)
+        x = g2.summary()  # simple check that basic function works.

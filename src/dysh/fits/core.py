@@ -2,6 +2,9 @@
 Core functions for FITS/SDFITS
 """
 
+import numpy as np
+from astropy.io.fits.column import _convert_format
+
 
 def default_sdfits_columns():
     """The default column names for GBT SDFITS.
@@ -93,6 +96,7 @@ def default_sdfits_columns():
         "PLNUM",
         "FDNUM",
         "INT",
+        "INTNUM",  # not all SDFITS files have INT, so we always create INTNUM
         "NSAVE",
         # The following are added by the GBTFITSLoad constructor.
         # Arguable whether they should be included or not.
@@ -104,3 +108,15 @@ def default_sdfits_columns():
         "_SUBOBSMODE",
     ]
     return colnames
+
+
+# def FITScol_format(key, meta):
+#    a = np.array(meta[key].values)
+#    if meta[key].dtype == np.dtype("O"):
+# a = a.astype(str)
+#       print(f"{key}={a[0]}, {a.dtype} {len(a[0])}A")
+#       return f"{len(a[0])}A"
+#   # if a.dtype == np.dtype("O"):
+#    return "A"
+# else:
+#   return _convert_format(a.dtype, reverse=True)

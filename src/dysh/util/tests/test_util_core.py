@@ -26,6 +26,7 @@ class TestUtil:
         assert du.minimum_string_match("A", s) == None
         assert du.minimum_string_match("g", s) == None
         assert du.minimum_string_match("ga", s) == "gamma"
+        assert du.minimum_string_match("am", s) == None
 
     def test_powerof2(self):
         """Test powerof2 function"""

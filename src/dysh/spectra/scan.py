@@ -2,13 +2,18 @@
 The classes that define various types of Scan and their calibration methods.
 """
 
+import warnings
 from collections import UserList
 from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
 from astropy import constants as ac
+from astropy.io.fits import BinTableHDU, Column
+from astropy.table import Table, vstack
 from scipy import ndimage
+
+from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..util import uniq
@@ -22,10 +27,14 @@ from .core import (
 )
 from .spectrum import Spectrum
 
-# import warnings
+# from typing import Literal
+
+
 # from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 
 
+# @todo change this to an ABC class. https://docs.python.org/3/library/abc.html
+# and create a SpectrumAverageMixin for timeaverage, polaverage, finalspectrum
 class ScanMixin:
     """This class describes the common interface to all Scan classes.
     A Scan represents one IF, one feed, and one or more polarizations.
@@ -104,6 +113,81 @@ class ScanMixin:
         return self._fdnum
 
     @property
+    def is_calibrated(self):
+        """
+        Have the data been calibrated?
+
+        Returns
+        -------
+        bool
+            True if the data have been calibrated, False if not.
+
+        """
+        return self._calibrated is not None
+
+    @property
+    def meta(self):
+        """
+        The metadata of this Scan. The metadata is a list of dictionaries, the length of which is
+        equal to the number of calibrated integrations in the Scan.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the metadata of this Scan
+
+        """
+        return self._meta
+
+    def _meta_as_table(self):
+        """get the metadata as an astropy Table"""
+        return Table(self._meta)
+
+    def _make_meta(self, rowindices):
+        """
+        Create the metadata for a Scan.  The metadata is a list of dictionaries, the length of which is
+        equal to the number of calibrated integrations in the Scan.
+
+        Parameters
+        ----------
+        rowindices : list of int
+            The list of indices into the parent SDFITS index (DataFrame). These typically point to the
+            indices for only the, e.g. the SIG data, since the resultant metadata will be used to make the calibrated spectra,
+            which SIGREF data result in N/2 spectra.
+
+        Returns
+        -------
+        None
+
+        """
+        # FITS can't handle NaN in a header, so just drop any column where NaN appears
+        # Ideally this should be done on the individual record level in say, Spectrum.make_spectrum.
+        df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices].dropna(axis=1, how="any")
+        self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
+        for i in range(len(self._meta)):
+            if "CUNIT1" not in self._meta[i]:
+                self._meta[i][
+                    "CUNIT1"
+                ] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            self._meta[i]["CUNIT2"] = "deg"  # is this always true?
+            self._meta[i]["CUNIT3"] = "deg"  # is this always true?
+            restfrq = self._meta[i]["RESTFREQ"]
+            rfq = restfrq * u.Unit(self._meta[i]["CUNIT1"])
+            restfreq = rfq.to("Hz").value
+            self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
+
+    def _add_calibration_meta(self):
+        """Add metadata that are computed after calibration."""
+        if not self.is_calibrated:
+            raise Exception("Data have to be calibrated first to add calibration metadata")
+        for i in range(len(self._meta)):
+            self._meta[i]["TSYS"] = self._tsys[i]
+            self._meta[i]["EXPOSURE"] = self._exposure[i]
+            self._meta[i]["NAXIS1"] = len(self._calibrated[i])
+            self._meta[i]["TSYS"] = self._tsys[i]
+            self._meta[i]["EXPOSURE"] = self.exposure[i]
+
+    @property
     def pols(self):
         """The polarization number(s)
 
@@ -161,6 +245,63 @@ class ScanMixin:
     def finalspectrum(self, weights=None):
         """Average all times and polarizations in this Scan"""
         pass
+
+    def make_bintable(self):
+        """
+        Create a :class:`~astropy.io.fits.BinaryTableHDU` from the calibrated data of this Scan.
+
+
+        Returns
+        -------
+        b : :class:`~astropy.io.fits.BinaryTableHDU`
+           A FITS binary table HDU, suitable for writing out or appending to a `~astropy.io.fits.HDUList`.
+
+        """
+        # Creating a Table from the metadata dictionary and instantiating
+        # the BinTableHDU with that takes care of all the tricky
+        # numpy/pandas dtypes to FITS single character format string. No need
+        # to figure it out oneself (which I spent far too much time trying to do before I
+        # discovered this!)
+        if self._calibrated is None:
+            raise Exception("Data must be calibrated before writing.")
+        cd = BinTableHDU(data=self._meta_as_table(), name="SINGLE DISH").columns
+        form = f"{np.shape(self._calibrated)[1]}E"
+        cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
+        b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
+        return b
+
+    def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
+        """
+        Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this Scan
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+        multifile: bool, optional
+            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
+            Otherwise, write to a single SDFITS file.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def __len__(self):
         return self._nrows
@@ -292,6 +433,76 @@ class ScanBlock(UserList, ScanMixin):
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
 
+    def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
+        """
+        Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this Scan
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+        multifile: bool, optional
+            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
+            Otherwise, write to a single SDFITS file.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+
+        Returns
+        -------
+        None.
+
+        """
+        s0 = self.data[0]
+        # If there is only one scan, delegate to its write method
+        if len(self.data) == 1:
+            s0.write(fileobj, output_verify, overwrite, checksum)
+            return
+        # Meta are the keys of the first scan's bintable except for DATA.
+        # We can use this to compare with the subsequent Scan
+        # keywords without have to create their bintables first.
+        defaultkeys = set(s0._meta[0].keys())
+        datashape = np.shape(s0._calibrated)
+        tablelist = [s0._meta_as_table()]
+        for scan in self.data[1:]:
+            # check data shapes are the same
+            thisshape = np.shape(scan._calibrated)
+            if thisshape != datashape:
+                # @todo Variable length arrays? https://docs.astropy.org/en/stable/io/fits/usage/unfamiliar.html#variable-length-array-tables
+                # or write to separate bintables.
+                raise Exception(
+                    f"Data shapes of scans are not equal {thisshape}!={datashape}. Can't combine Scans into single"
+                    " BinTableHDU"
+                )
+            # check that the header keywords are the same
+            diff = set(scan._meta[0].keys()) - defaultkeys
+            if len(diff) > 0:
+                raise Exception(
+                    f"Scan header keywords are not the same. These keywords were not present in all Scans: {diff}."
+                    " Can't combine Scans into single BinTableHDU"
+                )
+            tablelist.append(scan._meta_as_table())
+        # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
+        # astropy Tables can be concatenated with vstack thankfully.
+        table = vstack(tablelist, join_type="exact")
+        cd = BinTableHDU(table, name="SINGLE DISH").columns
+        data = np.concatenate([c._calibrated for c in self.data])
+        form = f"{np.shape(data)[1]}E"
+        cd.add_col(Column(name="DATA", format=form, array=data))
+        b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
+        b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+
 
 class TPScan(ScanMixin):
     """GBT specific version of Total Power Scan
@@ -302,21 +513,46 @@ class TPScan(ScanMixin):
         input GBFITSLoad object
     scan: int
         scan number
-    sigstate : str
-        one of 'SIG' or 'REF' to indicate if this is the signal or reference scan or 'BOTH' if it contains both
-    calstate : str
-        one of 'ON' or 'OFF' to indicate the calibration state of this scan, or 'BOTH' if it contains both
+    sigstate : bool
+        Select the signal state used to form the data.  True means select sig='T', False to select sig='F'.
+        None means select both.  See table below for explanation.
+    calstate : bool
+        Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
+        None means select both. See table below for explanation.
     scanrows : list-like
-        the list of rows in `sdfits` corresponding to sig_state integrations
+        the list of rows in `sdfits` corresponding to sigstate integrations
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
+
+    Notes
+    -----
+    How the total power and system temperature are calculated, depending on signal and reference state parameters:
+
+
+     ======   =====   ===================================================================       ==================================
+     CAL      SIG     RESULT                                                                    TSYS
+     ======   =====   ===================================================================       ==================================
+     None     None    data = 0.5* (REFCALON + REFCALOFF), regardless of sig state               use all CAL states, all SIG states
+     None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'                       use all CAL states, SIG='T'
+     None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'                       use all CAL states, SIG='F'
+     True     None    data = REFCALON, regardless of sig state                                  use all CAL states, all SIG states
+     False    None    data = REFCALOFF, regardless of sig state                                 use all CAL states, all SIG states
+     True     True    data = REFCALON, where sig='T'                                            use all CAL states, SIG='T'
+     True     False   data = REFCALON, where sig='F'                                            use all CAL states, SIG='F'
+     False    True    data = REFCALOFF  where sig='T'                                           use all CAL states, SIG='T'
+     False    False   data = REFCALOFF, where sig='F'                                           use all CAL states, SIG='F'
+     ======   =====   ===================================================================       ==================================
+
+    where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
+
     """
 
-    # @todo get rid of calrows and calc tsys in gettp and pass it in.
     def __init__(
         self,
         gbtfits,
@@ -327,13 +563,18 @@ class TPScan(ScanMixin):
         calrows,
         bintable,
         calibrate=True,
+        smoothref=1,
         observer_location=Observatory["GBT"],
     ):
         self._sdfits = gbtfits  # parent class
         self._scan = scan
-        self._sigstate = sigstate  # ignored?
-        self._calstate = calstate  # ignored?
+        self._sigstate = sigstate
+        self._calstate = calstate
         self._scanrows = scanrows
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            warnings.warn(f"TP smoothref={self._smoothref} not implemented yet")
+
         # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
@@ -341,7 +582,6 @@ class TPScan(ScanMixin):
         else:
             self._bintable_index = bintable
         self._observer_location = observer_location
-        self._data = self._sdfits.rawspectra(self._bintable_index)[scanrows]  # all cal states
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
@@ -357,23 +597,69 @@ class TPScan(ScanMixin):
             self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
             self._nint = gbtfits.nintegrations(self._bintable_index)
         self._calrows = calrows
-        self._refonrows = self._calrows["ON"]
-        self._refoffrows = self._calrows["OFF"]
+        # all cal=T states where sig=sigstate
+        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
+        # all cal=F states where sig=sigstate
+        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        # now remove blanked integrations
+        # seems like this should be done for all Scan classes!
+        # PS: yes.
+        nb1 = find_non_blanks(self._refcalon)
+        nb2 = find_non_blanks(self._refcaloff)
+        goodrows = np.intersect1d(nb1, nb2)
+        # Tell the user about blank integration(s) that will be ignored.
+        if len(goodrows) != len(self._refcalon):
+            nblanks = len(self._refcalon) - len(goodrows)
+            print(f"Ignoring {nblanks} blanked integration(s).")
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
+        self._data = None
         if self._calibrate:
-            self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
-        # print(f"# scanrows {len(self._scanrows)}, # calrows ON {len(self._calrows['ON'])}  # calrows OFF {len(self._calrows['OFF'])}")
+            self.calibrate()
         self.calc_tsys()
+
+    def calibrate(self):
+        """Calibrate the data according to the CAL/SIG table above"""
+        # the way the data are formed depend only on cal state
+        # since we have downselected based on sig state in the constructor
+        if self.calstate is None:
+            # print("data = 0.5*(ON+OFF)")
+            self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
+        elif self.calstate:
+            # print("data = ON")
+            self._data = self._refcalon.astype(float)
+        elif self.calstate == False:
+            # print("data = OFF")
+            self._data = self._refcaloff.astype(float)
+        else:
+            raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
 
     @property
     def sigstate(self):
+        """The requested signal state
+
+        Returns
+        -------
+        bool
+            True if signal state is on ('T' in the SDFITS header), False otherwise ('F')
+        """
         return self._sigstate
 
     @property
     def calstate(self):
+        """The requested calibration state
+
+        Returns
+        -------
+        bool
+            True if calibration state is on ('T' in the SDFITS header), False otherwise ('F')
+        """
         return self._calstate
 
     @property
@@ -389,51 +675,84 @@ class TPScan(ScanMixin):
 
     def calc_tsys(self, **kwargs):
         """
-        Calculate the system temperature array
+        Calculate the system temperature array, according to table above.
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
 
-        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
-        nspect = len(tcal)
+        if False:
+            if self.calstate is None:
+                tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+                nspect = len(tcal)
+                calon = self._refcalcon
+                caloff = self._refcaloff
+            elif self.calstate:
+                tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+                nspect = len(tcal)
+                calon = self._refcalon
+            elif self.calstate == False:
+                pass
+        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        nspect = len(self._tcal)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
         # allcal = self._refonrows.copy()
         # allcal.extend(self._refoffrows)
         # tcal = list(self._sdfits.index(self._bintable_index).iloc[sorted(allcal)]["TCAL"])
         # @todo this loop could be replaced with clever numpy
-        if len(tcal) != nspect:
+        if len(self._tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
-            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+            # tsys = mean_tsys(calon=calon[i], caloff=caloff[i], tcal=tcal[i])
+            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
             self._tsys[i] = tsys
 
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times
+        """Get the array of exposure (integration) times.  The value depends on the cal state:
 
-            exposure =  0.5*(exp_ref_on + exp_ref_off)
-
-        Note we only have access to the refon and refoff row indices so
-        can't use sig here.  This is probably incorrect
+            =====  ======================================
+            CAL    EXPOSURE
+            =====  ======================================
+            None   :math:`t_{EXP,REFON} + t_{EXP,REFOFF}`
+            True   :math:`t_{EXP,REFON}`
+            False  :math:`t_{EXP,REFOFF}`
+            =====  ======================================
 
         Returns
         -------
         exposure : `~numpy.ndarray`
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
-        exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-        exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+        if self.calstate is None:
+            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            )
+        elif self.calstate:
+            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = 0
+        elif self.calstate == False:
+            exp_ref_on = 0
+            exp_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            )
+
         exposure = exp_ref_on + exp_ref_off
         return exposure
 
     @property
     def delta_freq(self):
-        """Get the array of channel frequency width
+        r"""Get the array of channel frequency width. The value depends on the cal state:
 
-           df =  0.5*(df_ref_on + df_ref_off)
 
-        Note we only have access to the refon and refoff row indices so
-        can't use sig here.  This is probably incorrect
+        =====  ================================================================
+        CAL     :math:`\Delta\nu`
+        =====  ================================================================
+        None    :math:`0.5 * ( \Delta\nu_{REFON}+ \Delta\nu_{REFOFF} )`
+        True    :math:`\Delta\nu_{REFON}`
+        False   :math:`\Delta\nu_{REFOFF}`
+        =====  ================================================================
+
 
         Returns
         -------
@@ -442,7 +761,12 @@ class TPScan(ScanMixin):
         """
         df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
         df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        delta_freq = 0.5 * (df_ref_on + df_ref_off)
+        if self.calstate is None:
+            delta_freq = 0.5 * (df_ref_on + df_ref_off)
+        elif self.calstate:
+            delta_freq = df_ref_on
+        elif self.calstate == False:
+            delta_freq = df_ref_off
         return delta_freq
 
     @property
@@ -481,6 +805,8 @@ class TPScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
+        if not self._calibrate:
+            raise Exception("You must calibrate first to get a total power spectrum")
         # print(len(self._scanrows), i)
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
         # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
@@ -521,7 +847,7 @@ class TPScan(ScanMixin):
             w = self._tsys_weight
         else:
             w = np.ones_like(self._tsys_weight)
-        non_blanks = find_non_blanks(self._data)
+        non_blanks = find_non_blanks(self._data)[0]
         self._timeaveraged._data = average(self._data, axis=0, weights=w)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
@@ -549,6 +875,8 @@ class PSScan(ScanMixin):
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -557,7 +885,15 @@ class PSScan(ScanMixin):
     """
 
     def __init__(
-        self, gbtfits, scans, scanrows, calrows, bintable, calibrate=True, observer_location=Observatory["GBT"]
+        self,
+        gbtfits,
+        scans,
+        scanrows,
+        calrows,
+        bintable,
+        calibrate=True,
+        smoothref=1,
+        observer_location=Observatory["GBT"],
     ):
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
@@ -565,6 +901,7 @@ class PSScan(ScanMixin):
         self._scan = scans["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
+        self._smoothref = smoothref
         # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
         # print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
         # print("PJT scans", scans)
@@ -606,6 +943,7 @@ class PSScan(ScanMixin):
         self._exposure = None
         self._calibrated = None
         self._calibrate = calibrate
+        self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
 
@@ -645,21 +983,9 @@ class PSScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]].dropna().to_dict()
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self._exposure[i]
-        meta["NAXIS1"] = len(self._calibrated[i])
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self.exposure[i]
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+        return Spectrum.make_spectrum(
+            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+        )
 
     def calibrate(self, **kwargs):
         """
@@ -667,6 +993,8 @@ class PSScan(ScanMixin):
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
+        if self._smoothref > 1 and kwargs_opts["verbose"]:
+            print(f"PS smoothref={self._smoothref}")
 
         self._status = 1
         nspect = self.nrows // 2
@@ -682,10 +1010,13 @@ class PSScan(ScanMixin):
             tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
             sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
             ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+            if self._smoothref > 1:
+                ref = core.smooth(ref, "boxcar", self._smoothref)
             self._calibrated[i] = tsys * (sig - ref) / ref
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
         # print("Calibrated %d spectra" % nspect)
+        self._add_calibration_meta()
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
@@ -705,9 +1036,10 @@ class PSScan(ScanMixin):
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
         exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
-        # exposure = 0.5*(exp_ref + exp_sig)
-        # exposure = exp_ref + exp_sig
-        nsmooth = 1.0  # In case we start smoothing the reference spectra.
+        if self._smoothref > 1:
+            nsmooth = self._smoothref
+        else:
+            nsmooth = 1.0
         exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
         return exposure
 
@@ -780,9 +1112,9 @@ class FSScan(ScanMixin):
     ----------
 
     gbtfits : `~fit.gbtfitsload.GBFITSLoad`
-        Input GBFITSLoad object
+        Input GBFITSLoad object.
     scan : int
-        Scan number that contains integrations with a series of sig/ref and calon/caloff states
+        Scan number that contains integrations with a series of sig/ref and calon/caloff states.
     sigrows :dict
         Dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
         corresponding to sig=T (ON) and sig=F (OFF) integrations.
@@ -790,7 +1122,7 @@ class FSScan(ScanMixin):
         Dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
         corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
-        The index for BINTABLE in `sdfits` containing the scans
+        The index for BINTABLE in `sdfits` containing the scans.
     calibrate : bool
         Whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
         Default: True
@@ -798,15 +1130,15 @@ class FSScan(ScanMixin):
         Whether or not to fold the spectrum. Default: True
     shift_method : str
         Method to use when shifting the spectra for folding. One of 'fft' or 'interpolate'.
-        'fft' uses a phase shift in the time domain. 'interpolate' interpolates the signal.
-        Default: 'fft'
+        'fft' uses a phase shift in the time domain. 'interpolate' interpolates the signal. Default: 'fft'
     use_sig : bool
         Whether to use the sig as the sig, or the ref as the sig. Default: True
+    smoothref: int
+        The number of channels in the reference to boxcar smooth prior to calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
-        observation DATE-OBS or MJD-OBS in
-        the SDFITS header.  The default is the location of the GBT.
+        observation DATE-OBS or MJD-OBS in the SDFITS header.  The default is the location of the GBT.
     """
 
     def __init__(
@@ -820,6 +1152,7 @@ class FSScan(ScanMixin):
         fold=True,
         shift_method="fft",
         use_sig=True,
+        smoothref=1,
         observer_location=Observatory["GBT"],
         debug=False,
     ):
@@ -830,6 +1163,9 @@ class FSScan(ScanMixin):
         self._calrows = calrows  # dict with "ON" and "OFF"
         self._folded = False
         self._use_sig = use_sig
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            print(f"FS smoothref={self._smoothref} not implemented yet")
 
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
@@ -865,8 +1201,6 @@ class FSScan(ScanMixin):
         if self._debug:
             print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
-        # df = selection.iloc[scanrows["ON"]]
-        # df = self._sdfits._index.iloc[scanrows["ON"]]
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
 
         df = self._sdfits._index.iloc[self._scanrows]
@@ -891,6 +1225,7 @@ class FSScan(ScanMixin):
         self._exposure = None
         self._calibrated = None
         self._calibrate = calibrate
+        self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate(fold=fold, shift_method=shift_method)
         if self._debug:
@@ -919,8 +1254,6 @@ class FSScan(ScanMixin):
         """
         return self._tsys
 
-    # @todo something clever
-    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self, i):
         """Return the calibrated Spectrum of this FSscan
 
@@ -933,22 +1266,9 @@ class FSScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows["ON"][i]].dropna().to_dict()
-        meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self._exposure[i]
-        meta["NAXIS1"] = len(self._calibrated[i])
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self.exposure[i]
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+        return Spectrum.make_spectrum(
+            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+        )
 
     def calibrate(self, **kwargs):
         """
@@ -1124,6 +1444,8 @@ class FSScan(ScanMixin):
                     self._calibrated[i] = cal_ref
                     self._tsys[i] = tsys_sig
                 self._exposure[i] = self.exposure[i]
+
+        self._add_calibration_meta()
         # print("Calibrated %d spectra with fold=%s and use_sig=%s" % (nspect, repr(_fold), repr(self._use_sig)))
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
@@ -1144,9 +1466,10 @@ class FSScan(ScanMixin):
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
         exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
-        # exposure = 0.5*(exp_ref + exp_sig)
-        # exposure = exp_ref + exp_sig
-        nsmooth = 1.0  # In case we start smoothing the reference spectra.
+        if self._smoothref > 1:
+            nsmooth = self._smoothref
+        else:
+            nsmooth = 1.0
         exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
         return exposure
 
@@ -1226,6 +1549,8 @@ class SubBeamNodScan(ScanMixin):
         Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
     calibrate: bool
         Whether or not to calibrate the data.
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1241,7 +1566,15 @@ class SubBeamNodScan(ScanMixin):
     """
 
     def __init__(
-        self, sigtp, reftp, fulltp=None, method="cycle", calibrate=True, observer_location=Observatory["GBT"], **kwargs
+        self,
+        sigtp,
+        reftp,
+        fulltp=None,
+        method="cycle",
+        calibrate=True,
+        smoothref=1,
+        observer_location=Observatory["GBT"],
+        **kwargs,
     ):
         kwargs_opts = {
             "timeaverage": False,
@@ -1267,13 +1600,16 @@ class SubBeamNodScan(ScanMixin):
         self._method = method.lower()
         if self._method not in ["cycle", "scan"]:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        self._smoothref = smoothref
+        if self._smoothref > 1:
+            print(f"SubBeamNodS smoothref={self._smoothref} not implemented yet")
         self._observer_location = observer_location
         self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
 
     def calibrate(self, **kwargs):
-        """Calibrate the Scan data"""
+        """Calibrate the SUbBeamNodScan data"""
         nspect = len(self._reftp)
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
@@ -1310,13 +1646,14 @@ class SubBeamNodScan(ScanMixin):
                 self._calibrated[i] = data
         else:
             raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
+        # self._add_calibration_meta()
 
     def calibrated(self, i):
-        meta = deepcopy(self._sigtp[i].timeaverage().meta)
-        naxis1 = len(self._calibrated[i])
+        meta = deepcopy(self._sigtp[i].timeaverage().meta)  # use self._sigtp.meta? instead?
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self._exposure[i]
-        meta["NAXIS1"] = len(self._calibrated[i])
+        naxis1 = len(self._calibrated[i])
+        meta["NAXIS1"] = naxis1
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
