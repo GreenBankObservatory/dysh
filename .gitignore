@@ -3,6 +3,7 @@
 .ignore/
 .virtual_documents
 docs/source/_build/
+src/dysh/plot/.dev
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
