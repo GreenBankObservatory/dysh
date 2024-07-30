@@ -57,7 +57,7 @@ gui = [
   "qt_material",
   "screeninfo",
 ]
-all = ["dysh[dev,gui]"]
+all = ["dysh[dev,nb,gui]"]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
