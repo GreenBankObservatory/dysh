@@ -40,7 +40,7 @@ dev = [
   "ipdb",
   "numpydoc",
   "pytest",
-  "pytest-cov < 5", # Newer versions break on Windows
+  "pytest-cov",
   "sphinx",
   "sphinx-autobuild",
   "sphinx-inline-tabs",
