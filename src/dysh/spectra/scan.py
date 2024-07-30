@@ -17,7 +17,14 @@ from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..util import uniq
-from . import average, find_non_blanks, mean_tsys, sq_weighted_avg, tsys_weight
+from .core import (
+    average,
+    fft_shift,
+    find_non_blanks,
+    mean_tsys,
+    sq_weighted_avg,
+    tsys_weight,
+)
 from .spectrum import Spectrum
 
 # from typing import Literal
@@ -1105,31 +1112,33 @@ class FSScan(ScanMixin):
     ----------
 
     gbtfits : `~fit.gbtfitsload.GBFITSLoad`
-        input GBFITSLoad object
+        Input GBFITSLoad object.
     scan : int
-        scan number that contains integrations with a series of sig/ref and calon/caloff states
-    sigrows:  dict
-        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
+        Scan number that contains integrations with a series of sig/ref and calon/caloff states.
+    sigrows :dict
+        Dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
         corresponding to sig=T (ON) and sig=F (OFF) integrations.
     calrows : dict
-        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
+        Dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
         corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
-        the index for BINTABLE in `sdfits` containing the scans
-    calibrate: bool
-        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
+        The index for BINTABLE in `sdfits` containing the scans.
+    calibrate : bool
+        Whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
         Default: True
-    fold: bool
-        whether or not to fold the spectrum. Default: True
+    fold : bool
+        Whether or not to fold the spectrum. Default: True
+    shift_method : str
+        Method to use when shifting the spectra for folding. One of 'fft' or 'interpolate'.
+        'fft' uses a phase shift in the time domain. 'interpolate' interpolates the signal. Default: 'fft'
     use_sig : bool
-        whether to use the sig as the sig, or the ref as the sig. Default: True
+        Whether to use the sig as the sig, or the ref as the sig. Default: True
     smoothref: int
-        the number of channels in the reference to boxcar smooth prior to calibration
+        The number of channels in the reference to boxcar smooth prior to calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
-        observation DATE-OBS or MJD-OBS in
-        the SDFITS header.  The default is the location of the GBT.
+        observation DATE-OBS or MJD-OBS in the SDFITS header.  The default is the location of the GBT.
     """
 
     def __init__(
@@ -1141,6 +1150,7 @@ class FSScan(ScanMixin):
         bintable,
         calibrate=True,
         fold=True,
+        shift_method="fft",
         use_sig=True,
         smoothref=1,
         observer_location=Observatory["GBT"],
@@ -1217,7 +1227,7 @@ class FSScan(ScanMixin):
         self._calibrate = calibrate
         self._make_meta(self._sigonrows)
         if self._calibrate:
-            self.calibrate(fold=fold)
+            self.calibrate(fold=fold, shift_method=shift_method)
         if self._debug:
             print("---------------------------------------------------")
 
@@ -1267,6 +1277,7 @@ class FSScan(ScanMixin):
         """
         if self._debug:
             print(f'FOLD={kwargs["fold"]}')
+            print(f'METHOD={kwargs["shift_method"]}')
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -1341,16 +1352,16 @@ class FSScan(ScanMixin):
             """
             return (sig - ref) / ref * tsys
 
-        def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False):
+        def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
             """ """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
             # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
-            ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap)
+            ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
             avg = (sig + ref_shift) / 2
             return avg
 
-        def do_shift(data, offset, remove_wrap=False):
+        def do_shift(data, offset, remove_wrap=False, method="fft"):
             """
             Shift the data of a numpy array using roll/shift
 
@@ -1359,6 +1370,7 @@ class FSScan(ScanMixin):
 
             ishift = int(np.round(offset))  # Integer shift.
             fshift = offset - ishift  # Fractional shift.
+
             # print("FOLD:  ishift=%d fshift=%g" % (ishift, fshift))
             data2 = np.roll(data, ishift, axis=0)
             if remove_wrap:
@@ -1366,9 +1378,13 @@ class FSScan(ScanMixin):
                     data2[ishift:] = np.nan
                 else:
                     data2[:ishift] = np.nan
-            # now the fractional shift, each row separate since ndimage.shift() cannot deal with np.nan
-            #    data2 = ndimage.shift(data2,fshift)     this fails because fshift is a Quantity?, grrrr
-            data2 = ndimage.shift(data2, [fshift])
+            # Now the fractional shift, each row separate since ndimage.shift() cannot deal with np.nan
+            if method == "fft":
+                # Set `pad=False` to avoid edge effects.
+                # This needs to be sorted out.
+                data2 = fft_shift(data2, fshift, pad=False)
+            elif method == "interpolate":
+                data2 = ndimage.shift(data2, [fshift])
             return data2
 
         kwargs_opts = {"verbose": False}
@@ -1410,8 +1426,8 @@ class FSScan(ScanMixin):
             cal_ref = do_sig_ref(tp_ref, tp_sig, tsys_sig)
             #
             if _fold:
-                cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i])
-                cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i])
+                cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i], shift_method=kwargs["shift_method"])
+                cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i], shift_method=kwargs["shift_method"])
                 self._folded = True
                 if self._use_sig:
                     self._calibrated[i] = cal_sig_fold
