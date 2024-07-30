@@ -42,10 +42,10 @@ jobs:
       - name: Install dependencies
         run: |
           # Install requirements, as compiled by pip-compile
+          pip cache purge
           pip install -r requirements.txt
           # Install dysh itself, in editable mode (which is required to avoid breaking the caching mechanism above)
           pip install -e .
-          pip cache purge
       - name: Test with pytest
         run: |
           # Write coverage data files, namespaced using matrix info
