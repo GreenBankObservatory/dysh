@@ -1,6 +1,4 @@
 import sys
-import threading
-import time
 
 import pyqtgraph as pg
 from IPython.display import display
@@ -13,6 +11,9 @@ from screeninfo import get_monitors
 
 # DYSH IMPORTS
 from dysh.plot.renderer import Renderer
+
+# import threading
+# import time
 
 
 class SingleSpectrum(PlotWidget):
