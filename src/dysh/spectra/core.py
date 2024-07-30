@@ -18,7 +18,7 @@ from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 
 from ..coordinates import veltofreq
-from ..util import minimum_string_match
+from ..util import minimum_string_match, powerof2
 
 
 # @todo: allow data to be SpectrumList or array of Spectrum
@@ -486,6 +486,132 @@ def get_spectral_equivalency(restfreq, velocity_convention):
         return u.doppler_redshift()
     else:
         raise ValueError(f"Unrecognized velocity convention {velocity_convention}")
+
+
+def fft_pad(y):
+    """
+    Pad signal `y` to the next power of 2 using its edge values.
+
+    Parameters
+    ----------
+    y : 1D `~numpy.ndarray`
+        Signal to be padded.
+
+    Returns
+    -------
+    padded : 1D `~numpy.ndarray`
+        Padded signal.
+    nskip : int
+        Number of samples added to each end of the padded signal.
+    """
+
+    nch = len(y)
+    pow2 = powerof2(nch)
+    pow2 += 1
+    newsize = 2**pow2
+
+    padded = np.empty(newsize, dtype=y.dtype)
+    npad = newsize - nch
+    nskip = npad // 2
+    padded[nskip : nskip + nch] = y
+    padded[0:nskip] = padded[nskip]
+    padded[nskip + nch :] = padded[nskip + nch]
+
+    return padded, nskip
+
+
+def fft_shift(
+    y,
+    shift,
+    pad=True,
+    window=True,
+    nan_treatment="fill",
+    fill_value=0,
+    keep_nan=True,
+):
+    """
+    Shift a signal `y` by `shift` amount using a phase shift.
+    This requires taking the inverse FFT of the signal, shifting its phase,
+    and then taking the FFT to shift the signal.
+
+    Parameters
+    ----------
+    y : 1D `~numpy.ndarray`
+        Signal to be shifted. Only 1D supported.
+    shift : float
+        Amount to shift the signal by in channels.
+    pad : bool
+        Pad the signal to prevent aliasing.
+    window : bool
+        Apply a Welch window to prevent ringing.
+    nan_treatment : 'fill'
+        'fill' replaces NaN values with `fill_value` before the FFT.
+    fill_value : float
+        Value used to replace NaN values. Used if `nan_treatment=='fill'`.
+    keep_nan : bool
+        If `True` the output will keep the NaN values. If `False` NaN values will be filled.
+
+    Returns
+    -------
+    new_y : 1D `~numpy.ndarray`
+        Phase shifted version of the original signal `y`.
+    """
+
+    nch = len(y)
+
+    # Pad if requested.
+    # Padding reduces aliasing, but is more expensivep.
+    if pad:
+        padded, nskip = fft_pad(y)
+    else:
+        padded, nskip = y.copy(), 0
+
+    new_len = len(padded)
+
+    phase_shift = 2.0 * np.pi * shift / new_len
+
+    yf = padded.copy()
+    nan_mask = np.isnan(padded)
+
+    if nan_treatment == "fill":
+        yf[nan_mask] = fill_value
+    else:
+        return NotImplemented
+
+    # Take the inverse FFT.
+    ifft = np.fft.ifft(yf)
+
+    # Split into amplitude and phase.
+    amp = abs(ifft)
+    phs = np.angle(ifft)
+
+    # Array of indices for computing the phase shift at each channel.
+    harr = np.arange(0, new_len // 2)
+    # Index the phase shift samples this way to
+    # get a Hermite-symmetric complex exponential.
+    farr = np.hstack((harr, harr - new_len // 2))
+
+    # Shift and apply window if needed.
+    phs += farr * phase_shift
+    if window:
+        amp *= 1.0 - (farr / float(new_len / 2.0)) ** 2
+
+    # Combine again and take the FFT.
+    shifted_ifft = amp * np.cos(phs) + 1j * amp * np.sin(phs)
+    shifted_y = np.fft.fft(shifted_ifft)
+
+    # Remove padding and take the real part.
+    new_y = shifted_y[nskip : nskip + nch].real
+    new_nan_mask = nan_mask[nskip : nskip + nch]
+
+    # Shift NaN elements.
+    if keep_nan:
+        if abs(shift) < 1:
+            new_y[new_nan_mask] = np.nan
+        else:
+            new_y[np.roll(new_nan_mask, int(shift))] = np.nan
+
+    return new_y
 
 
 def smooth(data, method="hanning", width=1, kernel=None, show=False):

@@ -42,6 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           # Install requirements, as compiled by pip-compile
+          pip cache purge
           pip install -r requirements.txt
           # Install dysh itself, in editable mode (which is required to avoid breaking the caching mechanism above)
           pip install -e .
