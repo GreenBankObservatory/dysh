@@ -33,7 +33,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..plot import specplot as sp
+from ..plot.iPlotter import SpectrumPlot as sp
 from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
 
@@ -295,9 +295,7 @@ class Spectrum(Spectrum1D):
         print(f"baseline model {self._baseline_model}")
 
     def plot(self, **kwargs):
-        if self._plotter is None:
-            self._plotter = sp.SpectrumPlot(self, **kwargs)
-        self._plotter.plot(**kwargs)
+        self._plotter = sp(self, **kwargs)
 
     @property
     def obstime(self):

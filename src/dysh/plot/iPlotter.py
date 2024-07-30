@@ -1,25 +1,24 @@
-# PACKAGE IMPORTS
 import sys
 import threading
+import time
 
 import pyqtgraph as pg
 from IPython.display import display
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
+from PyQt6.QtWidgets import *
 from pyqtgraph import PlotWidget
 from qt_material import apply_stylesheet
 from screeninfo import get_monitors
 
 # DYSH IMPORTS
-from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.plot.renderer import Renderer
 
 
 class SingleSpectrum(PlotWidget):
     """Spectrum Plot"""
 
-    def __init__(self, spectrum, **kwargs):
+    def __init__(self, spectrum):
         """Init the spectrum plot"""
         super().__init__()
         self._spectrum = spectrum
@@ -41,7 +40,7 @@ class SingleSpectrum(PlotWidget):
         self._spectrum = spectrum
         self.add_data()
 
-    def add_data(self, **kwargs):
+    def add_data(self):
         """Add the data to the plot"""
 
         s = self._spectrum
@@ -95,9 +94,9 @@ class SingleSpectrum(PlotWidget):
 class DyshMainWindow(QMainWindow):
     """The main window of the GUI"""
 
-    def __init__(self, spectrum, add_roi=True, fpath=None):
+    def __init__(self, spectrum, add_roi=True):
         """Initializes the main window"""
-        super(DyshMainWindow, self).__init__()
+        super().__init__()
 
         self.spectrum = spectrum
         self.bool_roi = add_roi
@@ -242,25 +241,38 @@ class DyshMainWindow(QMainWindow):
             if child.widget():
                 child.widget().deleteLater()
 
-    def closeEvent(self, *args, **kwargs):
-        super(QMainWindow, self).closeEvent(*args, **kwargs)
-        # self.terminal.stop()
+    # def closeEvent(self, *args):
+    #     super(QMainWindow, self).closeEvent(*args)
 
 
 class SpectrumSelectApp(QApplication):
-    def __init__(self, spectrum, *args):
+    def __init__(self, spectrum, *args, **kwargs):
+        # [TODO] Handle incoming kwargs
         QApplication.__init__(self, *args)
         self.main = DyshMainWindow(spectrum)
-        self.main.show()
 
 
-class SpectrumSelect:
+class SpectrumPlot:
     """The spectrum selection"""
 
-    def __init__(self, spectrum):
+    def __init__(self, spectrum, **kwargs):
         """Initialize the spectrum seelctor"""
+        # [TODO] Handle incoming kwargs
         self.spectrum = spectrum
         self._init_outputs()
+
+        # Attempt at threading that ALMOST works
+        # t = threading.Thread(target=self.makePlot)
+        # t.daemon = True
+        # t.start()
+
+        # if timeout is not None:
+        #     print(f"Timing out after {timeout} second(s)")
+        #     time.sleep(timeout)
+        #     print("Closing main window")
+        #     self.app.main.close()
+
+        # Delete once threading works
         self.makePlot()
 
     def _init_outputs(self):
@@ -272,19 +284,21 @@ class SpectrumSelect:
 
     def makePlot(self):
         """Make the plot based on the renderer"""
+
         rend = Renderer()
-        print(rend.info())
+
         if rend.render_type == "notebook":
             plot = SingleSpectrum(self.spectrum)
             display(plot.win)
         else:
-            app = SpectrumSelectApp(self.spectrum, sys.argv)
-            apply_stylesheet(app, theme="dark_purple.xml")
-            app.exec_()
-            self.xmin = app.main.roi_xmin
-            self.xmax = app.main.roi_xmax
-            self.ymin = app.main.roi_ymin
-            self.ymax = app.main.roi_ymax
+            print("app started")
+            self.app = SpectrumSelectApp(self.spectrum, sys.argv)
+            apply_stylesheet(self.app, theme="dark_purple.xml")
+            self.app.exec()
+            self.xmin = self.app.main.roi_xmin
+            self.xmax = self.app.main.roi_xmax
+            self.ymin = self.app.main.roi_ymin
+            self.ymax = self.app.main.roi_ymax
 
     def get_selection(self):
         """Return the selection as a dictionary"""
@@ -296,27 +310,5 @@ class SpectrumSelect:
         }
         return self.selection
 
-
-def main(spectrum):
-    my_selection = SpectrumSelect(spectrum)
-    return my_selection
-
-
-if __name__ == "__main__":
-    from dysh.fits.gbtfitsload import GBTFITSLoad
-
-    filename = "/home/dysh/example_data/onoff-L/data/TGBT21A_501_11.raw.vegas.fits"
-    # filename = "E:/Code/GitHub/Work/forks/dysh/test_file.fits"
-    sdfits = GBTFITSLoad(filename)
-    psscan = sdfits.getps(scan=152, ifnum=0, plnum=0)
-    ta = psscan.timeaverage(weights="tsys")
-    # breakpoint()
-    # ta.mask[0:3000] = True
-    # print("LEN: ", len(ta.mask))
-
-    # my_selection = threading.Thread(target=main)
-    # my_selection.daemon = True
-    # my_selection.start()
-    my_selection = main(ta)
-
-    print(my_selection.get_selection())
+    def close(self):
+        self.app.quit()

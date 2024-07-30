@@ -51,7 +51,13 @@ nb = [
   "jupyter",
   "jupyterlab",
 ]
-all = ["dysh[dev,nb]"]
+gui = [
+  "pyqt6",
+  "pyqtgraph",
+  "qt_material",
+  "screeninfo",
+]
+all = ["dysh[dev,nb,gui]"]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
