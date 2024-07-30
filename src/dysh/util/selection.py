@@ -187,6 +187,24 @@ class Selection(DataFrame):
             ]
             self._table.pprint_exclude_names.set(emptycols)
 
+    def columns_selected(self):
+        """The names of any columns which were used in a selection rule
+
+        Returns
+        -------
+        colnames - set
+            A set of str column names. An empty set is returned if no selection rule has yet been made.
+        """
+        if len(self._table) == 0:
+            return set()
+
+        self._set_pprint_exclude_names()  # ensure __attributes__ gets set.
+        return (
+            set(self._table.colnames)
+            - set(self._table.meta["__attributes__"]["pprint_exclude_names"])
+            - set(["# SELECTED", "ID", "TAG"])
+        )
+
     def _sanitize_input(self, key, value):
         """
         Sanitize a key-value pair for. Coordinate types are checked for.

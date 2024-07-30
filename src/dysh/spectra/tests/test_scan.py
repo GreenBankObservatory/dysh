@@ -355,11 +355,13 @@ class TestFScan:
 
 
 class TestScanBlock:
-    def test_scanblock_write_read(self):
+    def test_scanblock_write_read(self, tmp_path):
         file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(file)
         sb = g.getps(scan=6)
-        testfile = "test_scanblock_write.fits"
+        o = tmp_path / "sub"
+        o.mkdir()
+        testfile = o / "test_scanblock_write.fits"
         sb.write(fileobj=testfile, overwrite=True)
         g2 = gbtfitsload.GBTFITSLoad(testfile)
         x = g2.summary()  # simple check that basic function works.
