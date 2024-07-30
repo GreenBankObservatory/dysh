@@ -12,3 +12,5 @@ TREG_050627.raw.acs.fits    getfs   W3OH,IC1481
 TRCO_230413_Ka              subbeamnod
 
 TGBT21A_501_11.raw.vegas.fits : Nrows: 6040   Ncols: 74  Nchan: 32768  nP: 791.675 Mp
+
+TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits   File with two binary tables of length 3 row and 5 rows.  Good to test multi-bintable functions.
