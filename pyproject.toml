@@ -53,6 +53,8 @@ nb = [
 ]
 gui = [
   "pyqt5",
+  "pyqt5-qt5==5.15.14 ; platform_system != \"Windows\"",
+  "pyqt5-qt5==5.15.2 ; platform_system == \"Windows\"",
   "pyqtgraph",
   "qt_material",
   "screeninfo",
