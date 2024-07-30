@@ -187,7 +187,7 @@ filterwarnings = [
 
 [tool.pip-tools]
 src_files = ["pyproject.toml"]
-extra = ["nb", "dev"]
+extra = ["nb", "dev", "gui"]
 resolver = "backtracking"
 output_file= "requirements.txt"
 no_strip_extras = true
