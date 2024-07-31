@@ -9,6 +9,7 @@ Examples for GBT Data
     dataIO
     frequencyswitch
     positionswitch
+    metadata_management
     smoothing
     subbeamnod
     velocity_frames
