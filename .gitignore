@@ -6,8 +6,8 @@ docs/source/_build/
 docs/source/build/
 docs/jupyter_execute/
 docs/jupyter_cache/
-notebooks/data/
-notebooks/output/
+notebooks/examples/data/*.fits
+notebooks/examples/output/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
