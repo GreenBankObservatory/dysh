@@ -260,3 +260,21 @@ def keycase(d, case="upper"):
     elif case == "lower":
         newDict = {k.lower(): v for k, v in d.items()}
     return newDict
+
+
+def powerof2(number):
+    """
+    Computes the closest power of 2 for a given `number`.
+
+    Parameters
+    ----------
+    number : float
+        number to determine the closest power of 2.
+
+    Returns
+    -------
+    pow2 : int
+        the closest power of 2.
+    """
+
+    return round(np.log10(number) / np.log10(2.0))

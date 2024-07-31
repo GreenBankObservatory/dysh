@@ -339,7 +339,15 @@ class TestFScan:
         # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
         level = 0.02
         print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
-        nm = np.nanmean(sp - ta.flux.value.astype(np.float32))
+        diff1 = sp - ta.flux.value.astype(np.float32)
+        nm = np.nanmean(diff1[15000:20000])  # Use channel range around the line.
+        assert abs(nm) <= level
+
+        # Using interpolation to shift the data.
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True, shift_method="interpolate")
+        ta = fsscan.timeaverage(weights="tsys")
+        diff2 = sp - ta.flux.value.astype(np.float32)
+        nm = np.nanmean(diff2[15000:20000])
         assert abs(nm) <= level
 
     def test_getfs_with_selection(self, data_dir):
@@ -347,11 +355,13 @@ class TestFScan:
 
 
 class TestScanBlock:
-    def test_scanblock_write_read(self):
+    def test_scanblock_write_read(self, tmp_path):
         file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(file)
         sb = g.getps(scan=6)
-        testfile = "test_scanblock_write.fits"
+        o = tmp_path / "sub"
+        o.mkdir()
+        testfile = o / "test_scanblock_write.fits"
         sb.write(fileobj=testfile, overwrite=True)
         g2 = gbtfitsload.GBTFITSLoad(testfile)
         x = g2.summary()  # simple check that basic function works.
