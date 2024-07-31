@@ -122,7 +122,7 @@ html_theme = "sphinx_book_theme"
 html_theme_options = {
     "logo": {
         "image_light": "_static/icon/dysh_logo_lightmode.png",
-        "image_dark": "_static/dysh_logo_darkmode.png",
+        "image_dark": "_static/icon/dysh_logo_darkmode.png",
     }
 }
 
