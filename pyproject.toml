@@ -37,14 +37,17 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "coverage[toml]",
+  "pip-tools",
+  "pre-commit",
   "ipdb",
   "numpydoc",
   "pytest",
   "pytest-cov",
+  "myst_nb",
   "sphinx",
   "sphinx-autobuild",
   "sphinx-inline-tabs",
-  "sphinx-rtd-theme",
+  "sphinx-book-theme",
   "sphinxcontrib-mermaid",
 ]
 nb = [

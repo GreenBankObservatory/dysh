@@ -3,6 +3,11 @@
 .ignore/
 .virtual_documents
 docs/source/_build/
+docs/source/build/
+docs/jupyter_execute/
+docs/jupyter_cache/
+notebooks/data/
+notebooks/output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
