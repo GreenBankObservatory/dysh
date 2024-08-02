@@ -31,7 +31,8 @@ dependencies = [
   "pandas",
   "scipy",
   "specutils",
-  "wget",
+  "httpx",
+  "rich",
  ]
 
 [project.optional-dependencies]
