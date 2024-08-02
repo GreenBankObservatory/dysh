@@ -19,8 +19,8 @@ def from_url(url, path="."):
 
     Returns
     -------
-        savepath : str
-            The path to the downloaded (or existing) data
+    savepath : str
+        The path to the downloaded (or existing) data
     """
 
     # If the URL has already been downloaded, we can skip downloading it again.
