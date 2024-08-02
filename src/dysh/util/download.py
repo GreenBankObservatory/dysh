@@ -72,7 +72,7 @@ def from_url(url, path=Path(".")):
     tmp_path.rename(savepath)
     print(f"Saved {filename} to {savepath}")
 
-    return savepath
+    return Path(savepath)
 
 
 def parse_args():
