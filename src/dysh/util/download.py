@@ -1,12 +1,13 @@
-import os
+import argparse
 import sys
 import uuid
+from pathlib import Path
 
 import httpx
 from rich.progress import Progress
 
 
-def from_url(url, path="."):
+def from_url(url, path=Path(".")):
     """
     Download a file from `url` to `path`.
 
@@ -14,61 +15,86 @@ def from_url(url, path="."):
     ----------
     url : str
         The URL of the data file
-    path : str
+    path : `pathlib.Path`
         The path to the directory to save the data. If `path/filename` already exists, the file will not be downloaded again.
 
     Returns
     -------
-    savepath : str
+    savepath : `pathlib.Path`
         The path to the downloaded (or existing) data
     """
 
-    # If the URL has already been downloaded, we can skip downloading it again.
-    filename = os.path.basename(url)
-    savepath = f"{path}/{filename}"
-
-    if os.path.exists(savepath):
-        print(f"{filename} already downloaded at {path}")
-        return path
-
-    if os.path.dirname(path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    client = httpx.Client(follow_redirects=True)
-
-    print(f"Attempting to download {filename}...")
     try:
+        # Make the HTTPX client
+        client = httpx.Client(follow_redirects=True)
+
         with client.stream("GET", url) as resp:
-            resp.raise_for_status()
 
-            # Download to a temporary path first
-            # so desired file only shows up if successful
-            tmp_path = f"{path}.{uuid.uuid4()}.tmp"
+            # Get the filename from the URL
+            filename = Path(resp.url.path).name
 
-            # Write chunks to file with progress bar
-            with open(tmp_path, "wb") as out_file:
-                with Progress() as progress:
-                    task_length = int(resp.headers.get("content-length", 0))
-                    task = progress.add_task("[red]Downloading...", total=task_length)
-                    for chunk in resp.iter_raw():
-                        out_file.write(chunk)
-                        progress.update(task, advance=len(chunk))
+            # Check if given path is directory or filename
+            if path.is_dir():
+                path.mkdir(parents=True, exist_ok=True)
+                savepath = path / filename
+            else:
+                savepath = path
 
-    # If something goes wrong, throw Exception and delete .tmp file
+            # Skip downloading if file already exists
+            if savepath.exists():
+                print(f"{filename} already downloaded at {path}")
+                return path
+
+            else:
+                # Download the file
+                print(f"Attempting to download {filename}...")
+                resp.raise_for_status()
+
+                # Download to a temporary path first
+                # so desired file only shows up if successful
+                tmp_path = savepath.parent / f"{filename}.{uuid.uuid4()}.tmp"
+
+                # Write chunks to file with progress bar
+                with open(tmp_path, "wb") as out_file:
+                    with Progress() as progress:
+                        task_length = int(resp.headers.get("content-length", 0))
+                        task = progress.add_task("[red]Downloading...", total=task_length)
+                        for chunk in resp.iter_raw():
+                            out_file.write(chunk)
+                            progress.update(task, advance=len(chunk))
+
+    # If something goes wrong, throw Exception
     except Exception as exc:
-        os.remove(tmp_path)
         print(exc, file=sys.stderr)
         raise
 
     # Rename the temp file to the desired name
-    os.rename(tmp_path, savepath)
+    tmp_path.rename(savepath)
     print(f"Saved {filename} to {savepath}")
 
     return savepath
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("url")
+    parser.add_argument(
+        "-o",
+        "--output",
+        dest="output_path",
+        type=Path,
+        help="The path where the downloaded file will be saved. If not provided, it will be derived from the URL.",
+        default=Path("."),
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    savepath = from_url(args.url, args.output_path)
+    return savepath
+
+
 if __name__ == "__main__":
-    url = "http://www.gb.nrao.edu/dysh/example_data/fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits"
-    savepath = "/home/sandboxes/vcatlett/repos/github/GBO/dysh/"
-    savepath = from_url(url, savepath)
-    os.remove(savepath)
+    main()
