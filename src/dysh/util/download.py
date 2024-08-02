@@ -36,9 +36,9 @@ def from_url(url, path="."):
 
     client = httpx.Client(follow_redirects=True)
 
+    print(f"Attempting to download {filename}...")
     try:
         with client.stream("GET", url) as resp:
-            print(f"Downloading {filename}...")
             resp.raise_for_status()
 
             # Download to a temporary path first
