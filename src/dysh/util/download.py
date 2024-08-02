@@ -15,7 +15,7 @@ def from_url(url, path=Path(".")):
     ----------
     url : str
         The URL of the data file
-    path : `pathlib.Path`
+    path : str or `pathlib.Path`
         The path to the directory to save the data. If `path/filename` already exists, the file will not be downloaded again.
 
     Returns
@@ -23,6 +23,10 @@ def from_url(url, path=Path(".")):
     savepath : `pathlib.Path`
         The path to the downloaded (or existing) data
     """
+
+    # Convert savepath to Path if given string
+    if type(path) is str:
+        path = Path(path)
 
     try:
         # Make the HTTPX client
