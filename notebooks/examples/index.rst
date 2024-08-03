@@ -6,10 +6,10 @@ Examples for GBT Data
     :glob:
     :maxdepth: 1
 
-    dataIO
     frequencyswitch
     positionswitch
     metadata_management
-    smoothing
     subbeamnod
+    smoothing
     velocity_frames
+    dataIO
