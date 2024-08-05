@@ -33,6 +33,7 @@ dependencies = [
   "specutils",
   "httpx",
   "rich",
+  "tenacity",
  ]
 
 [project.optional-dependencies]
