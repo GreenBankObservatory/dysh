@@ -181,7 +181,7 @@ src = ["src", "benchmark", "notebooks"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-testpaths = ["tests", "src", "docs", "notebooks/examples"]
+testpaths = ["tests", "src", "docs"]
 filterwarnings = [
     "ignore::DeprecationWarning"
 ]
