@@ -1,5 +1,5 @@
 import argparse
-import time
+import sys
 import uuid
 from pathlib import Path
 
@@ -7,7 +7,7 @@ import httpx
 from rich.progress import Progress
 
 
-def from_url(url, path=Path("."), max_retries=5, retry_delay=2):
+def from_url(url, path=Path(".")):
     """
     Download a file from `url` to `path`.
 
@@ -17,10 +17,6 @@ def from_url(url, path=Path("."), max_retries=5, retry_delay=2):
         The URL of the data file
     path : str or `pathlib.Path`
         The path to the directory to save the data. If `path/filename` already exists, the file will not be downloaded again.
-    max_retries : int
-        The maximum number of times to retry the download if it fails
-    retry_delay : int
-        The amount of time (seconds) to wait before retrying
 
     Returns
     -------
@@ -32,56 +28,49 @@ def from_url(url, path=Path("."), max_retries=5, retry_delay=2):
     if type(path) is str:
         path = Path(path)
 
-    attempt = 0
-    while attempt < max_retries:
-        try:
-            # Make the HTTPX client
-            client = httpx.Client(follow_redirects=True)
+    try:
+        # Make the HTTPX client
+        client = httpx.Client(follow_redirects=True)
 
-            with client.stream("GET", url) as resp:
+        with client.stream("GET", url) as resp:
 
-                # Get the filename from the URL
-                filename = Path(resp.url.path).name
+            # Get the filename from the URL
+            filename = Path(resp.url.path).name
 
-                # Check if given path is directory or filename
-                if path.is_dir():
-                    path.mkdir(parents=True, exist_ok=True)
-                    savepath = path / filename
-                else:
-                    savepath = path
-
-                # Skip downloading if file already exists
-                if savepath.exists():
-                    print(f"{filename} already downloaded at {path}")
-                    return path
-
-                else:
-                    # Download the file
-                    print(f"Attempting to download {filename}...")
-                    resp.raise_for_status()
-
-                    # Download to a temporary path first
-                    # so desired file only shows up if successful
-                    tmp_path = savepath.parent / f"{filename}.{uuid.uuid4()}.tmp"
-
-                    # Write chunks to file with progress bar
-                    with open(tmp_path, "wb") as out_file:
-                        with Progress() as progress:
-                            task_length = int(resp.headers.get("content-length", 0))
-                            task = progress.add_task("[red]Downloading...", total=task_length)
-                            for chunk in resp.iter_raw():
-                                out_file.write(chunk)
-                                progress.update(task, advance=len(chunk))
-
-        # If something goes wrong, throw Exception
-        except Exception as exc:
-            attempt += 1
-            if attempt >= max_retries:
-                raise
+            # Check if given path is directory or filename
+            if path.is_dir():
+                path.mkdir(parents=True, exist_ok=True)
+                savepath = path / filename
             else:
-                print(f"Attempt {attempt} failed: {exc}")
-                print(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
+                savepath = path
+
+            # Skip downloading if file already exists
+            if savepath.exists():
+                print(f"{filename} already downloaded at {path}")
+                return path
+
+            else:
+                # Download the file
+                print(f"Attempting to download {filename}...")
+                resp.raise_for_status()
+
+                # Download to a temporary path first
+                # so desired file only shows up if successful
+                tmp_path = savepath.parent / f"{filename}.{uuid.uuid4()}.tmp"
+
+                # Write chunks to file with progress bar
+                with open(tmp_path, "wb") as out_file:
+                    with Progress() as progress:
+                        task_length = int(resp.headers.get("content-length", 0))
+                        task = progress.add_task("[red]Downloading...", total=task_length)
+                        for chunk in resp.iter_raw():
+                            out_file.write(chunk)
+                            progress.update(task, advance=len(chunk))
+
+    # If something goes wrong, throw Exception
+    except Exception as exc:
+        print(exc, file=sys.stderr)
+        raise
 
     # Rename the temp file to the desired name
     tmp_path.rename(savepath)
