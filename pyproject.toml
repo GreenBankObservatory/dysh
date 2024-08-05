@@ -50,6 +50,9 @@ dev = [
   "sphinx-inline-tabs",
   "sphinx-book-theme",
   "sphinxcontrib-mermaid",
+  "nbformat",
+  "nbclient",
+  "glob2",
 ]
 nb = [
   "jupyter",
@@ -178,7 +181,7 @@ src = ["src", "benchmark", "notebooks"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-testpaths = ["tests", "src", "docs"]
+testpaths = ["tests", "src", "docs", "notebooks/examples"]
 filterwarnings = [
     "ignore::DeprecationWarning"
 ]
