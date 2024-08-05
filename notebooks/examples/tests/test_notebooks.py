@@ -10,10 +10,8 @@ def check_notebook_execution(notebook_file):
 
     # Get the current testing directory
     cwd = Path().cwd()
-    print("1", cwd)
     # Get the directory of the notebook
     notebook_dir = Path(notebook_file).parent.resolve()
-    print("2", notebook_dir)
 
     # Open the notebook
     with open(notebook_file, 'r', encoding='utf-8') as f:
@@ -23,17 +21,13 @@ def check_notebook_execution(notebook_file):
     try:
         # Change the current working directory to the notebook's directory
         os.chdir(notebook_dir)
-        print("3", Path().cwd())
         client = NotebookClient(nb, timeout=600)
         client.execute()
         # Return to original working directory
         os.chdir(cwd)
-        print("4", Path().cwd())
     except Exception as e:
         # Return to original working directory
-        print("5", Path().cwd())
         os.chdir(cwd)
-        print("6", Path().cwd())
         pytest.fail(f"Error executing notebook {notebook_file}: {e}")
 
 def test_notebooks_execution():
@@ -66,6 +60,3 @@ def test_single_top_level_header():
                         top_level_headers += 1
 
         assert top_level_headers == 1, f"Notebook {notebook_file} has {top_level_headers} top-level headers."
-
-if __name__ == "__main__":
-    test_notebooks_execution()
