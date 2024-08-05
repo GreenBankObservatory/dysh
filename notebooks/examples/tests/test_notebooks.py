@@ -28,7 +28,6 @@ def check_notebook_execution(notebook_file):
     except Exception as e:
         # Return to original working directory
         os.chdir(cwd)
-        outdir = notebook_dir / "output"
         pytest.fail(f"Error executing notebook {notebook_file}: {e}")
 
 def test_notebooks_execution():
