@@ -1,7 +1,7 @@
 import socket
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.plot.iPlotter import SpectrumPlot as sp
+from dysh.plot.dev.iPlotter import SpectrumPlot as sp
 
 # Get path to data
 hostname = socket.gethostname()

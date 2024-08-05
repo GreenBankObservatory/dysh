@@ -33,7 +33,8 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..plot.iPlotter import SpectrumPlot as sp
+
+# from ..plot.dev.iPlotter import SpectrumPlot as sp
 from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
 
