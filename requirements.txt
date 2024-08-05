@@ -136,6 +136,8 @@ fonttools==4.45.0
     # via matplotlib
 fqdn==1.5.1
     # via jsonschema
+glob2==0.7
+    # via dysh (pyproject.toml)
 greenlet==3.0.3
     # via sqlalchemy
 gwcs==0.19.0
@@ -301,6 +303,7 @@ myst-parser==2.0.0
     # via myst-nb
 nbclient==0.9.0
     # via
+    #   dysh (pyproject.toml)
     #   jupyter-cache
     #   myst-nb
     #   nbconvert
@@ -310,6 +313,7 @@ nbconvert==7.12.0
     #   jupyter-server
 nbformat==5.9.2
     # via
+    #   dysh (pyproject.toml)
     #   jupyter-cache
     #   jupyter-server
     #   myst-nb
@@ -547,6 +551,8 @@ tabulate==0.9.0
     # via
     #   jupyter-cache
     #   numpydoc
+tenacity==9.0.0
+    # via dysh (pyproject.toml)
 terminado==0.18.0
     # via
     #   jupyter-server

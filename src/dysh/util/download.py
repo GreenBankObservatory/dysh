@@ -5,8 +5,10 @@ from pathlib import Path
 
 import httpx
 from rich.progress import Progress
+from tenacity import retry, stop_after_attempt
 
 
+@retry(stop=stop_after_attempt(3))
 def from_url(url, path=Path(".")):
     """
     Download a file from `url` to `path`.
