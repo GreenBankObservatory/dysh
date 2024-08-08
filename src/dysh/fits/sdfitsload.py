@@ -12,6 +12,8 @@ from astropy.io import fits
 from astropy.io.fits import BinTableHDU
 from astropy.table import Table
 
+from dysh.log import logger
+
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 
@@ -216,6 +218,7 @@ class SDFITSLoad(object):
             self._bintable.append(self._hdu[i])
             self._binheader.append(self._hdu[i].header)
             self._nrows.append(self._binheader[j]["NAXIS2"])
+            logger.debug(f"Loading HDU {i} from {self._filename}")
 
     def fix_meta(self, meta):
         """
