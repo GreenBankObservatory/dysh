@@ -52,23 +52,27 @@ config = {
             "filename": str(DYSH_HOME / "dysh.log"),
             "mode": "a",
         },
+        "dysh_instance_log_file": {
+            "level": "DEBUG",
+            "formatter": "verbose",
+            "class": "dysh.log.DatestampFileHandler",
+            # Pull the log path from the environment. If this isn't set, an error
+            # will be thrown. To log to the current directory, set this to .
+            "filename": str(DYSH_LOG_DIR / "dysh.%Y_%m_%d_%H_%M_%S.log"),
+            # Don't create the file until messages are written to it
+            "delay": True,
+        },
     },
     "loggers": {
         "dysh": {
-            "handlers": ["stderr", "dysh_global_log_file"],
+            "handlers": [],
             "level": "WARNING",
         },
     },
 }
 
 
-def init_logging():
-    global logger
-    logging.config.dictConfig(config)
-    logger = logging.getLogger("dysh")
-
-
-def config_logging(verbosity: int, level: Union[int | None] = None, path: Union[Path | None] = None):
+def config_logging(verbosity: int, level: Union[int, None] = None, path: Union[Path, None] = None):
     global logger
     if verbosity:
         if verbosity == 0:
@@ -85,19 +89,18 @@ def config_logging(verbosity: int, level: Union[int | None] = None, path: Union[
     if level is None:
         raise ValueError("One of verbosity or level must be given!")
 
+    config["loggers"]["dysh"]["handlers"] = ["stderr", "dysh_global_log_file"]
+
+    if path:
+        config["handlers"]["dysh_instance_log_file"]["filename"] = path
+        config["loggers"]["dysh"]["handlers"].append("dysh_instance_log_file")
+        logger.info(f"Log file for this instance of dysh: {path}")
+
+    # Init logging
+    logging.config.dictConfig(config)
     logging.getLogger().setLevel(level)
     logger.setLevel(level)
     logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
 
-    if path:
-        enable_instance_log(level=level, path=path)
-        logger.info(f"Log file for this instance of dysh: {path}")
 
-
-def enable_instance_log(level: int, path: Path):
-    handler = logging.FileHandler(path)
-    handler.setLevel(level)
-    logger.addHandler(handler)
-
-
-logger = None
+logger = logging.getLogger("dysh")
