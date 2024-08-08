@@ -28,8 +28,12 @@ config = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
+        "extra_verbose": {
+            "format": "%(asctime)s - %(pathname)s:%(lineno)s - %(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+        },
         "verbose": {
-            "format": "%(asctime)s - %(module)s.%(funcName)s - %(levelname)s - %(message)s",
+            "format": "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
             "datefmt": "%Y-%m-%dT%H:%M:%S%z",
         },
         "simple": {
