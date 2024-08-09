@@ -31,7 +31,9 @@ dependencies = [
   "pandas",
   "scipy",
   "specutils",
-  "wget",
+  "httpx",
+  "rich",
+  "tenacity",
  ]
 
 [project.optional-dependencies]
@@ -49,6 +51,9 @@ dev = [
   "sphinx-inline-tabs",
   "sphinx-book-theme",
   "sphinxcontrib-mermaid",
+  "nbformat",
+  "nbclient",
+  "glob2",
 ]
 nb = [
   "jupyter",
