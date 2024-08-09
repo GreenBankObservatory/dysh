@@ -1852,18 +1852,18 @@ class GBTFITSLoad(SDFITSLoad):
         # Update SDFITSLoad.index.
         sdf_idx = set(self["FITSINDEX"][azel_mask])
         for i in sdf_idx:
-            sdfi = self._sdf[i].index()
+            sdfi = self._sdf[i]
             azel_mask = (sdfi["CTYPE2"] == "AZ") & (sdfi["CTYPE3"] == "EL")
-            sdfi.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
+            sdfi["RADESYS"][azel_mask] = radesys["AzEl"]
 
         # Hour angle and declination case.
         hadec_mask = self["CTYPE2"] == "HA"
         self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
         sdf_idx = set(self["FITSINDEX"][hadec_mask])
         for i in sdf_idx:
-            sdfi = self._sdf[i].index()
+            sdfi = self._sdf[i]
             hadec_mask = sdfi["CTYPE2"] == "HA"
-            sdfi.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
+            sdfi["RADESYS"][hadec_mask] = radesys["HADec"]
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
