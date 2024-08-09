@@ -1,4 +1,5 @@
 import argparse
+import logging
 from pathlib import Path
 from typing import List, Union
 
@@ -8,6 +9,7 @@ from traitlets.config import Config
 import dysh.fits
 from dysh import __version__
 from dysh.fits.sdfitsload import SDFITSLoad
+from dysh.log import config_logging, logger
 
 # TODO: Derive URLs from pyproject.toml?
 BANNER = f"""--------------------------------------------------------------------------
@@ -48,6 +50,8 @@ def parse_args():
         choices=["NoColor", "Neutral", "Linux", "LightBG"],
         default=DEFAULT_COLORS,
     )
+    parser.add_argument("-v", "--verbosity", help="Set logging verbosity", type=int, default=2, choices=[0, 1, 2, 3])
+    parser.add_argument("--log", help="Specify log path", type=Path)
     return parser.parse_known_args()
 
 
@@ -61,8 +65,8 @@ def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] =
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
     user_ns = {"pd": pd, "np": np, "GBTFITSLoad": GBTFITSLoad, "Table": Table, "fits": fits}
-    if sdfits_files:
-        user_ns["sdfits_files"] = sdfits_files
+    # if sdfits_files:
+    #     user_ns["sdfits_files"] = sdfits_files
 
     c.BaseIPythonApplication.profile = profile
     c.InteractiveShell.colors = colors
@@ -86,6 +90,7 @@ def open_sdfits_files(paths: List[Path], loader_class_name="GBTFITSLoad") -> Lis
 
 def main():
     args, remaining_args = parse_args()
+    config_logging(verbosity=args.verbosity, path=args.log)
     sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
     init_shell(*remaining_args, colors=args.colors, profile=args.profile, sdfits_files=sdfits_files)
 
