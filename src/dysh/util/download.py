@@ -30,6 +30,7 @@ def from_url(url, path=Path(".")):
     if type(path) is str:
         path = Path(path)
 
+    print(f"Starting download...")
     try:
         # Make the HTTPX client
         client = httpx.Client(follow_redirects=True)
@@ -53,7 +54,6 @@ def from_url(url, path=Path(".")):
 
             else:
                 # Download the file
-                print(f"Attempting to download {filename}...")
                 resp.raise_for_status()
 
                 # Download to a temporary path first
