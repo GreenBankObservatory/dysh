@@ -94,7 +94,7 @@ Now, you have to re-add the modified file before committing it.
     (dysh) $ git add newfile.py
     (dysh) $ git commit -m "adding new python file"
 
-The `pre-commit` will run again to make sure all of the staged files are formatted correctly. If it succeeds, you'll see a message like this, indicating a successful commit.
+The `pre-commit` will run again to make sure all of the staged files are formatted correctly. If it succeeds, you'll see a message like this, then the information about your commit.
 
 .. code-block:: bash
 
