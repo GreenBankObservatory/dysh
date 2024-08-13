@@ -149,13 +149,15 @@ class TestPSScan:
             # Set to 5E-16 because Windows OS tests fail below that.  Need to understand why.
             assert np.all(abs(ps_sb[0].calibrated(0).flux.value - ta1.flux.value) < 5e-16)
 
-    def test_scan_write(self, data_dir):
+    def test_scan_write(self, data_dir, tmp_path):
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         ps_sb = sdf.getps(scan=[156], plnum=0, ifnum=0)
-        # @todo properly use tmpdir and remove
-        ps_sb[0].write("foobar.fits", overwrite=True)
+        o = tmp_path / "scan_write"
+        o.mkdir()
+        testfile = o / "test_scan_write.fits"
+        ps_sb[0].write(testfile, overwrite=True)
 
 
 class TestSubBeamNod:

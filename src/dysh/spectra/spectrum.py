@@ -13,7 +13,8 @@ from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
-from astropy.nddata.ccddata import fits_ccddata_writer
+
+# from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
@@ -685,9 +686,9 @@ class Spectrum(Spectrum1D):
         description = ["Spectral axis", "Flux", udesc, "Channel weights", "Mask 0=unmasked, 1=masked", bldesc]
         # remove FITS reserve keywords
         meta = deepcopy(self.meta)
-        meta.pop("NAXIS1")
-        meta.pop("TDIM7")
-        meta.pop("TUNIT7")
+        meta.pop("NAXIS1", None)
+        meta.pop("TDIM7", None)
+        meta.pop("TUNIT7", None)
         if format == "mrt":
             ulab = "e_flux"  # MRT convention that error on X is labeled e_X
         else:
@@ -1272,8 +1273,15 @@ with registry.delay_doc_updates(Spectrum):
     registry.register_writer("ipac", Spectrum, ascii_spectrum_writer_ipac)
     registry.register_writer("votable", Spectrum, spectrum_writer_votable)
     registry.register_writer("ecsv", Spectrum, spectrum_writer_ecsv)
+    # UnifiedOutputRegistry.write uses all caps if format not specified
+    # and it believes the desired output is ecsv
+    registry.register_writer("ECSV", Spectrum, spectrum_writer_ecsv)
     registry.register_writer("mrt", Spectrum, spectrum_writer_mrt)
     registry.register_writer("fits", Spectrum, spectrum_writer_fits)
+    # UnifiedOutputRegistry.write uses retrurns tabular-fits if format
+    # not specified and it believes the desired output is fits.
+    registry.register_writer("tabular-fits", Spectrum, spectrum_writer_fits)
+
     # READERS
     registry.register_reader("fits", Spectrum, spectrum_reader_fits)
     registry.register_reader("gbtidl", Spectrum, spectrum_reader_gbtidl)
