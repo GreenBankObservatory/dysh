@@ -10,6 +10,7 @@ import pandas as pd
 from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
+from ..log import log_call
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Selection
@@ -28,6 +29,7 @@ calibration_kwargs = {
 _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 
+@log_call
 class GBTFITSLoad(SDFITSLoad):
     """
     GBT-specific container to reprensent one or more SDFITS files
@@ -90,6 +92,12 @@ class GBTFITSLoad(SDFITSLoad):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
+
+    def __repr__(self):
+        return str(self.files)
+
+    def __str__(self):
+        return str(self.files)
 
     @property
     def _index(self):
