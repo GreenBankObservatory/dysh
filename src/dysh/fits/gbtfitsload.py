@@ -811,6 +811,7 @@ class GBTFITSLoad(SDFITSLoad):
         return scanblock
         # end of getfs()
 
+    @log_call
     def getps(
         self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
     ):
