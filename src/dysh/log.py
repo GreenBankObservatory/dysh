@@ -5,23 +5,29 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union
 
-try:
-    DYSH_LOG_DIR = Path(os.getenv("DYSH_LOG_DIR", "."))
-except ValueError as error:
-    raise ValueError(f"DYSH_LOG_DIR must be set to a valid path! Got {DYSH_LOG_DIR}") from error
+LOGGING_INITIALIZED = False
+logger = logging.getLogger("dysh")
 
+
+_DYSH_LOG_DIR = os.getenv("DYSH_LOG_DIR", ".")
 try:
-    DYSH_HOME = Path(os.getenv("DYSH_HOME", "."))
+    DYSH_LOG_DIR = Path(_DYSH_LOG_DIR)
 except ValueError as error:
-    raise ValueError(f"DYSH_HOME must be set to a valid path! Got {DYSH_HOME}") from error
+    raise ValueError(f"DYSH_LOG_DIR must be set to a valid path! Got {_DYSH_LOG_DIR}") from error
+
+_DYSH_HOME = os.getenv("DYSH_HOME", ".")
+try:
+    DYSH_HOME = Path(_DYSH_HOME)
+except ValueError as error:
+    raise ValueError(f"DYSH_HOME must be set to a valid path! Got {_DYSH_HOME}") from error
 
 
 class DatestampFileHandler(logging.FileHandler):
-    def __init__(self, filename, header=None, mode="w", encoding=None, delay=0):
+    def __init__(self, filename, mode="w", encoding=None, delay=False):
         if not filename:
             raise ValueError("Must provide a filename!")
 
-        super().__init__(datetime.now().strftime(str(filename)), mode, encoding, delay)
+        super().__init__(filename=datetime.now().strftime(str(filename)), mode=mode, encoding=encoding, delay=delay)
 
 
 config = {
@@ -76,8 +82,15 @@ config = {
 }
 
 
-def config_logging(verbosity: int, level: Union[int, None] = None, path: Union[Path, None] = None):
-    global logger
+def init_logging(verbosity: int, level: Union[int, None] = None, path: Union[Path, None] = None, quiet=False):
+    global LOGGING_INITIALIZED
+    if LOGGING_INITIALIZED is True:
+        logger.warning(
+            "dysh logging has already been initialized! Continuing, but this behavior is not well defined, "
+            "and you will likely end up with duplicate log handlers"
+        )
+
+    LOGGING_INITIALIZED = True
     if verbosity:
         if verbosity == 0:
             level = logging.ERROR
@@ -95,6 +108,9 @@ def config_logging(verbosity: int, level: Union[int, None] = None, path: Union[P
 
     config["loggers"]["dysh"]["handlers"] = ["stderr", "dysh_global_log_file"]
 
+    if quiet:
+        config["handlers"]["stderr"]["level"] = "WARNING"
+
     if path:
         config["handlers"]["dysh_instance_log_file"]["filename"] = path
         config["loggers"]["dysh"]["handlers"].append("dysh_instance_log_file")
@@ -105,6 +121,3 @@ def config_logging(verbosity: int, level: Union[int, None] = None, path: Union[P
     logging.getLogger().setLevel(level)
     logger.setLevel(level)
     logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
-
-
-logger = logging.getLogger("dysh")
