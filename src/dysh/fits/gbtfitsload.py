@@ -10,7 +10,7 @@ import pandas as pd
 from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
-from ..log import log_call
+from ..log import log_call_to_history
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Selection
@@ -29,7 +29,7 @@ calibration_kwargs = {
 _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 
-@log_call
+@log_call_to_history
 class GBTFITSLoad(SDFITSLoad):
     """
     GBT-specific container to reprensent one or more SDFITS files
@@ -54,6 +54,7 @@ class GBTFITSLoad(SDFITSLoad):
         }
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
+        self._history = []
         self._sdf = []
         self._selection = None
         self.GBT = Observatory["GBT"]
@@ -811,7 +812,7 @@ class GBTFITSLoad(SDFITSLoad):
         return scanblock
         # end of getfs()
 
-    @log_call
+    @log_call_to_history
     def getps(
         self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
     ):
