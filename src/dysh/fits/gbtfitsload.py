@@ -10,7 +10,8 @@ import pandas as pd
 from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
-from ..log import log_call_to_history
+from ..fits import HistoricalBase
+from ..log import HistoricalBase, log_call_to_history
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Selection
@@ -29,10 +30,9 @@ calibration_kwargs = {
 _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 
-@log_call_to_history
-class GBTFITSLoad(SDFITSLoad):
+class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     """
-    GBT-specific container to reprensent one or more SDFITS files
+    GBT-specific container to represent one or more SDFITS files
 
     Parameters
     ----------
@@ -46,15 +46,16 @@ class GBTFITSLoad(SDFITSLoad):
 
     """
 
+    @log_call_to_history
     def __init__(self, fileobj, source=None, hdu=None, **kwargs):
         kwargs_opts = {
             "fix": False,  # fix non-standard header elements
             "index": True,  # only set to False for performance testing.
             "verbose": False,
         }
+        HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
-        self._history = []
         self._sdf = []
         self._selection = None
         self.GBT = Observatory["GBT"]
@@ -67,6 +68,7 @@ class GBTFITSLoad(SDFITSLoad):
                 if kwargs.get("verbose", None):
                     print(f"doing {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
+            self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames}")
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
         if kwargs_opts["index"]:
@@ -98,7 +100,7 @@ class GBTFITSLoad(SDFITSLoad):
         return str(self.files)
 
     def __str__(self):
-        return str(self.files)
+        return str(self.filenames)
 
     @property
     def _index(self):
@@ -165,6 +167,18 @@ class GBTFITSLoad(SDFITSLoad):
         for sdf in self._sdf:
             files.append(sdf.filename)
         return files
+
+    def filenames(self):
+        """
+        The list of SDFITS filenames(s) that make up this GBTFITSLoad object
+
+        Returns
+        -------
+        filenames : list
+            list of str filenames
+
+        """
+        return [p.as_posix() for p in self.files]
 
     def index(self, hdu=None, bintable=None, fitsindex=None):
         """
@@ -449,12 +463,13 @@ class GBTFITSLoad(SDFITSLoad):
     # def _select_onoff(self, df):
     #    return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
 
-    def select_track(self, df):
-        return df[(df["PROC"] == "Track")]
+    # def select_track(self, df):
+    #    return df[(df["PROC"] == "Track")]
 
     # @todo move all selection methods to sdfitsload after adding Selection
     # to sdfitsload
     # @todo write a Delegator class to autopass to Selection. See, e.g., https://michaelcho.me/article/method-delegation-in-python/
+    @log_call_to_history
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
@@ -475,6 +490,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         self._selection.select(tag=tag, **kwargs)
 
+    @log_call_to_history
     def select_range(self, tag=None, **kwargs):
         """
         Select a range of inclusive values for a given key(s).
@@ -503,6 +519,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         self._selection.select_range(tag=tag, **kwargs)
 
+    @log_call_to_history
     def select_within(self, tag=None, **kwargs):
         """
         Select a value within a plus or minus for a given key(s).
@@ -529,6 +546,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
 
+    @log_call_to_history
     def select_channel(self, chan, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
@@ -662,6 +680,7 @@ class GBTFITSLoad(SDFITSLoad):
         for s in self._sdf:
             s.info()
 
+    @log_call_to_history
     def getfs(
         self,
         calibrate=True,
@@ -965,6 +984,7 @@ class GBTFITSLoad(SDFITSLoad):
             raise Exception("Didn't find any scans matching the input selection criteria.")
         return scanblock
 
+    @log_call_to_history
     def gettp(
         self,
         sig=None,
@@ -1086,6 +1106,7 @@ class GBTFITSLoad(SDFITSLoad):
         return scanblock
 
     # @todo sig/cal no longer needed?
+    @log_call_to_history
     def subbeamnod(
         self,
         method="cycle",
@@ -1721,9 +1742,6 @@ class GBTFITSLoad(SDFITSLoad):
             rows.append(list(df.index))
         return rows
 
-    def __repr__(self):
-        return str(self.files)
-
     def write(
         self,
         fileobj,
@@ -1810,6 +1828,11 @@ class GBTFITSLoad(SDFITSLoad):
                 else:
                     outfile = fileobj
 
+                # add comment and history cards if applicable.  All files get all cards.
+                for h in self.history:
+                    outhdu.header["HISTORY"] = h
+                for c in self.comment:
+                    outhdu.header["COMMENT"] = c
                 if verbose:
                     print(f"Writing {this_rows_written} rows to {outfile}.")
                 outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
@@ -1829,6 +1852,11 @@ class GBTFITSLoad(SDFITSLoad):
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
+            # add history and comment cards if applicable
+            for h in self.history:
+                outhdu.header["HISTORY"] = h
+            for c in self.comment:
+                outhdu.header["COMMENT"] = c
             if total_rows_written == 0:  # shouldn't happen, caught earlier
                 raise Exception("Your selection resulted in no rows to be written")
             else:

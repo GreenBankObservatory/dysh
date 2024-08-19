@@ -34,6 +34,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
+from ..log import HistoricalBase
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
@@ -41,7 +42,7 @@ from . import baseline, get_spectral_equivalency
 # from astropy.nddata import StdDevUncertainty
 
 
-class Spectrum(Spectrum1D):
+class Spectrum(Spectrum1D, HistoricalBase):
     """
     This class contains a spectrum and its attributes. It is built on
     `~specutils.Spectrum1D` with added attributes like baseline model.
@@ -53,6 +54,7 @@ class Spectrum(Spectrum1D):
 
     def __init__(self, *args, **kwargs):
         # print(f"ARGS={args}")
+        HistoricalBase.__init__(self)
         self._target = kwargs.pop("target", None)
         if self._target is not None:
             # print(f"self._target is {self._target}")
@@ -689,6 +691,8 @@ class Spectrum(Spectrum1D):
         meta.pop("NAXIS1", None)
         meta.pop("TDIM7", None)
         meta.pop("TUNIT7", None)
+        meta["HISTORY"] = self._history  # should append instead?
+        meta["COMMENT"] = self._comments  # append instead?
         if format == "mrt":
             ulab = "e_flux"  # MRT convention that error on X is labeled e_X
         else:
@@ -907,8 +911,9 @@ class Spectrum(Spectrum1D):
             ]
         )
 
-        # for k in _required:
-        #    print(f"{k} {k in header}")
+        _history = meta.pop("HISTORY", [])
+        _comments = meta.pop("COMMENT", [])
+        print(_history, _comments)
         if not _required <= meta.keys():
             raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
 
@@ -959,6 +964,7 @@ class Spectrum(Spectrum1D):
                 " frames"
             )
             obsitrs = None
+
         s = cls(
             flux=data,
             wcs=wcs,
@@ -970,6 +976,8 @@ class Spectrum(Spectrum1D):
             # observer_location=observer_location,
             target=target,
         )
+        s._history = _history
+        s._comments = _comments
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
@@ -995,6 +1003,8 @@ class Spectrum(Spectrum1D):
         other._mask = self._mask
         other._subtracted = self._subtracted
         other.spectral_axis._doppler_convention = self.doppler_convention
+        other.add_history(self._history)
+        other.add_comments(self._comments)
 
     def __add__(self, other):
         op = self.add

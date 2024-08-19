@@ -16,6 +16,7 @@ from scipy import ndimage
 from dysh.spectra import core
 
 from ..coordinates import Observatory
+from ..log import HistoricalBase, log_call_to_history
 from ..util import uniq
 from .core import (
     average,

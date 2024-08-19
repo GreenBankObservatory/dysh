@@ -4,6 +4,7 @@ import logging.config
 import os
 import sys
 import time
+from abc import ABC
 from datetime import datetime
 from functools import wraps
 from io import StringIO
@@ -63,10 +64,10 @@ config = {
         "super_simple": {
             "format": "%(message)s",
         },
-        "data_history": {
-            "format": "%(asctime)s - %(levelname)s - %(modName)s.%(fName)s(%(message)s, %(extra)s)",
-            "datefmt": dysh_date_format,
-        },
+        #        "data_history": {
+        #            "format": "%(asctime)s - %(levelname)s - %(modName)s.%(fName)s(%(message)s, %(extra)s)",
+        #           "datefmt": dysh_date_format,
+        #        },
     },
     "handlers": {
         "stderr": {
@@ -91,21 +92,21 @@ config = {
             # Don't create the file until messages are written to it
             "delay": True,
         },
-        "dysh_instance_string": {
-            "level": "INFO",
-            "formatter": "data_history",
-            "class": "dysh.log.StringHandler",
-        },
+        #        "dysh_instance_string": {
+        #            "level": "INFO",
+        #           "formatter": "data_history",
+        #            "class": "dysh.log.StringHandler",
+        #        },
     },
     "loggers": {
         "dysh": {
             "handlers": [],
             "level": "WARNING",
         },
-        "dysh_history": {
-            "handlers": [],
-            "level": "INFO",
-        },
+        #        "dysh_history": {
+        #            "handlers": [],
+        #            "level": "INFO",
+        #        },
     },
 }
 
@@ -128,7 +129,7 @@ def config_logging(verbosity: int, level: Union[int, None] = None, path: Union[P
         raise ValueError("One of verbosity or level must be given!")
 
     config["loggers"]["dysh"]["handlers"] = ["stderr", "dysh_global_log_file"]
-    config["loggers"]["dysh_history"]["handlers"] = ["dysh_instance_string"]
+    # config["loggers"]["dysh_history"]["handlers"] = ["dysh_instance_string"]
 
     if path:
         config["handlers"]["dysh_instance_log_file"]["filename"] = path
@@ -140,28 +141,68 @@ def config_logging(verbosity: int, level: Union[int, None] = None, path: Union[P
     logging.getLogger().setLevel(level)
     logger.setLevel(level)
     logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
-    dhlogger.setLevel(logging.INFO)
 
 
 def log_function_call(func):
+    """
+    Decorator to log a function call
+
+    Parameters
+    ----------
+    func : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+        except:  # remove the wrapper from the stack trace
+            tp, exc, tb = sys.exc_info()
+            _testcapi.set_exc_info(tp, exc, tb.tb_next)
+            del tp, exc, tb
+            raise
         # Log the function name and arguments
         sig = inspect.signature(func)
+        logmsg = f"call: {func.__module__}"
+        if hasattr(func, "__self__"):
+            # func is  method of a class
+            logmsg += f"{func.__self__.__class__.__name__}"
+        logmsg += f".{func.__name__}{args}"
         if "kwargs" in sig.parameters:
-            extra = {"modName": func.__module__, "fName": func.__name__, "extra": kwargs}
-        else:
-            extra = {"modName": func.__module__, "fName": func.__name__, "extra": {}}
-        logger.info(*args, extra=extra)
-        # Call the original function
-        result = func(*args, **kwargs)
-        # Return the result
+            for k, v in kwargs.items():
+                logmsg += f"{k}={v},"
+        logger.info(logmsg)
         return result
 
     return wrapper
 
 
 def format_dysh_log_record(record: logging.LogRecord) -> str:
+    """
+    Function to format a LogRecord into a string suitable
+    for a FITS history card.  This function is intended for
+    records of a dysh class method invocation and is used
+    by :meth:`log_call_to_history`
+
+    Parameters
+    ----------
+    record : logging.LogRecord
+        The LogRecord to convert.   It will have some special
+        purpose added attributes
+
+    Returns
+    -------
+    str
+        The history string
+
+    """
     asctime = time.strftime(dysh_date_format, time.localtime(record.created))
     logmsg = f"{asctime} - {record.levelname} - {record.msg} : {record.modName}."
     if hasattr(record, "className"):
@@ -177,11 +218,30 @@ def format_dysh_log_record(record: logging.LogRecord) -> str:
 
 
 def log_call_to_history(func):
+    """
+    Decorator to log a class method call to the class's `_history` attribute. If the class
+    has no such attribute, the function is still called but no logging takes place.
+
+    Parameters
+    ----------
+    func : method
+        The class method.
+
+    Returns
+    -------
+    Any
+        The result of the method call
+
+    """
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self is None:  # not a class, but a function
+            print(
+                f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use @log_function_call instead."
+            )
             logger.warn(
-                f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use @log_functiona_call instead."
+                f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use @log_function_call instead."
             )
             # could put this try around the whole thing but then it would catch exceptions from the wrapper itself
             try:
@@ -200,6 +260,7 @@ def log_call_to_history(func):
                 del tp, exc, tb
                 raise
             classname = self.__class__.__name__
+            print(f"got self {self} class {self.__class__} classname {classname}")
             if hasattr(self, "_history"):
                 sig = inspect.signature(func)
                 if "kwargs" in sig.parameters:
@@ -212,15 +273,92 @@ def log_call_to_history(func):
                 else:
                     extra = {"modName": func.__module__, "className": classname, "fName": func.__name__, "extra": {}}
                 with dhlogger.log_to_list() as log_list:
-                    dhlogger.handlers[0].setFormatter(dysh_history_formatter)
+                    # dhlogger.handlers[0].setFormatter(dysh_history_formatter)
                     dhlogger.info("command", *args, extra=extra)
                     log_str = [format_dysh_log_record(i) for i in log_list]
                     self._history.extend(log_str)
             else:
-                logger.warn(f"Class {func.__module__}.{classname} has no _history attribute to log to")
+                print(f"Class {func.__module__}.{classname} has no _history attribute. Use @log_function_call instead.")
+                logger.warn(
+                    f"Class {func.__module__}.{classname} has no _history attribute. Use @log_function_call instead."
+                )
         return result
 
     return wrapper
+
+
+class HistoricalBase(ABC):
+    """Abstract base class to manage history and comments metadata."""
+
+    def __init__(self):
+        self._history = []
+        self._comments = []
+        print("Inst HistoricalBase")
+
+    @property
+    def history(self):
+        """
+        Get the history strings. These are typically converted to FITS HISTORY cards by the derived class.
+
+        Returns
+        -------
+        list
+            The list of string history
+
+        """
+        return self._history
+
+    @property
+    def comments(self):
+        """
+        Get the comment strings. These are typically converted to FITS COMMENT cards by the derived class.
+
+        Returns
+        -------
+        list
+            The list of string comments
+
+        """
+        return self._comments
+
+    def add_comment(self, comment: str):
+        """
+        Add one or more comments to the class metadata.
+
+        Parameters
+        ----------
+        comment : str or list of str
+            The comment(s) to add
+
+        Returns
+        -------
+        None.
+
+        """
+        if isinstance(comment, list):
+            self._comment.extend(comment)
+        else:
+            self._comments.append(comment)
+
+    def add_history(self, history: str):
+        """
+        Add one or more history entries to the class metadata
+
+        Parameters
+        ----------
+        history : str or list of str
+            The history card(s) to add
+
+        Returns
+        -------
+        None.
+
+        """
+        # @todo should we prepend a datetime str here?
+        if isinstance(history, list):
+            self._history.extend(history)
+        else:
+            self._history.append(history)
 
 
 logger = logging.getLogger("dysh")

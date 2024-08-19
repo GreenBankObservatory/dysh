@@ -12,7 +12,7 @@ import numpy as np
 # import pandas as pd
 from astropy.time import Time
 
-from ..log import log_call
+from ..log import log_function_call
 
 
 def select_from(key, value, df):
@@ -264,7 +264,7 @@ def keycase(d, case="upper"):
     return newDict
 
 
-@log_call
+@log_function_call
 def powerof2(number):
     """
     Computes the closest power of 2 for a given `number`.
