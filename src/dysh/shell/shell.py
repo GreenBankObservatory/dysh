@@ -65,8 +65,8 @@ def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] =
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
     user_ns = {"pd": pd, "np": np, "GBTFITSLoad": GBTFITSLoad, "Table": Table, "fits": fits}
-    # if sdfits_files:
-    #     user_ns["sdfits_files"] = sdfits_files
+    if sdfits_files:
+        user_ns["sdfits_files"] = sdfits_files
 
     c.BaseIPythonApplication.profile = profile
     c.InteractiveShell.colors = colors
