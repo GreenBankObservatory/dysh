@@ -53,11 +53,14 @@ class TestSDFITSLoad:
         """
         Test that a SDFITSLoad object can use the `getspec` function.
         """
+        index = 2
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = SDFITSLoad(sdf_file)
-        spec = sdf.getspec(0)
-        assert np.nanmean(spec.data) == pytest.approx(510458900.0)
+        spec = sdf.getspec(index)
+        assert np.nanmean(spec.data) == pytest.approx(504480960.0)
         assert spec.meta["BACKEND"] == "VEGAS"
+        assert spec.meta["ROW"] == index
+        assert spec.meta["CRVAL4"] == -6
 
     def test_write_single_file(self, tmp_path):
         "Test that writing an SDFITS file works when subselecting data"
