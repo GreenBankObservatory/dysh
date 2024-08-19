@@ -10,7 +10,6 @@ import pandas as pd
 from astropy.io import fits
 
 from ..coordinates import Observatory, decode_veldef
-from ..fits import HistoricalBase
 from ..log import HistoricalBase, log_call_to_history
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
