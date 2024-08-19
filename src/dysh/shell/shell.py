@@ -65,14 +65,14 @@ def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] =
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
     user_ns = {"pd": pd, "np": np, "GBTFITSLoad": GBTFITSLoad, "Table": Table, "fits": fits}
-    if sdfits_files:
-        user_ns["sdfits_files"] = sdfits_files
 
     c.BaseIPythonApplication.profile = profile
     c.InteractiveShell.colors = colors
     c.InteractiveShell.banner2 = BANNER.format(
         user_ns_str="\n".join(f"{' '*8}{k} (from {v.__name__})" for k, v in user_ns.items())
     )
+    if sdfits_files:
+        user_ns["sdfits_files"] = sdfits_files
     IPython.start_ipython(ipython_args, config=c, user_ns=user_ns)
 
 
