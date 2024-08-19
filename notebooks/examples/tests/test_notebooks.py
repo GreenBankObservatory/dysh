@@ -30,33 +30,37 @@ def check_notebook_execution(notebook_file):
         os.chdir(cwd)
         pytest.fail(f"Error executing notebook {notebook_file}: {e}")
 
-def test_notebooks_execution():
-    """Test that each notebook runs without errors"""
-    # List of notebook files to test
-    notebook_files = glob("notebooks/examples/*.ipynb")
-    
-    for notebook_file in notebook_files:
-        check_notebook_execution(notebook_file)
+class TestNotebooks:
 
-def test_single_top_level_header():
-    """Test that each notebook has exactly 1 top-level header"""
-    # List of notebook files to test
-    notebook_files = glob("notebooks/examples/*.ipynb")
-    
-    # Open each notebook
-    for notebook_file in notebook_files:
-        with open(notebook_file, 'r', encoding='utf-8') as f:
-            nb = nbformat.read(f, as_version=4)
-        
-        top_level_headers = 0
-        
-        # Search each markdown cell for top-level headers
-        for cell in nb.cells:
-            if cell.cell_type == 'markdown':
-                source = cell.source
-                lines = source.split('\n')
-                for line in lines:
-                    if line.startswith('# '):
-                        top_level_headers += 1
+    def setup_method(self):
+        # Path to notebooks.
+        self.notebook_dir = Path("notebooks/examples/")
+        # List of notebook files to test.
+        self.notebook_files = self.notebook_dir.glob("*.ipynb")
 
-        assert top_level_headers == 1, f"Notebook {notebook_file} has {top_level_headers} top-level headers."
+    def test_notebooks_execution(self):
+        """Test that each notebook runs without errors"""
+    
+        for notebook_file in self.notebook_files:
+            check_notebook_execution(notebook_file)
+
+    def test_single_top_level_header(self):
+        """Test that each notebook has exactly 1 top-level header"""
+        
+        # Open each notebook
+        for notebook_file in self.notebook_files:
+            with open(notebook_file, 'r', encoding='utf-8') as f:
+                nb = nbformat.read(f, as_version=4)
+            
+            top_level_headers = 0
+            
+            # Search each markdown cell for top-level headers
+            for cell in nb.cells:
+                if cell.cell_type == 'markdown':
+                    source = cell.source
+                    lines = source.split('\n')
+                    for line in lines:
+                        if line.startswith('# '):
+                            top_level_headers += 1
+
+            assert top_level_headers == 1, f"Notebook {notebook_file} has {top_level_headers} top-level headers."
