@@ -276,3 +276,17 @@ class TestSDFITSLoad:
             g["DATA"]
         with pytest.raises(Exception):
             g["DATA"] = np.random.rand(1024)
+
+    def test_udata(self):
+        """Test that `udata` is working."""
+
+        f = util.get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
+        g = SDFITSLoad(f)
+        assert g.udata("SCAN") == [51, 52, 53, 54, 55, 56, 57, 58]
+
+    def test_ushow(self):
+        """Test that `ushow` works."""
+
+        f = util.get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
+        g = SDFITSLoad(f)
+        g.ushow("SCAN")
