@@ -50,7 +50,7 @@ def from_url(url, path=Path(".")):
             # Skip downloading if file already exists
             if savepath.exists():
                 print(f"{filename} already downloaded at {path}")
-                return path
+                return savepath
 
             else:
                 # Download the file
