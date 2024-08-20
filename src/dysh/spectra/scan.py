@@ -62,16 +62,51 @@ class SpectralAverageMixin:
         """Average all times and polarizations in this Scan"""
         pass
 
+    @property
+    def exposure(self):
+        """The array of exposure (integration) times. How the exposure is calculated
+        varies for different derrived classes.
+
+        Returns
+        -------
+        exposure : ~numpy.ndarray
+            The exposure time in units of the EXPOSURE keyword in the SDFITS header
+        """
+        return self._exposure
+
+    @property
+    def delta_freq(self):
+        """The array of channel frequency width"""
+        return self._delta_freq
+
+    @property
+    def tsys(self):
+        """The system temperature array.
+
+        Returns
+        -------
+        tsys : `~numpy.ndarray`
+            System temperature values in K
+        """
+        return self._tsys
+
+    @property
+    def tsys_weight(self):
+        r"""The system temperature weighting array computed from current
+        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
+        """
+        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+
 
 # @todo change this to an ABC class. https://docs.python.org/3/library/abc.html
 # and create a SpectrumAverageMixin for timeaverage, polaverage, finalspectrum
 class ScanBase(HistoricalBase, SpectralAverageMixin):
     """This class describes the common interface to all Scan classes.
-    A Scan represents one IF, one feed, and one or more polarizations.
+    A Scan represents one scan number, one IF, one feed, and one or more polarizations.
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self):
+    def __init__(self, sdfits):
         HistoricalBase.__init__(self)
         self._ifnum = -1
         self._fdnum = -1
@@ -79,6 +114,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._npol = -1
         self._scan = -1
         self._pols = -1
+        self._sdfits = sdfits
 
     def _validate_defaults(self):
         _required = {
@@ -97,6 +133,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             raise Exception(
                 f"The following required Scan attributes were not set by the derived class {self.__class__.__name__}: {unset}"
             )
+        if type(self._scan) != int:
+            raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
 
     # class ScanMixin:
     #    """This class describes the common interface to all Scan classes.
@@ -383,16 +421,12 @@ class ScanBlock(UserList, SpectralAverageMixin):
             if weights == "tsys":
                 # There may be multiple integrations, so need to
                 # average the Tsys weights
-                w = np.array([np.nanmean(k._tsys_weight) for k in self.data])
+                w = np.array([np.nanmean(k.tsys_weight) for k in self.data])
                 if len(np.shape(w)) > 1:  # remove empty axes
                     w = w.squeeze()
             else:
                 w = weights
             timeavg = np.array([k.data for k in self._timeaveraged])
-            # print(
-            #    f"TAsh {np.shape(timeavg)} len(data) = {len(self.data)} weights={w}"
-            # )  # " tsysW={self.data[0]._tsys_weight}")
-
             # Weight the average of the timeaverages by the weights.
             avgdata = average(timeavg, axis=0, weights=w)
             avgspec = np.mean(self._timeaveraged)
@@ -412,7 +446,7 @@ class ScanBlock(UserList, SpectralAverageMixin):
                 raise Exception("Data must be calibrated before time averaging.")
             c = np.concatenate([d._calibrated for d in self.data])
             if weights == "tsys":
-                w = np.concatenate([d._tsys_weight for d in self.data])
+                w = np.concatenate([d.tsys_weight for d in self.data])
                 # if len(np.shape(w)) > 1:  # remove empty axes
                 #    w = w.squeeze()
             else:
@@ -603,7 +637,7 @@ class TPScan(ScanBase):
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self)
+        ScanBase.__init__(self, gbtfits)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -701,17 +735,6 @@ class TPScan(ScanBase):
         """
         return self._calstate
 
-    @property
-    def tsys(self):
-        """The system temperature array.
-
-        Returns
-        -------
-        tsys : `~numpy.ndarray`
-            System temperature values in K
-        """
-        return self._tsys
-
     def calc_tsys(self, **kwargs):
         """
         Calculate the system temperature array, according to table above.
@@ -747,7 +770,7 @@ class TPScan(ScanBase):
 
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times.  The value depends on the cal state:
+        """The array of exposure (integration) times.  The value depends on the cal state:
 
             =====  ======================================
             CAL    EXPOSURE
@@ -776,8 +799,8 @@ class TPScan(ScanBase):
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
 
-        exposure = exp_ref_on + exp_ref_off
-        return exposure
+        self._exposure = exp_ref_on + exp_ref_off
+        return self._exposure
 
     @property
     def delta_freq(self):
@@ -806,14 +829,8 @@ class TPScan(ScanBase):
             delta_freq = df_ref_on
         elif self.calstate == False:
             delta_freq = df_ref_off
-        return delta_freq
-
-    @property
-    def _tsys_weight(self):
-        r"""The system temperature weighting array computed from current
-        :math:`T_{sys}, t_{exp}`, and `\delta\nu`. See :meth:`tsys_weight`
-        """
-        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+        self._delta_freq = delta_freq
+        return self._delta_freq
 
     def tpmeta(self, i):
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
@@ -883,9 +900,9 @@ class TPScan(ScanBase):
             raise Exception("Can't yet time average multiple polarizations")
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == "tsys":
-            w = self._tsys_weight
+            w = self.tsys_weight
         else:
-            w = np.ones_like(self._tsys_weight)
+            w = np.ones_like(self.tsys_weight)
         non_blanks = find_non_blanks(self._data)[0]
         self._timeaveraged._data = average(self._data, axis=0, weights=w)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
@@ -934,9 +951,8 @@ class PSScan(ScanBase):
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self)
+        ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        self._sdfits = gbtfits  # parent class
         self._scans = scans
         self._scan = scans["ON"]
         self._scanrows = scanrows
@@ -999,17 +1015,6 @@ class PSScan(ScanBase):
         """
         return self._scans
 
-    @property
-    def tsys(self):
-        """The system temperature array. This will be `None` until calibration is done.
-
-        Returns
-        -------
-        tsys : `~numpy.ndarray`
-            System temperature values in K
-        """
-        return self._tsys
-
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self, i):
@@ -1062,7 +1067,7 @@ class PSScan(ScanBase):
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times
+        """The array of exposure (integration) times
 
         exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
 
@@ -1104,13 +1109,6 @@ class PSScan(ScanBase):
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
-    @property
-    def _tsys_weight(self):
-        r"""The system temperature weighting array computed from current
-        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
-        """
-        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
-
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of scans.
 
@@ -1134,9 +1132,9 @@ class PSScan(ScanBase):
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
-            w = self._tsys_weight
+            w = self.tsys_weight
         else:
-            w = np.ones_like(self._tsys_weight)
+            w = np.ones_like(self.tsys_weight)
         self._timeaveraged._data = average(data, axis=0, weights=w)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
@@ -1197,9 +1195,8 @@ class FSScan(ScanBase):
         observer_location=Observatory["GBT"],
         debug=False,
     ):
-        ScanBase.__init__(self)
+        ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        self._sdfits = gbtfits  # parent class
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
         self._calrows = calrows  # dict with "ON" and "OFF"
@@ -1285,17 +1282,6 @@ class FSScan(ScanBase):
             True if the signal and reference integrations have been folded. False if not.
         """
         return self._folded
-
-    @property
-    def tsys(self):
-        """The system temperature array. This will be `None` until calibration is done.
-
-        Returns
-        -------
-        tsys : `~numpy.ndarray`
-            System temperature values in K
-        """
-        return self._tsys
 
     def calibrated(self, i):
         """Return the calibrated Spectrum of this FSscan
@@ -1494,7 +1480,7 @@ class FSScan(ScanBase):
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times for FSscan
+        """The array of exposure (integration) times for FSscan
 
         exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
 
@@ -1513,8 +1499,8 @@ class FSScan(ScanBase):
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
-        exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
-        return exposure
+        self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        return self._exposure
 
     @property
     def delta_freq(self):
@@ -1533,15 +1519,8 @@ class FSScan(ScanBase):
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
         df_ref = 0.5 * (df_ref_on + df_ref_off)
         df_sig = 0.5 * (df_sig_on + df_sig_off)
-        delta_freq = 0.5 * (df_ref + df_sig)
-        return delta_freq
-
-    @property
-    def _tsys_weight(self):
-        r"""The system temperature weighting array computed from current
-        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
-        """
-        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+        self._delta_freq = 0.5 * (df_ref + df_sig)
+        return self._delta_freq
 
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of FSscans.
@@ -1566,9 +1545,9 @@ class FSScan(ScanBase):
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
-            w = self._tsys_weight
+            w = self.tsys_weight
         else:
-            w = np.ones_like(self._tsys_weight)
+            w = np.ones_like(self.tsys_weight)
         self._timeaveraged._data = average(data, axis=0, weights=w)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
@@ -1619,7 +1598,7 @@ class SubBeamNodScan(ScanBase):
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
-        ScanBase.__init__(self)
+        ScanBase.__init__(self, sigtp[0]._sdfits)
         kwargs_opts = {
             "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
@@ -1717,17 +1696,6 @@ class SubBeamNodScan(ScanBase):
     def delta_freq(self):
         return self._delta_freq
 
-    @property
-    def tsys(self):
-        return self._tsys
-
-    @property
-    def _tsys_weight(self):
-        r"""The system temperature weighting array computed from current
-        :math:`T_{sys}, t_{exp}`, and `\delta\nu`. See :meth:`tsys_weight`
-        """
-        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
-
     def timeaverage(self, weights="tsys"):
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
@@ -1737,7 +1705,7 @@ class SubBeamNodScan(ScanBase):
         data = self._calibrated
         nchan = len(data[0])
         if weights == "tsys":
-            w = self._tsys_weight
+            w = self.tsys_weight
         else:
             w = None
         if self._method == "scan":
@@ -1760,8 +1728,6 @@ class SubBeamNodScan(ScanBase):
                 tsys_wt_ = tsys_weight(self.exposure[i], self.delta_freq[i], self.tsys[i])
                 tsys_wt += tsys_wt_
                 ta_avg[:] += data[i] * self.tsys[i] ** -2.0
-            wt1 = self.tsys**-2.0
-            wt2 = tsys_weight(self.exposure, self.delta_freq, self.tsys)
             ta_avg /= wt_avg
             tsys_avg /= tsys_wt
             self._timeaveraged._data = ta_avg
