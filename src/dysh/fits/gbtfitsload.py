@@ -1233,8 +1233,8 @@ class GBTFITSLoad(SDFITSLoad):
                                 TPScan(
                                     self._sdf[sdfi],
                                     scan,
-                                    "BOTH",
-                                    "BOTH",
+                                    None,
+                                    None,
                                     tprows,
                                     calrows,
                                     bintable,
@@ -1248,8 +1248,8 @@ class GBTFITSLoad(SDFITSLoad):
                                 TPScan(
                                     self._sdf[sdfi],
                                     scan,
-                                    "BOTH",
-                                    "BOTH",
+                                    None,
+                                    None,
                                     tprows,
                                     calrows,
                                     bintable,
@@ -1319,7 +1319,6 @@ class GBTFITSLoad(SDFITSLoad):
                         sb = SubBeamNodScan(
                             sigtp,
                             reftp,
-                            fulltp,
                             method=method,
                             calibrate=calibrate,
                             weights=weights,
