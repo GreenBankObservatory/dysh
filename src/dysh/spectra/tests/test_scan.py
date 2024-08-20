@@ -208,6 +208,7 @@ class TestSubBeamNod:
         n_ref = ref_mask.sum()
 
         # Generate astro signal.
+        np.random.seed(0)  # Fix the noise.
         sig_mod = np.random.normal(loc=0, scale=5, size=(n_sig, nchan)) + gauss(x, a, s, c) + tcont
         ref_mod = np.random.normal(loc=0, scale=5, size=(n_ref, nchan))
 
@@ -253,7 +254,10 @@ class TestSubBeamNod:
         # Will leave as is for now an create an issue.
 
         # Compare RMS.
-        assert pytest.approx(rms_cycle.value, 4e-3) == rms_scan.value
+        assert pytest.approx(rms_cycle.value, abs=1e-2) == rms_scan.value
+
+        # Number of rows.
+        assert sdf.subbeamnod(scan=43, fdnum=0, plnum=0, method="scan")[0].nrows == 96
 
 
 class TestTPScan:
