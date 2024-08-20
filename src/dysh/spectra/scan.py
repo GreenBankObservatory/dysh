@@ -3,6 +3,7 @@ The classes that define various types of Scan and their calibration methods.
 """
 
 import warnings
+from abc import ABC
 from collections import UserList
 from copy import deepcopy
 
@@ -34,13 +35,74 @@ from .spectrum import Spectrum
 # from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 
 
+class SpectralAverageMixin:
+    def timeaverage(self, weights=None):
+        r"""Compute the time-averaged spectrum for this scan.
+
+        Parameters
+        ----------
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        Returns
+        -------
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
+        """
+        pass
+
+    def polaverage(self, weights=None):
+        """Average all polarizations in this Scan"""
+        pass
+
+    def finalspectrum(self, weights=None):
+        """Average all times and polarizations in this Scan"""
+        pass
+
+
 # @todo change this to an ABC class. https://docs.python.org/3/library/abc.html
 # and create a SpectrumAverageMixin for timeaverage, polaverage, finalspectrum
-class ScanMixin:
+class ScanBase(HistoricalBase, SpectralAverageMixin):
     """This class describes the common interface to all Scan classes.
     A Scan represents one IF, one feed, and one or more polarizations.
     Derived classes *must* implement :meth:`calibrate`.
     """
+
+    def __init__(self):
+        HistoricalBase.__init__(self)
+        self._ifnum = -1
+        self._fdnum = -1
+        self._nchan = -1
+        self._npol = -1
+        self._scan = -1
+        self._pols = -1
+
+    def _validate_defaults(self):
+        _required = {
+            "IFNUM": self._ifnum,
+            "FDNUM": self._fdnum,
+            "NCHAN": self._nchan,
+            "NPOL": self._npol,
+            "POLS": self._pols,
+            "SCAN": self._scan,
+        }
+        unset = []
+        for k, v in _required.items():
+            if v == -1:
+                unset.append(k)
+        if len(unset) > 0:
+            raise Exception(
+                f"The following required Scan attributes were not set by the derived class {self.__class__.__name__}: {unset}"
+            )
+
+    # class ScanMixin:
+    #    """This class describes the common interface to all Scan classes.
+    ##   A Scan represents one IF, one feed, and one or more polarizations.
+    #   Derived classes *must* implement :meth:`calibrate`.
+    #   """
 
     @property
     def scan(self):
@@ -112,6 +174,17 @@ class ScanMixin:
             The index of the Feed
         """
         return self._fdnum
+
+    @property
+    def pols(self):
+        """The polarization number(s)
+
+        Returns
+        -------
+        list
+            The list of integer polarization number(s)
+        """
+        return self._pols
 
     @property
     def is_calibrated(self):
@@ -188,17 +261,6 @@ class ScanMixin:
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
 
-    @property
-    def pols(self):
-        """The polarization number(s)
-
-        Returns
-        -------
-        list
-            The list of integer polarization number(s)
-        """
-        return self._pols
-
     def _set_if_fd(self, df):
         """Set the IF and FD numbers from the input dataframe and
         raise an error of there are more than one
@@ -219,32 +281,6 @@ class ScanMixin:
 
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
-        pass
-
-    def timeaverage(self, weights=None):
-        r"""Compute the time-averaged spectrum for this scan.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-        """
-        pass
-
-    def polaverage(self, weights=None):
-        """Average all polarizations in this Scan"""
-        pass
-
-    def finalspectrum(self, weights=None):
-        """Average all times and polarizations in this Scan"""
         pass
 
     def make_bintable(self):
@@ -308,7 +344,7 @@ class ScanMixin:
         return self._nrows
 
 
-class ScanBlock(UserList, ScanMixin):
+class ScanBlock(UserList, SpectralAverageMixin):
     def __init__(self, *args):
         super().__init__(*args)
         self._nrows = 0
@@ -505,7 +541,7 @@ class ScanBlock(UserList, ScanMixin):
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
-class TPScan(ScanMixin):
+class TPScan(ScanBase):
     """GBT specific version of Total Power Scan
 
     Parameters
@@ -567,6 +603,7 @@ class TPScan(ScanMixin):
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
+        ScanBase.__init__(self)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -624,6 +661,7 @@ class TPScan(ScanMixin):
         if self._calibrate:
             self.calibrate()
         self.calc_tsys()
+        self._validate_defaults()
 
     def calibrate(self):
         """Calibrate the data according to the CAL/SIG table above"""
@@ -858,7 +896,7 @@ class TPScan(ScanMixin):
 
 
 #        @todo   'scans' should become 'scan'
-class PSScan(ScanMixin):
+class PSScan(ScanBase):
     """GBT specific version of Position Switch Scan. A position switch scan object has
     one IF, one feed, and one or more polarizations.
 
@@ -896,6 +934,7 @@ class PSScan(ScanMixin):
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
+        ScanBase.__init__(self)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
         self._scans = scans
@@ -947,6 +986,7 @@ class PSScan(ScanMixin):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
+        self._validate_defaults()
 
     @property
     def scans(self):
@@ -1106,7 +1146,7 @@ class PSScan(ScanMixin):
         return self._timeaveraged
 
 
-class FSScan(ScanMixin):
+class FSScan(ScanBase):
     """GBT specific version of Frequency Switch Scan
 
     Parameters
@@ -1157,6 +1197,7 @@ class FSScan(ScanMixin):
         observer_location=Observatory["GBT"],
         debug=False,
     ):
+        ScanBase.__init__(self)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._sdfits = gbtfits  # parent class
         self._scan = scan  # for FS everything is an "ON"
@@ -1231,6 +1272,7 @@ class FSScan(ScanMixin):
             self.calibrate(fold=fold, shift_method=shift_method)
         if self._debug:
             print("---------------------------------------------------")
+        self._validate_defaults()
 
     @property
     def folded(self):
@@ -1536,7 +1578,7 @@ class FSScan(ScanMixin):
         return self._timeaveraged
 
 
-class SubBeamNodScan(ScanMixin):
+class SubBeamNodScan(ScanBase):
     r"""
     Parameters
     ----------
@@ -1577,6 +1619,7 @@ class SubBeamNodScan(ScanMixin):
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
+        ScanBase.__init__(self)
         kwargs_opts = {
             "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
@@ -1608,6 +1651,7 @@ class SubBeamNodScan(ScanMixin):
         self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
+        self._validate_defaults()
 
     def calibrate(self, **kwargs):
         """Calibrate the SUbBeamNodScan data"""
