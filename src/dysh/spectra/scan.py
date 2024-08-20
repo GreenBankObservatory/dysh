@@ -1569,7 +1569,6 @@ class SubBeamNodScan(ScanMixin):
         self,
         sigtp,
         reftp,
-        fulltp=None,
         method="cycle",
         calibrate=True,
         smoothref=1,
@@ -1590,7 +1589,6 @@ class SubBeamNodScan(ScanMixin):
         self._scan = sigtp[0]._scan
         self._sigtp = sigtp
         self._reftp = reftp
-        self._fulltp = fulltp
         self._ifnum = self._sigtp[0].ifnum
         self._fdnum = self._sigtp[0].fdnum
         self._npol = self._sigtp[0].npol
@@ -1609,44 +1607,22 @@ class SubBeamNodScan(ScanMixin):
             self.calibrate(weights=w)
 
     def calibrate(self, **kwargs):
-        """Calibrate the SUbBeamNodScan data"""
+        """Calibrate the SubBeamNodScan data"""
         nspect = len(self._reftp)
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
         self._delta_freq = np.empty(nspect, dtype=float)
         self._calibrated = np.empty((nspect, self._nchan), dtype=float)
-        if self._method == "cycle":
-            for i in range(nspect):
-                ref_avg = self._reftp[i].timeaverage(weights=kwargs["weights"])
-                sig_avg = self._sigtp[i].timeaverage(weights=kwargs["weights"])
-                # Combine sig and ref.
-                ta = ((sig_avg - ref_avg) / ref_avg).flux.value * ref_avg.meta["WTTSYS"]
-                self._tsys[i] = ref_avg.meta["WTTSYS"]
-                self._exposure[i] = sig_avg.meta["EXPOSURE"]
-                self._delta_freq[i] = sig_avg.meta["CDELT1"]
-                self._calibrated[i] = ta
 
-        elif self._method == "scan":
-            # Process the whole scan as a single block.
-            # This is less accurate, but might be needed if
-            # the scan was aborted and there are not enough
-            # sig/ref cycles to do a per cycle calibration.
-            for i in range(len(self._reftp)):
-                on = self._sigtp[i].timeaverage(weights=kwargs["weights"]).data
-                off = self._reftp[i].timeaverage(weights=kwargs["weights"]).data
-                fulltpavg = self._fulltp[i].timeaverage(weights=kwargs["weights"])
-                tsys = fulltpavg.meta["TSYS"]
-                # data is a Spectrum.  not consistent with other Scan classes
-                # where _calibrated is a numpy array.
-                data = tsys * (on - off) / off
-                # data.meta["MEANTSYS"] = 0.5 * np.mean((on.meta["TSYS"] + off.meta["TSYS"]))
-                # data.meta["WTTSYS"] = tsys
-                # data.meta["TSYS"] = data.meta["WTTSYS"]
-                # self._tsys.append(ref_avg.meta["WTTSYS"])
-                self._calibrated[i] = data
-        else:
-            raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
-        # self._add_calibration_meta()
+        for i in range(nspect):
+            sig = self._sigtp[i].timeaverage(weights=kwargs["weights"])
+            ref = self._reftp[i].timeaverage(weights=kwargs["weights"])
+            # Combine sig and ref.
+            ta = ((sig - ref) / ref).flux.value * ref.meta["WTTSYS"]
+            self._tsys[i] = ref.meta["WTTSYS"]
+            self._exposure[i] = sig.meta["EXPOSURE"]
+            self._delta_freq[i] = sig.meta["CDELT1"]
+            self._calibrated[i] = ta
 
     def calibrated(self, i):
         meta = deepcopy(self._sigtp[i].timeaverage().meta)  # use self._sigtp.meta? instead?
@@ -1695,34 +1671,11 @@ class SubBeamNodScan(ScanMixin):
             w = self._tsys_weight
         else:
             w = None
-        if self._method == "scan":
-            w = None  # don't double tsys weight(?)
-            self._timeaveraged = deepcopy(self.calibrated(0))
-            self._timeaveraged._data = average(data, axis=0, weights=w)
-            self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
-            # data.meta["MEANTSYS"] = 0.5 * np.mean((on.meta["TSYS"] + off.meta["TSYS"]))
-            self._timeaveraged.meta["WTTSYS"] = self._timeaveraged.meta["WTTSYS"]
-            self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-            self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
-        if self._method == "cycle":  # or weights = "gbtidl"
-            # GBTIDL method of weighting subbeamnod data
-            ta_avg = np.zeros(nchan, dtype="d")
-            wt_avg = 0.0  # A single value for now, but it should be an array once we implement vector TSYS.
-            tsys_wt = 0.0
-            tsys_avg = 0.0
-            for i in range(len(data)):
-                wt_avg += self.tsys[i] ** -2.0
-                tsys_wt_ = tsys_weight(self.exposure[i], self.delta_freq[i], self.tsys[i])
-                tsys_wt += tsys_wt_
-                ta_avg[:] += data[i] * self.tsys[i] ** -2.0
-            wt1 = self.tsys**-2.0
-            wt2 = tsys_weight(self.exposure, self.delta_freq, self.tsys)
-            ta_avg /= wt_avg
-            tsys_avg /= tsys_wt
-            self._timeaveraged._data = ta_avg
-            self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
-            self._timeaveraged.meta["WTTSYS"] = tsys_avg  # sq_weighted_avg(self._tsys, axis=0, weights=w)
-            self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-            self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
+
+        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
+        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
 
         return self._timeaveraged
