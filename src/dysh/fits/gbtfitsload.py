@@ -1826,12 +1826,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     count += 1
                 else:
                     outfile = fileobj
-
-                # add comment and history cards if applicable.  All files get all cards.
+                print(f"A1 DDING history {self.history}, adding comment {self.comments}")
+                # add comment and history cards to the primary HDU if applicable.
+                # All files get all cards.
                 for h in self.history:
-                    outhdu.header["HISTORY"] = h
-                for c in self.comment:
-                    outhdu.header["COMMENT"] = c
+                    outhdu[0].header["HISTORY"] = h
+                for c in self.comments:
+                    outhdu[0].header["COMMENT"] = c
                 if verbose:
                     print(f"Writing {this_rows_written} rows to {outfile}.")
                 outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
@@ -1852,6 +1853,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             outhdu.append(ob)
                         total_rows_written += lr
             # add history and comment cards if applicable
+            print(f"ADDING history {self.history}, adding comment {self.comments}")
             for h in self.history:
                 outhdu.header["HISTORY"] = h
             for c in self.comment:

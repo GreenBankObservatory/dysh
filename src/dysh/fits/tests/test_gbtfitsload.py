@@ -471,6 +471,7 @@ class TestGBTFITSLoad:
         org_sdf.write(output, overwrite=True)
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
+        # print(f"DIFF: {set(sorted(org_sdf._index.columns))-set(sorted(new_sdf._index.columns))}")
         assert_frame_equal(org_sdf._index, new_sdf._index)
 
     def test_get_item(self):

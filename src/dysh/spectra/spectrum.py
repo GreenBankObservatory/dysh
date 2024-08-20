@@ -1004,7 +1004,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         other._subtracted = self._subtracted
         other.spectral_axis._doppler_convention = self.doppler_convention
         other.add_history(self._history)
-        other.add_comments(self._comments)
+        other.add_comment(self._comments)
 
     def __add__(self, other):
         op = self.add

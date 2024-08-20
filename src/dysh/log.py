@@ -336,7 +336,7 @@ class HistoricalBase(ABC):
 
         """
         if isinstance(comment, list):
-            self._comment.extend(comment)
+            self._comments.extend(comment)
         else:
             self._comments.append(comment)
 
