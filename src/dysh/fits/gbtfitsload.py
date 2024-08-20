@@ -816,6 +816,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         sigrows=sigrows,
                         calrows=calrows,
                         bintable=bintable,
+                        history=self._history,
                         calibrate=calibrate,
                         fold=fold,
                         shift_method=shift_method,
@@ -974,6 +975,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         scanrows=rows,
                         calrows=calrows,
                         bintable=bintable,
+                        history=self._history,
                         calibrate=calibrate,
                         smoothref=smoothref,
                     )
@@ -1096,6 +1098,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         tprows,
                         calrows,
                         bintable,
+                        self._history,
                         calibrate,
                         smoothref=smoothref,
                     )
@@ -1268,6 +1271,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                     tprows,
                                     calrows,
                                     bintable,
+                                    self._history,
                                     calibrate=calibrate,
                                     smoothref=smoothref,
                                 )
@@ -1283,12 +1287,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                     tprows,
                                     calrows,
                                     bintable,
+                                    self._history,
                                     calibrate=calibrate,
                                     smoothref=smoothref,
                                 )
                             )
                         sb = SubBeamNodScan(
-                            sigtp, reftp, method=method, calibrate=calibrate, weights=weights, smoothref=smoothref
+                            sigtp,
+                            reftp,
+                            self._history,
+                            method=method,
+                            calibrate=calibrate,
+                            weights=weights,
+                            smoothref=smoothref,
                         )
                         scanblock.append(sb)
         elif method == "scan":
@@ -1349,6 +1360,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         sb = SubBeamNodScan(
                             sigtp,
                             reftp,
+                            self._history,
                             fulltp,
                             method=method,
                             calibrate=calibrate,
