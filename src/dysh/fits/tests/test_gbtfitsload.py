@@ -471,8 +471,9 @@ class TestGBTFITSLoad:
         org_sdf.write(output, overwrite=True)
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
-        # print(f"DIFF: {set(sorted(org_sdf._index.columns))-set(sorted(new_sdf._index.columns))}")
-        assert_frame_equal(org_sdf._index, new_sdf._index)
+        # Note we now auto-add a HISTORY card at instantiation, so drop that
+        # from the comparison
+        assert_frame_equal(org_sdf._index, new_sdf._index.drop(columns="HISTORY"))
 
     def test_get_item(self):
         f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
