@@ -19,6 +19,7 @@ class TestPSScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        print("SDF ", type(sdf))
         tps = sdf.getps(scan=152, ifnum=0)
         tsys = tps[0].tsys
 

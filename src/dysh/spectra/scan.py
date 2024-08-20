@@ -3,7 +3,6 @@ The classes that define various types of Scan and their calibration methods.
 """
 
 import warnings
-from abc import ABC
 from collections import UserList
 from copy import deepcopy
 
@@ -106,7 +105,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits):
+    def __init__(self, sdfits, history):
         HistoricalBase.__init__(self)
         self._ifnum = -1
         self._fdnum = -1
@@ -115,6 +114,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._scan = -1
         self._pols = -1
         self._sdfits = sdfits
+        self._history = history
 
     def _validate_defaults(self):
         _required = {
@@ -382,9 +382,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._nrows
 
 
-class ScanBlock(UserList, SpectralAverageMixin):
+class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     def __init__(self, *args):
-        super().__init__(*args)
+        UserList.__init__(self, *args)
+        HistoricalBase.__init__(self)
         self._nrows = 0
         self._npol = 0
         self._timeaveraged = []
@@ -596,6 +597,8 @@ class TPScan(ScanBase):
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
+    history: list
+        the parent object's history
     calibrate: bool
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     smoothref: int
@@ -633,11 +636,12 @@ class TPScan(ScanBase):
         scanrows,
         calrows,
         bintable,
+        history,
         calibrate=True,
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, history)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -746,12 +750,12 @@ class TPScan(ScanBase):
             if self.calstate is None:
                 tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
                 nspect = len(tcal)
-                calon = self._refcalcon
-                caloff = self._refcaloff
+                # calon = self._refcalcon
+                # caloff = self._refcaloff
             elif self.calstate:
                 tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
                 nspect = len(tcal)
-                calon = self._refcalon
+                # calon = self._refcalon
             elif self.calstate == False:
                 pass
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
@@ -929,6 +933,8 @@ class PSScan(ScanBase):
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
+    history : list
+        parent object's history
     calibrate: bool
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
     smoothref: int
@@ -947,13 +953,15 @@ class PSScan(ScanBase):
         scanrows,
         calrows,
         bintable,
+        history,
         calibrate=True,
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, history)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        self._scans = scans
+        # self._scans = scans
+        # self._history = deepcopy(gbtfits._history)
         self._scan = scans["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
@@ -1004,16 +1012,17 @@ class PSScan(ScanBase):
             self.calibrate()
         self._validate_defaults()
 
-    @property
-    def scans(self):
-        """The dictionary of the ON and OFF scan numbers in the PSScan.
-
-        Returns
-        -------
-        scans : dict
-            The scan number dictionary
-        """
-        return self._scans
+    # @property
+    # def scans(self):
+    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
+    #
+    #     Returns
+    #     -------
+    #     scans : dict
+    #         The scan number dictionary
+    #
+    #     """
+    #      return self._scans
 
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
@@ -1162,6 +1171,8 @@ class FSScan(ScanBase):
         corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
         The index for BINTABLE in `sdfits` containing the scans.
+    history : list
+        parent object's history
     calibrate : bool
         Whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
         Default: True
@@ -1187,6 +1198,7 @@ class FSScan(ScanBase):
         sigrows,
         calrows,
         bintable,
+        history,
         calibrate=True,
         fold=True,
         shift_method="fft",
@@ -1195,7 +1207,7 @@ class FSScan(ScanBase):
         observer_location=Observatory["GBT"],
         debug=False,
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, history)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
@@ -1565,6 +1577,8 @@ class SubBeamNodScan(ScanBase):
         Signal total power scans
     reftp:  list ~spectra.scan.TPScan
         Reference total power scans
+    history : list
+        parent object's history
     fulltp:  ~spectra.scan.TPScan
         A full (sig+ref) total power scans, used only for method='scan'
     method: str
@@ -1591,6 +1605,7 @@ class SubBeamNodScan(ScanBase):
         self,
         sigtp,
         reftp,
+        history,
         fulltp=None,
         method="cycle",
         calibrate=True,
@@ -1598,7 +1613,7 @@ class SubBeamNodScan(ScanBase):
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
-        ScanBase.__init__(self, sigtp[0]._sdfits)
+        ScanBase.__init__(self, sigtp[0]._sdfits, history)
         kwargs_opts = {
             "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
