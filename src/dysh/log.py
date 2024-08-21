@@ -210,9 +210,10 @@ def format_dysh_log_record(record: logging.LogRecord) -> str:
     logmsg += f"{record.fName}("
     if len(record.args) > 0:
         logmsg += f"{record.args}"
-    if len(record.kwargs) > 0:
-        for k, v in record.kwargs.items():
-            logmsg += f"{k}={v},"
+    if hasattr(record, "kwargs"):
+        if len(record.kwargs) > 0:
+            for k, v in record.kwargs.items():
+                logmsg += f"{k}={v},"
     logmsg += ")"
     return logmsg
 
@@ -262,6 +263,7 @@ def log_call_to_history(func):
             classname = self.__class__.__name__
             print(f"got self {self} class {self.__class__} classname {classname}")
             if hasattr(self, "_history"):
+                print("hasattr history!")
                 sig = inspect.signature(func)
                 if "kwargs" in sig.parameters:
                     extra = {

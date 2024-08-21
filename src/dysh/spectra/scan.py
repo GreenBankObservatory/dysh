@@ -35,6 +35,7 @@ from .spectrum import Spectrum
 
 
 class SpectralAverageMixin:
+    @log_call_to_history
     def timeaverage(self, weights=None):
         r"""Compute the time-averaged spectrum for this scan.
 
@@ -253,6 +254,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     def _meta_as_table(self):
         """get the metadata as an astropy Table"""
+        if len(self.history) == 0:
+            self._meta["HISTORY"] = self.history
+        if len(self.comment) == 0:
+            self._meta["COMMENT"] = self.comments
         return Table(self._meta)
 
     def _make_meta(self, rowindices):
@@ -581,8 +586,8 @@ class TPScan(ScanBase):
 
     Parameters
     ----------
-    gbtfits : `~fits.gbtfitsload.GBFITSLoad`
-        input GBFITSLoad object
+    gbtfits : `~fits.sdfitsload.SDFITSLoad`
+        input SDFITSLoad object
     scan: int
         scan number
     sigstate : bool
@@ -884,6 +889,7 @@ class TPScan(ScanBase):
         meta["RESTFRQ"] = restfreq  # WCS wants no E
         return Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
 
+    @log_call_to_history
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of scans.
 
@@ -923,8 +929,8 @@ class PSScan(ScanBase):
 
     Parameters
     ----------
-    gbtfits : `~fits.gbtfitsload.GBFITSLoad`
-        input GBFITSLoad object
+    gbtfits : `~fits.sdfitsload.SDFITSLoad`
+        input SDFITSLoad object
     scans : dict
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers NOTE: there should be one ON and one OFF, a pair
     scanrows : dict
@@ -1118,6 +1124,7 @@ class PSScan(ScanBase):
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
+    @log_call_to_history
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of scans.
 
@@ -1150,6 +1157,7 @@ class PSScan(ScanBase):
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        self._timeaveraged._history = self._history
         return self._timeaveraged
 
 
@@ -1159,8 +1167,8 @@ class FSScan(ScanBase):
     Parameters
     ----------
 
-    gbtfits : `~fit.gbtfitsload.GBFITSLoad`
-        Input GBFITSLoad object.
+    gbtfits : `~fits.sdfitsload.SDFITSLoad`
+        input SDFITSLoad object
     scan : int
         Scan number that contains integrations with a series of sig/ref and calon/caloff states.
     sigrows :dict
