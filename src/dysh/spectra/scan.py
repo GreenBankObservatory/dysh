@@ -1543,8 +1543,6 @@ class SubBeamNodScan(ScanMixin):
         Signal total power scans
     reftp:  list ~spectra.scan.TPScan
         Reference total power scans
-    method: str
-        Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
     calibrate: bool
         Whether or not to calibrate the data.
     smoothref: int
@@ -1567,7 +1565,6 @@ class SubBeamNodScan(ScanMixin):
         self,
         sigtp,
         reftp,
-        method="cycle",
         calibrate=True,
         smoothref=1,
         observer_location=Observatory["GBT"],
@@ -1594,9 +1591,6 @@ class SubBeamNodScan(ScanMixin):
         self._nchan = len(reftp[0]._data[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
         self._nint = 0
-        self._method = method.lower()
-        if self._method not in ["cycle", "scan"]:
-            raise ValueError(f"Method {self._method} unrecognized. Must be one of 'cycle' or 'scan'")
         self._smoothref = smoothref
         if self._smoothref > 1:
             print(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
