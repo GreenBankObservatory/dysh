@@ -80,17 +80,17 @@ class GBTFITSLoad(SDFITSLoad):
 
         if kwargs.get("verbose", None):
             print("==GBTLoad %s" % fileobj)
-            self.ushow(0, "OBJECT")
-            self.ushow(0, "SCAN")
-            self.ushow(0, "SAMPLER")
+            self.ushow("OBJECT", 0)
+            self.ushow("SCAN", 0)
+            self.ushow("SAMPLER", 0)
             self.ushow("PLNUM")
             self.ushow("IFNUM")
-            self.ushow(0, "SIG")
-            self.ushow(0, "CAL")
-            self.ushow(0, "PROCSEQN")
-            self.ushow(0, "PROCSIZE")
-            self.ushow(0, "OBSMODE")
-            self.ushow(0, "SIDEBAND")
+            self.ushow("SIG", 0)
+            self.ushow("CAL", 0)
+            self.ushow("PROCSEQN", 0)
+            self.ushow("PROCSIZE", 0)
+            self.ushow("OBSMODE", 0)
+            self.ushow("SIDEBAND", 0)
 
         lsdf = len(self._sdf)
         if lsdf > 1:

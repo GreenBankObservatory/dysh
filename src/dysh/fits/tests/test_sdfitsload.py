@@ -53,11 +53,14 @@ class TestSDFITSLoad:
         """
         Test that a SDFITSLoad object can use the `getspec` function.
         """
+        index = 2
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = SDFITSLoad(sdf_file)
-        spec = sdf.getspec(0)
-        assert np.nanmean(spec.data) == pytest.approx(510458900.0)
+        spec = sdf.getspec(index)
+        assert np.nanmean(spec.data) == pytest.approx(504480960.0)
         assert spec.meta["BACKEND"] == "VEGAS"
+        assert spec.meta["ROW"] == index
+        assert spec.meta["CRVAL4"] == -6
 
     def test_write_single_file(self, tmp_path):
         "Test that writing an SDFITS file works when subselecting data"
@@ -276,3 +279,17 @@ class TestSDFITSLoad:
             g["DATA"]
         with pytest.raises(Exception):
             g["DATA"] = np.random.rand(1024)
+
+    def test_udata(self):
+        """Test that `udata` is working."""
+
+        f = util.get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
+        g = SDFITSLoad(f)
+        assert g.udata("SCAN") == [51, 52, 53, 54, 55, 56, 57, 58]
+
+    def test_ushow(self):
+        """Test that `ushow` works."""
+
+        f = util.get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
+        g = SDFITSLoad(f)
+        g.ushow("SCAN")
