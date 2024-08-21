@@ -6,15 +6,15 @@
 `Green Bank Observatory <https:/greenbankobservatory.org>`_
 and the Laboratory for Millimeter-Wave Astronomy (LMA)
 at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
-It is intended to be an alternative for `GBTIDL <https://www.gb.nrao.edu/GBT/DA/gbtidl/users_guide/>`_, GBO's current spectral line data reduction package.
+It is intended to replace `GBTIDL <https://www.gb.nrao.edu/GBT/DA/gbtidl/users_guide/>`_, GBO's current spectral line data reduction package.
 
 Contents
 ===============
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
 
-   whatsnew/0.3
+   whatsnew/0.3.rst
    background/index
    getting_started/index
    examples/index
