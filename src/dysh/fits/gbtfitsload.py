@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 
+from dysh.log import logger
+
 from ..coordinates import Observatory, decode_veldef
 from ..log import HistoricalBase, log_call_to_history
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
@@ -59,11 +61,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._selection = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
+            logger.debug(f"Treating given path {path} as a file")
             self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
         elif path.is_dir():
+            logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
             # because e.g., VEGAS does A,B,C,D,E
             for f in sorted(path.glob("*.fits")):
+                logger.debug(f"Selecting {f} to load")
                 if kwargs.get("verbose", None):
                     print(f"doing {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
@@ -79,17 +84,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if kwargs.get("verbose", None):
             print("==GBTLoad %s" % fileobj)
-            self.ushow(0, "OBJECT")
-            self.ushow(0, "SCAN")
-            self.ushow(0, "SAMPLER")
+            self.ushow("OBJECT", 0)
+            self.ushow("SCAN", 0)
+            self.ushow("SAMPLER", 0)
             self.ushow("PLNUM")
             self.ushow("IFNUM")
-            self.ushow(0, "SIG")
-            self.ushow(0, "CAL")
-            self.ushow(0, "PROCSEQN")
-            self.ushow(0, "PROCSIZE")
-            self.ushow(0, "OBSMODE")
-            self.ushow(0, "SIDEBAND")
+            self.ushow("SIG", 0)
+            self.ushow("CAL", 0)
+            self.ushow("PROCSEQN", 0)
+            self.ushow("PROCSIZE", 0)
+            self.ushow("OBSMODE", 0)
+            self.ushow("SIDEBAND", 0)
 
         lsdf = len(self._sdf)
         if lsdf > 1:
@@ -745,8 +750,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         debug = kwargs.pop("debug", False)
-        if debug:
-            print(kwargs)
+        logger.debug(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX()
         if len(self._selection._selection_rules) > 0:
@@ -765,15 +769,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
-        if debug:
-            print("scans/w sel:", scans, self._selection)
+        logger.debug("scans/w sel:", scans, self._selection)
         fs_selection = copy.deepcopy(self._selection)
         # now downselect with any additional kwargs
-        if debug:
-            print(f"SELECTION FROM MIXED KWARGS {kwargs}")
+        logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
         fs_selection._select_from_mixed_kwargs(**kwargs)
-        if debug:
-            print(fs_selection.show())
+        logger.debug(fs_selection.show())
         _sf = fs_selection.final
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -781,23 +782,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
         scans = set(_sf["SCAN"])
-        if debug:
-            print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
+        logger.debug(f"using SCANS {scans} IF {ifnum} PL {plnum}")
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
                 _ifdf = select_from("IFNUM", k, df)  # one FSScan per ifnum
-                if debug:
-                    # print(f"SCANLIST {scanlist}")
-                    print(f"POLS {set(df['PLNUM'])}")
-                    print(f"Sending dataframe with scans {set(_ifdf['SCAN'])}")
-                    print(f"and PROC {set(_ifdf['PROC'])}")
+                # print(f"SCANLIST {scanlist}")
+                logger.debug(f"POLS {set(df['PLNUM'])}")
+                logger.debug(f"Sending dataframe with scans {set(_ifdf['SCAN'])}")
+                logger.debug(f"and PROC {set(_ifdf['PROC'])}")
                 # loop over scans:
                 for scan in scans:
-                    if debug:
-                        print(f"doing scan {scan}")
+                    logger.debug(f"doing scan {scan}")
                     calrows = {}
                     _df = select_from("SCAN", scan, _ifdf)
                     dfcalT = select_from("CAL", "T", _df)
@@ -891,40 +889,33 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scans = preselected["SCAN"]
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
-        if debug:
-            print(f"after check scans_to_add={scans_to_add}")
+        logger.debug(f"after check scans_to_add={scans_to_add}")
         # now remove any scans that have been pre-selected by the user.
         # scans_to_add -= scans_preselected
-        if debug:
-            print(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
+        logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
-        if debug:
-            print("SCAN ", scans)
-            print("TYPE: ", type(ps_selection))
+        logger.debug("SCAN ", scans)
+        logger.debug("TYPE: ", type(ps_selection))
         if len(scans_to_add) != 0:
             # add a rule selecting the missing scans :-)
-            if debug:
-                print(f"adding rule scan={scans_to_add}")
+            logger.debug(f"adding rule scan={scans_to_add}")
             kwargs["SCAN"] = list(scans_to_add)
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
         # now downselect with any additional kwargs
-        if debug:
-            print(f"SELECTION FROM MIXED KWARGS {kwargs}")
-            print(ps_selection.show())
+        logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
+        logger.debug(ps_selection.show())
         ps_selection._select_from_mixed_kwargs(**kwargs)
-        if debug:
-            print("AFTER")
-            print(ps_selection.show())
+        logger.debug("AFTER")
+        logger.debug(ps_selection.show())
         _sf = ps_selection.final
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
-        if debug:
-            print(f"FINAL i {ifnum} p {plnum} s {scans}")
+        logger.debug(f"FINAL i {ifnum} p {plnum} s {scans}")
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
@@ -937,11 +928,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     # print("scans not found, continuing")
                     continue
-                if debug:
-                    print(f"SCANLIST {scanlist}")
-                    print(f"POLS {set(df['PLNUM'])}")
-                    print(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                    print(f"and PROC {set(_df['PROC'])}")
+                logger.debug(f"SCANLIST {scanlist}")
+                logger.debug(f"POLS {set(df['PLNUM'])}")
+                logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
+                logger.debug(f"and PROC {set(_df['PROC'])}")
                 rows = {}
                 # loop over scan pairs
                 c = 0
@@ -966,9 +956,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
                     # print(f"Sending PSScan({d},ROWS:{rows},CALROWS:{calrows},BT: {bintable}")
-                    if debug:
-                        print(f"{i, k, c} SCANROWS {rows}")
-                        print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
+                    logger.debug(f"{i, k, c} SCANROWS {rows}")
+                    logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                     g = PSScan(
                         self._sdf[i],
                         scans=d,
@@ -1052,14 +1041,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
-        if debug:
-            print("SF=", _sf)
+        logger.debug("SF=", _sf)
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
         feeds = uniq(_sf["FDNUM"])
-        if debug:
-            print(f"FINAL i {ifnum} p {plnum} s {scans} f {feeds}")
+        logger.debug(f"FINAL i {ifnum} p {plnum} s {scans} f {feeds}")
         scanblock = ScanBlock()
         calrows = {}
         # @todo loop over feeds too?
@@ -1084,10 +1071,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     #    df = select_from("CAL", TF[cal], df)
                     # the rows with the selected sig state and all cal states
                     tprows = list(df["ROW"])
-                    if debug:
-                        print("TPROWS len=", len(tprows))
-                        print("CALROWS on len=", len(calrows["ON"]))
-                        print("fitsindex=", i)
+                    logger.debug("TPROWS len=", len(tprows))
+                    logger.debug("CALROWS on len=", len(calrows["ON"]))
+                    logger.debug("fitsindex=", i)
                     if len(tprows) == 0:
                         continue
                     g = TPScan(
@@ -1159,8 +1145,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scans = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
-        if debug:
-            print(kwargs)
+        logger.debug(kwargs)
 
         if type(scans) is int:
             scans = [scans]
@@ -1197,8 +1182,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
         fdnum = uniq(_sf["FDNUM"])
-        if debug:
-            print(f"FINAL i {ifnum} p {plnum} s {scans} f {fdnum}")
+        logger.debug(f"FINAL i {ifnum} p {plnum} s {scans} f {fdnum}")
         scanblock = ScanBlock()
 
         if method == "cycle":
@@ -1213,8 +1197,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         reftp = []
                         sigtp = []
                         fulltp = []
-                        if debug:
-                            print(f"doing scan {scan}")
+                        logger.debug(f"doing scan {scan}")
                         df = select_from("SCAN", scan, _ifdf)
                         df_on = df[df["CAL"] == "T"]
                         df_off = df[df["CAL"] == "F"]
@@ -1222,11 +1205,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         df_on_ref = df_on[df_on["SUBREF_STATE"] == 1]
                         df_off_sig = df_off[df_off["SUBREF_STATE"] == -1]
                         df_off_ref = df_off[df_off["SUBREF_STATE"] == 1]
-                        if debug:
-                            print(f"SCANs in df_on_sig {set(df_on_sig['SCAN'])}")
-                            print(f"SCANs in df_on_ref {set(df_on_ref['SCAN'])}")
-                            print(f"SCANs in df_off_sig {set(df_off_sig['SCAN'])}")
-                            print(f"SCANs in df_off_ref {set(df_off_ref['SCAN'])}")
+                        logger.debug(f"SCANs in df_on_sig {set(df_on_sig['SCAN'])}")
+                        logger.debug(f"SCANs in df_on_ref {set(df_on_ref['SCAN'])}")
+                        logger.debug(f"SCANs in df_off_sig {set(df_off_sig['SCAN'])}")
+                        logger.debug(f"SCANs in df_off_ref {set(df_off_ref['SCAN'])}")
                         sig_on_rows = df_on_sig["ROW"].to_numpy()
                         ref_on_rows = df_on_ref["ROW"].to_numpy()
                         sig_off_rows = df_off_sig["ROW"].to_numpy()
@@ -1795,21 +1777,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             e.g., `ifnum=1, plnum=[2,3]` etc.
         """
         debug = kwargs.pop("debug", False)
-        if debug:
-            print(kwargs)
+        logger.debug(kwargs)
         selection = Selection(self._index)
         if len(kwargs) > 0:
             selection._select_from_mixed_kwargs(**kwargs)
-            if debug:
-                print(selection.show())
+            logger.debug(selection.show())
             _final = selection.final
         else:
             _final = selection
         if len(_final) == 0:
             raise Exception("Your selection resulted in no rows to be written")
         fi = list(set(_final["FITSINDEX"]))
-        if debug:
-            print(f"fitsindex {fi} ")
+        logger.debug(f"fitsindex {fi} ")
         total_rows_written = 0
         if multifile:
             count = 0

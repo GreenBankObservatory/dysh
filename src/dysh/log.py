@@ -14,23 +14,29 @@ from typing import Union
 import _testcapi
 from astropy.logger import AstropyLogger
 
-try:
-    DYSH_LOG_DIR = Path(os.getenv("DYSH_LOG_DIR", "."))
-except ValueError as error:
-    raise ValueError(f"DYSH_LOG_DIR must be set to a valid path! Got {DYSH_LOG_DIR}") from error
+LOGGING_INITIALIZED = False
+logger = logging.getLogger("dysh")
+dhlogger = AstropyLogger("dysh_history", level=logging.INFO)
 
+_DYSH_LOG_DIR = os.getenv("DYSH_LOG_DIR", ".")
 try:
-    DYSH_HOME = Path(os.getenv("DYSH_HOME", "."))
+    DYSH_LOG_DIR = Path(_DYSH_LOG_DIR)
 except ValueError as error:
-    raise ValueError(f"DYSH_HOME must be set to a valid path! Got {DYSH_HOME}") from error
+    raise ValueError(f"DYSH_LOG_DIR must be set to a valid path! Got {_DYSH_LOG_DIR}") from error
+
+_DYSH_HOME = os.getenv("DYSH_HOME", ".")
+try:
+    DYSH_HOME = Path(_DYSH_HOME)
+except ValueError as error:
+    raise ValueError(f"DYSH_HOME must be set to a valid path! Got {_DYSH_HOME}") from error
 
 
 class DatestampFileHandler(logging.FileHandler):
-    def __init__(self, filename, header=None, mode="w", encoding=None, delay=0):
+    def __init__(self, filename, mode="w", encoding=None, delay=False):
         if not filename:
             raise ValueError("Must provide a filename!")
 
-        super().__init__(datetime.now().strftime(str(filename)), mode, encoding, delay)
+        super().__init__(filename=datetime.now().strftime(str(filename)), mode=mode, encoding=encoding, delay=delay)
 
 
 class StringHandler(logging.StreamHandler):
@@ -111,8 +117,15 @@ config = {
 }
 
 
-def config_logging(verbosity: int, level: Union[int, None] = None, path: Union[Path, None] = None):
-    global logger
+def init_logging(verbosity: int, level: Union[int, None] = None, path: Union[Path, None] = None, quiet=False):
+    global LOGGING_INITIALIZED
+    if LOGGING_INITIALIZED is True:
+        logger.warning(
+            "dysh logging has already been initialized! Continuing, but this behavior is not well defined, "
+            "and you will likely end up with duplicate log handlers"
+        )
+
+    LOGGING_INITIALIZED = True
     if verbosity:
         if verbosity == 0:
             level = logging.ERROR
@@ -130,6 +143,9 @@ def config_logging(verbosity: int, level: Union[int, None] = None, path: Union[P
 
     config["loggers"]["dysh"]["handlers"] = ["stderr", "dysh_global_log_file"]
     # config["loggers"]["dysh_history"]["handlers"] = ["dysh_instance_string"]
+
+    if quiet:
+        config["handlers"]["stderr"]["level"] = "WARNING"
 
     if path:
         config["handlers"]["dysh_instance_log_file"]["filename"] = path
@@ -239,10 +255,12 @@ def log_call_to_history(func):
     def wrapper(self, *args, **kwargs):
         if self is None:  # not a class, but a function
             print(
-                f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use @log_function_call instead."
+                f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use"
+                " @log_function_call instead."
             )
             logger.warn(
-                f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use @log_function_call instead."
+                f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use"
+                " @log_function_call instead."
             )
             # could put this try around the whole thing but then it would catch exceptions from the wrapper itself
             try:
@@ -361,7 +379,3 @@ class HistoricalBase(ABC):
             self._history.extend(history)
         else:
             self._history.append(history)
-
-
-logger = logging.getLogger("dysh")
-dhlogger = AstropyLogger("dysh_history", level=logging.INFO)
