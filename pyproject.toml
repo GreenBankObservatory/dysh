@@ -31,21 +31,28 @@ dependencies = [
   "pandas",
   "scipy",
   "specutils",
-  "wget",
+  "httpx",
+  "rich",
+  "tenacity",
  ]
 
 [project.optional-dependencies]
 dev = [
   "coverage[toml]",
+  "pip-tools",
+  "pre-commit",
   "ipdb",
   "numpydoc",
   "pytest",
   "pytest-cov",
+  "myst_nb",
   "sphinx",
   "sphinx-autobuild",
   "sphinx-inline-tabs",
-  "sphinx-rtd-theme",
+  "sphinx-book-theme",
   "sphinxcontrib-mermaid",
+  "nbformat",
+  "nbclient",
 ]
 nb = [
   "jupyter",
