@@ -180,6 +180,7 @@ class TestSubBeamNod:
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
         """Test subbeamnod using synthithic spectra."""
         # Load a file with subbeamnod observations.
@@ -209,8 +210,8 @@ class TestSubBeamNod:
 
         # Generate astro signal.
         np.random.seed(0)  # Fix the noise.
-        sig_mod = np.random.normal(loc=0, scale=5, size=(n_sig, nchan)) + gauss(x, a, s, c) + tcont
-        ref_mod = np.random.normal(loc=0, scale=5, size=(n_ref, nchan))
+        sig_mod = np.random.normal(loc=0, scale=0.1, size=(n_sig, nchan)) + gauss(x, a, s, c) + tcont
+        ref_mod = np.random.normal(loc=0, scale=0.1, size=(n_ref, nchan))
 
         # Add noise diode.
         sig_cal_on = sdf["CAL"].to_numpy()[sig_mask] == "T"
@@ -223,11 +224,12 @@ class TestSubBeamNod:
         p_ref_mod = gain * (ref_mod + tsys)
 
         # Replace data.
-        sdf["TCAL"] = tcal
         new_data = np.empty_like(sdf["DATA"])
         new_data[sig_mask] = p_sig_mod
         new_data[ref_mask] = p_ref_mod
-        sdf["DATA"] = new_data
+        with pytest.warns(UserWarning):
+            sdf["DATA"] = new_data
+            sdf["TCAL"] = tcal
 
         # Calibrate.
         sbn_cycle = sdf.subbeamnod(scan=43, fdnum=0, plnum=0, ifnum=0).timeaverage()
@@ -258,6 +260,10 @@ class TestSubBeamNod:
 
         # Number of rows.
         assert sdf.subbeamnod(scan=43, fdnum=0, plnum=0, method="scan")[0].nrows == 96
+
+        # Line amplitude.
+        assert pytest.approx(sbn_cycle.data.max() - tcont, rms_cycle.value) == a
+        assert pytest.approx(sbn_scan.data.max() - tcont, rms_scan.value) == a
 
 
 class TestTPScan:
