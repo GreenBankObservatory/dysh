@@ -251,9 +251,6 @@ class TestSubBeamNod:
         assert pytest.approx(sbn_scan.meta["TSYS"], rms_scan.value) == sbn_cycle.meta["TSYS"]
         assert pytest.approx(sbn_cycle.meta["TSYS"] - tcal / 2.0, rms_cycle.value) == tsys
         assert pytest.approx(sbn_scan.meta["TSYS"] - tcal / 2.0, rms_scan.value) == tsys
-        # The need to re-subtract the calibrator temperature suggests that there is a problem
-        # with the system temperature calculation elsewhere.
-        # Will leave as is for now an create an issue.
 
         # Compare RMS.
         assert pytest.approx(rms_cycle.value, abs=1e-2) == rms_scan.value
