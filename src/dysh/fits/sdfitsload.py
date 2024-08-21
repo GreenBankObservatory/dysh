@@ -286,7 +286,7 @@ class SDFITSLoad(object):
                 The index of the `bintable` attribute, None means all bintables
 
         """
-        print(f"{bintable} {key}: {self.udata(bintable,key)}")
+        print(f"{bintable} {key}: {self.udata(key, bintable)}")
 
     def naxis(self, naxis, bintable):
         """
