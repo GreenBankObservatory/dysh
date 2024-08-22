@@ -1823,11 +1823,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
-            # add history and comment cards if applicable
+            # add history and comment cards to primary header if applicable
             for h in self.history:
-                outhdu.header["HISTORY"] = h
+                outhdu[0].header["HISTORY"] = h
             for c in self.comment:
-                outhdu.header["COMMENT"] = c
+                outhdu[0].header["COMMENT"] = c
             if total_rows_written == 0:  # shouldn't happen, caught earlier
                 raise Exception("Your selection resulted in no rows to be written")
             else:
