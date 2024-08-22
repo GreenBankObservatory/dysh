@@ -99,6 +99,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
+        self.add_history(f"Project ID: {self.projectID}")
 
     def __repr__(self):
         return str(self.files)
@@ -111,6 +112,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # for backwards compatibility after removing _index
         # as a separate object
         return self._selection
+
+    @property
+    def projectID(self):
+        """
+        The project identification
+
+        Returns
+        -------
+        str
+            The project ID string
+
+        """
+        return uniq(self["PROJID"])[0]
 
     @property
     def total_rows(self):

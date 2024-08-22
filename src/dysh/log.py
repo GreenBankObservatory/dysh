@@ -14,6 +14,8 @@ from typing import NewType, Union  # , Self # not available until 3.11
 import _testcapi
 from astropy.logger import AstropyLogger
 
+from . import version
+
 LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")
 dhlogger = AstropyLogger("dysh_history", level=logging.INFO)
@@ -42,11 +44,11 @@ class DatestampFileHandler(logging.FileHandler):
 class StringHandler(logging.StreamHandler):
     def __init__(self):
         string_stream = StringIO()
-        print("initing string hamdler")
         super().__init__(stream=string_stream)
 
 
 dysh_date_format = "%Y-%m-%dT%H:%M:%S%z"
+dysh_version = version()
 dysh_history_formatter = logging.Formatter(
     fmt="%(asctime)s - %(levelname)s - %(modName)s.%(fName)s(%(message)s, %(extra)s)", datefmt=dysh_date_format
 )
@@ -186,7 +188,7 @@ def log_function_call(func):
             raise
         # Log the function name and arguments
         sig = inspect.signature(func)
-        logmsg = f"call: {func.__module__}"
+        logmsg = f"DYSH v{dysh_version} : {func.__module__}"
         if hasattr(func, "__self__"):
             # func is  method of a class
             logmsg += f"{func.__self__.__class__.__name__}"
@@ -220,6 +222,7 @@ def format_dysh_log_record(record: logging.LogRecord) -> str:
 
     """
     asctime = time.strftime(dysh_date_format, time.localtime(record.created))
+    # NB: possibly get rid of levelname.  Also possibly move dysh_version to before asctime.
     logmsg = f"{asctime} - {record.levelname} - {record.msg} : {record.modName}."
     if hasattr(record, "className"):
         logmsg += f"{record.className}."
@@ -254,10 +257,6 @@ def log_call_to_history(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self is None:  # not a class, but a function
-            print(
-                f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use"
-                " @log_function_call instead."
-            )
             logger.warn(
                 f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use"
                 " @log_function_call instead."
@@ -279,9 +278,7 @@ def log_call_to_history(func):
                 del tp, exc, tb
                 raise
             classname = self.__class__.__name__
-            print(f"got self {self} class {self.__class__} classname {classname}")
             if hasattr(self, "_history"):
-                print("hasattr history!")
                 sig = inspect.signature(func)
                 if "kwargs" in sig.parameters:
                     extra = {
@@ -294,11 +291,10 @@ def log_call_to_history(func):
                     extra = {"modName": func.__module__, "className": classname, "fName": func.__name__, "extra": {}}
                 with dhlogger.log_to_list() as log_list:
                     # dhlogger.handlers[0].setFormatter(dysh_history_formatter)
-                    dhlogger.info("command", *args, extra=extra)
+                    dhlogger.info(f"DYSH v{dysh_version}", *args, extra=extra)
                     log_str = [format_dysh_log_record(i) for i in log_list]
                     self._history.extend(log_str)
             else:
-                print(f"Class {func.__module__}.{classname} has no _history attribute. Use @log_function_call instead.")
                 logger.warn(
                     f"Class {func.__module__}.{classname} has no _history attribute. Use @log_function_call instead."
                 )
@@ -317,7 +313,6 @@ class HistoricalBase(ABC):
     def __init__(self):
         self._history = StrList([])
         self._comments = StrList([])
-        print("Inst HistoricalBase")
 
     def _remove_duplicates(self):
         self._history = list(set(self._history))
