@@ -1215,8 +1215,8 @@ class GBTFITSLoad(SDFITSLoad):
                                 TPScan(
                                     self._sdf[sdfi],
                                     scan,
-                                    "BOTH",
-                                    "BOTH",
+                                    None,
+                                    None,
                                     tprows,
                                     calrows,
                                     bintable,
@@ -1230,8 +1230,8 @@ class GBTFITSLoad(SDFITSLoad):
                                 TPScan(
                                     self._sdf[sdfi],
                                     scan,
-                                    "BOTH",
-                                    "BOTH",
+                                    None,
+                                    None,
                                     tprows,
                                     calrows,
                                     bintable,
@@ -1239,9 +1239,7 @@ class GBTFITSLoad(SDFITSLoad):
                                     smoothref=smoothref,
                                 )
                             )
-                        sb = SubBeamNodScan(
-                            sigtp, reftp, method=method, calibrate=calibrate, weights=weights, smoothref=smoothref
-                        )
+                        sb = SubBeamNodScan(sigtp, reftp, calibrate=calibrate, weights=weights, smoothref=smoothref)
                         scanblock.append(sb)
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
@@ -1301,8 +1299,6 @@ class GBTFITSLoad(SDFITSLoad):
                         sb = SubBeamNodScan(
                             sigtp,
                             reftp,
-                            fulltp,
-                            method=method,
                             calibrate=calibrate,
                             weights=weights,
                             smoothref=smoothref,
