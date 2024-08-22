@@ -9,7 +9,7 @@ from datetime import datetime
 from functools import wraps
 from io import StringIO
 from pathlib import Path
-from typing import Union
+from typing import NewType, Union  # , Self # not available until 3.11
 
 import _testcapi
 from astropy.logger import AstropyLogger
@@ -307,18 +307,27 @@ def log_call_to_history(func):
     return wrapper
 
 
+# type History = list[str]  # not available till python 3.12
+StrList = NewType("Strlist", list[str])
+
+
 class HistoricalBase(ABC):
     """Abstract base class to manage history and comments metadata."""
 
     def __init__(self):
-        self._history = []
-        self._comments = []
+        self._history = StrList([])
+        self._comments = StrList([])
         print("Inst HistoricalBase")
 
+    def _remove_duplicates(self):
+        self._history = list(set(self._history))
+        self._comments = list(set(self._comments))
+
     @property
-    def history(self):
+    def history(self) -> StrList:
         """
         Get the history strings. These are typically converted to FITS HISTORY cards by the derived class.
+        Duplicate entries are removed.
 
         Returns
         -------
@@ -326,12 +335,15 @@ class HistoricalBase(ABC):
             The list of string history
 
         """
+        # remove duplicates, due to inherited classes
+        self._remove_duplicates()
         return self._history
 
     @property
-    def comments(self):
+    def comments(self) -> StrList:
         """
         Get the comment strings. These are typically converted to FITS COMMENT cards by the derived class.
+        Duplicate comments are removed.
 
         Returns
         -------
@@ -339,9 +351,11 @@ class HistoricalBase(ABC):
             The list of string comments
 
         """
+        # remove duplicates, due to inherited classes
+        self._remove_duplicates()
         return self._comments
 
-    def add_comment(self, comment: str):
+    def add_comment(self, comment: Union[str, StrList]) -> None:
         """
         Add one or more comments to the class metadata.
 
@@ -360,7 +374,7 @@ class HistoricalBase(ABC):
         else:
             self._comments.append(comment)
 
-    def add_history(self, history: str):
+    def add_history(self, history: Union[str, StrList]) -> None:
         """
         Add one or more history entries to the class metadata
 
@@ -374,8 +388,30 @@ class HistoricalBase(ABC):
         None.
 
         """
-        # @todo should we prepend a datetime str here?
         if isinstance(history, list):
             self._history.extend(history)
         else:
             self._history.append(history)
+
+    # def merge_commentary(self, other: Self) -> None:  # Self not available until 3.11
+    def merge_commentary(self, other: object) -> None:
+        """
+        Merge the history and comments from another HistoricalBase instance.
+        The history and comments are added to this instance and duplicates
+        are removed.
+
+        Parameters
+        ----------
+        other : ~log.HistoricalBase
+            An class instance that has history and comment attributes.
+
+        Returns
+        -------
+        None
+
+        """
+        if hasattr(other, "_history"):
+            self.add_history(other._history)
+        if hasattr(other, "_comments"):
+            self.add_comment(other._comments)
+        self._remove_duplicates()

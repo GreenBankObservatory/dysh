@@ -72,7 +72,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if kwargs.get("verbose", None):
                     print(f"doing {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
-            self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames}")
+            self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}")
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
         if kwargs_opts["index"]:
@@ -814,7 +814,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         sigrows=sigrows,
                         calrows=calrows,
                         bintable=bintable,
-                        history=self._history,
                         calibrate=calibrate,
                         fold=fold,
                         shift_method=shift_method,
@@ -823,9 +822,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         smoothref=1,
                         debug=debug,
                     )
+                    g.merge_commentary(self)
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
         return scanblock
         # end of getfs()
 
@@ -964,14 +965,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         scanrows=rows,
                         calrows=calrows,
                         bintable=bintable,
-                        history=self._history,
                         calibrate=calibrate,
                         smoothref=smoothref,
                     )
+                    g.merge_commentary(self)
                     scanblock.append(g)
                     c = c + 1
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
         return scanblock
 
     @log_call_to_history
@@ -1084,13 +1086,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         tprows,
                         calrows,
                         bintable,
-                        self._history,
                         calibrate,
                         smoothref=smoothref,
                     )
+                    g.merge_commentary(self)
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
         return scanblock
 
     # @todo sig/cal no longer needed?
@@ -1253,7 +1256,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                     tprows,
                                     calrows,
                                     bintable,
-                                    self._history,
                                     calibrate=calibrate,
                                     smoothref=smoothref,
                                 )
@@ -1269,7 +1271,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                     tprows,
                                     calrows,
                                     bintable,
-                                    self._history,
                                     calibrate=calibrate,
                                     smoothref=smoothref,
                                 )
@@ -1277,12 +1278,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         sb = SubBeamNodScan(
                             sigtp,
                             reftp,
-                            self._history,
                             method=method,
                             calibrate=calibrate,
                             weights=weights,
                             smoothref=smoothref,
                         )
+                        sb.merge_commentary(self)
                         scanblock.append(sb)
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
@@ -1342,16 +1343,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         sb = SubBeamNodScan(
                             sigtp,
                             reftp,
-                            self._history,
                             fulltp,
                             method=method,
                             calibrate=calibrate,
                             weights=weights,
                             smoothref=smoothref,
                         )
+                        sb.merge_commentary(self)
                         scanblock.append(sb)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
         return scanblock
 
     def _onoff_scan_list_selection(self, scans, selection, check=False):

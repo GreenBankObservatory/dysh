@@ -106,7 +106,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits, history):
+    def __init__(self, sdfits):
         HistoricalBase.__init__(self)
         self._ifnum = -1
         self._fdnum = -1
@@ -115,7 +115,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._scan = -1
         self._pols = -1
         self._sdfits = sdfits
-        self._history = history
 
     def _validate_defaults(self):
         _required = {
@@ -254,11 +253,15 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     def _meta_as_table(self):
         """get the metadata as an astropy Table"""
-        if len(self.history) == 0:
-            self._meta["HISTORY"] = self.history
-        if len(self.comment) == 0:
-            self._meta["COMMENT"] = self.comments
-        return Table(self._meta)
+        # remember, self._meta is a list of dicts,
+        # and despite its name it is not Table metadata, it
+        # it Table Columns values
+        d = {}
+        if len(self.history) != 0:
+            d["HISTORY"] = self.history
+        if len(self.comments) != 0:
+            d["COMMENT"] = self.comments
+        return Table(self._meta, meta=d)
 
     def _make_meta(self, rowindices):
         """
@@ -344,6 +347,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # discovered this!)
         if self._calibrated is None:
             raise Exception("Data must be calibrated before writing.")
+        # Table metadata aren't preserved in BinTableHDU, so we
+        # have to grab them here and add them
+        # data_table = self._meta_as_table()
+        # table_meta = data_table.meta
         cd = BinTableHDU(data=self._meta_as_table(), name="SINGLE DISH").columns
         form = f"{np.shape(self._calibrated)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
@@ -573,11 +580,17 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
         # astropy Tables can be concatenated with vstack thankfully.
         table = vstack(tablelist, join_type="exact")
+        # need to preserve table.meta because it gets lost in created of "cd" ColDefs
+        table_meta = table.meta
+        print(f"{table_meta=}")
+
         cd = BinTableHDU(table, name="SINGLE DISH").columns
         data = np.concatenate([c._calibrated for c in self.data])
         form = f"{np.shape(data)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=data))
         b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
+        for k, v in table_meta.items():  # ensure history and comments make it out
+            b.header[k] = v
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
@@ -602,8 +615,6 @@ class TPScan(ScanBase):
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
-    history: list
-        the parent object's history
     calibrate: bool
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     smoothref: int
@@ -641,12 +652,11 @@ class TPScan(ScanBase):
         scanrows,
         calrows,
         bintable,
-        history,
         calibrate=True,
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits, history)
+        ScanBase.__init__(self, gbtfits)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -939,8 +949,6 @@ class PSScan(ScanBase):
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
-    history : list
-        parent object's history
     calibrate: bool
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
     smoothref: int
@@ -959,12 +967,11 @@ class PSScan(ScanBase):
         scanrows,
         calrows,
         bintable,
-        history,
         calibrate=True,
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits, history)
+        ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         # self._scans = scans
         # self._history = deepcopy(gbtfits._history)
@@ -1179,8 +1186,6 @@ class FSScan(ScanBase):
         corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
         The index for BINTABLE in `sdfits` containing the scans.
-    history : list
-        parent object's history
     calibrate : bool
         Whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
         Default: True
@@ -1206,7 +1211,6 @@ class FSScan(ScanBase):
         sigrows,
         calrows,
         bintable,
-        history,
         calibrate=True,
         fold=True,
         shift_method="fft",
@@ -1215,7 +1219,7 @@ class FSScan(ScanBase):
         observer_location=Observatory["GBT"],
         debug=False,
     ):
-        ScanBase.__init__(self, gbtfits, history)
+        ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
@@ -1585,8 +1589,6 @@ class SubBeamNodScan(ScanBase):
         Signal total power scans
     reftp:  list ~spectra.scan.TPScan
         Reference total power scans
-    history : list
-        parent object's history
     fulltp:  ~spectra.scan.TPScan
         A full (sig+ref) total power scans, used only for method='scan'
     method: str
@@ -1613,7 +1615,6 @@ class SubBeamNodScan(ScanBase):
         self,
         sigtp,
         reftp,
-        history,
         fulltp=None,
         method="cycle",
         calibrate=True,
@@ -1621,7 +1622,7 @@ class SubBeamNodScan(ScanBase):
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
-        ScanBase.__init__(self, sigtp[0]._sdfits, history)
+        ScanBase.__init__(self, sigtp[0]._sdfits)
         kwargs_opts = {
             "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
