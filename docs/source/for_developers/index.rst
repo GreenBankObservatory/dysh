@@ -9,9 +9,10 @@ Here's some info that developers might find useful
 
    contributing
    install
-   doc_standards
-   github_integrations
    git_workflows
+   github_integrations
+   doc_standards
+   manage_requirements
    creating_a_release
    black
    terminal_messages
