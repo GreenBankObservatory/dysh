@@ -264,7 +264,8 @@ def keycase(d, case="upper"):
     return newDict
 
 
-@log_function_call
+# Example of logging a function call
+# @log_function_call(log_level="debug")
 def powerof2(number):
     """
     Computes the closest power of 2 for a given `number`.

@@ -9,7 +9,7 @@ from datetime import datetime
 from functools import wraps
 from io import StringIO
 from pathlib import Path
-from typing import NewType, Union  # , Self # not available until 3.11
+from typing import Callable, NewType, Union  # , Self # not available until 3.11
 
 import _testcapi
 from astropy.logger import AstropyLogger
@@ -161,45 +161,57 @@ def init_logging(verbosity: int, level: Union[int, None] = None, path: Union[Pat
     logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
 
 
-def log_function_call(func):
+def log_function_call(log_level: str = "info"):
     """
     Decorator to log a function call
 
     Parameters
     ----------
-    func : TYPE
-        DESCRIPTION.
+    log_level : str
+        The logging level to use for logging. One of
+        ['CRITICAL', 'FATAL', 'ERROR', 'WARN', 'WARNING',
+         'INFO', 'DEBUG', 'NOTSET'].
+        Case-insensitive. Default: 'info'
 
     Returns
     -------
-    TYPE
-        DESCRIPTION.
-
+    Any
+        Whatever the function returns.
     """
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
+    def inner_decorator(func: Callable):
+        # the inner decorator is to process the log_level argument of
+        # the outer decorator
         try:
-            result = func(*args, **kwargs)
-        except:  # remove the wrapper from the stack trace
-            tp, exc, tb = sys.exc_info()
-            _testcapi.set_exc_info(tp, exc, tb.tb_next)
-            del tp, exc, tb
-            raise
-        # Log the function name and arguments
-        sig = inspect.signature(func)
-        logmsg = f"DYSH v{dysh_version} : {func.__module__}"
-        if hasattr(func, "__self__"):
-            # func is  method of a class
-            logmsg += f"{func.__self__.__class__.__name__}"
-        logmsg += f".{func.__name__}{args}"
-        if "kwargs" in sig.parameters:
-            for k, v in kwargs.items():
-                logmsg += f"{k}={v},"
-        logger.info(logmsg)
-        return result
+            ilog_level = logging._nameToLevel[log_level.upper()]
+        except KeyError:
+            raise Exception(f"Log level {log_level} unrecognized. Must be one of {list(logging._nameToLevel.keys())}.")
 
-    return wrapper
+        @wraps(func)
+        def func_wrapper(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+            except:  # remove the wrapper from the stack trace
+                tp, exc, tb = sys.exc_info()
+                _testcapi.set_exc_info(tp, exc, tb.tb_next)
+                del tp, exc, tb
+                raise
+            # Log the function name and arguments
+            sig = inspect.signature(func)
+            logmsg = f"DYSH v{dysh_version} : {func.__module__}"
+            if hasattr(func, "__self__"):
+                # func is  method of a class
+                logmsg += f"{func.__self__.__class__.__name__}"
+            logmsg += f".{func.__name__}{args}"
+            if "kwargs" in sig.parameters:
+                for k, v in kwargs.items():
+                    logmsg += f"{k}={v},"
+            logger.log(level=ilog_level, msg=logmsg)
+            return result
+
+        return func_wrapper
+
+    return inner_decorator
 
 
 def format_dysh_log_record(record: logging.LogRecord) -> str:
