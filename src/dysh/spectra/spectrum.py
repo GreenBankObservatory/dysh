@@ -34,7 +34,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..log import HistoricalBase
+from ..log import HistoricalBase, log_call_to_history
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
@@ -52,6 +52,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     See `~specutils.Spectrum1D` for the instantiation arguments.
     """
 
+    @log_call_to_history
     def __init__(self, *args, **kwargs):
         # print(f"ARGS={args}")
         HistoricalBase.__init__(self)
@@ -162,6 +163,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Returns the computed baseline model or None if it has not yet been computed."""
         return self._baseline_model
 
+    @log_call_to_history
     def baseline(self, degree, exclude=None, include=None, **kwargs):
         # fmt: off
         """
@@ -253,7 +255,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             del spectral_axis
 
     # baseline
-
+    @log_call_to_history
     def undo_baseline(self):
         """
         Undo the most recently computed baseline. If the baseline
@@ -360,6 +362,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # @todo  fix WCS
         return s
 
+    @log_call_to_history
     def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
         """
         Smooth or Convolve a spectrum, optionally decimating it.
@@ -547,6 +550,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             raise Exception("Can't calculate velocity because Spectrum.target is None")
         return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
 
+    @log_call_to_history
     def set_frame(self, toframe):
         # @todo VELDEF should be changed as well?
         """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
@@ -588,6 +592,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s.set_frame(toframe)
         return s
 
+    @log_call_to_history
     def set_convention(self, doppler_convention):
         """Set the velocity convention of this Spectrum.  The spectral axis of this Spectrum will be replaced
         with a new spectral axis with the input velocity convention.  The header 'VELDEF' value will

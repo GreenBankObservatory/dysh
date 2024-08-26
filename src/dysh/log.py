@@ -400,7 +400,7 @@ class HistoricalBase(ABC):
         else:
             self._history.append(history)
 
-    # def merge_commentary(self, other: Self) -> None:  # Self not available until 3.11
+    # def merge_commentary(self, other: Self) -> None:  # Self not available until python 3.11
     def merge_commentary(self, other: object) -> None:
         """
         Merge the history and comments from another HistoricalBase instance.

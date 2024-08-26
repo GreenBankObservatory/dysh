@@ -12,12 +12,13 @@ from astropy.convolution import (
     Trapezoid1DKernel,
     convolve,
 )
-from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter
+from astropy.modeling.fitting import LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
 from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 
 from ..coordinates import veltofreq
+from ..log import log_function_call
 from ..util import minimum_string_match, powerof2
 
 
@@ -237,7 +238,6 @@ def region_to_axis_indices(region, refspec):
     """
     # Spectral region to indices in an input spectral axis.
     # @todo needs to work for multiple spectral regions? or just loop outside this call
-    p = refspec
     sa = refspec.spectral_axis
     if region.lower.unit != sa.unit:
         # @todo if they are conformable, then allow it and convert
@@ -253,6 +253,7 @@ def exclude_to_mask(exclude, refspec):
     pass
 
 
+@log_function_call
 def baseline(spectrum, order, exclude=None, **kwargs):
     """Fit a baseline for a spectrum
 
@@ -614,6 +615,7 @@ def fft_shift(
     return new_y
 
 
+@log_function_call
 def smooth(data, method="hanning", width=1, kernel=None, show=False):
     """
     Smooth or Convolve a spectrum, optionally decimating it.

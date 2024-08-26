@@ -16,7 +16,7 @@ from scipy import ndimage
 from dysh.spectra import core
 
 from ..coordinates import Observatory
-from ..log import HistoricalBase, log_call_to_history
+from ..log import HistoricalBase, log_call_to_history, logger
 from ..util import uniq
 from .core import (
     average,
@@ -54,10 +54,12 @@ class SpectralAverageMixin:
         """
         pass
 
+    @log_call_to_history
     def polaverage(self, weights=None):
         """Average all polarizations in this Scan"""
         pass
 
+    @log_call_to_history
     def finalspectrum(self, weights=None):
         """Average all times and polarizations in this Scan"""
         pass
@@ -394,6 +396,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
 
 class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
+    @log_call_to_history
     def __init__(self, *args):
         UserList.__init__(self, *args)
         HistoricalBase.__init__(self)
@@ -403,11 +406,13 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         self._polaveraged = []
         self._finalspectrum = []
 
+    @log_call_to_history
     def calibrate(self, **kwargs):
         """Calibrate all scans in this ScanBlock"""
         for scan in self.data:
             scan.calibrate(**kwargs)
 
+    @log_call_to_history
     def timeaverage(self, weights="tsys", mode="old"):
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
@@ -473,6 +478,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         else:
             raise Exception(f"unrecognized mode {mode}")
 
+    @log_call_to_history
     def polaverage(self, weights="tsys"):
         # @todo rewrite this to return a spectrum as timeaverage does now.
         r"""Average all polarizations in all scans in this ScanBlock
@@ -495,6 +501,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             self._polaveraged.append(scan.polaverage(weights))
         return self._polaveraged
 
+    @log_call_to_history
     def finalspectrum(self, weights="tsys"):
         r"""Average all times and polarizations in all scans this ScanBlock
 
@@ -581,7 +588,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         table = vstack(tablelist, join_type="exact")
         # need to preserve table.meta because it gets lost in created of "cd" ColDefs
         table_meta = table.meta
-        print(f"{table_meta=}")
 
         cd = BinTableHDU(table, name="SINGLE DISH").columns
         data = np.concatenate([c._calibrated for c in self.data])
@@ -665,7 +671,6 @@ class TPScan(ScanBase):
         if self._smoothref > 1:
             warnings.warn(f"TP smoothref={self._smoothref} not implemented yet")
 
-        # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
@@ -720,13 +725,10 @@ class TPScan(ScanBase):
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
         if self.calstate is None:
-            # print("data = 0.5*(ON+OFF)")
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
-            # print("data = ON")
             self._data = self._refcalon.astype(float)
         elif self.calstate == False:
-            # print("data = OFF")
             self._data = self._refcaloff.astype(float)
         else:
             raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
@@ -881,7 +883,6 @@ class TPScan(ScanBase):
         """
         if not self._calibrate:
             raise Exception("You must calibrate first to get a total power spectrum")
-        # print(len(self._scanrows), i)
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
         # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
         meta = ser.dropna().to_dict()
@@ -990,13 +991,11 @@ class PSScan(ScanBase):
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
         # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
         self._calrows = calrows
-        # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        # print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         # df = selection.iloc[scanrows["ON"]]
         df = self._sdfits._index.iloc[scanrows["ON"]]
@@ -1068,7 +1067,6 @@ class PSScan(ScanBase):
         self._calibrated = np.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        # print("REFONROWS ", self._refonrows)
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
@@ -1082,7 +1080,7 @@ class PSScan(ScanBase):
             self._calibrated[i] = tsys * (sig - ref) / ref
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
-        # print("Calibrated %d spectra" % nspect)
+        logger.debug(f"Calibrated {nspect} spectra")
         self._add_calibration_meta()
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
@@ -1254,7 +1252,6 @@ class FSScan(ScanBase):
 
         a_scanrow = self._sigonrows[0]
 
-        # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = gbtfits._find_bintable_and_row(a_scanrow)[0]
@@ -1407,7 +1404,7 @@ class FSScan(ScanBase):
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
             """ """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
-            # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
+            logger.debug(f"do_fold: {sig_freq[0]}, {ref_freq[0]},{chan_shift}")
             ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
             avg = (sig + ref_shift) / 2
@@ -1423,7 +1420,7 @@ class FSScan(ScanBase):
             ishift = int(np.round(offset))  # Integer shift.
             fshift = offset - ishift  # Fractional shift.
 
-            # print("FOLD:  ishift=%d fshift=%g" % (ishift, fshift))
+            logger.debug("FOLD:   {ishift=} {fshift=}")
             data2 = np.roll(data, ishift, axis=0)
             if remove_wrap:
                 if ishift < 0:
@@ -1498,7 +1495,7 @@ class FSScan(ScanBase):
                 self._exposure[i] = self.exposure[i]
 
         self._add_calibration_meta()
-        # print("Calibrated %d spectra with fold=%s and use_sig=%s" % (nspect, repr(_fold), repr(self._use_sig)))
+        logger.debug("Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property

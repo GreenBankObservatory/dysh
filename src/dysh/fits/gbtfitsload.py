@@ -881,7 +881,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             _final = self._index
         scans = kwargs.pop("scan", None)
-        debug = kwargs.pop("debug", False)
+        # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
@@ -897,8 +897,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # scans_to_add -= scans_preselected
         logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
-        logger.debug("SCAN ", scans)
-        logger.debug("TYPE: ", type(ps_selection))
+        logger.debug(f"SCAN {scans}")
+        logger.debug(f"TYPE {type(ps_selection)}")
         if len(scans_to_add) != 0:
             # add a rule selecting the missing scans :-)
             logger.debug(f"adding rule scan={scans_to_add}")
@@ -907,12 +907,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if k not in kwargs:
                 kwargs[k] = v
         # now downselect with any additional kwargs
-        logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
-        logger.debug(ps_selection.show())
         ps_selection._select_from_mixed_kwargs(**kwargs)
-        logger.debug("AFTER")
-        logger.debug(ps_selection.show())
         _sf = ps_selection.final
+        logger.debug(f"{_sf = }")
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
