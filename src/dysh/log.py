@@ -178,10 +178,13 @@ def log_function_call(log_level: str = "info"):
     Any
         Whatever the function returns.
     """
+    # if not callable(arg):  doesn't work
+    #    log_level = "info"
 
     def inner_decorator(func: Callable):
         # the inner decorator is to process the log_level argument of
         # the outer decorator
+
         try:
             ilog_level = logging._nameToLevel[log_level.upper()]
         except KeyError:
@@ -249,7 +252,7 @@ def format_dysh_log_record(record: logging.LogRecord) -> str:
     return logmsg
 
 
-def log_call_to_history(func):
+def log_call_to_history(func: Callable):
     """
     Decorator to log a class method call to the class's `_history` attribute. If the class
     has no such attribute, the function is still called but no logging takes place.

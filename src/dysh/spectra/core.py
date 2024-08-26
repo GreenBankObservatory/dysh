@@ -253,7 +253,7 @@ def exclude_to_mask(exclude, refspec):
     pass
 
 
-@log_function_call
+@log_function_call()
 def baseline(spectrum, order, exclude=None, **kwargs):
     """Fit a baseline for a spectrum
 
@@ -615,7 +615,7 @@ def fft_shift(
     return new_y
 
 
-@log_function_call
+@log_function_call()
 def smooth(data, method="hanning", width=1, kernel=None, show=False):
     """
     Smooth or Convolve a spectrum, optionally decimating it.
