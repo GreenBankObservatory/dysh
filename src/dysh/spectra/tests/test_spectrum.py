@@ -2,10 +2,27 @@ from unittest.mock import patch
 
 import astropy.units as u
 import numpy as np
+import pytest
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.spectra.spectrum import Spectrum
 from dysh.util import get_project_testdata
+
+
+def fit_gauss(spectrum):
+    """
+    Fit a Gaussian.
+    """
+
+    from astropy.modeling import models
+    from specutils.fitting import fit_lines
+
+    g_init = models.Gaussian1D(
+        amplitude=spectrum.flux.max(), mean=spectrum.spectral_axis.mean(), stddev=spectrum.meta["FREQRES"] * u.Hz
+    )
+    g_fit = fit_lines(spectrum, g_init)
+
+    return g_fit
 
 
 class TestSpectrum:
@@ -17,6 +34,15 @@ class TestSpectrum:
         self.ps0 = getps0.timeaverage()
         getps1 = sdf.getps(51, plnum=1)
         self.ps1 = getps1.timeaverage()
+        self.ss = self.ps0._copy()  # Synthetic one.
+        x = np.arange(0, len(self.ss.data))
+        fwhm = 5
+        stdd = fwhm / 2.35482
+        mean = int(x.mean())
+        self.ss._data = 1 * np.exp(-0.5 * (x - mean) ** 2 / stdd**2)
+        self.ss.meta["FREQRES"] = abs(self.ss.meta["CDELT1"])
+        self.ss.meta["FWHM"] = fwhm
+        self.ss.meta["CENTER"] = self.ss.spectral_axis[mean].value
 
     def test_add(self):
         """Test that we can add two `Spectrum`."""
@@ -243,3 +269,67 @@ class TestSpectrum:
         trimmed_wav = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
         assert np.all(trimmed_wav.flux == self.ps0.flux[s])
         assert np.all(trimmed_wav.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+
+    def test_smooth(self):
+        """Test for smooth with `decimate=0`"""
+        width = 10
+        ss = self.ps0.smooth("gauss", width)
+        assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"] * width
+        assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
+        assert ss._resolution == pytest.approx(1)
+
+    def test_smooth_decimate(self):
+        """Test for smooth with `decimate!=width`."""
+        width = 10
+        decimate = 8
+        ss = self.ps0.smooth("gauss", width, decimate)
+        assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"] * decimate
+        assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
+        assert ss._resolution == pytest.approx(width / decimate)
+
+        # Now with synthetic data.
+        sss = self.ss.smooth("gauss", width, decimate)
+        assert sss.meta["CDELT1"] == self.ss.meta["CDELT1"] * decimate
+        assert sss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * width, abs=100)
+        assert np.diff(sss.spectral_axis).mean().value == sss.meta["CDELT1"]
+        assert sss._resolution == pytest.approx(width / decimate, abs=1e-2)
+        # Also check the line properties.
+        g_fit = fit_gauss(sss)
+        fwhm = g_fit.stddev.value * 2.35482
+        assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
+        assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+        )
+
+    def test_smooth_nodecimate(self):
+        """Test for smooth without decimation."""
+        width = 10
+        decimate = -1
+        ss = self.ps0.smooth("gauss", width, decimate)
+        assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"]
+        assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
+        assert ss._resolution == pytest.approx(width / abs(decimate))
+
+    def test_smooth_multi(self):
+        """Test for multiple passes of smooth."""
+        widths = [10, 15, 15.1]
+        decimate = -1
+
+        # Check fitter first.
+        g_fit = fit_gauss(self.ss)
+        assert g_fit.stddev.value * 2.35482 == pytest.approx(abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"])
+
+        # Now smooth the same Spectrum multiple times.
+        sss = self.ss._copy()
+        for w in widths:
+            sss = sss.smooth("gauss", w, decimate=decimate)
+            g_fit = fit_gauss(sss)
+            fwhm = g_fit.stddev.value * 2.35482
+            assert sss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * w)
+            assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
+                abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+            )
+            assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
