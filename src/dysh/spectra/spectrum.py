@@ -106,8 +106,12 @@ class Spectrum(Spectrum1D):
         self._exclude_regions = None
         self._include_regions = None  # do we really need this?
         self._plotter = None
-        # @todo fix resolution, including what units to use
-        self._resolution = 1  # placeholder
+        # `self._resolution` is the spectral resolution in channels.
+        # This will be 1 for VEGAS, and >1 for the ACS.
+        if "FREQRES" in self.meta and "CDELT1" in self.meta:
+            self._resolution = self.meta["FREQRES"] / abs(self.meta["CDELT1"])
+        else:
+            self._resolution = 1
 
     @property
     def weights(self):
@@ -344,17 +348,40 @@ class Spectrum(Spectrum1D):
             dmax = d.max()
         return (mean, rms, dmin, dmax)
 
-    def _decimate(self, n, offset=0):
-        """Decimate a spectrum by n pixels, starting at pixel offset
-        @todo deprecate?   decimation is in smooth, do we need a separate one?
+    def decimate(self, n):
         """
+        Decimate a `Spectrum` by n pixels.
+
+        Parameters
+        ----------
+        n : int
+            Decimation factor of the spectrum by returning every n-th channel.
+
+        Returns
+        -------
+        s : Spectrum
+            The decimated Spectrum.
+        """
+
+        if not float(n).is_integer():
+            raise ValueError(f"`n` ({n}) must be an integer.")
+
         nchan = len(self._data)
-        print("_decimate deprecated", nchan, offset, n)
-        idx = np.arange(offset, nchan, n)
-        new_data = self._data[idx] * u.K  # why units again?
-        s = Spectrum.make_spectrum(new_data, meta=self.meta)
-        s._spectral_axis = self._spectral_axis[idx]
-        # @todo  fix WCS
+        new_meta = deepcopy(self.meta)
+        idx = np.arange(0, nchan, n)
+        new_cdelt1 = self.meta["CDELT1"] * n
+        cell_shift = 0.5 * (n - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
+        new_data = self.data[idx] * self.flux.unit
+        new_meta["CDELT1"] = new_cdelt1
+        new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
+
+        s = Spectrum.make_spectrum(new_data, meta=new_meta)
+        # Apply cell shift.
+        s._spectral_axis = self.spectral_axis.replicate(value=s._spectral_axis + cell_shift * s.spectral_axis.unit)
+
+        if self._baseline_model is not None:
+            s._baseline_model = self._baseline_model[idx]
+
         return s
 
     def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
@@ -375,16 +402,16 @@ class Spectrum(Spectrum1D):
             For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
             signal at the edges, and will thus not reproduce GBTIDL.
-            For 'gaussian' this is the FWHM of the final beam. We normally
-            assume the input beam has FWHM=1, pending resolution on cases
-            where CDELT1 is not the same as FREQRES.
+            For 'gaussian' this is the FWHM of the final frequency response.
+            That is, the smoothed `Spectrum` will have an effective frequency resolution
+            equal to CDELT1*`width`.
             The default is 1.
         decimate : int, optional
-            Decimation factor of the spectrum by returning every width channel.
+            Decimation factor of the spectrum by returning every decimate channel.
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-            The default is 0, meaning decimation is by 'width'
+            The default is 0, meaning decimation is by `width`
         kernel : `~numpy.ndarray`, optional
             A numpy array which is the kernel by which the signal is convolved.
             Use with caution, as it is assumed the kernel is normalized to
@@ -397,16 +424,22 @@ class Spectrum(Spectrum1D):
         ------
         Exception
             If no valid smoothing method is given.
+        ValueError
+            If `width` is less than one.
+            If `width` is less than the spectral resolution (in channels).
+            If `decimate` is not an integer.
 
         Returns
         -------
         s : Spectrum
             The new, possibly decimated, convolved spectrum.
-            The meta data are currently passed on,and hence will
-            contain some original WCS parameters.
         """
         nchan = len(self._data)
-        decimate = int(decimate)
+        # decimate = int(decimate) # Should we change this value and tell the user, or just error out?
+        # For now, we'll error out if decimate is not an integer..
+
+        if width < 1:
+            raise ValueError(f"`width` ({width}) must be >=1.")
 
         # @todo  see also core.smooth() for valid_methods
         valid_methods = ["hanning", "boxcar", "gaussian"]
@@ -414,46 +447,45 @@ class Spectrum(Spectrum1D):
         if this_method == None:
             raise Exception(f"smooth({method}): valid methods are {valid_methods}")
 
+        if not float(decimate).is_integer():
+            raise ValueError("`decimate` must be an integer.")
+
+        # All checks for smoothing should be completed by this point.
+        # Create a new metadata dictionary to modify by smooth.
+        new_meta = deepcopy(self.meta)
+
         if this_method == "gaussian":
-            stddev = np.sqrt(width**2 - self._resolution**2) / 2.35482
+            if width <= self._resolution:
+                raise ValueError(
+                    f"`width` ({width} channels) cannot be less than the current resolution ({self._resolution} channels)."
+                )
+            kwidth = np.sqrt(width**2 - self._resolution**2)  # Kernel effective width.
+            stddev = kwidth / 2.35482
             s1 = core.smooth(self._data, this_method, stddev)
         else:
+            kwidth = width
             s1 = core.smooth(self._data, this_method, width)
 
         new_data = s1 * self.flux.unit
+        new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
+
+        s = Spectrum.make_spectrum(new_data, meta=new_meta)
+        s._baseline_model = self._baseline_model
+
+        # Now decimate if needed.
         if decimate >= 0:
+
             if decimate == 0:
-                # take the default decimation by 'width'
-                idx = np.arange(0, nchan, width)
-                new_resolution = 1  # new resolution in the new pixel width
-                cell_shift = 0.5 * (width - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-            else:
-                # user selected decimation (but should be <= width)
-                if decimate > width:
-                    raise Exception(f"Cannot decimate with more than width {width}")
-                idx = np.arange(0, nchan, decimate)
-                new_resolution = np.sqrt(width**2 - decimate**2)  # @todo dangerous?
-                cell_shift = 0.5 * (decimate - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-            # print("    cell_shift:", cell_shift)
-            new_data = new_data[idx]
-            new_meta = deepcopy(self.meta)
-            # need to change CDELT1 and CRPIX1, as CRVAL1 should stay the same
-            # for CRPIX computation, see MIRIAD imbin, or NEMO ccdsub/ccdslice assuming centered pixels with step=width
-            new_meta["CDELT1"] = width * self.meta["CDELT1"]
-            new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / width + 0.5 * (width - 1) / width
-            s = Spectrum.make_spectrum(new_data, meta=new_meta)
-            s._spectral_axis = self._spectral_axis[idx]
-            for i in range(len(s._spectral_axis)):  # grmpf, no proper setter
-                s._spectral_axis.value[i] += cell_shift
-            if self._baseline_model is not None:
-                print("Warning: removing baseline_model")
-                s._baseline_model = None  # was already None
-            s._resolution = new_resolution
-        else:
-            s = Spectrum.make_spectrum(new_data, meta=self.meta)
-            s._baseline_model = self._baseline_model  # it never got copied
-            s._resolution = width
-            # @todo   resolution is not well defined multiple methods are used in succession
+                # Take the default decimation by `width`.
+                decimate = int(abs(width))
+                if not float(width).is_integer():
+                    print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
+
+            s = s.decimate(decimate)
+
+        # Update the spectral resolution in channel units.
+        s._resolution = s.meta["FREQRES"] / abs(s.meta["CDELT1"])
+
         return s
 
     @property
