@@ -1,6 +1,6 @@
 """Top-level package for dysh."""
 
-__version__ = "0.4.x"
+__version__ = "0.3.1"
 
 all = ["version"]
 
