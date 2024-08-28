@@ -730,7 +730,7 @@ class GBTFITSLoad(SDFITSLoad):
             _final = self._selection.final
         else:
             _final = self._index
-        scans = kwargs.pop("scan", None)
+        scans = kwargs.get("scan", None)
         kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
