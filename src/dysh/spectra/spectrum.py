@@ -336,10 +336,10 @@ class Spectrum(Spectrum1D):
             dmin = self.min()
             dmax = self.max()
         else:
-            d = self.flux[roll:] - self.flux[:-roll]
+            d = self[roll:] - self[:-roll]
             mean = d.mean()
             median = d.median()
-            rms = d.std()
+            rms = d.flux.std()
             dmin = d.min()
             dmax = d.max()
 
