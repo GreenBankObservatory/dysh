@@ -238,12 +238,14 @@ def format_dysh_log_record(record: logging.LogRecord) -> str:
     """
     asctime = time.strftime(dysh_date_format, time.localtime(record.created))
     # NB: possibly get rid of levelname.  Also possibly move dysh_version to before asctime.
-    logmsg = f"{asctime} - {record.levelname} - {record.msg} : {record.modName}."
+    # logmsg = f"{asctime} - {record.levelname} - {record.msg} : {record.modName}."
+    logmsg = f"{asctime} - {record.msg} : {record.modName}."
     if hasattr(record, "className"):
         logmsg += f"{record.className}."
     logmsg += f"{record.fName}("
     if len(record.args) > 0:
-        logmsg += f"{record.args}"
+        for a in record.args:
+            logmsg += f"{a},"
     if hasattr(record, "kwargs"):
         if len(record.kwargs) > 0:
             for k, v in record.kwargs.items():
@@ -330,8 +332,9 @@ class HistoricalBase(ABC):
         self._comments = StrList([])
 
     def _remove_duplicates(self):
-        self._history = list(set(self._history))
-        self._comments = list(set(self._comments))
+        # Use dict.fromkeys here to preserve order. set() does not.
+        self._history = list(dict.fromkeys(self._history))
+        self._comments = list(dict.fromkeys(self._comments))
 
     @property
     def history(self) -> StrList:

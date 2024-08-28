@@ -115,6 +115,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._scan = -1
         self._pols = -1
         self._sdfits = sdfits
+        # self._meta = {}
 
     def _validate_defaults(self):
         _required = {
@@ -452,10 +453,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
             # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
             # hardcode to GBT for now
-
-            return Spectrum.make_spectrum(
+            s = Spectrum.make_spectrum(
                 avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
             )
+            s.merge_commentary(self)
         elif mode == "new":
             # average of the integrations
             allcal = np.all([d._calibrate for d in self.data])
@@ -472,11 +473,13 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             avgspec = self.data[0].calibrated(0)
             avgspec.meta["TSYS"] = np.nanmean([d.tsys for d in self.data])
             avgspec.meta["EXPOSURE"] = np.sum([d.exposure for d in self.data])
-            return Spectrum.make_spectrum(
+            s = Spectrum.make_spectrum(
                 timeavg * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
             )
+            s.merge_commentary(self)
         else:
             raise Exception(f"unrecognized mode {mode}")
+        return s
 
     @log_call_to_history
     def polaverage(self, weights="tsys"):
@@ -897,7 +900,11 @@ class TPScan(ScanBase):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
+        s = Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
+        print(f"TP {self._history =} {self._comments = }")
+        print(f"Spectrum history after make_spectrum {type(s._history)} : {s._history}")
+        s.merge_commentary(self)
+        return s
 
     @log_call_to_history
     def timeaverage(self, weights="tsys"):
@@ -1049,9 +1056,11 @@ class PSScan(ScanBase):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        return Spectrum.make_spectrum(
+        s = Spectrum.make_spectrum(
             self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
         )
+        s.merge_commentary(self)
+        return s
 
     def calibrate(self, **kwargs):
         """
@@ -1315,9 +1324,11 @@ class FSScan(ScanBase):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        return Spectrum.make_spectrum(
+        s = Spectrum.make_spectrum(
             self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
         )
+        s.merge_commentary(self)
+        return s
 
     def calibrate(self, **kwargs):
         """
@@ -1675,7 +1686,9 @@ class SubBeamNodScan(ScanBase):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta, observer_location=self._observer_location)
+        s = Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+        s.merge_commentary(self)
+        return s
 
     @property
     def exposure(self):

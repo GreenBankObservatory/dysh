@@ -916,9 +916,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             ]
         )
 
-        _history = meta.pop("HISTORY", [])
-        _comments = meta.pop("COMMENT", [])
-        print(_history, _comments)
         if not _required <= meta.keys():
             raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
 
@@ -932,7 +929,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Skip warnings FITS keywords longer than 8 chars or containing
                 # illegal characters (like _).
                 warnings.filterwarnings("ignore", category=VerifyWarning)
+                # lists are problematic in constructor to WCS
+                # so temporarily remove history and comment values
+                savehist = meta.pop("HISTORY", None)
+                savecomment = meta.pop("COMMENT", None)
                 wcs = WCS(header=meta)
+                if savehist is not None:
+                    meta["HISTORY"] = savehist
+                if savecomment is not None:
+                    meta["COMMENT"] = savecomment
                 # It would probably be safer to add NAXISi to meta.
                 wcs.array_shape = (0, 0, 0, len(data))
                 # For some reason these aren't identified while creating the WCS object.
@@ -981,8 +986,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             # observer_location=observer_location,
             target=target,
         )
-        s._history = _history
-        s._comments = _comments
+        # s._history = []
+        # s._comments = []
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
