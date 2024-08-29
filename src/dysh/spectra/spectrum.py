@@ -318,31 +318,34 @@ class Spectrum(Spectrum1D):
         ----------
             roll : int
                 Return statistics on a 'rolled' array differenced with the
-                origibnal array. If no correllaton between subsequent point,
-                a roll=1 would return an RMS  sqrt(2) larger than that of the
+                original array. If there is no correllaton between channels,
+                a roll=1 would return an RMS sqrt(2) larger than that of the
                 input array. Another advantage of rolled statistics it will
                 remove most slow variations, thus RMS/sqrt(2) might be a better
                 indication of the underlying RMS.
         Returns
         -------
-        stats : tuple
-            Tuple consisting of (mean,rms,datamin,datamax)
-
-
+        stats : dict
+            Dictionary consisting of (mean,median,rms,datamin,datamax)
         """
-        # @todo: maybe make this a dict return value a dict
+
         if roll == 0:
             mean = self.mean()
-            rms = self.data.std()
+            median = self.median()
+            rms = self.flux.std()
             dmin = self.min()
             dmax = self.max()
         else:
-            d = self._data[roll:] - self._data[:-roll]
+            d = self[roll:] - self[:-roll]
             mean = d.mean()
-            rms = d.std()
+            median = d.median()
+            rms = d.flux.std()
             dmin = d.min()
             dmax = d.max()
-        return (mean, rms, dmin, dmax)
+
+        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax}
+
+        return out
 
     def _decimate(self, n, offset=0):
         """Decimate a spectrum by n pixels, starting at pixel offset
