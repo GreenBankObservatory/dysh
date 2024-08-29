@@ -333,3 +333,21 @@ class TestSpectrum:
                 abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
             )
             assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
+
+    def test_smooth_and_slice(self):
+        """Test for slicing after smoothing."""
+        width = 10
+        decimate = 8
+        s = slice(-500 * u.km / u.s, 500 * u.km / u.s)
+        sss = self.ss.smooth("gauss", width, decimate)
+        ssss = sss[s]
+        g_fit = fit_gauss(sss)
+        fwhm = g_fit.stddev.value * 2.35482
+        assert ssss.meta["CDELT1"] == self.ss.meta["CDELT1"] * decimate
+        assert ssss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * width, abs=100)
+        assert np.diff(sss.spectral_axis).mean().value == sss.meta["CDELT1"]
+        assert sss._resolution == pytest.approx(width / decimate, abs=1e-2)
+        assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
+        assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+        )
