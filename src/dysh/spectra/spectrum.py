@@ -39,6 +39,19 @@ from . import baseline, get_spectral_equivalency
 
 # from astropy.nddata import StdDevUncertainty
 
+# Spectrum attributes to be ignored by Spectrum._copy_attributes
+IGNORE_ON_COPY = [
+    "_data",
+    "_flux",
+    "_meta",
+    "_mask",
+    "_weights",
+    "_baseline_model",
+    "_plotter",
+    "_uncertainty",
+    "_unit",
+]
+
 
 class Spectrum(Spectrum1D):
     """
@@ -981,19 +994,29 @@ class Spectrum(Spectrum1D):
             result = op(other, **{"handle_meta": handle_meta})
         else:
             result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
-        self._shallow_copy_attributes(result)
+        self._copy_attributes(result)
         return result
 
-    def _shallow_copy_attributes(self, other):
-        other._target = self._target
-        other._observer = self._observer
-        other._velocity_frame = self._velocity_frame
-        other._obstime = self._obstime
-        other._baseline_model = self._baseline_model
-        other._exclude_regions = self._exclude_regions
-        other._mask = self._mask
-        other._subtracted = self._subtracted
-        other.spectral_axis._doppler_convention = self.doppler_convention
+    def _copy_attributes(self, other):
+        """
+        Copy `Spectrum` attributes after
+        an arithmetic operation.
+        Only copy attributes that are not modified by the arithmetic.
+        I.e., do not copy the "_flux" attribute.
+        """
+        for k, v in vars(self).items():
+            if k not in IGNORE_ON_COPY:
+                vars(other)[k] = deepcopy(v)
+
+    #        other._target = self._target
+    #        other._observer = self._observer
+    #        other._velocity_frame = self._velocity_frame
+    #        other._obstime = self._obstime
+    #        other._baseline_model = self._baseline_model
+    #        other._exclude_regions = self._exclude_regions
+    #        other._mask = self._mask
+    #        other._subtracted = self._subtracted
+    #        other._spectral_axis = self.spectral_axis
 
     def __add__(self, other):
         op = self.add
