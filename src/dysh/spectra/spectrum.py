@@ -374,10 +374,9 @@ class Spectrum(Spectrum1D):
         new_data = self.data[idx] * self.flux.unit
         new_meta["CDELT1"] = new_cdelt1
         new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
+        new_meta["CRVAL1"] += cell_shift
 
         s = Spectrum.make_spectrum(new_data, meta=new_meta)
-        # Apply cell shift.
-        s._spectral_axis = self.spectral_axis.replicate(value=s._spectral_axis + cell_shift * s.spectral_axis.unit)
 
         if self._baseline_model is not None:
             s._baseline_model = self._baseline_model[idx]
