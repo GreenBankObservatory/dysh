@@ -123,7 +123,8 @@ html_theme_options = {
     "logo": {
         "image_light": "_static/icon/dysh_logo_lightmode.png",
         "image_dark": "_static/icon/dysh_logo_darkmode.png",
-    }
+    },
+    "show_toc_level": 2,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -245,3 +246,10 @@ nb_execution_mode = "cache"
 
 # Where to store the notebook cache
 nb_execution_cache_path = "jupyter_cache"
+
+
+myst_enable_extensions = [
+    "amsmath",
+    "dollarmath",
+]
+myst_dmath_double_inline = True
