@@ -9,7 +9,7 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.coordinates import SkyCoord, SpectralCoord, StokesCoord
-from astropy.coordinates.spectral_coordinate import NoVelocityWarning
+from astropy.coordinates.spectral_coordinate import attach_zero_velocities
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
@@ -898,7 +898,6 @@ class Spectrum(Spectrum1D):
             The spectrum object
         """
         # @todo add resolution being the channel separation, unless we use the FREQRES column
-        warnings.simplefilter("ignore", NoVelocityWarning)
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # @todo requirement should be either DATE-OBS or MJD-OBS, but make_target() needs to be updated
         # in that case as well.
@@ -969,7 +968,9 @@ class Spectrum(Spectrum1D):
             if observer_location is None:
                 obsitrs = None
             else:
-                obsitrs = SpectralCoord._validate_coordinate(observer_location.get_itrs(obstime=obstime))
+                obsitrs = SpectralCoord._validate_coordinate(
+                    attach_zero_velocities(observer_location.get_itrs(obstime=obstime))
+                )
         else:
             warnings.warn(
                 "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
@@ -984,7 +985,6 @@ class Spectrum(Spectrum1D):
             radial_velocity=target.radial_velocity,
             rest_value=meta["RESTFRQ"] * u.Hz,
             observer=obsitrs,
-            # observer_location=observer_location,
             target=target,
         )
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
