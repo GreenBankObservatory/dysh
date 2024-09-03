@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 from astropy import units as u
@@ -8,6 +10,16 @@ from dysh.fits import gbtfitsload, sdfitsload
 
 
 class TestPSScan:
+    def setup_method(self):
+        """Set up the test class"""
+        self.outfiles = []
+
+    def teardown_method(self):
+        """Clean up once tests are done"""
+        # Delete files created by these tests
+        for outfile in self.outfiles:
+            os.remove(outfile)
+
     def test_tsys(self, data_dir):
         """
         Test that `getps` results in the same system temperature as GBTIDL.
@@ -153,9 +165,20 @@ class TestPSScan:
         ps_sb = sdf.getps(scan=[156], plnum=0, ifnum=0)
         # @todo properly use tmpdir and remove
         ps_sb[0].write("foobar.fits", overwrite=True)
+        self.outfiles.append("foobar.fits")
 
 
 class TestSubBeamNod:
+    def setup_method(self):
+        """Set up the test class"""
+        self.outfiles = []
+
+    def teardown_method(self):
+        """Clean up once tests are done"""
+        # Delete files created by these tests
+        for outfile in self.outfiles:
+            os.remove(outfile)
+
     def test_compare_with_GBTIDL(self, data_dir):
         # get filenames
         # We still need a data file with a single scan in it
@@ -264,6 +287,16 @@ class TestSubBeamNod:
 
 
 class TestTPScan:
+    def setup_method(self):
+        """Set up the test class"""
+        self.outfiles = []
+
+    def teardown_method(self):
+        """Clean up once tests are done"""
+        # Delete files created by these tests
+        for outfile in self.outfiles:
+            os.remove(outfile)
+
     def test_tsys(self, data_dir):
         """
         Test that `gettp` produces the same system temperature as GBTDIL.
@@ -383,6 +416,16 @@ class TestTPScan:
 
 
 class TestFScan:
+    def setup_method(self):
+        """Set up the test class"""
+        self.outfiles = []
+
+    def teardown_method(self):
+        """Clean up once tests are done"""
+        # Delete files created by these tests
+        for outfile in self.outfiles:
+            os.remove(outfile)
+
     def test_getfs_with_args(self, data_dir):
         sdf_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         gbtidl_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.cal.vegas.fits"
@@ -434,6 +477,16 @@ class TestFScan:
 
 
 class TestScanBlock:
+    def setup_method(self):
+        """Set up the test class"""
+        self.outfiles = []
+
+    def teardown_method(self):
+        """Clean up once tests are done"""
+        # Delete files created by these tests
+        for outfile in self.outfiles:
+            os.remove(outfile)
+
     def test_scanblock_write_read(self, tmp_path):
         file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(file)
@@ -442,5 +495,6 @@ class TestScanBlock:
         o.mkdir()
         testfile = o / "test_scanblock_write.fits"
         sb.write(fileobj=testfile, overwrite=True)
+        self.outfiles.append(testfile)
         g2 = gbtfitsload.GBTFITSLoad(testfile)
         x = g2.summary()  # simple check that basic function works.

@@ -1,3 +1,4 @@
+import os
 from unittest.mock import patch
 
 import astropy.units as u
@@ -27,6 +28,7 @@ def compare_spectrum(one, other):
 
 class TestSpectrum:
     def setup_method(self):
+        """Set up the test class"""
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
@@ -34,6 +36,13 @@ class TestSpectrum:
         self.ps0 = getps0.timeaverage()
         getps1 = sdf.getps(51, plnum=1)
         self.ps1 = getps1.timeaverage()
+        self.outfiles = []
+
+    def teardown_method(self):
+        """Clean up once tests are done"""
+        # Delete files created by these tests
+        for outfile in self.outfiles:
+            os.remove(outfile)
 
     def test_add(self):
         """Test that we can add two `Spectrum`."""
@@ -145,6 +154,7 @@ class TestSpectrum:
         o = tmp_path / "sub"
         o.mkdir()
         file = o / "test_spectrum_write.fits"
+        self.outfiles.append(file)
         s.write(file, format="fits", overwrite=True)
         s2 = Spectrum.read(file, format="fits")
         assert np.all(s.data == s2.data)
@@ -175,6 +185,7 @@ class TestSpectrum:
         for f in fmt:
             file = o / f"testwrite.{f}"
             s.write(file, format=f, overwrite=True)
+            self.outfiles.append(file)
             # ECSV is the only ascii format that can
             # complete a roundtrip unscathed.
             # (See https://docs.astropy.org/en/latest/io/unified.html#table-io)
