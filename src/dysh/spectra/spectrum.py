@@ -939,9 +939,11 @@ class Spectrum(Spectrum1D):
                 warnings.filterwarnings("ignore", category=VerifyWarning)
                 wcs = WCS(header=meta)
                 # It would probably be safer to add NAXISi to meta.
-                wcs.array_shape = (0, 0, 0, len(data))
+                if wcs.naxis > 3:
+                    wcs.array_shape = (0, 0, 0, len(data))
                 # For some reason these aren't identified while creating the WCS object.
-                wcs.wcs.obsgeo[:3] = meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
+                if "SITELONG" in meta.keys():
+                    wcs.wcs.obsgeo[:3] = meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
                 # Reset warnings.
         else:
             wcs = None
