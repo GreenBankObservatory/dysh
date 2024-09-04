@@ -395,7 +395,7 @@ class Spectrum(Spectrum1D):
         s = Spectrum.make_spectrum(new_data, meta=new_meta)
 
         if self._baseline_model is not None:
-            s._baseline_model = self._baseline_model[idx]
+            s._baseline_model = None
 
         return s
 
