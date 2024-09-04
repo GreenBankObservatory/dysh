@@ -1,149 +1,95 @@
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
 from dysh.coordinates import frame_to_label
 
 _KMS = u.km / u.s
 
 
-class QtFigureCanvas1D(FigureCanvas):
+class InteractiveFigure1D(FigureCanvasQTAgg):
+    """Figure object for interactive plotting"""
+
     def __init__(self, parent=None):
-        self.fig, self.ax = plt.subplots()
-        super().__init__(self.fig)
-        self.setParent(parent)
+        self._plt = plt
+        self._figure, self._axis = plt.subplots()
+        # super().__init__(self._figure)
+        if parent is not None:
+            self.setParent(parent)
+        self._plt.ion()
 
-        self._init_kwargs()
-        self.plot()
-
-    def _init_kwargs(self):
-        self.reset_kwargs()
-
-    def reset_kwargs(self):
-        """Reset the plot keyword arguments to their defaults."""
-        self._plot_kwargs = {
-            "xmin": None,
-            "xmax": None,
-            "ymin": None,
-            "ymax": None,
-            "xaxis_label": "Frequency",
-            "yaxis_label": "Flux",
-            "xaxis_unit": str(self._spectrum.spectral_axis.unit),
-            "yaxis_unit": str(self._spectrum.unit),
-            "grid": False,
-            "figsize": None,
-            "xaxis_label_color": "white",
-            "yaxis_label_color": "white",
-            "tick_color": "white",
-            "spine_color": "white",
-            "linewidth": 2.0,
-            "linestyle": "steps-mid",
-            "markersize": 8,
-            "line_color": "white",
-            "line_color_masked": "red",
-            "title": "Dysh plot",
-            "title_color": "white",
-            "aspect": "auto",
-            "bbox_to_anchor": None,
-            "loc": "best",
-            "legend": None,
-            "show_baseline": True,
-            "test": False,
-            "title_color": "white",
-            "face_color": "black",
-            "edge_color": "none",
-        }
-
-    def plot(self):
-        self.ax.clear()
-        self.ax.plot([0, 1, 2, 3], [10, 1, 20, 3], "r-")
-        self.ax.set_title("Interactive Plot")
-        self.draw()
-
-    def update_plot(self, x, y):
-        self.ax.clear()
-        self.ax.plot(x, y, "r-")
-        self.ax.set_title("Updated Plot")
-        self.draw()
-
-    def update_kwargs(self, kwargs_dict):
-        pass
-
-    def set_title(self, title):
-        self.ax.set_title(title)
-
-    def set_xaxis_label(self, label):
-        self.ax.set_xlabel(label)
-
-    def set_yaxis_label(self, label):
-        self.ax.set_ylabel(label)
-
-    def set_xaxis_unit(self, unit):
-        self._plot_kwargs["xaxis_unit"] = unit
-
-    def set_yaxis_unit(self, unit):
-        self._plot_kwargs["yaxis_unit"] = unit
-
-    def set_title_color(self, color):
-        self._plot_kwargs["title_color"] = color
-
-    def set_face_color(self, color):
-        self._plot_kwargs["face_color"] = color
-
-    def set_edge_color(self, color):
-        self._plot_kwargs["edge_color"] = color
-
-    def set_label_color(self, color):
-        self.set_xaxis_label_color(color)
-        self.set_yaxis_label_color(color)
-
-    def set_xaxis_label_color(self, color):
-        self._plot_kwargs["xaxis_label_color"] = color
-
-    def set_yaxis_label_color(self, color):
-        self._plot_kwargs["yaxis_label_color"] = color
-
-    def set_tick_color(self, color):
-        self.set_xaxis_tick_color(color)
-        self.set_yaxis_tick_color(color)
-
-    def set_xaxis_tick_color(self, color):
-        self._plot_kwargs["xaxis_tick_color"] = color
-
-    def set_yaxis_tick_color(self, color):
-        self._plot_kwargs["yaxis_tick_color"] = color
-
-
-class SpectrumPlot:
-    def __init__(self, spectrum):
-        self._spectrum = spectrum
-        self._figure = self.create_spectrum_plot()
+    @property
+    def plt(self):
+        return self._plt
 
     @property
     def figure(self):
         return self._figure
 
-    def create_spectrum_plot(self):
-        x = np.linspace(0, 10, 1000)
-        y = np.sin(x)
-
-        plt.figure(figsize=(8, 6))
-        plt.plot(x, y, color="b", label="Sine Wave")
-        plt.title("Spectrum Plot")
-        plt.xlabel("X")
-        plt.ylabel("Y")
-        plt.legend()
-        plt.grid(True)
-
-        return plt
-
-    def show(self):
-        if self._figure is not None:
-            self._figure.show()
+    @property
+    def axis(self):
+        return self._axis
 
 
-class SpectrumPlotOld:
+class StaticFigure1D(FigureCanvasAgg):
+    """Figure object for static plotting"""
+
+    def __init__(self):
+        self._plt = plt
+        self._figure, self._axis = plt.subplots()
+        self._plt.ioff()
+
+    @property
+    def plt(self):
+        return self._plt
+
+    @property
+    def figure(self):
+        return self._figure
+
+    @property
+    def axis(self):
+        return self._axis
+
+
+class SpectrumPlotCanvas:
+    """Plot canvas for SpectrumPlot"""
+
+    def __init__(self, interactive=False):
+        self._interactive = interactive
+        self._set_backend()
+
+    def _set_backend(self):
+        """Set the backend based on if the plot is interactive or not"""
+        if self.interactive:
+            self._backend = "InteractiveFigure1D"
+            InteractiveFigure1D.__init__(self)
+        else:
+            self._backend = "StaticFigure1D"
+            StaticFigure1D.__init__(self)
+
+    @property
+    def interactive(self):
+        """Boolean representing if the plot is interactive or not"""
+        return self._interactive
+
+    @property
+    def backend(self):
+        """The backend for the figure canvas"""
+        return self._backend
+
+    @backend.setter
+    def set_backend(self, value):
+        """Set the backend value"""
+        if isinstance(value, str):
+            self._backend = value
+        else:
+            raise ValueError(f"Backend must be a string. Instead received {value} of type {type(value)}.")
+
+
+class SpectrumPlot:
     r"""
     The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
     using matplotlib functions. Plots attributes are modified using keywords
@@ -197,15 +143,23 @@ class SpectrumPlotOld:
         The velocity convention (see VELDEF FITS Keyword)
     """
 
-    def __init__(self, spectrum, **kwargs):
+    def __init__(self, spectrum, interactive=False, **kwargs):
         self.reset()
+        self._interactive = interactive
+        self._canvas = None
+        self._set_canvas()
         self._spectrum = spectrum
         self._set_xaxis_info()
         self._set_yaxis_info()
         self._plot_kwargs.update(kwargs)
-        self._plt = plt
         self._title = self._plot_kwargs["title"]
-        self._figure, self._axis = self._plt.subplots()  # figsize=self._plot_kwargs["figsize"])
+        self.plot()
+
+    def _set_canvas(self):
+        self._canvas = SpectrumPlotCanvas(self.interactive)
+        self._plt = self._canvas._plt
+        self._figure = self._canvas._figure
+        self._axis = self._canvas._axis
 
     def _set_xaxis_info(self):
         """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
@@ -215,6 +169,16 @@ class SpectrumPlotOld:
 
     def _set_yaxis_info(self):
         self._plot_kwargs["yaxis_unit"] = self._spectrum.unit
+
+    @property
+    def canvas(self):
+        """The plotting canvas"""
+        return self._canvas
+
+    @property
+    def interactive(self):
+        """Boolean representing if the plot is interactive or not"""
+        return self._interactive
 
     @property
     def axis(self):
