@@ -8,6 +8,7 @@ from traitlets.config import Config
 import dysh.fits
 from dysh import __version__
 from dysh.fits.sdfitsload import SDFITSLoad
+from dysh.log import init_logging
 
 # TODO: Derive URLs from pyproject.toml?
 BANNER = f"""--------------------------------------------------------------------------
@@ -48,6 +49,9 @@ def parse_args():
         choices=["NoColor", "Neutral", "Linux", "LightBG"],
         default=DEFAULT_COLORS,
     )
+    parser.add_argument("-v", "--verbosity", help="Set logging verbosity", type=int, default=2, choices=[0, 1, 2, 3])
+    parser.add_argument("--log", help="Specify log path", type=Path)
+    parser.add_argument("-q", "--quiet", help="Silence DEBUG- and INFO-level logs to stderr", action="store_true")
     return parser.parse_known_args()
 
 
@@ -61,14 +65,14 @@ def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] =
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
     user_ns = {"pd": pd, "np": np, "GBTFITSLoad": GBTFITSLoad, "Table": Table, "fits": fits}
-    if sdfits_files:
-        user_ns["sdfits_files"] = sdfits_files
 
     c.BaseIPythonApplication.profile = profile
     c.InteractiveShell.colors = colors
     c.InteractiveShell.banner2 = BANNER.format(
         user_ns_str="\n".join(f"{' '*8}{k} (from {v.__name__})" for k, v in user_ns.items())
     )
+    if sdfits_files:
+        user_ns["sdfits_files"] = sdfits_files
     IPython.start_ipython(ipython_args, config=c, user_ns=user_ns)
 
 
@@ -86,6 +90,7 @@ def open_sdfits_files(paths: List[Path], loader_class_name="GBTFITSLoad") -> Lis
 
 def main():
     args, remaining_args = parse_args()
+    init_logging(verbosity=args.verbosity, path=args.log, quiet=args.quiet)
     sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
     init_shell(*remaining_args, colors=args.colors, profile=args.profile, sdfits_files=sdfits_files)
 

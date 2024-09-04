@@ -40,6 +40,19 @@ from . import baseline, get_spectral_equivalency
 
 # from astropy.nddata import StdDevUncertainty
 
+# Spectrum attributes to be ignored by Spectrum._copy_attributes
+IGNORE_ON_COPY = [
+    "_data",
+    "_flux",
+    "_meta",
+    "_mask",
+    "_weights",
+    "_baseline_model",
+    "_plotter",
+    "_uncertainty",
+    "_unit",
+]
+
 
 class Spectrum(Spectrum1D):
     """
@@ -317,31 +330,34 @@ class Spectrum(Spectrum1D):
         ----------
             roll : int
                 Return statistics on a 'rolled' array differenced with the
-                origibnal array. If no correllaton between subsequent point,
-                a roll=1 would return an RMS  sqrt(2) larger than that of the
+                original array. If there is no correllaton between channels,
+                a roll=1 would return an RMS sqrt(2) larger than that of the
                 input array. Another advantage of rolled statistics it will
                 remove most slow variations, thus RMS/sqrt(2) might be a better
                 indication of the underlying RMS.
         Returns
         -------
-        stats : tuple
-            Tuple consisting of (mean,rms,datamin,datamax)
-
-
+        stats : dict
+            Dictionary consisting of (mean,median,rms,datamin,datamax)
         """
-        # @todo: maybe make this a dict return value a dict
+
         if roll == 0:
             mean = self.mean()
-            rms = self.data.std()
+            median = self.median()
+            rms = self.flux.std()
             dmin = self.min()
             dmax = self.max()
         else:
-            d = self._data[roll:] - self._data[:-roll]
+            d = self[roll:] - self[:-roll]
             mean = d.mean()
-            rms = d.std()
+            median = d.median()
+            rms = d.flux.std()
             dmin = d.min()
             dmax = d.max()
-        return (mean, rms, dmin, dmax)
+
+        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax}
+
+        return out
 
     def _decimate(self, n, offset=0):
         """Decimate a spectrum by n pixels, starting at pixel offset
@@ -980,19 +996,29 @@ class Spectrum(Spectrum1D):
             result = op(other, **{"handle_meta": handle_meta})
         else:
             result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
-        self._shallow_copy_attributes(result)
+        self._copy_attributes(result)
         return result
 
-    def _shallow_copy_attributes(self, other):
-        other._target = self._target
-        other._observer = self._observer
-        other._velocity_frame = self._velocity_frame
-        other._obstime = self._obstime
-        other._baseline_model = self._baseline_model
-        other._exclude_regions = self._exclude_regions
-        other._mask = self._mask
-        other._subtracted = self._subtracted
-        other.spectral_axis._doppler_convention = self.doppler_convention
+    def _copy_attributes(self, other):
+        """
+        Copy `Spectrum` attributes after
+        an arithmetic operation.
+        Only copy attributes that are not modified by the arithmetic.
+        I.e., do not copy the "_flux" attribute.
+        """
+        for k, v in vars(self).items():
+            if k not in IGNORE_ON_COPY:
+                vars(other)[k] = deepcopy(v)
+
+    #        other._target = self._target
+    #        other._observer = self._observer
+    #        other._velocity_frame = self._velocity_frame
+    #        other._obstime = self._obstime
+    #        other._baseline_model = self._baseline_model
+    #        other._exclude_regions = self._exclude_regions
+    #        other._mask = self._mask
+    #        other._subtracted = self._subtracted
+    #        other._spectral_axis = self.spectral_axis
 
     def __add__(self, other):
         op = self.add
