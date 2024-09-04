@@ -2,12 +2,14 @@
 
 import copy
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
 
-# import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
+
+from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
@@ -53,14 +55,17 @@ class GBTFITSLoad(SDFITSLoad):
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
         self._sdf = []
-        self._index = None
+        self._selection = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
+            logger.debug(f"Treating given path {path} as a file")
             self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
         elif path.is_dir():
+            logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
             # because e.g., VEGAS does A,B,C,D,E
             for f in sorted(path.glob("*.fits")):
+                logger.debug(f"Selecting {f} to load")
                 if kwargs.get("verbose", None):
                     print(f"doing {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
@@ -68,7 +73,6 @@ class GBTFITSLoad(SDFITSLoad):
             raise Exception(f"{fileobj} is not a file or directory path")
         if kwargs_opts["index"]:
             self._create_index_if_needed()
-            self._selection = Selection(self)
             self._update_radesys()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
@@ -76,21 +80,44 @@ class GBTFITSLoad(SDFITSLoad):
 
         if kwargs.get("verbose", None):
             print("==GBTLoad %s" % fileobj)
-            self.ushow(0, "OBJECT")
-            self.ushow(0, "SCAN")
-            self.ushow(0, "SAMPLER")
+            self.ushow("OBJECT", 0)
+            self.ushow("SCAN", 0)
+            self.ushow("SAMPLER", 0)
             self.ushow("PLNUM")
             self.ushow("IFNUM")
-            self.ushow(0, "SIG")
-            self.ushow(0, "CAL")
-            self.ushow(0, "PROCSEQN")
-            self.ushow(0, "PROCSIZE")
-            self.ushow(0, "OBSMODE")
-            self.ushow(0, "SIDEBAND")
+            self.ushow("SIG", 0)
+            self.ushow("CAL", 0)
+            self.ushow("PROCSEQN", 0)
+            self.ushow("PROCSIZE", 0)
+            self.ushow("OBSMODE", 0)
+            self.ushow("SIDEBAND", 0)
 
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
+
+    @property
+    def _index(self):
+        # for backwards compatibility after removing _index
+        # as a separate object
+        return self._selection
+
+    @property
+    def total_rows(self):
+        """Returns the total number of rows summed over all files and binary table HDUs"""
+        return sum([s.total_rows for s in self._sdf])
+
+    @property
+    def columns(self):
+        """The column names in the binary table, minus the DATA column
+
+        Returns
+        -------
+        ~pandas.Index
+            The column names as a DataFrame Index
+        """
+        # return a list instead?
+        return self._selection.columns
 
     @property
     def selection(self):
@@ -156,7 +183,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         if fitsindex is None:
-            df = self._index
+            df = self._selection
         else:
             df = self._sdf[fitsindex]._index
 
@@ -312,7 +339,7 @@ class GBTFITSLoad(SDFITSLoad):
         self._create_index_if_needed()
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-        _df = self._index[show].copy()
+        _df = self[show].copy()
         _df.loc[:, "VELOCITY"] /= 1e3  # convert to km/s
         _df["RESTFREQ"] = _df["RESTFREQ"] / 1.0e9  # convert to GHz
         _df["DOPFREQ"] = _df["DOPFREQ"] / 1.0e9  # convert to GHz
@@ -424,7 +451,6 @@ class GBTFITSLoad(SDFITSLoad):
     # @todo move all selection methods to sdfitsload after adding Selection
     # to sdfitsload
     # @todo write a Delegator class to autopass to Selection. See, e.g., https://michaelcho.me/article/method-delegation-in-python/
-    # the problem is I would rather use __getattr__ to allow us to do stuff like sdf["COLUMNAME"] to return a column via _index.
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
@@ -531,18 +557,22 @@ class GBTFITSLoad(SDFITSLoad):
         self._selection.select_channel(tag=tag, chan=chan)
 
     def _create_index_if_needed(self):
+        if self._selection is not None:
+            return
         i = 0
-        if self._index is None:
+        df = None
+        if self._selection is None:
             for s in self._sdf:
                 if s._index is None:
-                    s._create_index()
+                    s.create_index()
                 # add a FITSINDEX column
                 s._index["FITSINDEX"] = i * np.ones(len(s._index), dtype=int)
-                if self._index is None:
-                    self._index = s._index
+                if df is None:
+                    df = s._index
                 else:
-                    self._index = pd.concat([self._index, s._index], axis=0, ignore_index=True)
+                    df = pd.concat([df, s._index], axis=0, ignore_index=True)
                 i = i + 1
+        self._selection = Selection(df)
         self._construct_procedure()
         self._construct_integration_number()
 
@@ -553,13 +583,13 @@ class GBTFITSLoad(SDFITSLoad):
         OnOff:PSWITCHON:TPWCAL.
 
         """
-        if self._index is None:
+        if self._selection is None:
             warnings.warn("Couldn't construct procedure string: index is not yet created.")
             return
         if "OBSMODE" not in self._index:
             warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
             return
-        df = self._index["OBSMODE"].str.split(":", expand=True)
+        df = self["OBSMODE"].str.split(":", expand=True)
         self._index["PROC"] = df[0]
         # Assign these to something that might be useful later,
         # since we have them
@@ -589,7 +619,7 @@ class GBTFITSLoad(SDFITSLoad):
             # print("INT is already there")
             self._index.rename(columns={"INT": "INTNUM"}, inplace=True)
             for s in self._sdf:
-                s.rename_binary_table_column("int", "intnum")
+                s._rename_binary_table_column("int", "intnum")
             return
 
         scan_changes = indices_where_value_changes("SCAN", self._index)
@@ -619,7 +649,7 @@ class GBTFITSLoad(SDFITSLoad):
                 fici = fits_index_changes[i + 1]
             else:
                 fici = -1
-            fi = self._index["FITSINDEX"][fic]
+            fi = self["FITSINDEX"][fic]
             # @todo fix this MWP
             # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
 
@@ -632,6 +662,7 @@ class GBTFITSLoad(SDFITSLoad):
         self,
         calibrate=True,
         fold=True,
+        shift_method="fft",
         use_sig=True,
         timeaverage=True,
         polaverage=False,
@@ -650,6 +681,9 @@ class GBTFITSLoad(SDFITSLoad):
             Calibrate the scans. The default is True.
         fold : boolean, optional
             Fold the sig and ref scans.  The default is True.
+        shift_method : str
+            Method to use when shifting the spectra for folding. One of 'fft' or 'interpolate'.
+            'fft' uses a phase shift in the time domain. 'interpolate' interpolates the signal. Default: 'fft'.
         use_sig : boolean, optional
             Return the sig or ref based spectrum. This applies to both the folded
             and unfolded option.  The default is True.
@@ -689,15 +723,14 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         debug = kwargs.pop("debug", False)
-        if debug:
-            print(kwargs)
+        logger.debug(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX()
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
             _final = self._index
-        scans = kwargs.pop("scan", None)
+        scans = kwargs.get("scan", None)
         kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
@@ -709,15 +742,12 @@ class GBTFITSLoad(SDFITSLoad):
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
-        if debug:
-            print("scans/w sel:", scans, self._selection)
+        logger.debug("scans/w sel:", scans, self._selection)
         fs_selection = copy.deepcopy(self._selection)
         # now downselect with any additional kwargs
-        if debug:
-            print(f"SELECTION FROM MIXED KWARGS {kwargs}")
+        logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
         fs_selection._select_from_mixed_kwargs(**kwargs)
-        if debug:
-            print(fs_selection.show())
+        logger.debug(fs_selection.show())
         _sf = fs_selection.final
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -725,23 +755,20 @@ class GBTFITSLoad(SDFITSLoad):
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
         scans = set(_sf["SCAN"])
-        if debug:
-            print(f"using SCANS {scans} IF {ifnum} PL {plnum}")
+        logger.debug(f"using SCANS {scans} IF {ifnum} PL {plnum}")
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
                 _ifdf = select_from("IFNUM", k, df)  # one FSScan per ifnum
-                if debug:
-                    # print(f"SCANLIST {scanlist}")
-                    print(f"POLS {set(df['PLNUM'])}")
-                    print(f"Sending dataframe with scans {set(_ifdf['SCAN'])}")
-                    print(f"and PROC {set(_ifdf['PROC'])}")
+                # print(f"SCANLIST {scanlist}")
+                logger.debug(f"POLS {set(df['PLNUM'])}")
+                logger.debug(f"Sending dataframe with scans {set(_ifdf['SCAN'])}")
+                logger.debug(f"and PROC {set(_ifdf['PROC'])}")
                 # loop over scans:
                 for scan in scans:
-                    if debug:
-                        print(f"doing scan {scan}")
+                    logger.debug(f"doing scan {scan}")
                     calrows = {}
                     _df = select_from("SCAN", scan, _ifdf)
                     dfcalT = select_from("CAL", "T", _df)
@@ -762,6 +789,7 @@ class GBTFITSLoad(SDFITSLoad):
                         bintable=bintable,
                         calibrate=calibrate,
                         fold=fold,
+                        shift_method=shift_method,
                         use_sig=use_sig,
                         observer_location=observer_location,
                         smoothref=1,
@@ -832,40 +860,33 @@ class GBTFITSLoad(SDFITSLoad):
             scans = preselected["SCAN"]
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
-        if debug:
-            print(f"after check scans_to_add={scans_to_add}")
+        logger.debug(f"after check scans_to_add={scans_to_add}")
         # now remove any scans that have been pre-selected by the user.
         # scans_to_add -= scans_preselected
-        if debug:
-            print(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
+        logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
-        if debug:
-            print("SCAN ", scans)
-            print("TYPE: ", type(ps_selection))
+        logger.debug("SCAN ", scans)
+        logger.debug("TYPE: ", type(ps_selection))
         if len(scans_to_add) != 0:
             # add a rule selecting the missing scans :-)
-            if debug:
-                print(f"adding rule scan={scans_to_add}")
+            logger.debug(f"adding rule scan={scans_to_add}")
             kwargs["SCAN"] = list(scans_to_add)
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
         # now downselect with any additional kwargs
-        if debug:
-            print(f"SELECTION FROM MIXED KWARGS {kwargs}")
-            print(ps_selection.show())
+        logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
+        logger.debug(ps_selection.show())
         ps_selection._select_from_mixed_kwargs(**kwargs)
-        if debug:
-            print("AFTER")
-            print(ps_selection.show())
+        logger.debug("AFTER")
+        logger.debug(ps_selection.show())
         _sf = ps_selection.final
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
-        if debug:
-            print(f"FINAL i {ifnum} p {plnum} s {scans}")
+        logger.debug(f"FINAL i {ifnum} p {plnum} s {scans}")
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
@@ -878,11 +899,10 @@ class GBTFITSLoad(SDFITSLoad):
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     # print("scans not found, continuing")
                     continue
-                if debug:
-                    print(f"SCANLIST {scanlist}")
-                    print(f"POLS {set(df['PLNUM'])}")
-                    print(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                    print(f"and PROC {set(_df['PROC'])}")
+                logger.debug(f"SCANLIST {scanlist}")
+                logger.debug(f"POLS {set(df['PLNUM'])}")
+                logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
+                logger.debug(f"and PROC {set(_df['PROC'])}")
                 rows = {}
                 # loop over scan pairs
                 c = 0
@@ -907,9 +927,8 @@ class GBTFITSLoad(SDFITSLoad):
                     calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
                     # print(f"Sending PSScan({d},ROWS:{rows},CALROWS:{calrows},BT: {bintable}")
-                    if debug:
-                        print(f"{i, k, c} SCANROWS {rows}")
-                        print(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
+                    logger.debug(f"{i, k, c} SCANROWS {rows}")
+                    logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                     g = PSScan(
                         self._sdf[i],
                         scans=d,
@@ -969,8 +988,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         TF = {True: "T", False: "F"}
-        sigstate = {True: "SIG", False: "REF", None: "BOTH"}
-        calstate = {True: "ON", False: "OFF", None: "BOTH"}
+
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
@@ -992,12 +1010,12 @@ class GBTFITSLoad(SDFITSLoad):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        logger.debug("SF=", _sf)
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
         feeds = uniq(_sf["FDNUM"])
-        if debug:
-            print(f"FINAL i {ifnum} p {plnum} s {scans} f {feeds}")
+        logger.debug(f"FINAL i {ifnum} p {plnum} s {scans} f {feeds}")
         scanblock = ScanBlock()
         calrows = {}
         # @todo loop over feeds too?
@@ -1018,20 +1036,20 @@ class GBTFITSLoad(SDFITSLoad):
                     # they are not booleans but chars
                     if sig is not None:
                         df = select_from("SIG", TF[sig], df)
-                    if cal is not None:
-                        df = select_from("CAL", TF[cal], df)
+                    # if cal is not None:
+                    #    df = select_from("CAL", TF[cal], df)
+                    # the rows with the selected sig state and all cal states
                     tprows = list(df["ROW"])
-                    if debug:
-                        print("TPROWS len=", len(tprows))
-                        print("CALROWS on len=", len(calrows["ON"]))
-                        print("fitsindex=", i)
+                    logger.debug("TPROWS len=", len(tprows))
+                    logger.debug("CALROWS on len=", len(calrows["ON"]))
+                    logger.debug("fitsindex=", i)
                     if len(tprows) == 0:
                         continue
                     g = TPScan(
                         self._sdf[i],
                         scan,
-                        sigstate[sig],
-                        calstate[cal],
+                        sig,
+                        cal,
                         tprows,
                         calrows,
                         bintable,
@@ -1094,8 +1112,7 @@ class GBTFITSLoad(SDFITSLoad):
         scans = kwargs.get("scan", None)
         debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
-        if debug:
-            print(kwargs)
+        logger.debug(kwargs)
 
         if type(scans) is int:
             scans = [scans]
@@ -1132,8 +1149,7 @@ class GBTFITSLoad(SDFITSLoad):
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
         fdnum = uniq(_sf["FDNUM"])
-        if debug:
-            print(f"FINAL i {ifnum} p {plnum} s {scans} f {fdnum}")
+        logger.debug(f"FINAL i {ifnum} p {plnum} s {scans} f {fdnum}")
         scanblock = ScanBlock()
 
         if method == "cycle":
@@ -1148,8 +1164,7 @@ class GBTFITSLoad(SDFITSLoad):
                         reftp = []
                         sigtp = []
                         fulltp = []
-                        if debug:
-                            print(f"doing scan {scan}")
+                        logger.debug(f"doing scan {scan}")
                         df = select_from("SCAN", scan, _ifdf)
                         df_on = df[df["CAL"] == "T"]
                         df_off = df[df["CAL"] == "F"]
@@ -1157,11 +1172,10 @@ class GBTFITSLoad(SDFITSLoad):
                         df_on_ref = df_on[df_on["SUBREF_STATE"] == 1]
                         df_off_sig = df_off[df_off["SUBREF_STATE"] == -1]
                         df_off_ref = df_off[df_off["SUBREF_STATE"] == 1]
-                        if debug:
-                            print(f"SCANs in df_on_sig {set(df_on_sig['SCAN'])}")
-                            print(f"SCANs in df_on_ref {set(df_on_ref['SCAN'])}")
-                            print(f"SCANs in df_off_sig {set(df_off_sig['SCAN'])}")
-                            print(f"SCANs in df_off_ref {set(df_off_ref['SCAN'])}")
+                        logger.debug(f"SCANs in df_on_sig {set(df_on_sig['SCAN'])}")
+                        logger.debug(f"SCANs in df_on_ref {set(df_on_ref['SCAN'])}")
+                        logger.debug(f"SCANs in df_off_sig {set(df_off_sig['SCAN'])}")
+                        logger.debug(f"SCANs in df_off_ref {set(df_off_ref['SCAN'])}")
                         sig_on_rows = df_on_sig["ROW"].to_numpy()
                         ref_on_rows = df_on_ref["ROW"].to_numpy()
                         sig_off_rows = df_off_sig["ROW"].to_numpy()
@@ -1201,8 +1215,8 @@ class GBTFITSLoad(SDFITSLoad):
                                 TPScan(
                                     self._sdf[sdfi],
                                     scan,
-                                    "BOTH",
-                                    "BOTH",
+                                    None,
+                                    None,
                                     tprows,
                                     calrows,
                                     bintable,
@@ -1216,8 +1230,8 @@ class GBTFITSLoad(SDFITSLoad):
                                 TPScan(
                                     self._sdf[sdfi],
                                     scan,
-                                    "BOTH",
-                                    "BOTH",
+                                    None,
+                                    None,
                                     tprows,
                                     calrows,
                                     bintable,
@@ -1225,9 +1239,7 @@ class GBTFITSLoad(SDFITSLoad):
                                     smoothref=smoothref,
                                 )
                             )
-                        sb = SubBeamNodScan(
-                            sigtp, reftp, method=method, calibrate=calibrate, weights=weights, smoothref=smoothref
-                        )
+                        sb = SubBeamNodScan(sigtp, reftp, calibrate=calibrate, weights=weights, smoothref=smoothref)
                         scanblock.append(sb)
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
@@ -1287,8 +1299,6 @@ class GBTFITSLoad(SDFITSLoad):
                         sb = SubBeamNodScan(
                             sigtp,
                             reftp,
-                            fulltp,
-                            method=method,
                             calibrate=calibrate,
                             weights=weights,
                             smoothref=smoothref,
@@ -1672,7 +1682,7 @@ class GBTFITSLoad(SDFITSLoad):
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
         rows = []
-        scanidx = self._index[self._index["SCAN"].isin(scans)]
+        scanidx = self[self["SCAN"].isin(scans)]
         bt = self.udata("BINTABLE")
         for j in bt:
             df = scanidx[scanidx["BINTABLE"] == j]
@@ -1724,21 +1734,18 @@ class GBTFITSLoad(SDFITSLoad):
             e.g., `ifnum=1, plnum=[2,3]` etc.
         """
         debug = kwargs.pop("debug", False)
-        if debug:
-            print(kwargs)
+        logger.debug(kwargs)
         selection = Selection(self._index)
         if len(kwargs) > 0:
             selection._select_from_mixed_kwargs(**kwargs)
-            if debug:
-                print(selection.show())
+            logger.debug(selection.show())
             _final = selection.final
         else:
             _final = selection
         if len(_final) == 0:
             raise Exception("Your selection resulted in no rows to be written")
         fi = list(set(_final["FITSINDEX"]))
-        if debug:
-            print(f"fitsindex {fi} ")
+        logger.debug(f"fitsindex {fi} ")
         total_rows_written = 0
         if multifile:
             count = 0
@@ -1794,6 +1801,7 @@ class GBTFITSLoad(SDFITSLoad):
                     print(f"Writing {total_rows_written} to {fileobj}")
             # outhdu.update_extend()  # possibly unneeded
             outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            outhdu.close()
 
     def _update_radesys(self):
         """
@@ -1807,15 +1815,84 @@ class GBTFITSLoad(SDFITSLoad):
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.
-        low_el_mask = self._index["ELEVATIO"] < 5
+        low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
             warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
 
         # Azimuth and elevation case.
-        azel_mask = (self._index["CTYPE2"] == "AZ") & (self._index["CTYPE3"] == "EL")
+        azel_mask = (self["CTYPE2"] == "AZ") & (self["CTYPE3"] == "EL")
+        # Update self._index.
         self._index.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
+        # Update SDFITSLoad.index.
+        sdf_idx = set(self["FITSINDEX"][azel_mask])
+        for i in sdf_idx:
+            sdfi = self._sdf[i].index()
+            azel_mask = (sdfi["CTYPE2"] == "AZ") & (sdfi["CTYPE3"] == "EL")
+            sdfi.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
 
         # Hour angle and declination case.
-        hadec_mask = self._index["CTYPE2"] == "HA"
+        hadec_mask = self["CTYPE2"] == "HA"
         self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
+        sdf_idx = set(self["FITSINDEX"][hadec_mask])
+        for i in sdf_idx:
+            sdfi = self._sdf[i].index()
+            hadec_mask = sdfi["CTYPE2"] == "HA"
+            sdfi.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
+
+    def __getitem__(self, items):
+        # items can be a single string or a list of strings.
+        # Want case insensitivity
+        # @todo deal with "DATA"
+        if isinstance(items, str):
+            items = items.upper()
+        elif isinstance(items, (Sequence, np.ndarray)):
+            items = [i.upper() for i in items]
+        else:
+            raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+        if "DATA" in items:
+            return np.vstack([s["DATA"] for s in self._sdf])
+        return self._selection[items]
+
+    def __setitem__(self, items, values):
+        # @todo deal with "DATA"
+        if isinstance(items, str):
+            items = items.upper()
+        # we won't support multiple keys for setting right now.
+        # ultimately it could be done with recursive call to __setitem__
+        # for each key/val pair
+        # elif isinstance(items, (Sequence, np.ndarray)):
+        #    items = [i.upper() for i in items]
+        else:
+            raise KeyError(f"Invalid key {items}. Keys must be str")
+        if isinstance(items, str):
+            iset = set([items])
+        else:
+            iset = set(items)
+        col_exists = len(set(self.columns).intersection(iset)) > 0
+        # col_in_selection =
+        if col_exists:
+            warnings.warn("Changing an existing SDFITS column")
+        # now deal with values as arrays
+        is_array = False
+        if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
+            if len(values) != self.total_rows:
+                raise ValueError(
+                    f"Length of values array ({len(values)}) for column {items} and total number of rows ({self.total_rows}) aren't equal."
+                )
+            is_array = True
+        if "DATA" not in items:  # DATA is not a column in the selection
+            self._selection[items] = values
+        start = 0
+        # loop over the individual files
+        for s in self._sdf:
+            if not is_array:
+                s[items] = values
+            else:
+                s[items] = values[start : start + s.total_rows]
+                start = start + s.total_rows
+        selected_cols = self.selection.columns_selected()
+        if items in selected_cols:
+            warnings.warn(
+                f"You have changed the metadata for a column that was previously used in a data selection [{items}]. You may wish to update the selection. "
+            )

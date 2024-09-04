@@ -8,7 +8,6 @@ import pytest
 from astropy.io import fits
 from pandas.testing import assert_frame_equal, assert_series_equal
 
-import dysh
 from dysh import util
 from dysh.fits import gbtfitsload
 
@@ -29,8 +28,8 @@ class TestGBTFITSLoad:
         expected = {
             "TGBT21A_501_11.raw.vegas.fits": 4,
             "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
-            "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits": 1,
-            "TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits": 1,
+            "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits": 1,
             "TGBT21A_501_11_ifnum_0_int_0-2.fits": 24,
             "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits": 1,
             "TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_1.fits": 1,
@@ -42,6 +41,9 @@ class TestGBTFITSLoad:
             "TGBT21A_501_11.raw.156.fits": 7,
             "testselection.fits": 50,
             "TGBT21A_501_11_getps_scan_152_ifnum_0_plnum_0_smthoff_15.fits": 1,
+            "TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits": 1,
+            "TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_0.fits": 1,
+            "TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_all.fits": 1,
         }
 
         for fnm in self._file_list:
@@ -127,54 +129,166 @@ class TestGBTFITSLoad:
                 except AssertionError:
                     print(f"{col} fails: {ps.meta[col]}, {table[col][0]}")
 
-    def test_gettp_single_int(self):
+    def test_gettp(self):
         """
-        Compare gbtidl result to dysh for a gettp spectrum from a single integration/pol/feed.
+        Compare gbtidl result to dysh for a gettp spectrum from a single polarization and feed and
+        different cal states.
         For the differenced spectrum (gbtidl - dysh) we check:
         For the noise calibration diode on, off, and both:
          - mean value is 0.0
         """
+        # @todo refactor the repeated gbtidl/tp0 sections here.
         # Get the answer from GBTIDL.
-        gbtidl_file = (
-            f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_1.fits"
-        )
+        gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
         hdu.close()
 
         # Get the answer from dysh.
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=False, ifnum=0, plnum=0)
+        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=True, ifnum=0, plnum=0)
         assert len(tps_on) == 1
 
         # Compare.
-        diff = tps_on[0].total_power(0).flux.value - gbtidl_gettp
+        tp0 = tps_on[0].total_power(0)
+        diff = tp0.flux.value - gbtidl_gettp
         assert np.nanmean(diff) == 0.0
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now with the noise diode Off.
-        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=False, ifnum=0, plnum=0)
+        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0)
         assert len(tps_off) == 1
-        gbtidl_file = (
-            f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_intnum_0_ifnum_0_plnum_0_cal_state_0.fits"
-        )
+        gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits"
         hdu = fits.open(gbtidl_file)
         gbtidl_gettp = hdu[1].data["DATA"][0]
-        diff = tps_off[0].total_power(0).flux.value - gbtidl_gettp
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
+        tp0 = tps_off[0].total_power(0)
+        diff = tp0.flux.value - gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) == 0.0
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now, both on and off.
-        tps = sdf.gettp(scan=152, sig=True, cal=True, ifnum=0, plnum=0)
+        tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0)
         assert len(tps) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         hdu = fits.open(gbtidl_file)
-        table = hdu[1].data
-        spec = table["DATA"][0]
-        diff = tps[0].total_power(0).flux.value - spec
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
+        tp0 = tps[0].total_power(0)
+        diff = tp0.flux.value - gbtidl_gettp
         hdu.close()
         assert np.nanmean(diff) == 0.0
-        # what about tps_tavg
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
+
+        # Now do some sig=F data.
+        sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=True)
+        gbtidl_file = (
+            f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits"
+        )
+        hdu = fits.open(gbtidl_file)
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
+        tp0 = tps[0].timeaverage()
+        diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
+        hdu.close()
+        assert np.nanmean(diff) < 3e-8
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
+
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=False)
+        gbtidl_file = (
+            f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_0.fits"
+        )
+        hdu = fits.open(gbtidl_file)
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
+        tp0 = tps[0].timeaverage()
+        diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
+        hdu.close()
+        assert np.nanmean(diff) < 1e-7
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
+
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=None)
+        gbtidl_file = (
+            f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_all.fits"
+        )
+        hdu = fits.open(gbtidl_file)
+        gbtidl_gettp = hdu[1].data["DATA"][0]
+        gbtidl_exp = hdu[1].data["EXPOSURE"][0]
+        gbtidl_tsys = hdu[1].data["TSYS"][0]
+        tp0 = tps[0].timeaverage()
+        diff = (tp0.flux.value - gbtidl_gettp) / gbtidl_gettp
+        hdu.close()
+        assert np.nanmean(diff) < 1e-7
+        assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
+        assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
+
+        # Self consistency check.
+        # This only makes sure that the output matches what is expected given the data selection.
+        data_path = f"{self.data_dir}/AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(data_path, verbose=False)
+        tests = {
+            0: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": None, "SIG": None},
+            1: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": True, "SIG": None},
+            2: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": None},
+            3: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": None, "SIG": True},
+            4: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": None, "SIG": False},
+            5: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": True, "SIG": True},
+            6: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": True, "SIG": False},
+            7: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": False},
+            8: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": True},
+        }
+        for k, v in tests.items():
+            if v["SIG"] == False:
+                with pytest.raises(Exception):
+                    tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], cal=v["CAL"], sig=v["SIG"])
+                continue
+            tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], cal=v["CAL"], sig=v["SIG"])
+            if v["CAL"]:
+                assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
+            tp = tps.timeaverage(weights=None)
+            if v["CAL"] is None:
+                cal = (0.5 * (tps[0]._refcalon + tps[0]._refcaloff)).astype(np.float64)
+            elif not v["CAL"]:
+                # CAL=False
+                cal = tps[0]._refcaloff.astype(np.float64)
+            else:
+                # CAL=True
+                cal = tps[0]._refcalon.astype(np.float64)
+            assert np.all(tp.flux.value == np.nanmean(cal, axis=0))
+
+        # Check that selection is being applied properly.
+        tp_scans = sdf.gettp(scan=[6, 7], plnum=0)
+        # Weird that the results are different for a bunch of channels.
+        # This has to do with slight differences in Tsys weighting in ScanBlock.timeaverage() vs. Scan.timeaverage()
+        assert np.all((sdf.gettp(scan=6, plnum=0).timeaverage().flux - tp_scans[0].timeaverage().flux).value < 2e-6)
+        assert np.all((sdf.gettp(scan=7, plnum=0).timeaverage().flux - tp_scans[1].timeaverage().flux).value < 2e-6)
+        assert np.all(
+            (
+                sdf.gettp(scan=6, plnum=0).timeaverage(weights=None).flux - tp_scans[0].timeaverage(weights=None).flux
+            ).value
+            == 0
+        )
+        assert np.all(
+            (
+                sdf.gettp(scan=7, plnum=0).timeaverage(weights=None).flux - tp_scans[1].timeaverage(weights=None).flux
+            ).value
+            == 0
+        )
 
     def test_load_multifits(self):
         """
@@ -344,6 +458,7 @@ class TestGBTFITSLoad:
         g.write(output, multifile=True, scan=6, overwrite=True)
         # @todo remove test output files in a teardown method
         sdf = gbtfitsload.GBTFITSLoad(o)
+        assert set(sdf["SCAN"]) == set([6])
 
     def test_write_all(self, tmp_path):
         """Test that we can write a loaded SDFITS file without any changes"""
@@ -357,3 +472,176 @@ class TestGBTFITSLoad:
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
         assert_frame_equal(org_sdf._index, new_sdf._index)
+
+    def test_get_item(self):
+        f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+        g = gbtfitsload.GBTFITSLoad(f)
+        assert list(set(g["PLNUM"])) == [0, 1]
+        assert list(set(g[["SCAN", "IFNUM"]].loc[0])) == [2, 6]
+        # test case insensitivity
+        assert list(set(g["plnum"])) == [0, 1]
+        with pytest.raises(KeyError):
+            g["FOOBAR"]
+
+    def test_set_item(self, tmp_path):
+        # First test with a single number or string
+        keyval = {
+            "IFNUM": 12,
+            "FRONTEND": "Rx999",
+            "sitelong": 42.21,
+        }
+        d = util.get_project_testdata()
+        files = [
+            d / "AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A6.fits",  # single file
+            d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/",  # multiple files
+        ]
+        o = tmp_path / "gsetitem"
+        o.mkdir()
+
+        i = 0
+        for f in files:
+            g = gbtfitsload.GBTFITSLoad(f)
+            for key, val in keyval.items():
+                _set = set([val])
+                g[key] = val
+                assert set(g[key]) == _set
+                for sdf in g._sdf:
+                    assert set(sdf[key]) == _set
+                    for b in sdf._bintable:
+                        assert set(b.data[key]) == _set
+
+            # check that thing were written correctly.
+            out = o / f"test_write_gsetitem{i}.fits"
+            print(f"trying to writing file #{i} {out}")
+            g.write(out, overwrite=True)
+            i += 1
+            if "A6" in f.name:
+                g = gbtfitsload.GBTFITSLoad(out)
+            else:
+                g = gbtfitsload.GBTFITSLoad(o)
+            for key, val in keyval.items():
+                _set = set([val])
+                g[key] = val
+                assert set(g[key]) == _set
+                for sdf in g._sdf:
+                    assert set(sdf[key]) == _set
+                    for b in sdf._bintable:
+                        assert set(b.data[key]) == _set
+
+        # now test array of numbers or strings
+        for f in files:
+            g = gbtfitsload.GBTFITSLoad(f)
+            for key, val in keyval.items():
+                array = [val] * g.total_rows
+                _set = set([val])
+                g[key] = array
+                assert set(g[key]) == _set
+                for sdf in g._sdf:
+                    for b in sdf._bintable:
+                        assert set(b.data[key]) == _set
+
+            # check that thing were written correctly.
+            out = o / f"test_write_gsetitem{i}.fits"
+            print(f"trying to writing file #{i} {out}")
+            g.write(out, overwrite=True)
+            i += 1
+            if "A6" in f.name:
+                g = gbtfitsload.GBTFITSLoad(out)
+            else:
+                g = gbtfitsload.GBTFITSLoad(o)
+            for key, val in keyval.items():
+                _set = set([val])
+                g[key] = val
+                assert set(g[key]) == _set
+                for sdf in g._sdf:
+                    assert set(sdf[key]) == _set
+                    for b in sdf._bintable:
+                        assert set(b.data[key]) == _set
+
+        # check that exception is handled for incorrect length
+        for f in files:
+            g = gbtfitsload.GBTFITSLoad(f)
+            for key, val in keyval.items():
+                array = [val] * 2 * g.total_rows
+                with pytest.raises(ValueError):
+                    g[key] = array
+
+        # test that changed a previously selection column results in a warning
+        g = gbtfitsload.GBTFITSLoad(files[0])
+        g.select(ifnum=2)
+        with pytest.warns(UserWarning):
+            g["ifnum"] = 3
+
+        def test_data_access(self):
+            """test getting and setting the DATA column of SDFITS"""
+            # File with a single BinTableHDU
+            d = util.get_project_testdata()
+            f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+            g = gbtfitsload.GBTFITSLoad(f)
+            data = g["DATA"]
+            assert data.shape == (32, 131072)
+            g["DATA"] = np.zeros([32, 131072])
+            assert np.all(g["DATA"] == 0)
+
+            # File with multiple BinTableHDUs
+            f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
+            g = gbtfitsload.GBTFITSLoad(f)
+            # The binary tables have different shapes, so setting and getting is not allowed.
+            with pytest.raises(Exception):
+                g["DATA"]
+            with pytest.raises(Exception):
+                g["DATA"] = np.random.rand(1024)
+            # Multiple files
+            f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
+            g = gbtfitsload.GBTFITSLoad(f)
+
+    def test_azel_coords(self, tmp_path):
+        """
+        Test that observations using AzEl coordinates can produce a valid `Spectrum`.
+        """
+
+        # Reuse an existing file in testdata.
+        fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        new_path = tmp_path / "o"
+        new_path.mkdir(parents=True)
+        sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf_org["RADESYS"] = ""
+        sdf_org["CTYPE2"] = "AZ"
+        sdf_org["CTYPE3"] = "EL"
+
+        # Create a temporary directory and write the modified SDFITS.
+        new_path = tmp_path / "o"
+        new_path.mkdir(parents=True, exist_ok=True)
+        sdf_org.write(new_path / "test_azel.fits", overwrite=True)
+
+        # Now the actual test.
+        sdf = gbtfitsload.GBTFITSLoad(new_path)
+        # Not this part of the test, but just to make sure.
+        assert np.all(sdf["RADESYS"] == "AltAz")
+        # Test that we can create a `Spectrum` object.
+        tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
+
+    def test_hadec_coords(self, tmp_path):
+        """
+        Test that observations using HADec coordinates can produce a valid `Spectrum`.
+        """
+
+        # Reuse an existing file in testdata.
+        fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        new_path = tmp_path / "o"
+        new_path.mkdir(parents=True)
+        sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf_org["RADESYS"] = ""
+        sdf_org["CTYPE2"] = "HA"
+
+        # Create a temporary directory and write the modified SDFITS.
+        new_path = tmp_path / "o"
+        new_path.mkdir(parents=True, exist_ok=True)
+        sdf_org.write(new_path / "test_hadec.fits", overwrite=True)
+
+        # Now the actual test.
+        sdf = gbtfitsload.GBTFITSLoad(new_path)
+        # Not this part of the test, but just to make sure.
+        assert np.all(sdf["RADESYS"] == "hadec")
+        # Test that we can create a `Spectrum` object.
+        tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)

@@ -1,12 +1,9 @@
-# import pathlib
-
 import numpy as np
 import pytest
+from astropy import units as u
 from astropy.io import fits
 
 import dysh.util as util
-
-# import dysh
 from dysh.fits import gbtfitsload, sdfitsload
 
 
@@ -183,6 +180,88 @@ class TestSubBeamNod:
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    def test_synth_spectra(self, data_dir):
+        """Test subbeamnod using synthithic spectra."""
+        # Load a file with subbeamnod observations.
+        sdf_file = f"{data_dir}/TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Generate fake data.
+        def gauss(x, a, s, c):
+            return a * np.exp(-((x - c) ** 2.0) / (2 * s**2.0))
+
+        # Make a fake data set.
+        gain = 1e8
+        tsys = 100
+        tcont = 10
+        tcal = sdf["TCAL"][0]
+        a = 10
+        s = 5
+        c = 800
+        x = np.arange(0, sdf["DATA"].shape[1], 1)
+        nchan = sdf["DATA"].shape[1]
+
+        # Signal and reference integrations.
+        sig_mask = sdf["SUBREF_STATE"].to_numpy() == -1
+        ref_mask = sdf["SUBREF_STATE"].to_numpy() == 1
+        n_sig = sig_mask.sum()
+        n_ref = ref_mask.sum()
+
+        # Generate astro signal.
+        np.random.seed(0)  # Fix the noise.
+        sig_mod = np.random.normal(loc=0, scale=0.1, size=(n_sig, nchan)) + gauss(x, a, s, c) + tcont
+        ref_mod = np.random.normal(loc=0, scale=0.1, size=(n_ref, nchan))
+
+        # Add noise diode.
+        sig_cal_on = sdf["CAL"].to_numpy()[sig_mask] == "T"
+        sig_mod[sig_cal_on] += tcal
+        ref_cal_on = sdf["CAL"].to_numpy()[ref_mask] == "T"
+        ref_mod[ref_cal_on] += tcal
+
+        # Convert to counts.
+        p_sig_mod = gain * (sig_mod + tsys)
+        p_ref_mod = gain * (ref_mod + tsys)
+
+        # Replace data.
+        new_data = np.empty_like(sdf["DATA"])
+        new_data[sig_mask] = p_sig_mod
+        new_data[ref_mask] = p_ref_mod
+        with pytest.warns(UserWarning):
+            sdf["DATA"] = new_data
+            sdf["TCAL"] = tcal
+
+        # Calibrate.
+        sbn_cycle = sdf.subbeamnod(scan=43, fdnum=0, plnum=0, ifnum=0).timeaverage()
+        sbn_scan = sdf.subbeamnod(scan=43, fdnum=0, plnum=0, method="scan").timeaverage()
+
+        # Check data over a frequency interval.
+        s_sbn = slice(30.0 * u.GHz, 30.5 * u.GHz)
+        rms_cycle = sbn_cycle[s_sbn].flux.std()
+        rms_scan = sbn_scan[s_sbn].flux.std()
+
+        # Compare continuum level.
+        assert pytest.approx(sbn_cycle.data.mean(), rms_cycle.value) == tcont
+        assert pytest.approx(sbn_scan.data.mean(), rms_scan.value) == tcont
+
+        # Compare exposure times.
+        assert sbn_cycle.meta["EXPOSURE"] == sbn_scan.meta["EXPOSURE"]
+
+        # Compare system temperature.
+        assert pytest.approx(sbn_scan.meta["TSYS"], rms_scan.value) == sbn_cycle.meta["TSYS"]
+        assert pytest.approx(sbn_cycle.meta["TSYS"] - tcal / 2.0, rms_cycle.value) == tsys
+        assert pytest.approx(sbn_scan.meta["TSYS"] - tcal / 2.0, rms_scan.value) == tsys
+
+        # Compare RMS.
+        assert pytest.approx(rms_cycle.value, abs=1e-2) == rms_scan.value
+
+        # Number of rows.
+        assert sdf.subbeamnod(scan=43, fdnum=0, plnum=0, method="scan")[0].nrows == 96
+
+        # Line amplitude.
+        assert pytest.approx(sbn_cycle.data.max() - tcont, rms_cycle.value) == a
+        assert pytest.approx(sbn_scan.data.max() - tcont, rms_scan.value) == a
+
 
 class TestTPScan:
     def test_tsys(self, data_dir):
@@ -339,7 +418,15 @@ class TestFScan:
         # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
         level = 0.02
         print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
-        nm = np.nanmean(sp - ta.flux.value.astype(np.float32))
+        diff1 = sp - ta.flux.value.astype(np.float32)
+        nm = np.nanmean(diff1[15000:20000])  # Use channel range around the line.
+        assert abs(nm) <= level
+
+        # Using interpolation to shift the data.
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True, shift_method="interpolate")
+        ta = fsscan.timeaverage(weights="tsys")
+        diff2 = sp - ta.flux.value.astype(np.float32)
+        nm = np.nanmean(diff2[15000:20000])
         assert abs(nm) <= level
 
     def test_getfs_with_selection(self, data_dir):
@@ -347,11 +434,13 @@ class TestFScan:
 
 
 class TestScanBlock:
-    def test_scanblock_write_read(self):
+    def test_scanblock_write_read(self, tmp_path):
         file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(file)
         sb = g.getps(scan=6)
-        testfile = "test_scanblock_write.fits"
+        o = tmp_path / "sub"
+        o.mkdir()
+        testfile = o / "test_scanblock_write.fits"
         sb.write(fileobj=testfile, overwrite=True)
         g2 = gbtfitsload.GBTFITSLoad(testfile)
         x = g2.summary()  # simple check that basic function works.

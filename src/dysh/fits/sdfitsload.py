@@ -3,14 +3,19 @@
 """
 
 import warnings
+from collections.abc import Sequence
 
 import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
+from astropy.io.fits import BinTableHDU
+from astropy.table import Table
+
+from dysh.log import logger
 
 from ..spectra.spectrum import Spectrum
-from ..util import uniq
+from ..util import select_from, uniq
 
 
 class SDFITSLoad(object):
@@ -65,10 +70,23 @@ class SDFITSLoad(object):
         return self._hdu.info()
 
     @property
+    def columns(self):
+        """The column names in the binary table, minus the DATA column
+
+        Returns
+        -------
+        ~pandas.Index
+            The column names as a DataFrame Index
+        """
+        # return a list instead?
+        return self._index.columns
+
+    @property
     def bintable(self):
         """The list of bintables"""
         return self._bintable
 
+    @property
     def binheader(self):
         """The list of bintable headers"""
         return self._binheader
@@ -77,6 +95,11 @@ class SDFITSLoad(object):
     def filename(self):
         """The input SDFITS filename"""
         return self._filename
+
+    @property
+    def total_rows(self):
+        """Returns the total number of rows summed over all binary table HDUs"""
+        return sum(self._nrows)
 
     def index(self, hdu=None, bintable=None):
         """
@@ -195,6 +218,7 @@ class SDFITSLoad(object):
             self._bintable.append(self._hdu[i])
             self._binheader.append(self._hdu[i].header)
             self._nrows.append(self._binheader[j]["NAXIS2"])
+            logger.debug(f"Loading HDU {i} from {self._filename}")
 
     def fix_meta(self, meta):
         """
@@ -265,7 +289,7 @@ class SDFITSLoad(object):
                 The index of the `bintable` attribute, None means all bintables
 
         """
-        print(f"{bintable} {key}: {self.udata(bintable,key)}")
+        print(f"{bintable} {key}: {self.udata(key, bintable)}")
 
     def naxis(self, naxis, bintable):
         """
@@ -304,7 +328,7 @@ class SDFITSLoad(object):
         """
 
         if source is not None:
-            df = self.select("OBJECT", source, self._index[bintable])
+            df = select_from("OBJECT", source, self._index[bintable])
             # nfeed = df["FEED"].nunique()
             numsources = len(df)
             # nint = numsources//(self.npol(bintable)*nfeed)
@@ -427,7 +451,7 @@ class SDFITSLoad(object):
             bunit = meta["BUNIT"]
         else:
             bunit = None
-            h = self.binheader()[0]
+            h = self.binheader[0]
             for k, v, c in h.cards:
                 if k == "BUNIT":
                     bunit = v
@@ -557,11 +581,14 @@ class SDFITSLoad(object):
             print("i=", i)
             self._summary(i)
 
-    def __len__(self):
-        return self.nrows
+    # def __len__(self):  # this has no meaning for multiple bintables
+    #    return self._nrows
 
     def __repr__(self):
-        return self._filename
+        return str(self._filename)
+
+    def __str__(self):
+        return str(self._filename)
 
     def _bintable_from_rows(self, rows=None, bintable=None):
         """
@@ -591,54 +618,6 @@ class SDFITSLoad(object):
         # print(f"bintable rows data length {len(outbintable.data)}")
         outbintable.update()
         return outbintable
-
-    def rename_binary_table_column(self, oldname, newname, bintable=None):
-        """
-        Rename a column in one or more binary tables of this SDFITSLoad
-
-        Parameters
-        ----------
-        oldname : str
-            The SDFITS binary table column to rename, e.g. 'SITELAT'
-        newname :  str
-            The new name for the SDFITS  binary table column.
-        bintable : int, optional
-            Index of the binary table on which to operate, or None for all binary tables. The default is None.
-
-        Returns
-        -------
-        None.
-
-        """
-        ou = oldname.upper()
-        nu = newname.upper()
-        if bintable is None:
-            for b in self._bintable:
-                b.columns.change_attrib(ou, "name", nu)
-        else:
-            b = self._bintable[bintable]
-            b.columns.change_attrib(ou, "name", nu)
-
-    # @todo implement this MWP
-    def add_col(self, name, value, bintable=None):
-        """
-        Add a new column to the FITS binary table HDU
-
-        Parameters
-        ----------
-        name : str
-            column name to add
-        value : list-like
-            The column values
-        bintable : int, optional
-            Index of the binary table on which to operate, or None for all binary tables. The default is None.
-
-        Returns
-        -------
-        None.
-
-        """
-        pass
 
     def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
         """
@@ -694,3 +673,269 @@ class SDFITSLoad(object):
                 outbintable = self._bintable_from_rows(rows, bintable)
                 outhdu.append(outbintable)
                 outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+                outhdu.close()
+
+    def rename_column(self, oldname, newname):
+        """
+        Rename a column in both index table and any binary tables in this SDFITSLoad
+
+        Parameters
+        ----------
+        oldname : str
+            The SDFITS binary table column to rename, e.g. 'SITELAT', case insensitive
+        newname :  str
+            The new name for the SDFITS  binary table column, case insensitive
+
+        All names will be uppercased before rename.
+
+        Returns
+        -------
+        None.
+
+        """
+        ou = oldname.upper()
+        nu = newname.upper()
+        self._index.rename(columns={ou: nu}, inplace=True)
+        self._rename_binary_table_column(ou, nu)
+
+    def delete_column(self, column):
+        """
+        Delete one or more columns from both the index table and any binary tables in this SDFITSLoad
+        *Warning: cannot be undone*
+
+        Parameters
+        ----------
+        column : str or list-like
+            The column name(s) to delete.
+
+        Returns
+        -------
+        None.
+
+        """
+        warnings.warn(f"Deleting column {column}. Cannot be undone!")
+
+        if isinstance(column, str):
+            cu = column.upper()
+            if cu == "DATA":
+                raise Exception("You can't delete the DATA column. It's for your own good.")
+            self._index.drop(columns=cu, inplace=True)
+            self._delete_binary_table_column(column)
+        elif isinstance(column, (Sequence, np.ndarray)):
+            cu = [c.upper() for c in column]
+            self._index.drop(columns=cu, inplace=True)
+            for c in column:
+                self._delete_binary_table_column(c)
+
+    def _delete_binary_table_column(self, column, bintable=None):
+        """
+        Delete a column in one or more binary tables of this SDFITSLoad
+        *Warning: cannot be undone*
+
+        Parameters
+        ----------
+        oldname : str
+            The SDFITS binary table column to delete, e.g. 'SITELAT', case insensitive
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        All names will be uppercased before rename.
+
+        Returns
+        -------
+        None.
+
+        """
+        cu = column.upper()
+        if cu == "DATA":
+            raise Exception("You can't delete the DATA column. It's a bad idea.")
+        if bintable is None:
+            for b in self._bintable:
+                b.columns.del_col(cu)
+        else:
+            self._bintable[bintable].columns.del_col(cu)
+
+    def _rename_binary_table_column(self, oldname, newname, bintable=None):
+        """
+        Rename a column in one or more binary tables of this SDFITSLoad
+
+        Parameters
+        ----------
+        oldname : str
+            The SDFITS binary table column to rename, e.g. 'SITELAT', case insensitive
+        newname :  str
+            The new name for the SDFITS  binary table column, case insensitive
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        All names will be uppercased before rename.
+
+        Returns
+        -------
+        None.
+
+        """
+        ou = oldname.upper()
+        nu = newname.upper()
+        if bintable is None:
+            for b in self._bintable:
+                b.columns.change_attrib(ou, "name", nu)
+        else:
+            b = self._bintable[bintable]
+            b.columns.change_attrib(ou, "name", nu)
+
+    def _add_binary_table_column(self, name, value, bintable=None):
+        """
+        Add a new column to the SDFITS binary table(s).  Length of value must match
+        number of rows in binary table `bintable`, or sum of all rows if `bintable=None`.
+
+        Parameters
+        ----------
+        name : str
+            column name to add
+        value : list-like
+            The column values
+        bintable : int, optional
+            Index of the binary table on which to operate, or None for all binary tables. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        # If we pass the data through a astropy Table first, then the conversion of
+        # numpy array dtype to FITS format string (e.g, '12A') gets done automatically and correctly.
+        # print(f"_add_binary_table_column({name}, v={value}, bintable={bintable})")
+        if bintable is not None:
+            if len(value) != self.nrows(bintable):
+                raise ValueError(
+                    f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.nrows(bintable)}) aren't equal."
+                )
+            t = BinTableHDU(Table(names=[name], data=[value]))
+            self._bintable[bintable].columns.add_col(t.columns[name])
+        else:
+            if len(value) != self.total_rows:
+                raise ValueError(
+                    f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.total_rows}) aren't equal."
+                )
+            # Split values up by length of the individual binary tables
+            start = 0
+            for i in range(len(self._nrows)):
+                print(f"new column {name}")
+                n = self._nrows[i]
+                print(f"bintable {i} value={value}")
+                t = BinTableHDU(Table(names=[name], data=value[start : start + n]))
+                self._bintable[i].columns.add_col(t.columns[name])
+                start = start + n
+
+    def _update_binary_table_column(self, column_dict):
+        """Change or add one or more columns to the SDFITS binary table(s)
+
+        Parameters
+        ----------
+            column_dict : dict
+            Dictionary with column names as keys and column values
+        """
+        # if there is only one bintable, it is straightforward.
+        # BinTableHDU interface will take care of the types and data lengths matching.
+        # It will even allow the case where len(values) == 1 to replace all column values with
+        # a single value.
+        if len(self._bintable) == 1:
+            for k, v in column_dict.items():
+                # data is an astropy.io.fits.fitsrec.FITS_rec
+                is_str = isinstance(v, str)
+                if is_str or not isinstance(v, (Sequence, np.ndarray)):
+                    v = np.full(len(self._bintable[0].data), v)
+                if k in self._bintable[0].data.names:
+                    self._bintable[0].data[k] = v
+                # otherwise we need to add rather than replace/update
+                else:
+                    # print("ADDING {k}={v}")
+                    self._add_binary_table_column(k, v, 0)
+        else:
+            start = 0
+            for k, v in column_dict.items():
+                is_str = isinstance(v, str)
+                if not is_str and isinstance(v, (Sequence, np.ndarray)) and len(v) != self.total_rows:
+                    raise ValueError(
+                        f"Length of values array ({len(v)}) for column {k} and total number of rows ({self.total_rows}) aren't equal."
+                    )
+                # Split values up by length of the individual binary tables
+                for j in range(len(self._bintable)):
+                    b = self._bintable[j]
+                    if k in b.data.names:
+                        n = len(b.data)
+                        if is_str or not isinstance(v, (Sequence, np.ndarray)):
+                            # print(f"ADD setting bintable[{j}][{k}]={v}")
+                            b.data[k] = v
+                        else:
+                            # print(f"doing bintable {b} {k} {v[start:start+n]}")
+                            b.data[k] = v[start : start + n]
+                        start = start + n
+                    else:
+                        v1 = v
+                        n = len(b.data)
+                        if is_str or not isinstance(v, (Sequence, np.ndarray)):
+                            # we have to make an array from v
+                            # print(f"{k} expanding {v} to {len(b.data)} for bintable {j}")
+                            # need a new variable here or multiple loops keep expanding v
+                            v1 = np.full(n, v)
+                            # print(f"trying to add {k}={v1}")
+                        else:
+                            v1 = v[start : start + n]
+                            start = start + n
+                        self._add_binary_table_column(k, v1, j)
+
+    def __getitem__(self, items):
+        # items can be a single string or a list of strings.
+        # Want case insensitivity
+        # @todo deal with "DATA"
+        if isinstance(items, str):
+            items = items.upper()
+        elif isinstance(items, (Sequence, np.ndarray)):
+            items = [i.upper() for i in items]
+        else:
+            raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
+        if "DATA" in items:
+            if not np.all([b.data["DATA"].shape == self._bintable[0].data["DATA"].shape for b in self._bintable]):
+                raise ValueError(
+                    "Data columns for multiple binary tables in this SDFITSLoad have different shapes. They can only be accessed via _bintable.data['DATA'] attribute."
+                )
+            if len(self._bintable) == 1:
+                return self._bintable[0].data["DATA"]
+            else:
+                return np.vstack([b.data["DATA"] for b in self._bintable])
+        return self._index[items]
+
+    def __setitem__(self, items, values):
+        # @todo deal with "DATA"
+        if isinstance(items, str):
+            items = items.upper()
+            d = {items: values}
+        # we won't support multiple keys for setting right now.
+        # ultimately it could be done with recursive call to __setitem__
+        # for each key/val pair
+        # elif isinstance(items, (Sequence, np.ndarray)):
+        #    items = [i.upper() for i in items]
+        #    d = {i: values[i] for i in items}
+        else:
+            raise KeyError(f"Invalid key {items}. Keys must be str")
+        if "DATA" in items:
+            warnings.warn("Beware: you are changing the DATA column.")
+        # warn if changing an existing column
+        if isinstance(items, str):
+            iset = set([items])
+        else:
+            iset = set(items)
+        col_exists = len(set(self.columns).intersection(iset)) > 0
+        # col_in_selection =
+        if col_exists and "DATA" not in items:
+            warnings.warn("Changing an existing SDFITS column")
+        try:
+            self._update_binary_table_column(d)
+        except Exception as e:
+            raise Exception(f"Could not update SDFITS binary table because {e}")
+        # only update the index if the binary table could be updated.
+        # DATA is not in the index.
+        if "DATA" not in items:
+            self._index[items] = values

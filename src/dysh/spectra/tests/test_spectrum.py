@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.spectra.spectrum import Spectrum
+from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum
 from dysh.util import get_project_testdata
 
 
@@ -23,6 +23,23 @@ def fit_gauss(spectrum):
     g_fit = fit_lines(spectrum, g_init)
 
     return g_fit
+
+
+def compare_spectrum(one, other):
+    """ """
+
+    for k, v in vars(one).items():
+        if k in IGNORE_ON_COPY:
+            continue
+        # elif k in ["_data", "_mask", "_weights"]:
+        #    assert np.all(v == vars(other)[k])
+        elif k in ["_wcs"]:
+            v.to_header() == vars(other)[k].to_header()
+        elif k in ["_spectral_axis"]:
+            for k_, v_ in vars(v).items():
+                assert v_ == vars(vars(other)[k])[k_]
+        else:
+            assert v == vars(other)[k]
 
 
 class TestSpectrum:
@@ -52,6 +69,7 @@ class TestSpectrum:
         assert np.all(addition.flux.value == (self.ps0.flux.value + self.ps1.flux.value))
         assert addition.flux.unit == self.ps0.flux.unit
         assert addition.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, addition)
 
     def test_add_scalar(self):
         """Test that we can add a scalar to a `Spectrum`."""
@@ -61,6 +79,7 @@ class TestSpectrum:
         assert np.all(addition.flux.value == (self.ps0.flux.value + 10.0))
         assert addition.flux.unit == self.ps0.flux.unit
         assert addition.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, addition)
 
     def test_radd_scalar(self):
         """Test that we can add a scalar to a `Spectrum`."""
@@ -70,6 +89,7 @@ class TestSpectrum:
         assert np.all(addition.flux.value == (self.ps0.flux.value + 10.0))
         assert addition.flux.unit == self.ps0.flux.unit
         assert addition.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, addition)
 
     def test_sub(self):
         """Test that we can subtract two `Spectrum`."""
@@ -79,6 +99,7 @@ class TestSpectrum:
         assert np.all(subtraction.flux.value == (self.ps0.flux.value - self.ps1.flux.value))
         assert subtraction.flux.unit == self.ps0.flux.unit
         assert subtraction.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, subtraction)
 
     def test_sub_scalar(self):
         """Test that we can subtract a scalar from a `Spectrum`."""
@@ -88,6 +109,7 @@ class TestSpectrum:
         assert np.all(subtraction.flux.value == (self.ps0.flux.value - 10.0))
         assert subtraction.flux.unit == self.ps0.flux.unit
         assert subtraction.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, subtraction)
 
     def test_rsub_scalar(self):
         """Test that we can subtract a scalar from a `Spectrum`."""
@@ -97,6 +119,7 @@ class TestSpectrum:
         assert np.all(subtraction.flux.value == (10.0 - self.ps0.flux.value))
         assert subtraction.flux.unit == self.ps0.flux.unit
         assert subtraction.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, subtraction)
 
     def test_mul(self):
         """Test that we can multiply two `Spectrum`."""
@@ -105,6 +128,7 @@ class TestSpectrum:
         assert np.all(multiplication.flux.value == (self.ps0.flux.value * self.ps1.flux.value))
         assert multiplication.flux.unit == self.ps0.flux.unit * self.ps1.flux.unit
         assert multiplication.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, multiplication)
 
     def test_mul_scalar(self):
         """Test that we can multiply a `Spectrum` and a scalar."""
@@ -113,6 +137,7 @@ class TestSpectrum:
         assert np.all(multiplication.flux.value == (self.ps0.flux.value))
         assert multiplication.flux.unit == self.ps0.flux.unit
         assert multiplication.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, multiplication)
 
     def test_rmul_scalar(self):
         """Test that we can multiply a `Spectrum` and a scalar."""
@@ -121,6 +146,7 @@ class TestSpectrum:
         assert np.all(multiplication.flux.value == (self.ps0.flux.value))
         assert multiplication.flux.unit == self.ps0.flux.unit
         assert multiplication.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, multiplication)
 
     def test_div(self):
         """Test that we can divide two `Spectrum`."""
@@ -128,6 +154,7 @@ class TestSpectrum:
 
         assert np.all(division.flux.value == (self.ps0.flux.value / self.ps1.flux.value))
         assert division.flux.unit == self.ps0.flux.unit / self.ps1.flux.unit
+        compare_spectrum(self.ps0, division)
 
     def test_div_scalar(self):
         """Test that we can divide a `Spectrum` by a scalar."""
@@ -136,6 +163,7 @@ class TestSpectrum:
         assert np.all(division.flux.value == (self.ps0.flux.value))
         assert division.flux.unit == self.ps0.flux.unit
         assert division.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, division)
 
     def test_write_read_fits(self, tmp_path):
         """Test that we can read fits files written by dysh"""
