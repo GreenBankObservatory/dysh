@@ -312,6 +312,10 @@ def log_call_to_history(func: Callable):
                     dhlogger.info(f"DYSH v{dysh_version}", *args, extra=extra)
                     log_str = [format_dysh_log_record(i) for i in log_list]
                     self._history.extend(log_str)
+                    # Handle the case where we want the result, e.g. a ScanBlock
+                    # to record the parent class call that created it.
+                    if hasattr(result, "_history"):
+                        result._history.extend(log_str)
             else:
                 logger.warn(
                     f"Class {func.__module__}.{classname} has no _history attribute. Use @log_function_call instead."
