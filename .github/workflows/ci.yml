@@ -69,7 +69,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: coverage.*
-          path: coverate-data
+          path: coverage-data
           merge-multiple: true
       - name: Combine coverage
         run: |
