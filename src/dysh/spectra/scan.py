@@ -598,6 +598,11 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         form = f"{np.shape(data)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=data))
         b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
+        # preserve any meta
+        for k, v in table_meta.items():
+            if k == "HISTORY" or k == "COMMENT":
+                continue  # will deal with these later
+            b.header[k] = v
         for h in self._history:
             b.header["HISTORY"] = h
         for c in self._comments:
