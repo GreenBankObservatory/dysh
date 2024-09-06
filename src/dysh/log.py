@@ -410,7 +410,6 @@ class HistoricalBase(ABC):
             self._history.extend(history)
         else:
             self._history.append(history)
-        print("ADDED ", history)
 
     # def merge_commentary(self, other: Self) -> None:  # Self not available until python 3.11
     def merge_commentary(self, other: object) -> None:
