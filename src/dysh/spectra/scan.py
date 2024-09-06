@@ -559,16 +559,18 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         s0 = self.data[0]
         # If there is only one scan, delegate to its write method
-        if len(self.data) == 1:
-            s0.write(fileobj, output_verify, overwrite, checksum)
-            return
+        # this does not preserve scanblock history
+        # if len(self.data) == 1:
+        #    print("only one scan")
+        #   s0.write(fileobj, output_verify, overwrite, checksum)
+        #   return
         # Meta are the keys of the first scan's bintable except for DATA.
         # We can use this to compare with the subsequent Scan
         # keywords without have to create their bintables first.
         defaultkeys = set(s0._meta[0].keys())
         datashape = np.shape(s0._calibrated)
         tablelist = [s0._meta_as_table()]
-        for scan in self.data[1:]:
+        for scan in self.data:  # [1:]:
             # check data shapes are the same
             thisshape = np.shape(scan._calibrated)
             if thisshape != datashape:
@@ -591,14 +593,16 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         table = vstack(tablelist, join_type="exact")
         # need to preserve table.meta because it gets lost in created of "cd" ColDefs
         table_meta = table.meta
-
         cd = BinTableHDU(table, name="SINGLE DISH").columns
         data = np.concatenate([c._calibrated for c in self.data])
         form = f"{np.shape(data)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=data))
         b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
-        for k, v in table_meta.items():  # ensure history and comments make it out
-            b.header[k] = v
+        for h in self._history:
+            b.header["HISTORY"] = h
+        for c in self._comments:
+            b.header["COMMENT"] = c
+
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
