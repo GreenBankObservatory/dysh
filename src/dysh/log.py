@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Callable, NewType, Union  # , Self # not available until 3.11
 
 import _testcapi
+from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
 
 from . import version
@@ -374,7 +375,7 @@ class HistoricalBase(ABC):
 
         Parameters
         ----------
-        comment : str or list of str
+        comment : str or list of str or `~astropy.io.fits.header._HeaderCommentaryCards`
             The comment(s) to add
 
         Returns
@@ -382,7 +383,7 @@ class HistoricalBase(ABC):
         None.
 
         """
-        if isinstance(comment, list):
+        if isinstance(comment, list) or isinstance(comment, _HeaderCommentaryCards):
             self._comments.extend(comment)
         else:
             self._comments.append(comment)
@@ -393,7 +394,7 @@ class HistoricalBase(ABC):
 
         Parameters
         ----------
-        history : str or list of str
+        history : str or list of str or `~astropy.io.fits.header._HeaderCommentaryCards`
             The history card(s) to add
 
         Returns
@@ -401,10 +402,11 @@ class HistoricalBase(ABC):
         None.
 
         """
-        if isinstance(history, list):
+        if isinstance(history, list) or isinstance(history, _HeaderCommentaryCards):
             self._history.extend(history)
         else:
             self._history.append(history)
+        print("ADDED ", history)
 
     # def merge_commentary(self, other: Self) -> None:  # Self not available until python 3.11
     def merge_commentary(self, other: object) -> None:
