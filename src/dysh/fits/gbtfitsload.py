@@ -78,7 +78,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Add in any history/comment that were in the previous file(s)
         for sdf in self._sdf:
             for h in sdf._hdu:
-                print(h.header.get("HISTORY", "No history!"))
                 self.add_history(h.header.get("HISTORY", []))
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
