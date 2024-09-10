@@ -12,7 +12,7 @@ from astropy.io import fits
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
-from ..log import HistoricalBase, log_call_to_history
+from ..log import HistoricalBase, dysh_date, log_call_to_history, log_call_to_result
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Selection
@@ -105,7 +105,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
-        self.add_history(f"Project ID: {self.projectID}")
+        self.add_history(f"{dysh_date()} - Project ID: {self.projectID}")
 
     def __repr__(self):
         return str(self.files)
@@ -696,7 +696,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for s in self._sdf:
             s.info()
 
-    @log_call_to_history
+    @log_call_to_result
     def getfs(
         self,
         calibrate=True,
@@ -841,7 +841,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return scanblock
         # end of getfs()
 
-    @log_call_to_history
+    @log_call_to_result
     def getps(
         self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
     ):
@@ -980,7 +980,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock.merge_commentary(self)
         return scanblock
 
-    @log_call_to_history
+    @log_call_to_result
     def gettp(
         self,
         sig=None,
@@ -1101,7 +1101,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return scanblock
 
     # @todo sig/cal no longer needed?
-    @log_call_to_history
+    @log_call_to_result
     def subbeamnod(
         self,
         method="cycle",

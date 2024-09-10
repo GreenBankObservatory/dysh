@@ -55,6 +55,10 @@ dysh_history_formatter = logging.Formatter(
 )
 
 
+def dysh_date():
+    return datetime.now().strftime(dysh_date_format)
+
+
 config = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -255,6 +259,69 @@ def format_dysh_log_record(record: logging.LogRecord) -> str:
     return logmsg
 
 
+def log_call_to_result(func: Callable):
+    """
+    Decorator to log a class method call to the method's resultant class's `_history` attribute.
+    If the resultant class has no such attribute, the function is still called but no logging takes place.
+
+    Parameters
+    ----------
+    func : method
+        The class method.
+
+    Returns
+    -------
+    Any
+        The result of the method call
+
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self is None:
+            try:
+                result = func(*args, **kwargs)
+            except:  # remove the wrapper from the stack trace
+                tp, exc, tb = sys.exc_info()
+                _testcapi.set_exc_info(tp, exc, tb.tb_next)
+                del tp, exc, tb
+                raise
+        else:
+            try:
+                result = func(self, *args, **kwargs)
+            except:  # remove the wrapper from the stack trace
+                tp, exc, tb = sys.exc_info()
+                _testcapi.set_exc_info(tp, exc, tb.tb_next)
+                del tp, exc, tb
+                raise
+        resultname = result.__class__.__name__
+        if hasattr(result, "_history"):
+            sig = inspect.signature(func)
+            if self is not None:
+                extra = {
+                    "modName": func.__module__,
+                    "className": self.__class__.__name__,
+                    "fName": func.__name__,
+                }
+            else:
+                extra = {
+                    "modName": func.__module__,
+                    "fName": func.__name__,
+                }
+            if "kwargs" in sig.parameters:
+                extra["kwargs"] = kwargs
+            with dhlogger.log_to_list() as log_list:
+                dhlogger.info(f"DYSH v{dysh_version}", *args, extra=extra)
+                log_str = [format_dysh_log_record(i) for i in log_list]
+                if hasattr(result, "_history"):
+                    result._history.extend(log_str)
+        else:
+            logger.warn(f"Class {resultname} has no _history attribute. Use @log_function_call instead.")
+        return result
+
+    return wrapper
+
+
 def log_call_to_history(func: Callable):
     """
     Decorator to log a class method call to the class's `_history` attribute. If the class
@@ -355,7 +422,8 @@ class HistoricalBase(ABC):
         """
         # remove duplicates, due to inherited classes
         self._remove_duplicates()
-        return self._history
+        # time sort
+        return sorted(self._history)
 
     @property
     def comments(self) -> StrList:
