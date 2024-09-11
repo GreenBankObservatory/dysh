@@ -711,7 +711,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
             t = Table(outarray, names=outnames, meta={"keywords": d}, descriptions=description)
         else:
             t = Table(outarray, names=outnames, meta=meta, descriptions=description)
+        # print("TMETA H ", t.meta.get("HISTORY", "NO HISTORY"))
 
+        for hh in meta.get("HISTORY", None):
+            print(f"{type(hh)}")
+        # print("TMETA C ", t.meta.get("COMMENT", "NO COMMENT"))
         # for now ignore complaints about keywords until we clean them up.
         # There are some that are more than 8 chars that should be fixed in GBTFISLOAD
         warnings.simplefilter("ignore", VerifyWarning)
@@ -933,6 +937,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # so temporarily remove history and comment values
                 savehist = meta.pop("HISTORY", None)
                 savecomment = meta.pop("COMMENT", None)
+                if savecomment is None:
+                    savecomment = meta.pop("comments", None)
+                # print(f"{meta=}")
                 wcs = WCS(header=meta)
                 if savehist is not None:
                     meta["HISTORY"] = savehist
@@ -1261,6 +1268,7 @@ def _read_table(fileobj, format, **kwargs):
         spectral_axis = spectral_axis.values * u.Unit(units)
         meta["VELDEF"] = velocity_convention + "-" + vd
         meta["POL"] = h3[1]
+
         s = Spectrum(flux=flux.values * fu, spectral_axis=spectral_axis, meta=meta)
         return s
 

@@ -441,7 +441,7 @@ class HistoricalBase(ABC):
         self._remove_duplicates()
         return self._comments
 
-    def add_comment(self, comment: Union[str, StrList]) -> None:
+    def add_comment(self, comment: Union[str, StrList], add_time: bool = False) -> None:
         """
         Add one or more comments to the class metadata.
 
@@ -449,18 +449,31 @@ class HistoricalBase(ABC):
         ----------
         comment : str or list of str or `~astropy.io.fits.header._HeaderCommentaryCards`
             The comment(s) to add
+        add_time: bool
+            If True, prepend the date and time the history was added
 
         Returns
         -------
         None.
 
         """
+        if add_time:
+            _time = datetime.now().strftime(dysh_date_format)
         if isinstance(comment, list) or isinstance(comment, _HeaderCommentaryCards):
-            self._comments.extend(comment)
+            if add_time:  # tag each comment in list
+                for c in comment:
+                    h = f"{_time} - {c}"
+                    self.add_comment(h, add_time=False)
+            else:
+                self._comments.extend(comment)
         else:
-            self._comments.append(comment)
+            if add_time:
+                h = f"{_time} - {comment}"
+                self._comments.append(h)
+            else:
+                self._comments.append(comment)
 
-    def add_history(self, history: Union[str, StrList]) -> None:
+    def add_history(self, history: Union[str, StrList], add_time: bool = False) -> None:
         """
         Add one or more history entries to the class metadata
 
@@ -468,16 +481,29 @@ class HistoricalBase(ABC):
         ----------
         history : str or list of str or `~astropy.io.fits.header._HeaderCommentaryCards`
             The history card(s) to add
+        add_time: bool
+            If True, prepend the date and time the history was added.
 
         Returns
         -------
         None.
 
         """
+        if add_time:
+            _time = datetime.now().strftime(dysh_date_format)
         if isinstance(history, list) or isinstance(history, _HeaderCommentaryCards):
-            self._history.extend(history)
+            if add_time:  # tag each comment in list
+                for c in history:
+                    h = f"{_time} - {c}"
+                    self.add_history(h, add_time=False)
+            else:
+                self._history.extend(history)
         else:
-            self._history.append(history)
+            if add_time:
+                h = f"{_time} - {history}"
+                self._history.append(h)
+            else:
+                self._history.append(history)
 
     # def merge_commentary(self, other: Self) -> None:  # Self not available until python 3.11
     def merge_commentary(self, other: object) -> None:

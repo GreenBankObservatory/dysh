@@ -749,9 +749,9 @@ class Selection(DataFrame):
         """
         Print the current selection rules. Only columns with a rule are shown.
         The first two columns are ID number a TAG string. Either of these may be used
-        to :meth:remove a row.  The final column `# SELECTED` gives
+        to :meth:`remove` a row.  The final column `# SELECTED` gives
         the number of rows that a given rule selects from the original.
-        The :meth:final selection may be fewer rows because each selection rule
+        The :meth:`final` selection may be fewer rows because each selection rule
         is logically OR'ed to create the final selection.
 
         Returns

@@ -72,7 +72,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if kwargs.get("verbose", None):
                     print(f"doing {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
-            self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}")
+            self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}", add_time=True)
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
         # Add in any history/comment that were in the previous file(s)
@@ -105,7 +105,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
-        self.add_history(f"{dysh_date()} - Project ID: {self.projectID}")
+        self.add_history(f"Project ID: {self.projectID}", add_time=True)
 
     def __repr__(self):
         return str(self.files)

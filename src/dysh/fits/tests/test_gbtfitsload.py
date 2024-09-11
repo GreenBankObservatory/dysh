@@ -656,4 +656,4 @@ class TestGBTFITSLoad:
         sdf.add_history("ran the test for history and comments")
         assert "My dear Aunt Sally" in sdf.comments
         assert "ran the test for history and comments" in sdf.history
-        assert "Project ID: AGBT18B_354_03" in sb.history
+        assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
