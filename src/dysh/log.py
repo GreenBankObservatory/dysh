@@ -16,6 +16,7 @@ from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
 
 from . import version
+from .util import ensure_ascii
 
 LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")
@@ -412,7 +413,8 @@ class HistoricalBase(ABC):
     def history(self) -> StrList:
         """
         Get the history strings. These are typically converted to FITS HISTORY cards by the derived class.
-        Duplicate entries are removed.
+        Duplicate entries are removed.  History strings are cleaned of non-ASCII and
+        non-printable characters that are invalid in FITS Cards
 
         Returns
         -------
@@ -423,13 +425,14 @@ class HistoricalBase(ABC):
         # remove duplicates, due to inherited classes
         self._remove_duplicates()
         # time sort
-        return sorted(self._history)
+        return sorted(ensure_ascii(self._history))
 
     @property
     def comments(self) -> StrList:
         """
         Get the comment strings. These are typically converted to FITS COMMENT cards by the derived class.
-        Duplicate comments are removed.
+        Duplicate comments are removed. Comment  strings are cleaned of non-ASCII and
+        non-printable characters that are invalid in FITS Cards
 
         Returns
         -------
@@ -439,7 +442,7 @@ class HistoricalBase(ABC):
         """
         # remove duplicates, due to inherited classes
         self._remove_duplicates()
-        return self._comments
+        return ensure_ascii(self._comments)
 
     def add_comment(self, comment: Union[str, StrList], add_time: bool = False) -> None:
         """
@@ -489,15 +492,16 @@ class HistoricalBase(ABC):
         None.
 
         """
+        history = ensure_ascii(history, check=True)
         if add_time:
             _time = datetime.now().strftime(dysh_date_format)
         if isinstance(history, list) or isinstance(history, _HeaderCommentaryCards):
-            if add_time:  # tag each comment in list
-                for c in history:
+            for c in history:
+                if add_time:  # tag each comment in list
                     h = f"{_time} - {c}"
                     self.add_history(h, add_time=False)
-            else:
-                self._history.extend(history)
+                else:
+                    self._history.extend(history)
         else:
             if add_time:
                 h = f"{_time} - {history}"

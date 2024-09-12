@@ -36,7 +36,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 )
 from ..log import HistoricalBase, log_call_to_history
 from ..plot import specplot as sp
-from ..util import minimum_string_match
+from ..util import ensure_ascii, minimum_string_match
 from . import baseline, get_spectral_equivalency
 
 # from astropy.nddata import StdDevUncertainty
@@ -696,8 +696,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         meta.pop("NAXIS1", None)
         meta.pop("TDIM7", None)
         meta.pop("TUNIT7", None)
-        meta["HISTORY"] = self._history  # should append instead?
-        meta["COMMENT"] = self._comments  # append instead?
+        meta["HISTORY"] = self.history  # use property not _history to ensure ascii
+        meta["COMMENT"] = self.comments
         if format == "mrt":
             ulab = "e_flux"  # MRT convention that error on X is labeled e_X
         else:
@@ -711,11 +711,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             t = Table(outarray, names=outnames, meta={"keywords": d}, descriptions=description)
         else:
             t = Table(outarray, names=outnames, meta=meta, descriptions=description)
-        # print("TMETA H ", t.meta.get("HISTORY", "NO HISTORY"))
-
-        for hh in meta.get("HISTORY", None):
-            print(f"{type(hh)}")
-        # print("TMETA C ", t.meta.get("COMMENT", "NO COMMENT"))
         # for now ignore complaints about keywords until we clean them up.
         # There are some that are more than 8 chars that should be fixed in GBTFISLOAD
         warnings.simplefilter("ignore", VerifyWarning)
