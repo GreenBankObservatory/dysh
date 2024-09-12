@@ -36,7 +36,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 )
 from ..log import HistoricalBase, log_call_to_history
 from ..plot import specplot as sp
-from ..util import ensure_ascii, minimum_string_match
+from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
 
 # from astropy.nddata import StdDevUncertainty
