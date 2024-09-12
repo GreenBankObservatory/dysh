@@ -1057,7 +1057,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._copy_attributes(result)
         return result
 
-
     def _copy_attributes(self, other):
         """
         Copy `Spectrum` attributes after
@@ -1068,8 +1067,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
         for k, v in vars(self).items():
             if k not in IGNORE_ON_COPY:
                 vars(other)[k] = deepcopy(v)
-        #other.add_history(self._history)
-        #other.add_comment(self._comments)
+        # other.add_history(self._history)
+        # other.add_comment(self._comments)
+
     #        other._target = self._target
     #        other._observer = self._observer
     #        other._velocity_frame = self._velocity_frame
