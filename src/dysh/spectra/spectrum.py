@@ -9,7 +9,7 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.coordinates import SkyCoord, SpectralCoord, StokesCoord
-from astropy.coordinates.spectral_coordinate import NoVelocityWarning
+from astropy.coordinates.spectral_coordinate import attach_zero_velocities
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
@@ -40,6 +40,19 @@ from ..util import ensure_ascii, minimum_string_match
 from . import baseline, get_spectral_equivalency
 
 # from astropy.nddata import StdDevUncertainty
+
+# Spectrum attributes to be ignored by Spectrum._copy_attributes
+IGNORE_ON_COPY = [
+    "_data",
+    "_flux",
+    "_meta",
+    "_mask",
+    "_weights",
+    "_baseline_model",
+    "_plotter",
+    "_uncertainty",
+    "_unit",
+]
 
 
 class Spectrum(Spectrum1D, HistoricalBase):
@@ -110,8 +123,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._exclude_regions = None
         self._include_regions = None  # do we really need this?
         self._plotter = None
-        # @todo fix resolution, including what units to use
-        self._resolution = 1  # placeholder
+        # `self._resolution` is the spectral resolution in channels.
+        # This will be 1 for VEGAS, and >1 for the ACS.
+        if "FREQRES" in self.meta and "CDELT1" in self.meta:
+            self._resolution = self.meta["FREQRES"] / abs(self.meta["CDELT1"])
+        else:
+            self._resolution = 1
 
     @property
     def weights(self):
@@ -323,43 +340,68 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
             roll : int
                 Return statistics on a 'rolled' array differenced with the
-                origibnal array. If no correllaton between subsequent point,
-                a roll=1 would return an RMS  sqrt(2) larger than that of the
+                original array. If there is no correllaton between channels,
+                a roll=1 would return an RMS sqrt(2) larger than that of the
                 input array. Another advantage of rolled statistics it will
                 remove most slow variations, thus RMS/sqrt(2) might be a better
                 indication of the underlying RMS.
         Returns
         -------
-        stats : tuple
-            Tuple consisting of (mean,rms,datamin,datamax)
-
-
+        stats : dict
+            Dictionary consisting of (mean,median,rms,datamin,datamax)
         """
-        # @todo: maybe make this a dict return value a dict
+
         if roll == 0:
             mean = self.mean()
-            rms = self.data.std()
+            median = self.median()
+            rms = self.flux.std()
             dmin = self.min()
             dmax = self.max()
         else:
-            d = self._data[roll:] - self._data[:-roll]
+            d = self[roll:] - self[:-roll]
             mean = d.mean()
-            rms = d.std()
+            median = d.median()
+            rms = d.flux.std()
             dmin = d.min()
             dmax = d.max()
-        return (mean, rms, dmin, dmax)
 
-    def _decimate(self, n, offset=0):
-        """Decimate a spectrum by n pixels, starting at pixel offset
-        @todo deprecate?   decimation is in smooth, do we need a separate one?
+        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax}
+
+        return out
+
+    def decimate(self, n):
         """
+        Decimate a `Spectrum` by n pixels.
+
+        Parameters
+        ----------
+        n : int
+            Decimation factor of the spectrum by returning every n-th channel.
+
+        Returns
+        -------
+        s : Spectrum
+            The decimated Spectrum.
+        """
+
+        if not float(n).is_integer():
+            raise ValueError(f"`n` ({n}) must be an integer.")
+
         nchan = len(self._data)
-        print("_decimate deprecated", nchan, offset, n)
-        idx = np.arange(offset, nchan, n)
-        new_data = self._data[idx] * u.K  # why units again?
-        s = Spectrum.make_spectrum(new_data, meta=self.meta)
-        s._spectral_axis = self._spectral_axis[idx]
-        # @todo  fix WCS
+        new_meta = deepcopy(self.meta)
+        idx = np.arange(0, nchan, n)
+        new_cdelt1 = self.meta["CDELT1"] * n
+        cell_shift = 0.5 * (n - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
+        new_data = self.data[idx] * self.flux.unit
+        new_meta["CDELT1"] = new_cdelt1
+        new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
+        new_meta["CRVAL1"] += cell_shift
+
+        s = Spectrum.make_spectrum(new_data, meta=new_meta)
+
+        if self._baseline_model is not None:
+            s._baseline_model = None
+
         return s
 
     @log_call_to_history
@@ -381,16 +423,16 @@ class Spectrum(Spectrum1D, HistoricalBase):
             For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
             signal at the edges, and will thus not reproduce GBTIDL.
-            For 'gaussian' this is the FWHM of the final beam. We normally
-            assume the input beam has FWHM=1, pending resolution on cases
-            where CDELT1 is not the same as FREQRES.
+            For 'gaussian' this is the FWHM of the final frequency response.
+            That is, the smoothed `Spectrum` will have an effective frequency resolution
+            equal to CDELT1*`width`.
             The default is 1.
         decimate : int, optional
-            Decimation factor of the spectrum by returning every width channel.
+            Decimation factor of the spectrum by returning every decimate channel.
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-            The default is 0, meaning decimation is by 'width'
+            The default is 0, meaning decimation is by `width`
         kernel : `~numpy.ndarray`, optional
             A numpy array which is the kernel by which the signal is convolved.
             Use with caution, as it is assumed the kernel is normalized to
@@ -403,16 +445,22 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ------
         Exception
             If no valid smoothing method is given.
+        ValueError
+            If `width` is less than one.
+            If `width` is less than the spectral resolution (in channels).
+            If `decimate` is not an integer.
 
         Returns
         -------
         s : Spectrum
             The new, possibly decimated, convolved spectrum.
-            The meta data are currently passed on,and hence will
-            contain some original WCS parameters.
         """
         nchan = len(self._data)
-        decimate = int(decimate)
+        # decimate = int(decimate) # Should we change this value and tell the user, or just error out?
+        # For now, we'll error out if decimate is not an integer..
+
+        if width < 1:
+            raise ValueError(f"`width` ({width}) must be >=1.")
 
         # @todo  see also core.smooth() for valid_methods
         valid_methods = ["hanning", "boxcar", "gaussian"]
@@ -420,44 +468,45 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if this_method == None:
             raise Exception(f"smooth({method}): valid methods are {valid_methods}")
 
+        if not float(decimate).is_integer():
+            raise ValueError("`decimate` must be an integer.")
+
+        # All checks for smoothing should be completed by this point.
+        # Create a new metadata dictionary to modify by smooth.
+        new_meta = deepcopy(self.meta)
+
         if this_method == "gaussian":
-            stddev = np.sqrt(width**2 - self._resolution**2) / 2.35482
+            if width <= self._resolution:
+                raise ValueError(
+                    f"`width` ({width} channels) cannot be less than the current resolution ({self._resolution} channels)."
+                )
+            kwidth = np.sqrt(width**2 - self._resolution**2)  # Kernel effective width.
+            stddev = kwidth / 2.35482
             s1 = core.smooth(self._data, this_method, stddev)
         else:
+            kwidth = width
             s1 = core.smooth(self._data, this_method, width)
 
         new_data = s1 * self.flux.unit
+        new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
+
+        s = Spectrum.make_spectrum(new_data, meta=new_meta)
+        s._baseline_model = self._baseline_model
+
+        # Now decimate if needed.
         if decimate >= 0:
+
             if decimate == 0:
-                # take the default decimation by 'width'
-                idx = np.arange(0, nchan, width)
-                new_resolution = 1  # new resolution in the new pixel width
-                cell_shift = 0.5 * (width - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-            else:
-                # user selected decimation (but should be <= width)
-                if decimate > width:
-                    raise Exception(f"Cannot decimate with more than width {width}")
-                idx = np.arange(0, nchan, decimate)
-                new_resolution = np.sqrt(width**2 - decimate**2)  # @todo dangerous?
-                cell_shift = 0.5 * (decimate - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-            # print("    cell_shift:", cell_shift)
-            new_data = new_data[idx]
-            new_meta = deepcopy(self.meta)
-            new_meta["CDELT1"] = width * self.meta["CDELT1"]  # @todo etc ???
-            s = Spectrum.make_spectrum(new_data, meta=new_meta)
-            s._spectral_axis = self._spectral_axis[idx]
-            for i in range(len(s._spectral_axis)):  # grmpf, no proper setter
-                s._spectral_axis.value[i] += cell_shift
-            if self._baseline_model is not None:
-                print("Warning: removing baseline_model")
-                s._baseline_model = None  # was already None
-            s._resolution = new_resolution
-            # @todo  fix WCS
-        else:
-            s = Spectrum.make_spectrum(new_data, meta=self.meta)
-            s._baseline_model = self._baseline_model  # it never got copied
-            s._resolution = width
-            # @todo   resolution is not well defined multiple methods are used in succession
+                # Take the default decimation by `width`.
+                decimate = int(abs(width))
+                if not float(width).is_integer():
+                    print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
+
+            s = s.decimate(decimate)
+
+        # Update the spectral resolution in channel units.
+        s._resolution = s.meta["FREQRES"] / abs(s.meta["CDELT1"])
+
         return s
 
     @property
@@ -879,6 +928,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
         use_wcs : bool
             If True, create a WCS object from `meta`
+            Default: True
         observer_location : `~astropy.coordinates.EarthLocation` or str
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
@@ -891,7 +941,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The spectrum object
         """
         # @todo add resolution being the channel separation, unless we use the FREQRES column
-        warnings.simplefilter("ignore", NoVelocityWarning)
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # @todo requirement should be either DATE-OBS or MJD-OBS, but make_target() needs to be updated
         # in that case as well.
@@ -941,9 +990,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 if savecomment is not None:
                     meta["COMMENT"] = savecomment
                 # It would probably be safer to add NAXISi to meta.
-                wcs.array_shape = (0, 0, 0, len(data))
+                if wcs.naxis > 3:
+                    wcs.array_shape = (0, 0, 0, len(data))
                 # For some reason these aren't identified while creating the WCS object.
-                wcs.wcs.obsgeo[:3] = meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
+                if "SITELONG" in meta.keys():
+                    wcs.wcs.obsgeo[:3] = meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
                 # Reset warnings.
         else:
             wcs = None
@@ -969,7 +1020,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
             if observer_location is None:
                 obsitrs = None
             else:
-                obsitrs = SpectralCoord._validate_coordinate(observer_location.get_itrs(obstime=obstime))
+                obsitrs = SpectralCoord._validate_coordinate(
+                    attach_zero_velocities(observer_location.get_itrs(obstime=obstime))
+                )
         else:
             warnings.warn(
                 "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
@@ -985,7 +1038,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             radial_velocity=target.radial_velocity,
             rest_value=meta["RESTFRQ"] * u.Hz,
             observer=obsitrs,
-            # observer_location=observer_location,
             target=target,
         )
         # s._history = []
@@ -1002,21 +1054,31 @@ class Spectrum(Spectrum1D, HistoricalBase):
             result = op(other, **{"handle_meta": handle_meta})
         else:
             result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
-        self._shallow_copy_attributes(result)
+        self._copy_attributes(result)
         return result
 
-    def _shallow_copy_attributes(self, other):
-        other._target = self._target
-        other._observer = self._observer
-        other._velocity_frame = self._velocity_frame
-        other._obstime = self._obstime
-        other._baseline_model = self._baseline_model
-        other._exclude_regions = self._exclude_regions
-        other._mask = self._mask
-        other._subtracted = self._subtracted
-        other.spectral_axis._doppler_convention = self.doppler_convention
-        other.add_history(self._history)
-        other.add_comment(self._comments)
+
+    def _copy_attributes(self, other):
+        """
+        Copy `Spectrum` attributes after
+        an arithmetic operation.
+        Only copy attributes that are not modified by the arithmetic.
+        I.e., do not copy the "_flux" attribute.
+        """
+        for k, v in vars(self).items():
+            if k not in IGNORE_ON_COPY:
+                vars(other)[k] = deepcopy(v)
+        #other.add_history(self._history)
+        #other.add_comment(self._comments)
+    #        other._target = self._target
+    #        other._observer = self._observer
+    #        other._velocity_frame = self._velocity_frame
+    #        other._obstime = self._obstime
+    #        other._baseline_model = self._baseline_model
+    #        other._exclude_regions = self._exclude_regions
+    #        other._mask = self._mask
+    #        other._subtracted = self._subtracted
+    #        other._spectral_axis = self.spectral_axis
 
     def __add__(self, other):
         op = self.add
