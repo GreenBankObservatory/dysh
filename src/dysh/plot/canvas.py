@@ -1,20 +1,95 @@
-"""
-Plot a spectrum using matplotlib
-"""
-
-from copy import deepcopy
-
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 
-from ..coordinates import frame_to_label
+from dysh.coordinates import frame_to_label
 
 _KMS = u.km / u.s
 
 
+class InteractiveFigure1D(FigureCanvasQTAgg):
+    """Figure object for interactive plotting"""
+
+    def __init__(self, parent=None):
+        self._plt = plt
+        self._figure, self._axis = plt.subplots()
+        # super().__init__(self._figure)
+        if parent is not None:
+            self.setParent(parent)
+        self._plt.ion()
+
+    @property
+    def plt(self):
+        return self._plt
+
+    @property
+    def figure(self):
+        return self._figure
+
+    @property
+    def axis(self):
+        return self._axis
+
+
+class StaticFigure1D(FigureCanvasAgg):
+    """Figure object for static plotting"""
+
+    def __init__(self):
+        self._plt = plt
+        self._figure, self._axis = plt.subplots()
+        self._plt.ioff()
+
+    @property
+    def plt(self):
+        return self._plt
+
+    @property
+    def figure(self):
+        return self._figure
+
+    @property
+    def axis(self):
+        return self._axis
+
+
+class SpectrumPlotCanvas:
+    """Plot canvas for SpectrumPlot"""
+
+    def __init__(self, interactive=False):
+        self._interactive = interactive
+        self._set_backend()
+
+    def _set_backend(self):
+        """Set the backend based on if the plot is interactive or not"""
+        if self.interactive:
+            self._backend = "InteractiveFigure1D"
+            InteractiveFigure1D.__init__(self)
+        else:
+            self._backend = "StaticFigure1D"
+            StaticFigure1D.__init__(self)
+
+    @property
+    def interactive(self):
+        """Boolean representing if the plot is interactive or not"""
+        return self._interactive
+
+    @property
+    def backend(self):
+        """The backend for the figure canvas"""
+        return self._backend
+
+    @backend.setter
+    def set_backend(self, value):
+        """Set the backend value"""
+        if isinstance(value, str):
+            self._backend = value
+        else:
+            raise ValueError(f"Backend must be a string. Instead received {value} of type {type(value)}.")
+
+
 class SpectrumPlot:
-    # @todo make xaxis_unit='chan[nel]' work
     r"""
     The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
     using matplotlib functions. Plots attributes are modified using keywords
@@ -68,26 +143,42 @@ class SpectrumPlot:
         The velocity convention (see VELDEF FITS Keyword)
     """
 
-    # loc, legend, bbox_to_anchor
-
-    def __init__(self, spectrum, **kwargs):
+    def __init__(self, spectrum, interactive=False, **kwargs):
         self.reset()
+        self._interactive = interactive
+        self._canvas = None
+        self._set_canvas()
         self._spectrum = spectrum
         self._set_xaxis_info()
+        self._set_yaxis_info()
         self._plot_kwargs.update(kwargs)
-        self._plt = plt
-        self._figure = None
-        self._axis = None
         self._title = self._plot_kwargs["title"]
+        self.plot()
 
-    # def __call__ (see pyspeckit)
+    def _set_canvas(self):
+        self._canvas = SpectrumPlotCanvas(self.interactive)
+        self._plt = self._canvas._plt
+        self._figure = self._canvas._figure
+        self._axis = self._canvas._axis
 
     def _set_xaxis_info(self):
         """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
         self._plot_kwargs["doppler_convention"] = self._spectrum.doppler_convention
         self._plot_kwargs["vel_frame"] = self._spectrum.velocity_frame
         self._plot_kwargs["xaxis_unit"] = self._spectrum.spectral_axis.unit
+
+    def _set_yaxis_info(self):
         self._plot_kwargs["yaxis_unit"] = self._spectrum.unit
+
+    @property
+    def canvas(self):
+        """The plotting canvas"""
+        return self._canvas
+
+    @property
+    def interactive(self):
+        """Boolean representing if the plot is interactive or not"""
+        return self._interactive
 
     @property
     def axis(self):
@@ -105,7 +196,6 @@ class SpectrumPlot:
         return self._spectrum
 
     def plot(self, **kwargs):
-        # @todo document kwargs here
         r"""
         Plot the spectrum.
 
@@ -114,55 +204,45 @@ class SpectrumPlot:
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
-        # xtype = 'velocity, 'frequency', 'wavelength'
-        # if self._figure is None:
 
         self._set_xaxis_info()
-        # plot arguments for this call of plot(). i.e. non-sticky plot attributes
-        this_plot_kwargs = deepcopy(self._plot_kwargs)
-        this_plot_kwargs.update(kwargs)
-        if True:  # @todo deal with plot reuse (notebook vs script)
-            self._figure, self._axis = self._plt.subplots(figsize=this_plot_kwargs["figsize"])
-        # else:
-        #    self._axis.cla()
 
         s = self._spectrum
         sa = s.spectral_axis
-        lw = this_plot_kwargs["linewidth"]
-        xunit = this_plot_kwargs["xaxis_unit"]
-        yunit = this_plot_kwargs["yaxis_unit"]
-        if "vel_frame" not in this_plot_kwargs:
-            this_plot_kwargs["vel_frame"] = s.velocity_frame
+        lw = self._plot_kwargs["linewidth"]
+        xunit = self._plot_kwargs["xaxis_unit"]
+        yunit = self._plot_kwargs["yaxis_unit"]
+        if "vel_frame" not in self._plot_kwargs:
+            self._plot_kwargs["vel_frame"] = s.velocity_frame
         if xunit is None:
             xunit = str(sa.unit)
         if "chan" in str(xunit).lower():
             sa = np.arange(len(sa))
-            this_plot_kwargs["xlabel"] = "Channel"
+            self._plot_kwargs["xlabel"] = "Channel"
         else:
             # convert the x axis to the requested
             # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
             # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
             sa = s.velocity_axis_to(
                 unit=xunit,
-                toframe=this_plot_kwargs["vel_frame"],
-                doppler_convention=this_plot_kwargs["doppler_convention"],
+                toframe=self._plot_kwargs["vel_frame"],
+                doppler_convention=self._plot_kwargs["doppler_convention"],
             )
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
-        self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
-        self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
-        self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
+        self._axis.plot(sa, sf, color=self._plot_kwargs["color"], lw=lw)
+        self._axis.set_xlim(self._plot_kwargs["xmin"], self._plot_kwargs["xmax"])
+        self._axis.set_ylim(self._plot_kwargs["ymin"], self._plot_kwargs["ymax"])
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
-        if this_plot_kwargs["grid"]:
+        if self._plot_kwargs["grid"]:
             self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
             self._axis.grid(visible=True, which="minor", axis="both", lw=lw / 2, color="k", alpha=0.22, linestyle="--")
 
-        self._set_labels(**this_plot_kwargs)
+        self._set_labels(**self._plot_kwargs)
         # self._axis.axhline(y=0,color='red',lw=2)
         if self._title is not None:
             self._axis.set_title(self._title)
-        self.refresh()
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -270,8 +350,10 @@ class SpectrumPlot:
         """Refresh the plot"""
         if self.axis is not None:
             self.axis.figure.canvas.draw()
-            # self.axis.figure.canvas.draw_idle()
             self._plt.show()
+
+    def show(self):
+        self.refresh()
 
     def savefig(self, file, **kwargs):
         r"""Save the plot

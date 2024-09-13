@@ -58,7 +58,15 @@ nb = [
   "jupyter",
   "jupyterlab",
 ]
-all = ["dysh[dev,nb]"]
+gui = [
+  "pyqt5",
+  "pyqt5-qt5==5.15.14 ; platform_system != \"Windows\"",
+  "pyqt5-qt5==5.15.2 ; platform_system == \"Windows\"",
+  "pyqtgraph",
+  "qt_material",
+  "screeninfo",
+]
+all = ["dysh[dev,nb,gui]"]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
@@ -188,7 +196,7 @@ filterwarnings = [
 
 [tool.pip-tools]
 src_files = ["pyproject.toml"]
-extra = ["nb", "dev"]
+extra = ["nb", "dev", "gui"]
 resolver = "backtracking"
 output_file= "requirements.txt"
 no_strip_extras = true

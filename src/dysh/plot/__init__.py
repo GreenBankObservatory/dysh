@@ -1,4 +1,3 @@
 """Classes and functions for plotting spectra and SDFITS data"""
 
-__all__ = ["specplot"]
-from .specplot import *
+from .main import plot_spectrum

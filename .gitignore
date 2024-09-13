@@ -8,6 +8,7 @@ docs/jupyter_execute/
 docs/jupyter_cache/
 notebooks/examples/data/*.fits
 notebooks/examples/output/*
+src/dysh/plot/.dev
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
