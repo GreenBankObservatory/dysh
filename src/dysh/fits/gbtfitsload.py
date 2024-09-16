@@ -1891,6 +1891,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return np.vstack([s["DATA"] for s in self._sdf])
         return self._selection[items]
 
+    @log_call_to_history
     def __setitem__(self, items, values):
         # @todo deal with "DATA"
         if isinstance(items, str):
