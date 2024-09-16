@@ -16,6 +16,7 @@ from scipy import ndimage
 from dysh.spectra import core
 
 from ..coordinates import Observatory
+from ..log import HistoricalBase, log_call_to_history, logger
 from ..util import uniq
 from .core import (
     average,
@@ -33,13 +34,115 @@ from .spectrum import Spectrum
 # from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 
 
-# @todo change this to an ABC class. https://docs.python.org/3/library/abc.html
-# and create a SpectrumAverageMixin for timeaverage, polaverage, finalspectrum
-class ScanMixin:
+class SpectralAverageMixin:
+    @log_call_to_history
+    def timeaverage(self, weights=None):
+        r"""Compute the time-averaged spectrum for this scan.
+
+        Parameters
+        ----------
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        Returns
+        -------
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
+        """
+        pass
+
+    @log_call_to_history
+    def polaverage(self, weights=None):
+        """Average all polarizations in this Scan"""
+        pass
+
+    @log_call_to_history
+    def finalspectrum(self, weights=None):
+        """Average all times and polarizations in this Scan"""
+        pass
+
+    @property
+    def exposure(self):
+        """The array of exposure (integration) times. How the exposure is calculated
+        varies for different derrived classes.
+
+        Returns
+        -------
+        exposure : ~numpy.ndarray
+            The exposure time in units of the EXPOSURE keyword in the SDFITS header
+        """
+        return self._exposure
+
+    @property
+    def delta_freq(self):
+        """The array of channel frequency width"""
+        return self._delta_freq
+
+    @property
+    def tsys(self):
+        """The system temperature array.
+
+        Returns
+        -------
+        tsys : `~numpy.ndarray`
+            System temperature values in K
+        """
+        return self._tsys
+
+    @property
+    def tsys_weight(self):
+        r"""The system temperature weighting array computed from current
+        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
+        """
+        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+
+
+class ScanBase(HistoricalBase, SpectralAverageMixin):
     """This class describes the common interface to all Scan classes.
-    A Scan represents one IF, one feed, and one or more polarizations.
+    A Scan represents one scan number, one IF, one feed, and one or more polarizations.
     Derived classes *must* implement :meth:`calibrate`.
     """
+
+    def __init__(self, sdfits):
+        HistoricalBase.__init__(self)
+        self._ifnum = -1
+        self._fdnum = -1
+        self._nchan = -1
+        self._npol = -1
+        self._scan = -1
+        self._pols = -1
+        self._sdfits = sdfits
+        # self._meta = {}
+
+    def _validate_defaults(self):
+        _required = {
+            "IFNUM": self._ifnum,
+            "FDNUM": self._fdnum,
+            "NCHAN": self._nchan,
+            "NPOL": self._npol,
+            "POLS": self._pols,
+            "SCAN": self._scan,
+        }
+        unset = []
+        for k, v in _required.items():
+            if v == -1:
+                unset.append(k)
+        if len(unset) > 0:
+            raise Exception(
+                f"The following required Scan attributes were not set by the derived class {self.__class__.__name__}:"
+                f" {unset}"
+            )
+        if type(self._scan) != int:
+            raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
+
+    # class ScanMixin:
+    #    """This class describes the common interface to all Scan classes.
+    ##   A Scan represents one IF, one feed, and one or more polarizations.
+    #   Derived classes *must* implement :meth:`calibrate`.
+    #   """
 
     @property
     def scan(self):
@@ -113,6 +216,17 @@ class ScanMixin:
         return self._fdnum
 
     @property
+    def pols(self):
+        """The polarization number(s)
+
+        Returns
+        -------
+        list
+            The list of integer polarization number(s)
+        """
+        return self._pols
+
+    @property
     def is_calibrated(self):
         """
         Have the data been calibrated?
@@ -141,7 +255,15 @@ class ScanMixin:
 
     def _meta_as_table(self):
         """get the metadata as an astropy Table"""
-        return Table(self._meta)
+        # remember, self._meta is a list of dicts,
+        # and despite its name it is not Table metadata, it
+        # it Table Columns values
+        d = {}
+        if len(self.history) != 0:
+            d["HISTORY"] = self.history
+        if len(self.comments) != 0:
+            d["COMMENT"] = self.comments
+        return Table(self._meta, meta=d)
 
     def _make_meta(self, rowindices):
         """
@@ -187,17 +309,6 @@ class ScanMixin:
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
 
-    @property
-    def pols(self):
-        """The polarization number(s)
-
-        Returns
-        -------
-        list
-            The list of integer polarization number(s)
-        """
-        return self._pols
-
     def _set_if_fd(self, df):
         """Set the IF and FD numbers from the input dataframe and
         raise an error of there are more than one
@@ -220,32 +331,6 @@ class ScanMixin:
         """Calibrate the Scan data"""
         pass
 
-    def timeaverage(self, weights=None):
-        r"""Compute the time-averaged spectrum for this scan.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-        """
-        pass
-
-    def polaverage(self, weights=None):
-        """Average all polarizations in this Scan"""
-        pass
-
-    def finalspectrum(self, weights=None):
-        """Average all times and polarizations in this Scan"""
-        pass
-
     def make_bintable(self):
         """
         Create a :class:`~astropy.io.fits.BinaryTableHDU` from the calibrated data of this Scan.
@@ -264,6 +349,10 @@ class ScanMixin:
         # discovered this!)
         if self._calibrated is None:
             raise Exception("Data must be calibrated before writing.")
+        # Table metadata aren't preserved in BinTableHDU, so we
+        # have to grab them here and add them
+        # data_table = self._meta_as_table()
+        # table_meta = data_table.meta
         cd = BinTableHDU(data=self._meta_as_table(), name="SINGLE DISH").columns
         form = f"{np.shape(self._calibrated)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
@@ -307,20 +396,24 @@ class ScanMixin:
         return self._nrows
 
 
-class ScanBlock(UserList, ScanMixin):
+class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
+    @log_call_to_history
     def __init__(self, *args):
-        super().__init__(*args)
+        UserList.__init__(self, *args)
+        HistoricalBase.__init__(self)
         self._nrows = 0
         self._npol = 0
         self._timeaveraged = []
         self._polaveraged = []
         self._finalspectrum = []
 
+    @log_call_to_history
     def calibrate(self, **kwargs):
         """Calibrate all scans in this ScanBlock"""
         for scan in self.data:
             scan.calibrate(**kwargs)
 
+    @log_call_to_history
     def timeaverage(self, weights="tsys", mode="old"):
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
@@ -346,16 +439,12 @@ class ScanBlock(UserList, ScanMixin):
             if weights == "tsys":
                 # There may be multiple integrations, so need to
                 # average the Tsys weights
-                w = np.array([np.nanmean(k._tsys_weight) for k in self.data])
+                w = np.array([np.nanmean(k.tsys_weight) for k in self.data])
                 if len(np.shape(w)) > 1:  # remove empty axes
                     w = w.squeeze()
             else:
                 w = weights
             timeavg = np.array([k.data for k in self._timeaveraged])
-            # print(
-            #    f"TAsh {np.shape(timeavg)} len(data) = {len(self.data)} weights={w}"
-            # )  # " tsysW={self.data[0]._tsys_weight}")
-
             # Weight the average of the timeaverages by the weights.
             avgdata = average(timeavg, axis=0, weights=w)
             avgspec = np.mean(self._timeaveraged)
@@ -364,10 +453,10 @@ class ScanBlock(UserList, ScanMixin):
             avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
             # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
             # hardcode to GBT for now
-
-            return Spectrum.make_spectrum(
+            s = Spectrum.make_spectrum(
                 avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
             )
+            s.merge_commentary(self)
         elif mode == "new":
             # average of the integrations
             allcal = np.all([d._calibrate for d in self.data])
@@ -375,7 +464,7 @@ class ScanBlock(UserList, ScanMixin):
                 raise Exception("Data must be calibrated before time averaging.")
             c = np.concatenate([d._calibrated for d in self.data])
             if weights == "tsys":
-                w = np.concatenate([d._tsys_weight for d in self.data])
+                w = np.concatenate([d.tsys_weight for d in self.data])
                 # if len(np.shape(w)) > 1:  # remove empty axes
                 #    w = w.squeeze()
             else:
@@ -384,12 +473,15 @@ class ScanBlock(UserList, ScanMixin):
             avgspec = self.data[0].calibrated(0)
             avgspec.meta["TSYS"] = np.nanmean([d.tsys for d in self.data])
             avgspec.meta["EXPOSURE"] = np.sum([d.exposure for d in self.data])
-            return Spectrum.make_spectrum(
+            s = Spectrum.make_spectrum(
                 timeavg * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
             )
+            s.merge_commentary(self)
         else:
             raise Exception(f"unrecognized mode {mode}")
+        return s
 
+    @log_call_to_history
     def polaverage(self, weights="tsys"):
         # @todo rewrite this to return a spectrum as timeaverage does now.
         r"""Average all polarizations in all scans in this ScanBlock
@@ -412,6 +504,7 @@ class ScanBlock(UserList, ScanMixin):
             self._polaveraged.append(scan.polaverage(weights))
         return self._polaveraged
 
+    @log_call_to_history
     def finalspectrum(self, weights="tsys"):
         r"""Average all times and polarizations in all scans this ScanBlock
 
@@ -466,16 +559,18 @@ class ScanBlock(UserList, ScanMixin):
         """
         s0 = self.data[0]
         # If there is only one scan, delegate to its write method
-        if len(self.data) == 1:
-            s0.write(fileobj, output_verify, overwrite, checksum)
-            return
+        # this does not preserve scanblock history
+        # if len(self.data) == 1:
+        #    print("only one scan")
+        #   s0.write(fileobj, output_verify, overwrite, checksum)
+        #   return
         # Meta are the keys of the first scan's bintable except for DATA.
         # We can use this to compare with the subsequent Scan
         # keywords without have to create their bintables first.
         defaultkeys = set(s0._meta[0].keys())
         datashape = np.shape(s0._calibrated)
         tablelist = [s0._meta_as_table()]
-        for scan in self.data[1:]:
+        for scan in self.data:  # [1:]:
             # check data shapes are the same
             thisshape = np.shape(scan._calibrated)
             if thisshape != datashape:
@@ -496,21 +591,33 @@ class ScanBlock(UserList, ScanMixin):
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
         # astropy Tables can be concatenated with vstack thankfully.
         table = vstack(tablelist, join_type="exact")
+        # need to preserve table.meta because it gets lost in created of "cd" ColDefs
+        table_meta = table.meta
         cd = BinTableHDU(table, name="SINGLE DISH").columns
         data = np.concatenate([c._calibrated for c in self.data])
         form = f"{np.shape(data)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=data))
         b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
+        # preserve any meta
+        for k, v in table_meta.items():
+            if k == "HISTORY" or k == "COMMENT":
+                continue  # will deal with these later
+            b.header[k] = v
+        for h in self._history:
+            b.header["HISTORY"] = h
+        for c in self._comments:
+            b.header["COMMENT"] = c
+
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
-class TPScan(ScanMixin):
+class TPScan(ScanBase):
     """GBT specific version of Total Power Scan
 
     Parameters
     ----------
-    gbtfits : `~fits.gbtfitsload.GBFITSLoad`
-        input GBFITSLoad object
+    gbtfits : `~fits.sdfitsload.SDFITSLoad`
+        input SDFITSLoad object
     scan: int
         scan number
     sigstate : bool
@@ -566,6 +673,7 @@ class TPScan(ScanMixin):
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
+        ScanBase.__init__(self, gbtfits)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -575,7 +683,6 @@ class TPScan(ScanMixin):
         if self._smoothref > 1:
             warnings.warn(f"TP smoothref={self._smoothref} not implemented yet")
 
-        # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
@@ -623,19 +730,17 @@ class TPScan(ScanMixin):
         if self._calibrate:
             self.calibrate()
         self.calc_tsys()
+        self._validate_defaults()
 
     def calibrate(self):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
         if self.calstate is None:
-            # print("data = 0.5*(ON+OFF)")
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
-            # print("data = ON")
             self._data = self._refcalon.astype(float)
         elif self.calstate == False:
-            # print("data = OFF")
             self._data = self._refcaloff.astype(float)
         else:
             raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
@@ -662,17 +767,6 @@ class TPScan(ScanMixin):
         """
         return self._calstate
 
-    @property
-    def tsys(self):
-        """The system temperature array.
-
-        Returns
-        -------
-        tsys : `~numpy.ndarray`
-            System temperature values in K
-        """
-        return self._tsys
-
     def calc_tsys(self, **kwargs):
         """
         Calculate the system temperature array, according to table above.
@@ -684,12 +778,12 @@ class TPScan(ScanMixin):
             if self.calstate is None:
                 tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
                 nspect = len(tcal)
-                calon = self._refcalcon
-                caloff = self._refcaloff
+                # calon = self._refcalcon
+                # caloff = self._refcaloff
             elif self.calstate:
                 tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
                 nspect = len(tcal)
-                calon = self._refcalon
+                # calon = self._refcalon
             elif self.calstate == False:
                 pass
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
@@ -708,7 +802,7 @@ class TPScan(ScanMixin):
 
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times.  The value depends on the cal state:
+        """The array of exposure (integration) times.  The value depends on the cal state:
 
             =====  ======================================
             CAL    EXPOSURE
@@ -737,8 +831,8 @@ class TPScan(ScanMixin):
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
 
-        exposure = exp_ref_on + exp_ref_off
-        return exposure
+        self._exposure = exp_ref_on + exp_ref_off
+        return self._exposure
 
     @property
     def delta_freq(self):
@@ -767,14 +861,8 @@ class TPScan(ScanMixin):
             delta_freq = df_ref_on
         elif self.calstate == False:
             delta_freq = df_ref_off
-        return delta_freq
-
-    @property
-    def _tsys_weight(self):
-        r"""The system temperature weighting array computed from current
-        :math:`T_{sys}, t_{exp}`, and `\delta\nu`. See :meth:`tsys_weight`
-        """
-        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+        self._delta_freq = delta_freq
+        return self._delta_freq
 
     def tpmeta(self, i):
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
@@ -807,7 +895,6 @@ class TPScan(ScanMixin):
         """
         if not self._calibrate:
             raise Exception("You must calibrate first to get a total power spectrum")
-        # print(len(self._scanrows), i)
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
         # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
         meta = ser.dropna().to_dict()
@@ -822,8 +909,13 @@ class TPScan(ScanMixin):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
+        s = Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
+        print(f"TP {self._history =} {self._comments = }")
+        print(f"Spectrum history after make_spectrum {type(s._history)} : {s._history}")
+        s.merge_commentary(self)
+        return s
 
+    @log_call_to_history
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of scans.
 
@@ -844,9 +936,9 @@ class TPScan(ScanMixin):
             raise Exception("Can't yet time average multiple polarizations")
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == "tsys":
-            w = self._tsys_weight
+            w = self.tsys_weight
         else:
-            w = np.ones_like(self._tsys_weight)
+            w = np.ones_like(self.tsys_weight)
         non_blanks = find_non_blanks(self._data)[0]
         self._timeaveraged._data = average(self._data, axis=0, weights=w)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
@@ -857,14 +949,14 @@ class TPScan(ScanMixin):
 
 
 #        @todo   'scans' should become 'scan'
-class PSScan(ScanMixin):
+class PSScan(ScanBase):
     """GBT specific version of Position Switch Scan. A position switch scan object has
     one IF, one feed, and one or more polarizations.
 
     Parameters
     ----------
-    gbtfits : `~fits.gbtfitsload.GBFITSLoad`
-        input GBFITSLoad object
+    gbtfits : `~fits.sdfitsload.SDFITSLoad`
+        input SDFITSLoad object
     scans : dict
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers NOTE: there should be one ON and one OFF, a pair
     scanrows : dict
@@ -895,9 +987,10 @@ class PSScan(ScanMixin):
         smoothref=1,
         observer_location=Observatory["GBT"],
     ):
+        ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        self._sdfits = gbtfits  # parent class
-        self._scans = scans
+        # self._scans = scans
+        # self._history = deepcopy(gbtfits._history)
         self._scan = scans["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
@@ -914,13 +1007,11 @@ class PSScan(ScanMixin):
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
         # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
         self._calrows = calrows
-        # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        # print(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         # df = selection.iloc[scanrows["ON"]]
         df = self._sdfits._index.iloc[scanrows["ON"]]
@@ -946,28 +1037,19 @@ class PSScan(ScanMixin):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
+        self._validate_defaults()
 
-    @property
-    def scans(self):
-        """The dictionary of the ON and OFF scan numbers in the PSScan.
-
-        Returns
-        -------
-        scans : dict
-            The scan number dictionary
-        """
-        return self._scans
-
-    @property
-    def tsys(self):
-        """The system temperature array. This will be `None` until calibration is done.
-
-        Returns
-        -------
-        tsys : `~numpy.ndarray`
-            System temperature values in K
-        """
-        return self._tsys
+    # @property
+    # def scans(self):
+    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
+    #
+    #     Returns
+    #     -------
+    #     scans : dict
+    #         The scan number dictionary
+    #
+    #     """
+    #      return self._scans
 
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
@@ -983,9 +1065,11 @@ class PSScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        return Spectrum.make_spectrum(
+        s = Spectrum.make_spectrum(
             self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
         )
+        s.merge_commentary(self)
+        return s
 
     def calibrate(self, **kwargs):
         """
@@ -1001,7 +1085,6 @@ class PSScan(ScanMixin):
         self._calibrated = np.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        # print("REFONROWS ", self._refonrows)
         tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
@@ -1015,13 +1098,13 @@ class PSScan(ScanMixin):
             self._calibrated[i] = tsys * (sig - ref) / ref
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
-        # print("Calibrated %d spectra" % nspect)
+        logger.debug(f"Calibrated {nspect} spectra")
         self._add_calibration_meta()
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times
+        """The array of exposure (integration) times
 
         exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
 
@@ -1063,13 +1146,7 @@ class PSScan(ScanMixin):
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
-    @property
-    def _tsys_weight(self):
-        r"""The system temperature weighting array computed from current
-        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
-        """
-        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
-
+    @log_call_to_history
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of scans.
 
@@ -1093,26 +1170,27 @@ class PSScan(ScanMixin):
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
-            w = self._tsys_weight
+            w = self.tsys_weight
         else:
-            w = np.ones_like(self._tsys_weight)
+            w = np.ones_like(self.tsys_weight)
         self._timeaveraged._data = average(data, axis=0, weights=w)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        self._timeaveraged._history = self._history
         return self._timeaveraged
 
 
-class FSScan(ScanMixin):
+class FSScan(ScanBase):
     """GBT specific version of Frequency Switch Scan
 
     Parameters
     ----------
 
-    gbtfits : `~fit.gbtfitsload.GBFITSLoad`
-        Input GBFITSLoad object.
+    gbtfits : `~fits.sdfitsload.SDFITSLoad`
+        input SDFITSLoad object
     scan : int
         Scan number that contains integrations with a series of sig/ref and calon/caloff states.
     sigrows :dict
@@ -1156,8 +1234,8 @@ class FSScan(ScanMixin):
         observer_location=Observatory["GBT"],
         debug=False,
     ):
+        ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        self._sdfits = gbtfits  # parent class
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
         self._calrows = calrows  # dict with "ON" and "OFF"
@@ -1192,7 +1270,6 @@ class FSScan(ScanMixin):
 
         a_scanrow = self._sigonrows[0]
 
-        # print("BINTABLE = ", bintable)
         # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = gbtfits._find_bintable_and_row(a_scanrow)[0]
@@ -1230,6 +1307,7 @@ class FSScan(ScanMixin):
             self.calibrate(fold=fold, shift_method=shift_method)
         if self._debug:
             print("---------------------------------------------------")
+        self._validate_defaults()
 
     @property
     def folded(self):
@@ -1243,17 +1321,6 @@ class FSScan(ScanMixin):
         """
         return self._folded
 
-    @property
-    def tsys(self):
-        """The system temperature array. This will be `None` until calibration is done.
-
-        Returns
-        -------
-        tsys : `~numpy.ndarray`
-            System temperature values in K
-        """
-        return self._tsys
-
     def calibrated(self, i):
         """Return the calibrated Spectrum of this FSscan
 
@@ -1266,9 +1333,11 @@ class FSScan(ScanMixin):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        return Spectrum.make_spectrum(
+        s = Spectrum.make_spectrum(
             self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
         )
+        s.merge_commentary(self)
+        return s
 
     def calibrate(self, **kwargs):
         """
@@ -1355,7 +1424,7 @@ class FSScan(ScanMixin):
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
             """ """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
-            # print("do_fold: ",sig_freq[0], ref_freq[0],chan_shift)
+            logger.debug(f"do_fold: {sig_freq[0]}, {ref_freq[0]},{chan_shift}")
             ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
             avg = (sig + ref_shift) / 2
@@ -1371,7 +1440,7 @@ class FSScan(ScanMixin):
             ishift = int(np.round(offset))  # Integer shift.
             fshift = offset - ishift  # Fractional shift.
 
-            # print("FOLD:  ishift=%d fshift=%g" % (ishift, fshift))
+            logger.debug("FOLD:   {ishift=} {fshift=}")
             data2 = np.roll(data, ishift, axis=0)
             if remove_wrap:
                 if ishift < 0:
@@ -1446,12 +1515,12 @@ class FSScan(ScanMixin):
                 self._exposure[i] = self.exposure[i]
 
         self._add_calibration_meta()
-        # print("Calibrated %d spectra with fold=%s and use_sig=%s" % (nspect, repr(_fold), repr(self._use_sig)))
+        logger.debug("Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
-        """Get the array of exposure (integration) times for FSscan
+        """The array of exposure (integration) times for FSscan
 
         exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
 
@@ -1470,8 +1539,8 @@ class FSScan(ScanMixin):
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
-        exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
-        return exposure
+        self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        return self._exposure
 
     @property
     def delta_freq(self):
@@ -1490,15 +1559,8 @@ class FSScan(ScanMixin):
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
         df_ref = 0.5 * (df_ref_on + df_ref_off)
         df_sig = 0.5 * (df_sig_on + df_sig_off)
-        delta_freq = 0.5 * (df_ref + df_sig)
-        return delta_freq
-
-    @property
-    def _tsys_weight(self):
-        r"""The system temperature weighting array computed from current
-        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
-        """
-        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+        self._delta_freq = 0.5 * (df_ref + df_sig)
+        return self._delta_freq
 
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this set of FSscans.
@@ -1523,9 +1585,9 @@ class FSScan(ScanMixin):
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
-            w = self._tsys_weight
+            w = self.tsys_weight
         else:
-            w = np.ones_like(self._tsys_weight)
+            w = np.ones_like(self.tsys_weight)
         self._timeaveraged._data = average(data, axis=0, weights=w)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
@@ -1535,7 +1597,7 @@ class FSScan(ScanMixin):
         return self._timeaveraged
 
 
-class SubBeamNodScan(ScanMixin):
+class SubBeamNodScan(ScanBase):
     r"""
     Parameters
     ----------
@@ -1570,6 +1632,7 @@ class SubBeamNodScan(ScanMixin):
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
+        ScanBase.__init__(self, sigtp[0]._sdfits)
         kwargs_opts = {
             "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
@@ -1598,6 +1661,7 @@ class SubBeamNodScan(ScanMixin):
         self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
+        self._validate_defaults()
 
     def calibrate(self, **kwargs):
         """Calibrate the SubBeamNodScan data"""
@@ -1631,7 +1695,9 @@ class SubBeamNodScan(ScanMixin):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return Spectrum.make_spectrum(self._calibrated[i] * u.K, meta, observer_location=self._observer_location)
+        s = Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+        s.merge_commentary(self)
+        return s
 
     @property
     def exposure(self):
@@ -1640,17 +1706,6 @@ class SubBeamNodScan(ScanMixin):
     @property
     def delta_freq(self):
         return self._delta_freq
-
-    @property
-    def tsys(self):
-        return self._tsys
-
-    @property
-    def _tsys_weight(self):
-        r"""The system temperature weighting array computed from current
-        :math:`T_{sys}, t_{exp}`, and `\delta\nu`. See :meth:`tsys_weight`
-        """
-        return tsys_weight(self.exposure, self.delta_freq, self.tsys)
 
     def timeaverage(self, weights="tsys"):
         if self._calibrated is None or len(self._calibrated) == 0:
@@ -1661,14 +1716,12 @@ class SubBeamNodScan(ScanMixin):
         data = self._calibrated
         nchan = len(data[0])
         if weights == "tsys":
-            w = self._tsys_weight
+            w = self.tsys_weight
         else:
             w = None
-
         self._timeaveraged._data = average(data, axis=0, weights=w)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
-
         return self._timeaveraged

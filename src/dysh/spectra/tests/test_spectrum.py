@@ -47,9 +47,9 @@ class TestSpectrum:
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
-        getps0 = sdf.getps(51, plnum=0)
+        getps0 = sdf.getps(scan=51, plnum=0)
         self.ps0 = getps0.timeaverage()
-        getps1 = sdf.getps(51, plnum=1)
+        getps1 = sdf.getps(scan=51, plnum=1)
         self.ps1 = getps1.timeaverage()
         self.ss = self.ps0._copy()  # Synthetic one.
         x = np.arange(0, len(self.ss.data))
@@ -227,7 +227,19 @@ class TestSpectrum:
         assert s2.flux.unit == u.K
         assert s2.flux[0].value == -0.1042543
         assert s2.spectral_axis.unit == u.Unit("km/s")
-        # @todo remove the temporary files.  This should be done in a teardown() method
+
+    def test_history_and_comments(self):
+        s = self.ps1
+        s.baseline(2, remove=True)
+        print(s.comments)
+        s.add_comment("I removed a baseline")
+        # This tests that the baseline command self-logged to history
+        # AND that order is preserved because
+        # the baseline history should be the last entry
+        # print(s.history)
+        assert "baseline(2,remove=True,)" in s.history[-1]
+        print(s.comments)
+        assert "I removed a baseline" in s.comments
 
     @patch("dysh.plot.specplot.plt.show")
     def test_slice(self, mock_show, tmp_path):

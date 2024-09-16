@@ -12,6 +12,7 @@ from astropy.io import fits
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
+from ..log import HistoricalBase, dysh_date, log_call_to_history, log_call_to_result
 from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Selection
@@ -30,9 +31,9 @@ calibration_kwargs = {
 _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 
-class GBTFITSLoad(SDFITSLoad):
+class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     """
-    GBT-specific container to reprensent one or more SDFITS files
+    GBT-specific container to represent one or more SDFITS files
 
     Parameters
     ----------
@@ -46,12 +47,14 @@ class GBTFITSLoad(SDFITSLoad):
 
     """
 
+    @log_call_to_history
     def __init__(self, fileobj, source=None, hdu=None, **kwargs):
         kwargs_opts = {
             "fix": False,  # fix non-standard header elements
             "index": True,  # only set to False for performance testing.
             "verbose": False,
         }
+        HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
         self._sdf = []
@@ -69,8 +72,15 @@ class GBTFITSLoad(SDFITSLoad):
                 if kwargs.get("verbose", None):
                     print(f"doing {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
+            self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}", add_time=True)
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
+        # Add in any history/comment that were in the previous file(s)
+        for sdf in self._sdf:
+            for h in sdf._hdu:
+                self.add_history(h.header.get("HISTORY", []))
+                self.add_comment(h.header.get("COMMENT", []))
+        self._remove_duplicates()
         if kwargs_opts["index"]:
             self._create_index_if_needed()
             self._update_radesys()
@@ -95,12 +105,32 @@ class GBTFITSLoad(SDFITSLoad):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
+        self.add_history(f"Project ID: {self.projectID}", add_time=True)
+
+    def __repr__(self):
+        return str(self.files)
+
+    def __str__(self):
+        return str(self.filenames)
 
     @property
     def _index(self):
         # for backwards compatibility after removing _index
         # as a separate object
         return self._selection
+
+    @property
+    def projectID(self):
+        """
+        The project identification
+
+        Returns
+        -------
+        str
+            The project ID string
+
+        """
+        return uniq(self["PROJID"])[0]
 
     @property
     def total_rows(self):
@@ -161,6 +191,18 @@ class GBTFITSLoad(SDFITSLoad):
         for sdf in self._sdf:
             files.append(sdf.filename)
         return files
+
+    def filenames(self):
+        """
+        The list of SDFITS filenames(s) that make up this GBTFITSLoad object
+
+        Returns
+        -------
+        filenames : list
+            list of str filenames
+
+        """
+        return [p.as_posix() for p in self.files]
 
     def index(self, hdu=None, bintable=None, fitsindex=None):
         """
@@ -385,7 +427,6 @@ class GBTFITSLoad(SDFITSLoad):
             nint = len(set(uf_int["DATE-OBS"]))  # see gbtidl io/line_index__define.pro
             obj = list(set(uf["OBJECT"]))[0]  # We assume they are all the same!
             proc = list(set(uf["PROC"]))[0]  # We assume they are all the same!
-            # print(f"Uniq data for scan {s}: {nint} {nIF} {nPol} {nfeed} {obj} {proc}")
             s2 = pd.Series(
                 [obj, proc, nIF, nPol, nint, nfeed],
                 name="uniqued data",
@@ -393,10 +434,6 @@ class GBTFITSLoad(SDFITSLoad):
             )
             ser = pd.concat([ser, s2]).reindex(comp_colnames)
             ser.rename("appended ser")
-            # print("append series data",ser)
-            # print("append series index ",ser.index)
-            # print("df cols",compressed_df.columns)
-            # print("SAME? ",all(ser.index == compressed_df.columns))
             compressed_df = pd.concat([compressed_df, ser.to_frame().T], ignore_index=True)
         compressed_df = compressed_df.astype(col_dtypes)
         if not show_index:
@@ -445,12 +482,13 @@ class GBTFITSLoad(SDFITSLoad):
     # def _select_onoff(self, df):
     #    return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
 
-    def select_track(self, df):
-        return df[(df["PROC"] == "Track")]
+    # def select_track(self, df):
+    #    return df[(df["PROC"] == "Track")]
 
     # @todo move all selection methods to sdfitsload after adding Selection
     # to sdfitsload
     # @todo write a Delegator class to autopass to Selection. See, e.g., https://michaelcho.me/article/method-delegation-in-python/
+    @log_call_to_history
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
@@ -471,6 +509,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         self._selection.select(tag=tag, **kwargs)
 
+    @log_call_to_history
     def select_range(self, tag=None, **kwargs):
         """
         Select a range of inclusive values for a given key(s).
@@ -499,6 +538,7 @@ class GBTFITSLoad(SDFITSLoad):
         """
         self._selection.select_range(tag=tag, **kwargs)
 
+    @log_call_to_history
     def select_within(self, tag=None, **kwargs):
         """
         Select a value within a plus or minus for a given key(s).
@@ -525,6 +565,7 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
 
+    @log_call_to_history
     def select_channel(self, chan, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
@@ -612,11 +653,9 @@ class GBTFITSLoad(SDFITSLoad):
 
         # check it hasn't been constructed before.
         if "INTNUM" in self._index:
-            # print("INTNUM is alsready there")
             return
         # check that GBTIDL didn't write it out at some point.
         if "INT" in self._index:
-            # print("INT is already there")
             self._index.rename(columns={"INT": "INTNUM"}, inplace=True)
             for s in self._sdf:
                 s._rename_binary_table_column("int", "intnum")
@@ -628,7 +667,6 @@ class GBTFITSLoad(SDFITSLoad):
         # but I am not that clever, so brute force it.
         intnumarray = []
         for i in self._index.index:
-            # print(i)
             if i in scan_changes:
                 intnum = 0
                 # scindex += 1
@@ -658,6 +696,7 @@ class GBTFITSLoad(SDFITSLoad):
         for s in self._sdf:
             s.info()
 
+    @log_call_to_result
     def getfs(
         self,
         calibrate=True,
@@ -762,7 +801,6 @@ class GBTFITSLoad(SDFITSLoad):
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
                 _ifdf = select_from("IFNUM", k, df)  # one FSScan per ifnum
-                # print(f"SCANLIST {scanlist}")
                 logger.debug(f"POLS {set(df['PLNUM'])}")
                 logger.debug(f"Sending dataframe with scans {set(_ifdf['SCAN'])}")
                 logger.debug(f"and PROC {set(_ifdf['PROC'])}")
@@ -795,12 +833,15 @@ class GBTFITSLoad(SDFITSLoad):
                         smoothref=1,
                         debug=debug,
                     )
+                    g.merge_commentary(self)
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
         return scanblock
         # end of getfs()
 
+    @log_call_to_result
     def getps(
         self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
     ):
@@ -838,7 +879,6 @@ class GBTFITSLoad(SDFITSLoad):
             ScanBlock containing the individual `~spectra.scan.PSScan`s
 
         """
-        # print(kwargs)
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
@@ -846,11 +886,9 @@ class GBTFITSLoad(SDFITSLoad):
             _final = self._selection.final
         else:
             _final = self._index
-        # print(kwargs)
         scans = kwargs.pop("scan", None)
-        debug = kwargs.pop("debug", False)
+        # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
-        # print(f"case kwargs {kwargs}")
         if type(scans) is int:
             scans = [scans]
         preselected = {}
@@ -865,8 +903,8 @@ class GBTFITSLoad(SDFITSLoad):
         # scans_to_add -= scans_preselected
         logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
-        logger.debug("SCAN ", scans)
-        logger.debug("TYPE: ", type(ps_selection))
+        logger.debug(f"SCAN {scans}")
+        logger.debug(f"TYPE {type(ps_selection)}")
         if len(scans_to_add) != 0:
             # add a rule selecting the missing scans :-)
             logger.debug(f"adding rule scan={scans_to_add}")
@@ -875,12 +913,9 @@ class GBTFITSLoad(SDFITSLoad):
             if k not in kwargs:
                 kwargs[k] = v
         # now downselect with any additional kwargs
-        logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
-        logger.debug(ps_selection.show())
         ps_selection._select_from_mixed_kwargs(**kwargs)
-        logger.debug("AFTER")
-        logger.debug(ps_selection.show())
         _sf = ps_selection.final
+        logger.debug(f"{_sf = }")
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
@@ -897,7 +932,7 @@ class GBTFITSLoad(SDFITSLoad):
                 scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
 
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
-                    # print("scans not found, continuing")
+                    logger.debug("scans not found, continuing")
                     continue
                 logger.debug(f"SCANLIST {scanlist}")
                 logger.debug(f"POLS {set(df['PLNUM'])}")
@@ -926,7 +961,6 @@ class GBTFITSLoad(SDFITSLoad):
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
-                    # print(f"Sending PSScan({d},ROWS:{rows},CALROWS:{calrows},BT: {bintable}")
                     logger.debug(f"{i, k, c} SCANROWS {rows}")
                     logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                     g = PSScan(
@@ -938,12 +972,15 @@ class GBTFITSLoad(SDFITSLoad):
                         calibrate=calibrate,
                         smoothref=smoothref,
                     )
+                    g.merge_commentary(self)
                     scanblock.append(g)
                     c = c + 1
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
         return scanblock
 
+    @log_call_to_result
     def gettp(
         self,
         sig=None,
@@ -1056,12 +1093,15 @@ class GBTFITSLoad(SDFITSLoad):
                         calibrate,
                         smoothref=smoothref,
                     )
+                    g.merge_commentary(self)
                     scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
         return scanblock
 
     # @todo sig/cal no longer needed?
+    @log_call_to_result
     def subbeamnod(
         self,
         method="cycle",
@@ -1203,7 +1243,6 @@ class GBTFITSLoad(SDFITSLoad):
                             e = f"""There are {len(sig_on_groups)} and {len(ref_on_groups)} signal and reference cycles.
                                     Try using method='scan'."""
                             raise ValueError(e)
-                        # print("GROUPS ", ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
                         # Loop over cycles, calibrating each independently.
                         groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
 
@@ -1303,9 +1342,11 @@ class GBTFITSLoad(SDFITSLoad):
                             weights=weights,
                             smoothref=smoothref,
                         )
+                        sb.merge_commentary(self)
                         scanblock.append(sb)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
         return scanblock
 
     def _onoff_scan_list_selection(self, scans, selection, check=False):
@@ -1346,13 +1387,11 @@ class GBTFITSLoad(SDFITSLoad):
         offscans = uniq(list(dfoff["SCAN"]))
         # pol1 = set(dfon["PLNUM"])
         # pol2 = set(dfoff["PLNUM"])
-        # print(f"polON {pol1} polOFF {pol2}")
         # scans = list(selection["SCAN"])
         # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF).
         # First check the requested scan number(s) are in the ONs or OFFs of this bintable.
         seton = set(onscans)
         setoff = set(offscans)
-        # print(f"SETON {seton} SETOFF {setoff}")
         onrequested = seton.intersection(scans)
         offrequested = setoff.intersection(scans)
         if len(onrequested) == 0 and len(offrequested) == 0:
@@ -1361,7 +1400,6 @@ class GBTFITSLoad(SDFITSLoad):
         # and build the final matched list of ONs and OFfs.
         sons = list(onrequested.copy())
         soffs = list(offrequested.copy())
-        # print(f"SONS {sons} SOFFS {soffs}")
         missingoff = []
         missingon = []
         # Figure out the companion scan
@@ -1377,14 +1415,12 @@ class GBTFITSLoad(SDFITSLoad):
             )
         for i in onrequested:
             expectedoff = i + offdelta
-            # print(f"DOING ONREQUESTED {i}, looking for off {expectedoff}")
             if len(setoff.intersection([expectedoff])) == 0:
                 missingoff.append(expectedoff)
             else:
                 soffs.append(expectedoff)
         for i in offrequested:
             expectedon = i + ondelta
-            # print(f"DOING OFFEQUESTED {i}, looking for on {expectedon}")
             if len(seton.intersection([expectedon])) == 0:
                 missingon.append(expectedon)
             else:
@@ -1428,7 +1464,6 @@ class GBTFITSLoad(SDFITSLoad):
             A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
         """
         self._create_index_if_needed()
-        # print(f"onoff_scan_list(scans={scans},if={ifnum},pl={plnum},bintable={bintable},fitsindex={fitsindex})")
         s = {"ON": [], "OFF": []}
         if type(scans) == int:
             scans = [scans]
@@ -1479,14 +1514,12 @@ class GBTFITSLoad(SDFITSLoad):
                 raise Exception(f"I don't know how to handle PROCTYPE {df['PROC']} for the requested scan operation")
             for i in onrequested:
                 expectedoff = i + offdelta
-                # print(f"DOING ONREQUESTED {i}, looking for off {expectedoff}")
                 if len(setoff.intersection([expectedoff])) == 0:
                     missingoff.append(expectedoff)
                 else:
                     soffs.append(expectedoff)
             for i in offrequested:
                 expectedon = i + ondelta
-                # print(f"DOING OFFEQUESTED {i}, looking for on {expectedon}")
                 if len(seton.intersection([expectedon])) == 0:
                     missingon.append(expectedon)
                 else:
@@ -1615,7 +1648,6 @@ class GBTFITSLoad(SDFITSLoad):
         # @TODO deal with mulitple bintables
         # @TODO rename this sigref_rows?
         # keep the bintable keyword and allow iteration over bintables if requested (bintable=None)
-        # print(f"onoff_rows(scans={scans},ifnum={ifnum},plnum={plnum},bintable={bintable},fitsindex={fitsindex}")
         rows = {"ON": [], "OFF": []}
         if type(scans) is int:
             scans = [scans]
@@ -1649,7 +1681,6 @@ class GBTFITSLoad(SDFITSLoad):
 
         """
         # scans is a list
-        # print(f"scan_rows(scans={scans},ifnum={ifnum},plnum={plnum},bintable={bintable},fitsindex={fitsindex}")
         self._create_index_if_needed()
         if scans is None:
             raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
@@ -1688,9 +1719,6 @@ class GBTFITSLoad(SDFITSLoad):
             df = scanidx[scanidx["BINTABLE"] == j]
             rows.append(list(df.index))
         return rows
-
-    def __repr__(self):
-        return str(self.files)
 
     def write(
         self,
@@ -1762,7 +1790,6 @@ class GBTFITSLoad(SDFITSLoad):
                     lr = len(rows)
                     if lr > 0:
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
-                        # print(f"bintable {b} #rows {len(rows[i])} data length {len(ob.data)}")
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
@@ -1774,7 +1801,12 @@ class GBTFITSLoad(SDFITSLoad):
                     count += 1
                 else:
                     outfile = fileobj
-
+                # add comment and history cards to the primary HDU if applicable.
+                # All files get all cards.
+                for h in self.history:
+                    outhdu[0].header["HISTORY"] = h
+                for c in self.comments:
+                    outhdu[0].header["COMMENT"] = c
                 if verbose:
                     print(f"Writing {this_rows_written} rows to {outfile}.")
                 outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
@@ -1794,6 +1826,11 @@ class GBTFITSLoad(SDFITSLoad):
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
+            # add history and comment cards to primary header if applicable
+            for h in self.history:
+                outhdu[0].header["HISTORY"] = h
+            for c in self.comments:
+                outhdu[0].header["COMMENT"] = c
             if total_rows_written == 0:  # shouldn't happen, caught earlier
                 raise Exception("Your selection resulted in no rows to be written")
             else:
@@ -1854,6 +1891,7 @@ class GBTFITSLoad(SDFITSLoad):
             return np.vstack([s["DATA"] for s in self._sdf])
         return self._selection[items]
 
+    @log_call_to_history
     def __setitem__(self, items, values):
         # @todo deal with "DATA"
         if isinstance(items, str):
@@ -1878,7 +1916,8 @@ class GBTFITSLoad(SDFITSLoad):
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
             if len(values) != self.total_rows:
                 raise ValueError(
-                    f"Length of values array ({len(values)}) for column {items} and total number of rows ({self.total_rows}) aren't equal."
+                    f"Length of values array ({len(values)}) for column {items} and total number of rows"
+                    f" ({self.total_rows}) aren't equal."
                 )
             is_array = True
         if "DATA" not in items:  # DATA is not a column in the selection
@@ -1894,5 +1933,6 @@ class GBTFITSLoad(SDFITSLoad):
         selected_cols = self.selection.columns_selected()
         if items in selected_cols:
             warnings.warn(
-                f"You have changed the metadata for a column that was previously used in a data selection [{items}]. You may wish to update the selection. "
+                f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
+                " You may wish to update the selection. "
             )

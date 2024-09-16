@@ -13,7 +13,8 @@ from astropy.coordinates.spectral_coordinate import attach_zero_velocities
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
-from astropy.nddata.ccddata import fits_ccddata_writer
+
+# from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS, FITSFixedWarning
@@ -33,6 +34,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
+from ..log import HistoricalBase, log_call_to_history
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
@@ -53,7 +55,7 @@ IGNORE_ON_COPY = [
 ]
 
 
-class Spectrum(Spectrum1D):
+class Spectrum(Spectrum1D, HistoricalBase):
     """
     This class contains a spectrum and its attributes. It is built on
     `~specutils.Spectrum1D` with added attributes like baseline model.
@@ -63,8 +65,10 @@ class Spectrum(Spectrum1D):
     See `~specutils.Spectrum1D` for the instantiation arguments.
     """
 
+    @log_call_to_history
     def __init__(self, *args, **kwargs):
         # print(f"ARGS={args}")
+        HistoricalBase.__init__(self)
         self._target = kwargs.pop("target", None)
         if self._target is not None:
             # print(f"self._target is {self._target}")
@@ -176,6 +180,7 @@ class Spectrum(Spectrum1D):
         """Returns the computed baseline model or None if it has not yet been computed."""
         return self._baseline_model
 
+    @log_call_to_history
     def baseline(self, degree, exclude=None, include=None, **kwargs):
         # fmt: off
         """
@@ -267,7 +272,7 @@ class Spectrum(Spectrum1D):
             del spectral_axis
 
     # baseline
-
+    @log_call_to_history
     def undo_baseline(self):
         """
         Undo the most recently computed baseline. If the baseline
@@ -399,6 +404,7 @@ class Spectrum(Spectrum1D):
 
         return s
 
+    @log_call_to_history
     def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
         """
         Smooth or Convolve a spectrum, optionally decimating it.
@@ -593,6 +599,7 @@ class Spectrum(Spectrum1D):
             raise Exception("Can't calculate velocity because Spectrum.target is None")
         return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
 
+    @log_call_to_history
     def set_frame(self, toframe):
         # @todo VELDEF should be changed as well?
         """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
@@ -634,6 +641,7 @@ class Spectrum(Spectrum1D):
         s.set_frame(toframe)
         return s
 
+    @log_call_to_history
     def set_convention(self, doppler_convention):
         """Set the velocity convention of this Spectrum.  The spectral axis of this Spectrum will be replaced
         with a new spectral axis with the input velocity convention.  The header 'VELDEF' value will
@@ -734,9 +742,11 @@ class Spectrum(Spectrum1D):
         description = ["Spectral axis", "Flux", udesc, "Channel weights", "Mask 0=unmasked, 1=masked", bldesc]
         # remove FITS reserve keywords
         meta = deepcopy(self.meta)
-        meta.pop("NAXIS1")
-        meta.pop("TDIM7")
-        meta.pop("TUNIT7")
+        meta.pop("NAXIS1", None)
+        meta.pop("TDIM7", None)
+        meta.pop("TUNIT7", None)
+        meta["HISTORY"] = self.history  # use property not _history to ensure ascii
+        meta["COMMENT"] = self.comments
         if format == "mrt":
             ulab = "e_flux"  # MRT convention that error on X is labeled e_X
         else:
@@ -750,7 +760,6 @@ class Spectrum(Spectrum1D):
             t = Table(outarray, names=outnames, meta={"keywords": d}, descriptions=description)
         else:
             t = Table(outarray, names=outnames, meta=meta, descriptions=description)
-
         # for now ignore complaints about keywords until we clean them up.
         # There are some that are more than 8 chars that should be fixed in GBTFISLOAD
         warnings.simplefilter("ignore", VerifyWarning)
@@ -955,8 +964,6 @@ class Spectrum(Spectrum1D):
             ]
         )
 
-        # for k in _required:
-        #    print(f"{k} {k in header}")
         if not _required <= meta.keys():
             raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
 
@@ -970,7 +977,18 @@ class Spectrum(Spectrum1D):
                 # Skip warnings FITS keywords longer than 8 chars or containing
                 # illegal characters (like _).
                 warnings.filterwarnings("ignore", category=VerifyWarning)
+                # lists are problematic in constructor to WCS
+                # so temporarily remove history and comment values
+                savehist = meta.pop("HISTORY", None)
+                savecomment = meta.pop("COMMENT", None)
+                if savecomment is None:
+                    savecomment = meta.pop("comments", None)
+                # print(f"{meta=}")
                 wcs = WCS(header=meta)
+                if savehist is not None:
+                    meta["HISTORY"] = savehist
+                if savecomment is not None:
+                    meta["COMMENT"] = savecomment
                 # It would probably be safer to add NAXISi to meta.
                 if wcs.naxis > 3:
                     wcs.array_shape = (0, 0, 0, len(data))
@@ -1011,6 +1029,7 @@ class Spectrum(Spectrum1D):
                 " frames"
             )
             obsitrs = None
+
         s = cls(
             flux=data,
             wcs=wcs,
@@ -1021,6 +1040,8 @@ class Spectrum(Spectrum1D):
             observer=obsitrs,
             target=target,
         )
+        # s._history = []
+        # s._comments = []
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
@@ -1046,6 +1067,8 @@ class Spectrum(Spectrum1D):
         for k, v in vars(self).items():
             if k not in IGNORE_ON_COPY:
                 vars(other)[k] = deepcopy(v)
+        # other.add_history(self._history)
+        # other.add_comment(self._comments)
 
     #        other._target = self._target
     #        other._observer = self._observer
@@ -1302,6 +1325,7 @@ def _read_table(fileobj, format, **kwargs):
         spectral_axis = spectral_axis.values * u.Unit(units)
         meta["VELDEF"] = velocity_convention + "-" + vd
         meta["POL"] = h3[1]
+
         s = Spectrum(flux=flux.values * fu, spectral_axis=spectral_axis, meta=meta)
         return s
 
@@ -1334,8 +1358,15 @@ with registry.delay_doc_updates(Spectrum):
     registry.register_writer("ipac", Spectrum, ascii_spectrum_writer_ipac)
     registry.register_writer("votable", Spectrum, spectrum_writer_votable)
     registry.register_writer("ecsv", Spectrum, spectrum_writer_ecsv)
+    # UnifiedOutputRegistry.write uses all caps if format not specified
+    # and it believes the desired output is ecsv
+    registry.register_writer("ECSV", Spectrum, spectrum_writer_ecsv)
     registry.register_writer("mrt", Spectrum, spectrum_writer_mrt)
     registry.register_writer("fits", Spectrum, spectrum_writer_fits)
+    # UnifiedOutputRegistry.write uses retrurns tabular-fits if format
+    # not specified and it believes the desired output is fits.
+    registry.register_writer("tabular-fits", Spectrum, spectrum_writer_fits)
+
     # READERS
     registry.register_reader("fits", Spectrum, spectrum_reader_fits)
     registry.register_reader("gbtidl", Spectrum, spectrum_reader_gbtidl)

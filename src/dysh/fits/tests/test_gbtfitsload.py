@@ -471,7 +471,9 @@ class TestGBTFITSLoad:
         org_sdf.write(output, overwrite=True)
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
-        assert_frame_equal(org_sdf._index, new_sdf._index)
+        # Note we now auto-add a HISTORY card at instantiation, so drop that
+        # from the comparison
+        assert_frame_equal(org_sdf._index, new_sdf._index.drop(columns="HISTORY"))
 
     def test_get_item(self):
         f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
@@ -645,3 +647,13 @@ class TestGBTFITSLoad:
         assert np.all(sdf["RADESYS"] == "hadec")
         # Test that we can create a `Spectrum` object.
         tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
+
+    def test_add_history_comments(self):
+        fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sb = sdf.gettp(scan=6, plnum=0)
+        sdf.add_comment("My dear Aunt Sally")
+        sdf.add_history("ran the test for history and comments")
+        assert "My dear Aunt Sally" in sdf.comments
+        assert "ran the test for history and comments" in sdf.history
+        assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)

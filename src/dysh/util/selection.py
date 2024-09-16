@@ -12,6 +12,8 @@ from astropy.time import Time
 from astropy.units.quantity import Quantity
 from pandas import DataFrame
 
+from ..log import logger
+
 # from ..fits import default_sdfits_columns
 from . import gbt_timestamp_to_time, generate_tag, keycase
 
@@ -331,7 +333,6 @@ class Selection(DataFrame):
         for k in ku:
             if k not in self and k not in self._aliases:
                 unrecognized.append(k)
-        # print("KU, K", ku, k)
         if len(unrecognized) > 0:
             raise KeyError(f"The following keywords were not recognized: {unrecognized}")
 
@@ -343,7 +344,6 @@ class Selection(DataFrame):
         badtime = []
         for k, v in kwargs.items():
             ku = k.upper()
-            # print(ku)
             if not isinstance(v, (tuple, list, np.ndarray)):
                 raise ValueError(f"Invalid input for key {ku}={v}. Range inputs must be tuple or list.")
             for a in v:
@@ -353,7 +353,6 @@ class Selection(DataFrame):
                     try:
                         if ku == "UTC":
                             badtime = self._check_type(Time, "Expected Time", silent=True, **{ku: a})
-                            # print("BADTIME ", badtime)
                         else:
                             self._check_numbers(**{ku: a})
                     except ValueError:
@@ -445,7 +444,6 @@ class Selection(DataFrame):
         #            If an identical rule (DataFrame) has already been added.
         for _id, s in self._selection_rules.items():
             if s.equals(df):
-                # print(s, df)
                 tag = self._table.loc[_id]["TAG"]
                 # raise Exception(
                 warnings.warn(
@@ -528,7 +526,6 @@ class Selection(DataFrame):
             # Numeric lists are intepreted as ranges, so must be
             # selected by user with select_range
             if isinstance(v, (Sequence, np.ndarray)) and not isinstance(v, str):
-                # print(ku, v)
                 query = None
                 for vv in v:
                     if ku == "UTC":
@@ -550,7 +547,6 @@ class Selection(DataFrame):
                     # for pd.merge to give the correct answer, we would
                     # need "inner" on the first one and "outer" on subsequent
                     # df = pd.merge(df, df[df[ku] == vv], how="inner")
-                # print("final query ", query)
                 df = df.query(query)
             else:
                 df = pd.merge(df, df[df[ku] == v], how="inner")
@@ -599,7 +595,6 @@ class Selection(DataFrame):
             if ku in self._aliases:
                 ku = self._aliases[ku]
             v = self._sanitize_input(ku, v)
-            # print(f"{ku}={v}")
             # deal with a tuple quantity
             if isinstance(v, Quantity):
                 v = v.value
@@ -754,9 +749,9 @@ class Selection(DataFrame):
         """
         Print the current selection rules. Only columns with a rule are shown.
         The first two columns are ID number a TAG string. Either of these may be used
-        to :meth:remove a row.  The final column `# SELECTED` gives
+        to :meth:`remove` a row.  The final column `# SELECTED` gives
         the number of rows that a given rule selects from the original.
-        The :meth:final selection may be fewer rows because each selection rule
+        The :meth:`final` selection may be fewer rows because each selection rule
         is logically OR'ed to create the final selection.
 
         Returns
@@ -834,21 +829,18 @@ class Selection(DataFrame):
 
         # get the tag if given or generate one if not
         tag = kwargs.pop("tag", self._generate_tag(kwargs))
-        debug = kwargs.pop("debug", False)
         if len(kwargs) == 0:
             return  # user gave no additional kwargs
         if tag is None:  # in case user did tag=None (facepalm)
             tag = self._generate_tag(kwargs)
-        if debug:
-            print(f"working TAG IS {tag}")
+        logger.debug(f"working TAG IS {tag}")
         # in order to pop channel we need to check case insensitively
         ukwargs = keycase(kwargs)
         chan = ukwargs.pop("CHANNEL", None)
         if chan is not None:
             self.select_channel(chan, tag)
         if len(ukwargs) != 0:
-            if debug:
-                print(f"selection {ukwargs}")
+            logger.debug(f"selection {ukwargs}")
             self.select(**ukwargs, tag=tag)
 
     def __deepcopy__(self, memo):
