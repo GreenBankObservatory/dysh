@@ -47,6 +47,19 @@ Modules and APIs
         :shadow: md
         :margin: 2 2 0 0
 
+        **coordinates**
+
+        .. button-link:: dysh.coordinates.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Go to dysh.coordinates
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
         **util**
 
         .. button-link:: dysh.util.html
@@ -62,4 +75,5 @@ Modules and APIs
    dysh.fits
    dysh.spectra
    dysh.plot
+   dysh.coordinates
    dysh.util
