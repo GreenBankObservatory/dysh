@@ -102,7 +102,7 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = []
+exclude_patterns = ["examples/output"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -121,11 +121,25 @@ html_theme = "sphinx_book_theme"
 # documentation.
 #
 html_theme_options = {
+    "repository_url": "https://github.com/GreenBankObservatory/dysh",
+    "repository_branch": "main",
     "logo": {
         "image_light": "_static/icon/dysh_logo_lightmode.png",
         "image_dark": "_static/icon/dysh_logo_darkmode.png",
     },
+    # "show_toc_level": 2,
+    "use_source_button": True,
+    "use_issues_button": True,
+    "use_download_button": True,
+    "use_sidenotes": True,
     "show_toc_level": 2,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/GreenBankObservatory/dysh",
+            "icon": "fa-brands fa-github",
+        },
+    ],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
