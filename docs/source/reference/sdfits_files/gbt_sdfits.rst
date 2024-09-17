@@ -9,7 +9,10 @@ The single-dish FITS (SDFITS) convention is used for observer-facing GBT data. T
 HDU 0 (PRIMARY)
 ---------------
 
-.. list-table:: Header
+Header
+^^^^^^
+
+.. list-table::
    :widths: 25 25 50
    :header-rows: 1
 
@@ -38,7 +41,10 @@ HDU 0 (PRIMARY)
 HDU 1 (SINGLE DISH)
 -------------------
 
-.. list-table:: Header
+Header
+^^^^^^
+
+.. list-table::
    :widths: 25 25 50
    :header-rows: 1
 
@@ -91,7 +97,10 @@ HDU 1 (SINGLE DISH)
      - "SINGLE DISH"
      - The name of this binary table extension
 
-.. list-table:: Data
+Data
+^^^^
+
+.. list-table::
    :widths: 20 20 20 40
    :header-rows: 1
 
@@ -630,4 +639,4 @@ Flag files indicate the data that should be ignored. For example, these flags ca
 
 Other Resources
 ===============
-The full SDFITS documentation for GBO can be found here: `The GBT SDFITS Project Wiki <https://safe.nrao.edu/wiki/bin/view/GB/Data/Sdfits>`_
+The full SDFITS documentation for GBO can be found on `the GBT SDFITS Project Wiki <https://safe.nrao.edu/wiki/bin/view/GB/Data/Sdfits>`_. However, this page is out of date and requires a login to view.
