@@ -58,6 +58,7 @@ extensions = [
     "sphinxcontrib.mermaid",
     "numpydoc",
     "sphinx_inline_tabs",
+    "sphinx_design",
 ]
 
 numpydoc_show_class_members = True
