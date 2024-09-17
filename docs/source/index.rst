@@ -11,8 +11,85 @@ It is intended to replace `GBTIDL <https://www.gb.nrao.edu/GBT/DA/gbtidl/users_g
 Contents
 ===============
 
+.. grid:: 1 2 2 2
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :octicon:`mortar-board;3em;orange` **Tutorials**
+
+        Learning-oriented lessons take you through a series
+        of steps to complete a project.
+
+        Most useful when you want to get started reducing your data.
+
+        .. button-link:: examples/index.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Go to Tutorials
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :octicon:`terminal;3em;green` **How-To Guides**
+
+        Practical step-by-step guides to help you achieve a specific goal.
+
+        Most useful when you're trying to get something done.
+
+
+        .. button-link:: how-tos/index.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Go to How-To Guides
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :octicon:`repo;3em;purple` **Explanation**
+
+        Big-picture explanations of higher-level concepts.
+
+        Most useful for building understanding of a particular topic.
+
+
+        .. button-link:: explanations/index.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Go to Explanation Material
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :octicon:`tools;3em;sd-text-primary` **References**
+
+        Nitty-gritty technical descriptions of how `dysh` works.
+
+        Most useful when you need detailed information about the API or how to
+        contribute.
+
+
+        .. button-link:: references/index.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Go to Reference Material
+
+
 .. toctree::
    :maxdepth: 2
+   :hidden:
 
    whatsnew/0.3.rst
    background/index
@@ -22,12 +99,6 @@ Contents
    for_beta_testers/index
    for_developers/index
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
 Reporting Issues
 ================
