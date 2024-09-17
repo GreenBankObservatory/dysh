@@ -93,7 +93,6 @@ Contents
 
    whatsnew/0.3.rst
    getting_started/index
-   background/index
    examples/index
    reference/index
    for_beta_testers/index
