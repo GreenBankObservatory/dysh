@@ -72,6 +72,7 @@ Modules and APIs
 .. toctree::
    :maxdepth: 2
    :hidden:
+
    dysh.fits
    dysh.spectra
    dysh.plot
