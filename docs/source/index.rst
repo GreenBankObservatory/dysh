@@ -92,10 +92,10 @@ Contents
    :hidden:
 
    whatsnew/0.3.rst
-   background/index
    getting_started/index
+   background/index
    examples/index
-   modules/index
+   reference/index
    for_beta_testers/index
    for_developers/index
 
