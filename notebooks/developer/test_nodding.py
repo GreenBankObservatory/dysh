@@ -13,8 +13,9 @@ import numpy.ma as ma
 from scipy.stats import norm
 import astropy.units as u
 from astropy.io import fits
-
 import matplotlib.pyplot as plt
+
+import dysh
 from dysh.fits.sdfitsload import SDFITSLoad
 from dysh.fits.gbtfitsload import GBTFITSLoad
 import dysh.util as util
@@ -33,6 +34,10 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 1000)
 
 # pd.options.display.max_columns = None
+
+#%%  debugging
+
+dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
 
 #%%  helper functions
 
@@ -252,7 +257,9 @@ sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod fa
 
 #%% future getnod()
 
-nod0.getnod()
+sb = nod0.getnod()
+sb[0].timeaverage().smooth('box',31).plot()
+sb[1].timeaverage().smooth('box',31).plot()
 
 #%%
 nod0fs = GBTFITSLoad('nod0fs')
