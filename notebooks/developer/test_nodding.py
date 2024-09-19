@@ -3,7 +3,8 @@
 """
 Description:
 ------------
-This is a script developed in spyder during the nodding work.
+This is a script developed in spyder during the nodding work, 
+it contains various bad (biased) ways of averaging data 
 
 """
 
@@ -33,21 +34,49 @@ pd.set_option('display.width', 1000)
 
 # pd.options.display.max_columns = None
 
-#%%  getnod (fake)
+#%%  helper functions
 
-def getnod(sdf, scan=None, fdnum=[0,1]):
-    """  a fake getnod type function
+def getnod(sdf, scan=None, fdnum=[0,1], ps=True):
+    """  a fake getnod type function using a series of gettp()
             scan=  needs list of 2 (for now just a nodding pair)
             fdnum= needs list of 2 (often this is 0,1)
+         fake because we do the timeaverage in power mode, not spectral mode
+         same for averaging their tsys.  short of using getspec() of course.
+         By setting ps=False, one can use the "Average BS" mode, instead
+         of the default "Average PS" mode.
     """
-    p1a = sdf.gettp(scan=scan[0],fdnum=fdnum[0])[0].timeaverage()
-    p1b = sdf.gettp(scan=scan[1],fdnum=fdnum[0])[0].timeaverage() 
-    t1 = (p1a-p1b)/p1b
-    p2a = sdf.gettp(scan=scan[1],fdnum=fdnum[1])[0].timeaverage()
-    p2b = sdf.gettp(scan=scan[0],fdnum=fdnum[1])[0].timeaverage()
-    t2 = (p2a-p2b)/p2b
+    s1 = sdf.gettp(scan=scan[0],fdnum=fdnum[0])[0]
+    t1s = s1.tsys.mean()
+    s1 = s1.timeaverage()
+    
+    r1 = sdf.gettp(scan=scan[1],fdnum=fdnum[0])[0]
+    t1r = r1.tsys.mean()
+    r1 = r1.timeaverage()
+    
+    s2 = sdf.gettp(scan=scan[1],fdnum=fdnum[1])[0]
+    t2s = s2.tsys.mean()
+    s2 = s2.timeaverage()
+    
+    r2 = sdf.gettp(scan=scan[0],fdnum=fdnum[1])[0]
+    t2r = r2.tsys.mean()
+    r2 = r2.timeaverage()
+
+    if ps:
+        tsys1 = 0.5*(t1s+t1r)
+        tsys2 = 0.5*(t2s+t2r)
+        #
+        t1 = tsys1*(s1-r1)/r1
+        t2 = tsys2*(s2-r2)/r2
+    else:        
+        tsys1 = 0.5*(t1s+t2r)
+        tsys2 = 0.5*(t2s+t1r)
+        #
+        t1 = tsys1*(s1-r2)/r2
+        t2 = tsys2*(s2-r1)/r1
 
     t = (t1+t2)/2
+    
+    print("fake getnod: tsys=%.2f %.2f (PS mode=%s)" % (tsys1,tsys2,repr(ps)))
     
     return t
 
@@ -76,8 +105,8 @@ def getbeam(sdf):
  
 #%%  classic tp/ps
    
-f1 = dysh_data(test="getps")        # OnOff, small one
-#f1 = dysh_data(example="getps1")   # OnOff, long one (4 IFs, ...)
+f1 = dysh_data(test="getps")        # OnOff, small one (1 IF, 1 PL, 1 INT)
+f1 = dysh_data(example="getps")   # OnOff, long one (4 IFs, 2 PLs, 151 INTs)
 #f1 = dysh_data(test="AGBT18B_354_03/AGBT18B_354_03.raw.vegas") # OffOn
 
 print("Using",f1.parts[-1])     # isn't there a better name for this?
@@ -88,31 +117,38 @@ sdf1.summary()
 sdf1.summary(verbose=True)
 sdf1._index[k]
 
-#p1 = sdf1.gettp
 
 #%%
 
 nbox = 127
+inc=[[1500,15000],[18000,28000]]
 
-p1 = sdf1.gettp()
+p1 = sdf1.gettp(ifnum=0, plnum=0)
 sp0 = p1[0].timeaverage()  # tsys=17.45805259
 sp1 = p1[1].timeaverage()  #      17.24000331
-p1a = (sp0-sp1)/sp0
+tsys1 = p1[0].tsys.mean()
+tsys2 = p1[1].tsys.mean()
+print('TSYS:',tsys1,tsys2)
+tsys = (tsys1+tsys2)/2
+p1a = tsys*(sp0-sp1)/sp0
+p1a.baseline(1,include=inc,remove=True)
 sp3 = p1a.smooth('box',nbox)
-sp3.plot()
+sp3._unit = u.K   # hack
+sp3.plot(xaxis_unit="km/s", xmin=3800-1000,xmax=3800+1000, ymin=-0.05, ymax=0.15)
 
 #%%
 
-p2 = sdf1.getps()
+p2 = sdf1.getps(ifnum=0, plnum=0)
 sp2 = p2[0].timeaverage()
+sp2.baseline(1,include=inc,remove=True)
 sp4 = sp2.smooth('box',nbox)
-sp4.plot()
+sp4.plot(xaxis_unit="km/s", xmin=3800-1000,xmax=3800+1000, ymin=-0.05, ymax=0.15)
 
 
-#%%   dividing
-sp5 = sp4/sp3
-sp5.plot()
-sp5.stats()    # about 19.7K
+#%%   differencing
+sp5 = sp4-sp3
+sp5.plot(xaxis_unit="km/s", xmin=3800-1000,xmax=3800+1000)
+#  bias in this difference is about  0.002, on a peak of 0.10 K, or 2%
 
 #%%  full example of NGC2415
 
@@ -120,6 +156,9 @@ sp5.stats()    # about 19.7K
 #          getps() on all 5 IFs and 2 PLs takes 73sec, very linear in #IF and #PL
 sdf1 = GBTFITSLoad(dysh_data(example="getps1"))
 sdf1.getps(plnum=0,ifnum=0).timeaverage().smooth('box',51).plot(xaxis_unit='km/s')
+
+
+
 
 
 #%% EXAMPLE-0  fs/nod  NOD_BEAMS 2,6
@@ -131,7 +170,32 @@ sdf1.getps(plnum=0,ifnum=0).timeaverage().smooth('box',51).plot(xaxis_unit='km/s
 #  and two nodding scans (#62 and #63)
 #  7 SDFITS files, one for each beam, are stored in the data directory
 
-# this is a huge file, we preload the minimum number of scans
+gbtidl0 = """
+filein, "nod-KFPA/data/TGBT22A_503_02.raw.vegas"
+
+getsigref, 62, 63, fdnum=2
+gsmooth, 5, /decimate
+getsigref, 63, 62, fdnum=6
+gsmooth, 5, /decimate
+accum
+ave
+
+getfs,64,fdnum=0
+gsmooth,5,/decimate
+
+getps,60,plnum=0
+accum
+getps,60,plnum=1
+accum
+ave
+gsmooth, 5, /decimate
+
+
+"""
+
+print(gbtidl0)
+
+# this is a huge 19GB file, we preload the minimum number of scans - it also needs 32GB memory
 
 f0 = dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas")     # example='nodfs'
 sdf0 = GBTFITSLoad(f0)
@@ -155,44 +219,117 @@ getbeam(sdf0)
 # 8     68   W3_1    -40.0    Nod         2  23.787811  23.694495    5     2    31      7  324.831553  36.694947
 # 9     69   W3_1    -40.0  Track         1  23.787811  23.694496    5     2    31      7  324.874404  36.463014
 
-!mkdir -p nod0
-
 
 #  can this use less memory? still seems to sit at 35GB virtual
+!mkdir -p nod0
 sdf0.write('nod0/file.fits',scan=[62,63],ifnum=0, plnum=0, overwrite=True)
-sdf0.write('nod0/file.fits',scan=[67,68],ifnum=0, plnum=0, overwrite=True)
+# sdf0.write('nod0/file.fits',scan=[67,68],ifnum=0, plnum=0, overwrite=True)
 # 5IF: 191404 -rw-rw-r-- 1 teuben teuben 195989760 Sep 13 14:45 junk620.fits
 # 1IF         -rw-rw-r-- 1 teuben teuben  32685120 Sep 13 14:59 junk620.fits
 
 # IF=6 POL=2 INT=31 FEED=2 SCAN=2
 
+!mkdir -p nod0fs
+sdf0.write('nod0fs/file.fits',scan=[64],ifnum=0, plnum=0, fdnum=0, overwrite=True)
 
-#%%
+
+#%% nod0: ps mode
 
 nod0 = GBTFITSLoad('nod0')
 nod0.summary()
 nod0._index[k]
 getbeam(nod0)
 
-sp = getnod(nod0,scan=[62,63])
-sp.smooth('box',151).plot()
+sp = getnod(nod0,scan=[62,63], fdnum=[2,6])
+# tsys=63.63 73.10
+sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod fake bs=False')
+
+#%% nod0: bs mode
+
+sp = getnod(nod0,scan=[62,63], fdnum=[2,6], ps=False)
+# tsys=68.78 67.94
+sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod fake bs=True')
+
+#%% future getnod()
+
+nod0.getnod()
 
 #%%
-#     now with the multifile trick
-sdf62 = GBTFITSLoad('junk62')
+nod0fs = GBTFITSLoad('nod0fs')
+nod0fs.summary()
+nod0fs._index[k]   # 84 rows
+
+p1  = nod0fs.getfs(plnum=0)[0]
+s1=p1.timeaverage()
+s1.smooth('gauss',5).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title="getfs-1")
+
+p2  = nod0fs.getfs(plnum=1)[0]
+s2=p2.timeaverage()
+s2.smooth('gauss',5).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title="getfs-2")
+
+s3 = (s1+s2)/2
+s3.smooth('gauss',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title="getfs-3")
+#   @todo   this looks like it's shifted from the figure in gbtidl manual !!!   3.3 MHz ???
+s3.smooth('gauss',5).plot(xaxis_unit="GHz", xmin=23.685, xmax=23.705) 
+
+
+
+#%%
+
+nod0ps = GBTFITSLoad('nod0ps')
+nod0ps.summary()
+nod0ps._index[k]   # 248 rows
+
+p1 = nod0ps.getps(plnum=0)[0]
+s1  = p1.timeaverage()
+s1.smooth('gauss',5).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title="getps-1")
+
+p2 = nod0ps.getps(plnum=1)[0]
+s2  = p2.timeaverage()
+s2.smooth('gauss',5).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title="getps-2")
+
+s3 = (s1+s2)/2
+s3.smooth('gauss',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, ymin=2, ymax=3.5, title="getps-3")
+#   @todo   this looks like it's shifted from the figure in gbtidl manual !!!   3.3 MHz ???
+s3.smooth('gauss',5).plot(xaxis_unit="GHz", xmin=23.685, xmax=23.705) 
+
+#%%
+# manual mode
+sdf62 = GBTFITSLoad('nod0')
 sdf62.summary()
 sdf62._index[k]    # 2975 for 2 beams   1736 for 7 beams   1*2*31*2*2
 
-p1a = sdf62.gettp(scan=62, fdnum=2, plnum=0)[0].timeaverage().smooth('box',5)
-p1b = sdf62.gettp(scan=63, fdnum=2, plnum=0)[0].timeaverage().smooth('box',5)
+# fake gbtidl method
+p1a = sdf62.gettp(scan=62, fdnum=2, plnum=0)[0].timeaverage().smooth('box',5)  # ON
+p1b = sdf62.gettp(scan=63, fdnum=2, plnum=0)[0].timeaverage().smooth('box',5)  # OFF
+
 t1 = (p1a-p1b)/p1b
-p2a = sdf62.gettp(scan=63, fdnum=6, plnum=0)[0].timeaverage().smooth('box',5)
-p2b = sdf62.gettp(scan=62, fdnum=6, plnum=0)[0].timeaverage().smooth('box',5)
+p2a = sdf62.gettp(scan=63, fdnum=6, plnum=0)[0].timeaverage().smooth('box',5)  # ON
+p2b = sdf62.gettp(scan=62, fdnum=6, plnum=0)[0].timeaverage().smooth('box',5)  # OFF
 t2 = (p2a-p2b)/p2b
 
-t = (t1+t2)/2
-ts = t.smooth('box',10)
-ts.plot(xaxis_unit="km/s", xmin=440, xmax=530)
+tsys=68.365   # from nod0
+t = tsys*(t1+t2)/2
+ts = t.smooth('box',21)
+ts.plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='junk62')
+
+#%%
+
+# would this work too?  
+# this is like a classic BS mode, and averaging the two BS scans
+t3 = (p1a-p2b)/p2b
+t4 = (p2a-p1b)/p1b
+tsys=68.365   # from nod0
+t5 = tsys*(t3+t4)/2
+t5.smooth('box',21).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod "bs" same time')
+#  only get a decent piece of spectrum so baseline subtration works
+t6 = t5[2000:4500]
+t6.baseline(exclude=[750,1750], degree=3, remove=True)
+t6.smooth('box',21).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod "bs" same time')
+
+
+
+
     
 #%% EXAMPLE-1   tp_nocal    NOD_BEAMS  10,1   (FEED 11,2)
 
@@ -267,6 +404,7 @@ nod4.summary()
 nod4._index[k]   # 240 rows
 
 sp = getnod(nod4,scan=[57,58])
+# tsys=124.63 110.38
 sp.smooth('box',20).plot(xaxis_unit='km/s')
 
 # data[int=30,30][pol=2][cal=2] 
@@ -303,6 +441,7 @@ nod6.summary()
 nod6._index[k]   # 248 rows     2*31*1*2*2
 
 sp = getnod(nod6, scan=[9,10])
+# tsys=133.72 226.86
 sp.smooth('box',151).plot(xaxis_unit='km/s')
  
 #  data   [if=3][scan=2][int=31][pol=2][cal=2]
@@ -327,6 +466,7 @@ nod7.summary()
 nod7._index[k]  
 
 sp = getnod(nod7, scan=[36,37])
+# tsys=46.83 51.65
 sp.smooth('box',151).plot(xaxis_unit='km/s')
 
 #   data   [ scan=2] [int=16] [pol=2] [cal=2]
@@ -350,6 +490,7 @@ nod8.summary()
 nod8._index[k]   # 48 rows    (2*6*2*2)
 
 sp = getnod(nod8, scan=[43,44])
+# tsys=43.88 51.29
 sp.smooth('box',151).plot(xaxis_unit='km/s')
 
 
@@ -373,6 +514,6 @@ nod9._index[k]     # 96/    768 rows    [scan=2][if=4] [int=12] [pol=2] [cal=2]
 # very odd order of scans  -  issues/376
 
 sp = getnod(nod9,scan=[12,13])
-sp.smooth('box',20).plot(xaxis_unit='km/s')
-
+# tsys=26.48 24.32
+sp.smooth('box',41).plot(xaxis_unit='km/s', xmin=-450,xmax=-200, ymin=2.55, ymax=2.70)
 
