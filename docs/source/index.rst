@@ -6,7 +6,7 @@
 `Green Bank Observatory <https:/greenbankobservatory.org>`_
 and the Laboratory for Millimeter-Wave Astronomy (LMA)
 at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
-It is intended to replace `GBTIDL <https://www.gb.nrao.edu/GBT/DA/gbtidl/users_guide/>`_, GBO's current spectral line data reduction package.
+It is intended to replace `GBTIDL <https://gbtidl.nrao.edu/>`_, GBO's current spectral line data reduction package.
 
 Contents
 ===============
@@ -24,7 +24,7 @@ Contents
 
         Most useful when you want to get started reducing your data.
 
-        .. button-link:: examples/index.html
+        .. button-link:: tutorials/index.html
             :color: primary
             :outline:
             :click-parent:
@@ -79,7 +79,7 @@ Contents
         contribute.
 
 
-        .. button-link:: references/index.html
+        .. button-link:: reference/index.html
             :color: primary
             :outline:
             :click-parent:
@@ -94,7 +94,8 @@ Contents
    whatsnew/0.3.rst
    getting_started/index
    tutorials/index
-   examples/index
+   how-tos/index
+   explanations/index
    reference/index
    for_beta_testers/index
    for_developers/index
@@ -119,4 +120,4 @@ Dev Team
 | Peter Teuben (UMD)
 | Pedro Salas (GBO)
 | Evan Smith (GBO)
-| Thomas Chamberlain (GBO)
+| Thomas Chamberlin (GBO)
