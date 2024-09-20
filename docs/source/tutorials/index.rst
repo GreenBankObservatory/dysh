@@ -11,17 +11,23 @@ Most useful when you want to get started reducing your data.
 
 .. card-carousel:: 2
 
-    .. card:: Position Switched (psw) Data
-        :link: psw/positionswitch.html
+    .. card:: Position Switched Data
+        :link: examples/positionswitch.html
 
         - Calibrate the data.
 
+    .. card:: Frequency Switched Data
+        :link: examples/frequencyswitch.html
 
-        Keys: *L-Band*, *psw*
+        - Calibrate the data.
 
+    .. card:: Sub Beam Nod Data
+        :link: examples/subbeamnod.html
 
 .. toctree::
    :maxdepth: 4
    :hidden:
 
-   psw/positionswitch
+   examples/positionswitch
+   examples/frequencyswitch
+   examples/subbeamnod
