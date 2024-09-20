@@ -51,7 +51,7 @@ def getnod(sdf, scan=None, fdnum=[0,1], ps=True):
          of the default "Average PS" mode.
     """
     s1 = sdf.gettp(scan=scan[0],fdnum=fdnum[0])[0]
-    t1s = s1.tsys.mean()
+    t1s = s1.tsys.mean()   # should use np.nanmean()
     s1 = s1.timeaverage()
     
     r1 = sdf.gettp(scan=scan[1],fdnum=fdnum[0])[0]
@@ -224,6 +224,18 @@ getbeam(sdf0)
 # 8     68   W3_1    -40.0    Nod         2  23.787811  23.694495    5     2    31      7  324.831553  36.694947
 # 9     69   W3_1    -40.0  Track         1  23.787811  23.694496    5     2    31      7  324.874404  36.463014
 
+
+#%% 
+
+sdf0.getnod(scan=[62,63],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=[67,68],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=[72,73],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=[75,76],ifnum=0,plnum=0).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=[80,81],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+
+# [75,76] and [80,81] are very weak
+
+#%%
 
 #  can this use less memory? still seems to sit at 35GB virtual
 !mkdir -p nod0
@@ -416,6 +428,16 @@ sp.smooth('box',20).plot(xaxis_unit='km/s')
 
 # data[int=30,30][pol=2][cal=2] 
 
+# signal expected at 5500 km/ss, but not in spectral range. Big wide feature at -2500
+
+# OK, order of scans is not relevant
+scans=[64,65,66,57,58,59,60,61,62,63]
+scans=[57,58,59,60,61,62,63,64,65,66]
+sdf.getnod(scan=scans,plnum=0).timeaverage().smooth('box',151).plot(xaxis_unit="km/s")
+# 0.10K signal at -2500
+sdf.getnod(scan=scans,plnum=1).timeaverage().smooth('box',151).plot(xaxis_unit="km/s")
+# not clear, perhaps some 0.05K feature at -2500 but bad baselines
+
 #%% EXAMPLE-5  tp (deprecated)
 
 f5 = dysh_data(accept='TSCAL_19Nov2015/TSCAL_19Nov2015.raw.acs/TSCAL_19Nov2015.raw.acs.fits')
@@ -432,7 +454,7 @@ sdf._index[k]    # 64 rows
 
 #%% EXAMPLE-6  tp   NOD_BEAMS 0,1  but both PL's needed
 
-f6 = dysh_data(accept='AGBT17B_319_06/AGBT17B_319_06.raw.vegas')
+f6 = dysh_data(accept='AGBT17B_319_06/AGBT17B_319_06.raw.vegas')   # AGPeg
 sdf = GBTFITSLoad(f6)
 # 3 files,  one for each IF
 sdf.summary()
@@ -454,7 +476,10 @@ sp.smooth('box',151).plot(xaxis_unit='km/s')
 #  data   [if=3][scan=2][int=31][pol=2][cal=2]
 #  scan=9 fdnum=0      scan=10 fdnum=1
 
+#%% BUG
 
+sb = nod6.getnod()
+# Exception: Only one FDNUM is allowed per Scan, found [0, 1]
 
 
 #%% EXAMPLE-7  tp   NOD_BEAMS 0,1   (but called FEED=3,7)
@@ -478,9 +503,18 @@ sp.smooth('box',151).plot(xaxis_unit='km/s')
 
 #   data   [ scan=2] [int=16] [pol=2] [cal=2]
 
+
+# more scans (the last scan is too short)
+sb0 = sdf.getnod(scan=[36,37,38,39],plnum=0)
+sb1 = sdf.getnod(scan=[36,37,38,39],plnum=1)
+sp=sb0.timeaverage() +  sb1.timeaverage()
+sp.smooth('box',151).plot(xaxis_unit="km/s")
+# very weak line ~3345
+
+
 #%% EXAMPLE-8            NOD_BEAMS 0,1   (FEED 1,4)
  
-f8 = dysh_data(accept="AGBT19A_340_07/AGBT19A_340_07.raw.vegas")
+f8 = dysh_data(accept="AGBT19A_340_07/AGBT19A_340_07.raw.vegas")   # NGC1377
 sdf = GBTFITSLoad(f8)
 # 8 files;   4IF 2PL 6-INT 2FEED   (4IF * 2FD in the 8 files)
 sdf.summary()
@@ -499,11 +533,19 @@ nod8._index[k]   # 48 rows    (2*6*2*2)
 sp = getnod(nod8, scan=[43,44])
 # tsys=43.88 51.29
 sp.smooth('box',151).plot(xaxis_unit='km/s')
+# no obvious line
 
+
+sb = sdf.getnod(ifnum=0, plnum=0)
+sb.timeaverage().smooth('box',51).plot()
+
+sdf.getnod(ifnum=0, plnum=1).timeaverage().smooth('box',151).plot(xaxis_unit="km/s")
+
+# no obvious signal ~1785
 
 #%% EXAMPLE-9     NOD_BEAMS 0,1   (but unknown PROCSCAN)
 
-f9 = dysh_data(accept="AGBT12A_076_05/AGBT12A_076_05.raw.acs")
+f9 = dysh_data(accept="AGBT12A_076_05/AGBT12A_076_05.raw.acs")   # NGC7538IRS1
 sdf = GBTFITSLoad(f9)
 # 1 file
 sdf.summary()    # 3072 rows       4*2*12*2*2*8
@@ -522,5 +564,14 @@ nod9._index[k]     # 96/    768 rows    [scan=2][if=4] [int=12] [pol=2] [cal=2]
 
 sp = getnod(nod9,scan=[12,13])
 # tsys=26.48 24.32
-sp.smooth('box',41).plot(xaxis_unit='km/s', xmin=-450,xmax=-200, ymin=2.55, ymax=2.70)
+sp.smooth('box',41).plot(xaxis_unit='km/s', xmin=-500,xmax=-100, ymin=2.55, ymax=2.70)
 
+#%% BUG
+
+nod9.getnod(fdnum=[0,1]).timeaverage().smooth('box',151).plot(xaxis_unit="km/s")
+# Exception: Only one FDNUM is allowed per Scan, found [1, 0]
+
+sdf.getnod(fdnum=[0,1], ifnum=0, plnum=1).timeaverage().smooth('box',151).plot(xaxis_unit="km/s")
+
+sb = sdf.getnod(plnum=1, ifnum=3, fdnum=[0,1])
+# Exception: Only one FDNUM is allowed per Scan, found [0, 1]
