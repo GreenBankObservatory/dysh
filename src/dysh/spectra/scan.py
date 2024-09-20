@@ -1194,6 +1194,8 @@ class NODScan(ScanBase):
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
         NOTE: there should be one ON and one OFF, a pair. There should be at least two beams (the nodding beams)
         which will be resp. on source in each scan.
+    beam1: bool
+        Is this scan BEAM1 or BEAM2?  BEAM1 is defined as being on source in the first scan of the pair, BEAM2 in the second of the pair
     scanrows : dict
         dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
     calrows : dict
@@ -1216,6 +1218,7 @@ class NODScan(ScanBase):
         self,
         gbtfits,
         scan,
+        beam1,
         scanrows,
         calrows,
         bintable,
@@ -1228,6 +1231,7 @@ class NODScan(ScanBase):
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
         self._smoothref = smoothref
+        self._beam1 = beam1
 
         # @todo   allow having no calrow where noise diode was not fired
 
@@ -1253,11 +1257,17 @@ class NODScan(ScanBase):
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+        if beam1:
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        else:
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
         self._nchan = len(self._sigcalon[0])
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._tsys = None
         self._exposure = None
         self._calibrated = None

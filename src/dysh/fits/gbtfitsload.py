@@ -1048,7 +1048,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if scans is None:
             scans = preselected["SCAN"]
         missing = self._nod_scan_list_selection(scans, _final, feeds, check=True)
-        print("missing",missing)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
         # now remove any scans that have been pre-selected by the user.
@@ -1078,7 +1077,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         plnum = uniq(_sf["PLNUM"])
         fdnum = uniq(_sf["FDNUM"])
         scans = uniq(_sf["SCAN"])
-        logger.debug(f"FINAL i {ifnum} p {plnum} f {fdnum} s {scans}")
+        prosq = uniq(_sf["PROCSEQN"])
+        logger.debug(f"FINAL i {ifnum} p {plnum} f {fdnum} psq {prosq} s {scans}")
+        beam1_selected =  True
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
@@ -1094,11 +1095,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     logger.debug("scans not found, continuing")
                     continue
+                beam1_selected =  list(set(df['FDNUM']))[0] == feeds[0]
                 logger.debug(f"SCANLIST {scanlist}")
                 logger.debug(f"POLS {set(df['PLNUM'])}")
-                logger.debug(f"FEED {set(df['FDNUM'])}")                
+                logger.debug(f"FEED {set(df['FDNUM'])} {beam1_selected} {feeds[0]}")
+                logger.debug(f"PROCSEQN {set(df['PROCSEQN'])}")                
                 logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
                 logger.debug(f"and PROC {set(_df['PROC'])}")
+                # beam1_selected =  not beam1_selected
                 rows = {}
                 # loop over scan pairs
                 c = 0
@@ -1124,9 +1128,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     d = {"ON": on, "OFF": off}
                     logger.debug(f"{i, k, c} SCANROWS {rows}")
                     logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
+                    logger.debug(f"BEAM1 {beam1_selected}")
                     g = NODScan(
                         self._sdf[i],
                         scan=d,
+                        beam1=beam1_selected,
                         scanrows=rows,
                         calrows=calrows,
                         bintable=bintable,
@@ -1138,6 +1144,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     c = c + 1
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        if len(scanblock)%2 == 1:
+            raise Exception("Odd number of scans for getnod")
+        # @todo  merge the scanblocks
         scanblock.merge_commentary(self)
         return scanblock
         # end of getnod()
