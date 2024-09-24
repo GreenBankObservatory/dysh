@@ -487,11 +487,6 @@ class SelectionBase(DataFrame):
                 The value to select
 
         """
-        # @todo ?? MAYBE allow chan(nel) in here, e.g.
-        # chan = kwargs.pop(chan,None)
-        # if chan is not None:
-        #   self.select_channel(chan,tag=tag)
-        #
         self._check_keys(kwargs.keys())
         row = {}
         # if called via _select_from_mixed_kwargs, then we want to merge all the
@@ -1006,7 +1001,7 @@ class Flag(SelectionBase):
     def flag_channel(self, chan, tag=None, **kwargs):
         """
         Flag  channels and/or channel ranges. These are NOT used in :meth:`final`
-        but rather will be used to create a mask for calibration or
+        but rather will be used to create a mask for
         flagging. Single arrays/tuples will be treated as channel lists;
         nested arrays will be treated as ranges, for instance
 
@@ -1081,7 +1076,24 @@ class Flag(SelectionBase):
         None.
 
         """
-        self._base_select_within(tag, **kwargs)
+        # I think we have to directly manipulate a bitmask here
+        # as it is perfecly legal for different rows/integrations to have
+        # different channel flags
+        pass
 
+    @classmethod
     def read(self, fileobj):
+        """Read a GBTIDL flag file and instantiate Flag object.
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+
+        Returns
+        -------
+        flags :   `~selection.Flag`
+            A Flag object that represents the GBTIDL flags.
+        """
         pass
