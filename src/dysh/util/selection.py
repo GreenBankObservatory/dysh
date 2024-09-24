@@ -561,10 +561,6 @@ class SelectionBase(DataFrame):
         None.
 
         """
-        # @todo ?? MAYBE allow chan(nel) in here, e.g.
-        # chan = kwargs.pop(chan,None)
-        # if chan is not None:
-        #   self.select_channel(chan,tag=tag)
         self._check_keys(kwargs.keys())
         self._check_range(**kwargs)
         row = {}
