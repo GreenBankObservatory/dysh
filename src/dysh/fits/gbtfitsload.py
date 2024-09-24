@@ -507,15 +507,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def _select_scans(self, scans, df):
         return df[(df["SCAN"] >= scans[0]) & (df["SCAN"] <= scans[1])]
 
-    # def _select_onoff(self, df):
-    #    return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
-
-    # def select_track(self, df):
-    #    return df[(df["PROC"] == "Track")]
-
-    # @todo move all selection methods to sdfitsload after adding Selection
+    # @todo maybe move all selection/flag methods to sdfitsload after adding Selection/Flag
     # to sdfitsload
-    # @todo write a Delegator class to autopass to Selection. See, e.g., https://michaelcho.me/article/method-delegation-in-python/
+    # @todo maybe write a Delegator class to autopass to Selection.
+    # See, e.g., https://michaelcho.me/article/method-delegation-in-python/
     @log_call_to_history
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
@@ -592,6 +587,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
+        self._selection.select_within(tag=tag, **kwargs)
 
     @log_call_to_history
     def select_channel(self, chan, tag=None):
@@ -644,7 +640,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 The value to select
 
         """
-        self._selection.select(tag=tag, **kwargs)
+        self._flag.flag(tag=tag, **kwargs)
 
     @log_call_to_history
     def flag_range(self, tag=None, **kwargs):
@@ -673,7 +669,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
-        self._selection.select_range(tag=tag, **kwargs)
+        self._flag.flag_range(tag=tag, **kwargs)
 
     @log_call_to_history
     def flag_within(self, tag=None, **kwargs):
@@ -701,6 +697,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
+        self._flag.flag_within(tag=tag, **kwargs)
 
     @log_call_to_history
     def flag_channel(self, chan, tag=None):
@@ -732,7 +729,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
         None.
         """
-        self._selection.select_channel(tag=tag, chan=chan)
+        self._flag.flag_channel(tag=tag, chan=chan)
 
     def _create_index_if_needed(self):
         if self._selection is not None:
