@@ -996,6 +996,8 @@ class Flag(SelectionBase):
                 The value to select
 
         """
+        chan = kwargs.pop("chan", None)
+        self._handle_channel(chan)
         self._base_select(tag, **kwargs)
 
     def flag_channel(self, chan, tag=None, **kwargs):
@@ -1080,6 +1082,10 @@ class Flag(SelectionBase):
         # as it is perfecly legal for different rows/integrations to have
         # different channel flags
         pass
+
+    def _handle_channel(self, chan):
+        if chan is None:
+            return
 
     @classmethod
     def read(self, fileobj):
