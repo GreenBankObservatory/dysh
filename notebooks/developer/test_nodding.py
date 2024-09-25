@@ -4,25 +4,36 @@
 Description:
 ------------
 This is a script developed in spyder during the nodding work, 
-it contains various bad (biased) ways of averaging data 
+it also contains a local getnod() , which works but it biased since it used gettp()
+
+nod0  fdnum=[2,6]       16GB memory issue                tp cal; OK
+nod1  fdnum=[10,1]      unbalanced calrows 0 != 6        .
+nod2                    deprecated                       -
+nod3  fdnum=[0,1]       unbalanced calrows 0 != 6        .
+nod4  fdnum=[0,1]       odd scan order                   tp cal; getnod OK? 
+nod5                    deprecated                       -
+nod6  fdnum=[0,1]       both PL's needed!                tp cal; getnod failing multiple feeds/scan
+nod7  fdnum=[0,1]       last scan short, weak signal     tp cal; OK
+nod8  fdnum=[0,1]       no signal?                       tp cal; OK
+nod9  fdnum=[0,1]       but PROCSCAN unknown,            tp cal; getnod failing multiple feeds/scan   #376,#390
+
 
 """
 
 import numpy as np
 import numpy.ma as ma
 from scipy.stats import norm
-import astropy.units as u
 from astropy.io import fits
+import astropy.units as u
 import matplotlib.pyplot as plt
 
 import dysh
 from dysh.fits.sdfitsload import SDFITSLoad
 from dysh.fits.gbtfitsload import GBTFITSLoad
-import dysh.util as util
 from dysh.util.files import dysh_data
 from dysh.util.selection import Selection
 
-#  useful keys for a mult-beam observation
+#  useful keys for a mult-beam observation listing
 
 k=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'PROCSCAN','FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF', 'SIG', 'CAL', 'PROCSEQN', 'PROCSIZE']
 ks=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN']
@@ -85,7 +96,7 @@ def getnod(sdf, scan=None, fdnum=[0,1], ps=True):
     
     return t
 
-def getbeam(sdf):
+def getbeam(sdf, debug=False):
     """ find the two nodding beams
     """
     kb=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'PROCSCAN', 'FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF']
@@ -100,16 +111,21 @@ def getbeam(sdf):
         beam2 = d2['FDNUM'].unique()[0]
         fdnum1 = d1['FEED'].unique()[0]
         fdnum2 = d2['FEED'].unique()[0]
-        print("beams: ",beam1,beam2,fdnum1,fdnum2)
+        if debug:
+            print("beams: ",beam1,beam2,fdnum1,fdnum2)
         return [beam1,beam2]
     else:
+        # try one other thing
+        if len(c['FEED'].unique()) == 2:
+            print("getbeam rescued")
+            return list(c['FEED'].unique())
         print("too many in beam1:",d1['FDNUM'].unique())
         print("too many in beam2:",d2['FDNUM'].unique())
         return []
 
  
 #%%  classic tp/ps
-   
+
 f1 = dysh_data(test="getps")        # OnOff, small one (1 IF, 1 PL, 1 INT)
 f1 = dysh_data(example="getps")   # OnOff, long one (4 IFs, 2 PLs, 151 INTs)
 #f1 = dysh_data(test="AGBT18B_354_03/AGBT18B_354_03.raw.vegas") # OffOn
@@ -162,8 +178,11 @@ sp5.plot(xaxis_unit="km/s", xmin=3800-1000,xmax=3800+1000)
 sdf1 = GBTFITSLoad(dysh_data(example="getps1"))
 sdf1.getps(plnum=0,ifnum=0).timeaverage().smooth('box',51).plot(xaxis_unit='km/s')
 
+#%%
 
-
+GBTFITSLoad('nod0_test60.fits').getspec(0).plot(title='GBTIDL getps',  xaxis_unit="km/s")
+GBTFITSLoad('nod0_test62.fits').getspec(0).plot(title='GBTIDL getnod', xaxis_unit="km/s")
+GBTFITSLoad('nod0_test64.fits').getspec(0).plot(title='GBTIDL getfs')
 
 
 #%% EXAMPLE-0  fs/nod  NOD_BEAMS 2,6
@@ -179,23 +198,28 @@ gbtidl0 = """
 filein, "nod-KFPA/data/TGBT22A_503_02.raw.vegas"
 
 getsigref, 62, 63, fdnum=2
-gsmooth, 5, /decimate
+boxcar, 10, /decimate
+accum
 getsigref, 63, 62, fdnum=6
-gsmooth, 5, /decimate
+boxcar, 10, /decimate
 accum
 ave
+fileout,"nod0_test62.fits"
+keep
 
 getfs,64,fdnum=0
-gsmooth,5,/decimate
+boxcar, 10, /decimate
+fileout,"nod0_test64.fits"
+keep
 
 getps,60,plnum=0
 accum
 getps,60,plnum=1
 accum
 ave
-gsmooth, 5, /decimate
-
-
+boxcar, 10, /decimate
+fileout,"nod0_test60.fits"
+keep
 """
 
 print(gbtidl0)
@@ -226,6 +250,7 @@ getbeam(sdf0)
 
 
 #%% 
+sdf0.getnod(scan=[62,63],ifnum=0,plnum=0).timeaverage().smooth('box',11).plot(title='dysh getnod',xaxis_unit="km/s")
 
 sdf0.getnod(scan=[62,63],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
 sdf0.getnod(scan=[67,68],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
@@ -234,6 +259,10 @@ sdf0.getnod(scan=[75,76],ifnum=0,plnum=0).timeaverage().smooth('box',101).plot(x
 sdf0.getnod(scan=[80,81],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
 
 # [75,76] and [80,81] are very weak
+
+
+sdf0.getps(scan=60,plnum=0,ifnum=0,fdnum=0).timeaverage().smooth('box',11).plot(title='dysh getps',xaxis_unit="km/s")
+
 
 #%%
 
@@ -276,7 +305,7 @@ sb[1].timeaverage().smooth('box',31).plot()
 #%%
 nod0fs = GBTFITSLoad('nod0fs')
 nod0fs.summary()
-nod0fs._index[k]   # 84 rows
+nod0fs._index[k]   # 84 rows   - now 168 ?
 
 p1  = nod0fs.getfs(plnum=0)[0]
 s1=p1.timeaverage()
@@ -421,6 +450,7 @@ sdf.write('nod4/file.fits', scan=[57,58],plnum=1,overwrite=True)   # 240
 nod4 = GBTFITSLoad('nod4')
 nod4.summary()
 nod4._index[k]   # 240 rows
+getbeam(nod4)
 
 sp = getnod(nod4,scan=[57,58])
 # tsys=124.63 110.38
@@ -468,6 +498,7 @@ sdf.write('nod6/file.fits', scan=[9,10], ifnum=0, overwrite=True)   # 248
 nod6 = GBTFITSLoad('nod6')
 nod6.summary()
 nod6._index[k]   # 248 rows     2*31*1*2*2
+getbeam(nod6)
 
 sp = getnod(nod6, scan=[9,10])
 # tsys=133.72 226.86
@@ -496,6 +527,7 @@ sdf.write('nod7/file.fits', scan=[36,37], plnum=1, overwrite=True)  # 128 select
 nod7 = GBTFITSLoad('nod7')
 nod7.summary()
 nod7._index[k]  
+getbeam(nod7)
 
 sp = getnod(nod7, scan=[36,37])
 # tsys=46.83 51.65
@@ -529,6 +561,7 @@ sdf.write('nod8/file.fits', scan=[43,44], ifnum=0, plnum=0, overwrite=True)  # 4
 nod8= GBTFITSLoad('nod8')
 nod8.summary()
 nod8._index[k]   # 48 rows    (2*6*2*2)
+getbeam(nod8)
 
 sp = getnod(nod8, scan=[43,44])
 # tsys=43.88 51.29
@@ -559,6 +592,7 @@ sdf.write('nod9/file.fits', scan=[12,13], ifnum=3, plnum=1, overwrite=True)   # 
 nod9= GBTFITSLoad('nod9')
 nod9.summary()
 nod9._index[k]     # 96/    768 rows    [scan=2][if=4] [int=12] [pol=2] [cal=2]
+getbeam(nod9)
 # 2*12*2*2
 # very odd order of scans  -  issues/376
 
@@ -572,6 +606,7 @@ nod9.getnod(fdnum=[0,1]).timeaverage().smooth('box',151).plot(xaxis_unit="km/s")
 # Exception: Only one FDNUM is allowed per Scan, found [1, 0]
 
 sdf.getnod(fdnum=[0,1], ifnum=0, plnum=1).timeaverage().smooth('box',151).plot(xaxis_unit="km/s")
+# Exception: Only one FDNUM is allowed per Scan, found [1, 0]
 
 sb = sdf.getnod(plnum=1, ifnum=3, fdnum=[0,1])
 # Exception: Only one FDNUM is allowed per Scan, found [0, 1]
