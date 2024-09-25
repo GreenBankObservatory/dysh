@@ -1,3 +1,5 @@
+.. _sdfits-reference:
+
 ****************
 GBT SDFITS Files
 ****************
@@ -8,6 +10,8 @@ The single-dish FITS (SDFITS) convention is used for observer-facing GBT data. T
 
 HDU 0 (PRIMARY)
 ---------------
+
+.. _primary-sdfits-header:
 
 Header
 ^^^^^^
@@ -40,6 +44,8 @@ Header
 
 HDU 1 (SINGLE DISH)
 -------------------
+
+.. _singledish-sdfits-header:
 
 Header
 ^^^^^^
