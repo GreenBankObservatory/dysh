@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 #
 #  Tools to operate on files
-#     dysh_data = simple file grabber frontend
+#     dysh_data = simple frontend to grab common dysh filenames
 #     fdr       = Recursive data (file) finder
 #
 #  command line usage:
@@ -36,9 +36,9 @@ _debug = False
 
 # $DYSH/testdata 
 valid_dysh_test = {
-    "getps" : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
-    "getfs" : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
-    "test1" : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'
+    "getps"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
+    "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
+    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'
 }
 
 
@@ -63,8 +63,16 @@ valid_dysh_example = {
 # AGBT14B_480_06  AGBT17B_004_14  AGBT18B_354_03  AGBT20B_336_01  TREG_050627
 # AGBT15B_228_08  AGBT17B_319_06  AGBT19A_080_01  AGBT22A_325_15  TSCAL_19Nov2015
 valid_dysh_accept = {
-    "nod1"       : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas/",
-    "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",
+    "nod1"       : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas",
+    "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated
+    "nod3"       : "AGBT15B_244_07/AGBT15B_244_07.raw.vegas",
+    "nod4"       : "TGBT18A_500_06/TGBT18A_500_06.raw.vegas",
+    "nod5"       : "TSCAL_19Nov2015/TSCAL_19Nov2015.raw.acs/TSCAL_19Nov2015.raw.acs.fits",   # deprecated
+    "nod6"       : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",
+    "nod7"       : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
+    "nod8"       : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
+    "nod9"       : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
+
 }
 
 # fmt: on
@@ -94,8 +102,8 @@ def dysh_data(sdfits=None,
     accept:       /home/dysh/acceptance_testing  -                                $DYSH_DATA/acceptance_testing
 
 
-    Examples of use:
-    ----------------
+    Examples of use include mnemonics or full paths:
+    ------------------------------------------------
     fn = dysh_data(test='getps')
     fn = dysh_data(example='getfs')
     fn = dysh_data(example='onoff-L/data/TGBT21A_501_11.raw.vegas')
@@ -114,7 +122,7 @@ def dysh_data(sdfits=None,
        wget for as long we want to support that.
        astropy caching is also an option
 
-    4) directories (names not ending on .fits ?)  cannot be downloaded
+    4) directories (names not ending on .fits) cannot be downloaded using wget
     5) use python-dotenv for configuration
        key=val
 
@@ -273,7 +281,7 @@ def dysh_data(sdfits=None,
         if _debug:
             print("url:",url)
         # @todo  how to use Path() here ????
-        if not os.path.exists(filename):    
+        if not os.path.exists(filename):    # @todo filename not known if file didn't exist
             filename = url.split('/')[-1]
             print(f"Downloading {filename} from {url}")
             if use_wget:
