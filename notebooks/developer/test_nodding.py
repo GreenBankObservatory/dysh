@@ -198,7 +198,7 @@ gbtidl0 = """
 filein, "nod-KFPA/data/TGBT22A_503_02.raw.vegas"
 
 getsigref, 62, 63, fdnum=2
-boxcar, 10, /decimate
+boxcar, 11, /decimate
 accum
 getsigref, 63, 62, fdnum=6
 boxcar, 10, /decimate
@@ -208,7 +208,7 @@ fileout,"nod0_test62.fits"
 keep
 
 getfs,64,fdnum=0
-boxcar, 10, /decimate
+boxcar, 11 /decimate
 fileout,"nod0_test64.fits"
 keep
 
@@ -217,16 +217,18 @@ accum
 getps,60,plnum=1
 accum
 ave
-boxcar, 10, /decimate
+boxcar, 11, /decimate
 fileout,"nod0_test60.fits"
 keep
 """
+#   BUG: there are no units in these files.....
 
 print(gbtidl0)
 
 # this is a huge 19GB file, we preload the minimum number of scans - it also needs 32GB memory
 
-f0 = dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas")     # example='nodfs'
+f0 = "nod-KFPA/data/TGBT22A_503_02.raw.vegas"
+f0 = dysh_data(example=f0)                        # AKA example='nodfs'
 sdf0 = GBTFITSLoad(f0)
 sdf0.summary()
 getbeam(sdf0)
@@ -249,20 +251,34 @@ getbeam(sdf0)
 # 9     69   W3_1    -40.0  Track         1  23.787811  23.694496    5     2    31      7  324.874404  36.463014
 
 
-#%% 
-sdf0.getnod(scan=[62,63],ifnum=0,plnum=0).timeaverage().smooth('box',11).plot(title='dysh getnod',xaxis_unit="km/s")
+#%%  comparing DYSH and GBTIDL (ps and nod)
 
+sdf0.getnod(scan=[62,63],ifnum=0,plnum=0).timeaverage().smooth('box',11).plot(title='dysh getnod',xaxis_unit="km/s")
 sdf0.getnod(scan=[62,63],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
 sdf0.getnod(scan=[67,68],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
 sdf0.getnod(scan=[72,73],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
 sdf0.getnod(scan=[75,76],ifnum=0,plnum=0).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
 sdf0.getnod(scan=[80,81],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
-
 # [75,76] and [80,81] are very weak
 
+# there is no support for pol a
+sp0 = sdf0.getps(scan=60,plnum=0,ifnum=0,fdnum=0).timeaverage().smooth('box',11)
+sp1 = sdf0.getps(scan=60,plnum=1,ifnum=0,fdnum=0).timeaverage().smooth('box',11)
+sp_p1 = (sp0+sp1)/2
+sp_p1.plot(title='dysh getps',xaxis_unit="km/s")
 
-sdf0.getps(scan=60,plnum=0,ifnum=0,fdnum=0).timeaverage().smooth('box',11).plot(title='dysh getps',xaxis_unit="km/s")
+# both cases return units "ct", which means we cannot subtract the spectra
+sp_p2 = GBTFITSLoad('nod0_test60.fits').getspec(0)
+sp_p2 = SDFITSLoad('nod0_test60.fits').getspec(0)
 
+d_p = sp_p1.flux.value - sp_p2.flux.value
+print("getnod rms diff",d_p[1:-1].std() )
+
+sp_n1 = sdf0.getnod(scan=[62,63],ifnum=0,plnum=0).timeaverage().smooth('box',11)
+sp_n2 = GBTFITSLoad('nod0_test62.fits').getspec(0)
+
+d_n = sp_n1.flux.value - sp_n2.flux.value
+print("getnps rms diff", d_n[1:-1].std())
 
 #%%
 
