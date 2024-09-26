@@ -1016,8 +1016,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 fdnum2 = d2['FEED'].unique()[0]
                 return [beam1,beam2]
             else:
-                #print("too many in beam1:",d1['FDNUM'].unique())
-                #print("too many in beam2:",d2['FDNUM'].unique())
+                # one more attempt (this can happen if PROCSCAN contains "Unknown")
+                # it is possible that BEAM1 and BEAM2 are switched here, given how we unique()
+                if len(c['FEED'].unique()) == 2:
+                    print("get_nod_beams rescued")
+                    return list(c['FEED'].unique())
                 return []
             
         nod_beams = get_nod_beams(self)
