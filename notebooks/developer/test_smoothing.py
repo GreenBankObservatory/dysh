@@ -5,11 +5,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-from specutils import Spectrum1D
 import astropy.units as u
-import numpy as np
+from astropy.io import fits
+from specutils import Spectrum1D
 from specutils.manipulation import box_smooth, gaussian_smooth, trapezoid_smooth
+
+import matplotlib.pyplot as plt
+
+from dysh.fits.sdfitsload import SDFITSLoad
+from dysh.fits.gbtfitsload import GBTFITSLoad
+import dysh.util as util
+from dysh.util.selection import Selection
+from dysh.util.files import dysh_data
 
 
 def parr(data, n, w=1):
@@ -18,7 +25,7 @@ def parr(data, n, w=1):
     print(data[n-w:n+w+1])
     
     
-#%%  testing simple spectra; but we're not using specutils anymore
+#%%  testing simple spectra; even though we're not using specutils anymore
 
 spec1 = Spectrum1D(spectral_axis=np.arange(1, 50) * u.nm, flux=np.random.default_rng(12345).random(49)*u.Jy)
 
@@ -31,19 +38,10 @@ gaussian_smooth(spec1, stddev=3)
 
 #%% testing using a PS
 
-import numpy as np
-import numpy.ma as ma
-from scipy.stats import norm
-import astropy.units as u
-from astropy.io import fits
-import matplotlib.pyplot as plt
-from dysh.fits.sdfitsload import SDFITSLoad
-from dysh.fits.gbtfitsload import GBTFITSLoad
-import dysh.util as util
-from dysh.util.selection import Selection
+
 
 f1 = util.get_project_testdata() / 'TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits'
-# s1 = SDFITSLoad(f1)
+f1 = dysh_data(test="getps")
 
 sdf1 = GBTFITSLoad(f1)
 sdf1.info()
@@ -74,7 +72,7 @@ np.where(np.isnan(d1))   # 3072
 example1=\
     """
     filein,"TGBT21A_501_11.raw.vegas.fits"
-    getps,152,ifnum=0,plnum=0,intnum=0
+    getps,152,ifnum=0,plnum=0,intnum=0   
     fileout,"TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
     keep
     """
@@ -91,7 +89,6 @@ d2b = fits.open(util.get_project_testdata() / base1b)[1].data['DATA'][0]
 d2h = fits.open(util.get_project_testdata() / base1h)[1].data['DATA'][0]
 d2g = fits.open(util.get_project_testdata() / base1g)[1].data['DATA'][0]
 d2s = fits.open(util.get_project_testdata() / base1s)[1].data['DATA'][0]
-
 
 e2  = d1-d2
 e2b = (d1b-d2b)
