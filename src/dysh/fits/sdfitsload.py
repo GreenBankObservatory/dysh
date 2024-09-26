@@ -437,6 +437,7 @@ class SDFITSLoad(object):
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            logger.debug(f"Fixing CUNIT1 to Hz")            
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
@@ -464,13 +465,16 @@ class SDFITSLoad(object):
                 for k, v, c in h.cards:
                     if k == ukey:
                         if bunit != v:
-                            print("Found BUNIT=%s, now finding %s=%s, using the latter" % (bunit, ukey, v))
+                            logger.info(f"Found BUNIT={bunit}, now finding {uKey}={v}, using the latter")
                         bunit = v
                         break
         if bunit is not None:
             bunit = u.Unit(bunit)
         else:
             bunit = u.ct
+        logger.debug(f"BUNIT = {bunit}")
+        if bunit == "ct":
+            logger.info(f"Your data have no units, 'ct' was selected")
 
         s = Spectrum.make_spectrum(data * bunit, meta, observer_location=observer_location)
         return s
