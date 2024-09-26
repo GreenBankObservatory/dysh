@@ -661,19 +661,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 s._rename_binary_table_column("int", "intnum")
             return
 
-        scan_changes = indices_where_value_changes("SCAN", self._index)
-        time_changes = indices_where_value_changes("DATE-OBS", self._index)
-        # there is probably some super clever pythonic way to do this in one line
-        # but I am not that clever, so brute force it.
-        intnumarray = []
-        for i in self._index.index:
-            if i in scan_changes:
-                intnum = 0
-                # scindex += 1
-            else:
-                if i in time_changes:
-                    intnum += 1
-            intnumarray.append(intnum)
+        intnumarray = np.empty(len(self._index), dtype=int)
+        # Leverage pandas to group things by scan and observing time.
+        dfs = self._index.groupby(["SCAN"])
+        for name, group in dfs:
+            dfst = group.groupby("DATE-OBS")
+            intnums = np.arange(0, len(dfst.groups))
+            for i, (n, g) in enumerate(dfst):
+                idx = g.index
+                intnumarray[idx] = intnums[i]
         self._index["INTNUM"] = intnumarray
 
         # Here need to add it as a new column in the BinTableHDU,
