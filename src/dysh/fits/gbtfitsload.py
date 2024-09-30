@@ -71,8 +71,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for f in sorted(path.glob("*.fits")):
                 logger.debug(f"Selecting {f} to load")
                 if kwargs.get("verbose", None):
-                    print(f"doing {f}")
+                    print(f"Loading {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
+            if len(self._sdf) == 0:  # fixes issue 381
+                raise Exception(f"No FITS files found in {fileobj}.")
             self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}", add_time=True)
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
@@ -218,7 +220,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The final merged flags
 
         """
+        all_channels_flagged = np.where(self._table["CHAN"] == "")
+
         return self._flag.final
+
+    def _set_flags(self):
+        self.final_flags
 
     def filenames(self):
         """
@@ -710,7 +717,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ``
         # flags channels 1 and 10
         flag_channel([1,10])
-        # flagss channels 1 thru 10 inclusive
+        # flags channels 1 thru 10 inclusive
         flag_channel([[1,10]])
         # flags channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
         flag_channel([[1,10], [47,56], 75)])
@@ -751,6 +758,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
+
+    def _create_flagmask(self):
+        """Creates the mask which is NFILESxNINTxNCHAN which will be used for setting channel flags"""
 
     def _construct_procedure(self):
         """

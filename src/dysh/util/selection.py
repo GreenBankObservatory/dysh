@@ -57,6 +57,7 @@ class SelectionBase(DataFrame):
         # in a UserWarning, which we can safely ignore.
         warnings.simplefilter("ignore", category=UserWarning)
         self._add_utc_column()
+        self["CHAN"] = None
         # if we want Selection to replace _index in sdfits
         # construction this will have to change. if hasattr("_index") etc
         self._idtag = ["ID", "TAG"]
@@ -974,6 +975,9 @@ class Flag(SelectionBase):
     with :meth:`show` which will show the current
     rules and how many rows each rule selects for flagging from the unfiltered data.
 
+    The actual flags, which are per channel, are stored in the GBTFITSLoad object,
+    not in the Flag object. The Flag object just contains the flagging rules.
+
     Aliases of keywords are supported. The user may add an alias for an existing SDFITS column with :meth:`alias`.   Some default :meth:`aliases` have been defined.
 
     GBTIDL Flags can be read in with :meth:`read`.
@@ -1086,6 +1090,8 @@ class Flag(SelectionBase):
     def _handle_channel(self, chan):
         if chan is None:
             return
+        else:
+            pass
 
     @classmethod
     def read(self, fileobj):
