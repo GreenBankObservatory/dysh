@@ -130,6 +130,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._resolution = 1
 
+    def __len__(self):
+        """ return the size of the Spectrum in the spectral dimension.
+        """
+        return len(self.frequency)
+
     @property
     def weights(self):
         """The channel weights of this spectrum"""
