@@ -36,21 +36,22 @@ _debug = False
 
 # $DYSH/testdata 
 valid_dysh_test = {
+    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'
     "getps"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
     "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
-    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'
 }
 
 
 # http://www.gb.nrao.edu/dysh/example_data or /home/dysh/example_data or $DYSH_DATA/example_data
+# @todo   see if we want the staff training datasets in here
 valid_dysh_example = {
+    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",   # staff training PS      same as test='test1'
     "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",
                    #    positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/"
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
                    #    frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/"    # staff training FS
     "subbeamnod" : "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
                    #    subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/"   # staff training SBN
-    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",   # staff training PS      same as test='test1'
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas",    # nodding example (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas      # FS example in data_reduction (scan 64)
 }
@@ -87,7 +88,7 @@ def dysh_data(sdfits=None,
     Simplified access to GBO data without needing an absolute path.  @todo pending configuration discussion
 
     By default it will detect the GBO system, users or developers that are not on the GBO system and need
-    access to data could rsync various data trees to avoid repeated downloads.
+    access to data could rsync various data trees to avoid repeated downloads and use the $DYSH_DATA env.var.
     
     For example inside their $HOME/dysh_data/ one could set
              export DYSH_DATA=$HOME/dysh_data
@@ -121,9 +122,8 @@ def dysh_data(sdfits=None,
        by prepending http://www.gb.nrao.edu/dysh/ and using
        wget for as long we want to support that.
        astropy caching is also an option
-
     4) directories (names not ending on .fits) cannot be downloaded using wget
-    5) use python-dotenv for configuration
+    5) use python-dotenv for configuration?
        key=val
 
     """
