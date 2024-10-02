@@ -1043,7 +1043,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scans = kwargs.pop("scan", None)
         # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
-        print("KWARGS",kwargs)
         if type(scans) is int:
             scans = [scans]
         preselected = {}
@@ -1069,7 +1068,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 kwargs[k] = v
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
-        print("kwargs",kwargs)
         _sf = ps_selection.final
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1091,7 +1089,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 _df = select_from("IFNUM", k, df)
                 # @todo Calling this method every loop may be expensive. If so, think of
                 # a way to tighten it up.
-                print("PJT df:",len(_df),i,k)
+                # print("PJT df:",len(_df),i,k)
                 if len(_df) == 0:    # skip beams not part of the nodding pair
                     continue
                 scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
@@ -1589,7 +1587,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         dfoff = select_from("PROCSEQN", 2, selection)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
         offscans = uniq(list(dfoff["SCAN"]))
-        print("PJT",onscans,offscans)
+        # print("PJT",onscans,offscans)
         # pol1 = set(dfon["PLNUM"])
         # pol2 = set(dfoff["PLNUM"])
         # scans = list(selection["SCAN"])
