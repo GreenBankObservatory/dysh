@@ -626,7 +626,7 @@ class SelectionBase(DataFrame):
             v1 = v[0] - v[1]
             v2 = v[0] + v[1]
             kw[k] = (v1, v2)
-        self.select_range(tag, **kw)
+        self._base_select_range(tag, **kw)
 
     def _base_select_channel(self, chan, tag=None):
         """
@@ -1085,7 +1085,7 @@ class Flag(SelectionBase):
         # I think we have to directly manipulate a bitmask here
         # as it is perfecly legal for different rows/integrations to have
         # different channel flags
-        pass
+        self._base_select_within(tag, **kwargs)
 
     def _handle_channel(self, chan):
         if chan is None:
