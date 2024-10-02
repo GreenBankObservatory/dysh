@@ -1020,7 +1020,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # it is possible that BEAM1 and BEAM2 are switched here, given how we unique()
                 if len(c['FEED'].unique()) == 2:
                     print("get_nod_beams rescued")
-                    return list(c['FEED'].unique())
+                    b = c['FEED'].unique() - 1
+                    return list(b)
                 return []
             
         nod_beams = get_nod_beams(self)
