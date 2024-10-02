@@ -437,7 +437,7 @@ class SDFITSLoad(object):
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-            logger.debug(f"Fixing CUNIT1 to Hz")            
+            logger.debug(f"Fixing CUNIT1 to Hz")
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]

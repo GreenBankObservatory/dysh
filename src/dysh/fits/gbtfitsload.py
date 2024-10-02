@@ -13,7 +13,7 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
 from ..log import HistoricalBase, dysh_date, log_call_to_history, log_call_to_result
-from ..spectra.scan import FSScan, PSScan, ScanBlock, SubBeamNodScan, TPScan, NODScan
+from ..spectra.scan import FSScan, NODScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Selection
 from .sdfitsload import SDFITSLoad
@@ -95,7 +95,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             self.ushow("SAMPLER", 0)
             self.ushow("PLNUM")
             self.ushow("IFNUM")
-            self.ushow("FDNUM")            
+            self.ushow("FDNUM")
             self.ushow("SIG", 0)
             self.ushow("CAL", 0)
             self.ushow("PROCSEQN", 0)
@@ -753,7 +753,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if type(scans) is int:
             scans = [scans]
         preselected = {}
-        for kw in ["SCAN", "IFNUM", "PLNUM"]:    # @todo why no FDNUM here ?
+        for kw in ["SCAN", "IFNUM", "PLNUM"]:  # @todo why no FDNUM here ?
             preselected[kw] = uniq(_final[kw])
         if scans is None:
             scans = preselected["SCAN"]
@@ -958,7 +958,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return scanblock
         # end of getps()
 
-        
     @log_call_to_result
     def getnod(
         self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
@@ -999,31 +998,31 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing the individual `~spectra.scan.NODScan`s
 
         """
+
         def get_nod_beams(sdf):
-            """ find the two nodding beams
-            """
-            kb=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'PROCSCAN', 'FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF']
+            """find the two nodding beams"""
+            kb = ["DATE-OBS", "SCAN", "IFNUM", "PLNUM", "FDNUM", "PROCSCAN", "FEED", "SRFEED", "FEEDXOFF", "FEEDEOFF"]
             a = sdf._index[kb]
-            b = a.loc[a['FEEDXOFF']==0.0]
-            c = b.loc[b['FEEDEOFF']==0.0]
-            d1 = c.loc[c['PROCSCAN']=='BEAM1']
-            d2 = c.loc[c['PROCSCAN']=='BEAM2']
+            b = a.loc[a["FEEDXOFF"] == 0.0]
+            c = b.loc[b["FEEDEOFF"] == 0.0]
+            d1 = c.loc[c["PROCSCAN"] == "BEAM1"]
+            d2 = c.loc[c["PROCSCAN"] == "BEAM2"]
             #
-            if len(d1['FDNUM'].unique()) == 1 and len(d2['FDNUM'].unique()) == 1:
-                beam1 = d1['FDNUM'].unique()[0]
-                beam2 = d2['FDNUM'].unique()[0]
-                fdnum1 = d1['FEED'].unique()[0]
-                fdnum2 = d2['FEED'].unique()[0]
-                return [beam1,beam2]
+            if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
+                beam1 = d1["FDNUM"].unique()[0]
+                beam2 = d2["FDNUM"].unique()[0]
+                fdnum1 = d1["FEED"].unique()[0]
+                fdnum2 = d2["FEED"].unique()[0]
+                return [beam1, beam2]
             else:
                 # one more attempt (this can happen if PROCSCAN contains "Unknown")
                 # it is possible that BEAM1 and BEAM2 are switched here, given how we unique()
-                if len(c['FEED'].unique()) == 2:
+                if len(c["FEED"].unique()) == 2:
                     print("get_nod_beams rescued")
-                    b = c['FEED'].unique() - 1
+                    b = c["FEED"].unique() - 1
                     return list(b)
                 return []
-            
+
         nod_beams = get_nod_beams(self)
         logger.info(f"Found nodding beams {nod_beams}")
         print(f"Found nodding beams {nod_beams}")
@@ -1034,7 +1033,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
         kwargs["fdnum"] = feeds
-        
+
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
@@ -1048,7 +1047,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if type(scans) is int:
             scans = [scans]
         preselected = {}
-        for kw in ["SCAN", "IFNUM", "PLNUM"]:    # @todo no FDNUM ?
+        for kw in ["SCAN", "IFNUM", "PLNUM"]:  # @todo no FDNUM ?
             preselected[kw] = uniq(_final[kw])
         if scans is None:
             scans = preselected["SCAN"]
@@ -1083,7 +1082,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scans = uniq(_sf["SCAN"])
         prosq = uniq(_sf["PROCSEQN"])
         logger.debug(f"FINAL i {ifnum} p {plnum} f {fdnum} psq {prosq} s {scans}")
-        beam1_selected =  True
+        beam1_selected = True
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             df = select_from("FITSINDEX", i, _sf)
@@ -1092,18 +1091,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # @todo Calling this method every loop may be expensive. If so, think of
                 # a way to tighten it up.
                 # print("PJT df:",len(_df),i,k)
-                if len(_df) == 0:    # skip beams not part of the nodding pair
+                if len(_df) == 0:  # skip beams not part of the nodding pair
                     continue
                 scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
 
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     logger.debug("scans not found, continuing")
                     continue
-                beam1_selected =  list(set(df['FDNUM']))[0] == feeds[0]
+                beam1_selected = list(set(df["FDNUM"]))[0] == feeds[0]
                 logger.debug(f"SCANLIST {scanlist}")
                 logger.debug(f"POLS {set(df['PLNUM'])}")
                 logger.debug(f"FEED {set(df['FDNUM'])} {beam1_selected} {feeds[0]}")
-                logger.debug(f"PROCSEQN {set(df['PROCSEQN'])}")                
+                logger.debug(f"PROCSEQN {set(df['PROCSEQN'])}")
                 logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
                 logger.debug(f"and PROC {set(_df['PROC'])}")
                 # beam1_selected =  not beam1_selected
@@ -1148,7 +1147,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     c = c + 1
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
-        if len(scanblock)%2 == 1:
+        if len(scanblock) % 2 == 1:
             raise Exception("Odd number of scans for getnod")
         # @todo  merge the scanblocks
         scanblock.merge_commentary(self)
@@ -1577,7 +1576,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             s["OFF"] = [63]
             return s
         df2 = selection[selection["SCAN"].isin(scans)]
-        procset = set(df2["PROC"])   # this needs to be "Nod"
+        procset = set(df2["PROC"])  # this needs to be "Nod"
         lenprocset = len(procset)
         if lenprocset == 0:
             # This is ok since not all files in a set have all the polarizations, feeds, or IFs
@@ -1655,7 +1654,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if len(s["ON"]) != len(s["OFF"]):
                 raise Exception('ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"]}')
         return s
-    
+
     def _onoff_scan_list_selection(self, scans, selection, check=False):
         """
         Get the scans for position-switch data sorted

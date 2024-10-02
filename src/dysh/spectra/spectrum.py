@@ -131,8 +131,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._resolution = 1
 
     def _len(self):
-        """ return the size of the Spectrum in the spectral dimension.
-            @todo __len__  has unintended consquences, yuck.
+        """return the size of the Spectrum in the spectral dimension.
+        @todo __len__  has unintended consquences, yuck.
         """
         return len(self.frequency)
 
