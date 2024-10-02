@@ -58,10 +58,10 @@ class SDFITSLoad(object):
             self.create_index()
         # add default channel masks
         self._flagmask = []
-        if doflag:
-            for i in range(len(self._bintable)):
-                nc = self.nchan(i)
-                self._flagmask.append(np.full(nc, False))
+        # if doflag:
+        #    for i in range(len(self._bintable)):
+        #        nc = self.nchan(i)
+        #        self._flagmask.append(np.full(nc, False))
 
     def __del__(self):
         # We need to ensure that any open HDUs are properly
