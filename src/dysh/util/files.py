@@ -10,23 +10,25 @@
 #
 
 
+import glob
 import os
 import sys
-import glob
 from pathlib import Path
+
 try:
     from dysh.util.download import from_url
+
     use_wget = False
 except:
-    import wget     # might get deprecated
+    import wget  # might get deprecated
+
     use_wget = True
-from ..util import minimum_string_match
 import dysh.util as util
 
-
+from ..util import minimum_string_match
 
 _debug = False
-#_debug = True
+# _debug = True
 
 # note the examples in https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/gbtidl.html
 # @todo   convert everything to use Path()
@@ -34,7 +36,7 @@ _debug = False
 
 # fmt:off
 
-# $DYSH/testdata 
+# $DYSH/testdata
 valid_dysh_test = {
     "getps" : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
     "getfs" : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
@@ -69,18 +71,14 @@ valid_dysh_accept = {
 
 # fmt: on
 
-def dysh_data(sdfits=None,
-              test=None,
-              example=None,
-              accept=None,
-              dysh_data=None,        
-              verbose=False):
+
+def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None, verbose=False):
     r"""
     Simplified access to GBO data without needing an absolute path.  @todo pending configuration discussion
 
     By default it will detect the GBO system, users or developers that are not on the GBO system and need
     access to data could rsync various data trees to avoid repeated downloads.
-    
+
     For example inside their $HOME/dysh_data/ one could set
              export DYSH_DATA=$HOME/dysh_data
 
@@ -105,11 +103,11 @@ def dysh_data(sdfits=None,
 
     Notes:
 
-    1) if $DYSH_DATA exist (and this is a new proposal), it will prepend 
+    1) if $DYSH_DATA exist (and this is a new proposal), it will prepend
        that to the argument of get_dysh_data() and check for existence
     2) if /home/dysh exists, it will prepend this and check for existence
        this will keep GBO people happy.  Offsite a symlink should also work.
-    3) if none of those gave a valid name, it will fall back to making a URL 
+    3) if none of those gave a valid name, it will fall back to making a URL
        by prepending http://www.gb.nrao.edu/dysh/ and using
        wget for as long we want to support that.
        astropy caching is also an option
@@ -119,7 +117,7 @@ def dysh_data(sdfits=None,
        key=val
 
     """
-    # fmt:off    
+    # fmt:off
     _url                = "http://www.gb.nrao.edu/dysh/"            # base of all things dysh
     _example_data       = "/home/dysh/public_html/example_data"     # GBO direct access
     _test_data          = "/home/dysh/public_html/test_data"        # not used ??
@@ -134,51 +132,48 @@ def dysh_data(sdfits=None,
     #     - if that still fails, look at current working directory
     #     - throw!?
     #     ? e.g. dysh_data('foo.fits') ->   sdfits='foo.fits'
-    
+
     global _debug
-    if dysh_data == None and 'DYSH_DATA' in os.environ:
-        dysh_data = Path(os.environ['DYSH_DATA'])
+    if dysh_data == None and "DYSH_DATA" in os.environ:
+        dysh_data = Path(os.environ["DYSH_DATA"])
     if verbose:
         _debug = True
     if _debug:
         print("DYSH_DATA:", dysh_data)
         print("USE_WGET: ", use_wget)
 
-
     # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present
 
-
     # sdfits:   the main place where GBO data reside
-    
+
     if sdfits != None:
-        if sdfits == '?':
+        if sdfits == "?":
             if dysh_data == None:
-                dd = Path('/home/sdfits')
+                dd = Path("/home/sdfits")
             else:
-                dd = dysh_data / 'sdfits'
+                dd = dysh_data / "sdfits"
             # @todo figure out listing of file OS agnostic
-            cmd = 'ls %s' % dd
+            cmd = "ls %s" % dd
             print("# dysh_data::sdfits")
-            print('# contents of',dd)
-            print("# -----------------")            
+            print("# contents of", dd)
+            print("# -----------------")
             os.system(cmd)
             return None
         print(type(dysh_data))
         if dysh_data != None:
-            fn = dysh_data / Path('sdfits') / sdfits
+            fn = dysh_data / Path("sdfits") / sdfits
             if fn.exists():
                 return fn
-        fn = Path('/home/sdfits/') / sdfits
+        fn = Path("/home/sdfits/") / sdfits
         if fn.exists():
             return fn
         print(f"could not handle sdfits={sdfits} yet")
         return None
-    
 
     # test:   this should also be allowed to use util.get_project_testdata() as well
 
     if test != None:
-        if test == '?':
+        if test == "?":
             print("# dysh_data::test")
             print("# ---------------")
             for k in valid_dysh_test.keys():
@@ -191,24 +186,24 @@ def dysh_data(sdfits=None,
             my_test = test
         #
         if dysh_data != None:
-            fn = dysh_data / 'testdata' / my_test
+            fn = dysh_data / "testdata" / my_test
             if not fn.exists():
-                fn = util.get_project_testdata() / my_test                
+                fn = util.get_project_testdata() / my_test
         else:
             fn = util.get_project_testdata() / my_test
         if _debug:
-            print('final:',fn)
-        if fn.exists():    # @todo this catches files and directories        
+            print("final:", fn)
+        if fn.exists():  # @todo this catches files and directories
             return fn
-        print("Could not find",fn)
+        print("Could not find", fn)
         return None
 
     # example:  these can also obtain data via wget (or perhaps astropy caching???)
 
     if example != None:
-        if example == '?':
+        if example == "?":
             print("# dysh_data::example")
-            print("# ------------------")            
+            print("# ------------------")
             for k in valid_dysh_example.keys():
                 print(k, valid_dysh_example[k])
             return None
@@ -218,25 +213,25 @@ def dysh_data(sdfits=None,
         else:
             my_example = example
         if dysh_data != None:
-            fn = dysh_data / 'example_data' / my_example
-            if fn.exists(): 
+            fn = dysh_data / "example_data" / my_example
+            if fn.exists():
                 return fn
-            print("Odd-1, did not find",fn)
+            print("Odd-1, did not find", fn)
         if dysh_data == None and os.path.exists(_example_data):
             fn = Path(_example_data) / my_example
             if fn.exists():
                 return fn
-            print("Odd-2, did not find",fn)
+            print("Odd-2, did not find", fn)
         # last resort, try getting it via wget, but it will then be a local file in the current directory
-        url = _url + '/example_data/' + my_example
+        url = _url + "/example_data/" + my_example
         if _debug:
-            print("url:",url)
+            print("url:", url)
         # @todo  how to use Path() here ????
-        if not os.path.exists(filename):    
-            filename = url.split('/')[-1]
+        if not os.path.exists(filename):
+            filename = url.split("/")[-1]
             print(f"Downloading {filename} from {url}")
             if use_wget:
-                wget.download(url,out=filename)
+                wget.download(url, out=filename)
             else:
                 filename = from_url(url)
             print(f"\nRetrieved {filename}")
@@ -247,9 +242,9 @@ def dysh_data(sdfits=None,
     # accept:   acceptance_testing/data - wget not recommended (does not work on multifile fits)
 
     if accept != None:
-        if accept == '?':
+        if accept == "?":
             print("# dysh_data::accept")
-            print("# -----------------")            
+            print("# -----------------")
             for k in valid_dysh_accept.keys():
                 print(k, valid_dysh_accept[k])
             return None
@@ -259,25 +254,25 @@ def dysh_data(sdfits=None,
         else:
             my_accept = accept
         if dysh_data != None:
-            fn = dysh_data / 'acceptance_testing/data' / my_accept
-            if fn.exists(): 
+            fn = dysh_data / "acceptance_testing/data" / my_accept
+            if fn.exists():
                 return fn
-            print("Odd-1, did not find",fn)
+            print("Odd-1, did not find", fn)
         if dysh_data == None and os.path.exists(_accept_data):
             fn = Path(_accept_data) / my_accept
             if fn.exists():
                 return fn
-            print("Odd-2, did not find",fn)
+            print("Odd-2, did not find", fn)
         # last resort, try getting it via wget, but it will then be a local file in the current directory
-        url = _url + '/acceptance_testing/data/' + my_accept
+        url = _url + "/acceptance_testing/data/" + my_accept
         if _debug:
-            print("url:",url)
+            print("url:", url)
         # @todo  how to use Path() here ????
-        if not os.path.exists(filename):    
-            filename = url.split('/')[-1]
+        if not os.path.exists(filename):
+            filename = url.split("/")[-1]
             print(f"Downloading {filename} from {url}")
             if use_wget:
-                wget.download(url,out=filename)
+                wget.download(url, out=filename)
             else:
                 filename = from_url(url)
             print(f"\nRetrieved {filename}")
@@ -285,10 +280,10 @@ def dysh_data(sdfits=None,
             print(f"{filename} already downloaded")
         return filename
 
-
     print("You have not given one of:   sdfits=, test=, example=, accept=")
     print("or use =? as argument to get a list of valid shortcuts")
     return None
+
 
 # def find_data_recursively(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
 def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
