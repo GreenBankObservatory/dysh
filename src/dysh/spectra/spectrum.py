@@ -335,9 +335,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def plotter(self):
         return self._plotter
 
-    def stats(self, roll=0):
+    def stats(self, roll=0, qac=False):
         """
-        Compute some statistics of this `Spectrum`.  The mean, rms,
+        Compute some statistics of this `Spectrum`.  The mean, rms, median,
         data minimum and data maximum are calculated.  Note this works
         with slicing, so, e.g.,  `myspectrum[45:153].stats()` will return
         the statistics of the slice.
@@ -351,6 +351,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 input array. Another advantage of rolled statistics it will
                 remove most slow variations, thus RMS/sqrt(2) might be a better
                 indication of the underlying RMS.
+                Default: 0
+            qac : bool
+                If set, the returned simple string contains mean,rms,datamin,datamax
+                for easier visual regression. Based on some legacy code.
+                Default: False
         Returns
         -------
         stats : dict
@@ -360,16 +365,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if roll == 0:
             mean = self.mean()
             median = self.median()
-            rms = self.flux.std()
+            rms = np.nanstd(self.flux)
             dmin = self.min()
             dmax = self.max()
         else:
             d = self[roll:] - self[:-roll]
             mean = d.mean()
             median = d.median()
-            rms = d.flux.std()
+            rms = np.nanstd(d.flux)
             dmin = d.min()
             dmax = d.max()
+
+        if qac:
+            out = f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
+            return out
 
         out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax}
 
