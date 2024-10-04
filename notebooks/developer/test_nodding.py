@@ -388,14 +388,14 @@ s3.smooth('gauss',5).plot(xaxis_unit="GHz", xmin=23.685, xmax=23.705)
 #   why do the negative components looks so strong
 
 
-#%%  PS mode compared in several ways
+#%%  PS mode compared in several ways [issue #342]
 
 !mkdir -p nod0ps
 sdf0.write('nod0ps/file.fits',scan=[60,61], plnum=0, ifnum=0, fdnum=0, overwrite=True)
 
 nod0ps = GBTFITSLoad('nod0ps')
 nod0ps.summary()
-nod0ps._index[k]   # 124 rows   - has a very odd order of things
+nod0ps._index[k]   # 124 rows   - has a very odd order of things, see issue #342
 
 s1 = nod0ps.getps(plnum=0).timeaverage()
 s1.stats(qac=True)    # 2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211
@@ -403,6 +403,7 @@ s1.stats(qac=True)    # 2.323344799372547 0.5913854528123186 -0.9301776419005892
 s2 = sdf0.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s2.stats(qac=True)    # 2.3194959113603586 0.5859667447709659 -1.017372244576539 4.539838041025146
 (s2-s1).stats()['rms'].value     # 0.07804202962857486
+#   this is issue #342
 
 sdf3 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits"))
 sdf3.summary() 
@@ -416,6 +417,7 @@ s4 = GBTFITSLoad('nod0_test60.fits').getspec(0)
 s4.stats(qac=True)    # 2.319489002227783 0.5859659314155579 -1.0173834562301636 4.539820671081543
 d = s3.flux.value - s4.flux.value
 np.nanstd(d)   # 6.906450791469074e-08
+(s4-s3).stats()['rms'].value 
 
 # these were created on LMA machine 
 sdf5 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim1.fits" ))
@@ -429,6 +431,35 @@ s6 = sdf6.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s6.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
     
 #   ok, s3, s5, s6 are identical !!!
+
+sdf7 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim60.fits" ))
+sdf7.summary()  # 1736 rows
+s7 = sdf7.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
+s7.stats(qac=True)    #   2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211
+(s7-s1).stats()['rms'].value 
+
+sdf8 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim0.fits" ))
+sdf8.summary()  # 124 rows
+s8 = sdf8.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
+s8.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
+(s7-s1).stats()['rms'].value 
+
+#%%  now testng getnod() on the ones that are supposed to have 62,63
+
+s2n = sdf0.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
+s2n.stats(qac=True)   # 0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248
+
+s3n = sdf3.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
+# Exception: Only one FDNUM is allowed per Scan, found [2, 6]
+
+s5n = sdf5.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
+# Exception: Only one FDNUM is allowed per Scan, found [2, 6]
+
+s6n = sdf6.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
+# Exception: Only one FDNUM is allowed per Scan, found [2, 6]
+
+
+
 
 #%%
 # manual mode
