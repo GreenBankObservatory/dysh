@@ -209,10 +209,8 @@ filein, "nod-KFPA/data/TGBT22A_503_02.raw.vegas"
 
 sclear
 getsigref, 62, 63, fdnum=2, ifnum=0, plnum=0
-;boxcar, 11, /decimate
 accum
 getsigref, 63, 62, fdnum=6, ifnum=0, plnum=0
-;boxcar, 11, /decimate
 accum
 ave
 fileout,"nod0_test62.fits"
@@ -220,17 +218,11 @@ keep
 
 sclear
 getfs,64,fdnum=0
-;boxcar, 11 /decimate
 fileout,"nod0_test64.fits"
 keep
 
 sclear
 getps,60,plnum=0,ifnum=0
-;accum
-;getps,60,plnum=1,ifnum=0
-;accum
-;ave
-;boxcar, 11, /decimate
 fileout,"nod0_test60.fits"
 keep
 """
@@ -240,10 +232,12 @@ print(gbtidl0)
 
 # this is a huge 19GB file, we preload the minimum number of scans - it also needs 32GB memory to be speedy
 
-f0 = "nod-KFPA/data/TGBT22A_503_02.raw.vegas"
-f0 = dysh_data(example=f0)                        # AKA example='nodfs'
+f0 = "nod-KFPA/data/TGBT22A_503_02.raw.vegas"            # 25 scans
+f0 = "nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits"  #  4 scans (60..63)
+f0 = dysh_data(example=f0)                        # AKA example='nod'
+f0 = 'nod0_62'
 sdf0 = GBTFITSLoad(f0)                            # 7 FITS files
-sdf0.summary()                                    # 25 scans 60..84
+sdf0.summary()                                    # 25 scans 60..84 
 getbeam(sdf0)                                     # [2,6]
 
 # Sample times:
@@ -271,23 +265,26 @@ sp1 = GBTFITSLoad('nod0_test62.fits').getspec(0)
 d = sp0.flux.value - sp1.flux.value
 print("getnod rms diff",np.nanstd(d) )     #  0.0001160868980983191
 np.where(np.isnan(d))                      #  [   0, 9216])
-
+sp0.stats(qac=True)
+sp1.stats(qac=True)
 #%% comparing GETPS
 
 sp0 = sdf0.getps(scan=60,plnum=0,ifnum=0,fdnum=0).timeaverage()
 sp1 = GBTFITSLoad('nod0_test60.fits').getspec(0)
 d = sp0.flux.value - sp1.flux.value
-print("getnod rms diff", np.nanstd(d))    #  1.716955005887903e-05
+print("getnod rms diff", np.nanstd(d))    #  1.716955005887903e-05     trim:  6.906450791469074e-08
 np.where(np.isnan(d))
 
-
+# 1.716728447608622e-05
 
 
 # below older comparisons with smoothing in the middle.
 
+sdf0.write('nod0-scan60.fits',scan=[60,61],ifnum=0,plnum=0,fdnum=0,overwrite=True,multifile=False)
 
-
-
+sdf0.write('nod0-scan60b.fits',scan=[62,63],ifnum=0,plnum=0,fdnum=[2,6],overwrite=True,multifile=False)
+# IndexError: list index out of range
+sdf0.write('nod0-scan60b.fits',scan=[62,63],ifnum=0,plnum=0,fdnum=[2,6],overwrite=True)
 
 #%%  comparing DYSH and GBTIDL (ps and nod)
 
@@ -391,24 +388,47 @@ s3.smooth('gauss',5).plot(xaxis_unit="GHz", xmin=23.685, xmax=23.705)
 #   why do the negative components looks so strong
 
 
-#%%
+#%%  PS mode compared in several ways
+
+!mkdir -p nod0ps
+sdf0.write('nod0ps/file.fits',scan=[60,61], plnum=0, ifnum=0, fdnum=0, overwrite=True)
 
 nod0ps = GBTFITSLoad('nod0ps')
 nod0ps.summary()
-nod0ps._index[k]   # 248 rows
+nod0ps._index[k]   # 124 rows   - has a very odd order of things
 
-p1 = nod0ps.getps(plnum=0)[0]
-s1  = p1.timeaverage()
-s1.smooth('gauss',5).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title="getps-1")
+s1 = nod0ps.getps(plnum=0).timeaverage()
+s1.stats(qac=True)    # 2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211
 
-p2 = nod0ps.getps(plnum=1)[0]
-s2  = p2.timeaverage()
-s2.smooth('gauss',5).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title="getps-2")
+s2 = sdf0.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
+s2.stats(qac=True)    # 2.3194959113603586 0.5859667447709659 -1.017372244576539 4.539838041025146
+(s2-s1).stats()['rms'].value     # 0.07804202962857486
 
-s3 = (s1+s2)/2    # note straight average
-s3.smooth('gauss',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, ymin=2, ymax=3.5, title="getps-3")
-#   @todo   this looks like it's shifted from the figure in gbtidl manual !!!   3.3 MHz ???
-s3.smooth('gauss',5).plot(xaxis_unit="GHz", xmin=23.685, xmax=23.705) 
+sdf3 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits"))
+sdf3.summary() 
+s3 = sdf3.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
+s3.stats(qac=True)    # 2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
+(s2-s3).stats()['rms'].value # 1.716728447608622e-05
+
+
+
+s4 = GBTFITSLoad('nod0_test60.fits').getspec(0)
+s4.stats(qac=True)    # 2.319489002227783 0.5859659314155579 -1.0173834562301636 4.539820671081543
+d = s3.flux.value - s4.flux.value
+np.nanstd(d)   # 6.906450791469074e-08
+
+# these were created on LMA machine 
+sdf5 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim1.fits" ))
+sdf5.summary()    # 992 rows
+s5 = sdf5.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
+s5.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
+
+sdf6 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim7.fits" ))
+sdf6.summary()  # 1736 rows
+s6 = sdf6.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
+s6.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
+    
+#   ok, s3, s5, s6 are identical !!!
 
 #%%
 # manual mode
