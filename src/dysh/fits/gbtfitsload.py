@@ -2091,7 +2091,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # get the bintables rows as new bintables.
                 df = select_from("FITSINDEX", k, _final)
                 bintables = list(set(df.BINTABLE))
-                for b in bintables:   # loop over the bintables in this fitsfile
+                for b in bintables:  # loop over the bintables in this fitsfile
                     rows = list(set(df.ROW))
                     rows.sort()
                     lr = len(rows)
