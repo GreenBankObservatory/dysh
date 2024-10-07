@@ -1153,8 +1153,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
-            print("odd number of scans", len(scanblock))
-            # raise Exception("Odd number of scans for getnod")
+            raise Exception("Odd number of scans for getnod")
         # note the two nods are not merged, but added to the pool as two "independant" PS scans
         scanblock.merge_commentary(self)
         return scanblock
