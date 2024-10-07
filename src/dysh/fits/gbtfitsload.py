@@ -1027,11 +1027,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     return list(b)
                 return []
 
-        nod_beams = get_nod_beams(self)
-        logger.info(f"Found nodding beams {nod_beams}")
-        print(f"Found nodding beams {nod_beams}")
         feeds = kwargs.pop("fdnum", None)
         if feeds is None:
+            nod_beams = get_nod_beams(self)
+            logger.info(f"Found nodding beams {nod_beams}")
             feeds = nod_beams
         if type(feeds) is int or len(feeds) != 2:
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
