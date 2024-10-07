@@ -1102,7 +1102,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                         logger.debug(f"Some of scans {scans} not found, continuing")
                         continue
-                    
+
                     beam1_selected = f == feeds[0]
                     logger.debug(f"SCANLIST {scanlist}")
                     logger.debug(f"POLS {set(_df['PLNUM'])}")
@@ -1154,7 +1154,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise Exception("Didn't find any scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
             print("odd number of scans", len(scanblock))
-            #raise Exception("Odd number of scans for getnod")
+            # raise Exception("Odd number of scans for getnod")
         # note the two nods are not merged, but added to the pool as two "independant" PS scans
         scanblock.merge_commentary(self)
         return scanblock
