@@ -1588,7 +1588,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
         proc = list(procset)[0]
         if proc != "Nod":
-            raise Exception(f"Procedure is not Nod, found {proc}")            
+            raise Exception(f"Procedure is not Nod, found {proc}")
         dfon = select_from("PROCSEQN", 1, selection)
         dfoff = select_from("PROCSEQN", 2, selection)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
