@@ -1183,7 +1183,7 @@ class PSScan(ScanBase):
         return self._timeaveraged
 
 
-class NODScan(ScanBase):
+class NodScan(ScanBase):
     """GBT specific version of Nodding Scan. A nod scan object has
     one IF, two feeds, and one or more polarizations.
 
