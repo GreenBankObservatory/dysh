@@ -1566,7 +1566,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         selection : `~pandas.DataFrame`
             selection object
 
-        feeds : list of two beams
+        feeds : int list of two beams
             the two nodding beams
 
         check : boolean
@@ -1588,6 +1588,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if lenprocset > 1:
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
         proc = list(procset)[0]
+        if proc != "Nod":
+            raise Exception(f"Procedure is not Nod, found {proc}")            
         dfon = select_from("PROCSEQN", 1, selection)
         dfoff = select_from("PROCSEQN", 2, selection)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
@@ -1608,27 +1610,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # and build the final matched list of ONs and OFfs.
         sons = list(onrequested.copy())
         soffs = list(offrequested.copy())
-        if True:
-            s["ON"] = sorted(set(sons))
-            s["OFF"] = sorted(set(soffs))
-            if len(s["ON"]) != len(s["OFF"]):
-                raise Exception('ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"]}')
-            return s
 
         # @todo this was code from getps() - for now just give all the scan= in the list since we don't have OnOff or OffOn
         missingoff = []
         missingon = []
-        # Figure out the companion scan
-        if proc == "OnOff":
-            offdelta = 1
-            ondelta = -1
-        elif proc == "OffOn":
-            offdelta = -1
-            ondelta = 1
-        else:
-            raise Exception(
-                f"I don't know how to handle PROCTYPE {self._selection.final['PROC']} for the requested scan operation"
-            )
+        #   code taken from getps(); here we don't distinguish between OnOff and OffOn
+        offdelta = 1
+        ondelta = -1
         for i in onrequested:
             expectedoff = i + offdelta
             if len(setoff.intersection([expectedoff])) == 0:
@@ -1750,7 +1738,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             s["ON"] = sorted(set(sons))
             s["OFF"] = sorted(set(soffs))
             if len(s["ON"]) != len(s["OFF"]):
-                raise Exception('ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"]}')
+                raise Exception(f'ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"])}')
         return s
 
     def onoff_scan_list(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
