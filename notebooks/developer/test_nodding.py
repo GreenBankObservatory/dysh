@@ -231,11 +231,9 @@ keep
 print(gbtidl0)
 
 # this is a huge 19GB file, we preload the minimum number of scans - it also needs 32GB memory to be speedy
-
-f0 = "nod-KFPA/data/TGBT22A_503_02.raw.vegas"            # 25 scans
 f0 = "nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits"  #  4 scans (60..63)
+f0 = "nod-KFPA/data/TGBT22A_503_02.raw.vegas"            # 25 scans
 f0 = dysh_data(example=f0)                        # AKA example='nod'
-f0 = 'nod0_62'
 sdf0 = GBTFITSLoad(f0)                            # 7 FITS files
 sdf0.summary()                                    # 25 scans 60..84 
 getbeam(sdf0)                                     # [2,6]
@@ -261,12 +259,12 @@ getbeam(sdf0)                                     # [2,6]
 #%% comparing GETNOD without any smoothing
 
 sp0 = sdf0.getnod(scan=[62,63],ifnum=0,plnum=0).timeaverage()
-sp1 = GBTFITSLoad('nod0_test62.fits').getspec(0)
+sp1 = GBTFITSLoad('nod0_test62.fits').getspec(0)   # results from two getsigref's in GBTIDL
 d = sp0.flux.value - sp1.flux.value
 print("getnod rms diff",np.nanstd(d) )     #  0.0001160868980983191
 np.where(np.isnan(d))                      #  [   0, 9216])
-sp0.stats(qac=True)
-sp1.stats(qac=True)
+sp0.stats(qac=True)    # 0.3748503311988827  0.35504111651677267 -1.2325043436127545 2.1533314871468248
+sp1.stats(qac=True)    # 0.37477970123291016 0.35496729612350464 -1.2321275472640991 2.1529178619384766
 #%% comparing GETPS
 
 sp0 = sdf0.getps(scan=60,plnum=0,ifnum=0,fdnum=0).timeaverage()
@@ -349,13 +347,16 @@ sdf0.write('nod0fs/file.fits',scan=[64],ifnum=0, plnum=0, fdnum=0, overwrite=Tru
 
 nod0 = GBTFITSLoad('nod0')
 nod0.summary()
-nod0._index[k]
+nod0._index[k]   # 868 rows (124 * 7)
 getbeam(nod0)
 
 sp = getnod(nod0,scan=[62,63], fdnum=[2,6])
 # tsys=63.63 73.10
 sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod fake bs=False')
 
+sp = nod0.getnod(scan=[62,63]).timeaverage()
+sp.stats(qac=True)  # 0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248
+sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='sdf::getnod')
 #%% nod0: bs mode
 
 sp = getnod(nod0,scan=[62,63], fdnum=[2,6], ps=False)
@@ -388,25 +389,50 @@ s3.smooth('gauss',5).plot(xaxis_unit="GHz", xmin=23.685, xmax=23.705)
 #   why do the negative components looks so strong
 
 
+
+#%% issue 342
+filename = '/home/sdfits/AGBT24A_329_02/AGBT24A_329_02.raw.vegas'
+sdfits = GBTFITSLoad(filename)
+sdfits.write("AGBT24A_329_02.raw.sub.vegas.fits", plnum=1, intnum=0, overwrite=False)
+sdf = GBTFITSLoad("AGBT24A_329_02.raw.sub.vegas4.fits")
+sdf.summary()
+
+
+
+
 #%%  PS mode compared in several ways [issue #342]
 
 !mkdir -p nod0ps
 sdf0.write('nod0ps/file.fits',scan=[60,61], plnum=0, ifnum=0, fdnum=0, overwrite=True)
+
+!mkdir -p nod0ps_multi
+sdf0.write('nod0ps_multi/file.fits',scan=[60,61], plnum=0, ifnum=0, fdnum=[0,1], overwrite=True)
+GBTFITSLoad('nod0ps_multi')
+# ok
+
+!mkdir -p nod0ps_single
+sdf0.write('nod0ps_multi/file.fits',scan=[60,61], plnum=0, ifnum=0, fdnum=[0,1], overwrite=True, multifile=False)
+GBTFITSLoad('nod0ps_single')
+# AttributeError: 'Selection' object has no attribute 'TIMESTAMP'
+
 
 nod0ps = GBTFITSLoad('nod0ps')
 nod0ps.summary()
 nod0ps._index[k]   # 124 rows   - has a very odd order of things, see issue #342
 
 s1 = nod0ps.getps(plnum=0).timeaverage()
-s1.stats(qac=True)    # 2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211
-
+s1.stats(qac=True)    # 2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211  bad
+                      # 2.3194959113603586 0.5859667447709659 -1.017372244576539 4.539838041025146
+                      
+                      
+                      
 s2 = sdf0.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s2.stats(qac=True)    # 2.3194959113603586 0.5859667447709659 -1.017372244576539 4.539838041025146
 (s2-s1).stats()['rms'].value     # 0.07804202962857486
 #   this is issue #342
 
 sdf3 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits"))
-sdf3.summary() 
+sdf3.summary()  # 992 rows
 s3 = sdf3.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s3.stats(qac=True)    # 2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
 (s2-s3).stats()['rms'].value # 1.716728447608622e-05
@@ -433,7 +459,7 @@ s6.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.01738340726411
 #   ok, s3, s5, s6 are identical !!!
 
 sdf7 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim60.fits" ))
-sdf7.summary()  # 1736 rows
+sdf7.summary()  # 10416 rows
 s7 = sdf7.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s7.stats(qac=True)    #   2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211
 (s7-s1).stats()['rms'].value 
@@ -444,22 +470,68 @@ s8 = sdf8.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s8.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
 (s7-s1).stats()['rms'].value 
 
+# ? how can s1 and s7 be identical.   s1 has dysh screwed up order, s7 is trim60, which has good order because of gbtidl ???
+
 #%%  now testng getnod() on the ones that are supposed to have 62,63
 
 s2n = sdf0.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
 s2n.stats(qac=True)   # 0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248
 
 s3n = sdf3.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
-# Exception: Only one FDNUM is allowed per Scan, found [2, 6]
+s3n.stats(qac=True)  # 0.3747961289586152 0.35496024341337706 -1.2321275976563082 2.1529178398243145'
+(s2n-s3n).stats(qac=True)    # 5.8894550977673705e-05 0.00011608584854222399 -0.00041872595961756076 0.0005777096994614705
 
 s5n = sdf5.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
-# Exception: Only one FDNUM is allowed per Scan, found [2, 6]
+s5n.stats(qac=True)   # 0.3747961289586152 0.35496024341337706 -1.2321275976563082 2.1529178398243145
 
 s6n = sdf6.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
+s6n.stats(qac=True)   # 0.3747961289586152 0.35496024341337706 -1.2321275976563082 2.1529178398243145
+
+
+#%%  getnod TRIM vs. ORIG vs dish.write
+
+# 1.
+
+
+
+
+
+#%%   comparing the different getnod styles
+
+nod0g = GBTFITSLoad('nod0_good')
+nod0g.summary()
+nod0g._index[k]   # 868 rows
+getbeam(nod0g)
+sp0g = nod0g.getnod().timeaverage()
+
+nod0b = GBTFITSLoad('nod0_bad')               # old version where rows were not sorted
+nod0b.summary()
+nod0b._index[k]   # 868 rows
+getbeam(nod0b)
+sp0b = nod0b.getnod().timeaverage()
+
+sp0a = sdf0.getnod(scan=[62,63],plnum=0,ifnum=0).timeaverage()
+
+sp0i = GBTFITSLoad('nod0_test62.fits').getspec(0)    # GBTIDL ground truth
+
+nod0c = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim62.fits" ))
+nod0c.summary()   # 10416  rows
+sp0c = nod0c.getnod(scan=[62,63],plnum=0,ifnum=0).timeaverage()
 # Exception: Only one FDNUM is allowed per Scan, found [2, 6]
 
+nod0d = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim4.fits" ))
+nod0d.summary()   # 20832  rows
+sp0d = nod0d.getnod(scan=[62,63],plnum=0,ifnum=0).timeaverage()
+# Exception: Only one FDNUM is allowed per Scan, found [2, 6]
 
+sp0b.stats(qac=True)     # 0.3815288525997136 0.3599690570433538 -1.214826609304905 2.240987877616527
+sp0g.stats(qac=True)     # 0.3748503311988827  0.35504111651677267 -1.2325043436127545 2.1533314871468248
+sp0a.stats(qac=True)     # 0.3748503311988827  0.35504111651677267 -1.2325043436127545 2.1533314871468248
+sp0i.stats(qac=True)     # 0.37477970123291016 0.35496729612350464 -1.2321275472640991 2.1529178619384766
 
+(sp0g-sp0b).stats()['rms'].value   # 0.06589345837914665
+(sp0g-sp0a).stats()['rms'].value   # 0.0
+(sp0g-sp0i).stats()['rms'].value   # 0.0001160868980983191
 
 #%%
 # manual mode
