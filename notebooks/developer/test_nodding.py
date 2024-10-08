@@ -356,18 +356,14 @@ sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod fa
 
 sp = nod0.getnod(scan=[62,63]).timeaverage()
 sp.stats(qac=True)  # 0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248
+sp.stats(qac=True, test='0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248')
+
 sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='sdf::getnod')
 #%% nod0: bs mode
 
 sp = getnod(nod0,scan=[62,63], fdnum=[2,6], ps=False)
 # tsys=68.78 67.94
 sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod fake bs=True')
-
-#%% future getnod()
-
-sb = nod0.getnod()
-sb[0].timeaverage().smooth('box',31).plot()
-sb[1].timeaverage().smooth('box',31).plot()
 
 #%%
 nod0fs = GBTFITSLoad('nod0fs')
@@ -421,15 +417,14 @@ nod0ps.summary()
 nod0ps._index[k]   # 124 rows   - has a very odd order of things, see issue #342
 
 s1 = nod0ps.getps(plnum=0).timeaverage()
-s1.stats(qac=True)    # 2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211  bad
-                      # 2.3194959113603586 0.5859667447709659 -1.017372244576539 4.539838041025146
+s1.stats(qac=True)    # 2.3194959113603586 0.5859667447709659 -1.017372244576539 4.539838041025146
                       
                       
                       
 s2 = sdf0.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s2.stats(qac=True)    # 2.3194959113603586 0.5859667447709659 -1.017372244576539 4.539838041025146
-(s2-s1).stats()['rms'].value     # 0.07804202962857486
-#   this is issue #342
+(s2-s1).stats()['rms'].value     # 0.0
+#   this is issue #342 when s2-s1 was not zero
 
 sdf3 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits"))
 sdf3.summary()  # 992 rows
@@ -461,37 +456,36 @@ s6.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.01738340726411
 sdf7 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim60.fits" ))
 sdf7.summary()  # 10416 rows
 s7 = sdf7.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
-s7.stats(qac=True)    #   2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211
-(s7-s1).stats()['rms'].value 
+s7.stats(qac=True)    #   2.323344799372547 0.5913854528123186 -0.9301776419005892 4.659711507349211           
+                      #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497     NEW
+(s7-s1).stats()['rms'].value   # 1.716728447608622e-05
 
 sdf8 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim0.fits" ))
 sdf8.summary()  # 124 rows
 s8 = sdf8.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s8.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
-(s7-s1).stats()['rms'].value 
+(s8-s1).stats()['rms'].value  # 1.716728447608622e-05
 
-# ? how can s1 and s7 be identical.   s1 has dysh screwed up order, s7 is trim60, which has good order because of gbtidl ???
+
 
 #%%  now testng getnod() on the ones that are supposed to have 62,63
 
+# original
 s2n = sdf0.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
 s2n.stats(qac=True)   # 0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248
 
+# trim
 s3n = sdf3.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
 s3n.stats(qac=True)  # 0.3747961289586152 0.35496024341337706 -1.2321275976563082 2.1529178398243145'
 (s2n-s3n).stats(qac=True)    # 5.8894550977673705e-05 0.00011608584854222399 -0.00041872595961756076 0.0005777096994614705
 
+# trim1
 s5n = sdf5.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
 s5n.stats(qac=True)   # 0.3747961289586152 0.35496024341337706 -1.2321275976563082 2.1529178398243145
 
+# trim7
 s6n = sdf6.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
 s6n.stats(qac=True)   # 0.3747961289586152 0.35496024341337706 -1.2321275976563082 2.1529178398243145
-
-
-#%%  getnod TRIM vs. ORIG vs dish.write
-
-# 1.
-
 
 
 
@@ -512,22 +506,22 @@ sp0b = nod0b.getnod().timeaverage()
 
 sp0a = sdf0.getnod(scan=[62,63],plnum=0,ifnum=0).timeaverage()
 
-sp0i = GBTFITSLoad('nod0_test62.fits').getspec(0)    # GBTIDL ground truth
+sp0i = GBTFITSLoad('nod0_test62.fits').getspec(0)    # GBTIDL ground truth  - units are still wrong a 'ct', not 'K'
 
 nod0c = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim62.fits" ))
 nod0c.summary()   # 10416  rows
 sp0c = nod0c.getnod(scan=[62,63],plnum=0,ifnum=0).timeaverage()
-# Exception: Only one FDNUM is allowed per Scan, found [2, 6]
 
 nod0d = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim4.fits" ))
 nod0d.summary()   # 20832  rows
 sp0d = nod0d.getnod(scan=[62,63],plnum=0,ifnum=0).timeaverage()
-# Exception: Only one FDNUM is allowed per Scan, found [2, 6]
 
-sp0b.stats(qac=True)     # 0.3815288525997136 0.3599690570433538 -1.214826609304905 2.240987877616527
+sp0b.stats(qac=True)     # 0.3815288525997136  0.3599690570433538  -1.214826609304905  2.240987877616527
 sp0g.stats(qac=True)     # 0.3748503311988827  0.35504111651677267 -1.2325043436127545 2.1533314871468248
 sp0a.stats(qac=True)     # 0.3748503311988827  0.35504111651677267 -1.2325043436127545 2.1533314871468248
 sp0i.stats(qac=True)     # 0.37477970123291016 0.35496729612350464 -1.2321275472640991 2.1529178619384766
+sp0c.stats(qac=True)     # 0.3747961289586152  0.35496024341337706 -1.2321275976563082 2.1529178398243145
+sp0d.stats(qac=True)     # 0.3747961289586152  0.35496024341337706 -1.2321275976563082 2.1529178398243145
 
 (sp0g-sp0b).stats()['rms'].value   # 0.06589345837914665
 (sp0g-sp0a).stats()['rms'].value   # 0.0
