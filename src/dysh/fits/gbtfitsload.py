@@ -1027,7 +1027,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     return list(b)
                 return []
 
-        nod_beams = get_nod_beams(self)            
+        nod_beams = get_nod_beams(self)
         feeds = kwargs.pop("fdnum", None)
         if feeds is None:
             logger.info(f"Found nodding beams {nod_beams}")
