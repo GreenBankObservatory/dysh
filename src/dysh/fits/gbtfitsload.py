@@ -1027,15 +1027,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     return list(b)
                 return []
 
+        nod_beams = get_nod_beams(self)            
         feeds = kwargs.pop("fdnum", None)
         if feeds is None:
-            nod_beams = get_nod_beams(self)
             logger.info(f"Found nodding beams {nod_beams}")
             feeds = nod_beams
+        else:
+            if nod_beams != feeds:
+                logger.warning(f"Found nodding beams {nod_beams}, but you provided {feeds}. Good luck")
         if type(feeds) is int or len(feeds) != 2:
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
         kwargs["fdnum"] = feeds
+        print(f"Using nodding beams {feeds}, use fdnum= to override these.")
 
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
@@ -1152,7 +1156,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
-            raise Exception("Odd number of scans for getnod")
+            raise Exception("Odd number of scans for getnod, check your feeds if they are valid")
         # note the two nods are not merged, but added to the pool as two "independant" PS scans
         scanblock.merge_commentary(self)
         return scanblock
