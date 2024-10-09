@@ -776,12 +776,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
             return
         df = self["OBSMODE"].str.split(":", expand=True)
-        self._index["PROC"] = df[0]
-        # Assign these to something that might be useful later,
-        # since we have them
-        self._index["OBSTYPE"] = df[1]
-        self._index["SUBOBSMODE"] = df[2]
-        for sdf in self._sdf:
+        for obj in [self._index, self._flag]:
+            obj["PROC"] = df[0]
+            # Assign these to something that might be useful later,
+            # since we have them
+            obj["OBSTYPE"] = df[1]
+            obj["SUBOBSMODE"] = df[2]
+        for sdf in self._sdf:  # Note: sdf._index is a Dataframe, not a Selection
             df = sdf._index["OBSMODE"].str.split(":", expand=True)
             sdf._index["PROC"] = df[0]
             sdf._index["OBSTYPE"] = df[1]
@@ -820,6 +821,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     intnum += 1
             intnumarray.append(intnum)
         self._index["INTNUM"] = intnumarray
+        # Wait until after INTNUM PR:
+        # self._flag["INTNUM"] = intnumarray
 
         # Here need to add it as a new column in the BinTableHDU,
         # but we have to sort out FITSINDEX.

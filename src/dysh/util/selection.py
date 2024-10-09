@@ -68,7 +68,8 @@ class SelectionBase(DataFrame):
         # add channel, astropy-based timestamp, and number rows selected
         DEFKEYS = np.array(DEFKEYS)
         # set up object types for the np.array
-        dt = np.array([str] * (len(DEFKEYS) - 1))
+        dt = np.full(len(DEFKEYS) - 1, np.dtype("<U32"))
+        dt[0] = np.int32
         # add number selected column which is an int
         dt = np.insert(dt, len(dt), np.int32)
         # ID is also an int
@@ -81,6 +82,7 @@ class SelectionBase(DataFrame):
         self._aliases = {}
         self.alias(aliases)
         self._channel_selection = None
+        self._flag_channel_selection = {}  # used in Flag only
         warnings.resetwarnings()
 
     def _add_utc_column(self):
@@ -471,6 +473,7 @@ class SelectionBase(DataFrame):
         row["# SELECTED"] = len(dataframe)
         self._selection_rules[row["ID"]] = dataframe
         self._table.add_row(row)
+        # self._last_row_added = row
 
     def _base_select(self, tag=None, **kwargs):
         """Add one or more exact selection/flag rules, e.g., `key1 = value1, key2 = value2, ...`
@@ -714,7 +717,9 @@ class SelectionBase(DataFrame):
     def clear(self):
         """Remove all selection rules"""
         self._selection_rules = {}
+        self._flag_channel_selection = {}
         self._make_table()
+        self._channel_selection = None
 
     def show(self):
         """
@@ -1001,12 +1006,17 @@ class Flag(SelectionBase):
 
         """
         chan = kwargs.pop("chan", None)
-        self._handle_channel(chan)
-        self._base_select(tag, **kwargs)
+        if chan is not None:
+            self._check_numbers(chan=chan)
+        self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
+        if chan is not None:
+            idx = len(self._table) - 1
+            self._table[idx]["CHAN"] = str(chan)
+            self._flag_channel_selection[idx] = chan
 
     def flag_channel(self, chan, tag=None, **kwargs):
         """
-        Flag  channels and/or channel ranges. These are NOT used in :meth:`final`
+        Flag  channels and/or channel ranges for all rows. These are NOT used in :meth:`final`
         but rather will be used to create a mask for
         flagging. Single arrays/tuples will be treated as channel lists;
         nested arrays will be treated as ranges, for instance
@@ -1032,7 +1042,10 @@ class Flag(SelectionBase):
         None.
 
         """
+        # okay to use base method because we are flagging all rows
         self._base_select_channel(chan, tag, **kwargs)
+        idx = len(self._table) - 1
+        self._flag_channel_selection[idx] = chan
 
     def flag_range(self, tag=None, **kwargs):
         """Flag a range of inclusive values for a given key(s).
@@ -1082,16 +1095,7 @@ class Flag(SelectionBase):
         None.
 
         """
-        # I think we have to directly manipulate a bitmask here
-        # as it is perfecly legal for different rows/integrations to have
-        # different channel flags
         self._base_select_within(tag, **kwargs)
-
-    def _handle_channel(self, chan):
-        if chan is None:
-            return
-        else:
-            pass
 
     @classmethod
     def read(self, fileobj):
