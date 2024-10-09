@@ -68,6 +68,7 @@ def from_url(url, path=Path(".")):
                         for chunk in resp.iter_raw():
                             out_file.write(chunk)
                             progress.update(task, advance=len(chunk))
+        client.close()
 
     # If something goes wrong, throw Exception
     except Exception as exc:
