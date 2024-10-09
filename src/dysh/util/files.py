@@ -87,6 +87,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     By default it will detect the GBO system, users or developers that are not on the GBO system and need
     access to data could rsync various data trees to avoid repeated downloads and use the $DYSH_DATA env.var.
+    access to data could rsync various data trees to avoid repeated downloads.
 
     For example inside their $HOME/dysh_data/ one could set
              export DYSH_DATA=$HOME/dysh_data

@@ -437,6 +437,7 @@ class SDFITSLoad(object):
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            logger.debug(f"Fixing CUNIT1 to Hz")
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
@@ -464,13 +465,17 @@ class SDFITSLoad(object):
                 for k, v, c in h.cards:
                     if k == ukey:
                         if bunit != v:
-                            print("Found BUNIT=%s, now finding %s=%s, using the latter" % (bunit, ukey, v))
+                            logger.info(f"Found BUNIT={bunit}, now finding {uKey}={v}, using the latter")
                         bunit = v
                         break
         if bunit is not None:
             bunit = u.Unit(bunit)
         else:
             bunit = u.ct
+        logger.debug(f"BUNIT = {bunit}")
+        if bunit == "ct":
+            logger.info(f"Your data have no units, 'ct' was selected")
+            # PJT hack: bunit = u.K
 
         s = Spectrum.make_spectrum(data * bunit, meta, observer_location=observer_location)
         return s
@@ -600,6 +605,7 @@ class SDFITSLoad(object):
 
             rows: int or list-like
                 Range of rows in the bintable(s) to write out. e.g. 0, [14,25,32].
+                Rows will be sorted again here, just in case this was not done.
             bintable :  int
                 The index of the `bintable` attribute
 
@@ -612,6 +618,8 @@ class SDFITSLoad(object):
         # ensure it is a list if int was given
         if type(rows) == int:
             rows = [rows]
+        # ensure rows are sorted
+        rows.sort()
         outbintable = self._bintable[bintable].copy()
         # print(f"bintable copy data length {len(outbintable.data)}")
         outbintable.data = outbintable.data[rows]
