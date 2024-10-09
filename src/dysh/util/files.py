@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 #
 #  Tools to operate on files
-#     dysh_data = simple file grabber frontend
+#     dysh_data = simple frontend to grab common dysh filenames
 #     fdr       = Recursive data (file) finder
 #
 #  command line usage:
@@ -38,21 +38,22 @@ _debug = False
 
 # $DYSH/testdata
 valid_dysh_test = {
-    "getps" : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
-    "getfs" : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
-    "test1" : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'
+    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'
+    "getps"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
+    "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
 }
 
 
 # http://www.gb.nrao.edu/dysh/example_data or /home/dysh/example_data or $DYSH_DATA/example_data
+# @todo   see if we want the staff training datasets in here
 valid_dysh_example = {
+    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",   # staff training PS      same as test='test1'
     "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",
                    #    positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/"
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
                    #    frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/"    # staff training FS
     "subbeamnod" : "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
                    #    subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/"   # staff training SBN
-    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",   # staff training PS      same as test='test1'
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas",    # nodding example (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas      # FS example in data_reduction (scan 64)
 }
@@ -65,8 +66,16 @@ valid_dysh_example = {
 # AGBT14B_480_06  AGBT17B_004_14  AGBT18B_354_03  AGBT20B_336_01  TREG_050627
 # AGBT15B_228_08  AGBT17B_319_06  AGBT19A_080_01  AGBT22A_325_15  TSCAL_19Nov2015
 valid_dysh_accept = {
-    "nod1"       : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas/",
-    "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",
+    "nod1"       : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas",
+    "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated
+    "nod3"       : "AGBT15B_244_07/AGBT15B_244_07.raw.vegas",
+    "nod4"       : "TGBT18A_500_06/TGBT18A_500_06.raw.vegas",
+    "nod5"       : "TSCAL_19Nov2015/TSCAL_19Nov2015.raw.acs/TSCAL_19Nov2015.raw.acs.fits",   # deprecated
+    "nod6"       : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",
+    "nod7"       : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
+    "nod8"       : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
+    "nod9"       : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
+
 }
 
 # fmt: on
@@ -77,6 +86,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     Simplified access to GBO data without needing an absolute path.  @todo pending configuration discussion
 
     By default it will detect the GBO system, users or developers that are not on the GBO system and need
+    access to data could rsync various data trees to avoid repeated downloads and use the $DYSH_DATA env.var.
     access to data could rsync various data trees to avoid repeated downloads.
 
     For example inside their $HOME/dysh_data/ one could set
@@ -92,8 +102,8 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     accept:       /home/dysh/acceptance_testing  -                                $DYSH_DATA/acceptance_testing
 
 
-    Examples of use:
-    ----------------
+    Examples of use include mnemonics or full paths:
+    ------------------------------------------------
     fn = dysh_data(test='getps')
     fn = dysh_data(example='getfs')
     fn = dysh_data(example='onoff-L/data/TGBT21A_501_11.raw.vegas')
@@ -111,9 +121,8 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
        by prepending http://www.gb.nrao.edu/dysh/ and using
        wget for as long we want to support that.
        astropy caching is also an option
-
-    4) directories (names not ending on .fits ?)  cannot be downloaded
-    5) use python-dotenv for configuration
+    4) directories (names not ending on .fits) cannot be downloaded using wget
+    5) use python-dotenv for configuration?
        key=val
 
     """
@@ -268,7 +277,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         if _debug:
             print("url:", url)
         # @todo  how to use Path() here ????
-        if not os.path.exists(filename):
+        if not os.path.exists(filename):  # @todo filename not known if file didn't exist
             filename = url.split("/")[-1]
             print(f"Downloading {filename} from {url}")
             if use_wget:
