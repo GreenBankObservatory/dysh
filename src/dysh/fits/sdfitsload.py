@@ -53,8 +53,15 @@ class SDFITSLoad(object):
         self._header = self._hdu[0].header
         self.load(hdu, **kwargs_opts)
         doindex = kwargs_opts.get("index", True)
+        doflag = kwargs_opts.get("flags", True)
         if doindex:
             self.create_index()
+        # add default channel masks
+        self._flagmask = []
+        # if doflag:
+        #    for i in range(len(self._bintable)):
+        #        nc = self.nchan(i)
+        #        self._flagmask.append(np.full(nc, False))
 
     def __del__(self):
         # We need to ensure that any open HDUs are properly
@@ -509,7 +516,7 @@ class SDFITSLoad(object):
         Returns
         -------
             nchan : int
-                Number channels in the first spectrum of the input bintbale
+                Number channels in the first spectrum of the input bintable
 
         """
         return np.shape(self.rawspectrum(1, bintable))[0]

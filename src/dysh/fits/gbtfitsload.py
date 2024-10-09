@@ -15,7 +15,7 @@ from ..coordinates import Observatory, decode_veldef
 from ..log import HistoricalBase, dysh_date, log_call_to_history, log_call_to_result
 from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
-from ..util.selection import Selection
+from ..util.selection import Flag, Selection
 from .sdfitsload import SDFITSLoad
 
 calibration_kwargs = {
@@ -59,6 +59,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         path = Path(fileobj)
         self._sdf = []
         self._selection = None
+        self._flag = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
@@ -70,8 +71,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for f in sorted(path.glob("*.fits")):
                 logger.debug(f"Selecting {f} to load")
                 if kwargs.get("verbose", None):
-                    print(f"doing {f}")
+                    print(f"Loading {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
+            if len(self._sdf) == 0:  # fixes issue 381
+                raise Exception(f"No FITS files found in {fileobj}.")
             self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}", add_time=True)
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
@@ -192,6 +195,38 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for sdf in self._sdf:
             files.append(sdf.filename)
         return files
+
+    @property
+    def flags(self):
+        """
+        The data flag object
+
+        Returns
+        -------
+        ~dysh.util.Flag
+            The Flag object
+
+        """
+        return self._flag
+
+    @property
+    def final_flags(self):
+        """
+        The merged flag rules in the Flag object.
+        See :meth:`~dysh.util.SelectionBase.final`
+
+        Returns
+        -------
+        ~pandas.DataFrame
+            The final merged flags
+
+        """
+        all_channels_flagged = np.where(self._table["CHAN"] == "")
+
+        return self._flag.final
+
+    def _set_flags(self):
+        self.final_flags
 
     def filenames(self):
         """
@@ -480,15 +515,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def _select_scans(self, scans, df):
         return df[(df["SCAN"] >= scans[0]) & (df["SCAN"] <= scans[1])]
 
-    # def _select_onoff(self, df):
-    #    return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
-
-    # def select_track(self, df):
-    #    return df[(df["PROC"] == "Track")]
-
-    # @todo move all selection methods to sdfitsload after adding Selection
+    # @todo maybe move all selection/flag methods to sdfitsload after adding Selection/Flag
     # to sdfitsload
-    # @todo write a Delegator class to autopass to Selection. See, e.g., https://michaelcho.me/article/method-delegation-in-python/
+    # @todo maybe write a Delegator class to autopass to Selection.
+    # See, e.g., https://michaelcho.me/article/method-delegation-in-python/
     @log_call_to_history
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
@@ -565,6 +595,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
+        self._selection.select_within(tag=tag, **kwargs)
 
     @log_call_to_history
     def select_channel(self, chan, tag=None):
@@ -598,6 +629,116 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         self._selection.select_channel(tag=tag, chan=chan)
 
+    @log_call_to_history
+    def flag(self, tag=None, **kwargs):
+        """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
+        If `value` is array-like then a match to any of the array members will be selected.
+        For instance `flag(object=['3C273', 'NGC1234'])` will flag data for either of those
+        objects and `flag(ifnum=[0,2])` will flag IF number 0 or IF number 2.
+        See `~dysh.util.selection.Flag`.
+
+        Parameters
+        ----------
+            tag : str
+                An identifying tag by which the rule may be referred to later.
+                If None, a  randomly generated tag will be created.
+            key : str
+                The key  (SDFITS column name or other supported key)
+            value : any
+                The value to select
+
+        """
+        self._flag.flag(tag=tag, **kwargs)
+
+    @log_call_to_history
+    def flag_range(self, tag=None, **kwargs):
+        """
+        Flag a range of inclusive values for a given key(s).
+        e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
+        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+        Upper and lower limits may be given by setting one of the tuple values
+        to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
+        `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
+        limits may also be specified by a one-element tuple `key1 = (v1,)`.
+        See `~dysh.util.selection.Flag`.
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the lower and upper limits of the range.
+
+        Returns
+        -------
+        None.
+
+        """
+        self._flag.flag_range(tag=tag, **kwargs)
+
+    @log_call_to_history
+    def flag_within(self, tag=None, **kwargs):
+        """
+        Flag a value within a plus or minus for a given key(s).
+        e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
+        Will select data
+        `value1-epsilon1 <= data1 <= value1+epsilon1,`
+        `value2-epsilon2 <= data2 <= value2+epsilon2,...`
+
+        See `~dysh.util.selection.Flag`.
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the value and epsilon
+
+        Returns
+        -------
+        None.
+
+        """
+        self._flag.flag_within(tag=tag, **kwargs)
+
+    @log_call_to_history
+    def flag_channel(self, chan, tag=None):
+        """
+        Select channels and/or channel ranges. These are NOT used in :meth:`final`
+        but rather will be used to create a mask for
+        flagging. Single arrays/tuples will be treated as channel lists;
+        nested arrays will be treated as ranges, for instance
+
+        ``
+        # flags channels 1 and 10
+        flag_channel([1,10])
+        # flags channels 1 thru 10 inclusive
+        flag_channel([[1,10]])
+        # flags channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
+        flag_channel([[1,10], [47,56], 75)])
+        # tuples also work, though can be harder for a human to read
+        flag_channel(((1,10), [47,56], 75))
+        ``
+
+        See `~dysh.util.selection.Flag`.
+
+        Parameters
+        ----------
+        chan : number, or array-like
+            The channels to flag
+
+        Returns
+        -------
+        None.
+        """
+        self._flag.flag_channel(tag=tag, chan=chan)
+
     def _create_index_if_needed(self):
         if self._selection is not None:
             return
@@ -615,8 +756,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     df = pd.concat([df, s._index], axis=0, ignore_index=True)
                 i = i + 1
         self._selection = Selection(df)
+        self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
+
+    def _create_flagmask(self):
+        """Creates the mask which is NFILESxNINTxNCHAN which will be used for setting channel flags"""
 
     def _construct_procedure(self):
         """
@@ -632,12 +777,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
             return
         df = self["OBSMODE"].str.split(":", expand=True)
-        self._index["PROC"] = df[0]
-        # Assign these to something that might be useful later,
-        # since we have them
-        self._index["OBSTYPE"] = df[1]
-        self._index["SUBOBSMODE"] = df[2]
-        for sdf in self._sdf:
+        for obj in [self._index, self._flag]:
+            obj["PROC"] = df[0]
+            # Assign these to something that might be useful later,
+            # since we have them
+            obj["OBSTYPE"] = df[1]
+            obj["SUBOBSMODE"] = df[2]
+        for sdf in self._sdf:  # Note: sdf._index is a Dataframe, not a Selection
             df = sdf._index["OBSMODE"].str.split(":", expand=True)
             sdf._index["PROC"] = df[0]
             sdf._index["OBSTYPE"] = df[1]
@@ -672,6 +818,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 idx = g.index
                 intnumarray[idx] = intnums[i]
         self._index["INTNUM"] = intnumarray
+        # Wait until after INTNUM PR:
+        # self._flag["INTNUM"] = intnumarray
 
         # Here need to add it as a new column in the BinTableHDU,
         # but we have to sort out FITSINDEX.

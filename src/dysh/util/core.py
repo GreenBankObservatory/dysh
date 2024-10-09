@@ -14,8 +14,6 @@ import numpy as np
 # import pandas as pd
 from astropy.time import Time
 
-# from ..log import log_function_call
-
 
 def select_from(key, value, df):
     """
