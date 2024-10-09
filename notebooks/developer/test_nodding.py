@@ -18,6 +18,7 @@ nod9  fdnum=[0,1]       but PROCSCAN unknown,            tp cal; getnod failing 
 
 """
 
+import os
 import numpy as np
 import numpy.ma as ma
 import matplotlib.pyplot as plt
@@ -50,6 +51,11 @@ import dysh
 dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
 
 #%%  helper functions
+
+def mkdir(name):
+    """ simpler frontend for making a directory that might also aready exist
+    """
+    os.makedirs(name, exist_ok = True)
 
 def getnod(sdf, scan=None, fdnum=[0,1], ps=True):
     """  a fake getnod type function using a series of gettp()
@@ -287,11 +293,12 @@ sdf0.write('nod0-scan60b.fits',scan=[62,63],ifnum=0,plnum=0,fdnum=[2,6],overwrit
 #%%  comparing DYSH and GBTIDL (ps and nod)
 
 sdf0.getnod(scan=[62,63],ifnum=0,plnum=0).timeaverage().smooth('box',11).plot(title='dysh getnod',xaxis_unit="km/s")
-sdf0.getnod(scan=[62,63],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
-sdf0.getnod(scan=[67,68],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
-sdf0.getnod(scan=[72,73],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
-sdf0.getnod(scan=[75,76],ifnum=0,plnum=0).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
-sdf0.getnod(scan=[80,81],ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=62,ifnum=0,plnum=1).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=67,ifnum=0,plnum=0).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=72,ifnum=0,plnum=0).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=77,ifnum=0,plnum=0).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+sdf0.getnod(scan=82,ifnum=0,plnum=0).timeaverage().smooth('box',101).plot(xaxis_unit="km/s")
+
 # [75,76] and [80,81] are very weak
 
 # there is no support for pol a
@@ -331,7 +338,7 @@ sp2 = GBTFITSLoad(old+'nod0_test62.fits').getspec(0)
 #%%
 
 #  can this use less memory? still seems to sit at 35GB virtual
-!mkdir -p nod0
+mkdir("nod0")
 sdf0.write('nod0/file.fits',scan=[62,63],ifnum=0, plnum=0, overwrite=True)
 # sdf0.write('nod0/file.fits',scan=[67,68],ifnum=0, plnum=0, overwrite=True)
 # 5IF: 191404 -rw-rw-r-- 1 teuben teuben 195989760 Sep 13 14:45 junk620.fits
@@ -339,7 +346,7 @@ sdf0.write('nod0/file.fits',scan=[62,63],ifnum=0, plnum=0, overwrite=True)
 
 # IF=6 POL=2 INT=31 FEED=2 SCAN=2
 
-!mkdir -p nod0fs
+mkdir("nod0fs")
 sdf0.write('nod0fs/file.fits',scan=[64],ifnum=0, plnum=0, fdnum=0, overwrite=True)
 
 
@@ -354,7 +361,7 @@ sp = getnod(nod0,scan=[62,63], fdnum=[2,6])
 # tsys=63.63 73.10
 sp.smooth('box',51).plot(xaxis_unit="km/s", xmin=-100, xmax=50, title='getnod fake bs=False')
 
-sp = nod0.getnod(scan=[62,63]).timeaverage()
+sp = nod0.getnod(scan=62).timeaverage()
 sp.stats(qac=True)  # 0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248
 sp.stats(qac=True, test='0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248')
 
@@ -398,15 +405,15 @@ sdf.summary()
 
 #%%  PS mode compared in several ways [issue #342]
 
-!mkdir -p nod0ps
+mkdir("nod0ps")
 sdf0.write('nod0ps/file.fits',scan=[60,61], plnum=0, ifnum=0, fdnum=0, overwrite=True)
 
-!mkdir -p nod0ps_multi
+mkdir("nod0ps_multi")
 sdf0.write('nod0ps_multi/file.fits',scan=[60,61], plnum=0, ifnum=0, fdnum=[0,1], overwrite=True)
 GBTFITSLoad('nod0ps_multi')
 # ok
 
-!mkdir -p nod0ps_single
+mkdir("nod0ps_single")
 sdf0.write('nod0ps_multi/file.fits',scan=[60,61], plnum=0, ifnum=0, fdnum=[0,1], overwrite=True, multifile=False)
 GBTFITSLoad('nod0ps_single')
 # AttributeError: 'Selection' object has no attribute 'TIMESTAMP'
@@ -445,12 +452,15 @@ sdf5 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.tri
 sdf5.summary()    # 992 rows
 s5 = sdf5.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s5.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
-
+                      #   2.3194959113603586 0.5859667447709659 -1.017372244576539 4.539838041025146  new trim1
+(s5-s1).stats()      # with with the new trim1            
+                    
 sdf6 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim7.fits" ))
 sdf6.summary()  # 1736 rows
 s6 = sdf6.getps(scan=60, plnum=0, ifnum=0, fdnum=0).timeaverage()
 s6.stats(qac=True)    #   2.319488925090192 0.5859659084045957 -1.0173834072641188 4.539820576177497
-    
+(s5-s6).stats()       #   1.71672845e-05
+  
 #   ok, s3, s5, s6 are identical !!!
 
 sdf7 = GBTFITSLoad(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim60.fits" ))
@@ -482,10 +492,12 @@ s3n.stats(qac=True)  # 0.3747961289586152 0.35496024341337706 -1.232127597656308
 # trim1
 s5n = sdf5.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
 s5n.stats(qac=True)   # 0.3747961289586152 0.35496024341337706 -1.2321275976563082 2.1529178398243145
-
+                      # 0.3748503311988827 0.35504111651677267 -1.2325043436127545 2.1533314871468248  new trim1
 # trim7
 s6n = sdf6.getnod(scan=[62,63], plnum=0, ifnum=0).timeaverage()
 s6n.stats(qac=True)   # 0.3747961289586152 0.35496024341337706 -1.2321275976563082 2.1529178398243145
+
+(s2n-s5n).stats()     # 0.0
 
 
 
@@ -578,7 +590,7 @@ sdf=GBTFITSLoad(f1)
 # 8 files, 16 beams, each file has 2 beams - 4 scans, VANE/SKY/Nod/Nod
 sdf.summary()
 # extract 290 and 289 (note order is odd in sdfits:   290 came before 289
-!mkdir -p nod1
+mkdir("nod1")
 sdf.write('nod1/file.fits',scan=[289,290], overwrite=True)   # 192 rows
 
 nod1 = GBTFITSLoad('nod1')
@@ -625,7 +637,7 @@ sdf=GBTFITSLoad(f3)
 # 8 fits files,   2 for beams, 4 for IF  - 12 scans (2 CALSEQ)
 sdf.summary()
 # 11072 rows
-!mkdir -p nod3
+mkdir("nod3")
 sdf.write('nod3/file.fits', scan=[131,132], ifnum=0, plnum=0, overwrite=True)  #244
 
  
@@ -653,7 +665,7 @@ sdf = GBTFITSLoad(f4)
 # 2 files - 10 scans written in odd order (64,65,66 first)
 sdf.summary()
 
-!mkdir -p nod4
+mkdir("nod4")
 sdf.write('nod4/file.fits', scan=[57,58],plnum=1,overwrite=True)   # 240
 
 nod4 = GBTFITSLoad('nod4')
@@ -720,7 +732,7 @@ sdf.summary()
 getbeam(sdf)
 
 
-!mkdir -p nod6
+mkdir("nod6")
 sdf.write('nod6/file.fits', scan=[9,10], ifnum=0, overwrite=True)   # 248
 # scans on AGPeg number 9..54 in nod-pairs
 
@@ -758,7 +770,7 @@ sdf=GBTFITSLoad(f7)               # 2 files
 sdf.summary()                     # scans 36..41
 getbeam(sdf)                      # [0,1]
 
-!mkdir -p nod7
+mkdir("nod7")
 sdf.write('nod7/file.fits', scan=[36,37], plnum=1, overwrite=True)  # 128 selected
 
 nod7 = GBTFITSLoad('nod7')
@@ -799,7 +811,7 @@ sdf._index[k]           # 768 rows
 getbeam(sdf)            # [0,1]
 
 
-!mkdir -p nod8
+mkdir("nod8")
 sdf.write('nod8/file.fits', scan=[43,44], ifnum=0, plnum=0, overwrite=True)  # 48
 
 
@@ -835,7 +847,7 @@ sdf._index[k]    # scans 10..17    PROCSCAN="unknown"
 getbeam(sdf)     # [0,1]
 # 4-IF 2-POL 12-INT 2-FEED
 
-!mkdir -p nod9
+mkdir("nod9")
 sdf.write('nod9/file.fits', scan=[12,13], ifnum=3, plnum=1, overwrite=True)   # 96
 
 nod9= GBTFITSLoad('nod9')
