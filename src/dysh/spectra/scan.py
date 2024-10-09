@@ -866,7 +866,6 @@ class TPScan(ScanBase):
 
     def tpmeta(self, i):
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
-        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
         meta = ser.dropna().to_dict()
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
@@ -896,7 +895,6 @@ class TPScan(ScanBase):
         if not self._calibrate:
             raise Exception("You must calibrate first to get a total power spectrum")
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
-        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
         meta = ser.dropna().to_dict()
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
@@ -910,8 +908,6 @@ class TPScan(ScanBase):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
         s = Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
-        print(f"TP {self._history =} {self._comments = }")
-        print(f"Spectrum history after make_spectrum {type(s._history)} : {s._history}")
         s.merge_commentary(self)
         return s
 
@@ -948,7 +944,6 @@ class TPScan(ScanBase):
         return self._timeaveraged
 
 
-#        @todo   'scans' should become 'scan'
 class PSScan(ScanBase):
     """GBT specific version of Position Switch Scan. A position switch scan object has
     one IF, one feed, and one or more polarizations.
