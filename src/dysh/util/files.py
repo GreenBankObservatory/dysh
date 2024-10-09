@@ -15,8 +15,9 @@ import os
 import sys
 from pathlib import Path
 
-from dysh.util.download import from_url
 import dysh.util as util
+from dysh.util.download import from_url
+
 from ..util import minimum_string_match
 
 _debug = False
@@ -223,7 +224,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         url = _url + "/example_data/" + my_example
         if verbose:
             print("url:", url)
-        filename = url.split("/")[-1]        
+        filename = url.split("/")[-1]
         if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")
             filename = from_url(url)

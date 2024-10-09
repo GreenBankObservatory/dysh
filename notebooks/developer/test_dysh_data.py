@@ -50,6 +50,3 @@ print(dysh_data(accept='nod1'))
 
 print(dysh_data("AGBT21B_024_01"))
 print(dysh_data("AGBT21B_024_01/AGBT21B_024_01.raw.vegas"))
-
-
-
