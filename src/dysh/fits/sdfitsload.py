@@ -465,7 +465,7 @@ class SDFITSLoad(object):
                 for k, v, c in h.cards:
                     if k == ukey:
                         if bunit != v:
-                            logger.info(f"Found BUNIT={bunit}, now finding {uKey}={v}, using the latter")
+                            logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
                         bunit = v
                         break
         if bunit is not None:
