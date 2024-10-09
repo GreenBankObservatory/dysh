@@ -101,7 +101,7 @@ def default_sdfits_columns():
         "BINTABLE",
         "ROW",
         "PROC",
-        "_OBSTYPE",
-        "_SUBOBSMODE",
+        "OBSTYPE",
+        "SUBOBSMODE",
     ]
     return colnames
