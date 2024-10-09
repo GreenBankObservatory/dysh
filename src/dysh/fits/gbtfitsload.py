@@ -14,7 +14,6 @@ from dysh.log import logger
 from ..coordinates import Observatory, decode_veldef
 from ..log import HistoricalBase, dysh_date, log_call_to_history, log_call_to_result
 from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
-
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Flag, Selection
 from .sdfitsload import SDFITSLoad
