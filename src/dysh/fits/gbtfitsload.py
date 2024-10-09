@@ -778,9 +778,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for k in ifnum:
                 _ifdf = select_from("IFNUM", k, df)
                 for scan in scans:
-                    df = select_from("SCAN", scan, _ifdf)
-                    dfcalT = select_from("CAL", "T", df)
-                    dfcalF = select_from("CAL", "F", df)
+                    _sifdf = select_from("SCAN", scan, _ifdf)
+                    dfcalT = select_from("CAL", "T", _sifdf)
+                    dfcalF = select_from("CAL", "F", _sifdf)
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
                     if len(calrows["ON"]) != len(calrows["OFF"]):
@@ -789,11 +789,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     # they are not in kwargs and in SDFITS header
                     # they are not booleans but chars
                     if sig is not None:
-                        df = select_from("SIG", TF[sig], df)
+                        _sifdf = select_from("SIG", TF[sig], _sifdf)
                     # if cal is not None:
                     #    df = select_from("CAL", TF[cal], df)
                     # the rows with the selected sig state and all cal states
-                    tprows = list(df["ROW"])
+                    tprows = list(_sifdf["ROW"])
                     logger.debug("TPROWS len=", len(tprows))
                     logger.debug("CALROWS on len=", len(calrows["ON"]))
                     logger.debug("fitsindex=", i)
