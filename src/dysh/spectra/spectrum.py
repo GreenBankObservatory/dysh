@@ -854,7 +854,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return s
 
     @classmethod
-    def fake_spectrum(cls, nchan=1024, **kwargs):
+    def fake_spectrum(cls, nchan=1024, seed=None, **kwargs):
         """
         Create a fake spectrum, useful for simple testing. A default header is
         created, which may be modified with kwargs.
@@ -863,6 +863,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         nchan : int, optional
             Number of channels. The default is 1024.
+
+        seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}, optional
+            A seed to initialize the `BitGenerator`. If None, then fresh, unpredictable entropy will be pulled from the OS.
+            If an int or array_like[ints] is passed, then all values must be non-negative and will be passed to
+            `SeedSequence` to derive the initial `BitGenerator` state. One may also pass in a `SeedSequence` instance.
+            Additionally, when passed a `BitGenerator`, it will be wrapped by `Generator`. If passed a `Generator`, it will
+            be returned unaltered.
+            The default is `None`.
 
         **kwargs: dict or key=value
             Metadata to put in the header.  If the key exists already in
@@ -874,7 +882,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
-        data = np.random.rand(nchan) * u.K
+
+        rng = np.random.default_rng(seed)
+        data = rng.random(nchan) * u.K
         meta = {
             "OBJECT": "NGC2415",
             "BANDWID": 23437500.0,
