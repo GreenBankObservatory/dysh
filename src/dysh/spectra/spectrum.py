@@ -524,7 +524,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         return s
 
-    def shift(self, s, remove_wrap=False, fill_value=np.nan, method="fft"):
+    def shift(self, s, remove_wrap=True, fill_value=np.nan, method="fft"):
         """
         Shift the `Spectrum` by `s` channels in place.
 
@@ -532,11 +532,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         s : float
             Number of channels to shift the `Spectrum` by.
-        wrap : bool
-            If `True` allow spectrum to wrap around the edges.
-            If `False` fill channels that wrap with `fill_value`.
+        remove_wrap : bool
+            If `False` keep channels that wrap around the edges.
+            If `True` fill channels that wrap with `fill_value`.
         fill_value : float
-            If `wrap=False` fill channels that wrapped with this value.
+            If `remove_wrap=True` fill channels that wrapped with this value.
         method : "fft"
             Method used to perform the fractional channel shift.
             "fft" uses a phase shift.
@@ -554,8 +554,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self.wcs.wcs.crpix[0] += s
 
         # Update `SpectralAxis` values.
+        # Radial velocity needs to be copied by hand.
+        radial_velocity = deepcopy(self._spectral_axis._radial_velocity)
         new_spectral_axis_values = self.wcs.spectral.pixel_to_world(np.arange(self.flux.shape[-1]))
         self._spectral_axis = self.spectral_axis.replicate(value=new_spectral_axis_values)
+        self._spectral_axis._radial_velocity = radial_velocity
 
     def find_shift(self, other, units=None, frame=None):
         """
@@ -605,6 +608,34 @@ class Spectrum(Spectrum1D, HistoricalBase):
         shift = ((sa[0] - tgt_sa[0]) / cdelt1).value
 
         return shift
+
+    def align_to(self, other, units=None, frame=None, remove_wrap=True, fill_value=np.nan, method="fft"):
+        """
+        Align the `Spectrum` with respect to `other`.
+
+        Parameters
+        ----------
+        other : `Spectrum`
+            Target `Spectrum` to align to.
+        units : {None, `astropy.units.Quantity`}
+            Find the shift to align the two `Spectra` in these units.
+            If `None`, the `Spectra` will be aligned using the units of
+            `other`.
+        frame : {None, str}
+            Find the shift in this reference frame.
+            If `None` will use the frame of `other`.
+        remove_wrap : bool
+            If `True` allow spectrum to wrap around the edges.
+            If `False` fill channels that wrap with `fill_value`.
+        fill_value : float
+            If `wrap=False` fill channels that wrapped with this value.
+        method : "fft"
+            Method used to perform the fractional channel shift.
+            "fft" uses a phase shift.
+        """
+
+        s = self.find_shift(other, units=units, frame=frame)
+        self.shift(s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
 
     @property
     def equivalencies(self):
