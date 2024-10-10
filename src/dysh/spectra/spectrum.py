@@ -37,7 +37,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 from ..log import HistoricalBase, log_call_to_history
 from ..plot import specplot as sp
 from ..util import minimum_string_match
-from . import baseline, fft_shift, get_spectral_equivalency
+from . import baseline, get_spectral_equivalency
 
 # from astropy.nddata import StdDevUncertainty
 
@@ -524,7 +524,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         return s
 
-    def shift(self, s, wrap=False, fill_value=np.nan, method="fft"):
+    def shift(self, s, remove_wrap=False, fill_value=np.nan, method="fft"):
         """
         Shift the `Spectrum` by `s` channels in place.
 
@@ -542,29 +542,16 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "fft" uses a phase shift.
         """
 
-        ishift = int(np.round(s))  # Integer shift.
-        fshift = s - ishift  # Fractional shift.
-        # Apply integer shift.
-        new_data = np.roll(self.data, ishift, axis=0)
-        if not wrap:
-            if ishift < 0:
-                new_data[ishift:] = fill_value
-            else:
-                new_data[:ishift] = fill_value
-
-        if fshift != 0:
-            # Apply fractional shift.
-            new_data = fft_shift(new_data, fshift, pad=False, window=True)
+        new_data = core.data_shift(self.data, s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
 
         # Update data values.
         self._data = new_data
 
         # Update metadata.
-        applied_shift = ishift + fshift
-        self.meta["CRPIX1"] += applied_shift
+        self.meta["CRPIX1"] += s
 
         # Update WCS.
-        self.wcs.wcs.crpix[0] += applied_shift
+        self.wcs.wcs.crpix[0] += s
 
         # Update `SpectralAxis` values.
         new_spectral_axis_values = self.wcs.spectral.pixel_to_world(np.arange(self.flux.shape[-1]))

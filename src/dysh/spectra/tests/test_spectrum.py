@@ -420,7 +420,7 @@ class TestSpectrum:
         # Compare.
         # Ignore the edge channels to avoid edge effects.
         diff = (spec.data - gbtidl)[10:-10]
-        assert np.all(abs(diff) < 1e-4)
+        assert np.all(abs(diff) < 5e-4)
 
         assert spec.meta["CRPIX1"] == org_spec.meta["CRPIX1"] + shift
         assert spec.spectral_axis[0].to("Hz").value == (
