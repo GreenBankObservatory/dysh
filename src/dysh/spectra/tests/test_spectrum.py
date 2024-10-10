@@ -26,14 +26,14 @@ def fit_gauss(spectrum):
     return g_fit
 
 
-def compare_spectrum(one, other):
+def compare_spectrum(one, other, ignore_history=False):
     """ """
 
     for k, v in vars(one).items():
         if k in IGNORE_ON_COPY:
             continue
-        # elif k in ["_data", "_mask", "_weights"]:
-        #    assert np.all(v == vars(other)[k])
+        if ignore_history and k == "_history":
+            continue
         elif k in ["_wcs"]:
             v.to_header() == vars(other)[k].to_header()
         elif k in ["_spectral_axis"]:
@@ -411,6 +411,9 @@ class TestSpectrum:
         shift = 5.5
         spec.shift(shift)
 
+        # Internal tests.
+        assert np.all(np.isnan(spec[: int(np.round(shift))].data))
+
         # Load GBTIDL answer.
         with fits.open(get_project_testdata() / "gshift_box.fits") as hdu:
             table = hdu[1].data
@@ -461,3 +464,28 @@ class TestSpectrum:
 
         # Shift in a different frame.
         assert spec.find_shift(spec4, frame="lsrk") == pytest.approx(-0.5)
+
+    def test_align_to(self):
+        """
+        Tests for align_to method.
+        * Test that align_to itself does not change the spectrum.
+        """
+
+        spec = Spectrum.fake_spectrum(nchan=1024, seed=1)
+        org_spec = spec._copy()
+
+        # Align to itself.
+        spec.align_to(spec)
+        compare_spectrum(spec, org_spec, ignore_history=True)
+        assert np.all((spec - org_spec).data == 0)
+
+        # Align to a shifted version.
+        shift = 5
+        spec.shift(shift)
+        assert np.all((spec.data[shift:] - org_spec.data[:-shift]) == 0.0)
+
+        # Align to a shifted version with signal.
+        spec = self.ss._copy()
+        org_spec = spec._copy()
+        spec.shift(5.5)
+        assert spec.max().value == pytest.approx(org_spec.max().value, abs=0.06)
