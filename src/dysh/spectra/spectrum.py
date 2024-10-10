@@ -37,7 +37,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 from ..log import HistoricalBase, log_call_to_history
 from ..plot import specplot as sp
 from ..util import minimum_string_match
-from . import baseline, get_spectral_equivalency
+from . import baseline, fft_shift, get_spectral_equivalency
 
 # from astropy.nddata import StdDevUncertainty
 
@@ -386,7 +386,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def decimate(self, n):
         """
-        Decimate a `Spectrum` by n pixels.
+        Decimate the `Spectrum` by n pixels.
 
         Parameters
         ----------
@@ -395,8 +395,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        s : Spectrum
-            The decimated Spectrum.
+        s : `Spectrum`
+            The decimated `Spectrum`.
         """
 
         if not float(n).is_integer():
@@ -422,7 +422,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @log_call_to_history
     def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
         """
-        Smooth or Convolve a spectrum, optionally decimating it.
+        Smooth or Convolve the `Spectrum`, optionally decimating it.
 
         Default smoothing is hanning.
 
@@ -467,8 +467,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        s : Spectrum
-            The new, possibly decimated, convolved spectrum.
+        s : `Spectrum`
+            The new, possibly decimated, convolved `Spectrum`.
         """
         nchan = len(self._data)
         # decimate = int(decimate) # Should we change this value and tell the user, or just error out?
@@ -523,6 +523,52 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s._resolution = s.meta["FREQRES"] / abs(s.meta["CDELT1"])
 
         return s
+
+    def shift(self, s, wrap=False, fill_value=np.nan, method="fft"):
+        """
+        Shift the `Spectrum` by `s` channels in place.
+
+        Parameters
+        ----------
+        s : float
+            Number of channels to shift the `Spectrum` by.
+        wrap : bool
+            If `True` allow spectrum to wrap around the edges.
+            If `False` fill channels that wrap with `fill_value`.
+        fill_value : float
+            If `wrap=False` fill channels that wrapped with this value.
+        method : "fft"
+            Method used to perform the fractional channel shift.
+            "fft" uses a phase shift.
+        """
+
+        ishift = int(np.round(s))  # Integer shift.
+        fshift = s - ishift  # Fractional shift.
+        # Apply integer shift.
+        new_data = np.roll(self.data, ishift, axis=0)
+        if not wrap:
+            if ishift < 0:
+                new_data[ishift:] = fill_value
+            else:
+                new_data[:ishift] = fill_value
+
+        if fshift != 0:
+            # Apply fractional shift.
+            new_data = fft_shift(new_data, fshift, pad=False, window=True)
+
+        # Update data values.
+        self._data = new_data
+
+        # Update metadata.
+        applied_shift = ishift + fshift
+        self.meta["CRPIX1"] += applied_shift
+
+        # Update WCS.
+        self.wcs.wcs.crpix[0] += applied_shift
+
+        # Update `SpectralAxis` values.
+        new_spectral_axis_values = self.wcs.spectral.pixel_to_world(np.arange(self.flux.shape[-1]))
+        self._spectral_axis = self.spectral_axis.replicate(value=new_spectral_axis_values)
 
     @property
     def equivalencies(self):
@@ -1082,18 +1128,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         for k, v in vars(self).items():
             if k not in IGNORE_ON_COPY:
                 vars(other)[k] = deepcopy(v)
-        # other.add_history(self._history)
-        # other.add_comment(self._comments)
-
-    #        other._target = self._target
-    #        other._observer = self._observer
-    #        other._velocity_frame = self._velocity_frame
-    #        other._obstime = self._obstime
-    #        other._baseline_model = self._baseline_model
-    #        other._exclude_regions = self._exclude_regions
-    #        other._mask = self._mask
-    #        other._subtracted = self._subtracted
-    #        other._spectral_axis = self.spectral_axis
 
     def __add__(self, other):
         op = self.add
