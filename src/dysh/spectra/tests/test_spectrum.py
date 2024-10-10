@@ -3,6 +3,7 @@ from unittest.mock import patch
 import astropy.units as u
 import numpy as np
 import pytest
+from astropy.io import fits
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum
@@ -390,4 +391,38 @@ class TestSpectrum:
         assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
             abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+        )
+
+    @pytest.mark.filterwarnings("ignore:Beware:UserWarning")
+    def test_shift(self):
+        """Test the shift method against the results produced by GBTIDL"""
+
+        # Prepare test data.
+        filename = get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
+        sdf = GBTFITSLoad(filename)
+        nchan = sdf["DATA"].shape[-1]
+        spec = Spectrum.fake_spectrum(nchan=nchan, seed=1)
+        spec.data[nchan // 2 - 5 : nchan // 2 + 6] = 10
+        org_spec = spec._copy()
+        # The next two lines were used to create the input for GBTIDL.
+        # sdf["DATA"] = [spec.data]
+        # sdf.write("shift_testdata.fits")
+
+        # Apply method to be tested.
+        shift = 5.5
+        spec.shift(shift)
+
+        # Load GBTIDL answer.
+        with fits.open(get_project_testdata() / "gshift_box.fits") as hdu:
+            table = hdu[1].data
+        gbtidl = table["DATA"][0]
+
+        # Compare.
+        # Ignore the edge channels to avoid edge effects.
+        diff = (spec.data - gbtidl)[10:-10]
+        assert np.all(abs(diff) < 1e-4)
+
+        assert spec.meta["CRPIX1"] == org_spec.meta["CRPIX1"] + shift
+        assert spec.spectral_axis[0].to("Hz").value == (
+            org_spec.spectral_axis[0].to("Hz").value - spec.meta["CDELT1"] * shift
         )
