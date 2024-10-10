@@ -557,6 +557,55 @@ class Spectrum(Spectrum1D, HistoricalBase):
         new_spectral_axis_values = self.wcs.spectral.pixel_to_world(np.arange(self.flux.shape[-1]))
         self._spectral_axis = self.spectral_axis.replicate(value=new_spectral_axis_values)
 
+    def find_shift(self, other, units=None, frame=None):
+        """
+        Find the shift required to align this `Spectrum` with `other`.
+
+        Parameters
+        ----------
+        other : `Spectrum`
+            Target `Spectrum` to align to.
+        units : {None, `astropy.units.Quantity`}
+            Find the shift to align the two `Spectra` in these units.
+            If `None`, the `Spectra` will be aligned using the units of
+            `other`.
+        frame : {None, str}
+            Find the shift in this reference frame.
+            If `None` will use the frame of `other`.
+
+        Returns
+        -------
+        shift : float
+            Number of channels that this `Spectrum` must be shifted to
+            be aligned with `other`.
+        """
+
+        if not isinstance(other, Spectrum):
+            raise ValueError("`other` must be a `Spectrum`.")
+
+        if frame is not None:
+            if frame not in astropy_frame_dict.keys():
+                raise ValueError(
+                    f"`frame` ({frame}) not recognized. Frame must be one of {', '.join(list(astropy_frame_dict.keys()))}"
+                )
+            else:
+                sa = self.spectral_axis.with_observer_stationary_relative_to(frame)
+                tgt_sa = other.spectral_axis.with_observer_stationary_relative_to(frame)
+        else:
+            sa = self.spectral_axis.with_observer_stationary_relative_to(other._velocity_frame)
+            tgt_sa = other.spectral_axis.with_observer_stationary_relative_to(other._velocity_frame)
+
+        if units is None:
+            units = tgt_sa.unit
+
+        sa = sa.to(units)
+        tgt_sa = tgt_sa.to(units)
+
+        cdelt1 = sa[1] - sa[0]
+        shift = ((sa[0] - tgt_sa[0]) / cdelt1).value
+
+        return shift
+
     @property
     def equivalencies(self):
         """Get the spectral axis equivalencies that can be used in converting the axis
