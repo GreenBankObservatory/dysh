@@ -393,7 +393,6 @@ class TestSpectrum:
             abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
         )
 
-    @pytest.mark.filterwarnings("ignore:Beware:UserWarning")
     def test_shift(self):
         """Test the shift method against the results produced by GBTIDL"""
 
@@ -426,3 +425,39 @@ class TestSpectrum:
         assert spec.spectral_axis[0].to("Hz").value == (
             org_spec.spectral_axis[0].to("Hz").value - spec.meta["CDELT1"] * shift
         )
+
+    def test_find_shift(self):
+        """
+        Test the find_shift method.
+        * Test that the shift with respect to itself is zero.
+        * Test that it can find an integer shift.
+        * Test that it can find a fractional shift.
+        * Test that it can find a shift in velocity units.
+        * Test that it can find a shift in a different frame.
+        """
+        spec = Spectrum.fake_spectrum(seed=1)
+
+        # Shift should be zero.
+        assert spec.find_shift(spec) == pytest.approx(0)
+
+        chan_wid = np.mean(np.diff(spec._spectral_axis))
+
+        # Shift by one channel.
+        spec2 = spec._copy()
+        spec2._spectral_axis = spec2.spectral_axis.replicate(value=spec2.spectral_axis + chan_wid)
+        assert spec.find_shift(spec2) == pytest.approx(-1)
+
+        # Shift by one and a half channels.
+        spec3 = spec._copy()
+        spec3._spectral_axis = spec3.spectral_axis.replicate(value=spec3.spectral_axis + chan_wid * 1.5)
+        assert spec.find_shift(spec3) == pytest.approx(-1.5)
+
+        # Shift in velocity.
+        spec4 = spec._copy()
+        velo = spec4.spectral_axis.replicate(value=spec4.spectral_axis.to("km/s"))
+        dvel = velo[1] - velo[0]
+        spec4._spectral_axis = spec4.spectral_axis.replicate(value=velo + dvel * 0.5)
+        assert spec.find_shift(spec4) == pytest.approx(-0.5)
+
+        # Shift in a different frame.
+        assert spec.find_shift(spec4, frame="lsrk") == pytest.approx(-0.5)
