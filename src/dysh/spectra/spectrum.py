@@ -1509,3 +1509,66 @@ with registry.delay_doc_updates(Spectrum):
     # registry.register_writer("ipac", Spectrum, ascii_spectrum_reader_ipac)
     # registry.register_writer("votable", Spectrum, spectrum_reader_votable)
     # registry.register_writer("mrt", Spectrum, spectrum_reader_mrt)
+
+
+def average_spectra(spectra, equal_weights=False):
+    """
+    Average `spectra`.
+
+    Parameters
+    ----------
+    spectra : list of `Spectrum`
+        Spectra to be averaged. They must have the same number of channels.
+        No checks are done to ensure they are aligned.
+    equal_weights : bool
+        If `False` use the inverse of the variance, as computed from the radiometer equation, as weights.
+        If `True` all spectra have the same weight.
+
+    Returns
+    -------
+    average : `Spectrum`
+        Averaged spectra.
+    """
+
+    nspec = len(spectra)
+    nchan = len(spectra[0].data)
+    shape = (nspec, nchan)
+    data_array = np.empty(shape, dtype=float)
+    weights = np.empty(shape, dtype=float)
+    exposures = np.empty(nspec, dtype=float)
+    tsyss = np.empty(nspec, dtype=float)
+    xcoos = np.empty(nspec, dtype=float)
+    ycoos = np.empty(nspec, dtype=float)
+
+    units = spectra[0].flux.unit
+
+    for i, s in enumerate(spectra):
+        if not isinstance(s, Spectrum):
+            raise ValueError(f"Element {i} of `spectra` is not a `Spectrum`.")
+        if units != s.flux.unit:
+            raise ValueError(
+                f"Element {i} of `spectra` has units {s.flux.unit}, but the first element has units {units}."
+            )
+        data_array[i] = s.data
+        weights[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
+        exposures[i] = s.meta["EXPOSURE"]
+        tsyss[i] = s.meta["TSYS"]
+        xcoos[i] = s.meta["CRVAL2"]
+        ycoos[i] = s.meta["CRVAL3"]
+
+    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array))
+    data = np.ma.average(data_array, axis=0, weights=weights)
+    tsys = np.ma.average(tsyss, axis=0, weights=weights[:, 0])
+    xcoo = np.ma.average(xcoos, axis=0, weights=weights[:, 0])
+    ycoo = np.ma.average(ycoos, axis=0, weights=weights[:, 0])
+    exposure = exposures.sum(axis=0)
+
+    new_meta = deepcopy(spectra[0].meta)
+    new_meta["TSYS"] = tsys
+    new_meta["EXPOSURE"] = exposure
+    new_meta["CRVAL2"] = xcoo
+    new_meta["CRVAL3"] = ycoo
+
+    averaged = Spectrum.make_spectrum(data * units, meta=new_meta)
+
+    return averaged
