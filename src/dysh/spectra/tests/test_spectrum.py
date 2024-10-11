@@ -6,7 +6,7 @@ import pytest
 from astropy.io import fits
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum
+from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum, average_spectra
 from dysh.util import get_project_testdata
 
 
@@ -470,6 +470,8 @@ class TestSpectrum:
         """
         Tests for align_to method.
         * Test that align_to itself does not change the spectrum.
+        * Test that aligning to a spectrum with a integer shift preserves the data.
+        * Test that aligning to a spectrum with a fractional shift preserves signal amplitude within errorbars.
         """
 
         spec = Spectrum.fake_spectrum(nchan=1024, seed=1)
@@ -496,3 +498,12 @@ class TestSpectrum:
             + (np.nanstd(spec.data[: len(spec.data) - 50])) ** 2.0
         )
         assert spec.max().value == pytest.approx(org_spec.max().value, abs=3 * tol)
+
+    def test_average_spectra(self):
+        """
+        Tests for average_spectra.
+        Although not a class method of `Spectra` it is included here to reuse the setup method of the test.
+        * Test that it does not crash.
+        """
+
+        avg = average_spectra((self.ps0, self.ps1))
