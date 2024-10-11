@@ -586,17 +586,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if not isinstance(other, Spectrum):
             raise ValueError("`other` must be a `Spectrum`.")
 
-        if frame is not None:
-            if frame not in astropy_frame_dict.keys():
-                raise ValueError(
-                    f"`frame` ({frame}) not recognized. Frame must be one of {', '.join(list(astropy_frame_dict.keys()))}"
-                )
-            else:
-                sa = self.spectral_axis.with_observer_stationary_relative_to(frame)
-                tgt_sa = other.spectral_axis.with_observer_stationary_relative_to(frame)
+        if frame is not None and frame not in astropy_frame_dict.keys():
+            raise ValueError(
+                f"`frame` ({frame}) not recognized. Frame must be one of {', '.join(list(astropy_frame_dict.keys()))}"
+            )
         else:
-            sa = self.spectral_axis.with_observer_stationary_relative_to(other._velocity_frame)
-            tgt_sa = other.spectral_axis.with_observer_stationary_relative_to(other._velocity_frame)
+            frame = other._velocity_frame
+
+        sa = self.spectral_axis.with_observer_stationary_relative_to(frame)
+        tgt_sa = other.spectral_axis.with_observer_stationary_relative_to(frame)
 
         if units is None:
             units = tgt_sa.unit
