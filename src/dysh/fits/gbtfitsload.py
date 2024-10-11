@@ -818,23 +818,23 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 idx = g.index
                 intnumarray[idx] = intnums[i]
         self._index["INTNUM"] = intnumarray
-        # Wait until after INTNUM PR:
-        # self._flag["INTNUM"] = intnumarray
+        self._flag["INTNUM"] = intnumarray
 
-        # Here need to add it as a new column in the BinTableHDU,
-        # but we have to sort out FITSINDEX.
-        # s.add_col("INTNUM",intnumarray)
-        fits_index_changes = indices_where_value_changes("FITSINDEX", self._index)
-        lf = len(fits_index_changes)
-        for i in range(lf):
-            fic = fits_index_changes[i]
-            if i + 1 < lf:
-                fici = fits_index_changes[i + 1]
-            else:
-                fici = -1
-            fi = self["FITSINDEX"][fic]
-            # @todo fix this MWP
-            # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
+        if False:
+            # Here need to add it as a new column in the BinTableHDU,
+            # but we have to sort out FITSINDEX.
+            # s.add_col("INTNUM",intnumarray)
+            fits_index_changes = indices_where_value_changes("FITSINDEX", self._index)
+            lf = len(fits_index_changes)
+            for i in range(lf):
+                fic = fits_index_changes[i]
+                if i + 1 < lf:
+                    fici = fits_index_changes[i + 1]
+                else:
+                    fici = -1
+                fi = self["FITSINDEX"][fic]
+                # @todo fix this MWP
+                # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
 
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
