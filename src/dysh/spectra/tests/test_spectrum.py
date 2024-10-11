@@ -61,6 +61,7 @@ class TestSpectrum:
         self.ss.meta["FREQRES"] = abs(self.ss.meta["CDELT1"])
         self.ss.meta["FWHM"] = fwhm
         self.ss.meta["CENTER"] = self.ss.spectral_axis[mean].value
+        self.ss.meta["STDD"] = stdd
 
     def test_add(self):
         """Test that we can add two `Spectrum`."""
@@ -485,7 +486,13 @@ class TestSpectrum:
         assert np.all((spec.data[shift:] - org_spec.data[:-shift]) == 0.0)
 
         # Align to a shifted version with signal.
+        fshift = 0.5
         spec = self.ss._copy()
         org_spec = spec._copy()
-        spec.shift(5.5)
-        assert spec.max().value == pytest.approx(org_spec.max().value, abs=0.06)
+        spec.shift(shift + fshift)
+        # The amplitude of the signal will decrease because of the sampling.
+        tol = np.sqrt(
+            (1 - np.exp(-0.5 * (fshift) ** 2 / spec.meta["STDD"] ** 2)) ** 2.0
+            + (np.nanstd(spec.data[: len(spec.data) - 50])) ** 2.0
+        )
+        assert spec.max().value == pytest.approx(org_spec.max().value, abs=3 * tol)
