@@ -334,7 +334,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
             p._exclude_regions = regionlist
         elif kwargs_opts["exclude_action"] == "append":
             p._exclude_regions.extend(regionlist)
-            regionlist = p._exclude_regionsexclude_region_upper_boundsexclude_region_upper_bounds
+            regionlist = p._exclude_regions
     else:
         # use the spectrum's preset exclude regions if they
         # exist (they will be a list of SpectralRegions or None)
