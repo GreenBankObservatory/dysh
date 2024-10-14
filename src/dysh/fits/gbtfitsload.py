@@ -59,6 +59,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         path = Path(fileobj)
         self._sdf = []
         self._selection = None
+        self._tpnocal = None      # should become True or False once known
         self.GBT = Observatory["GBT"]
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
@@ -717,7 +718,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             True to use only integrations where calibration (diode) is on, False if off. None to use all integrations regardless calibration state.
             The system temperature will be calculated from both states regardless of the value of this variable.
         calibrate: bool
-            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+            whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data.
+            Default:True
         timeaverage : boolean, optional
             Average the scans in time. The default is True.
         polaverage : boolean, optional
@@ -779,8 +781,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     dfcalF = select_from("CAL", "F", _sifdf)
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
+                    print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                     if len(calrows["ON"]) != len(calrows["OFF"]):
-                        raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                        if len(calrows["ON"]) > 0:
+                            raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                        else:
+                            print("Warning: hacking gettp with no calrows")
                     # sig and cal are treated specially since
                     # they are not in kwargs and in SDFITS header
                     # they are not booleans but chars
@@ -793,6 +799,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug("TPROWS len=", len(tprows))
                     logger.debug("CALROWS on len=", len(calrows["ON"]))
                     logger.debug("fitsindex=", i)
+                    print("PJT TPROWS", tprows)
                     if len(tprows) == 0:
                         continue
                     g = TPScan(
@@ -869,6 +876,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             preselected[kw] = uniq(_final[kw])
         if scans is None:
             scans = preselected["SCAN"]
+
+        if True:
+            som = uniq(_final["SUBOBSMODE"])
+            print("SUBOBSMODE:",som)
+            if len(som) > 1:
+                raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
+            if som[0] == "TPNOCAL":
+                self._tpnocal = True
+                raise Exception(f"Cannot deal with TPNOCAL yet")
+            
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
