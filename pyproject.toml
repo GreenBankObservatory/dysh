@@ -2,7 +2,7 @@
 name = "dysh"
 description = ''
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 keywords = []
 dynamic = ["version"]
@@ -12,6 +12,7 @@ authors = [
   { name = "Peter Teuben", email = "teuben@umd.edu" },
   { name = "Thomas Chamberlin", email = "tchamber@nrao.edu" },
   { name = "Pedro Salas", email = "psalas@nrao.edu" },
+  { name = "Evan Smith", email = "esmith@nrao.edu" },
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

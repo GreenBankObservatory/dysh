@@ -254,7 +254,7 @@ def exclude_to_mask(exclude, refspec):
 
 
 @log_function_call()
-def baseline(spectrum, order, exclude=None, **kwargs):
+def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
     """Fit a baseline for a spectrum
 
     Parameters
@@ -287,6 +287,8 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         One of 'polynomial' or 'chebyshev', Default: 'polynomial'
     fitter : `~astropy.fitting._FitterMeta`
         The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+    exclude_region_upper_bounds : bool
+        Makes the upper bound of any excision region(s) inclusive. Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
 
     Returns
     -------
@@ -332,13 +334,13 @@ def baseline(spectrum, order, exclude=None, **kwargs):
             p._exclude_regions = regionlist
         elif kwargs_opts["exclude_action"] == "append":
             p._exclude_regions.extend(regionlist)
-            regionlist = p._exclude_regions
+            regionlist = p._exclude_regionsexclude_region_upper_boundsexclude_region_upper_bounds
     else:
         # use the spectrum's preset exclude regions if they
         # exist (they will be a list of SpectralRegions or None)
         regionlist = p._exclude_regions
     print(f"EXCLUDING {regionlist}")
-    return fit_continuum(spectrum=p, model=selected_model, fitter=fitter, exclude_regions=regionlist)
+    return fit_continuum(spectrum=p, model=selected_model, fitter=fitter, exclude_regions=regionlist, exclude_region_upper_bounds=exclude_region_upper_bounds)
 
 
 def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
