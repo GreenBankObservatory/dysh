@@ -188,7 +188,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         fn = Path("/home/sdfits/") / sdfits  # expected at GBO
         if fn.exists():
             return sdfits_offline(fn)
-        print(f"could not handle sdfits={sdfits} yet")
+        # print(f"could not handle sdfits={sdfits} yet")
         return None
 
     # test:   this should also be allowed to use util.get_project_testdata() as well
@@ -255,6 +255,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(f"\nRetrieved {filename}")
             except:
                 print(f"\nFailing to retrieve example {filename} ")
+                return None
         else:
             print(f"{filename} already downloaded")
         return filename
@@ -295,6 +296,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(f"\nRetrieved {filename}")
             except:
                 print(f"\nFailing to retrieve accept {filename}")
+                return None
         else:
             print(f"{filename} already downloaded")
         return filename
