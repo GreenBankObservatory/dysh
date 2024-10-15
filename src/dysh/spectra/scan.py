@@ -1717,7 +1717,7 @@ class FSScan(ScanBase):
                 self._exposure[i] = self.exposure[i]
 
         self._add_calibration_meta()
-        logger.debug("Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
+        logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
