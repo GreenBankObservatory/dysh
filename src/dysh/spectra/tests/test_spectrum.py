@@ -528,14 +528,15 @@ class TestSpectrum:
     def test_baseline(self):
         """Test for comparing GBTIDL baseline to Dysh baselines"""
 
-        def test_single_baseline(sdf,ex_reg,order,model,gbtidl_bmodel,exclude_region_upper_bounds=True):
+        def test_single_baseline(sdf, ex_reg, order, model, gbtidl_bmodel, exclude_region_upper_bounds=True):
             """For use with TestSpectrum.test_baseline()"""
             dysh_spec = sdf.getspec(0)
             temp_bmodel = np.copy(dysh_spec.data)
-            dysh_spec.baseline(order,ex_reg,remove=True,model=model,exclude_region_upper_bounds=exclude_region_upper_bounds)
+            dysh_spec.baseline(
+                order, ex_reg, remove=True, model=model, exclude_region_upper_bounds=exclude_region_upper_bounds
+            )
             dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
             diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
-
 
         data_dir = get_project_testdata() / "AGBT17A_404_01"
         sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
@@ -554,5 +555,3 @@ class TestSpectrum:
 
         ex_reg = None
         test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_no_reg)
-
-
