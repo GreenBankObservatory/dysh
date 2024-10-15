@@ -39,6 +39,9 @@ print(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits", verb
 print(dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas"))
 print(dysh_data(example="nod"))
 print(dysh_data(example="getps"))
+print(dysh_data(example="getps0"))   # bad url
+print(dysh_data(example="getps1"))   # bad url
+print(dysh_data(example="positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/"))
 print(dysh_data(example="test1"))
 
 print(dysh_data(test="test1"))
@@ -50,3 +53,4 @@ print(dysh_data(accept='nod1'))
 
 print(dysh_data("AGBT21B_024_01"))
 print(dysh_data("AGBT21B_024_01/AGBT21B_024_01.raw.vegas"))
+print(dysh_data("junk"))   # return None, file does not exist
