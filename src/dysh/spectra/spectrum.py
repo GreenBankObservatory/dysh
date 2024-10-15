@@ -386,7 +386,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def decimate(self, n):
         """
-        Decimate a `Spectrum` by n pixels.
+        Decimate the `Spectrum` by n pixels.
 
         Parameters
         ----------
@@ -395,8 +395,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        s : Spectrum
-            The decimated Spectrum.
+        s : `Spectrum`
+            The decimated `Spectrum`.
         """
 
         if not float(n).is_integer():
@@ -422,7 +422,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @log_call_to_history
     def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
         """
-        Smooth or Convolve a spectrum, optionally decimating it.
+        Smooth or Convolve the `Spectrum`, optionally decimating it.
 
         Default smoothing is hanning.
 
@@ -467,8 +467,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        s : Spectrum
-            The new, possibly decimated, convolved spectrum.
+        s : `Spectrum`
+            The new, possibly decimated, convolved `Spectrum`.
         """
         nchan = len(self._data)
         # decimate = int(decimate) # Should we change this value and tell the user, or just error out?
@@ -523,6 +523,117 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s._resolution = s.meta["FREQRES"] / abs(s.meta["CDELT1"])
 
         return s
+
+    def shift(self, s, remove_wrap=True, fill_value=np.nan, method="fft"):
+        """
+        Shift the `Spectrum` by `s` channels in place.
+
+        Parameters
+        ----------
+        s : float
+            Number of channels to shift the `Spectrum` by.
+        remove_wrap : bool
+            If `False` keep channels that wrap around the edges.
+            If `True` fill channels that wrap with `fill_value`.
+        fill_value : float
+            If `remove_wrap=True` fill channels that wrapped with this value.
+        method : "fft"
+            Method used to perform the fractional channel shift.
+            "fft" uses a phase shift.
+        """
+
+        new_data = core.data_shift(self.data, s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
+
+        # Update data values.
+        self._data = new_data
+
+        # Update metadata.
+        self.meta["CRPIX1"] += s
+
+        # Update WCS.
+        self.wcs.wcs.crpix[0] += s
+
+        # Update `SpectralAxis` values.
+        # Radial velocity needs to be copied by hand.
+        radial_velocity = deepcopy(self._spectral_axis._radial_velocity)
+        new_spectral_axis_values = self.wcs.spectral.pixel_to_world(np.arange(self.flux.shape[-1]))
+        self._spectral_axis = self.spectral_axis.replicate(value=new_spectral_axis_values)
+        self._spectral_axis._radial_velocity = radial_velocity
+
+    def find_shift(self, other, units=None, frame=None):
+        """
+        Find the shift required to align this `Spectrum` with `other`.
+
+        Parameters
+        ----------
+        other : `Spectrum`
+            Target `Spectrum` to align to.
+        units : {None, `astropy.units.Quantity`}
+            Find the shift to align the two `Spectra` in these units.
+            If `None`, the `Spectra` will be aligned using the units of
+            `other`.
+        frame : {None, str}
+            Find the shift in this reference frame.
+            If `None` will use the frame of `other`.
+
+        Returns
+        -------
+        shift : float
+            Number of channels that this `Spectrum` must be shifted to
+            be aligned with `other`.
+        """
+
+        if not isinstance(other, Spectrum):
+            raise ValueError("`other` must be a `Spectrum`.")
+
+        if frame is not None and frame not in astropy_frame_dict.keys():
+            raise ValueError(
+                f"`frame` ({frame}) not recognized. Frame must be one of {', '.join(list(astropy_frame_dict.keys()))}"
+            )
+        else:
+            frame = other._velocity_frame
+
+        sa = self.spectral_axis.with_observer_stationary_relative_to(frame)
+        tgt_sa = other.spectral_axis.with_observer_stationary_relative_to(frame)
+
+        if units is None:
+            units = tgt_sa.unit
+
+        sa = sa.to(units)
+        tgt_sa = tgt_sa.to(units)
+
+        cdelt1 = sa[1] - sa[0]
+        shift = ((sa[0] - tgt_sa[0]) / cdelt1).value
+
+        return shift
+
+    def align_to(self, other, units=None, frame=None, remove_wrap=True, fill_value=np.nan, method="fft"):
+        """
+        Align the `Spectrum` with respect to `other`.
+
+        Parameters
+        ----------
+        other : `Spectrum`
+            Target `Spectrum` to align to.
+        units : {None, `astropy.units.Quantity`}
+            Find the shift to align the two `Spectra` in these units.
+            If `None`, the `Spectra` will be aligned using the units of
+            `other`.
+        frame : {None, str}
+            Find the shift in this reference frame.
+            If `None` will use the frame of `other`.
+        remove_wrap : bool
+            If `True` allow spectrum to wrap around the edges.
+            If `False` fill channels that wrap with `fill_value`.
+        fill_value : float
+            If `wrap=False` fill channels that wrapped with this value.
+        method : "fft"
+            Method used to perform the fractional channel shift.
+            "fft" uses a phase shift.
+        """
+
+        s = self.find_shift(other, units=units, frame=frame)
+        self.shift(s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
 
     @property
     def equivalencies(self):
@@ -808,7 +919,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return s
 
     @classmethod
-    def fake_spectrum(cls, nchan=1024, **kwargs):
+    def fake_spectrum(cls, nchan=1024, seed=None, **kwargs):
         """
         Create a fake spectrum, useful for simple testing. A default header is
         created, which may be modified with kwargs.
@@ -817,6 +928,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         nchan : int, optional
             Number of channels. The default is 1024.
+
+        seed : {None, int, array_like[ints], `numpy.random.SeedSequence`, `numpy.random.BitGenerator`, `numpy.random.Generator`}, optional
+            A seed to initialize the `BitGenerator`. If None, then fresh, unpredictable entropy will be pulled from the OS.
+            If an int or array_like[ints] is passed, then all values must be non-negative and will be passed to
+            `SeedSequence` to derive the initial `BitGenerator` state. One may also pass in a `SeedSequence` instance.
+            Additionally, when passed a `BitGenerator`, it will be wrapped by `Generator`. If passed a `Generator`, it will
+            be returned unaltered.
+            The default is `None`.
 
         **kwargs: dict or key=value
             Metadata to put in the header.  If the key exists already in
@@ -828,7 +947,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
-        data = np.random.rand(nchan) * u.K
+
+        rng = np.random.default_rng(seed)
+        data = rng.random(nchan) * u.K
         meta = {
             "OBJECT": "NGC2415",
             "BANDWID": 23437500.0,
@@ -1082,18 +1203,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         for k, v in vars(self).items():
             if k not in IGNORE_ON_COPY:
                 vars(other)[k] = deepcopy(v)
-        # other.add_history(self._history)
-        # other.add_comment(self._comments)
-
-    #        other._target = self._target
-    #        other._observer = self._observer
-    #        other._velocity_frame = self._velocity_frame
-    #        other._obstime = self._obstime
-    #        other._baseline_model = self._baseline_model
-    #        other._exclude_regions = self._exclude_regions
-    #        other._mask = self._mask
-    #        other._subtracted = self._subtracted
-    #        other._spectral_axis = self.spectral_axis
 
     def __add__(self, other):
         op = self.add
@@ -1400,3 +1509,79 @@ with registry.delay_doc_updates(Spectrum):
     # registry.register_writer("ipac", Spectrum, ascii_spectrum_reader_ipac)
     # registry.register_writer("votable", Spectrum, spectrum_reader_votable)
     # registry.register_writer("mrt", Spectrum, spectrum_reader_mrt)
+
+
+def average_spectra(spectra, equal_weights=False, align=False):
+    """
+    Average `spectra`. The resulting `average` will have an exposure equal to the sum of the exposures,
+    and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
+
+    Parameters
+    ----------
+    spectra : list of `Spectrum`
+        Spectra to be averaged. They must have the same number of channels.
+        No checks are done to ensure they are aligned.
+    equal_weights : bool
+        If `False` use the inverse of the variance, as computed from the radiometer equation, as weights.
+        If `True` all spectra have the same weight.
+    align : bool
+        If `True` align the `spectra` to the first element.
+        This uses `Spectrum.align_to`.
+
+    Returns
+    -------
+    average : `Spectrum`
+        Averaged spectra.
+    """
+
+    nspec = len(spectra)
+    nchan = len(spectra[0].data)
+    shape = (nspec, nchan)
+    data_array = np.empty(shape, dtype=float)
+    weights = np.empty(shape, dtype=float)
+    exposures = np.empty(nspec, dtype=float)
+    tsyss = np.empty(nspec, dtype=float)
+    xcoos = np.empty(nspec, dtype=float)
+    ycoos = np.empty(nspec, dtype=float)
+
+    units = spectra[0].flux.unit
+
+    for i, s in enumerate(spectra):
+        if not isinstance(s, Spectrum):
+            raise ValueError(f"Element {i} of `spectra` is not a `Spectrum`.")
+        if units != s.flux.unit:
+            raise ValueError(
+                f"Element {i} of `spectra` has units {s.flux.unit}, but the first element has units {units}."
+            )
+        if align:
+            s_ = s._copy()
+            if i > 0:
+                s_.align_to(spectra[0])
+        else:
+            s_ = s
+        data_array[i] = s_.data
+        if not equal_weights:
+            weights[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
+        else:
+            weights[i] = 1.0
+        exposures[i] = s.meta["EXPOSURE"]
+        tsyss[i] = s.meta["TSYS"]
+        xcoos[i] = s.meta["CRVAL2"]
+        ycoos[i] = s.meta["CRVAL3"]
+
+    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array))
+    data = np.ma.average(data_array, axis=0, weights=weights)
+    tsys = np.ma.average(tsyss, axis=0, weights=weights[:, 0])
+    xcoo = np.ma.average(xcoos, axis=0, weights=weights[:, 0])
+    ycoo = np.ma.average(ycoos, axis=0, weights=weights[:, 0])
+    exposure = exposures.sum(axis=0)
+
+    new_meta = deepcopy(spectra[0].meta)
+    new_meta["TSYS"] = tsys
+    new_meta["EXPOSURE"] = exposure
+    new_meta["CRVAL2"] = xcoo
+    new_meta["CRVAL3"] = ycoo
+
+    averaged = Spectrum.make_spectrum(data * units, meta=new_meta)
+
+    return averaged
