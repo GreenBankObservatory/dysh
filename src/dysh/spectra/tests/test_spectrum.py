@@ -26,13 +26,15 @@ def fit_gauss(spectrum):
     return g_fit
 
 
-def compare_spectrum(one, other, ignore_history=False):
+def compare_spectrum(one, other, ignore_history=False, ignore_comments=False):
     """ """
 
     for k, v in vars(one).items():
         if k in IGNORE_ON_COPY:
             continue
         if ignore_history and k == "_history":
+            continue
+        if ignore_history and k == "_comments":
             continue
         elif k in ["_wcs"]:
             v.to_header() == vars(other)[k].to_header()
@@ -504,6 +506,14 @@ class TestSpectrum:
         Tests for average_spectra.
         Although not a class method of `Spectra` it is included here to reuse the setup method of the test.
         * Test that it does not crash.
+        * Test that it does not crash whit alignment.
         """
 
+        ps0_org = self.ps0._copy()
+        ps1_org = self.ps1._copy()
+
         avg = average_spectra((self.ps0, self.ps1))
+
+        avg = average_spectra((self.ps0, self.ps1), align=True)
+        compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
+        compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)

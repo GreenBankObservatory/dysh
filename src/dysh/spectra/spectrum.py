@@ -1511,9 +1511,10 @@ with registry.delay_doc_updates(Spectrum):
     # registry.register_writer("mrt", Spectrum, spectrum_reader_mrt)
 
 
-def average_spectra(spectra, equal_weights=False):
+def average_spectra(spectra, equal_weights=False, align=False):
     """
-    Average `spectra`.
+    Average `spectra`. The resulting `average` will have an exposure equal to the sum of the exposures,
+    and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
 
     Parameters
     ----------
@@ -1523,6 +1524,9 @@ def average_spectra(spectra, equal_weights=False):
     equal_weights : bool
         If `False` use the inverse of the variance, as computed from the radiometer equation, as weights.
         If `True` all spectra have the same weight.
+    align : bool
+        If `True` align the `spectra` to the first element.
+        This uses `Spectrum.align_to`.
 
     Returns
     -------
@@ -1549,8 +1553,17 @@ def average_spectra(spectra, equal_weights=False):
             raise ValueError(
                 f"Element {i} of `spectra` has units {s.flux.unit}, but the first element has units {units}."
             )
-        data_array[i] = s.data
-        weights[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
+        if align:
+            s_ = s._copy()
+            if i > 0:
+                s_.align_to(spectra[0])
+        else:
+            s_ = s
+        data_array[i] = s_.data
+        if not equal_weights:
+            weights[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
+        else:
+            weights[i] = 1.0
         exposures[i] = s.meta["EXPOSURE"]
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]
