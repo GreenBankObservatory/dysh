@@ -342,7 +342,13 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         # exist (they will be a list of SpectralRegions or None)
         regionlist = p._exclude_regions
     print(f"EXCLUDING {regionlist}")
-    return fit_continuum(spectrum=p, model=selected_model, fitter=fitter, exclude_regions=regionlist, exclude_region_upper_bounds=exclude_region_upper_bounds)
+    return fit_continuum(
+        spectrum=p,
+        model=selected_model,
+        fitter=fitter,
+        exclude_regions=regionlist,
+        exclude_region_upper_bounds=exclude_region_upper_bounds,
+    )
 
 
 def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
