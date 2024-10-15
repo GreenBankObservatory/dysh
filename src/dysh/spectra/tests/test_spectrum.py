@@ -1,12 +1,15 @@
 from unittest.mock import patch
 
 import astropy.units as u
+from astropy.io import fits
 import numpy as np
 import pytest
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum
 from dysh.util import get_project_testdata
+
+
 
 
 def fit_gauss(spectrum):
@@ -42,6 +45,24 @@ def compare_spectrum(one, other):
             assert v == vars(other)[k]
 
 
+def loadfits(fname):
+    hdu = fits.open(fname)
+    spec = hdu[1].data["DATA"][0]
+    hdu.close()
+    return spec
+
+def test_single_baseline(sdf,ex_reg,order,model,gbtidl_bmodel,exclude_region_upper_bounds=True):
+    """For use with TestSpectrum.test_baseline()"""
+    
+    dysh_spec = sdf.getspec(0)
+    temp_bmodel = np.copy(dysh_spec.data)
+    dysh_spec.baseline(order,ex_reg,remove=True,model=model,exclude_region_upper_bounds=exclude_region_upper_bounds)
+    dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
+    diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
+    print(diff)
+    print(diff < 1.5e-6)
+
+
 class TestSpectrum:
     def setup_method(self):
         data_dir = get_project_testdata() / "AGBT05B_047_01"
@@ -60,6 +81,7 @@ class TestSpectrum:
         self.ss.meta["FREQRES"] = abs(self.ss.meta["CDELT1"])
         self.ss.meta["FWHM"] = fwhm
         self.ss.meta["CENTER"] = self.ss.spectral_axis[mean].value
+
 
     def test_add(self):
         """Test that we can add two `Spectrum`."""
@@ -391,3 +413,29 @@ class TestSpectrum:
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
             abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
         )
+
+
+
+    def test_baseline():
+        """Test for comparing GBTIDL baseline to Dysh baselines"""
+        data_dir = get_project_testdata() / "AGBT17A_404_01"
+        sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
+        sdf = GBTFITSLoad(sdf_file)
+        gbtidl_two_reg = loadfits( data_dir / "AGBT17A_404_01_scan_19_bmodel.fits" )
+        gbtidl_no_reg = loadfits( data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits" )
+
+        order=3
+        ex_reg = [(0,99),(381,449),(721,819)]
+
+        test_single_baseline(sdf,ex_reg,order,'chebyshev',gbtidl_two_reg)
+        test_single_baseline(sdf,ex_reg,order,'legendre',gbtidl_two_reg)
+        test_single_baseline(sdf,ex_reg,order,'hermite',gbtidl_two_reg)
+        #TODO: polynomial fit test fails until issues 174, 252 are fixed
+        #test_single_baseline(sdf,ex_reg,order,'polynomial',gbtidl_two_reg)
+
+        ex_reg = None
+        test_single_baseline(sdf,ex_reg,order,'chebyshev',gbtidl_no_reg)
+
+
+
+
