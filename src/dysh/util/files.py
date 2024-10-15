@@ -127,8 +127,8 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     # fmt:on
 
     def sdfits_offline(fn):
-        """ fn is an sdfits= filename that was shown to exist
-            If fn contains only one name
+        """fn is an sdfits= filename that was shown to exist
+        If fn contains only one name
         """
         if fn.is_file():
             return fn
@@ -147,7 +147,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         if len(parents) > 1:
             print(f"{fn} does not contain a single fits tree: {parents}")
             # @todo throw ?  or return the first one?
-        
+
         return parents[0]
 
     # 1.  find out if there is a dysh_data (or use $DYSH_DATA, or a .dyshrc config?)
