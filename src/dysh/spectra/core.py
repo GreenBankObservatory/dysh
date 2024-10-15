@@ -3,6 +3,7 @@ Core functions for spectral data.
 """
 
 import warnings
+from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
@@ -14,11 +15,12 @@ from astropy.convolution import (
 )
 from astropy.modeling.fitting import LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
+from scipy import ndimage
 from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 
 from ..coordinates import veltofreq
-from ..log import log_function_call
+from ..log import log_function_call, logger
 from ..util import minimum_string_match, powerof2
 
 
@@ -682,3 +684,117 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
     # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
     new_data = convolve(data, kernel, boundary="extend")
     return new_data
+
+
+def data_ishift(y, ishift, axis=-1, remove_wrap=True, fill_value=np.nan):
+    """
+    Shift `y` by `ishift` channels, where `ishift` is a natural number.
+
+    Parameters
+    ----------
+    y : array
+        Data to be shifted.
+    ishift : int
+        Amount to shift data by.
+    axis : int
+        Axis along which to apply the shift.
+    remove_wrap : bool
+        Replace channels that wrap around with `fill_value`.
+    fill_value : float
+        Value used to replace the data in channels that wrap around after the shift.
+
+    Returns
+    -------
+    new_y : array
+        Shifted `y`.
+    """
+
+    new_y = np.roll(y, ishift, axis=axis)
+
+    if remove_wrap:
+        if ishift < 0:
+            new_y[ishift:] = fill_value
+        else:
+            new_y[:ishift] = fill_value
+
+    return new_y
+
+
+def data_fshift(y, fshift, method="fft", pad=False, window=True):
+    """
+    Shift `y` by `fshift` channels, where |`fshift`|<1.
+
+    Parameters
+    ----------
+    y : array
+        Data to be shifted.
+    fshift : float
+        Amount to shift the data by.
+        abs(fshift) must be less than 1.
+    method : "fft" | "interpolate"
+        Method to use for shifting.
+        "fft" uses a phase shift.
+        "interpolate" uses `scipy.ndimage.shift`.
+    pad : bool
+        Pad the data during the phase shift.
+        Only used if `method="fft"`.
+    window : bool
+        Apply a Welch window during phase shift.
+        Only used if `method="fft"`.
+    """
+
+    if abs(fshift) > 1:
+        raise ValueError("abs(fshift) must be less than one: {fshift}")
+
+    if method == "fft":
+        new_y = fft_shift(y, fshift, pad=pad, window=window)
+    elif method == "interpolate":
+        new_y = ndimage.shift(y, [fshift])
+
+    return new_y
+
+
+def data_shift(y, s, axis=-1, remove_wrap=True, fill_value=np.nan, method="fft", pad=False, window=True):
+    """
+    Shift `y` by `s` channels.
+
+    Parameters
+    ----------
+    y : array
+        Data to be shifted.
+    s : float
+        Amount to shift the data by.
+    axis : int
+        Axis along which to apply the shift.
+    remove_wrap : bool
+        Replace channels that wrap around with `fill_value`.
+    fill_value : float
+        Value used to replace the data in channels that wrap around after the shift.
+    method : "fft" | "interpolate"
+        Method to use for shifting.
+        "fft" uses a phase shift.
+        "interpolate" uses `scipy.ndimage.shift`.
+    pad : bool
+        Pad the data during the phase shift.
+        Only used if `method="fft"`.
+    window : bool
+        Apply a Welch window during phase shift.
+        Only used if `method="fft"`.
+    """
+
+    ishift = int(np.round(s))  # Integer shift.
+    fshift = s - ishift  # Fractional shift.
+
+    logger.debug(f"Shift: s={s}  ishift={ishift} fshift={fshift}")
+
+    if ishift != 0:
+        # Apply integer shift.
+        y_new = data_ishift(y, ishift, axis=axis, remove_wrap=remove_wrap, fill_value=fill_value)
+    else:
+        y_new = deepcopy(y)
+
+    if fshift != 0:
+        # Apply fractional shift.
+        y_new = data_fshift(y_new, fshift, method=method, pad=pad, window=window)
+
+    return y_new
