@@ -126,6 +126,30 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     _accept_data        = "/home/dysh/acceptance_testing/data"      # not in public_html ??
     # fmt:on
 
+    def sdfits_offline(fn):
+        """ fn is an sdfits= filename that was shown to exist
+            If fn contains only one name
+        """
+        if fn.is_file():
+            return fn
+        if not fn.is_dir():
+            print(f"{fn} is not a file nor a directory, dunno how to proceed")
+            return None
+        # find all fits files one level deep
+        ff = list(fn.glob("*/*.fits"))
+        if len(ff) == 0:
+            return fn
+        # ensure there is only a single parent
+        parents = []
+        for f in ff:
+            parents.append(f.parent)
+        parents = list(set(parents))
+        if len(parents) > 1:
+            print(f"{fn} does not contain a single fits tree: {parents}")
+            # @todo throw ?  or return the first one?
+        
+        return parents[0]
+
     # 1.  find out if there is a dysh_data (or use $DYSH_DATA, or a .dyshrc config?)
     #     - if present, API dysh_data is used
     #     - if present, $DYSH_DATA is used
@@ -157,14 +181,13 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("# -----------------")
             os.system(cmd)
             return None
-        print(type(dysh_data))
         if dysh_data != None:
-            fn = dysh_data / Path("sdfits") / sdfits
+            fn = dysh_data / Path("sdfits") / sdfits  # normally user is using a private sdfits
             if fn.exists():
-                return fn
-        fn = Path("/home/sdfits/") / sdfits
+                return sdfits_offline(fn)
+        fn = Path("/home/sdfits/") / sdfits  # expected at GBO
         if fn.exists():
-            return fn
+            return sdfits_offline(fn)
         print(f"could not handle sdfits={sdfits} yet")
         return None
 
@@ -227,8 +250,11 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         filename = url.split("/")[-1]
         if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")
-            filename = from_url(url)
-            print(f"\nRetrieved {filename}")
+            try:
+                filename = from_url(url)
+                print(f"\nRetrieved {filename}")
+            except:
+                print(f"\nFailing to retrieve example {filename} ")
         else:
             print(f"{filename} already downloaded")
         return filename
@@ -264,8 +290,11 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         filename = url.split("/")[-1]
         if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")
-            filename = from_url(url)
-            print(f"\nRetrieved {filename}")
+            try:
+                filename = from_url(url)
+                print(f"\nRetrieved {filename}")
+            except:
+                print(f"\nFailing to retrieve accept {filename}")
         else:
             print(f"{filename} already downloaded")
         return filename
