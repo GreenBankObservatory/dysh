@@ -735,7 +735,7 @@ class TPScan(ScanBase):
             if self._calibrate:
                 self.calibrate()
             self._tsys = np.ones(len(nb2))
-            # self.calc_tsys()
+            self.calc_tsys()
             self._validate_defaults()
             return
         # Tell the user about blank integration(s) that will be ignored.
@@ -810,6 +810,14 @@ class TPScan(ScanBase):
             elif self.calstate == False:
                 pass
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        if len(self._tcal) == 0:
+            # to_nocal
+            self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+            nspect = len(self._tcal)
+            print("PJT nspect",nspect)            
+            self._tsys = np.ones(nspect, dtype=float)
+            return
+        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])    # PJT
         nspect = len(self._tcal)
         print("PJT nspect",nspect)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
@@ -966,6 +974,8 @@ class TPScan(ScanBase):
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
         return self._timeaveraged
+
+        # end-of-TPScan
 
 
 class PSScan(ScanBase):
