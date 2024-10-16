@@ -119,16 +119,30 @@ def getbeam(sdf, debug=False):
         print("too many in beam2:",d2['FDNUM'].unique())
         return []
 
-def vanecal(sdf, vane, sky,  feeds=[]):
-    """ loop over feedd to get tsys factor
+def vanecal(sdf, vane, sky,  feeds=[], tcal=1.0):
+    """ loop over feeds to get tsys factor
+        for efficiency of large data, it's better to sdf.write() and use only the
+        vane and sky scans'
+        Example EDGE:  (1.3GB)
+             all 163 scans:     6m33s
+             write small sdf:     25s
+             just vane/cal:       20s
     """
     tsys = np.zeros(len(feeds), dtype=float)
+    if False:
+        # needs testing, what to do about ifnum, plnum - force one
+        mkdir('vanecal')
+        sdf.write('vanecal/file.fits',scan=[vane,sky],overwrite=True)
+        sdf1 = GBTFITSLoad('vanecal')
+    else:
+        sdf1 = sdf
     
     i=0
     for f in feeds:
-        v = sdf.gettp(scan=vane, fdnum=f, calibrate=True, cal=False).timeaverage()
-        s = sdf.gettp(scan=sky,  fdnum=f, calibrate=True, cal=False).timeaverage()
-        tsys[i] = mean_tsys(v.flux, s.flux, 1.0)
+        v = sdf1.gettp(scan=vane, fdnum=f, calibrate=True, cal=False).timeaverage()
+        s = sdf1.gettp(scan=sky,  fdnum=f, calibrate=True, cal=False).timeaverage()
+        tsys[i] = mean_tsys(v.flux, s.flux, 1.0) * tcal
+        # optional?    += tcal/2.0
         i = i + 1
     return tsys
         
@@ -146,16 +160,20 @@ sdf1.summary()
 sdf1.summary(verbose=True)
 sdf1._index[k]
 
-sp1 = sdf1.getps()
-sp1.timeaverage().plot()
+sp1 = sdf1.getps().timeaverage()
+sp1.plot()
+sp1.stats(qac=True)
+# 0.21853874407385052 0.6796743343920357 -3.7057502269744873 4.343878746032715
 
-tp1a = sdf1.gettp(scan=152)
-tp1b = sdf1.gettp(scan=153)
+tp1a = sdf1.gettp(scan=152).timeaverage()
+tp1b = sdf1.gettp(scan=153).timeaverage()
 
-tp1a.timeaverage().plot()
+tp1a.plot()
+tp1b.plot()
 
+tp1a.stats(qac=True)  # '490015338.1141468 152969155.2487644 3311173.5 805602304.0'
 
-#%% EXAMPLE-1   tp_nocal    NOD_BEAMS  10,1   (FEED 11,2)
+#%% NOD EXAMPLE-1   tp_nocal    NOD_BEAMS  10,1   (FEED 11,2)
 
 _help = """
    SCAN    OBJECT VELOCITY   PROC  PROCSEQN    RESTFREQ     DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
@@ -183,11 +201,12 @@ vcal(vane1, 281, 282)
 v1 = vane1.getspec(0).flux.value
 s1 = vane1.getspec(4).flux.value
 t1 = s1/(v1-s1)                          # 0.53 +/0 0.02
+np.nanmean(t1[100:900])
+np.nanstd(t1[100:900])
 
-
-sp = vane1.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
+v1 = vane1.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage()
 # ok
-sp = vane1.gettp(scan=282, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
+s1 = vane1.gettp(scan=282, fdnum=8, calibrate=True, cal=False).timeaverage()
 # ok
 
 sp = sdf.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
@@ -198,11 +217,8 @@ print(vanecal(vane1, 281, 282, feeds=range(16)))
 # 0.99023236 1.01537602 1.02035436 0.98760956 1.00412189 1.05833454
 # 0.99750374 1.02722791 1.00445433 1.00216715]
 
-#%%
 
-
-
-#%%   EDGE data
+#%%   EDGE data  (1363MB)
 
 _help = """
      SCAN    OBJECT VELOCITY       PROC  PROCSEQN    RESTFREQ     DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
@@ -216,38 +232,40 @@ _help = """
 """
 
 sdf2 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'))
-a = sdf2.summary()  # 208 scans
+a = sdf2.summary()  # 208 scans   1363MB
 b=a[a["OBJECT"] == "VANE"]
 print(b)   # there are 13 vane's in here
 
 # make a smaller dataset for testing
 mkdir("edge1")
 sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], intnum=[0,1], overwrite=True)
+sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], overwrite=True)
 sdf2.write("edge1/file.fits", scan=[17,18,19,20], overwrite=True)                # 4576 rows
 #  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
-sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], overwrite=True)
 
 edge1 = GBTFITSLoad("edge1")
 edge1.summary()
 edge1._index[ks]
 
-vanecal(edge1, 17, 18, feeds=range(16))
+tsys = vanecal(edge1, 17, 18, feeds=range(16))
 #  sdf2   CPU times: user 6min 29s, sys: 10.5 s, total: 6min 40s   Wall time: 6min 33s
 #  edge1  CPU times: user   20.1 s, sys: 271 ms, total:   20.4 s   Wall time:   20.1 s
+print(tsys)
 # array([1.26915776, 1.14312562, 1.13592276, 1.1619848 , 1.11120068,
 #       1.20323269, 1.12788577, 1.13010956, 1.10427554, 1.1221987 ,
 #       1.15696975, 1.15716321, 1.0804609 , 1.16266635, 1.0460511 ,
 #       1.09217787])
 #
-  hacking GETTP
-sp = edge1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
-sp# ok !!
+ 
+# plotting a passband
+edge1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
+# ok !!
 
-# not working yet, since it wants ON/OFF
+# not working yet, since it wants ON/OFF, needs the GETTP hack
 sp2 = sdf2.getnod(scan=19)
 # IndexError: index 0 is out of bounds for axis 0 with size 0
 
-#%% EXAMPLE-3 tp_nocal   NOD_BEAMS 0,1
+#%% NOD EXAMPLE-3 tp_nocal   NOD_BEAMS 0,1
 
 
 f3 = dysh_data(accept='AGBT15B_244_07/AGBT15B_244_07.raw.vegas')
@@ -255,6 +273,20 @@ sdf=GBTFITSLoad(f3)
 # 8 fits files,   2 for beams, 4 for IF  - 12 scans (2 CALSEQ)
 sdf.summary()
 # 11072 rows
+
+mkdir("nod3cal")
+sdf.write("nod3cal/file.fits", scan=130, ifnum=0, plnum=0, overwrite=True)
+nod3cal = GBTFITSLoad("nod3cal")
+nod3cal.summary()
+nod3cal._index[ks]   # 82 rows
+
+v1 = nod3cal.gettp(scan=130, fdnum=0, calibrate=True, cal=False).timeaverage()
+s1 = nod3cal.gettp(scan=130, fdnum=1, calibrate=True, cal=False).timeaverage()
+v1.plot()
+s1.plot()
+t1 = s1/(v1-s1) 
+
+tsys = vanecal(nod3cal, 130, 130, feeds=[0,1])
 
 mkdir("nod3")
 sdf.write('nod3/file.fits', scan=[131,132], ifnum=0, plnum=0, overwrite=True)  #244
