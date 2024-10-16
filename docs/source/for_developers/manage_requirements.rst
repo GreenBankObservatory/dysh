@@ -86,7 +86,7 @@ Compiling requirements on Windows
 Sometimes, compiling `requirements.txt` on a Windows machine can result in requirements which fail on the other operating systems. This will result in your GitHub Actions only succeeding on Windows machines, like so:
 
 .. figure:: img/requirements_fail_windows.png
-    :alt: A screenshot of a GitHub Actions summary of 12 tests. The "windows-latest" tests have green check marks, indicating success, for all 4 versions of Python (3.10 to 3.13). The "ubuntu-latest" and "macos-latest" ones all have red x's, indicating failure.
+    :alt: A screenshot of a GitHub Actions summary of 9 tests. The "windows-latest" tests have green check marks, indicating success, for all 3 versions of Python (3.10 to 3.12). The "ubuntu-latest" and "macos-latest" ones all have red x's, indicating failure.
 
 **Solution:** Compile `requirements.txt` on a non-Windows machine, like the Linux ones at GBO.
 
