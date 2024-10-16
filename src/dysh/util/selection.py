@@ -39,30 +39,11 @@ def _default_sdfits_columns():
     return default_sdfits_columns()
 
 
-class Selection(DataFrame):
-    """This class contains the methods for creating rules to select data from an SDFITS object.
-    Data (rows) can be selected using any column name in the input SDFITS object.
-    Exact selection, range selection, upper/lower limit selection, and any-of selection
-    are all supported.
-
-    Users create *selection rules* by specifying keyword (SDFITS columns) and value(s) to be selected.
-    Briefly, the selection methods are:
-
-         :meth:`select` - Select exact values
-
-         :meth:`select_range` - Select ranges of values
-
-         :meth:`select_within` - Select a value +/- epsilon
-
-         :meth:`select_channel` - Select channels or ranges of channels
-
-    The Selection object maintains a DataFrame for each selection rule created by the user. The
-    :meth:`final` selection is the logical OR of these rules. Users can examine the current selections
-    with :meth:`show` which will show the current
-    rules and how many rows each rule selects from the unfiltered data.
-
-
-    Aliases of keywords are supported. The user may add an alias for an existing SDFITS column with :meth:`alias`.   Some default :meth:`aliases` have been defined.
+class SelectionBase(DataFrame):
+    """This class is the base class for selection and flagging. Selection and flagging are both kinds of
+    data selection, so `SelectionBase` can encapsulate most necessary functionality.  Derived classes
+    implement specific named methods e.g. select_channel, flag_channel that will simply call
+    the base class methods.
     """
 
     def __init__(self, initobj, aliases=default_aliases, **kwargs):
@@ -76,6 +57,7 @@ class Selection(DataFrame):
         # in a UserWarning, which we can safely ignore.
         warnings.simplefilter("ignore", category=UserWarning)
         self._add_utc_column()
+        self["CHAN"] = None
         # if we want Selection to replace _index in sdfits
         # construction this will have to change. if hasattr("_index") etc
         self._idtag = ["ID", "TAG"]
@@ -86,7 +68,8 @@ class Selection(DataFrame):
         # add channel, astropy-based timestamp, and number rows selected
         DEFKEYS = np.array(DEFKEYS)
         # set up object types for the np.array
-        dt = np.array([str] * (len(DEFKEYS) - 1))
+        dt = np.full(len(DEFKEYS) - 1, np.dtype("<U32"))
+        dt[0] = np.int32
         # add number selected column which is an int
         dt = np.insert(dt, len(dt), np.int32)
         # ID is also an int
@@ -99,11 +82,12 @@ class Selection(DataFrame):
         self._aliases = {}
         self.alias(aliases)
         self._channel_selection = None
+        self._flag_channel_selection = {}  # used in Flag only
         warnings.resetwarnings()
 
     def _add_utc_column(self):
         """
-        Add column to the selection dataframe with a
+        Add column to the selection/flag dataframe with a
         representation of the SDFITS UTC timestamp, which is a string,
         as an ~astropy.time.Time.
 
@@ -489,12 +473,12 @@ class Selection(DataFrame):
         row["# SELECTED"] = len(dataframe)
         self._selection_rules[row["ID"]] = dataframe
         self._table.add_row(row)
+        # self._last_row_added = row
 
-    def select(self, tag=None, **kwargs):
-        """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
-        If `value` is array-like then a match to any of the array members will be selected.
-        For instance `select(object=['3C273', 'NGC1234'])` will select data for either of those
-        objects and `select(ifnum=[0,2])` will select IF number 0 or IF number 2.
+    def _base_select(self, tag=None, **kwargs):
+        """Add one or more exact selection/flag rules, e.g., `key1 = value1, key2 = value2, ...`
+        If `value` is array-like then a match to any of the array members will be selected/flagged.
+        Derived classes will call this method with their own specific name, i.e. `select` or `flag`.
 
         Parameters
         ----------
@@ -507,11 +491,6 @@ class Selection(DataFrame):
                 The value to select
 
         """
-        # @todo ?? MAYBE allow chan(nel) in here, e.g.
-        # chan = kwargs.pop(chan,None)
-        # if chan is not None:
-        #   self.select_channel(chan,tag=tag)
-        #
         self._check_keys(kwargs.keys())
         row = {}
         # if called via _select_from_mixed_kwargs, then we want to merge all the
@@ -555,9 +534,8 @@ class Selection(DataFrame):
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
             return
         self._addrow(row, df, tag)
-        # return df
 
-    def select_range(self, tag=None, **kwargs):
+    def _base_select_range(self, tag=None, **kwargs):
         """
         Select a range of inclusive values for a given key(s).
         e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
@@ -582,10 +560,6 @@ class Selection(DataFrame):
         None.
 
         """
-        # @todo ?? MAYBE allow chan(nel) in here, e.g.
-        # chan = kwargs.pop(chan,None)
-        # if chan is not None:
-        #   self.select_channel(chan,tag=tag)
         self._check_keys(kwargs.keys())
         self._check_range(**kwargs)
         row = {}
@@ -626,7 +600,7 @@ class Selection(DataFrame):
             return
         self._addrow(row, df, tag)
 
-    def select_within(self, tag=None, **kwargs):
+    def _base_select_within(self, tag=None, **kwargs):
         """
         Select a value within a plus or minus for a given key(s).
         e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
@@ -655,9 +629,9 @@ class Selection(DataFrame):
             v1 = v[0] - v[1]
             v2 = v[0] + v[1]
             kw[k] = (v1, v2)
-        self.select_range(tag, **kw)
+        self._base_select_range(tag, **kw)
 
-    def select_channel(self, chan, tag=None):
+    def _base_select_channel(self, chan, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
@@ -743,7 +717,9 @@ class Selection(DataFrame):
     def clear(self):
         """Remove all selection rules"""
         self._selection_rules = {}
+        self._flag_channel_selection = {}
         self._make_table()
+        self._channel_selection = None
 
     def show(self):
         """
@@ -852,3 +828,288 @@ class Selection(DataFrame):
             setattr(result, k, deepcopy(v, memo))
         warnings.resetwarnings()
         return result
+
+
+class Selection(SelectionBase):
+    """This class contains the methods for creating rules to select data from an SDFITS object.
+    Data (rows) can be selected using any column name in the input SDFITS object.
+    Exact selection, range selection, upper/lower limit selection, and any-of selection
+    are all supported.
+
+    Users create *selection rules* by specifying keyword (SDFITS columns) and value(s) to be selected.
+    Briefly, the selection methods are:
+
+         :meth:`select` - Select exact values
+
+         :meth:`select_range` - Select ranges of values
+
+         :meth:`select_within` - Select a value +/- epsilon
+
+         :meth:`select_channel` - Select channels or ranges of channels
+
+    The Selection object maintains a DataFrame for each selection rule created by the user. The
+    :meth:`final` selection is the logical OR of these rules. Users can examine the current selections
+    with :meth:`show` which will show the current
+    rules and how many rows each rule selects from the unfiltered data.
+
+
+    Aliases of keywords are supported. The user may add an alias for an existing SDFITS column with :meth:`alias`.   Some default :meth:`aliases` have been defined.
+    """
+
+    def select(self, tag=None, **kwargs):
+        """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
+        If `value` is array-like then a match to any of the array members will be selected.
+        For instance `select(object=['3C273', 'NGC1234'])` will select data for either of those
+        objects and `select(ifnum=[0,2])` will select IF number 0 or IF number 2.
+
+        Parameters
+        ----------
+            tag : str
+                An identifying tag by which the rule may be referred to later.
+                If None, a  randomly generated tag will be created.
+            key : str
+                The key  (SDFITS column name or other supported key)
+            value : any
+                The value to select
+
+        """
+        self._base_select(tag, **kwargs)
+
+    def select_range(self, tag=None, **kwargs):
+        """
+        Select a range of inclusive values for a given key(s).
+        e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
+        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+        Upper and lower limits may be given by setting one of the tuple values
+        to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
+        `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
+        limits may also be specified by a one-element tuple `key1 = (v1,)`.
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the lower and upper limits of the range.
+
+        Returns
+        -------
+        None.
+
+        """
+        self._base_select_range(tag, **kwargs)
+
+    def select_within(self, tag=None, **kwargs):
+        """
+        Select a value within a plus or minus for a given key(s).
+        e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
+        Will select data
+        `value1-epsilon1 <= data1 <= value1+epsilon1,`
+        `value2-epsilon2 <= data2 <= value2+epsilon2,...`
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the value and epsilon
+
+        Returns
+        -------
+        None.
+
+        """
+        self._base_select_within(tag, **kwargs)
+
+    def select_channel(self, chan, tag=None):
+        """
+        Select channels and/or channel ranges. These are NOT used in :meth:`final`
+        but rather will be used to create a mask for calibration or
+        flagging. Single arrays/tuples will be treated as channel lists;
+        nested arrays will be treated as ranges, for instance
+
+        ``
+        # selects channels 1 and 10
+        select_channel([1,10])
+        # selects channels 1 thru 10 inclusive
+        select_channel([[1,10]])
+        # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
+        select_channel([[1,10], [47,56], 75)])
+        # tuples also work, though can be harder for a human to read
+        select_channel(((1,10), [47,56], 75))
+        ``
+
+        Parameters
+        ----------
+        chan : number, or array-like
+            The channels to select
+
+        Returns
+        -------
+        None.
+
+        """
+        self._base_select_channel(chan, tag)
+
+
+class Flag(SelectionBase):
+    """This class contains the methods for creating rules to flag data from an SDFITS object.
+    Data (rows) can be selected for flagging using any column name in the input SDFITS object.
+    Exact selection, range selection, upper/lower limit selection, and any-of selection
+    are all supported.
+
+    Users create *flag rules* by specifying keyword (SDFITS columns) and value(s) to be flagged.
+    Briefly, the flag methods are:
+
+         :meth:`flag` - Flag exact values
+
+         :meth:`flag_range` - Flag ranges of values
+
+         :meth:`flag_within` - Flag a value +/- epsilon
+
+         :meth:`flag_channel` - Flag channels or ranges of channels
+
+    The Flag object maintains a DataFrame for each flag rule created by the user. The
+    :meth:`final` flag is the logical OR of these rules. Users can examine the current flags
+    with :meth:`show` which will show the current
+    rules and how many rows each rule selects for flagging from the unfiltered data.
+
+    The actual flags, which are per channel, are stored in the GBTFITSLoad object,
+    not in the Flag object. The Flag object just contains the flagging rules.
+
+    Aliases of keywords are supported. The user may add an alias for an existing SDFITS column with :meth:`alias`.   Some default :meth:`aliases` have been defined.
+
+    GBTIDL Flags can be read in with :meth:`read`.
+    """
+
+    def flag(self, tag=None, **kwargs):
+        """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
+        If `value` is array-like then a match to any of the array members will be flagged.
+        For instance `flag(object=['3C273', 'NGC1234'])` will select data for either of those
+        objects and `flag(ifnum=[0,2])` will flag IF number 0 or IF number 2.
+
+        Parameters
+        ----------
+            tag : str
+                An identifying tag by which the rule may be referred to later.
+                If None, a  randomly generated tag will be created.
+            key : str
+                The key  (SDFITS column name or other supported key)
+            value : any
+                The value to select
+
+        """
+        chan = kwargs.pop("chan", None)
+        if chan is not None:
+            self._check_numbers(chan=chan)
+        self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
+        if chan is not None:
+            idx = len(self._table) - 1
+            self._table[idx]["CHAN"] = str(chan)
+            self._flag_channel_selection[idx] = chan
+
+    def flag_channel(self, chan, tag=None, **kwargs):
+        """
+        Flag  channels and/or channel ranges for all rows. These are NOT used in :meth:`final`
+        but rather will be used to create a mask for
+        flagging. Single arrays/tuples will be treated as channel lists;
+        nested arrays will be treated as ranges, for instance
+
+        ``
+        # flag channels 1 and 10
+        flag_channel([1,10])
+        # flags channels 1 thru 10 inclusive
+        flag_channel([[1,10]])
+        # flag channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
+        flag_channel([[1,10], [47,56], 75)])
+        # tuples also work, though can be harder for a human to read
+        flag_channel(((1,10), [47,56], 75))
+        ``
+
+        Parameters
+        ----------
+        chan : number, or array-like
+            The channels to flag
+
+        Returns
+        -------
+        None.
+
+        """
+        # okay to use base method because we are flagging all rows
+        self._base_select_channel(chan, tag, **kwargs)
+        idx = len(self._table) - 1
+        self._flag_channel_selection[idx] = chan
+
+    def flag_range(self, tag=None, **kwargs):
+        """Flag a range of inclusive values for a given key(s).
+        e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
+        will flag data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+        Upper and lower limits may be given by setting one of the tuple values
+        to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
+        `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
+        limits may also be specified by a one-element tuple `key1 = (v1,)`.
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the lower and upper limits of the range.
+
+        Returns
+        -------
+        None.
+        """
+        self._base_select_range(tag, **kwargs)
+
+    def flag_within(self, tag=None, **kwargs):
+        """
+        Flag a value within a plus or minus for a given key(s).
+        e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
+        Will select data
+        `value1-epsilon1 <= data1 <= value1+epsilon1,`
+        `value2-epsilon2 <= data2 <= value2+epsilon2,...`
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the value and epsilon
+
+        Returns
+        -------
+        None.
+
+        """
+        self._base_select_within(tag, **kwargs)
+
+    @classmethod
+    def read(self, fileobj):
+        """Read a GBTIDL flag file and instantiate Flag object.
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+
+        Returns
+        -------
+        flags :   `~selection.Flag`
+            A Flag object that represents the GBTIDL flags.
+        """
+        pass

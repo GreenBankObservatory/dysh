@@ -11,7 +11,6 @@ import numpy as np
 from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
-from scipy import ndimage
 
 from dysh.spectra import core
 
@@ -27,11 +26,6 @@ from .core import (
     tsys_weight,
 )
 from .spectrum import Spectrum
-
-# from typing import Literal
-
-
-# from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 
 
 class SpectralAverageMixin:
@@ -1659,36 +1653,10 @@ class FSScan(ScanBase):
             """ """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
             logger.debug(f"do_fold: {sig_freq[0]}, {ref_freq[0]},{chan_shift}")
-            ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
+            ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
             avg = (sig + ref_shift) / 2
             return avg
-
-        def do_shift(data, offset, remove_wrap=False, method="fft"):
-            """
-            Shift the data of a numpy array using roll/shift
-
-            @todo   use the fancier GBTIDL fft based shift
-            """
-
-            ishift = int(np.round(offset))  # Integer shift.
-            fshift = offset - ishift  # Fractional shift.
-
-            logger.debug("FOLD:   {ishift=} {fshift=}")
-            data2 = np.roll(data, ishift, axis=0)
-            if remove_wrap:
-                if ishift < 0:
-                    data2[ishift:] = np.nan
-                else:
-                    data2[:ishift] = np.nan
-            # Now the fractional shift, each row separate since ndimage.shift() cannot deal with np.nan
-            if method == "fft":
-                # Set `pad=False` to avoid edge effects.
-                # This needs to be sorted out.
-                data2 = fft_shift(data2, fshift, pad=False)
-            elif method == "interpolate":
-                data2 = ndimage.shift(data2, [fshift])
-            return data2
 
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
@@ -1749,7 +1717,7 @@ class FSScan(ScanBase):
                 self._exposure[i] = self.exposure[i]
 
         self._add_calibration_meta()
-        logger.debug("Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
+        logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
