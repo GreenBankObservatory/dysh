@@ -20,7 +20,8 @@ from dysh.fits.sdfitsload import SDFITSLoad
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.util.files import dysh_data
 from dysh.util.selection import Selection
-
+from dysh.spectra.core import mean_tsys
+    
 #  useful keys for a mult-beam observation listing
 
 k=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'PROCSCAN','FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF', 'SIG', 'CAL', 'PROCSEQN', 'PROCSIZE']
@@ -44,6 +45,7 @@ dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
 
 def mkdir(name):
     """ simpler frontend for making a directory that might also aready exist
+        should also remove files inside
     """
     os.makedirs(name, exist_ok = True)
 
@@ -117,6 +119,19 @@ def getbeam(sdf, debug=False):
         print("too many in beam2:",d2['FDNUM'].unique())
         return []
 
+def vanecal(sdf, vane, sky,  feeds=[]):
+    """ loop over feedd to get tsys factor
+    """
+    tsys = np.zeros(len(feeds), dtype=float)
+    
+    i=0
+    for f in feeds:
+        v = sdf.gettp(scan=vane, fdnum=f, calibrate=True, cal=False).timeaverage()
+        s = sdf.gettp(scan=sky,  fdnum=f, calibrate=True, cal=False).timeaverage()
+        tsys[i] = mean_tsys(v.flux, s.flux, 1.0)
+        i = i + 1
+    return tsys
+        
 #%%  classic tp/ps
 
 f1 = dysh_data(test="getps")        # OnOff, small one (1 IF, 1 PL, 1 INT)
@@ -178,6 +193,15 @@ sp = vane1.gettp(scan=282, fdnum=8, calibrate=True, cal=False).timeaverage().plo
 sp = sdf.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
 # ok
 
+print(vanecal(vane1, 281, 282, feeds=range(16)))
+# [1.21549487 1.07764171 4.13970304 1.15904234 0.9971537  1.122969
+# 0.99023236 1.01537602 1.02035436 0.98760956 1.00412189 1.05833454
+# 0.99750374 1.02722791 1.00445433 1.00216715]
+
+#%%
+
+
+
 #%%   EDGE data
 
 _help = """
@@ -200,15 +224,22 @@ print(b)   # there are 13 vane's in here
 mkdir("edge1")
 sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], intnum=[0,1], overwrite=True)
 sdf2.write("edge1/file.fits", scan=[17,18,19,20], overwrite=True)                # 4576 rows
+#  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
 sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], overwrite=True)
 
 edge1 = GBTFITSLoad("edge1")
 edge1.summary()
 edge1._index[ks]
 
-
-
-#  hacking GETTP
+vanecal(edge1, 17, 18, feeds=range(16))
+#  sdf2   CPU times: user 6min 29s, sys: 10.5 s, total: 6min 40s   Wall time: 6min 33s
+#  edge1  CPU times: user   20.1 s, sys: 271 ms, total:   20.4 s   Wall time:   20.1 s
+# array([1.26915776, 1.14312562, 1.13592276, 1.1619848 , 1.11120068,
+#       1.20323269, 1.12788577, 1.13010956, 1.10427554, 1.1221987 ,
+#       1.15696975, 1.15716321, 1.0804609 , 1.16266635, 1.0460511 ,
+#       1.09217787])
+#
+  hacking GETTP
 sp = edge1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
 sp# ok !!
 
