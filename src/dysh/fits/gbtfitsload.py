@@ -1391,7 +1391,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
-        logger.debug("scans/w sel:", scans, self._selection)
+        logger.debug(f"scans/w sel: {scans} {self._selection}")
         fs_selection = copy.deepcopy(self._selection)
         # now downselect with any additional kwargs
         logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
@@ -1408,6 +1408,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
+            logger.debug(f"Processing file {i}: {self._sdf[i].filename}")
+
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
                 _ifdf = select_from("IFNUM", k, df)  # one FSScan per ifnum
