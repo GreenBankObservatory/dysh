@@ -55,6 +55,7 @@ In the directory you want to work in, set up the repo:
 To check out a branch called {{branch-name}}, just do
 
 .. code-block:: bash
+
     $ git checkout {{branch-name}}
 
 Current development is done in the `main` branch. To set up your own development branch called `{{your-name}}-devel`, do the following:

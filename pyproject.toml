@@ -50,6 +50,7 @@ dev = [
   "sphinx-autobuild",
   "sphinx-inline-tabs",
   "sphinx-book-theme",
+  "sphinx-design",
   "sphinxcontrib-mermaid",
   "nbformat",
   "nbclient",
