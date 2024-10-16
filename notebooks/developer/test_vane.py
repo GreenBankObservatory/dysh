@@ -89,6 +89,33 @@ def vcal(sdf, vane, sky, debug=False):
         print("too many in beam2:",d2['FDNUM'].unique())
         return []
 
+def getbeam(sdf, debug=False):
+    """ find the two nodding beams
+    """
+    kb=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'PROCSCAN', 'FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF']
+    a = sdf._index[kb]
+    b=a.loc[a['FEEDXOFF']==0.0]
+    c=b.loc[b['FEEDEOFF']==0.0]
+    d1=c.loc[c['PROCSCAN']=='BEAM1']
+    d2=c.loc[c['PROCSCAN']=='BEAM2']
+    #
+    if len(d1['FDNUM'].unique()) == 1 and len(d2['FDNUM'].unique()) == 1:
+        beam1 = d1['FDNUM'].unique()[0]
+        beam2 = d2['FDNUM'].unique()[0]
+        fdnum1 = d1['FEED'].unique()[0]
+        fdnum2 = d2['FEED'].unique()[0]
+        if debug:
+            print("beams: ",beam1,beam2,fdnum1,fdnum2)
+        return [beam1,beam2]
+    else:
+        # try one other thing
+        if len(c['FEED'].unique()) == 2:
+            print("getbeam rescued")
+            b = c['FEED'].unique() - 1
+            return list(b)
+        print("too many in beam1:",d1['FDNUM'].unique())
+        print("too many in beam2:",d2['FDNUM'].unique())
+        return []
 
 #%%  classic tp/ps
 
@@ -144,11 +171,12 @@ t1 = s1/(v1-s1)                          # 0.53 +/0 0.02
 
 
 sp = vane1.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
-# IndexError: index 1 is out of bounds for axis 0 with size 1
+# ok
+sp = vane1.gettp(scan=282, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
+# ok
 
-sp = sdf.gettp(scan=282, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
-# IndexError: index 1 is out of bounds for axis 0 with size 1
-#      self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
+sp = sdf.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
+# ok
 
 #%%   EDGE data
 
@@ -170,8 +198,9 @@ print(b)   # there are 13 vane's in here
 
 # make a smaller dataset for testing
 mkdir("edge1")
-sdf2.write("edge1/file.fits", scan=[17,18,19,20], intnum=0, overwrite=True)
-sdf2.write("edge1/file.fits", scan=[17,18,19,20], overwrite=True)
+sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], intnum=[0,1], overwrite=True)
+sdf2.write("edge1/file.fits", scan=[17,18,19,20], overwrite=True)                # 4576 rows
+sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], overwrite=True)
 
 edge1 = GBTFITSLoad("edge1")
 edge1.summary()
@@ -181,7 +210,7 @@ edge1._index[ks]
 
 #  hacking GETTP
 sp = edge1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
-# ok !!
+sp# ok !!
 
 # not working yet, since it wants ON/OFF
 sp2 = sdf2.getnod(scan=19)
@@ -195,6 +224,7 @@ sdf=GBTFITSLoad(f3)
 # 8 fits files,   2 for beams, 4 for IF  - 12 scans (2 CALSEQ)
 sdf.summary()
 # 11072 rows
+
 mkdir("nod3")
 sdf.write('nod3/file.fits', scan=[131,132], ifnum=0, plnum=0, overwrite=True)  #244
 
@@ -202,14 +232,14 @@ sdf.write('nod3/file.fits', scan=[131,132], ifnum=0, plnum=0, overwrite=True)  #
 nod3 = GBTFITSLoad('nod3')
 nod3.summary()
 nod3._index[k]    # 244 rows
-getbeam(nod3)
+getbeam(nod3)     # [0,1]
 
-# where did the IF go?   1310 is for one beam (there are 7)
-# 
-sp = getnod(nod3,scan=[131,132])
-# Exception: unbalanced calrows 0 != 6
-sp.smooth('box',20).plot(xaxis_unit='km/s')
 
+
+nod3.gettp(scan=131,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
+nod3.gettp(scan=132,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
+nod3.gettp(scan=131,fdnum=1,calibrate=True, cal=False).timeaverage().plot()
+# ok
 
 #%% issue 257
 
@@ -234,8 +264,9 @@ sdf4.getps()
 sp4a = sdf4.gettp(scan=1, plnum=0)
 sp4b = sdf4.gettp(scan=1, plnum=1)               
     
-sp4a.timeaverage().plot(ymin=-1e8, ymax=1e9, title="TSCI_RYAN_16 scan=1 plnum-0", xaxis_unit="chan")
-sp4b.timeaverage().plot(ymin=-1e8, ymax=1e9)    
+sp4a.timeaverage().plot(ymin=-1e8, ymax=1e9, title="TSCI_RYAN_16 scan=1 plnum=0", xaxis_unit="chan")
+sp4b.timeaverage().plot(ymin=-1e8, ymax=1e9, title="TSCI_RYAN_16 scan=1 plnum=1", xaxis_unit="chan")
      
-sp = sdf4.gettp(scan=2, plnum=0, calibrate=True, cal=False).timeaverage().plot()
-# IndexError: index 1 is out of bounds for axis 0 with size 1
+sp = sdf4.gettp(scan=2, plnum=0, calibrate=True, cal=False).timeaverage().plot(ymin=-1e8, ymax=1e9)
+# ok
+
