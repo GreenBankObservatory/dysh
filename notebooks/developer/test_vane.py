@@ -26,7 +26,7 @@ from dysh.spectra.core import mean_tsys
 
 k=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'PROCSCAN','FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF', 'SIG', 'CAL', 'PROCSEQN', 'PROCSIZE']
 ks=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN']
-
+kw=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN']
 
 #  some more liberal panda dataframe display options
 import pandas as pd
@@ -43,11 +43,16 @@ dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
 
 #%%  helper functions
 
-def mkdir(name):
+def mkdir(name, clean=True):
     """ simpler frontend for making a directory that might also aready exist
-        should also remove files inside
+        clean=True:    also remove files inside
     """
     os.makedirs(name, exist_ok = True)
+    if clean:
+        fns = os.listdir(name)
+        for fn in fns:
+            print(f"Removing {fn} from {name}")
+            os.unlink(os.path.join(name,fn))
 
 
 def vcal(sdf, vane, sky, debug=False):
@@ -119,21 +124,24 @@ def getbeam(sdf, debug=False):
         print("too many in beam2:",d2['FDNUM'].unique())
         return []
 
-def vanecal(sdf, vane, sky,  feeds=[], tcal=1.0):
+def vanecal(sdf, vane, sky,  feeds=[], tcal=1.0, tmpfile=False):
     """ loop over feeds to get tsys factor
         for efficiency of large data, it's better to sdf.write() and use only the
         vane and sky scans'
         Example EDGE:  (1.3GB)
-             all 163 scans:     6m33s
-             write small sdf:     25s
+             all 163 scans:     6m33s    3m6s
+             write small sdf:     25s    
              just vane/cal:       20s
     """
+    if len(feeds) == 0:
+        return None
     tsys = np.zeros(len(feeds), dtype=float)
-    if False:
+    if tmpfile:
         # needs testing, what to do about ifnum, plnum - force one
-        mkdir('vanecal')
-        sdf.write('vanecal/file.fits',scan=[vane,sky],overwrite=True)
-        sdf1 = GBTFITSLoad('vanecal')
+        print(f"Writing scans {vane} and {sky} to _vanecal")
+        mkdir('_vanecal')
+        sdf.write('_vanecal/file.fits',scan=[vane,sky],overwrite=True)
+        sdf1 = GBTFITSLoad('_vanecal')
     else:
         sdf1 = sdf
     
@@ -141,10 +149,18 @@ def vanecal(sdf, vane, sky,  feeds=[], tcal=1.0):
     for f in feeds:
         v = sdf1.gettp(scan=vane, fdnum=f, calibrate=True, cal=False).timeaverage()
         s = sdf1.gettp(scan=sky,  fdnum=f, calibrate=True, cal=False).timeaverage()
-        tsys[i] = mean_tsys(v.flux, s.flux, 1.0) * tcal
+        tsys[i] = mean_tsys(v.flux, s.flux, 1.0) * tcal    # wrong for vane/cal
         # optional?    += tcal/2.0
         i = i + 1
     return tsys
+
+def calseq(sdf, scan, tcold=54, ifnum=0, plnum=0, fdnum=0):
+    """ W-band receivers use a CALSEQ
+        This routine returns the gain and Tsys for W-band channel
+    """
+    return 0.0
+
+
         
 #%%  classic tp/ps
 
@@ -185,12 +201,12 @@ _help = """
 
 
 f1 = dysh_data(accept='AGBT22A_325_15/AGBT22A_325_15.raw.vegas')  # accept='nod1'
-sdf=GBTFITSLoad(f1)
+sdf1=GBTFITSLoad(f1)
 # 8 files, 16 beams, each file has 2 beams - 4 scans, VANE/SKY/Nod/Nod
-sdf.summary()    # 256 rows
+sdf1.summary()    # 256 rows
 # extract 290 and 289 (note order is odd in sdfits:   290 came before 289
 mkdir("vane1")
-sdf.write('vane1/file.fits',scan=[281,282], overwrite=True)   # 64 rows
+sdf1.write('vane1/file.fits',scan=[281,282], overwrite=True)   # 64 rows
 
 vane1 = GBTFITSLoad('vane1')
 vane1.summary()
@@ -209,7 +225,7 @@ v1 = vane1.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage()
 s1 = vane1.gettp(scan=282, fdnum=8, calibrate=True, cal=False).timeaverage()
 # ok
 
-sp = sdf.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
+sp = sdf1.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
 # ok
 
 print(vanecal(vane1, 281, 282, feeds=range(16)))
@@ -233,13 +249,14 @@ _help = """
 
 sdf2 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'))
 a = sdf2.summary()  # 208 scans   1363MB
+print(a)
 b=a[a["OBJECT"] == "VANE"]
 print(b)   # there are 13 vane's in here
 
 # make a smaller dataset for testing
 mkdir("edge1")
-sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], intnum=[0,1], overwrite=True)
-sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], overwrite=True)
+# sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], intnum=[0,1], overwrite=True)
+# sdf2.write("edge1/file.fits", fdnum=8, scan=[17,18,19,20], overwrite=True)
 sdf2.write("edge1/file.fits", scan=[17,18,19,20], overwrite=True)                # 4576 rows
 #  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
 
@@ -267,15 +284,30 @@ sp2 = sdf2.getnod(scan=19)
 
 #%% NOD EXAMPLE-3 tp_nocal   NOD_BEAMS 0,1
 
+_help = """
+    SCAN OBJECT VELOCITY    PROC  PROCSEQN RESTFREQ DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
+0    130    M82      0.0  CALSEQ         1   87.645    86.4    4     2    41      2  334.375845  46.552969
+1    131    M82      0.0     Nod         1   87.645    86.4    4     2    61      2  334.340511  46.455481
+2    132    M82      0.0     Nod         2   87.645    86.4    4     2    61      2  334.420688  46.356491
+3    133    M82      0.0     Nod         1   87.645    86.4    4     2    61      2  334.270943  46.255965
+4    134    M82      0.0     Nod         2   87.645    86.4    4     2    61      2  334.352313  46.156723
+5    135    M82      0.0     Nod         1   87.645    86.4    4     2    61      2  334.205169   46.05736
+6    136    M82      0.0     Nod         2   87.645    86.4    4     2    61      2  334.287644  45.957891
+7    137    M82      0.0     Nod         1   87.645    86.4    4     2    61      2  334.142569  45.858239
+8    138    M82      0.0     Nod         2   87.645    86.4    4     2    61      2  334.225833  45.757117
+9    139    M82      0.0     Nod         1   87.645    86.4    4     2    61      2  334.082225  45.655873
+10   140    M82      0.0     Nod         2   87.645    86.4    4     2    61      2  334.167154  45.555955
+11   141    M82      0.0  CALSEQ         1   87.645    86.4    4     2    41      2  334.027735  45.461716
+"""
 
 f3 = dysh_data(accept='AGBT15B_244_07/AGBT15B_244_07.raw.vegas')
-sdf=GBTFITSLoad(f3)
-# 8 fits files,   2 for beams, 4 for IF  - 12 scans (2 CALSEQ)
-sdf.summary()
+sdf3=GBTFITSLoad(f3)
+# 8 fits files,   2 for beams, 4 for IF  - 12 scans (2 CALSEQ - W-band receiver at 87 GHz)
+sdf3.summary()
 # 11072 rows
 
 mkdir("nod3cal")
-sdf.write("nod3cal/file.fits", scan=130, ifnum=0, plnum=0, overwrite=True)
+sdf3.write("nod3cal/file.fits", scan=130, ifnum=0, plnum=0, overwrite=True)
 nod3cal = GBTFITSLoad("nod3cal")
 nod3cal.summary()
 nod3cal._index[ks]   # 82 rows
@@ -289,7 +321,7 @@ t1 = s1/(v1-s1)
 tsys = vanecal(nod3cal, 130, 130, feeds=[0,1])
 
 mkdir("nod3")
-sdf.write('nod3/file.fits', scan=[131,132], ifnum=0, plnum=0, overwrite=True)  #244
+sdf3.write('nod3/file.fits', scan=[131,132], ifnum=0, plnum=0, overwrite=True)  #244
 
  
 nod3 = GBTFITSLoad('nod3')
@@ -304,7 +336,7 @@ nod3.gettp(scan=132,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
 nod3.gettp(scan=131,fdnum=1,calibrate=True, cal=False).timeaverage().plot()
 # ok
 
-#%% issue 257
+#%% VANE4    issue 257
 
 _help = """
    SCAN    OBJECT VELOCITY   PROC  PROCSEQN RESTFREQ DOPFREQ # IF # POL # INT # FEED AZIMUTH ELEVATIO
@@ -318,7 +350,9 @@ _help = """
 f4 = dysh_data("TSCI_RYAN_16/TSCI_RYAN_16.raw.vegas")
 sdf4 = GBTFITSLoad(f4)
 sdf4.summary()
-sdf4._index[ks]   # 192 rows
+
+kw=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'TCOLD', 'CALPOSITION']
+sdf4._index[kw]   # 192 rows
 
 sdf4.getps()
 # Exception: Multiple SUBOBSMODE present, cannot deal with this yet ['TPWCAL', 'TPNOCAL']
@@ -332,4 +366,62 @@ sp4b.timeaverage().plot(ymin=-1e8, ymax=1e9, title="TSCI_RYAN_16 scan=1 plnum=1"
      
 sp = sdf4.gettp(scan=2, plnum=0, calibrate=True, cal=False).timeaverage().plot(ymin=-1e8, ymax=1e9)
 # ok
+
+#%%  VANE5   argus TGBT22A_605_05 
+
+_help = """
+    SCAN OBJECT VELOCITY       PROC  PROCSEQN   RESTFREQ    DOPFREQ # IF # POL # INT # FEED    AZIMUTH   ELEVATIO
+0     10   VANE      0.0      Track         1  93.173704  93.173704    1     1    10     16  67.295835  76.953031
+1     11    SKY      0.0      Track         1  93.173704  93.173704    1     1    10     16   67.29655  76.953058
+2     12   DR21      0.0      Track         1  93.173704  93.173704    1     1    60     16  66.498004  77.259536
+3     13   DR21      0.0      Track         1  93.173704  93.173704    1     1    60     16  66.270661  77.4695
+...
+24    34   DR21      0.0      Track         1  93.173704  93.173704    1     1    60     16  57.709781  81.763408
+25    35   VANE      0.0      Track         1  93.173704  93.173704    1     1    25     16    57.4161  82.059614
+26    36    SKY      0.0      Track         1  93.173704  93.173704    1     1    25     16  57.417741  82.0596
+27    37   DR21      0.0  RALongMap         1  93.173704  93.173704    1     1    75     16  55.839773  82.313428
+...
+50    60   DR21      0.0  RALongMap        24  93.173704  93.173704    1     1    75     16  39.876154  84.616655
+51    61   VANE      0.0      Track         1  93.173704  93.173704    1     1    25     16  40.375997  84.666108
+52    62    SKY      0.0      Track         1  93.173704  93.173704    1     1    25     16  40.377915   84.66616
+"""
+
+f5 = dysh_data(example="mapping-Argus/data/TGBT22A_603_05.raw.vegas")
+sdf5 = GBTFITSLoad(f5)
+sdf5.summary()
+
+tsys_10 = vanecal(sdf5, 10, 11, feeds=range(16))
+tsys_34 = vanecal(sdf5, 34, 35, feeds=range(16))
+
+
+
+#%%  VANE6   W-band rxco-W/data/TSCAL_220105_W.raw.vegas
+
+_help = """
+    SCAN     OBJECT VELOCITY    PROC  PROCSEQN RESTFREQ DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
+0     32  2253+1608      0.0  CALSEQ         1     86.0    86.0    1     2    46      2  206.811054  65.771037
+1     33  2253+1608      0.0     Nod         1     86.0    86.0    1     2    31      2  207.340151  65.684269
+2     34  2253+1608      0.0     Nod         2     86.0    86.0    1     2    31      2  208.036343  65.599144
+3     23  2253+1608      0.0  CALSEQ         1     77.0    77.0    1     2    46      2   201.75799  66.502127
+4     24  2253+1608      0.0     Nod         1     77.0    77.0    1     2    31      2  202.306842  66.431865
+5     25  2253+1608      0.0     Nod         2     77.0    77.0    1     2    31      2  202.895056  66.380331
+6     26  2253+1608      0.0  CALSEQ         1     72.0    72.0    1     2    46      2  203.469145  66.274739
+7     27  2253+1608      0.0     Nod         1     72.0    72.0    1     2    31      2  203.999448  66.200655
+8     28  2253+1608      0.0     Nod         2     72.0    72.0    1     2    31      2  204.579033  66.145504
+9     29  2253+1608      0.0  CALSEQ         1     82.0    82.0    1     2    46      2  205.141539  66.032763
+10    30  2253+1608      0.0     Nod         1     82.0    82.0    1     2    31      2  205.671661  65.952387
+11    31  2253+1608      0.0     Nod         2     82.0    82.0    1     2    31      2  206.242727  65.893704
+"""
+
+f6 = dysh_data(example="rxco-W/data/TSCAL_220105_W.raw.vegas")
+sdf6 = GBTFITSLoad(f1)
+sdf6.summary()
+sdf6._index[kw]    # 1728
+
+mkdir("vane6")
+sdf6.write("vane6/file.fits", plnum=0, intnum=0, overwrite=True)
+
+vane6 = GBTFITSLoad("vane6")
+
+
 
