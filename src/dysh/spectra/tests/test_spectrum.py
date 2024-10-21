@@ -412,7 +412,7 @@ class TestSpectrum:
 
         # Apply method to be tested.
         shift = 5.5
-        spec.shift(shift)
+        spec = spec.shift(shift)
 
         # Internal tests.
         assert np.all(np.isnan(spec[: int(np.round(shift))].data))
@@ -480,20 +480,20 @@ class TestSpectrum:
         org_spec = spec._copy()
 
         # Align to itself.
-        spec.align_to(spec)
+        spec = spec.align_to(spec)
         compare_spectrum(spec, org_spec, ignore_history=True)
         assert np.all((spec - org_spec).data == 0)
 
         # Align to a shifted version.
         shift = 5
-        spec.shift(shift)
+        spec = spec.shift(shift)
         assert np.all((spec.data[shift:] - org_spec.data[:-shift]) == 0.0)
 
         # Align to a shifted version with signal.
         fshift = 0.5
         spec = self.ss._copy()
         org_spec = spec._copy()
-        spec.shift(shift + fshift)
+        spec = spec.shift(shift + fshift)
         # The amplitude of the signal will decrease because of the sampling.
         tol = np.sqrt(
             (1 - np.exp(-0.5 * (fshift) ** 2 / spec.meta["STDD"] ** 2)) ** 2.0
