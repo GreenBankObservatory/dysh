@@ -542,26 +542,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "fft" uses a phase shift.
         """
 
-        new_spec = self._copy()
         new_data = core.data_shift(self.data, s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
 
         # Update data values.
-        new_spec._data = new_data
+        self._data = new_data
 
         # Update metadata.
-        new_spec.meta["CRPIX1"] += s
+        self.meta["CRPIX1"] += s
 
         # Update WCS.
-        new_spec.wcs.wcs.crpix[0] += s
+        self.wcs.wcs.crpix[0] += s
 
         # Update `SpectralAxis` values.
         # Radial velocity needs to be copied by hand.
-        radial_velocity = deepcopy(new_spec._spectral_axis._radial_velocity)
-        new_spectral_axis_values = new_spec.wcs.spectral.pixel_to_world(np.arange(new_spec.flux.shape[-1]))
-        new_spec._spectral_axis = new_spec.spectral_axis.replicate(value=new_spectral_axis_values)
-        new_spec._spectral_axis._radial_velocity = radial_velocity
-
-        return new_spec
+        radial_velocity = deepcopy(self._spectral_axis._radial_velocity)
+        new_spectral_axis_values = self.wcs.spectral.pixel_to_world(np.arange(self.flux.shape[-1]))
+        self._spectral_axis = self.spectral_axis.replicate(value=new_spectral_axis_values)
+        self._spectral_axis._radial_velocity = radial_velocity
 
     def find_shift(self, other, units=None, frame=None):
         """
@@ -636,7 +633,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         s = self.find_shift(other, units=units, frame=frame)
-        return self.shift(s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
+        self.shift(s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
 
     @property
     def equivalencies(self):
@@ -1557,9 +1554,12 @@ def average_spectra(spectra, equal_weights=False, align=False):
                 f"Element {i} of `spectra` has units {s.flux.unit}, but the first element has units {units}."
             )
         if align:
+            s_ = s._copy()
             if i > 0:
-                s = s.align_to(spectra[0])
-        data_array[i] = s.data
+                s_.align_to(spectra[0])
+        else:
+            s_ = s
+        data_array[i] = s_.data
         if not equal_weights:
             weights[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
         else:
