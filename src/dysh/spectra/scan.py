@@ -11,7 +11,6 @@ import numpy as np
 from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
-from scipy import ndimage
 
 from dysh.spectra import core
 
@@ -27,11 +26,6 @@ from .core import (
     tsys_weight,
 )
 from .spectrum import Spectrum
-
-# from typing import Literal
-
-
-# from astropy.coordinates.spectral_coordinate import NoVelocityWarning
 
 
 class SpectralAverageMixin:
@@ -866,7 +860,6 @@ class TPScan(ScanBase):
 
     def tpmeta(self, i):
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
-        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
         meta = ser.dropna().to_dict()
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
@@ -896,7 +889,6 @@ class TPScan(ScanBase):
         if not self._calibrate:
             raise Exception("You must calibrate first to get a total power spectrum")
         ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
-        # meta = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]].dropna().to_dict()
         meta = ser.dropna().to_dict()
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
@@ -910,8 +902,6 @@ class TPScan(ScanBase):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
         s = Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
-        print(f"TP {self._history =} {self._comments = }")
-        print(f"Spectrum history after make_spectrum {type(s._history)} : {s._history}")
         s.merge_commentary(self)
         return s
 
@@ -948,7 +938,6 @@ class TPScan(ScanBase):
         return self._timeaveraged
 
 
-#        @todo   'scans' should become 'scan'
 class PSScan(ScanBase):
     """GBT specific version of Position Switch Scan. A position switch scan object has
     one IF, one feed, and one or more polarizations.
@@ -1030,6 +1019,245 @@ class PSScan(ScanBase):
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        self._tsys = None
+        self._exposure = None
+        self._calibrated = None
+        self._calibrate = calibrate
+        self._make_meta(self._sigonrows)
+        if self._calibrate:
+            self.calibrate()
+        self._validate_defaults()
+
+    # @property
+    # def scans(self):
+    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
+    #
+    #     Returns
+    #     -------
+    #     scans : dict
+    #         The scan number dictionary
+    #
+    #     """
+    #      return self._scans
+
+    # @todo something clever
+    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
+    def calibrated(self, i):
+        """Return the calibrated Spectrum.
+
+        Parameters
+        ----------
+        i : int
+            The index into the calibrated array
+
+        Returns
+        -------
+        spectrum : `~spectra.spectrum.Spectrum`
+        """
+        s = Spectrum.make_spectrum(
+            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+        )
+        s.merge_commentary(self)
+        return s
+
+    def calibrate(self, **kwargs):
+        """
+        Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
+        """
+        kwargs_opts = {"verbose": False}
+        kwargs_opts.update(kwargs)
+        if self._smoothref > 1 and kwargs_opts["verbose"]:
+            print(f"PS smoothref={self._smoothref}")
+
+        self._status = 1
+        nspect = self.nrows // 2
+        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._tsys = np.empty(nspect, dtype="d")
+        self._exposure = np.empty(nspect, dtype="d")
+        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        # @todo  this loop could be replaced with clever numpy
+        if len(tcal) != nspect:
+            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+        for i in range(nspect):
+            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+            sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+            ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+            if self._smoothref > 1:
+                ref = core.smooth(ref, "boxcar", self._smoothref)
+            self._calibrated[i] = tsys * (sig - ref) / ref
+            self._tsys[i] = tsys
+            self._exposure[i] = self.exposure[i]
+        logger.debug(f"Calibrated {nspect} spectra")
+        self._add_calibration_meta()
+
+    # tip o' the hat to Pedro S. for exposure and delta_freq
+    @property
+    def exposure(self):
+        """The array of exposure (integration) times
+
+        exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
+
+        Returns
+        -------
+        exposure : ~numpy.ndarray
+            The exposure time in units of the EXPOSURE keyword in the SDFITS header
+        """
+        exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+        exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+        exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
+        exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        exp_ref = exp_ref_on + exp_ref_off
+        exp_sig = exp_sig_on + exp_sig_off
+        if self._smoothref > 1:
+            nsmooth = self._smoothref
+        else:
+            nsmooth = 1.0
+        exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        return exposure
+
+    @property
+    def delta_freq(self):
+        """Get the array of channel frequency width
+
+        df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
+
+        Returns
+        -------
+             delta_freq: ~numpy.ndarray
+                 The channel frequency width in units of the CDELT1 keyword in the SDFITS header
+        """
+        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+        df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
+        df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
+        df_ref = 0.5 * (df_ref_on + df_ref_off)
+        df_sig = 0.5 * (df_sig_on + df_sig_off)
+        delta_freq = 0.5 * (df_ref + df_sig)
+        return delta_freq
+
+    @log_call_to_history
+    def timeaverage(self, weights="tsys"):
+        r"""Compute the time-averaged spectrum for this set of scans.
+
+        Parameters
+        ----------
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        Returns
+        -------
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
+        """
+        if self._calibrated is None or len(self._calibrated) == 0:
+            raise Exception("You can't time average before calibration.")
+        if self._npol > 1:
+            raise Exception("Can't yet time average multiple polarizations")
+        self._timeaveraged = deepcopy(self.calibrated(0))
+        data = self._calibrated
+        if weights == "tsys":
+            w = self.tsys_weight
+        else:
+            w = np.ones_like(self.tsys_weight)
+        self._timeaveraged._data = average(data, axis=0, weights=w)
+        non_blanks = find_non_blanks(data)
+        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
+        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
+        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        self._timeaveraged._history = self._history
+        return self._timeaveraged
+
+
+class NodScan(ScanBase):
+    """GBT specific version of Nodding Scan. A nod scan object has
+    one IF, two feeds, and one or more polarizations.
+
+    Parameters
+    ----------
+    gbtfits : `~fits.sdfitsload.SDFITSLoad`
+        input SDFITSLoad object
+    scan : dict
+        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
+        NOTE: there should be one ON and one OFF, a pair. There should be at least two beams (the nodding beams)
+        which will be resp. on source in each scan.
+    beam1: bool
+        Is this scan BEAM1 or BEAM2?  BEAM1 is defined as being on source in the first scan of the pair, BEAM2 in the second of the pair
+    scanrows : dict
+        dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
+    calrows : dict
+        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
+    bintable : int
+        the index for BINTABLE in `sdfits` containing the scans
+    calibrate: bool
+        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
+        Default: True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration (if applicable)
+    observer_location : `~astropy.coordinates.EarthLocation`
+        Location of the observatory. See `~dysh.coordinates.Observatory`.
+        This will be transformed to `~astropy.coordinates.ITRS` using the time of
+        observation DATE-OBS or MJD-OBS in
+        the SDFITS header.  The default is the location of the GBT.
+    """
+
+    def __init__(
+        self,
+        gbtfits,
+        scan,
+        beam1,
+        scanrows,
+        calrows,
+        bintable,
+        calibrate=True,
+        smoothref=1,
+        observer_location=Observatory["GBT"],
+    ):
+        ScanBase.__init__(self, gbtfits)
+        self._scan = scan["ON"]
+        self._scanrows = scanrows
+        self._nrows = len(self._scanrows["ON"])
+        self._smoothref = smoothref
+        self._beam1 = beam1
+
+        # @todo   allow having no calrow where noise diode was not fired
+
+        # calrows perhaps not needed as input since we can get it from gbtfits object?
+        # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
+        # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
+        self._calrows = calrows
+        # @todo deal with data that crosses bintables
+        if bintable is None:
+            self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
+        else:
+            self._bintable_index = bintable
+        self._observer_location = observer_location
+        # df = selection.iloc[scanrows["ON"]]
+        df = self._sdfits._index.iloc[scanrows["ON"]]
+        self._set_if_fd(df)
+        self._pols = uniq(df["PLNUM"])
+        self._npol = len(self._pols)
+        if False:
+            self._nint = gbtfits.nintegrations(self._bintable_index)
+        # so quick with slicing!
+        self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
+        self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
+        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
+        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
+        if beam1:
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        else:
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
+        self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
         self._calibrated = None
@@ -1400,7 +1628,7 @@ class FSScan(ScanBase):
             try:
                 cunit1 = u.Unit(df["CUNIT1"])
                 if ndim == 2:
-                    cunit1 = cunit[0]
+                    cunit1 = cunit[0]  #  @todo undefined cunit[]
             except KeyError:
                 cunit1 = u.Hz
 
@@ -1425,36 +1653,10 @@ class FSScan(ScanBase):
             """ """
             chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
             logger.debug(f"do_fold: {sig_freq[0]}, {ref_freq[0]},{chan_shift}")
-            ref_shift = do_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
+            ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
             avg = (sig + ref_shift) / 2
             return avg
-
-        def do_shift(data, offset, remove_wrap=False, method="fft"):
-            """
-            Shift the data of a numpy array using roll/shift
-
-            @todo   use the fancier GBTIDL fft based shift
-            """
-
-            ishift = int(np.round(offset))  # Integer shift.
-            fshift = offset - ishift  # Fractional shift.
-
-            logger.debug("FOLD:   {ishift=} {fshift=}")
-            data2 = np.roll(data, ishift, axis=0)
-            if remove_wrap:
-                if ishift < 0:
-                    data2[ishift:] = np.nan
-                else:
-                    data2[:ishift] = np.nan
-            # Now the fractional shift, each row separate since ndimage.shift() cannot deal with np.nan
-            if method == "fft":
-                # Set `pad=False` to avoid edge effects.
-                # This needs to be sorted out.
-                data2 = fft_shift(data2, fshift, pad=False)
-            elif method == "interpolate":
-                data2 = ndimage.shift(data2, [fshift])
-            return data2
 
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
@@ -1515,7 +1717,7 @@ class FSScan(ScanBase):
                 self._exposure[i] = self.exposure[i]
 
         self._add_calibration_meta()
-        logger.debug("Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
+        logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property

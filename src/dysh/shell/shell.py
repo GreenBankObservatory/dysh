@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 from pathlib import Path
 from typing import List, Union
 
@@ -53,6 +54,7 @@ def parse_args():
     parser.add_argument("-v", "--verbosity", help="Set logging verbosity", type=int, default=2, choices=[0, 1, 2, 3])
     parser.add_argument("--log", help="Specify log path", type=Path)
     parser.add_argument("-q", "--quiet", help="Silence DEBUG- and INFO-level logs to stderr", action="store_true")
+    parser.add_argument("--version", help="Print version and exit", action="store_true")
     return parser.parse_known_args()
 
 
@@ -91,6 +93,9 @@ def open_sdfits_files(paths: List[Path], loader_class_name="GBTFITSLoad") -> Lis
 
 def main():
     args, remaining_args = parse_args()
+    if args.version:
+        print(__version__)
+        sys.exit(0)
     init_logging(verbosity=args.verbosity, path=args.log, quiet=args.quiet)
     sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
     init_shell(*remaining_args, colors=args.colors, profile=args.profile, sdfits_files=sdfits_files)
