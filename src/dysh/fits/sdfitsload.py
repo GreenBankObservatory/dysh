@@ -57,11 +57,11 @@ class SDFITSLoad(object):
         if doindex:
             self.create_index()
         # add default channel masks
-        self._flagmask = []
-        # if doflag:
-        #    for i in range(len(self._bintable)):
-        #        nc = self.nchan(i)
-        #        self._flagmask.append(np.full(nc, False))
+        # These are numpy masks where False is not flagged, True is flagged.
+        # There is one 2-D flag mask arraywith shape NROWSxNCHANNELS per bintable
+        self._flagmask = None
+        if doflag:
+            self._init_flags()
 
     def __del__(self):
         # We need to ensure that any open HDUs are properly
@@ -71,6 +71,15 @@ class SDFITSLoad(object):
             self._hdu.close()
         except Exception:
             pass
+
+    def _init_flags(self):
+        """initialize the channel masks to False"""
+        self._flagmask = np.empty(len(self._bintable), dtype=object)
+        for i in range(len(self._flagmask)):
+            nc = self.nchan(i)
+            nr = self.nrows(i)
+            print(f"{nr=} {nc=}")
+            self._flagmask[i] = np.full((nr, nc), fill_value=False)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
@@ -444,7 +453,7 @@ class SDFITSLoad(object):
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-            logger.debug(f"Fixing CUNIT1 to Hz")
+            logger.debug("Fixing CUNIT1 to Hz")
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
@@ -472,7 +481,7 @@ class SDFITSLoad(object):
                 for k, v, c in h.cards:
                     if k == ukey:
                         if bunit != v:
-                            logger.info(f"Found BUNIT={bunit}, now finding {uKey}={v}, using the latter")
+                            logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
                         bunit = v
                         break
         if bunit is not None:
@@ -865,7 +874,6 @@ class SDFITSLoad(object):
                     self._bintable[0].data[k] = v
                 # otherwise we need to add rather than replace/update
                 else:
-                    # print("ADDING {k}={v}")
                     self._add_binary_table_column(k, v, 0)
         else:
             start = 0
@@ -904,7 +912,6 @@ class SDFITSLoad(object):
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
         # Want case insensitivity
-        # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
         elif isinstance(items, (Sequence, np.ndarray)):
@@ -923,7 +930,6 @@ class SDFITSLoad(object):
         return self._index[items]
 
     def __setitem__(self, items, values):
-        # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
             d = {items: values}
@@ -943,7 +949,6 @@ class SDFITSLoad(object):
         else:
             iset = set(items)
         col_exists = len(set(self.columns).intersection(iset)) > 0
-        # col_in_selection =
         if col_exists and "DATA" not in items:
             warnings.warn("Changing an existing SDFITS column")
         try:
