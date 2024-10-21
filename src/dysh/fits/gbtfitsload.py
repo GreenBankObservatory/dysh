@@ -12,9 +12,16 @@ from astropy.io import fits
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
-from ..log import HistoricalBase, dysh_date, log_call_to_history, log_call_to_result
+from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
-from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
+from ..util import (
+    consecutive,
+    convert_array_to_mask,
+    indices_where_value_changes,
+    keycase,
+    select_from,
+    uniq,
+)
 from ..util.selection import Flag, Selection
 from .sdfitsload import SDFITSLoad
 
@@ -211,6 +218,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     @property
     def final_flags(self):
+        # this method is not particularly useful. consider removing it
         """
         The merged flag rules in the Flag object.
         See :meth:`~dysh.util.SelectionBase.final`
@@ -221,12 +229,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The final merged flags
 
         """
-        all_channels_flagged = np.where(self._table["CHAN"] == "")
-
+        # all_channels_flagged = np.where(self._table["CHAN"] == "")j
         return self._flag.final
-
-    def _set_flags(self):
-        self.final_flags
 
     def filenames(self):
         """
@@ -630,6 +634,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._selection.select_channel(tag=tag, chan=chan)
 
     @log_call_to_history
+    def clear_selection(self):
+        """Clear all selections for these data"""
+        self._selection.clear()
+
+    @log_call_to_history
     def flag(self, tag=None, **kwargs):
         """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
@@ -739,6 +748,41 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         self._flag.flag_channel(tag=tag, chan=chan)
 
+    @log_call_to_history
+    def apply_flags(self):
+        """
+        Set the channel flags according to the rules specified in the `flags` attribute.
+        This sets numpy masks in the underlying `SDFITSLoad` objects.
+
+        Returns
+        -------
+        None.
+
+        """
+        # Loop over the dict of flagged channels, which
+        # have the same key as the flag rules.
+        # For all SDFs in each flag rule, set the flag mask(s)
+        # for their rows.  The index of the sdf._flagmask array is the bintable index
+        for key, chan in self._flag._flag_channel_selection.items():
+            selection = self._flag.get(key)
+            # chan will be a list or a list of lists
+            # If it is a single list, it is just a list of channels
+            # if it is list of lists, then it is upper lower inclusive
+            dfs = selection.groupby(["FITSINDEX", "BINTABLE"])
+            print(f"{key=} {chan=}")
+            # the dict key for the groups is a tuple (fitsindex,bintable)
+            for i, ((fi, bi), g) in enumerate(dfs):
+                chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
+                rows = g["ROW"].to_numpy()
+                self._sdf[fi]._flag_mask[bi][rows] = chan_mask
+
+    @log_call_to_history
+    def clear_flags(self):
+        """Clear all flags for these data"""
+        for sdf in self._sdf:
+            sdf._init_flags()
+        self._flag.clear()
+
     def _create_index_if_needed(self):
         if self._selection is not None:
             return
@@ -759,9 +803,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
-
-    def _create_flagmask(self):
-        """Creates the mask which is NFILESxNINTxNCHAN which will be used for setting channel flags"""
 
     def _construct_procedure(self):
         """
