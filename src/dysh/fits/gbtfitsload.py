@@ -278,7 +278,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return df
 
     # override sdfits version
-    def rawspectra(self, bintable, fitsindex):
+    def rawspectra(self, bintable, fitsindex, setmask=False):
         """
         Get the raw (unprocessed) spectra from the input bintable.
 
@@ -288,6 +288,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The index of the `bintable` attribute
         fitsindex: int
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        setmask : boolean
+            If True, set the mask according to the current flags. Defaultf:false
 
         Returns
         -------
@@ -933,7 +935,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         TF = {True: "T", False: "F"}
-
+        if apply_flags:
+            self.apply_flags()
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
@@ -1060,6 +1063,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing the individual `~spectra.scan.PSScan`s
 
         """
+
+        if apply_flags:
+            self.apply_flags()
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
@@ -1244,6 +1250,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     return list(b)
                 return []
 
+        if apply_flags:
+            self.apply_flags()
         nod_beams = get_nod_beams(self)
         feeds = kwargs.pop("fdnum", None)
         if feeds is None:
@@ -1452,6 +1460,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         debug = kwargs.pop("debug", False)
         logger.debug(kwargs)
+
+        if apply_flags:
+            self.apply_flags()
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX()
         if len(self._selection._selection_rules) > 0:
@@ -1583,6 +1594,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         data : `~spectra.scan.ScanBlock`
             A ScanBlock containing one or more `~spectra.scan.SubBeamNodScan`
         """
+
+        if apply_flags:
+            self.apply_flags()
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:

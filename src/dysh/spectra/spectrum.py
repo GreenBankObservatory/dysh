@@ -1053,7 +1053,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @classmethod
     def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None):
         # , shift_topo=False):
-        """Factory method to create a Spectrum object from a data and header.
+        """Factory method to create a Spectrum object from a data and header.  The the data are masked,
+        the Spectrum mask will be set to the data mask.
 
         Parameters
         ----------
@@ -1166,18 +1167,31 @@ class Spectrum(Spectrum1D, HistoricalBase):
             )
             obsitrs = None
 
-        s = cls(
-            flux=data,
-            wcs=wcs,
-            meta=meta,
-            velocity_convention=vc,
-            radial_velocity=target.radial_velocity,
-            rest_value=meta["RESTFRQ"] * u.Hz,
-            observer=obsitrs,
-            target=target,
-        )
-        # s._history = []
-        # s._comments = []
+        if np.ma.is_masked(data):
+            print("data are masked")
+            s = cls(
+                flux=data,
+                wcs=wcs,
+                meta=meta,
+                velocity_convention=vc,
+                radial_velocity=target.radial_velocity,
+                rest_value=meta["RESTFRQ"] * u.Hz,
+                observer=obsitrs,
+                target=target,
+                mask=data.mask,
+            )
+        else:
+            print("data are NOT masked")
+            s = cls(
+                flux=data,
+                wcs=wcs,
+                meta=meta,
+                velocity_convention=vc,
+                radial_velocity=target.radial_velocity,
+                rest_value=meta["RESTFRQ"] * u.Hz,
+                observer=obsitrs,
+                target=target,
+            )
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.

@@ -11,15 +11,15 @@ import numpy as np
 from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
+from astropy.utils.masked import Masked
 
 from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..util import uniq
-from .core import (
+from .core import (  # fft_shift,
     average,
-    fft_shift,
     find_non_blanks,
     mean_tsys,
     sq_weighted_avg,
@@ -131,12 +131,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
         if type(self._scan) != int:
             raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
-
-    # class ScanMixin:
-    #    """This class describes the common interface to all Scan classes.
-    ##   A Scan represents one IF, one feed, and one or more polarizations.
-    #   Derived classes *must* implement :meth:`calibrate`.
-    #   """
 
     @property
     def scan(self):
@@ -705,8 +699,8 @@ class TPScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
         # now remove blanked integrations
         # seems like this should be done for all Scan classes!
         # PS: yes.
@@ -1022,9 +1016,9 @@ class PSScan(ScanBase):
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
         self._nchan = len(self._sigcalon[0])
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
         self._tsys = None
         self._exposure = None
         self._calibrated = None
@@ -1060,8 +1054,11 @@ class PSScan(ScanBase):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
+        # @todo suppress astropy INFO message "overwriting Masked Quantity's current mask with specified mask."
         s = Spectrum.make_spectrum(
-            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            meta=self.meta[i],
+            observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
@@ -1077,10 +1074,10 @@ class PSScan(ScanBase):
 
         self._status = 1
         nspect = self.nrows // 2
-        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
@@ -1257,15 +1254,15 @@ class NodScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         if beam1:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
         else:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
         self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
@@ -1303,7 +1300,9 @@ class NodScan(ScanBase):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         s = Spectrum.make_spectrum(
-            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            meta=self.meta[i],
+            observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
@@ -1319,10 +1318,10 @@ class NodScan(ScanBase):
 
         self._status = 1
         nspect = self.nrows // 2
-        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
@@ -1532,10 +1531,10 @@ class FSScan(ScanBase):
         # @todo use gbtfits.velocity_convention(veldef,velframe)
         # so quick with slicing!
 
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
         self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
@@ -1573,7 +1572,9 @@ class FSScan(ScanBase):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         s = Spectrum.make_spectrum(
-            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            meta=self.meta[i],
+            observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
@@ -1674,7 +1675,7 @@ class FSScan(ScanBase):
         _fold = kwargs.get("fold", False)
         _mode = 1  # 1: keep the sig    else: keep the ref     (not externally supported)
         nspect = self.nrows // 2
-        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
         #
@@ -1690,7 +1691,7 @@ class FSScan(ScanBase):
             print("FS: shift=%g  nchan=%d" % (chan_shift, self._nchan))
 
         #  tcal is the same for REF and SIG, and the same for all integrations actually.
-        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["TCAL"])
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["TCAL"].to_numpy()
         if self._debug:
             print("TCAL:", len(tcal), tcal[0])
         if len(tcal) != nspect:
@@ -1885,7 +1886,7 @@ class SubBeamNodScan(ScanBase):
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
         self._delta_freq = np.empty(nspect, dtype=float)
-        self._calibrated = np.empty((nspect, self._nchan), dtype=float)
+        self._calibrated = np.ma.empty((nspect, self._nchan), dtype=float)
 
         for i in range(nspect):
             sig = self._sigtp[i].timeaverage(weights=kwargs["weights"])
@@ -1911,7 +1912,11 @@ class SubBeamNodScan(ScanBase):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        s = Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+        s = Spectrum.make_spectrum(
+            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            meta=meta,
+            observer_location=self._observer_location,
+        )
         s.merge_commentary(self)
         return s
 

@@ -367,7 +367,7 @@ class SDFITSLoad(object):
         """
         return (self._index.iloc[row]["BINTABLE"], self._index.iloc[row]["ROW"])
 
-    def rawspectra(self, bintable):
+    def rawspectra(self, bintable, setmask=False):
         """
         Get the raw (unprocessed) spectra from the input bintable.
 
@@ -375,16 +375,23 @@ class SDFITSLoad(object):
         ----------
             bintable :  int
                 The index of the `bintable` attribute
+            setmask : bool
+                If True, set the data mask according to the current flags in the `_flagmask` attribute. If False, set the data mask to False.
 
         Returns
         -------
-            rawspectra : ~numpy.ndarray
-                The DATA column of the input bintable
+            rawspectra : ~numpy.ma.MaskedArray
+                The DATA column of the input bintable, masked according to `setmask`
 
         """
-        return self._bintable[bintable].data[:]["DATA"]
+        data = self._bintable[bintable].data[:]["DATA"]
+        if setmask:
+            rawspec = np.ma.MaskedArray(data, mask=self._flagmask[bintable])
+        else:
+            rawspec = np.ma.MaskedArray(data, mask=False)
+        return rawspec
 
-    def rawspectrum(self, i, bintable=0):
+    def rawspectrum(self, i, bintable=0, setmask=False):
         """
         Get a single raw (unprocessed) spectrum from the input bintable.
 
@@ -394,18 +401,25 @@ class SDFITSLoad(object):
                 The row index to retrieve.
             bintable :  int or None
                 The index of the `bintable` attribute. If None, the underlying bintable is computed from i
-
+            setmask : bool
+                If True, set the data mask according to the current flags in the `_flagmask` attribute.
         Returns
         -------
-            rawspectrum : ~numpy.ndarray
-                The i-th row of DATA column of the input bintable
+            rawspectrum : ~numpy.ma.MaskedArray
+                The i-th row of DATA column of the input bintable, masked according to `setmask`
 
         """
         if bintable is None:
             (bt, row) = self._find_bintable_and_row(i)
-            return self._bintable[bt].data[:]["DATA"][row]
+            data = self._bintable[bt].data[:]["DATA"][row]
         else:
-            return self._bintable[bintable].data[:]["DATA"][i]
+            data = self._bintable[bintable].data[:]["DATA"][i]
+            row = i
+        if setmask:
+            rawspec = np.ma.MaskedArray(data, mask=self._flagmask[bintable][row])
+        else:
+            rawspec = np.ma.MaskedArray(data, False)
+        return rawspec
 
     def getrow(self, i, bintable=0):
         """
