@@ -528,7 +528,7 @@ class SDFITSLoad(object):
                 Number channels in the first spectrum of the input bintable
 
         """
-        return np.shape(self.rawspectrum(1, bintable))[0]
+        return np.shape(self.rawspectrum(0, bintable))[0]
 
     def npol(self, bintable):
         """

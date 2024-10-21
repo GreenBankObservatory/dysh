@@ -896,6 +896,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
+        apply_flags=False,
         **kwargs,
     ):
         """
@@ -918,6 +919,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             None or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -936,7 +939,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             _final = self._index
         scans = kwargs.get("scan", None)
-        debug = kwargs.pop("debug", False)
+        # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
@@ -997,6 +1000,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         bintable,
                         calibrate,
                         smoothref=smoothref,
+                        apply_flags=apply_flags,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
@@ -1008,7 +1012,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     @log_call_to_result
     def getps(
-        self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
+        self,
+        calibrate=True,
+        timeaverage=True,
+        polaverage=False,
+        weights="tsys",
+        bintable=None,
+        smoothref=1,
+        apply_flags=False,
+        **kwargs,
     ):
         """
         Retrieve and calibrate position-switched data.
@@ -1028,6 +1040,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: False
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1136,6 +1152,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         bintable=bintable,
                         calibrate=calibrate,
                         smoothref=smoothref,
+                        apply_flags=apply_flags,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
@@ -1148,7 +1165,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     @log_call_to_result
     def getnod(
-        self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
+        self,
+        calibrate=True,
+        timeaverage=True,
+        polaverage=False,
+        weights="tsys",
+        bintable=None,
+        smoothref=1,
+        apply_flags=False,
+        **kwargs,
     ):
         """
         Retrieve and calibrate nodding data.
@@ -1172,6 +1197,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: False
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1203,8 +1232,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
                 beam1 = d1["FDNUM"].unique()[0]
                 beam2 = d2["FDNUM"].unique()[0]
-                fdnum1 = d1["FEED"].unique()[0]
-                fdnum2 = d2["FEED"].unique()[0]
+                # fdnum1 = d1["FEED"].unique()[0]
+                # fdnum2 = d2["FEED"].unique()[0]
                 return [beam1, beam2]
             else:
                 # one more attempt (this can happen if PROCSCAN contains "Unknown")
@@ -1337,6 +1366,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             bintable=bintable,
                             calibrate=calibrate,
                             smoothref=smoothref,
+                            apply_flags=apply_flags,
                         )
                         g.merge_commentary(self)
                         scanblock.append(g)
@@ -1362,6 +1392,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -1394,6 +1425,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: False
         observer_location : `~astropy.coordinates.EarthLocation`
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1487,6 +1522,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         use_sig=use_sig,
                         observer_location=observer_location,
                         smoothref=1,
+                        apply_flags=apply_flags,
                         debug=debug,
                     )
                     g.merge_commentary(self)
@@ -1510,6 +1546,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
+        apply_flags=False,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -1532,6 +1569,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             None to indicate equal weighting or 'tsys' to indicate tsys weighting to use in time averaging. Default: 'tsys'
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: False
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1547,7 +1588,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             _final = self._index
         scans = kwargs.get("scan", None)
-        debug = kwargs.pop("debug", False)
+        # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         logger.debug(kwargs)
 
@@ -1658,6 +1699,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                     bintable,
                                     calibrate=calibrate,
                                     smoothref=smoothref,
+                                    apply_flags=apply_flags,
                                 )
                             )
                             calrows = {"ON": sgon, "OFF": sgoff}
@@ -1673,9 +1715,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                     bintable,
                                     calibrate=calibrate,
                                     smoothref=smoothref,
+                                    apply_flags=apply_flags,
                                 )
                             )
-                        sb = SubBeamNodScan(sigtp, reftp, calibrate=calibrate, weights=weights, smoothref=smoothref)
+                        sb = SubBeamNodScan(
+                            sigtp,
+                            reftp,
+                            calibrate=calibrate,
+                            weights=weights,
+                            smoothref=smoothref,
+                            apply_flags=apply_flags,
+                        )
                         scanblock.append(sb)
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
@@ -1701,6 +1751,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 weights=weights,
                                 calibrate=calibrate,
                                 smoothref=smoothref,
+                                apply_flags=apply_flags,
                             )
                             sigtp.append(tpon[0])
                             tpoff = self.gettp(
@@ -1715,6 +1766,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 weights=weights,
                                 calibrate=calibrate,
                                 smoothref=smoothref,
+                                apply_flags=apply_flags,
                             )
                             reftp.append(tpoff[0])
                             # in order to reproduce gbtidl tsys, we need to do a normal
@@ -1730,7 +1782,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 weights=weights,
                                 calibrate=calibrate,
                                 smoothref=smoothref,
-                            )  # .timeaverage(weights=w)
+                                apply_flags=apply_flags,
+                            )
                             fulltp.append(ftp[0])
                         sb = SubBeamNodScan(
                             sigtp,
@@ -1738,6 +1791,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             calibrate=calibrate,
                             weights=weights,
                             smoothref=smoothref,
+                            apply_flags=apply_flags,
                         )
                         sb.merge_commentary(self)
                         scanblock.append(sb)
@@ -2252,7 +2306,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
         """
-        debug = kwargs.pop("debug", False)
+        # debug = kwargs.pop("debug", False)
         logger.debug(kwargs)
         selection = Selection(self._index)
         if len(kwargs) > 0:

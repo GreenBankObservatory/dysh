@@ -630,6 +630,7 @@ class TPScan(ScanBase):
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
 
     Notes
     -----
@@ -665,6 +666,7 @@ class TPScan(ScanBase):
         bintable,
         calibrate=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits)
@@ -674,6 +676,7 @@ class TPScan(ScanBase):
         self._calstate = calstate
         self._scanrows = scanrows
         self._smoothref = smoothref
+        self._apply_flags = apply_flags
         if self._smoothref > 1:
             warnings.warn(f"TP smoothref={self._smoothref} not implemented yet")
 
@@ -958,6 +961,7 @@ class PSScan(ScanBase):
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -974,6 +978,7 @@ class PSScan(ScanBase):
         bintable,
         calibrate=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits)
@@ -984,6 +989,7 @@ class PSScan(ScanBase):
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
         self._smoothref = smoothref
+        self._apply_flags = apply_flags
         # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
         # print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
         # print("PJT scans", scans)
@@ -1197,6 +1203,7 @@ class NodScan(ScanBase):
         Default: True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration (if applicable)
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1214,6 +1221,7 @@ class NodScan(ScanBase):
         bintable,
         calibrate=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits)
@@ -1221,6 +1229,7 @@ class NodScan(ScanBase):
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
         self._smoothref = smoothref
+        self._apply_flags = apply_flags
         self._beam1 = beam1
 
         # @todo   allow having no calrow where noise diode was not fired
@@ -1441,6 +1450,7 @@ class FSScan(ScanBase):
         Whether to use the sig as the sig, or the ref as the sig. Default: True
     smoothref: int
         The number of channels in the reference to boxcar smooth prior to calibration.
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1459,6 +1469,7 @@ class FSScan(ScanBase):
         shift_method="fft",
         use_sig=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
         debug=False,
     ):
@@ -1472,7 +1483,7 @@ class FSScan(ScanBase):
         self._smoothref = smoothref
         if self._smoothref > 1:
             print(f"FS smoothref={self._smoothref} not implemented yet")
-
+        self._apply_flags = apply_flags
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
@@ -1811,6 +1822,7 @@ class SubBeamNodScan(ScanBase):
         Whether or not to calibrate the data.
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1831,6 +1843,7 @@ class SubBeamNodScan(ScanBase):
         reftp,
         calibrate=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -1859,6 +1872,7 @@ class SubBeamNodScan(ScanBase):
         self._smoothref = smoothref
         if self._smoothref > 1:
             print(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
+        self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._calibrated = None
         if calibrate:
