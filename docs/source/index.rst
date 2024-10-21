@@ -35,7 +35,7 @@ Contents
         :shadow: md
         :margin: 2 2 0 0
 
-        :octicon:`terminal;3em;green` **How-To Guides**
+        :octicon:`terminal;3em;green` **Recipes**
 
         Practical step-by-step guides to help you achieve a specific goal.
 
@@ -47,7 +47,7 @@ Contents
             :outline:
             :click-parent:
 
-            Go to How-To Guides
+            Go to Recipes
 
     .. grid-item-card::
         :shadow: md
