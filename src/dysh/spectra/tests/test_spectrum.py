@@ -536,6 +536,7 @@ class TestSpectrum:
             )
             dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
             diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
+            assert diff < 1.5e-6
 
         data_dir = get_project_testdata() / "AGBT17A_404_01"
         sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
