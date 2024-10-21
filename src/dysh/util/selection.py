@@ -672,6 +672,8 @@ class SelectionBase(DataFrame):
                 "You can only have one channel selection rule. Remove the old rule before creating a new one."
             )
         self._check_numbers(chan=chan)
+        if isinstance(chan, numbers.Number):
+            chan = [int(chan)]
         self._channel_selection = chan
         self._addrow({"CHAN": str(chan)}, dataframe=self, tag=tag)
 
@@ -1032,6 +1034,8 @@ class Flag(SelectionBase):
         """
         chan = kwargs.pop("chan", None)
         if chan is not None:
+            if isinstance(chan, numbers.Number):
+                chan = [int(chan)]
             self._check_numbers(chan=chan)
         self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
         idx = len(self._table) - 1

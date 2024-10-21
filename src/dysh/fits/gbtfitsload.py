@@ -725,6 +725,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         nested arrays will be treated as ranges, for instance
 
         ``
+        # flag channel 128
+        flag_channel(128)
         # flags channels 1 and 10
         flag_channel([1,10])
         # flags channels 1 thru 10 inclusive
@@ -764,6 +766,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # For all SDFs in each flag rule, set the flag mask(s)
         # for their rows.  The index of the sdf._flagmask array is the bintable index
         for key, chan in self._flag._flag_channel_selection.items():
+            print(f"{key=} {chan=}")
             selection = self._flag.get(key)
             # chan will be a list or a list of lists
             # If it is a single list, it is just a list of channels
@@ -774,7 +777,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for i, ((fi, bi), g) in enumerate(dfs):
                 chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
                 rows = g["ROW"].to_numpy()
-                self._sdf[fi]._flag_mask[bi][rows] = chan_mask
+                self._sdf[fi]._flagmask[bi][rows] = chan_mask
 
     @log_call_to_history
     def clear_flags(self):

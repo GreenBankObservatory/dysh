@@ -363,7 +363,7 @@ def convert_array_to_mask(a, length, value=True):
 
     """
 
-    if a == _ALL_CHANNELS:
+    if a == ALL_CHANNELS:
         return np.full(length, value)
 
     mask = np.full(length, False)
