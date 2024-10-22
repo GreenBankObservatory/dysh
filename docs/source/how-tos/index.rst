@@ -71,6 +71,21 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
             Data IO
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`compare_arrows;3em;green` **Align Spectra**
+
+        How to read and save data
+
+        .. button-link:: examples/align_spectra.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Align Spectra
+
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -79,3 +94,4 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/metadata_management
    examples/smoothing
    examples/dataIO
+   examples/align_spectra

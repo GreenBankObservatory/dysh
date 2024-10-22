@@ -24,6 +24,9 @@ Most useful when you want to get started reducing your data.
     .. card:: Sub Beam Nod Data
         :link: examples/subbeamnod.html
 
+    .. card:: Nodding Data
+        :link: examples/nodding.html
+
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -31,3 +34,4 @@ Most useful when you want to get started reducing your data.
    examples/positionswitch
    examples/frequencyswitch
    examples/subbeamnod
+   examples/nodding
