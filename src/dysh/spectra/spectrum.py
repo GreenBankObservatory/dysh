@@ -1575,8 +1575,8 @@ def average_spectra(spectra, equal_weights=False, align=False):
             if i > 0:
                 s_.align_to(spectra[0])
         else:
-                s = s.align_to(spectra[0])
-                logger.debug(f"OBS LOCATION  {s._observer_location}")
+            s = s.align_to(spectra[0])
+            logger.debug(f"OBS LOCATION  {s._observer_location}")
         data_array[i] = s.data
         if not equal_weights:
             weights[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
