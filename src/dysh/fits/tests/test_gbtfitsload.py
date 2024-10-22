@@ -253,6 +253,7 @@ class TestGBTFITSLoad:
             8: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": True},
         }
         for k, v in tests.items():
+            print(f"{k}, {v}")
             if v["SIG"] == False:
                 with pytest.raises(Exception):
                     tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], cal=v["CAL"], sig=v["SIG"])
@@ -269,7 +270,12 @@ class TestGBTFITSLoad:
             else:
                 # CAL=True
                 cal = tps[0]._refcalon.astype(np.float64)
-            assert np.all(tp.flux.value == np.nanmean(cal, axis=0))
+            cal = cal.data
+            diff = tp.flux.value - np.nanmean(cal, axis=0)
+            # print(np.where(diff != 0))
+            # print(diff[np.where(diff > 1e-8)])
+            assert np.all(diff == 0)
+            # assert np.all(np.abs(diff) < 1e-8)
 
         # Check that selection is being applied properly.
         tp_scans = sdf.gettp(scan=[6, 7], plnum=0)
@@ -432,6 +438,17 @@ class TestGBTFITSLoad:
                 assert v == table[k][0]
             except KeyError:
                 continue
+
+    def test_getps_flagging(self):
+        path = util.get_project_testdata() / "TGBT21A_501_11"
+        data_file = path / "TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(data_file)
+        sdf.flag_channel([[10, 20], [30, 41]])
+        sb = sdf.getps(scan=152, ifnum=0, plnum=0, apply_flags=True)
+        ta = sb.timeaverage()
+        print(np.where(ta.mask))
+        expected_mask = np.hstack([np.arange(10, 21), np.arange(30, 42)])
+        assert np.where(ta.mask)[0] == expected_mask
 
     def test_write_single_file(self, tmp_path):
         "Test that writing an SDFITS file works when subselecting data"
