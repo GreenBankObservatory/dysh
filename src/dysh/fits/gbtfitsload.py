@@ -958,7 +958,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
-        logger.debug("SF=", _sf)
+        logger.debug(f"SF={_sf}")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -988,9 +988,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     #    df = select_from("CAL", TF[cal], df)
                     # the rows with the selected sig state and all cal states
                     tprows = list(_sifdf["ROW"])
-                    logger.debug("TPROWS len=", len(tprows))
-                    logger.debug("CALROWS on len=", len(calrows["ON"]))
-                    logger.debug("fitsindex=", i)
+                    logger.debug(f"TPROWS len={len(tprows)}")
+                    logger.debug(f"CALROWS on len={len(calrows['ON'])}")
+                    logger.debug(f"fitsindex={i}")
                     if len(tprows) == 0:
                         continue
                     g = TPScan(
