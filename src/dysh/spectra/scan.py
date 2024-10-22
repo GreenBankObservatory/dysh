@@ -440,6 +440,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                 print(f"{type(timeavg)=}, {type(avgdata)=}")
                 avgspec = np.ma.mean(self._timeaveraged)
                 print(f"{type(avgspec)=}")
+                print(f"{avgspec.mask=}")
                 avgspec.meta = self._timeaveraged[0].meta
                 avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
                 avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
@@ -450,7 +451,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                     meta=avgspec.meta,
                     observer_location=Observatory["GBT"],
                 )
-            s = average_spectra(self._timeaveraged, equal_weights=True)
+
+            print(f"{self._timeaveraged[0].mask=}")
+            s = average_spectra(self._timeaveraged)
             s.merge_commentary(self)
         elif mode == "new":
             # average of the integrations
@@ -1166,7 +1169,8 @@ class PSScan(ScanBase):
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        self._timeaveraged = self.calibrated(0)._copy()
+        print(f"{self.calibrated(0).mask=}")
+        self._timeaveraged = deepcopy(self.calibrated(0))  # ._copy()
         data = self._calibrated
         if weights == "tsys":
             w = self.tsys_weight
@@ -1179,7 +1183,12 @@ class PSScan(ScanBase):
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged._history = self._history
-        print("PS TA OBS ", self._timeaveraged._observer_location, self._timeaveraged._velocity_frame)
+        print(
+            "PS TA OBS ",
+            self._timeaveraged._observer_location,
+            self._timeaveraged._velocity_frame,
+            self._timeaveraged.mask,
+        )
         return self._timeaveraged
 
 
