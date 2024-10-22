@@ -1575,9 +1575,6 @@ def average_spectra(spectra, equal_weights=False, align=False):
             if i > 0:
                 s_.align_to(spectra[0])
         else:
-            s_ = s
-
-        data_array[i] = s_.data
                 s = s.align_to(spectra[0])
                 logger.debug(f"OBS LOCATION  {s._observer_location}")
         data_array[i] = s.data
