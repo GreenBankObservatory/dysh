@@ -449,7 +449,7 @@ class TestGBTFITSLoad:
         ta = sb.timeaverage()
         # average_spectra masks out the NaN in channel 3072
         expected_mask = np.hstack([np.arange(10, 21), np.arange(30, 42), np.array([3072])])
-        assert np.all(np.where(ta.mask)[0] == expected_mask)
+        assert np.all(np.where(ta.mask) == expected_mask)
 
     def test_write_single_file(self, tmp_path):
         "Test that writing an SDFITS file works when subselecting data"
