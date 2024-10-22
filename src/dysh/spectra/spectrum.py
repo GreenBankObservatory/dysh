@@ -17,6 +17,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 # from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
+from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum1D
@@ -34,7 +35,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..log import HistoricalBase, log_call_to_history
+from ..log import HistoricalBase, log_call_to_history, logger
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
@@ -1551,7 +1552,7 @@ def average_spectra(spectra, equal_weights=False, align=False):
     nspec = len(spectra)
     nchan = len(spectra[0].data)
     shape = (nspec, nchan)
-    data_array = np.empty(shape, dtype=float)
+    data_array = np.ma.empty(shape, dtype=float)
     weights = np.empty(shape, dtype=float)
     exposures = np.empty(nspec, dtype=float)
     tsyss = np.empty(nspec, dtype=float)
@@ -1573,6 +1574,7 @@ def average_spectra(spectra, equal_weights=False, align=False):
                 s_.align_to(spectra[0])
         else:
             s_ = s
+            logger.debug(f"OBS LOCATION  {s._observer_location}")
         data_array[i] = s_.data
         if not equal_weights:
             weights[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
@@ -1583,7 +1585,7 @@ def average_spectra(spectra, equal_weights=False, align=False):
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
 
-    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array))
+    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array) | data_array.mask)
     data = np.ma.average(data_array, axis=0, weights=weights)
     tsys = np.ma.average(tsyss, axis=0, weights=weights[:, 0])
     xcoo = np.ma.average(xcoos, axis=0, weights=weights[:, 0])
@@ -1596,6 +1598,6 @@ def average_spectra(spectra, equal_weights=False, align=False):
     new_meta["CRVAL2"] = xcoo
     new_meta["CRVAL3"] = ycoo
 
-    averaged = Spectrum.make_spectrum(data * units, meta=new_meta)
+    averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta)
 
     return averaged

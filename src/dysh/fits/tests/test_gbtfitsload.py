@@ -262,6 +262,7 @@ class TestGBTFITSLoad:
             if v["CAL"]:
                 assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
             tp = tps.timeaverage(weights=None)
+            print(tp.mask, " ALL ", np.all(tp.mask == False))
             if v["CAL"] is None:
                 cal = (0.5 * (tps[0]._refcalon + tps[0]._refcaloff)).astype(np.float64)
             elif not v["CAL"]:
@@ -270,11 +271,11 @@ class TestGBTFITSLoad:
             else:
                 # CAL=True
                 cal = tps[0]._refcalon.astype(np.float64)
-            cal = cal.data
+            print(cal.mask, " CAL ALL ", np.all(cal.mask == False))
             diff = tp.flux.value - np.nanmean(cal, axis=0)
-            # print(np.where(diff != 0))
-            # print(diff[np.where(diff > 1e-8)])
-            assert np.all(diff == 0)
+            print(np.where(diff != 0))
+            print(diff[np.where(abs(diff) > 1e-8)])
+            assert np.all(tp.flux.value - np.nanmean(cal, axis=0) == 0)
             # assert np.all(np.abs(diff) < 1e-8)
 
         # Check that selection is being applied properly.
@@ -446,9 +447,9 @@ class TestGBTFITSLoad:
         sdf.flag_channel([[10, 20], [30, 41]])
         sb = sdf.getps(scan=152, ifnum=0, plnum=0, apply_flags=True)
         ta = sb.timeaverage()
-        print(np.where(ta.mask))
-        expected_mask = np.hstack([np.arange(10, 21), np.arange(30, 42)])
-        assert np.where(ta.mask)[0] == expected_mask
+        # average_spectra masks out the NaN in channel 3072
+        expected_mask = np.hstack([np.arange(10, 21), np.arange(30, 42), np.array([3072])])
+        assert np.all(np.where(ta.mask)[0] == expected_mask)
 
     def test_write_single_file(self, tmp_path):
         "Test that writing an SDFITS file works when subselecting data"

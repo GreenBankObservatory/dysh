@@ -25,7 +25,7 @@ from .core import (  # fft_shift,
     sq_weighted_avg,
     tsys_weight,
 )
-from .spectrum import Spectrum
+from .spectrum import Spectrum, average_spectra
 
 
 class SpectralAverageMixin:
@@ -432,22 +432,29 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                     w = w.squeeze()
             else:
                 w = weights
-            timeavg = np.array([k.data for k in self._timeaveraged])
-            # Weight the average of the timeaverages by the weights.
-            avgdata = average(timeavg, axis=0, weights=w)
-            avgspec = np.mean(self._timeaveraged)
-            avgspec.meta = self._timeaveraged[0].meta
-            avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
-            avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
-            # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
-            # hardcode to GBT for now
-            s = Spectrum.make_spectrum(
-                avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
-            )
+            if False:
+                timeavg = np.array([k.data for k in self._timeaveraged])
+                # timeavg = np.ma.empty((np.shape(self._timeaveraged)[0],np.shape(self._timeaveraged[0])[0]))
+                # Weight the average of the timeaverages by the weights.
+                avgdata = average(timeavg, axis=0, weights=w)
+                print(f"{type(timeavg)=}, {type(avgdata)=}")
+                avgspec = np.ma.mean(self._timeaveraged)
+                print(f"{type(avgspec)=}")
+                avgspec.meta = self._timeaveraged[0].meta
+                avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
+                avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
+                # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
+                # hardcode to GBT for now
+                s = Spectrum.make_spectrum(
+                    Masked(avgdata * avgspec.flux.unit, avgspec.mask),
+                    meta=avgspec.meta,
+                    observer_location=Observatory["GBT"],
+                )
+            s = average_spectra(self._timeaveraged, equal_weights=True)
             s.merge_commentary(self)
         elif mode == "new":
             # average of the integrations
-            allcal = np.all([d._calibrate for d in self.data])
+            allcal = np.all([d._calibrated for d in self.data])
             if not allcal:
                 raise Exception("Data must be calibrated before time averaging.")
             c = np.concatenate([d._calibrated for d in self.data])
@@ -1159,7 +1166,7 @@ class PSScan(ScanBase):
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        self._timeaveraged = deepcopy(self.calibrated(0))
+        self._timeaveraged = self.calibrated(0)._copy()
         data = self._calibrated
         if weights == "tsys":
             w = self.tsys_weight
@@ -1172,6 +1179,7 @@ class PSScan(ScanBase):
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged._history = self._history
+        print("PS TA OBS ", self._timeaveraged._observer_location, self._timeaveraged._velocity_frame)
         return self._timeaveraged
 
 

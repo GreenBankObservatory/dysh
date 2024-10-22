@@ -269,6 +269,7 @@ class TestSpectrum:
         # Check additional object properties.
         # Not all of them make sense, since their shapes will be different.
         for k in spec_pars:
+            print(k)
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
         trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK")
