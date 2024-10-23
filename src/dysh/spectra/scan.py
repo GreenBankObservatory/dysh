@@ -45,6 +45,9 @@ class SpectralAverageMixin:
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         pass
 
@@ -413,10 +416,14 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
+
         Returns
         -------
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
@@ -878,6 +885,9 @@ class TPScan(ScanBase):
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
@@ -1104,10 +1114,14 @@ class PSScan(ScanBase):
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
+
         Returns
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
@@ -1354,6 +1368,9 @@ class NodScan(ScanBase):
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
@@ -1748,6 +1765,9 @@ class FSScan(ScanBase):
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
@@ -1887,6 +1907,24 @@ class SubBeamNodScan(ScanBase):
         return self._delta_freq
 
     def timeaverage(self, weights="tsys"):
+        r"""Compute the time-averaged spectrum for this scan.
+
+        Parameters
+        ----------
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        Returns
+        -------
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
+        """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
