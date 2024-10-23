@@ -78,7 +78,7 @@ class SDFITSLoad(object):
         for i in range(len(self._flagmask)):
             nc = self.nchan(i)
             nr = self.nrows(i)
-            print(f"{nr=} {nc=}")
+            logger.debug(f"{nr=} {nc=}")
             self._flagmask[i] = np.full((nr, nc), fill_value=False)
 
     def info(self):
