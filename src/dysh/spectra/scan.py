@@ -437,10 +437,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                 # timeavg = np.ma.empty((np.shape(self._timeaveraged)[0],np.shape(self._timeaveraged[0])[0]))
                 # Weight the average of the timeaverages by the weights.
                 avgdata = average(timeavg, axis=0, weights=w)
-                print(f"{type(timeavg)=}, {type(avgdata)=}")
                 avgspec = np.ma.mean(self._timeaveraged)
-                print(f"{type(avgspec)=}")
-                print(f"{avgspec.mask=}")
                 avgspec.meta = self._timeaveraged[0].meta
                 avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
                 avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
@@ -452,7 +449,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                     observer_location=Observatory["GBT"],
                 )
 
-            print(f"{self._timeaveraged[0].mask=}")
             s = average_spectra(self._timeaveraged)
             s.merge_commentary(self)
         elif mode == "new":
@@ -1183,6 +1179,7 @@ class PSScan(ScanBase):
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged._history = self._history
+        self._timeaveraged._observer_location = self._observer_location
         print(
             "PS TA OBS ",
             self._timeaveraged._observer_location,

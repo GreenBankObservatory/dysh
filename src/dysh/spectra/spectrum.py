@@ -1561,7 +1561,7 @@ def average_spectra(spectra, equal_weights=False, align=False):
     tsyss = np.empty(nspec, dtype=float)
     xcoos = np.empty(nspec, dtype=float)
     ycoos = np.empty(nspec, dtype=float)
-
+    obs_location = spectra[0]._observer_location
     units = spectra[0].flux.unit
 
     for i, s in enumerate(spectra):
@@ -1574,7 +1574,7 @@ def average_spectra(spectra, equal_weights=False, align=False):
         if align:
             if i > 0:
                 s = s.align_to(spectra[0])
-        logger.debug(f"OBS LOCATION  {s._observer_location}")
+
         data_array[i] = s.data
         data_array[i].mask = s.mask
         if not equal_weights:
@@ -1599,6 +1599,6 @@ def average_spectra(spectra, equal_weights=False, align=False):
     new_meta["CRVAL2"] = xcoo
     new_meta["CRVAL3"] = ycoo
 
-    averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta)
+    averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer_location=obs_location)
 
     return averaged
