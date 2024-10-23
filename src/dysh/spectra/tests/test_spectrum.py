@@ -254,10 +254,6 @@ class TestSpectrum:
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
         s = slice(1000, 1100, 1)
-        print(f"{self.getps[0].timeaverage()._velocity_frame=}")
-        print(f"{self.getps0[0]._target=}")
-        print(f"{self.ps0._velocity_frame=}")
-        print(f"{self.ps0._target=}")
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
         assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
@@ -272,7 +268,6 @@ class TestSpectrum:
         # Check additional object properties.
         # Not all of them make sense, since their shapes will be different.
         for k in spec_pars:
-            print(k)
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
         trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK")

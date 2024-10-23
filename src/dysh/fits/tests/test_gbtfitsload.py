@@ -262,7 +262,6 @@ class TestGBTFITSLoad:
             if v["CAL"]:
                 assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
             tp = tps.timeaverage(weights=None)
-            print(tp.mask, " ALL ", np.all(tp.mask == False))
             if v["CAL"] is None:
                 cal = (0.5 * (tps[0]._refcalon + tps[0]._refcaloff)).astype(np.float64)
             elif not v["CAL"]:
@@ -271,13 +270,8 @@ class TestGBTFITSLoad:
             else:
                 # CAL=True
                 cal = tps[0]._refcalon.astype(np.float64)
-            print(cal.mask, " CAL ALL ", np.all(cal.mask == False))
-            diff = tp.flux.value - np.nanmean(cal, axis=0)
-            print(np.where(diff != 0))
-            print(diff[np.where(abs(diff) > 1e-8)])
+            # diff = tp.flux.value - np.nanmean(cal, axis=0)
             assert np.all(tp.flux.value - np.nanmean(cal, axis=0) == 0)
-            # assert np.all(np.abs(diff) < 1e-8)
-
         # Check that selection is being applied properly.
         tp_scans = sdf.gettp(scan=[6, 7], plnum=0)
         # Weird that the results are different for a bunch of channels.

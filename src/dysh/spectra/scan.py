@@ -402,7 +402,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys", mode="old"):
+    def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
@@ -419,60 +419,12 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             List of all the time-averaged spectra
         """
         # warnings.simplefilter("ignore", NoVelocityWarning)
-        if mode == "old":
-            # average of the averages
-            self._timeaveraged = []
-            for scan in self.data:
-                self._timeaveraged.append(scan.timeaverage(weights))
-            if weights == "tsys":
-                # There may be multiple integrations, so need to
-                # average the Tsys weights
-                w = np.array([np.nanmean(k.tsys_weight) for k in self.data])
-                if len(np.shape(w)) > 1:  # remove empty axes
-                    w = w.squeeze()
-            else:
-                w = weights
-            if False:
-                timeavg = np.array([k.data for k in self._timeaveraged])
-                # timeavg = np.ma.empty((np.shape(self._timeaveraged)[0],np.shape(self._timeaveraged[0])[0]))
-                # Weight the average of the timeaverages by the weights.
-                avgdata = average(timeavg, axis=0, weights=w)
-                avgspec = np.ma.mean(self._timeaveraged)
-                avgspec.meta = self._timeaveraged[0].meta
-                avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
-                avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
-                # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
-                # hardcode to GBT for now
-                s = Spectrum.make_spectrum(
-                    Masked(avgdata * avgspec.flux.unit, avgspec.mask),
-                    meta=avgspec.meta,
-                    observer_location=Observatory["GBT"],
-                )
-
-            s = average_spectra(self._timeaveraged, weights=weights)
-            s.merge_commentary(self)
-        elif mode == "new":
-            # average of the integrations
-            allcal = np.all([d._calibrated for d in self.data])
-            if not allcal:
-                raise Exception("Data must be calibrated before time averaging.")
-            c = np.concatenate([d._calibrated for d in self.data])
-            if weights == "tsys":
-                w = np.concatenate([d.tsys_weight for d in self.data])
-                # if len(np.shape(w)) > 1:  # remove empty axes
-                #    w = w.squeeze()
-            else:
-                w = None
-            timeavg = average(c, weights=w)
-            avgspec = self.data[0].calibrated(0)
-            avgspec.meta["TSYS"] = np.nanmean([d.tsys for d in self.data])
-            avgspec.meta["EXPOSURE"] = np.sum([d.exposure for d in self.data])
-            s = Spectrum.make_spectrum(
-                timeavg * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
-            )
-            s.merge_commentary(self)
-        else:
-            raise Exception(f"unrecognized mode {mode}")
+        # average of the averages
+        self._timeaveraged = []
+        for scan in self.data:
+            self._timeaveraged.append(scan.timeaverage(weights))
+        s = average_spectra(self._timeaveraged, weights=weights)
+        s.merge_commentary(self)
         return s
 
     @log_call_to_history
@@ -990,13 +942,6 @@ class PSScan(ScanBase):
         self._nrows = len(self._scanrows["ON"])
         self._smoothref = smoothref
         self._apply_flags = apply_flags
-        # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
-        # print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
-        # print("PJT scans", scans)
-        # print("PJT scanrows", scanrows)
-        # print("PJT calrows", calrows)
-        # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
-        # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -1165,7 +1110,6 @@ class PSScan(ScanBase):
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        print(f"{self.calibrated(0).mask=}")
         self._timeaveraged = deepcopy(self.calibrated(0))  # ._copy()
         data = self._calibrated
         if weights == "tsys":
@@ -1180,12 +1124,6 @@ class PSScan(ScanBase):
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged._history = self._history
         self._timeaveraged._observer_location = self._observer_location
-        print(
-            "PS TA OBS ",
-            self._timeaveraged._observer_location,
-            self._timeaveraged._velocity_frame,
-            self._timeaveraged.mask,
-        )
         return self._timeaveraged
 
 
@@ -1505,19 +1443,19 @@ class FSScan(ScanBase):
         self._debug = debug
 
         if self._debug:
-            print("---------------------------------------------------")
-            print("FSSCAN: ")
-            print("SigOff", self._sigoffrows)
-            print("SigOn", self._sigonrows)
-            print("RefOff", self._refoffrows)
-            print("RegOn", self._refonrows)
+            logger.debug("---------------------------------------------------")
+            logger.debug("FSSCAN: ")
+            logger.debug(f"SigOff {self._sigoffrows}")
+            logger.debug(f"SigOn {self._sigonrows}")
+            logger.debug(f"RefOff {self._refoffrows}")
+            logger.debug(f"RefOn {self._refonrows}")
 
         nsigrows = len(self._sigonrows) + len(self._sigoffrows)
         nrefrows = len(self._refonrows) + len(self._refoffrows)
         if nsigrows != nrefrows:
             raise Exception("Number of sig rows does not match ref rows. Dangerous to proceed")
         if self._debug:
-            print("sigonrows", nsigrows, self._sigonrows)
+            logger.dbeug(f"sigonrows {nsigrows}, {self._sigonrows}")
         self._nrows = nsigrows
 
         a_scanrow = self._sigonrows[0]
@@ -1528,17 +1466,17 @@ class FSScan(ScanBase):
         else:
             self._bintable_index = bintable
         if self._debug:
-            print(f"bintable index is {self._bintable_index}")
+            logger.debug(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
 
         df = self._sdfits._index.iloc[self._scanrows]
         if self._debug:
-            print("len(df) = ", len(df))
+            logger.debug(f"{len(df) = }")
         self._set_if_fd(df)
         self._pols = uniq(df["PLNUM"])
         if self._debug:
-            print(f"FSSCAN #pol = {self._pols}")
+            logger.debug(f"FSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
@@ -1558,7 +1496,7 @@ class FSScan(ScanBase):
         if self._calibrate:
             self.calibrate(fold=fold, shift_method=shift_method)
         if self._debug:
-            print("---------------------------------------------------")
+            logger.debug("---------------------------------------------------")
         self._validate_defaults()
 
     @property
