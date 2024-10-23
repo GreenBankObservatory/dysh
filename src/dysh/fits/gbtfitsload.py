@@ -604,7 +604,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._selection.select_within(tag=tag, **kwargs)
 
     @log_call_to_history
-    def select_channel(self, chan, tag=None):
+    def select_channel(self, channel, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
@@ -626,14 +626,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        chan : number, or array-like
+        channel : number, or array-like
             The channels to select
 
         Returns
         -------
         None.
         """
-        self._selection.select_channel(tag=tag, chan=chan)
+        self._selection.select_channel(tag=tag, channel=channel)
 
     @log_call_to_history
     def clear_selection(self):
@@ -643,9 +643,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_history
     def flag(self, tag=None, **kwargs):
         """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
-        If `value` is array-like then a match to any of the array members will be selected.
-        For instance `flag(object=['3C273', 'NGC1234'])` will flag data for either of those
-        objects and `flag(ifnum=[0,2])` will flag IF number 0 or IF number 2.
+        If `value` is array-like then a match to any of the array members will be flagged.
+        For instance `flag(object=['3C273', 'NGC1234'])` will select data for either of those
+        objects and `flag(ifnum=[0,2])` will flag IF number 0 or IF number 2.  Channels for selected data
+        can be flagged using keyword `channel`, e.g., `flag(object='MBM12',channel=[0,23])`
+        will flag channels 0 through 23 *inclusive* for object MBM12.
         See `~dysh.util.selection.Flag`.
 
         Parameters
@@ -719,7 +721,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag.flag_within(tag=tag, **kwargs)
 
     @log_call_to_history
-    def flag_channel(self, chan, tag=None):
+    def flag_channel(self, channel, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for
@@ -743,14 +745,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        chan : number, or array-like
+        channel : number, or array-like
             The channels to flag
 
         Returns
         -------
         None.
         """
-        self._flag.flag_channel(tag=tag, chan=chan)
+        self._flag.flag_channel(tag=tag, channel=channel)
 
     @log_call_to_history
     def apply_flags(self):
@@ -898,7 +900,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
-        apply_flags=False,
+        apply_flags=True,
         **kwargs,
     ):
         """
@@ -1022,7 +1024,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
-        apply_flags=False,
+        apply_flags=True,
         **kwargs,
     ):
         """
@@ -1046,7 +1048,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         smooth_ref: int, optional
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
-            See :meth:`apply_flags`. Default: False
+            See :meth:`apply_flags`. Default: True
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1178,7 +1180,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
-        apply_flags=False,
+        apply_flags=True,
         **kwargs,
     ):
         """
@@ -1206,7 +1208,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         smooth_ref: int, optional
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
-            See :meth:`apply_flags`. Default: False
+            See :meth:`apply_flags`. Default: True
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1400,7 +1402,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
-        apply_flags=False,
+        apply_flags=True,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -1436,7 +1438,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         smooth_ref: int, optional
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
-            See :meth:`apply_flags`. Default: False
+            See :meth:`apply_flags`. Default: True
         observer_location : `~astropy.coordinates.EarthLocation`
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1557,7 +1559,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
-        apply_flags=False,
+        apply_flags=True,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -1583,7 +1585,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         smooth_ref: int, optional
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
-            See :meth:`apply_flags`. Default: False
+            See :meth:`apply_flags`. Default: True
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.

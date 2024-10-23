@@ -631,7 +631,7 @@ class SelectionBase(DataFrame):
             kw[k] = (v1, v2)
         self._base_select_range(tag, **kw)
 
-    def _base_select_channel(self, chan, tag=None):
+    def _base_select_channel(self, channel, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
@@ -655,7 +655,7 @@ class SelectionBase(DataFrame):
 
         Parameters
         ----------
-        chan : number, or array-like
+        channel : number, or array-like
             The channels to select
 
         Returns
@@ -671,11 +671,11 @@ class SelectionBase(DataFrame):
             raise Exception(
                 "You can only have one channel selection rule. Remove the old rule before creating a new one."
             )
-        self._check_numbers(chan=chan)
-        if isinstance(chan, numbers.Number):
-            chan = [int(chan)]
-        self._channel_selection = chan
-        self._addrow({"CHAN": str(chan)}, dataframe=self, tag=tag)
+        self._check_numbers(chan=channel)
+        if isinstance(channel, numbers.Number):
+            channel = [int(channel)]
+        self._channel_selection = channel
+        self._addrow({"CHAN": str(channel)}, dataframe=self, tag=tag)
 
     # NB: using ** in doc here because `id` will make a reference to the
     # python built-in function.  Arguably we should pick a different
@@ -1017,9 +1017,9 @@ class Flag(SelectionBase):
         """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be flagged.
         For instance `flag(object=['3C273', 'NGC1234'])` will select data for either of those
-        objects and `flag(ifnum=[0,2])` will flag IF number 0 or IF number 2.  Channels can be flagged
-        using keyword `chan`, e.g., `flag(object='MBM12',chan=[0,23])` will flag channels 0 through 23 *inclusive*
-        for object MBM12.
+        objects and `flag(ifnum=[0,2])` will flag IF number 0 or IF number 2.  Channels for selected data
+        can be flagged using keyword `channel`, e.g., `flag(object='MBM12',channel=[0,23])`
+        will flag channels 0 through 23 *inclusive* for object MBM12.
 
         Parameters
         ----------
@@ -1032,7 +1032,7 @@ class Flag(SelectionBase):
                 The value to select
 
         """
-        chan = kwargs.pop("chan", None)
+        chan = kwargs.pop("channel", None)
         if chan is not None:
             if isinstance(chan, numbers.Number):
                 chan = [int(chan)]
@@ -1045,9 +1045,9 @@ class Flag(SelectionBase):
         else:
             self._flag_channel_selection[idx] = ALL_CHANNELS
 
-    def flag_channel(self, chan, tag=None, **kwargs):
+    def flag_channel(self, channel, tag=None, **kwargs):
         """
-        Flag  channels and/or channel ranges for all rows. These are NOT used in :meth:`final`
+        Flag  channels and/or channel ranges for *all data*. These are NOT used in :meth:`final`
         but rather will be used to create a mask for
         flagging. Single arrays/tuples will be treated as *channel lists;
         nested arrays will be treated as  *inclusive* ranges. For instance:
@@ -1070,7 +1070,7 @@ class Flag(SelectionBase):
 
          Parameters
         ----------
-        chan : number, or array-like
+        channel : number, or array-like
             The channels to flag
 
         Returns
@@ -1079,9 +1079,10 @@ class Flag(SelectionBase):
 
         """
         # okay to use base method because we are flagging all rows
-        self._base_select_channel(chan, tag, **kwargs)
+        self._base_select_channel(channel, tag, **kwargs)
         idx = len(self._table) - 1
-        self._flag_channel_selection[idx] = chan
+        self._flag_channel_selection[idx] = channel
+        self._channel_selection = None  # unused for flagging
 
     def flag_range(self, tag=None, **kwargs):
         """Flag a range of inclusive values for a given key(s).
