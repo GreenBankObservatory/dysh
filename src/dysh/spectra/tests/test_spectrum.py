@@ -254,8 +254,8 @@ class TestSpectrum:
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
         s = slice(1000, 1100, 1)
-        print(f"{self.getps0[0].timeaverage()._velocity_frame=}")
-        print(f"{self.getps0[0].timeaverage()._target=}")
+        print(f"{self.getps[0].timeaverage()._velocity_frame=}")
+        print(f"{self.getps0[0]._target=}")
         print(f"{self.ps0._velocity_frame=}")
         print(f"{self.ps0._target=}")
         trimmed = self.ps0[s]

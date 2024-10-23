@@ -449,7 +449,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                     observer_location=Observatory["GBT"],
                 )
 
-            s = average_spectra(self._timeaveraged)
+            s = average_spectra(self._timeaveraged, weights=weights)
             s.merge_commentary(self)
         elif mode == "new":
             # average of the integrations
