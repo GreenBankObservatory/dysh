@@ -2385,3 +2385,24 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
+
+
+class GBTOnline(GBTFITSLoad):
+    @log_call_to_history
+    def __init__(self, fileobj=None, **kwargs):
+        self._online = fileobj
+        if fileobj is not None:
+            GBTFITSLoad.__init__(self, fileobj)
+            logger.debug(f"Special online mode {fileobj}")
+        else:
+            logger.debug(f"Testing online mode")
+
+    def reload(self, force=True):
+        """ force a reload of the latest
+        """
+        if force:
+            print(f"Forced reload {self._online}")
+            GBTFITSLoad.__init__(self, self._online)
+        else:
+            # @todo check if file changed, if so, reload
+            print(f"Checked reload {self._online} not implemented yet")
