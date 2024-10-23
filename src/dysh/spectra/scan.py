@@ -421,8 +421,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
         self._timeaveraged = []
+        i = 0
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
+            print(f"timeaveraged[{i}]= {self._timeaveraged[i].data.data}")
         s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
@@ -885,7 +887,8 @@ class TPScan(ScanBase):
         else:
             w = np.ones_like(self.tsys_weight)
         non_blanks = find_non_blanks(self._data)[0]
-        self._timeaveraged._data = average(self._data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(self._data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
@@ -1116,7 +1119,8 @@ class PSScan(ScanBase):
             w = self.tsys_weight
         else:
             w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
@@ -1361,7 +1365,8 @@ class NodScan(ScanBase):
             w = self.tsys_weight
         else:
             w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(self._data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
@@ -1754,7 +1759,8 @@ class FSScan(ScanBase):
             w = self.tsys_weight
         else:
             w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
@@ -1887,12 +1893,12 @@ class SubBeamNodScan(ScanBase):
             raise Exception(f"Can't yet time average multiple polarizations {self._npol}")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
-        nchan = len(data[0])
         if weights == "tsys":
             w = self.tsys_weight
         else:
             w = None
-        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]

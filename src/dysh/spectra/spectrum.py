@@ -68,11 +68,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @log_call_to_history
     def __init__(self, *args, **kwargs):
-        # print(f"ARGS={args}")
         HistoricalBase.__init__(self)
         self._target = kwargs.pop("target", None)
         if self._target is not None:
-            # print(f"self._target is {self._target}")
             self._target = sanitize_skycoord(self._target)
             self._velocity_frame = self._target.frame.name
         else:
@@ -164,11 +162,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s1 = []
         e = 0  #  set this to 1 if you want to be exact complementary
         if s[0][0] == 0:
-            # print("toggle_sections: edged")
             for i in range(ns - 1):
                 s1.append((s[i][1] + e, s[i + 1][0] - e))
         else:
-            # print("toggle_sections: internal")
             s1.append((0, s[0][0]))
             for i in range(ns - 1):
                 s1.append((s[i][1], s[i + 1][0]))
@@ -745,7 +741,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             actualframe = self.observer
         else:
             actualframe = astropy_frame_dict.get(toframe, toframe)
-        # print(f"actual frame is {actualframe} {type(actualframe)}")
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
         self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
         if isinstance(actualframe, str):
@@ -1124,7 +1119,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 savecomment = meta.pop("COMMENT", None)
                 if savecomment is None:
                     savecomment = meta.pop("comments", None)
-                # print(f"{meta=}")
                 wcs = WCS(header=meta)
                 if savehist is not None:
                     meta["HISTORY"] = savehist
@@ -1172,7 +1166,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             obsitrs = None
 
         if np.ma.is_masked(data):
-            print("data are masked")
             s = cls(
                 flux=data,
                 wcs=wcs,
@@ -1185,7 +1178,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 mask=data.mask,
             )
         else:
-            print("data are NOT masked")
             s = cls(
                 flux=data,
                 wcs=wcs,
@@ -1276,7 +1268,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return result
 
     def _add_meta(self, operand, operand2, **kwargs):
-        # print(kwargs)
         kwargs.setdefault("other_meta", True)
         meta = deepcopy(operand)
         if kwargs["other_meta"]:
@@ -1577,9 +1568,9 @@ def average_spectra(spectra, weights="tsys", align=False):
         if align:
             if i > 0:
                 s = s.align_to(spectra[0])
-
         data_array[i] = s.data
         data_array[i].mask = s.mask
+
         if weights == "tsys":
             wts[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
         else:
@@ -1588,7 +1579,8 @@ def average_spectra(spectra, weights="tsys", align=False):
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
-    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array) | data_array.mask)
+
+    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array) | data_array.mask, fill_value=np.nan)
     data = np.ma.average(data_array, axis=0, weights=wts)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
     xcoo = np.ma.average(xcoos, axis=0, weights=wts[:, 0])
