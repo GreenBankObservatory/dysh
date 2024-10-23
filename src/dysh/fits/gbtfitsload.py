@@ -770,13 +770,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # For all SDFs in each flag rule, set the flag mask(s)
         # for their rows.  The index of the sdf._flagmask array is the bintable index
         for key, chan in self._flag._flag_channel_selection.items():
-            print(f"{key=} {chan=}")
             selection = self._flag.get(key)
             # chan will be a list or a list of lists
             # If it is a single list, it is just a list of channels
             # if it is list of lists, then it is upper lower inclusive
             dfs = selection.groupby(["FITSINDEX", "BINTABLE"])
-            print(f"{key=} {chan=}")
             # the dict key for the groups is a tuple (fitsindex,bintable)
             for i, ((fi, bi), g) in enumerate(dfs):
                 chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
