@@ -41,7 +41,7 @@ Modules and APIs
             :outline:
             :click-parent:
 
-            Go to dysh.spectra
+            Go to dysh.plot
 
     .. grid-item-card::
         :shadow: md

@@ -14,6 +14,8 @@ import numpy as np
 # import pandas as pd
 from astropy.time import Time
 
+ALL_CHANNELS = "all channels"
+
 
 def select_from(key, value, df):
     """
@@ -325,3 +327,51 @@ def ensure_ascii(text: Union[str, list[str]], check: bool = False) -> Union[str,
         for c in text:
             clean_text.append(_ensure_ascii_str(c))
         return clean_text
+
+
+def convert_array_to_mask(a, length, value=True):
+    """
+    This method interprets a simple or compound array and returns a numpy mask
+    of length `length`. Single arrays/tuples will be treated as element index lists;
+    nested arrays will be treated as *inclusive* ranges, for instance:
+
+    ``
+    # mask elements 1 and 10
+    convert_array_to_mask([1,10])
+    # mask elements 1 thru 10 inclusive
+    convert_array_to_mask([[1,10]])
+    # mask ranges 1 thru 10 and 47 thru 56 inclusive, and element 75
+    convert_array_to_mask([[1,10], [47,56], 75)])
+    # tuples also work, though can be harder for a human to read
+    convert_array_to_mask(((1,10), [47,56], 75))
+    ``
+
+    Parameters
+    ----------
+    a : number or array-like
+        The
+    length : int
+        The length of the mask to return, e.g. the number of channels in a spectrum.
+
+    value : bool
+        The value to fill the mask with.  True to mask data, False to unmask.
+
+    Returns
+    -------
+    mask : ~np.ndarray
+        A numpy array where the mask is True according to the rules above.
+
+    """
+
+    if a == ALL_CHANNELS:
+        return np.full(length, value)
+
+    mask = np.full(length, False)
+
+    for v in a:
+        if isinstance(v, (tuple, list, np.ndarray)) and len(v) == 2:
+            # If there are just two numbers, interpret is as an inclusive range
+            mask[v[0] : v[1] + 1] = value
+        else:
+            mask[v] = value
+    return mask

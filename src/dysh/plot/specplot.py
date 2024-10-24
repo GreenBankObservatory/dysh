@@ -7,6 +7,7 @@ from copy import deepcopy
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.utils.masked import Masked
 
 from ..coordinates import frame_to_label
 
@@ -150,6 +151,7 @@ class SpectrumPlot:
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
+        sf = Masked(sf, s.mask)
         self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
         self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])

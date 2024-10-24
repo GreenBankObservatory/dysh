@@ -61,10 +61,12 @@ class TestPSScan:
 
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
+        print(f"{sdf_file=}")
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
+        print(np.shape(ps_scans[0]._calibrated), np.shape(ps_scans[1]._calibrated))
         ta = ps_scans.timeaverage()
 
         hdu = fits.open(gbtidl_file)
