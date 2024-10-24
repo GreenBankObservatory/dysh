@@ -597,7 +597,14 @@ _help = """
 
 f5 = dysh_data(example="mapping-Argus/data/TGBT22A_603_05.raw.vegas")
 sdf5 = GBTFITSLoad(f5)
-sdf5.summary()
+sdf5.summary()   # 53 scans (10..62)
+
+mkdir("vane5")
+sdf5.write("vane5/file.fits", scan=[10,11,12], overwrite=True)
+
+vane5 = GBTFITSLoad("vane5")
+vane5.summary()
+
 
 tsys_10 = vanecal(sdf5, 10, 11, feeds=range(16))
 #      1.45318402, 1.25949678, 1.27948539, 1.41625876, 1.26606387,
