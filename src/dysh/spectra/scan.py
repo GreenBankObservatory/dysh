@@ -1382,7 +1382,7 @@ class NodScan(ScanBase):
             w = self.tsys_weight
         else:
             w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = np.ma.average(self._data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
         self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
