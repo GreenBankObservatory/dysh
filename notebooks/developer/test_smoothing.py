@@ -102,3 +102,20 @@ print("e box :", np.nanstd(e2b))
 print("e han :", np.nanstd(e2h))    
 print("e gau :", np.nanstd(e2g))
 print("e smth:", np.nanstd(e2s))
+
+#%% issue 415
+
+
+filename = dysh_data(test="AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits")
+
+sdfits = GBTFITSLoad(filename)
+sdfits.summary()
+sdfits.flag_channel([[170,200],[2880,2980],[31000,32768]])   # note even 33000 cann be used with no warning
+scan_block = sdfits.getps(ifnum=0, plnum=0)
+ta = scan_block.timeaverage()
+ta.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
+ta.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)], remove=True)
+ts = ta.smooth('gaussian',16)
+ta.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
+
+
