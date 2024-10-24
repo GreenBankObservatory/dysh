@@ -486,7 +486,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # All checks for smoothing should be completed by this point.
         # Create a new metadata dictionary to modify by smooth.
         new_meta = deepcopy(self.meta)
-
+        md = np.ma.masked_array(self._data, self.mask)
         if this_method == "gaussian":
             if width <= self._resolution:
                 raise ValueError(
@@ -494,12 +494,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 )
             kwidth = np.sqrt(width**2 - self._resolution**2)  # Kernel effective width.
             stddev = kwidth / 2.35482
-            s1 = core.smooth(self._data, this_method, stddev)
+
+            s1 = core.smooth(md, this_method, stddev)
         else:
             kwidth = width
-            s1 = core.smooth(self._data, this_method, width)
-
-        new_data = s1 * self.flux.unit
+            s1 = core.smooth(md, this_method, width)
+        mask = np.full(s1.shape, False)
+        mask[np.where(s1 == np.nan)] = True
+        new_data = Masked(s1 * self.flux.unit, mask)
         new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
 
         s = Spectrum.make_spectrum(new_data, meta=new_meta)
