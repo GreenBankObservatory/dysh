@@ -499,12 +499,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             kwidth = width
             s1 = core.smooth(md, this_method, width)
-        mask = np.full(s1.shape, False)
+        #mask = np.full(s1.shape, False)
         # in core.smooth, we fill masked values with np.nan.
         # astropy.convolve does not return a new mask, so we recreate
         # a decimated mask where values are nan
-        mask[np.where(s1 == np.nan)] = True
-        new_data = Masked(s1 * self.flux.unit, mask)
+        #mask[np.where(s1 == np.nan)] = True
+        #new_data = Masked(s1 * self.flux.unit, mask)
+        new_data = s1*self.flux.unit
         new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
 
         s = Spectrum.make_spectrum(new_data, meta=new_meta)
