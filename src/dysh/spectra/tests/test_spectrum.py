@@ -50,10 +50,10 @@ class TestSpectrum:
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
-        getps0 = sdf.getps(scan=51, plnum=0)
-        self.ps0 = getps0.timeaverage()
-        getps1 = sdf.getps(scan=51, plnum=1)
-        self.ps1 = getps1.timeaverage()
+        self.getps0 = sdf.getps(scan=51, plnum=0)
+        self.ps0 = self.getps0.timeaverage()
+        self.getps1 = sdf.getps(scan=51, plnum=1)
+        self.ps1 = self.getps1.timeaverage()
         self.ss = self.ps0._copy()  # Synthetic one.
         x = np.arange(0, len(self.ss.data))
         fwhm = 5
@@ -254,7 +254,6 @@ class TestSpectrum:
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
         s = slice(1000, 1100, 1)
-
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
         assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
