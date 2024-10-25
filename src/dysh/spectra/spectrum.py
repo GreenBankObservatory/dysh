@@ -1368,7 +1368,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # New Spectrum.
         return self.make_spectrum(
-            self.flux[start_idx:stop_idx], meta=meta, observer_location=Observatory[meta["TELESCOP"]]
+            Masked(self.flux[start_idx:stop_idx], self.mask[start_idx:stop_idx]),
+            meta=meta,
+            observer_location=Observatory[meta["TELESCOP"]],
         )
 
 
@@ -1527,7 +1529,7 @@ with registry.delay_doc_updates(Spectrum):
 
 
 def average_spectra(spectra, weights="tsys", align=False):
-    """
+    r"""
     Average `spectra`. The resulting `average` will have an exposure equal to the sum of the exposures,
     and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
 

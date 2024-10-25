@@ -431,7 +431,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         i = 0
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
-            print(f"timeaveraged[{i}]= {self._timeaveraged[i].data.data}")
         s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
@@ -1559,8 +1558,8 @@ class FSScan(ScanBase):
         fold=True or fold=False is required
         """
         if self._debug:
-            print(f'FOLD={kwargs["fold"]}')
-            print(f'METHOD={kwargs["shift_method"]}')
+            logger.debug(f'FOLD={kwargs["fold"]}')
+            logger.debug(f'METHOD={kwargs["shift_method"]}')
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -1656,26 +1655,23 @@ class FSScan(ScanBase):
         sig_freq = self._sigcalon[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]
-        if self._debug:
-            print("df_sig", type(df_sig), len(df_sig))
+        logger.debug(f"df_sig {type(df_sig)} len(df_sig)")
         sig_freq = index_frequency(df_sig)
         ref_freq = index_frequency(df_ref)
         chan_shift = abs(sig_freq[0, 0] - ref_freq[0, 0]) / np.abs(np.diff(sig_freq)).mean()
-        if self._debug:
-            print("FS: shift=%g  nchan=%d" % (chan_shift, self._nchan))
+        logger.debug(f"FS: shift={chan_shift:g}  nchan={self._nchan:g}")
 
         #  tcal is the same for REF and SIG, and the same for all integrations actually.
         tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["TCAL"].to_numpy()
-        if self._debug:
-            print("TCAL:", len(tcal), tcal[0])
+        logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         # @todo   the nspect loop could be replaced with clever numpy?
         for i in range(nspect):
             tsys_sig = mean_tsys(calon=self._sigcalon[i], caloff=self._sigcaloff[i], tcal=tcal[i])
             tsys_ref = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-            if i == 0 and self._debug:
-                print("Tsys(sig/ref)[0]=", tsys_sig, tsys_ref)
+            if i == 0:
+                logger.debug(f"Tsys(sig/ref)[0]={tsys_sig} / {tsys_ref}")
             tp_sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
             tp_ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
             #
