@@ -1141,12 +1141,50 @@ class Flag(SelectionBase):
         Parameters
         ----------
         fileobj : str, file-like or `pathlib.Path`
-            File to write to.  If a file object, must be opened in a
-            writeable mode.
+            File to read.  If a file object, must be opened in a
+            readable mode.
 
         Returns
         -------
         flags :   `~selection.Flag`
             A Flag object that represents the GBTIDL flags.
         """
-        pass
+        # GBTIDL flag files two sections [header] and [flags]
+        # In the [header] section is information about file creation.
+        # The [flags] section containes the flag table
+        # The table has 10 columns. Its rows have vertical bar (|) separated columns, while
+        # the table header is separated by commas and begins with a #
+        # The columns are:
+        #
+        # ID - flag ID number, same as dysh's flag rule `id`
+        # RECNUM - range of the selected record numbers given as low:high inclusive
+        # SCAN - range of the selected scan numbers given as low:high inclusive
+        # INTNUM - range of the selected integration numbers given as low:high inclusive
+        # PLNUM - range of the selected polarization numbers given as low:high inclusive
+        # IFNUM - range of the selected IF numbers given as low:high inclusive
+        # BCHAN - beginning channel flagged (inclusive, starting from zero)
+        # ECHAN - end channel flagged (inclusive)
+        # IDSTRING - Reason for flagging, same as dysh's flag rule `tag`
+        #
+        # A wildcard appears in a column if it had no selection (meaning all values were selected).
+        # Example file:
+        # [header]
+        # created = Wed Jan  5 16:48:37 2022
+        # version = 1.0
+        # created_by = sdfits
+        # [flags]
+        # #RECNUM,SCAN,INTNUM,PLNUM,IFNUM,FDNUM,BCHAN,ECHAN,IDSTRING
+        # *|6|*|*|2|0|3072|3072|VEGAS_SPUR
+
+        # Because the table header and table row delimeters are different,
+        # Table.read() can't work.  So construct it row by row.
+        f = open(fileobj, mode="r")
+        lines = f.read().splitlines()  # gets rid of \n
+        f.close()
+
+        for l in lines[lines.index("[flags]") + 1 : -1]:
+            if l.startswith("#"):
+                # its the header
+                colnames = l[1:].split(",")
+            else:
+                values = l.split("|")
