@@ -1527,7 +1527,7 @@ with registry.delay_doc_updates(Spectrum):
 
 
 def average_spectra(spectra, weights="tsys", align=False):
-    """
+    r"""
     Average `spectra`. The resulting `average` will have an exposure equal to the sum of the exposures,
     and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
 
