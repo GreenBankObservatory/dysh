@@ -1368,7 +1368,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # New Spectrum.
         return self.make_spectrum(
-            self.flux[start_idx:stop_idx], meta=meta, observer_location=Observatory[meta["TELESCOP"]]
+            Masked(self.flux[start_idx:stop_idx], self.mask[start_idx:stop_idx]),
+            meta=meta,
+            observer_location=Observatory[meta["TELESCOP"]],
         )
 
 
