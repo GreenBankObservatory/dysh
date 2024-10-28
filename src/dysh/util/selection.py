@@ -490,6 +490,10 @@ class SelectionBase(DataFrame):
             value : any
                 The value to select
 
+        Returns
+        -------
+            True if the selection resulted in a new fule, False if not (no data selected)
+
         """
         self._check_keys(kwargs.keys())
         row = {}
@@ -532,8 +536,9 @@ class SelectionBase(DataFrame):
             row[ku] = str(v)
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
-            return
+            return False
         self._addrow(row, df, tag)
+        return True
 
     def _base_select_range(self, tag=None, **kwargs):
         """
@@ -1037,7 +1042,9 @@ class Flag(SelectionBase):
             if isinstance(chan, numbers.Number):
                 chan = [int(chan)]
             self._check_numbers(chan=chan)
-        self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
+        success = self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
+        if not success:
+            return
         idx = len(self._table) - 1
         if chan is not None:
             self._table[idx]["CHAN"] = str(chan)
@@ -1134,7 +1141,6 @@ class Flag(SelectionBase):
         """
         self._base_select_within(tag, **kwargs)
 
-    @classmethod
     def read(self, fileobj):
         """Read a GBTIDL flag file and instantiate Flag object.
 
@@ -1181,10 +1187,25 @@ class Flag(SelectionBase):
         f = open(fileobj, mode="r")
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
-
+        header = ["RECNUM", "SCAN", "INTNUM", "PLNUM", "IFNUM", "FDNUM", "BCHAN", "ECHAN", "IDSTRING"]
         for l in lines[lines.index("[flags]") + 1 : -1]:
+            vdict = {}
             if l.startswith("#"):
                 # its the header
                 colnames = l[1:].split(",")
+                if colnames != header:
+                    raise Exception(f"Column names {colnames} do not match expectated {header}")
             else:
                 values = l.split("|")
+                for i, v in enumerate(values):
+                    if v == "*":
+                        continue
+                    else:
+                        if header[i] != "IDSTRING":
+                            vdict[header[i]] = int(v)
+                # our tag is gbtidl's idstring
+                tag = vdict.pop("IDSTRING", None)
+                chan = [vdict.pop("BCHAN", None), vdict.pop("ECHAN", None)]
+                if None not in chan:
+                    vdict["channel"] = [[int(c) for c in chan]]
+                self.flag(tag=tag, **vdict)
