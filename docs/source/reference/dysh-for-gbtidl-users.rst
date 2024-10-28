@@ -22,6 +22,10 @@ Some key differences
 Rough equivalents
 =================
 
+In the tables below, it is assumed you have executed the following commands in Python:
+
+`from dysh.fits.gbtfitsload import GBTFITSLoad`
+`from dysh.util.selection import Selection`
 
 
 
@@ -34,6 +38,11 @@ File I/O and Metadata Operations
     :header-rows: 1
     :class: longtable
     :widths: 10 15 10
+
+
+
+Calibration and Data Retrieval
+------------------------------
 
 
 
