@@ -57,10 +57,10 @@ class TestSpectrum:
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
-        getps0 = sdf.getps(scan=51, plnum=0)
-        self.ps0 = getps0.timeaverage()
-        getps1 = sdf.getps(scan=51, plnum=1)
-        self.ps1 = getps1.timeaverage()
+        self.getps0 = sdf.getps(scan=51, plnum=0)
+        self.ps0 = self.getps0.timeaverage()
+        self.getps1 = sdf.getps(scan=51, plnum=1)
+        self.ps1 = self.getps1.timeaverage()
         self.ss = self.ps0._copy()  # Synthetic one.
         x = np.arange(0, len(self.ss.data))
         fwhm = 5
@@ -261,7 +261,6 @@ class TestSpectrum:
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
         s = slice(1000, 1100, 1)
-
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
         assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
@@ -419,7 +418,7 @@ class TestSpectrum:
 
         # Apply method to be tested.
         shift = 5.5
-        spec.shift(shift)
+        spec = spec.shift(shift)
 
         # Internal tests.
         assert np.all(np.isnan(spec[: int(np.round(shift))].data))
@@ -487,20 +486,20 @@ class TestSpectrum:
         org_spec = spec._copy()
 
         # Align to itself.
-        spec.align_to(spec)
+        spec = spec.align_to(spec)
         compare_spectrum(spec, org_spec, ignore_history=True)
         assert np.all((spec - org_spec).data == 0)
 
         # Align to a shifted version.
         shift = 5
-        spec.shift(shift)
+        spec = spec.shift(shift)
         assert np.all((spec.data[shift:] - org_spec.data[:-shift]) == 0.0)
 
         # Align to a shifted version with signal.
         fshift = 0.5
         spec = self.ss._copy()
         org_spec = spec._copy()
-        spec.shift(shift + fshift)
+        spec = spec.shift(shift + fshift)
         # The amplitude of the signal will decrease because of the sampling.
         tol = np.sqrt(
             (1 - np.exp(-0.5 * (fshift) ** 2 / spec.meta["STDD"] ** 2)) ** 2.0

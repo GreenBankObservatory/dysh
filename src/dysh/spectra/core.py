@@ -688,7 +688,11 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
     if show:
         return kernel
     # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
-    new_data = convolve(data, kernel, boundary="extend")
+    if hasattr(data, "mask"):
+        mask = data.mask
+    else:
+        mask = None
+    new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
     return new_data
 
 
