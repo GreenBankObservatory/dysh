@@ -808,6 +808,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
+        # for directories with multiple FITS files and possibly multiple FLAG files
+        # we have to ensure the right flag file goes with the right FITS tile.
+        # The GBT convention is the same filename with '.flag' instead of '.fits'.
+        # We construct the flagfile and also pass in FITSINDEX column to ensure
+        # only the data associated with that file are flagged.
+        for s in self._sdf:
+            flagfile = s.filename.with_suffix(".flag")
+            if flagfile.exists():
+                fi = uniq(s["FITSINDEX"])[0]
+                self.flags.read(flagfile, fitsindex=fi)
 
     def _construct_procedure(self):
         """
