@@ -15,15 +15,8 @@ import os
 import sys
 from pathlib import Path
 
-try:
-    from dysh.util.download import from_url
-
-    use_wget = False
-except:
-    import wget  # might get deprecated
-
-    use_wget = True
 import dysh.util as util
+from dysh.util.download import from_url
 
 from ..util import minimum_string_match
 
@@ -130,8 +123,32 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     _url                = "http://www.gb.nrao.edu/dysh/"            # base of all things dysh
     _example_data       = "/home/dysh/public_html/example_data"     # GBO direct access
     _test_data          = "/home/dysh/public_html/test_data"        # not used ??
-    _acceptance_testing = "/home/dysh/acceptance_testing/data"      # not in public_html ??
+    _accept_data        = "/home/dysh/acceptance_testing/data"      # not in public_html ??
     # fmt:on
+
+    def sdfits_offline(fn):
+        """fn is an sdfits= filename that was shown to exist
+        If fn contains only one name
+        """
+        if fn.is_file():
+            return fn
+        if not fn.is_dir():
+            print(f"{fn} is not a file nor a directory, dunno how to proceed")
+            return None
+        # find all fits files one level deep
+        ff = list(fn.glob("*/*.fits"))
+        if len(ff) == 0:
+            return fn
+        # ensure there is only a single parent
+        parents = []
+        for f in ff:
+            parents.append(f.parent)
+        parents = list(set(parents))
+        if len(parents) > 1:
+            print(f"{fn} does not contain a single fits tree: {parents}")
+            # @todo throw ?  or return the first one?
+
+        return parents[0]
 
     # 1.  find out if there is a dysh_data (or use $DYSH_DATA, or a .dyshrc config?)
     #     - if present, API dysh_data is used
@@ -142,14 +159,10 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     #     - throw!?
     #     ? e.g. dysh_data('foo.fits') ->   sdfits='foo.fits'
 
-    global _debug
     if dysh_data == None and "DYSH_DATA" in os.environ:
         dysh_data = Path(os.environ["DYSH_DATA"])
     if verbose:
-        _debug = True
-    if _debug:
         print("DYSH_DATA:", dysh_data)
-        print("USE_WGET: ", use_wget)
 
     # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present
 
@@ -168,15 +181,14 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("# -----------------")
             os.system(cmd)
             return None
-        print(type(dysh_data))
         if dysh_data != None:
-            fn = dysh_data / Path("sdfits") / sdfits
+            fn = dysh_data / Path("sdfits") / sdfits  # normally user is using a private sdfits
             if fn.exists():
-                return fn
-        fn = Path("/home/sdfits/") / sdfits
+                return sdfits_offline(fn)
+        fn = Path("/home/sdfits/") / sdfits  # expected at GBO
         if fn.exists():
-            return fn
-        print(f"could not handle sdfits={sdfits} yet")
+            return sdfits_offline(fn)
+        # print(f"could not handle sdfits={sdfits} yet")
         return None
 
     # test:   this should also be allowed to use util.get_project_testdata() as well
@@ -200,7 +212,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 fn = util.get_project_testdata() / my_test
         else:
             fn = util.get_project_testdata() / my_test
-        if _debug:
+        if verbose:
             print("final:", fn)
         if fn.exists():  # @todo this catches files and directories
             return fn
@@ -233,17 +245,17 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("Odd-2, did not find", fn)
         # last resort, try getting it via wget, but it will then be a local file in the current directory
         url = _url + "/example_data/" + my_example
-        if _debug:
+        if verbose:
             print("url:", url)
-        # @todo  how to use Path() here ????
+        filename = url.split("/")[-1]
         if not os.path.exists(filename):
-            filename = url.split("/")[-1]
             print(f"Downloading {filename} from {url}")
-            if use_wget:
-                wget.download(url, out=filename)
-            else:
+            try:
                 filename = from_url(url)
-            print(f"\nRetrieved {filename}")
+                print(f"\nRetrieved {filename}")
+            except:
+                print(f"\nFailing to retrieve example {filename} ")
+                return None
         else:
             print(f"{filename} already downloaded")
         return filename
@@ -274,17 +286,17 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("Odd-2, did not find", fn)
         # last resort, try getting it via wget, but it will then be a local file in the current directory
         url = _url + "/acceptance_testing/data/" + my_accept
-        if _debug:
+        if verbose:
             print("url:", url)
-        # @todo  how to use Path() here ????
-        if not os.path.exists(filename):  # @todo filename not known if file didn't exist
-            filename = url.split("/")[-1]
+        filename = url.split("/")[-1]
+        if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")
-            if use_wget:
-                wget.download(url, out=filename)
-            else:
+            try:
                 filename = from_url(url)
-            print(f"\nRetrieved {filename}")
+                print(f"\nRetrieved {filename}")
+            except:
+                print(f"\nFailing to retrieve accept {filename}")
+                return None
         else:
             print(f"{filename} already downloaded")
         return filename
