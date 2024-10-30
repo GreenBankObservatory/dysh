@@ -433,6 +433,33 @@ class TestGBTFITSLoad:
             except KeyError:
                 continue
 
+    def test_getnod_single_int(self):
+        """
+        Compare gbtidl result to dysh for a getnod spectrum from a single integration/pol/feed.
+        For the differenced spectrum (gbtidl - dysh) we check:
+         - median is 0.0
+         - all non-nan values are less than 5e-7
+         - index 3072 is nan (why?)
+        """
+        gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
+        # We should probably use dysh to open the file...
+        hdu = fits.open(gbtidl_file)
+        gbtidl_getps = hdu[1].data["DATA"][0]
+
+        sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        # psscan is a ScanList
+        psscan = sdf.getps(152)
+        assert len(psscan) == 1
+        psscan.calibrate()
+        dysh_getps = psscan[0].calibrated(0).flux.to("K").value
+
+        diff = gbtidl_getps - dysh_getps
+        hdu.close()
+        assert np.nanmedian(diff) == 0.0
+        assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
+        assert np.isnan(diff[3072])
+        
     def test_write_single_file(self, tmp_path):
         "Test that writing an SDFITS file works when subselecting data"
         p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
