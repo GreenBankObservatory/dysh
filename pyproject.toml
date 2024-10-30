@@ -30,7 +30,7 @@ dependencies = [
   "numpy",
   "pandas",
   "scipy",
-  "specutils>1.16,<1.18",
+  "specutils>1.16",
   "httpx",
   "rich",
   "tenacity",
