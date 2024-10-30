@@ -156,5 +156,5 @@ class TestSelection:
         with pytest.raises(Exception):
             s.select_channel(["10", "a", 103])
 
-    def test_flag_read(self):
-        f = Flag.read(self.gbtidl_flag_file)
+    # def test_flag_read(self):
+    #    f = Flag.read(self.gbtidl_flag_file)

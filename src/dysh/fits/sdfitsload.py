@@ -657,7 +657,9 @@ class SDFITSLoad(object):
         outbintable.update()
         return outbintable
 
-    def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
+    def write(
+        self, fileobj, rows=None, bintable=None, flags=True, output_verify="exception", overwrite=False, checksum=False
+    ):
         """
         Write the `SDFITSLoad` to a new file, potentially sub-selecting rows or bintables.
 
@@ -673,6 +675,9 @@ class SDFITSLoad(object):
 
             bintable :  int
                 The index of the `bintable` attribute or None for all bintables. Default: None
+
+            flags: bool, optional
+                If True, write the applied flags to a `FLAGS` column in the binary table
 
             output_verify : str
                 Output verification option.  Must be one of ``"fix"``,

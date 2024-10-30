@@ -15,7 +15,7 @@ from pandas import DataFrame
 from ..log import logger
 
 # from ..fits import default_sdfits_columns
-from . import ALL_CHANNELS, gbt_timestamp_to_time, generate_tag, keycase
+from . import ALL_CHANNELS, abbreviate_to, gbt_timestamp_to_time, generate_tag, keycase
 
 default_aliases = {
     "freq": "crval1",
@@ -37,6 +37,10 @@ def _default_sdfits_columns():
     from ..fits import default_sdfits_columns
 
     return default_sdfits_columns()
+
+
+DEFAULT_COLUMN_WIDTH = 32  # char
+DEFAULT_COLUMN_TYPE = f"<U{DEFAULT_COLUMN_WIDTH}"
 
 
 class SelectionBase(DataFrame):
@@ -61,14 +65,14 @@ class SelectionBase(DataFrame):
         # if we want Selection to replace _index in sdfits
         # construction this will have to change. if hasattr("_index") etc
         self._idtag = ["ID", "TAG"]
-        DEFKEYS.extend(["CHAN", "UTC", "# SELECTED"])
+        DEFKEYS.extend(["FITSINDEX", "CHAN", "UTC", "# SELECTED"])
         # add ID and TAG as the first columns
         for i in range(len(self._idtag)):
             DEFKEYS.insert(i, self._idtag[i])
         # add channel, astropy-based timestamp, and number rows selected
         DEFKEYS = np.array(DEFKEYS)
         # set up object types for the np.array
-        dt = np.full(len(DEFKEYS) - 1, np.dtype("<U32"))
+        dt = np.full(len(DEFKEYS) - 1, np.dtype(DEFAULT_COLUMN_TYPE))
         dt[0] = np.int32
         # add number selected column which is an int
         dt = np.insert(dt, len(dt), np.int32)
@@ -95,7 +99,7 @@ class SelectionBase(DataFrame):
         -------
         None.
         """
-        self["UTC"] = [gbt_timestamp_to_time(q) for q in self.TIMESTAMP]
+        self["UTC"] = gbt_timestamp_to_time(self.TIMESTAMP)
 
     def _make_table(self):
         """Create the table for displaying the selection rules"""
@@ -472,6 +476,8 @@ class SelectionBase(DataFrame):
         row["ID"] = self._next_id
         row["# SELECTED"] = len(dataframe)
         self._selection_rules[row["ID"]] = dataframe
+        for k, v in row.items():
+            row[k] = abbreviate_to(DEFAULT_COLUMN_WIDTH, v)
         self._table.add_row(row)
         # self._last_row_added = row
 
@@ -500,6 +506,7 @@ class SelectionBase(DataFrame):
         # if called via _select_from_mixed_kwargs, then we want to merge all the
         # selections
         df = kwargs.pop("startframe", self)
+        query2 = None
         for k, v in list(kwargs.items()):
             ku = k.upper()
             if ku in self._aliases:
@@ -530,10 +537,22 @@ class SelectionBase(DataFrame):
                     # for pd.merge to give the correct answer, we would
                     # need "inner" on the first one and "outer" on subsequent
                     # df = pd.merge(df, df[df[ku] == vv], how="inner")
+                print(f"df.query({query})")
                 df = df.query(query)
             else:
-                df = pd.merge(df, df[df[ku] == v], how="inner")
-            row[ku] = str(v)
+                if isinstance(v, str):
+                    thisq = f'{ku} == "{v}"'
+                else:
+                    thisq = f"{ku} == {v}"
+                if query2 is None:
+                    query2 = thisq
+                else:
+                    query2 += f"& {thisq}"
+                # print(f'pd.merge(df, df[df[{ku}] == {v}], how="inner")')
+                # df = pd.merge(df, df[df[ku] == v], how="inner")
+            row[ku] = v
+        if query2 is not None:
+            df = df.query(query2)
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
             return False
@@ -588,7 +607,7 @@ class SelectionBase(DataFrame):
                 else:
                     vn.append(q)
             v = vn
-            row[ku] = str(v)
+            row[ku] = v
             if len(v) == 2:
                 if v[0] is not None and v[1] is not None:
                     df = pd.merge(df, df[(df[ku] <= v[1]) & (df[ku] >= v[0])], how="inner")
@@ -680,7 +699,7 @@ class SelectionBase(DataFrame):
         if isinstance(channel, numbers.Number):
             channel = [int(channel)]
         self._channel_selection = channel
-        self._addrow({"CHAN": str(channel)}, dataframe=self, tag=tag)
+        self._addrow({"CHAN": abbreviate_to(DEFAULT_COLUMN_WIDTH, channel)}, dataframe=self, tag=tag)
 
     # NB: using ** in doc here because `id` will make a reference to the
     # python built-in function.  Arguably we should pick a different
@@ -825,10 +844,10 @@ class SelectionBase(DataFrame):
         ukwargs = keycase(kwargs)
         chan = ukwargs.pop("CHANNEL", None)
         if chan is not None:
-            self.select_channel(chan, tag)
+            self._base_select_channel(chan, tag)
         if len(ukwargs) != 0:
             logger.debug(f"selection {ukwargs}")
-            self.select(**ukwargs, tag=tag)
+            self._base_select(**ukwargs, tag=tag)
 
     def __deepcopy__(self, memo):
         warnings.simplefilter("ignore", category=UserWarning)
@@ -1047,7 +1066,7 @@ class Flag(SelectionBase):
             return
         idx = len(self._table) - 1
         if chan is not None:
-            self._table[idx]["CHAN"] = str(chan)
+            self._table[idx]["CHAN"] = abbreviate_to(DEFAULT_COLUMN_WIDTH, chan)
             self._flag_channel_selection[idx] = chan
         else:
             self._flag_channel_selection[idx] = ALL_CHANNELS
@@ -1141,7 +1160,7 @@ class Flag(SelectionBase):
         """
         self._base_select_within(tag, **kwargs)
 
-    def read(self, fileobj):
+    def read(self, fileobj, **kwargs):
         """Read a GBTIDL flag file and instantiate Flag object.
 
         Parameters
@@ -1149,11 +1168,13 @@ class Flag(SelectionBase):
         fileobj : str, file-like or `pathlib.Path`
             File to read.  If a file object, must be opened in a
             readable mode.
+        **kwargs : dict
+            Extra keyword arguments to apply to the flag rule.  (This is mainly for internal use.)
 
         Returns
         -------
-        flags :   `~selection.Flag`
-            A Flag object that represents the GBTIDL flags.
+        None.
+
         """
         # GBTIDL flag files two sections [header] and [flags]
         # In the [header] section is information about file creation.
@@ -1172,6 +1193,8 @@ class Flag(SelectionBase):
         # ECHAN - end channel flagged (inclusive)
         # IDSTRING - Reason for flagging, same as dysh's flag rule `tag`
         #
+        # Numeric alues can be a single integer or comma-separated list of integers.  If BCHAN and ECHAN
+        # are a comma-separated list then they must be pair up as [bchan_i,echan+i]
         # A wildcard appears in a column if it had no selection (meaning all values were selected).
         # Example file:
         # [header]
@@ -1184,11 +1207,12 @@ class Flag(SelectionBase):
 
         # Because the table header and table row delimeters are different,
         # Table.read() can't work.  So construct it row by row.
+        print(f"reading flag file {fileobj}")
         f = open(fileobj, mode="r")
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
         header = ["RECNUM", "SCAN", "INTNUM", "PLNUM", "IFNUM", "FDNUM", "BCHAN", "ECHAN", "IDSTRING"]
-        for l in lines[lines.index("[flags]") + 1 : -1]:
+        for l in lines[lines.index("[flags]") + 1 :]:
             vdict = {}
             if l.startswith("#"):
                 # its the header
@@ -1201,11 +1225,28 @@ class Flag(SelectionBase):
                     if v == "*":
                         continue
                     else:
-                        if header[i] != "IDSTRING":
-                            vdict[header[i]] = int(v)
+                        if header[i] == "IDSTRING":
+                            vdict[header[i]] = v
+                        else:
+                            if "," in v:
+                                vdict[header[i]] = [int(float(x)) for x in v.split(",")]
+                            else:
+                                vdict[header[i]] = int(float(v))
+
                 # our tag is gbtidl's idstring
                 tag = vdict.pop("IDSTRING", None)
-                chan = [vdict.pop("BCHAN", None), vdict.pop("ECHAN", None)]
-                if None not in chan:
-                    vdict["channel"] = [[int(c) for c in chan]]
+                bchan = vdict.pop("BCHAN", None)
+                echan = vdict.pop("ECHAN", None)
+                if bchan is not None and echan is not None:
+                    if not isinstance(bchan, list):
+                        bchan = [bchan]
+                    bchan = [int(float(x)) for x in bchan]
+                    if not isinstance(echan, list):
+                        echan = [echan]
+                    echan = [int(float(x)) for x in echan]
+                    # pair up echan and bchan
+                    vdict["channel"] = list(zip(bchan, echan))
+                if kwargs is not None:
+                    vdict.update(kwargs)
+                logger.debug(f"flag({tag=},{vdict})")
                 self.flag(tag=tag, **vdict)

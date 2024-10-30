@@ -70,7 +70,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self.GBT = Observatory["GBT"]
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
-            self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
+            self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
         elif path.is_dir():
             logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
@@ -813,11 +813,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # The GBT convention is the same filename with '.flag' instead of '.fits'.
         # We construct the flagfile and also pass in FITSINDEX column to ensure
         # only the data associated with that file are flagged.
-        for s in self._sdf:
-            flagfile = s.filename.with_suffix(".flag")
-            if flagfile.exists():
-                fi = uniq(s["FITSINDEX"])[0]
-                self.flags.read(flagfile, fitsindex=fi)
+        if True:
+            for s in self._sdf:
+                p = Path(s.filename)
+                flagfile = p.with_suffix(".flag")
+                if flagfile.exists():
+                    print(f"Found flag file {flagfile}")
+                    fi = uniq(s["FITSINDEX"])[0]
+                    self.flags.read(flagfile, fitsindex=fi)
 
     def _construct_procedure(self):
         """
@@ -2293,6 +2296,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self,
         fileobj,
         multifile=True,
+        flags=True,
         verbose=False,
         output_verify="exception",
         overwrite=False,
@@ -2310,6 +2314,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         multifile: bool, optional
             If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
             Otherwise, write to a single SDFITS file.
+        flags: bool, optional
+            If True, write the applied flags to a `FLAGS` column in the binary table.
         verbose: bool, optional
             If True, print out some information about number of rows written per file
         output_verify : str

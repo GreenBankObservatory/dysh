@@ -76,8 +76,9 @@ def gbt_timestamp_to_time(timestamp):
 
     Parameters
     ----------
-    timestamp : str
-        The GBT format timestamp as described above.
+    timestamp : str or list-like
+        The GBT format timestamp as described above. If str, a Time object containing a single time is returned.
+        If list-like, a Time object containing  multiple UTC times is returned.
 
     Returns
     -------
@@ -85,7 +86,10 @@ def gbt_timestamp_to_time(timestamp):
         The time object
     """
     # convert to ISO FITS format  YYYY-MM-DDTHH:MM:SS(.SSS)
-    t = timestamp.replace("_", "-", 2).replace("_", "T")
+    if isinstance(timestamp, str):
+        t = timestamp.replace("_", "-", 2).replace("_", "T")
+    else:
+        t = [ts.replace("_", "-", 2).replace("_", "T") for ts in timestamp]
     return Time(t, scale="utc")
 
 
@@ -375,3 +379,34 @@ def convert_array_to_mask(a, length, value=True):
         else:
             mask[v] = value
     return mask
+
+
+def abbreviate_to(length, value, squeeze=True):
+    """
+    Abbreviate a value for display in limited space. The abbreviated
+    value will have initial characters, ellipsis, and final characters, e.g.
+    '[(a,b),(c,d)...(w,x),(y,z)]'.
+
+    Parameters
+    ----------
+    length : int
+        Maximum string length.
+    value : any
+        The value to be abbreviated.
+    squeeze : bool, optional
+        Squeeze blanks. If True, replace ", " (comma space) with "," (comma). The default is True.
+
+    Returns
+    -------
+    strv : str
+        Abbreviated string representation of the input value
+
+    """
+    strv = str(value)
+    if squeeze:
+        strv = strv.replace(", ", ",")
+    if len(strv) > length:
+        bc = int(length / 2) - 1
+        ec = bc - 1
+        strv = strv[0:bc] + "..." + strv[-ec:]
+    return strv
