@@ -978,11 +978,12 @@ class PSScan(ScanBase):
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-        self._nchan = len(self._sigcalon[0])
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+
+        self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
         self._calibrated = None
