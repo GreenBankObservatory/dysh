@@ -983,6 +983,28 @@ class PSScan(ScanBase):
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
 
+        # Catch blank integrations.
+        nb1 = find_non_blanks(self._refcalon)
+        nb2 = find_non_blanks(self._refcaloff)
+        nb3 = find_non_blanks(self._sigcalon)
+        nb4 = find_non_blanks(self._sigcaloff)
+        goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
+        # Tell the user about blank integration(s) that will be ignored.
+        if len(goodrows) != len(self._refcalon):
+            nblanks = len(self._refcalon) - len(goodrows)
+            logger.info(f"Ignoring {nblanks} blanked integration(s).")
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._sigcalon = self._sigcalon[goodrows]
+        self._sigcaloff = self._sigcaloff[goodrows]
+        self._sigonrows = [self._sigonrows[i] for i in goodrows]
+        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+        # Update number of rows after removing blanks.
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        self._nrows = nsigrows
+
         self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
@@ -1516,7 +1538,7 @@ class FSScan(ScanBase):
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
         nb3 = find_non_blanks(self._sigcalon)
-        nb4 = find_non_blanks(self._refcaloff)
+        nb4 = find_non_blanks(self._sigcaloff)
         goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
         # Tell the user about blank integration(s) that will be ignored.
         if len(goodrows) != len(self._refcalon):
