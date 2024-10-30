@@ -5,7 +5,6 @@ The classes that define various types of Scan and their calibration methods.
 import warnings
 from collections import UserList
 from copy import deepcopy
-from functools import reduce
 
 import astropy.units as u
 import numpy as np
@@ -22,6 +21,7 @@ from ..util import uniq
 from .core import (  # fft_shift,
     average,
     find_non_blanks,
+    find_nonblank_ints,
     mean_tsys,
     sq_weighted_avg,
     tsys_weight,
@@ -668,20 +668,15 @@ class TPScan(ScanBase):
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
-        # now remove blanked integrations
-        # seems like this should be done for all Scan classes!
-        # PS: yes.
-        nb1 = find_non_blanks(self._refcalon)
-        nb2 = find_non_blanks(self._refcaloff)
-        goodrows = np.intersect1d(nb1, nb2)
-        # Tell the user about blank integration(s) that will be ignored.
-        if len(goodrows) != len(self._refcalon):
-            nblanks = len(self._refcalon) - len(goodrows)
-            print(f"Ignoring {nblanks} blanked integration(s).")
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
         self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._nrows = len(self._refonrows) + len(self._refoffrows)
+
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         self._data = None
@@ -984,15 +979,7 @@ class PSScan(ScanBase):
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
 
         # Catch blank integrations.
-        nb1 = find_non_blanks(self._refcalon)
-        nb2 = find_non_blanks(self._refcaloff)
-        nb3 = find_non_blanks(self._sigcalon)
-        nb4 = find_non_blanks(self._sigcaloff)
-        goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
-        # Tell the user about blank integration(s) that will be ignored.
-        if len(goodrows) != len(self._refcalon):
-            nblanks = len(self._refcalon) - len(goodrows)
-            logger.info(f"Ignoring {nblanks} blanked integration(s).")
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
@@ -1258,15 +1245,7 @@ class NodScan(ScanBase):
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
 
         # Catch blank integrations.
-        nb1 = find_non_blanks(self._refcalon)
-        nb2 = find_non_blanks(self._refcaloff)
-        nb3 = find_non_blanks(self._sigcalon)
-        nb4 = find_non_blanks(self._sigcaloff)
-        goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
-        # Tell the user about blank integration(s) that will be ignored.
-        if len(goodrows) != len(self._refcalon):
-            nblanks = len(self._refcalon) - len(goodrows)
-            logger.info(f"Ignoring {nblanks} blanked integration(s).")
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
@@ -1557,16 +1536,7 @@ class FSScan(ScanBase):
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
 
         # Catch blank integrations.
-        # TODO: modify for the case with no noise diode.
-        nb1 = find_non_blanks(self._refcalon)
-        nb2 = find_non_blanks(self._refcaloff)
-        nb3 = find_non_blanks(self._sigcalon)
-        nb4 = find_non_blanks(self._sigcaloff)
-        goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
-        # Tell the user about blank integration(s) that will be ignored.
-        if len(goodrows) != len(self._refcalon):
-            nblanks = len(self._refcalon) - len(goodrows)
-            logger.info(f"Ignoring {nblanks} blanked integration(s).")
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]

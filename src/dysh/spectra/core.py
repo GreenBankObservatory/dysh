@@ -4,6 +4,7 @@ Core functions for spectral data.
 
 import warnings
 from copy import deepcopy
+from functools import reduce
 
 import astropy.units as u
 import numpy as np
@@ -109,10 +110,48 @@ def find_blanks(data):
     Returns
     -------
     blanks : `~numpy.ndarray`
-        Array with indices of \blanked integrations.
+        Array with indices of blanked integrations.
     """
 
     return np.where(integration_isnan(data))
+
+
+def find_nonblank_ints(sigoff, refoff, sigon=None, refon=None):
+    """
+    Find the indices of integrations that are not blanked.
+
+    Parameters
+    ----------
+    sigoff : `~numpy.ndarray`
+        Signal data with the noise diode off.
+    refoff : `~numpy.ndarray`
+        Reference data with the noise diode off.
+    sigon : `~numpy.ndarray`
+        Signal data with the noise diode on.
+        Default is `None`.
+    refon : `~numpy.ndarray`
+        Reference data with the noise diode on.
+        Default is `None`.
+
+    Returns
+    -------
+    goodrows : `~numpy.array`
+        Indices of the non-blanked rows.
+    """
+
+    nb1 = find_non_blanks(sigoff)
+    nb2 = find_non_blanks(refoff)
+    if sigon is not None:
+        nb3 = find_non_blanks(sigon)
+    else:
+        nb3 = nb1
+    if refon is not None:
+        nb4 = find_non_blanks(refon)
+    else:
+        nb4 = nb2
+    goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
+
+    return goodrows
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
