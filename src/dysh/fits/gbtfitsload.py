@@ -1,5 +1,6 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
+import os
 import copy
 import warnings
 from collections.abc import Sequence
@@ -16,6 +17,7 @@ from ..log import HistoricalBase, dysh_date, log_call_to_history, log_call_to_re
 from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
 from ..util.selection import Flag, Selection
+from ..util.files import dysh_data
 from .sdfitsload import SDFITSLoad
 
 calibration_kwargs = {
@@ -2387,15 +2389,73 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
 
 
+class GBTOffline(GBTFITSLoad):
+    """
+    GBTOffline('foo')   connects to a GBT project 'foo' using GBTFITSLoad
+
+    Note project directories are assumed to exist in /home/sdfits
+    or whereever dysh_data thinks your /home/sdfits lives.
+    """
+    
+    @log_call_to_history
+    def __init__(self, fileobj, **kwargs):
+        self._offline = fileobj
+        self._filename = dysh_data(fileobj)
+        GBTFITSLoad.__init__(self, self._filename)
+
+
 class GBTOnline(GBTFITSLoad):
+    """
+    GBTOnline('?')     returns list of projects in /home/sdfits (or DYSH_DATA/sdfits)
+    GBTOnline('foo')   monitors project 'foo' as if it could be online
+    GBTOnline()        monitors for new projects and connects, and refreshes when updated
+
+    Note project directories are assumed to exist in /home/sdfits
+    or whereever dysh_data thinks your /home/sdfits lives.
+
+
+    GBTIDL says:  Connecting to file: .....
+                  File has not been updated in xxx.xx minutes.
+    """
+    
     @log_call_to_history
     def __init__(self, fileobj=None, **kwargs):
+        print("GBTOnline")
         self._online = fileobj
+        self._online_mode = 0       #  no status        
         if fileobj is not None:
-            GBTFITSLoad.__init__(self, fileobj)
-            logger.debug(f"Special online mode {fileobj}")
+            # unusual (test?) mode
+            if fileobj == '*' or fileobj == '?':
+                dysh_data('?')
+            else:
+                self._online_mode = 1    # monitor this one file
+                if os.path.isdir(fileobj):
+                    GBTFITSLoad.__init__(self, fileobj)
+                else:
+                    GBTFITSLoad.__init__(self, dysh_data(fileobj))                    
+                logger.debug(f"Special online mode {fileobj}")
         else:
-            logger.debug(f"Testing online mode")
+            self._online_mode = 2       #  monitor all files
+            logger.debug(f"Testing online mode, finding most recent file")
+            if 'DYSH_DATA' in os.environ:
+                print("warning: we have DYSH_DATA =", os.environ['DYSH_DATA'])
+            #
+            fdir = "/home/sdfits"
+            if not os.path.isdir(fdir):
+                print("Cannot find ",fdir)
+            n=0
+            for dirname,subdirs,files in os.walk(fdir):
+                n = n+1
+                for fname in files:
+                    print(fname)
+            print("Found ",n)
+
+    def check(self):
+        """ report if the current project was updated.  If so, the user
+            can issue the reload() command
+        """
+        print("check not implemented yet")
+  
 
     def reload(self, force=True):
         """ force a reload of the latest
