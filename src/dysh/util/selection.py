@@ -538,7 +538,6 @@ class SelectionBase(DataFrame):
                     # for pd.merge to give the correct answer, we would
                     # need "inner" on the first one and "outer" on subsequent
                     # df = pd.merge(df, df[df[ku] == vv], how="inner")
-                print(f"{multi_value_queries=})")
                 if multi_value_queries is None:
                     multi_value_queries = f"({query})"
                 else:
@@ -552,9 +551,6 @@ class SelectionBase(DataFrame):
                     single_value_queries = thisq
                 else:
                     single_value_queries += f"& {thisq}"
-                print(f"{single_value_queries=}")
-                # print(f'pd.merge(df, df[df[{ku}] == {v}], how="inner")')
-                # df = pd.merge(df, df[df[ku] == v], how="inner")
             row[ku] = v
         if multi_value_queries is not None and single_value_queries is not None:
             query = f"{multi_value_queries} & {single_value_queries}"
@@ -563,9 +559,8 @@ class SelectionBase(DataFrame):
         elif multi_value_queries is not None and single_value_queries is None:
             query = multi_value_queries
         else:
-            warnings.warn("There was no data selection")
+            warnings.warn("There was no data selection")  # should never happen
             return False
-        print(f"FINAL QUERY {query}")
         df = df.query(query)
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
