@@ -813,14 +813,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # The GBT convention is the same filename with '.flag' instead of '.fits'.
         # We construct the flagfile and also pass in FITSINDEX column to ensure
         # only the data associated with that file are flagged.
-        if True:
-            for s in self._sdf:
-                p = Path(s.filename)
-                flagfile = p.with_suffix(".flag")
-                if flagfile.exists():
-                    print(f"Found flag file {flagfile}")
-                    fi = uniq(s["FITSINDEX"])[0]
-                    self.flags.read(flagfile, fitsindex=fi)
+        found_flags = False
+        for s in self._sdf:
+            p = Path(s.filename)
+            flagfile = p.with_suffix(".flag")
+            if flagfile.exists():
+                fi = uniq(s["FITSINDEX"])[0]
+                self.flags.read(flagfile, fitsindex=fi)
+                found_flags = True
+        if found_flags:
+            print("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
     def _construct_procedure(self):
         """

@@ -1216,7 +1216,6 @@ class Flag(SelectionBase):
 
         # Because the table header and table row delimeters are different,
         # Table.read() can't work.  So construct it row by row.
-        print(f"reading flag file {fileobj}")
         f = open(fileobj, mode="r")
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
