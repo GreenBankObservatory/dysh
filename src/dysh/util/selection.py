@@ -506,7 +506,8 @@ class SelectionBase(DataFrame):
         # if called via _select_from_mixed_kwargs, then we want to merge all the
         # selections
         df = kwargs.pop("startframe", self)
-        query2 = None
+        single_value_queries = None
+        multi_value_queries = None
         for k, v in list(kwargs.items()):
             ku = k.upper()
             if ku in self._aliases:
@@ -537,22 +538,35 @@ class SelectionBase(DataFrame):
                     # for pd.merge to give the correct answer, we would
                     # need "inner" on the first one and "outer" on subsequent
                     # df = pd.merge(df, df[df[ku] == vv], how="inner")
-                print(f"df.query({query})")
-                df = df.query(query)
+                print(f"{multi_value_queries=})")
+                if multi_value_queries is None:
+                    multi_value_queries = f"({query})"
+                else:
+                    multi_value_queries += f"&({query})"
             else:
                 if isinstance(v, str):
                     thisq = f'{ku} == "{v}"'
                 else:
                     thisq = f"{ku} == {v}"
-                if query2 is None:
-                    query2 = thisq
+                if single_value_queries is None:
+                    single_value_queries = thisq
                 else:
-                    query2 += f"& {thisq}"
+                    single_value_queries += f"& {thisq}"
+                print(f"{single_value_queries=}")
                 # print(f'pd.merge(df, df[df[{ku}] == {v}], how="inner")')
                 # df = pd.merge(df, df[df[ku] == v], how="inner")
             row[ku] = v
-        if query2 is not None:
-            df = df.query(query2)
+        if multi_value_queries is not None and single_value_queries is not None:
+            query = f"{multi_value_queries} & {single_value_queries}"
+        elif multi_value_queries is None and single_value_queries is not None:
+            query = single_value_queries
+        elif multi_value_queries is not None and single_value_queries is None:
+            query = multi_value_queries
+        else:
+            warnings.warn("There was no data selection")
+            return False
+        print(f"FINAL QUERY {query}")
+        df = df.query(query)
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
             return False
