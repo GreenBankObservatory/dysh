@@ -61,14 +61,14 @@ You first need to add the package to `pyproject.toml`. Locate the section of the
 Step 2: Compile `requirements.txt`
 ==================================
 
-Using the lowest supported version of Python (currently 3.9), do the following:
+Using the lowest supported version of Python (currently 3.10), do the following:
 
 .. code-block:: bash
 
     $ cd /path/to/dysh
-    $ source /path/to/dysh-venv-py3.9/bin/activate
-   (dysh-venv-py3.9) $ pip install pip-tools
-   (dysh-venv-py3.9) $ pip-compile -o requirements.txt pyproject.toml
+    $ source /path/to/dysh-venv-py3.10/bin/activate
+   (dysh-venv-py3.10) $ pip install pip-tools
+   (dysh-venv-py3.10) $ pip-compile -o requirements.txt pyproject.toml
 
 Step 3: Validate new requirements
 =================================
@@ -86,7 +86,7 @@ Compiling requirements on Windows
 Sometimes, compiling `requirements.txt` on a Windows machine can result in requirements which fail on the other operating systems. This will result in your GitHub Actions only succeeding on Windows machines, like so:
 
 .. figure:: img/requirements_fail_windows.png
-    :alt: A screenshot of a GitHub Actions summary of 12 tests. The "windows-latest" tests have green check marks, indicating success, for all 4 versions of Python (3.9 to 3.12). The "ubuntu-latest" and "macos-latest" ones all have red x's, indicating failure.
+    :alt: A screenshot of a GitHub Actions summary of 9 tests. The "windows-latest" tests have green check marks, indicating success, for all 3 versions of Python (3.10 to 3.12). The "ubuntu-latest" and "macos-latest" ones all have red x's, indicating failure.
 
 **Solution:** Compile `requirements.txt` on a non-Windows machine, like the Linux ones at GBO.
 
