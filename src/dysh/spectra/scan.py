@@ -1501,8 +1501,7 @@ class FSScan(ScanBase):
         nrefrows = len(self._refonrows) + len(self._refoffrows)
         if nsigrows != nrefrows:
             raise Exception("Number of sig rows does not match ref rows. Dangerous to proceed")
-        if self._debug:
-            logger.dbeug(f"sigonrows {nsigrows}, {self._sigonrows}")
+        logger.debug(f"sigonrows {nsigrows}, {self._sigonrows}")
         self._nrows = nsigrows
 
         a_scanrow = self._sigonrows[0]
