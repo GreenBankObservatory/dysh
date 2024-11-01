@@ -1,7 +1,7 @@
 import numpy as np
 
 import dysh.util.files as duf
-
+from pathlib import Path
 
 class TestUtil:
     """Test dysh.util files functions"""
@@ -20,4 +20,7 @@ class TestUtil:
         # sdfits=
         #   skipping
         # dysh_data=
-        assert duf.dysh_data(sdfits="foo.fits", dysh_data="/tmp") == None
+        assert duf.dysh_data("foo.fits", dysh_data="/tmp") == None
+        #   this assume DYSH_DATA is not present
+        f2 = duf.dysh_data(example="test1")
+        assert f2 == Path("AGBT05B_047_01.raw.acs.fits")
