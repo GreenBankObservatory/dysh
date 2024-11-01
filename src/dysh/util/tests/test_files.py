@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import numpy as np
 
 import dysh.util.files as duf
-from pathlib import Path
+
 
 class TestUtil:
     """Test dysh.util files functions"""
