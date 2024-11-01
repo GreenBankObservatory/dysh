@@ -76,27 +76,31 @@ valid_dysh_accept = {
 
 def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None, verbose=False):
     r"""
-    Simplified access to GBO data without needing an absolute path.  @todo pending configuration discussion
+    Resolves the filename within the GBO dysh data system without the need for an absolute path.
 
-    By default it will detect the GBO system, users or developers that are not on the GBO system and need
-    access to data could rsync various data trees to avoid repeated downloads and use the $DYSH_DATA env.var.
-    access to data could rsync various data trees to avoid repeated downloads.
+    Currently configured to work at GBO, where for example /home/sdfits exists. For other sites users
+    need to configure a $DYSH_DATA directory, properly populated with (symlinks to) project and test data,
+    as described below. Optionally, an explicit dysh_data= can be given, which overrides any possible $DYSH_DATA
+    environment (or configuration) that may exist.
 
-    For example inside their $HOME/dysh_data/ one could set
-             export DYSH_DATA=$HOME/dysh_data
+    Only one of the keywords sdfits=, test=, example=, accept= can be given to probe for data. They are
+    processed in that order, whichever comes first.
+
 
     Locations of various dysh_data directory roots:  ($DYSH is the repo root for developers)
     -----------------------------------------------
-    keyword       location                       method                           $DYSH_DATA root
-    -------       --------                       ------                           ---------------
-    sdfits:       /home/sdfits                   -                                $DYSH_DATA/sdfits
-    test:         $DYSH/testdata                 util.get_project_testdata()      $DYSH_DATA/testdata
-    example:      /home/dysh/example_data        -                                $DYSH_DATA/example_data
-    accept:       /home/dysh/acceptance_testing  -                                $DYSH_DATA/acceptance_testing
+    keyword       location at GBO                      $DYSH_DATA root
+    -------       ---------------                      ---------------
+    sdfits=       /home/sdfits                         $DYSH_DATA/sdfits
+    test=         $DYSH/testdata                       $DYSH_DATA/testdata
+    example=      /home/dysh/example_data              $DYSH_DATA/example_data
+    accept=       /home/dysh/acceptance_testing        $DYSH_DATA/acceptance_testing
+
+    Note: test= resolves to the same filename as the util.get_project_testdata() function
 
 
-    Examples of use include mnemonics or full paths:
-    ------------------------------------------------
+    Examples of use including mnemonics or full paths:
+    --------------------------------------------------
     fn = dysh_data(test='getps')
     fn = dysh_data(example='getfs')
     fn = dysh_data(example='onoff-L/data/TGBT21A_501_11.raw.vegas')
@@ -112,11 +116,10 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
        this will keep GBO people happy.  Offsite a symlink should also work.
     3) if none of those gave a valid name, it will fall back to making a URL
        by prepending http://www.gb.nrao.edu/dysh/ and using
-       wget for as long we want to support that.
+       from_url for as long we want to support that.
        astropy caching is also an option
-    4) directories (names not ending on .fits) cannot be downloaded using wget
-    5) use python-dotenv for configuration?
-       key=val
+    4) directories (names not ending on .fits) cannot be downloaded using from_url
+    5) configuration TBD
 
     """
     # fmt:off
@@ -129,6 +132,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     def sdfits_offline(fn):
         """fn is an sdfits= filename that was shown to exist
         If fn contains only one name
+        See also GBTOffline()
         """
         if fn.is_file():
             return fn
@@ -164,7 +168,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     if verbose:
         print("DYSH_DATA:", dysh_data)
 
-    # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present
+    # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present (in that order)
 
     # sdfits:   the main place where GBO data reside
 
@@ -219,7 +223,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         print("Could not find", fn)
         return None
 
-    # example:  these can also obtain data via wget (or perhaps astropy caching???)
+    # example:  these can also obtain data via from_url (or perhaps astropy caching???)
 
     if example != None:
         if example == "?":
@@ -243,7 +247,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             if fn.exists():
                 return fn
             print("Odd-2, did not find", fn)
-        # last resort, try getting it via wget, but it will then be a local file in the current directory
+        # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/example_data/" + my_example
         if verbose:
             print("url:", url)
@@ -258,9 +262,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 return None
         else:
             print(f"{filename} already downloaded")
-        return filename
+        return Path(filename)
 
-    # accept:   acceptance_testing/data - wget not recommended (does not work on multifile fits)
+    # accept:   acceptance_testing/data - from_url not recommended (does not work on multifile fits)
 
     if accept != None:
         if accept == "?":
@@ -284,7 +288,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             if fn.exists():
                 return fn
             print("Odd-2, did not find", fn)
-        # last resort, try getting it via wget, but it will then be a local file in the current directory
+        # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/acceptance_testing/data/" + my_accept
         if verbose:
             print("url:", url)
@@ -299,7 +303,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 return None
         else:
             print(f"{filename} already downloaded")
-        return filename
+        return Path(filename)
 
     print("You have not given one of:   sdfits=, test=, example=, accept=")
     print("or use =? as argument to get a list of valid shortcuts")
