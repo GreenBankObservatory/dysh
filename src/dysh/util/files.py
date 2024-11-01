@@ -116,9 +116,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
        this will keep GBO people happy.  Offsite a symlink should also work.
     3) if none of those gave a valid name, it will fall back to making a URL
        by prepending http://www.gb.nrao.edu/dysh/ and using
-       wget for as long we want to support that.
+       from_url for as long we want to support that.
        astropy caching is also an option
-    4) directories (names not ending on .fits) cannot be downloaded using wget
+    4) directories (names not ending on .fits) cannot be downloaded using from_url
     5) configuration TBD
 
     """
@@ -223,7 +223,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         print("Could not find", fn)
         return None
 
-    # example:  these can also obtain data via wget (or perhaps astropy caching???)
+    # example:  these can also obtain data via from_url (or perhaps astropy caching???)
 
     if example != None:
         if example == "?":
@@ -247,7 +247,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             if fn.exists():
                 return fn
             print("Odd-2, did not find", fn)
-        # last resort, try getting it via wget, but it will then be a local file in the current directory
+        # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/example_data/" + my_example
         if verbose:
             print("url:", url)
@@ -262,9 +262,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 return None
         else:
             print(f"{filename} already downloaded")
-        return filename
+        return Path(filename)
 
-    # accept:   acceptance_testing/data - wget not recommended (does not work on multifile fits)
+    # accept:   acceptance_testing/data - from_url not recommended (does not work on multifile fits)
 
     if accept != None:
         if accept == "?":
@@ -288,7 +288,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             if fn.exists():
                 return fn
             print("Odd-2, did not find", fn)
-        # last resort, try getting it via wget, but it will then be a local file in the current directory
+        # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/acceptance_testing/data/" + my_accept
         if verbose:
             print("url:", url)
@@ -303,7 +303,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 return None
         else:
             print(f"{filename} already downloaded")
-        return filename
+        return Path(filename)
 
     print("You have not given one of:   sdfits=, test=, example=, accept=")
     print("or use =? as argument to get a list of valid shortcuts")
