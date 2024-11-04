@@ -21,6 +21,7 @@ from ..util import uniq
 from .core import (  # fft_shift,
     average,
     find_non_blanks,
+    find_nonblank_ints,
     mean_tsys,
     sq_weighted_avg,
     tsys_weight,
@@ -667,20 +668,15 @@ class TPScan(ScanBase):
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
-        # now remove blanked integrations
-        # seems like this should be done for all Scan classes!
-        # PS: yes.
-        nb1 = find_non_blanks(self._refcalon)
-        nb2 = find_non_blanks(self._refcaloff)
-        goodrows = np.intersect1d(nb1, nb2)
-        # Tell the user about blank integration(s) that will be ignored.
-        if len(goodrows) != len(self._refcalon):
-            nblanks = len(self._refcalon) - len(goodrows)
-            print(f"Ignoring {nblanks} blanked integration(s).")
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
         self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._nrows = len(self._refonrows) + len(self._refoffrows)
+
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         self._data = None
@@ -977,11 +973,26 @@ class PSScan(ScanBase):
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-        self._nchan = len(self._sigcalon[0])
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._sigcalon = self._sigcalon[goodrows]
+        self._sigcaloff = self._sigcaloff[goodrows]
+        self._sigonrows = [self._sigonrows[i] for i in goodrows]
+        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+        # Update number of rows after removing blanks.
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        self._nrows = nsigrows
+
+        self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
         self._calibrated = None
@@ -1232,6 +1243,21 @@ class NodScan(ScanBase):
             self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
             self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._sigcalon = self._sigcalon[goodrows]
+        self._sigcaloff = self._sigcaloff[goodrows]
+        self._sigonrows = [self._sigonrows[i] for i in goodrows]
+        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+        # Update number of rows after removing blanks.
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        self._nrows = nsigrows
+
         self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
@@ -1475,8 +1501,7 @@ class FSScan(ScanBase):
         nrefrows = len(self._refonrows) + len(self._refoffrows)
         if nsigrows != nrefrows:
             raise Exception("Number of sig rows does not match ref rows. Dangerous to proceed")
-        if self._debug:
-            logger.dbeug(f"sigonrows {nsigrows}, {self._sigonrows}")
+        logger.debug(f"sigonrows {nsigrows}, {self._sigonrows}")
         self._nrows = nsigrows
 
         a_scanrow = self._sigonrows[0]
@@ -1508,6 +1533,21 @@ class FSScan(ScanBase):
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._sigcalon = self._sigcalon[goodrows]
+        self._sigcaloff = self._sigcaloff[goodrows]
+        self._sigonrows = [self._sigonrows[i] for i in goodrows]
+        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+        # Update number of rows after removing blanks.
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        self._nrows = nsigrows
+
         self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
