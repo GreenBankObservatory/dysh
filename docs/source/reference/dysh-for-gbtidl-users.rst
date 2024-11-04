@@ -25,6 +25,7 @@ Rough equivalents
 In the tables below, it is assumed you have executed the following commands in Python:
 
 `from dysh.fits.gbtfitsload import GBTFITSLoad`
+
 `from dysh.util.selection import Selection`
 
 
@@ -46,6 +47,15 @@ Calibration and Data Retrieval
 
 
 
+Spectrum Operations
+-------------------
+
+
+ .. csv-table::
+    :file: files/Spectrum_ops.csv
+    :header-rows: 1
+    :class: longtable
+    :widths: 10 15 10
 
 
 
