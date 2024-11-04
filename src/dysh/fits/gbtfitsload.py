@@ -52,12 +52,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     hdu : int or list
         Header Data Unit to select from input file. Default: all HDUs
 
+    skipflags: bool
+        If True, do not read any flag files associated with these data. Default:False
+
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, source=None, hdu=None, **kwargs):
+    def __init__(self, fileobj, source=None, hdu=None, skipflags=False, **kwargs):
         kwargs_opts = {
-            "fix": False,  # fix non-standard header elements
             "index": True,  # only set to False for performance testing.
             "verbose": False,
         }
@@ -92,7 +94,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
         if kwargs_opts["index"]:
-            self._create_index_if_needed()
+            self._create_index_if_needed(skipflags)
             self._update_radesys()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
@@ -788,7 +790,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sdf._init_flags()
         self._flag.clear()
 
-    def _create_index_if_needed(self):
+    def _create_index_if_needed(self, skipflags=False):
+        """
+        Parameters
+        ----------
+        skipflags : bool, optional
+            If True, do not read any flag files associated with these data.  The default is False.
+
+        Returns
+        -------
+        None.
+
+        """
+
         if self._selection is not None:
             return
         i = 0
@@ -808,6 +822,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
+
+        if skipflags:
+            return
+
         # for directories with multiple FITS files and possibly multiple FLAG files
         # we have to ensure the right flag file goes with the right FITS tile.
         # The GBT convention is the same filename with '.flag' instead of '.fits'.
@@ -2367,6 +2385,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
+                        if flags:  # update the flags before we select rows
+                            flagval = self._sdf[k]._flagmask[b]
+                            dim1 = np.shape(flagval)[1]
+                            form = f"{dim1}B"
+                            tdim = f"({dim1}, 1, 1, 1)"
+                            c = fits.Column(name="FLAGS", format=form, dim=tdim, array=flagval)
+                            print(f"FLAGS={c}")
+                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
@@ -2401,6 +2427,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
+                        if flags:  # update the flags before we select rows
+                            flagval = self._sdf[k]._flagmask[b]
+                            dim1 = np.shape(flagval)[1]
+                            form = f"{dim1}B"
+                            # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this
+                            c = fits.Column(name="FLAGS", format=form, array=flagval)
+                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)

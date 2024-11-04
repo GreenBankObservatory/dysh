@@ -9,7 +9,7 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.io.fits import BinTableHDU
+from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table
 
 from dysh.log import logger
@@ -53,7 +53,7 @@ class SDFITSLoad(object):
         self._header = self._hdu[0].header
         self.load(hdu, **kwargs_opts)
         doindex = kwargs_opts.get("index", True)
-        doflag = kwargs_opts.get("flags", True)
+        doflag = kwargs_opts.get("flags", True)  # for testing
         if doindex:
             self.create_index()
         # add default channel masks
@@ -74,12 +74,16 @@ class SDFITSLoad(object):
 
     def _init_flags(self):
         """initialize the channel masks to False"""
+
         self._flagmask = np.empty(len(self._bintable), dtype=object)
         for i in range(len(self._flagmask)):
-            nc = self.nchan(i)
-            nr = self.nrows(i)
-            logger.debug(f"{nr=} {nc=}")
-            self._flagmask[i] = np.full((nr, nc), fill_value=False)
+            if "FLAGS" in self._bintable[i].data.columns.names:
+                self._flagmask[i] = self._bintable[i].data["FLAGS"].astype(bool)
+            else:
+                nc = self.nchan(i)
+                nr = self.nrows(i)
+                logger.debug(f"flag {nr=} {nc=}")
+                self._flagmask[i] = np.full((nr, nc), fill_value=False)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
@@ -143,7 +147,7 @@ class SDFITSLoad(object):
             df = df[df["BINTABLE"] == bintable]
         return df
 
-    def create_index(self, hdu=None):
+    def create_index(self, hdu=None, skipindex=["DATA", "FLAGS"]):
         """
         Create the index of the SDFITS file.
 
@@ -151,6 +155,9 @@ class SDFITSLoad(object):
         ----------
             hdu : int or list
                 Header Data Unit to select from input file. Default: all HDUs
+            skipindex : list
+                List of str column names to not put in the index.  The default are
+                the multidimensional columns DATA and FLAGS
 
         """
         if hdu is not None:
@@ -160,7 +167,7 @@ class SDFITSLoad(object):
         self._index = None
         for i in ldu:
             # Create a DataFrame without the data column.
-            df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, "DATA"))
+            df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, skipindex))
             # Select columns that are strings, decode them and remove white spaces.
             df_obj = df.select_dtypes(["object"])
             df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
@@ -836,7 +843,7 @@ class SDFITSLoad(object):
         ----------
         name : str
             column name to add
-        value : list-like
+        value : list-like or ~`astropy.io.fits.Column`
             The column values
         bintable : int, optional
             Index of the binary table on which to operate, or None for all binary tables. The default is None.
@@ -848,27 +855,39 @@ class SDFITSLoad(object):
         """
         # If we pass the data through a astropy Table first, then the conversion of
         # numpy array dtype to FITS format string (e.g, '12A') gets done automatically and correctly.
-        # print(f"_add_binary_table_column({name}, v={value}, bintable={bintable})")
+        logger.debug(f"_add_binary_table_column({name}, v={value}, bintable={bintable})")
+        is_col = isinstance(value, Column)
+        if is_col:
+            lenv = len(value.array)
+        else:
+            lenv = len(value)
         if bintable is not None:
-            if len(value) != self.nrows(bintable):
+            if lenv != self.nrows(bintable):
                 raise ValueError(
                     f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.nrows(bintable)}) aren't equal."
                 )
-            t = BinTableHDU(Table(names=[name], data=[value]))
-            self._bintable[bintable].columns.add_col(t.columns[name])
+            if is_col:
+                self._bintable[bintable].columns.add_col(value)
+            else:
+                t = BinTableHDU(Table(names=[name], data=[value]))
+                self._bintable[bintable].columns.add_col(t.columns[name])
         else:
-            if len(value) != self.total_rows:
+            if lenv != self.total_rows:
                 raise ValueError(
                     f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.total_rows}) aren't equal."
                 )
             # Split values up by length of the individual binary tables
             start = 0
             for i in range(len(self._nrows)):
-                print(f"new column {name}")
                 n = self._nrows[i]
-                print(f"bintable {i} value={value}")
-                t = BinTableHDU(Table(names=[name], data=value[start : start + n]))
-                self._bintable[i].columns.add_col(t.columns[name])
+                if isinstance(value, Column):
+                    cut = Column(
+                        name=value.name, format=value.format, dim=value.dim, array=value.array[start : start + n]
+                    )
+                    self._bintable[i].columns.add_col(cut)
+                else:
+                    t = BinTableHDU(Table(names=[name], data=value[start : start + n]))
+                    self._bintable[i].columns.add_col(t.columns[name])
                 start = start + n
 
     def _update_binary_table_column(self, column_dict):
@@ -877,7 +896,7 @@ class SDFITSLoad(object):
         Parameters
         ----------
             column_dict : dict
-            Dictionary with column names as keys and column values
+            Dictionary with column names as keys and column values. Values can be numpy arrays or `~astropy.io.fits.Column`
         """
         # if there is only one bintable, it is straightforward.
         # BinTableHDU interface will take care of the types and data lengths matching.
@@ -885,18 +904,27 @@ class SDFITSLoad(object):
         # a single value.
         if len(self._bintable) == 1:
             for k, v in column_dict.items():
-                # data is an astropy.io.fits.fitsrec.FITS_rec
+                if isinstance(v, Column):
+                    value = v.array
+                else:
+                    value = v
+                # self._bintable[i].data is an astropy.io.fits.fitsrec.FITS_rec, with length equal
+                # to number of rows
                 is_str = isinstance(v, str)
                 if is_str or not isinstance(v, (Sequence, np.ndarray)):
-                    v = np.full(len(self._bintable[0].data), v)
+                    value = np.full(len(self._bintable[0].data), v)
                 if k in self._bintable[0].data.names:
-                    self._bintable[0].data[k] = v
+                    self._bintable[0].data[k] = value
                 # otherwise we need to add rather than replace/update
                 else:
                     self._add_binary_table_column(k, v, 0)
         else:
             start = 0
             for k, v in column_dict.items():
+                if isinstance(v, Column):
+                    value = v.array
+                else:
+                    value = v
                 is_str = isinstance(v, str)
                 if not is_str and isinstance(v, (Sequence, np.ndarray)) and len(v) != self.total_rows:
                     raise ValueError(
@@ -908,23 +936,20 @@ class SDFITSLoad(object):
                     if k in b.data.names:
                         n = len(b.data)
                         if is_str or not isinstance(v, (Sequence, np.ndarray)):
-                            # print(f"ADD setting bintable[{j}][{k}]={v}")
-                            b.data[k] = v
+                            b.data[k] = value
                         else:
-                            # print(f"doing bintable {b} {k} {v[start:start+n]}")
-                            b.data[k] = v[start : start + n]
+                            b.data[k] = value[start : start + n]
                         start = start + n
                     else:
-                        v1 = v
+                        v1 = value
                         n = len(b.data)
-                        if is_str or not isinstance(v, (Sequence, np.ndarray)):
-                            # we have to make an array from v
-                            # print(f"{k} expanding {v} to {len(b.data)} for bintable {j}")
-                            # need a new variable here or multiple loops keep expanding v
-                            v1 = np.full(n, v)
-                            # print(f"trying to add {k}={v1}")
+                        if is_str or not isinstance(value, (Sequence, np.ndarray)):
+                            # we have to make an array from value if the user
+                            # did a single assignment for a column, e.g. sdf["TCAL"] = 3.
+                            # Need a new variable here or multiple loops keep expanding value
+                            v1 = np.full(n, value)
                         else:
-                            v1 = v[start : start + n]
+                            v1 = value[start : start + n]
                             start = start + n
                         self._add_binary_table_column(k, v1, j)
 
