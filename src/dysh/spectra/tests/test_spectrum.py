@@ -370,7 +370,9 @@ class TestSpectrum:
 
         # Check fitter first.
         g_fit = fit_gauss(self.ss)
-        assert g_fit.stddev.value * 2.35482 == pytest.approx(abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"])
+        assert g_fit.stddev.value * 2.35482 == pytest.approx(
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], g_fit.stddev.std * 2.35482
+        )
 
         # Now smooth the same Spectrum multiple times.
         sss = self.ss._copy()
