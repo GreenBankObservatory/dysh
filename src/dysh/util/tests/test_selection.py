@@ -156,5 +156,11 @@ class TestSelection:
         with pytest.raises(Exception):
             s.select_channel(["10", "a", 103])
 
-    # def test_flag_read(self):
-    #    f = Flag.read(self.gbtidl_flag_file)
+    def test_flag_read(self):
+        file = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A6.fits"
+        g = gbtfitsload.GBTFITSLoad(file)
+        assert len(g.flags._selection_rules) == 1
+        assert g.flags._table["# SELECTED"][0] == 24
+        assert g.flags._table["SCAN"][0] == "6"
+        assert g.flags._table["IFNUM"][0] == "2"
+        assert g.flags._table["FDNUM"][0] == "0"
