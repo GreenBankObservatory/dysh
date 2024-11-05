@@ -11,21 +11,22 @@ import numpy as np
 from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
+from astropy.utils.masked import Masked
 
 from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..util import uniq
-from .core import (
+from .core import (  # fft_shift,
     average,
-    fft_shift,
     find_non_blanks,
+    find_nonblank_ints,
     mean_tsys,
     sq_weighted_avg,
     tsys_weight,
 )
-from .spectrum import Spectrum
+from .spectrum import Spectrum, average_spectra
 
 
 class SpectralAverageMixin:
@@ -45,6 +46,9 @@ class SpectralAverageMixin:
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         pass
 
@@ -131,12 +135,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
         if type(self._scan) != int:
             raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
-
-    # class ScanMixin:
-    #    """This class describes the common interface to all Scan classes.
-    ##   A Scan represents one IF, one feed, and one or more polarizations.
-    #   Derived classes *must* implement :meth:`calibrate`.
-    #   """
 
     @property
     def scan(self):
@@ -408,7 +406,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys", mode="old"):
+    def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
@@ -419,60 +417,23 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
+
         Returns
         -------
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         # warnings.simplefilter("ignore", NoVelocityWarning)
-        if mode == "old":
-            # average of the averages
-            self._timeaveraged = []
-            for scan in self.data:
-                self._timeaveraged.append(scan.timeaverage(weights))
-            if weights == "tsys":
-                # There may be multiple integrations, so need to
-                # average the Tsys weights
-                w = np.array([np.nanmean(k.tsys_weight) for k in self.data])
-                if len(np.shape(w)) > 1:  # remove empty axes
-                    w = w.squeeze()
-            else:
-                w = weights
-            timeavg = np.array([k.data for k in self._timeaveraged])
-            # Weight the average of the timeaverages by the weights.
-            avgdata = average(timeavg, axis=0, weights=w)
-            avgspec = np.mean(self._timeaveraged)
-            avgspec.meta = self._timeaveraged[0].meta
-            avgspec.meta["TSYS"] = np.average(a=[k.meta["TSYS"] for k in self._timeaveraged], axis=0, weights=w)
-            avgspec.meta["EXPOSURE"] = np.sum([k.meta["EXPOSURE"] for k in self._timeaveraged])
-            # observer = self._timeaveraged[0].observer # nope this has to be a location ugh. see @todo in Spectrum constructor
-            # hardcode to GBT for now
-            s = Spectrum.make_spectrum(
-                avgdata * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
-            )
-            s.merge_commentary(self)
-        elif mode == "new":
-            # average of the integrations
-            allcal = np.all([d._calibrate for d in self.data])
-            if not allcal:
-                raise Exception("Data must be calibrated before time averaging.")
-            c = np.concatenate([d._calibrated for d in self.data])
-            if weights == "tsys":
-                w = np.concatenate([d.tsys_weight for d in self.data])
-                # if len(np.shape(w)) > 1:  # remove empty axes
-                #    w = w.squeeze()
-            else:
-                w = None
-            timeavg = average(c, weights=w)
-            avgspec = self.data[0].calibrated(0)
-            avgspec.meta["TSYS"] = np.nanmean([d.tsys for d in self.data])
-            avgspec.meta["EXPOSURE"] = np.sum([d.exposure for d in self.data])
-            s = Spectrum.make_spectrum(
-                timeavg * avgspec.flux.unit, meta=avgspec.meta, observer_location=Observatory["GBT"]
-            )
-            s.merge_commentary(self)
-        else:
-            raise Exception(f"unrecognized mode {mode}")
+        # average of the averages
+        self._timeaveraged = []
+        i = 0
+        for scan in self.data:
+            self._timeaveraged.append(scan.timeaverage(weights))
+        s = average_spectra(self._timeaveraged, weights=weights)
+        s.merge_commentary(self)
         return s
 
     @log_call_to_history
@@ -630,6 +591,7 @@ class TPScan(ScanBase):
         whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
 
     Notes
     -----
@@ -665,6 +627,7 @@ class TPScan(ScanBase):
         bintable,
         calibrate=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits)
@@ -674,6 +637,7 @@ class TPScan(ScanBase):
         self._calstate = calstate
         self._scanrows = scanrows
         self._smoothref = smoothref
+        self._apply_flags = apply_flags
         if self._smoothref > 1:
             warnings.warn(f"TP smoothref={self._smoothref} not implemented yet")
 
@@ -702,22 +666,17 @@ class TPScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
-        # now remove blanked integrations
-        # seems like this should be done for all Scan classes!
-        # PS: yes.
-        nb1 = find_non_blanks(self._refcalon)
-        nb2 = find_non_blanks(self._refcaloff)
-        goodrows = np.intersect1d(nb1, nb2)
-        # Tell the user about blank integration(s) that will be ignored.
-        if len(goodrows) != len(self._refcalon):
-            nblanks = len(self._refcalon) - len(goodrows)
-            print(f"Ignoring {nblanks} blanked integration(s).")
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
         self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._nrows = len(self._refonrows) + len(self._refoffrows)
+
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         self._data = None
@@ -921,6 +880,9 @@ class TPScan(ScanBase):
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
@@ -930,7 +892,8 @@ class TPScan(ScanBase):
         else:
             w = np.ones_like(self.tsys_weight)
         non_blanks = find_non_blanks(self._data)[0]
-        self._timeaveraged._data = average(self._data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(self._data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
@@ -958,6 +921,7 @@ class PSScan(ScanBase):
         whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -974,6 +938,7 @@ class PSScan(ScanBase):
         bintable,
         calibrate=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits)
@@ -984,13 +949,7 @@ class PSScan(ScanBase):
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
         self._smoothref = smoothref
-        # print(f"PJT len(scanrows ON) {len(self._scanrows['ON'])}")
-        # print(f"PJT len(scanrows OFF) {len(self._scanrows['OFF'])}")
-        # print("PJT scans", scans)
-        # print("PJT scanrows", scanrows)
-        # print("PJT calrows", calrows)
-        # print(f"len(scanrows ON) {len(self._scanrows['ON'])}")
-        # print(f"len(scanrows OFF) {len(self._scanrows['OFF'])}")
+        self._apply_flags = apply_flags
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -1014,11 +973,26 @@ class PSScan(ScanBase):
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._sigcalon = self._sigcalon[goodrows]
+        self._sigcaloff = self._sigcaloff[goodrows]
+        self._sigonrows = [self._sigonrows[i] for i in goodrows]
+        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+        # Update number of rows after removing blanks.
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        self._nrows = nsigrows
+
         self._nchan = len(self._sigcalon[0])
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._tsys = None
         self._exposure = None
         self._calibrated = None
@@ -1054,8 +1028,11 @@ class PSScan(ScanBase):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
+        # @todo suppress astropy INFO message "overwriting Masked Quantity's current mask with specified mask."
         s = Spectrum.make_spectrum(
-            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            meta=self.meta[i],
+            observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
@@ -1071,10 +1048,10 @@ class PSScan(ScanBase):
 
         self._status = 1
         nspect = self.nrows // 2
-        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
@@ -1147,28 +1124,34 @@ class PSScan(ScanBase):
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
+
         Returns
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception("Can't yet time average multiple polarizations")
-        self._timeaveraged = deepcopy(self.calibrated(0))
+        self._timeaveraged = deepcopy(self.calibrated(0))  # ._copy()
         data = self._calibrated
         if weights == "tsys":
             w = self.tsys_weight
         else:
             w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged._history = self._history
+        self._timeaveraged._observer_location = self._observer_location
         return self._timeaveraged
 
 
@@ -1197,6 +1180,7 @@ class NodScan(ScanBase):
         Default: True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration (if applicable)
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1214,6 +1198,7 @@ class NodScan(ScanBase):
         bintable,
         calibrate=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits)
@@ -1221,6 +1206,7 @@ class NodScan(ScanBase):
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
         self._smoothref = smoothref
+        self._apply_flags = apply_flags
         self._beam1 = beam1
 
         # @todo   allow having no calrow where noise diode was not fired
@@ -1248,15 +1234,30 @@ class NodScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         if beam1:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
         else:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._sigcalon = self._sigcalon[goodrows]
+        self._sigcaloff = self._sigcaloff[goodrows]
+        self._sigonrows = [self._sigonrows[i] for i in goodrows]
+        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+        # Update number of rows after removing blanks.
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        self._nrows = nsigrows
+
         self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
@@ -1294,7 +1295,9 @@ class NodScan(ScanBase):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         s = Spectrum.make_spectrum(
-            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            meta=self.meta[i],
+            observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
@@ -1310,10 +1313,10 @@ class NodScan(ScanBase):
 
         self._status = 1
         nspect = self.nrows // 2
-        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
@@ -1390,6 +1393,9 @@ class NodScan(ScanBase):
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
@@ -1401,7 +1407,8 @@ class NodScan(ScanBase):
             w = self.tsys_weight
         else:
             w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
@@ -1441,6 +1448,7 @@ class FSScan(ScanBase):
         Whether to use the sig as the sig, or the ref as the sig. Default: True
     smoothref: int
         The number of channels in the reference to boxcar smooth prior to calibration.
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1459,6 +1467,7 @@ class FSScan(ScanBase):
         shift_method="fft",
         use_sig=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
         debug=False,
     ):
@@ -1472,7 +1481,7 @@ class FSScan(ScanBase):
         self._smoothref = smoothref
         if self._smoothref > 1:
             print(f"FS smoothref={self._smoothref} not implemented yet")
-
+        self._apply_flags = apply_flags
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
@@ -1481,19 +1490,18 @@ class FSScan(ScanBase):
         self._debug = debug
 
         if self._debug:
-            print("---------------------------------------------------")
-            print("FSSCAN: ")
-            print("SigOff", self._sigoffrows)
-            print("SigOn", self._sigonrows)
-            print("RefOff", self._refoffrows)
-            print("RegOn", self._refonrows)
+            logger.debug("---------------------------------------------------")
+            logger.debug("FSSCAN: ")
+            logger.debug(f"SigOff {self._sigoffrows}")
+            logger.debug(f"SigOn {self._sigonrows}")
+            logger.debug(f"RefOff {self._refoffrows}")
+            logger.debug(f"RefOn {self._refonrows}")
 
         nsigrows = len(self._sigonrows) + len(self._sigoffrows)
         nrefrows = len(self._refonrows) + len(self._refoffrows)
         if nsigrows != nrefrows:
             raise Exception("Number of sig rows does not match ref rows. Dangerous to proceed")
-        if self._debug:
-            print("sigonrows", nsigrows, self._sigonrows)
+        logger.debug(f"sigonrows {nsigrows}, {self._sigonrows}")
         self._nrows = nsigrows
 
         a_scanrow = self._sigonrows[0]
@@ -1504,27 +1512,42 @@ class FSScan(ScanBase):
         else:
             self._bintable_index = bintable
         if self._debug:
-            print(f"bintable index is {self._bintable_index}")
+            logger.debug(f"bintable index is {self._bintable_index}")
         self._observer_location = observer_location
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
 
         df = self._sdfits._index.iloc[self._scanrows]
         if self._debug:
-            print("len(df) = ", len(df))
+            logger.debug(f"{len(df) = }")
         self._set_if_fd(df)
         self._pols = uniq(df["PLNUM"])
         if self._debug:
-            print(f"FSSCAN #pol = {self._pols}")
+            logger.debug(f"FSSCAN #pol = {self._pols}")
         self._npol = len(self._pols)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # @todo use gbtfits.velocity_convention(veldef,velframe)
         # so quick with slicing!
 
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index)[self._sigonrows]
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+
+        # Catch blank integrations.
+        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+        self._refcalon = self._refcalon[goodrows]
+        self._refcaloff = self._refcaloff[goodrows]
+        self._refonrows = [self._refonrows[i] for i in goodrows]
+        self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        self._sigcalon = self._sigcalon[goodrows]
+        self._sigcaloff = self._sigcaloff[goodrows]
+        self._sigonrows = [self._sigonrows[i] for i in goodrows]
+        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+        # Update number of rows after removing blanks.
+        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        self._nrows = nsigrows
+
         self._nchan = len(self._sigcalon[0])
         self._tsys = None
         self._exposure = None
@@ -1534,7 +1557,7 @@ class FSScan(ScanBase):
         if self._calibrate:
             self.calibrate(fold=fold, shift_method=shift_method)
         if self._debug:
-            print("---------------------------------------------------")
+            logger.debug("---------------------------------------------------")
         self._validate_defaults()
 
     @property
@@ -1562,7 +1585,9 @@ class FSScan(ScanBase):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         s = Spectrum.make_spectrum(
-            self._calibrated[i] * u.K, meta=self.meta[i], observer_location=self._observer_location
+            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            meta=self.meta[i],
+            observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
@@ -1573,8 +1598,8 @@ class FSScan(ScanBase):
         fold=True or fold=False is required
         """
         if self._debug:
-            print(f'FOLD={kwargs["fold"]}')
-            print(f'METHOD={kwargs["shift_method"]}')
+            logger.debug(f'FOLD={kwargs["fold"]}')
+            logger.debug(f'METHOD={kwargs["shift_method"]}')
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -1663,33 +1688,30 @@ class FSScan(ScanBase):
         _fold = kwargs.get("fold", False)
         _mode = 1  # 1: keep the sig    else: keep the ref     (not externally supported)
         nspect = self.nrows // 2
-        self._calibrated = np.empty((nspect, self._nchan), dtype="d")
+        self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
         #
         sig_freq = self._sigcalon[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]
-        if self._debug:
-            print("df_sig", type(df_sig), len(df_sig))
+        logger.debug(f"df_sig {type(df_sig)} len(df_sig)")
         sig_freq = index_frequency(df_sig)
         ref_freq = index_frequency(df_ref)
         chan_shift = abs(sig_freq[0, 0] - ref_freq[0, 0]) / np.abs(np.diff(sig_freq)).mean()
-        if self._debug:
-            print("FS: shift=%g  nchan=%d" % (chan_shift, self._nchan))
+        logger.debug(f"FS: shift={chan_shift:g}  nchan={self._nchan:g}")
 
         #  tcal is the same for REF and SIG, and the same for all integrations actually.
-        tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["TCAL"])
-        if self._debug:
-            print("TCAL:", len(tcal), tcal[0])
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["TCAL"].to_numpy()
+        logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         # @todo   the nspect loop could be replaced with clever numpy?
         for i in range(nspect):
             tsys_sig = mean_tsys(calon=self._sigcalon[i], caloff=self._sigcaloff[i], tcal=tcal[i])
             tsys_ref = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-            if i == 0 and self._debug:
-                print("Tsys(sig/ref)[0]=", tsys_sig, tsys_ref)
+            if i == 0:
+                logger.debug(f"Tsys(sig/ref)[0]={tsys_sig} / {tsys_ref}")
             tp_sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
             tp_ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
             #
@@ -1779,6 +1801,9 @@ class FSScan(ScanBase):
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
@@ -1790,7 +1815,8 @@ class FSScan(ScanBase):
             w = self.tsys_weight
         else:
             w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
@@ -1811,6 +1837,7 @@ class SubBeamNodScan(ScanBase):
         Whether or not to calibrate the data.
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1831,6 +1858,7 @@ class SubBeamNodScan(ScanBase):
         reftp,
         calibrate=True,
         smoothref=1,
+        apply_flags=False,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -1859,6 +1887,7 @@ class SubBeamNodScan(ScanBase):
         self._smoothref = smoothref
         if self._smoothref > 1:
             print(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
+        self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._calibrated = None
         if calibrate:
@@ -1871,7 +1900,7 @@ class SubBeamNodScan(ScanBase):
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
         self._delta_freq = np.empty(nspect, dtype=float)
-        self._calibrated = np.empty((nspect, self._nchan), dtype=float)
+        self._calibrated = np.ma.empty((nspect, self._nchan), dtype=float)
 
         for i in range(nspect):
             sig = self._sigtp[i].timeaverage(weights=kwargs["weights"])
@@ -1897,7 +1926,11 @@ class SubBeamNodScan(ScanBase):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        s = Spectrum.make_spectrum(self._calibrated[i] * u.K, meta=meta, observer_location=self._observer_location)
+        s = Spectrum.make_spectrum(
+            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            meta=meta,
+            observer_location=self._observer_location,
+        )
         s.merge_commentary(self)
         return s
 
@@ -1910,18 +1943,36 @@ class SubBeamNodScan(ScanBase):
         return self._delta_freq
 
     def timeaverage(self, weights="tsys"):
+        r"""Compute the time-averaged spectrum for this scan.
+
+        Parameters
+        ----------
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        Returns
+        -------
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
+        """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         if self._npol > 1:
             raise Exception(f"Can't yet time average multiple polarizations {self._npol}")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
-        nchan = len(data[0])
         if weights == "tsys":
             w = self.tsys_weight
         else:
             w = None
-        self._timeaveraged._data = average(data, axis=0, weights=w)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]

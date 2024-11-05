@@ -4,6 +4,7 @@ Core functions for spectral data.
 
 import warnings
 from copy import deepcopy
+from functools import reduce
 
 import astropy.units as u
 import numpy as np
@@ -109,10 +110,52 @@ def find_blanks(data):
     Returns
     -------
     blanks : `~numpy.ndarray`
-        Array with indices of \blanked integrations.
+        Array with indices of blanked integrations.
     """
 
     return np.where(integration_isnan(data))
+
+
+def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
+    """
+    Find the indices of integrations that are not blanked.
+
+    Parameters
+    ----------
+    cycle1 : `~numpy.ndarray`
+        Data for cycle 1. For example, signal with the noise diode off.
+    cycle2 : `~numpy.ndarray`
+        Data for cycle 2. For example, reference with the noise diode off.
+    cycle3 : `~numpy.ndarray`
+        Data for cycle 3. For example, signal with the noise diode on.
+        Default is `None`.
+    cycle4 : `~numpy.ndarray`
+        Data for cycle 4. For example, reference with the noise diode on.
+        Default is `None`.
+
+    Returns
+    -------
+    goodrows : `~numpy.array`
+        Indices of the non-blanked rows.
+    """
+
+    nb1 = find_non_blanks(cycle1)
+    nb2 = find_non_blanks(cycle2)
+    if cycle3 is not None:
+        nb3 = find_non_blanks(cycle3)
+    else:
+        nb3 = nb1
+    if cycle4 is not None:
+        nb4 = find_non_blanks(cycle4)
+    else:
+        nb4 = nb2
+    goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
+
+    if len(goodrows) != len(cycle1):
+        nblanks = len(cycle1) - len(goodrows)
+        logger.info(f"Ignoring {nblanks} blanked integration(s).")
+
+    return goodrows
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
@@ -256,7 +299,7 @@ def exclude_to_mask(exclude, refspec):
 
 
 @log_function_call()
-def baseline(spectrum, order, exclude=None, **kwargs):
+def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
     """Fit a baseline for a spectrum
 
     Parameters
@@ -289,6 +332,8 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         One of 'polynomial' or 'chebyshev', Default: 'polynomial'
     fitter : `~astropy.fitting._FitterMeta`
         The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+    exclude_region_upper_bounds : bool
+        Makes the upper bound of any excision region(s) inclusive. Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
 
     Returns
     -------
@@ -340,7 +385,13 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         # exist (they will be a list of SpectralRegions or None)
         regionlist = p._exclude_regions
     print(f"EXCLUDING {regionlist}")
-    return fit_continuum(spectrum=p, model=selected_model, fitter=fitter, exclude_regions=regionlist)
+    return fit_continuum(
+        spectrum=p,
+        model=selected_model,
+        fitter=fitter,
+        exclude_regions=regionlist,
+        exclude_region_upper_bounds=exclude_region_upper_bounds,
+    )
 
 
 def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
@@ -680,7 +731,11 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
     if show:
         return kernel
     # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
-    new_data = convolve(data, kernel, boundary="extend")
+    if hasattr(data, "mask"):
+        mask = data.mask
+    else:
+        mask = None
+    new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
     return new_data
 
 

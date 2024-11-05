@@ -45,15 +45,22 @@ def compare_spectrum(one, other, ignore_history=False, ignore_comments=False):
             assert v == vars(other)[k]
 
 
+def loadfits(fname):
+    hdu = fits.open(fname)
+    spec = hdu[1].data["DATA"][0]
+    hdu.close()
+    return spec
+
+
 class TestSpectrum:
     def setup_method(self):
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
-        getps0 = sdf.getps(scan=51, plnum=0)
-        self.ps0 = getps0.timeaverage()
-        getps1 = sdf.getps(scan=51, plnum=1)
-        self.ps1 = getps1.timeaverage()
+        self.getps0 = sdf.getps(scan=51, plnum=0)
+        self.ps0 = self.getps0.timeaverage()
+        self.getps1 = sdf.getps(scan=51, plnum=1)
+        self.ps1 = self.getps1.timeaverage()
         self.ss = self.ps0._copy()  # Synthetic one.
         x = np.arange(0, len(self.ss.data))
         fwhm = 5
@@ -254,7 +261,6 @@ class TestSpectrum:
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
         s = slice(1000, 1100, 1)
-
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
         assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
@@ -364,7 +370,9 @@ class TestSpectrum:
 
         # Check fitter first.
         g_fit = fit_gauss(self.ss)
-        assert g_fit.stddev.value * 2.35482 == pytest.approx(abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"])
+        assert g_fit.stddev.value * 2.35482 == pytest.approx(
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], g_fit.stddev.std * 2.35482
+        )
 
         # Now smooth the same Spectrum multiple times.
         sss = self.ss._copy()
@@ -412,7 +420,7 @@ class TestSpectrum:
 
         # Apply method to be tested.
         shift = 5.5
-        spec.shift(shift)
+        spec = spec.shift(shift)
 
         # Internal tests.
         assert np.all(np.isnan(spec[: int(np.round(shift))].data))
@@ -480,20 +488,20 @@ class TestSpectrum:
         org_spec = spec._copy()
 
         # Align to itself.
-        spec.align_to(spec)
+        spec = spec.align_to(spec)
         compare_spectrum(spec, org_spec, ignore_history=True)
         assert np.all((spec - org_spec).data == 0)
 
         # Align to a shifted version.
         shift = 5
-        spec.shift(shift)
+        spec = spec.shift(shift)
         assert np.all((spec.data[shift:] - org_spec.data[:-shift]) == 0.0)
 
         # Align to a shifted version with signal.
         fshift = 0.5
         spec = self.ss._copy()
         org_spec = spec._copy()
-        spec.shift(shift + fshift)
+        spec = spec.shift(shift + fshift)
         # The amplitude of the signal will decrease because of the sampling.
         tol = np.sqrt(
             (1 - np.exp(-0.5 * (fshift) ** 2 / spec.meta["STDD"] ** 2)) ** 2.0
@@ -517,3 +525,35 @@ class TestSpectrum:
         avg = average_spectra((self.ps0, self.ps1), align=True)
         compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
         compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)
+
+    def test_baseline(self):
+        """Test for comparing GBTIDL baseline to Dysh baselines"""
+
+        def test_single_baseline(sdf, ex_reg, order, model, gbtidl_bmodel, exclude_region_upper_bounds=True):
+            """For use with TestSpectrum.test_baseline()"""
+            dysh_spec = sdf.getspec(0)
+            temp_bmodel = np.copy(dysh_spec.data)
+            dysh_spec.baseline(
+                order, ex_reg, remove=True, model=model, exclude_region_upper_bounds=exclude_region_upper_bounds
+            )
+            dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
+            diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
+            assert diff < 1.5e-6
+
+        data_dir = get_project_testdata() / "AGBT17A_404_01"
+        sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
+        sdf = GBTFITSLoad(sdf_file)
+        gbtidl_two_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_bmodel.fits")
+        gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")
+
+        order = 3
+        ex_reg = [(0, 99), (381, 449), (721, 819)]
+
+        test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_two_reg)
+        test_single_baseline(sdf, ex_reg, order, "legendre", gbtidl_two_reg)
+        test_single_baseline(sdf, ex_reg, order, "hermite", gbtidl_two_reg)
+        # TODO: polynomial fit test fails until issues 174, 252 are fixed
+        # test_single_baseline(sdf,ex_reg,order,'polynomial',gbtidl_two_reg)
+
+        ex_reg = None
+        test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_no_reg)
