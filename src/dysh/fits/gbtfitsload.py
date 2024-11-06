@@ -2386,14 +2386,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     lr = len(rows)
                     if lr > 0:
                         if flags:  # update the flags before we select rows
-                            flagval = self._sdf[k]._flagmask[b]
+                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
                             dim1 = np.shape(flagval)[1]
                             form = f"{dim1}B"
-                            tdim = f"({dim1}, 1, 1, 1)"
-                            c = fits.Column(name="FLAGS", format=form, dim=tdim, array=flagval)
-                            print(f"FLAGS={c}")
+                            c = fits.Column(name="FLAGS", format=form, array=flagval)
                             self._sdf[k]._update_binary_table_column({"FLAGS": c})
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        print(f"#### {set(ob.data['CTYPE2'])=} ####")
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
@@ -2428,7 +2427,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     lr = len(rows)
                     if lr > 0:
                         if flags:  # update the flags before we select rows
-                            flagval = self._sdf[k]._flagmask[b]
+                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
                             dim1 = np.shape(flagval)[1]
                             form = f"{dim1}B"
                             # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this

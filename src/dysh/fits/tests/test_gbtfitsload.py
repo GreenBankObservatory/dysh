@@ -527,7 +527,7 @@ class TestGBTFITSLoad:
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
             print(f"trying to writing file #{i} {out}")
-            g.write(out, overwrite=True)
+            g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
@@ -557,7 +557,7 @@ class TestGBTFITSLoad:
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
             print(f"trying to writing file #{i} {out}")
-            g.write(out, overwrite=True)
+            g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
@@ -622,11 +622,14 @@ class TestGBTFITSLoad:
         sdf_org["RADESYS"] = ""
         sdf_org["CTYPE2"] = "AZ"
         sdf_org["CTYPE3"] = "EL"
+        print(f"{sdf_org['RADESYS'][0]=}")
+        print(f"{sdf_org['CTYPE2'][0]=}")
+        print(f"{sdf_org['CTYPE3'][0]=}")
 
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"
         new_path.mkdir(parents=True, exist_ok=True)
-        sdf_org.write(new_path / "test_azel.fits", overwrite=True)
+        sdf_org.write(new_path / "test_azel.fits", overwrite=True, flags=True)
 
         # Now the actual test.
         sdf = gbtfitsload.GBTFITSLoad(new_path)
@@ -669,3 +672,25 @@ class TestGBTFITSLoad:
         assert "My dear Aunt Sally" in sdf.comments
         assert "ran the test for history and comments" in sdf.history
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
+
+    def test_write_read_flags(self, tmp_path):
+        fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf.flag(ifnum=3)
+        sdf.apply_flags()
+
+        new_path = tmp_path / "flagtest_multi"
+        new_path.mkdir(parents=True, exist_ok=True)
+        # first test with multifile=True. Default is flags=True
+        sdf.write(new_path / "test.fits", multifile=True, overwrite=True)
+        mdf = gbtfitsload.GBTFITSLoad(new_path)
+        for i in range(len(sdf._sdf)):
+            assert np.all(sdf._sdf[i]._flagmask[0] == mdf._sdf[i]._flagmask[0])
+        # now with multifile = False
+        new_path = tmp_path / "flagtest_single"
+        new_path.mkdir(parents=True, exist_ok=True)
+        sdf.write(new_path / "foobar.fits", multifile=False, overwrite=True)
+        g2 = gbtfitsload.GBTFITSLoad(new_path / "foobar.fits", verbose=True)
+        flags2 = g2._sdf[0]._flagmask
+        for i in range(len(sdf._sdf)):
+            assert np.all(sdf._sdf[i]._flagmask[0] == flags2[i])

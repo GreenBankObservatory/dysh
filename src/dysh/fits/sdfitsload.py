@@ -855,7 +855,7 @@ class SDFITSLoad(object):
         """
         # If we pass the data through a astropy Table first, then the conversion of
         # numpy array dtype to FITS format string (e.g, '12A') gets done automatically and correctly.
-        logger.debug(f"_add_binary_table_column({name}, v={value}, bintable={bintable})")
+        # print(f"_add_binary_table_column({name}, v={value}, bintable={bintable})")
         is_col = isinstance(value, Column)
         if is_col:
             lenv = len(value.array)
@@ -871,6 +871,8 @@ class SDFITSLoad(object):
             else:
                 t = BinTableHDU(Table(names=[name], data=[value]))
                 self._bintable[bintable].columns.add_col(t.columns[name])
+            # self._update_column_added(bintable, self._bintable[bintable].columns)
+            # self._bintable[bintable].update_header()
         else:
             if lenv != self.total_rows:
                 raise ValueError(
@@ -878,7 +880,7 @@ class SDFITSLoad(object):
                 )
             # Split values up by length of the individual binary tables
             start = 0
-            for i in range(len(self._nrows)):
+            for i in range(len(self._bintable)):
                 n = self._nrows[i]
                 if isinstance(value, Column):
                     cut = Column(
@@ -888,7 +890,18 @@ class SDFITSLoad(object):
                 else:
                     t = BinTableHDU(Table(names=[name], data=value[start : start + n]))
                     self._bintable[i].columns.add_col(t.columns[name])
+                # self._update_column_added(i, self._bintable[i].columns)
+                # self._bintable[bintable].update_header()
                 start = start + n
+
+    def _update_column_added(self, bintable, coldefs):
+        print("UPDATE ", coldefs)
+        self.bintable[bintable].data = fits.fitsrec.FITS_rec.from_columns(
+            columns=coldefs,
+            nrows=self.bintable[bintable]._nrows,
+            fill=False,
+            character_as_bytes=self.bintable[bintable]._character_as_bytes,
+        )
 
     def _update_binary_table_column(self, column_dict):
         """Change or add one or more columns to the SDFITS binary table(s)
@@ -902,31 +915,43 @@ class SDFITSLoad(object):
         # BinTableHDU interface will take care of the types and data lengths matching.
         # It will even allow the case where len(values) == 1 to replace all column values with
         # a single value.
+        print(f"updating {column_dict}")
         if len(self._bintable) == 1:
             for k, v in column_dict.items():
-                if isinstance(v, Column):
+                is_col = isinstance(v, Column)
+                if is_col:
                     value = v.array
                 else:
                     value = v
                 # self._bintable[i].data is an astropy.io.fits.fitsrec.FITS_rec, with length equal
                 # to number of rows
-                is_str = isinstance(v, str)
-                if is_str or not isinstance(v, (Sequence, np.ndarray)):
-                    value = np.full(len(self._bintable[0].data), v)
+                is_str = isinstance(value, str)
+                if is_str or not isinstance(value, (Sequence, np.ndarray)):
+                    # print(f"making an array for {k}")
+                    value = np.full(self._bintable[0]._nrows, value)
                 if k in self._bintable[0].data.names:
+                    # have to assigned directly to array becaause somewhere
+                    # deep in astropy a ref is kep to the original coldefs data which
+                    # gets recopied if a column is added.
+                    # print(f"Setting {k} {type(value)=}")
+                    self._bintable[0].data.columns[k].array = value
                     self._bintable[0].data[k] = value
                 # otherwise we need to add rather than replace/update
                 else:
-                    self._add_binary_table_column(k, v, 0)
+                    # print(f"update calling add for {k}={value}")
+                    self._add_binary_table_column(k, value, 0)
+            self._bintable[0].update_header()
+            print(f"#### {set(self._bintable[0].data['CTYPE2'])=} ####")
         else:
             start = 0
             for k, v in column_dict.items():
-                if isinstance(v, Column):
+                is_col = isinstance(v, Column)
+                if is_col:
                     value = v.array
                 else:
                     value = v
-                is_str = isinstance(v, str)
-                if not is_str and isinstance(v, (Sequence, np.ndarray)) and len(v) != self.total_rows:
+                is_str = isinstance(value, str)
+                if not is_str and isinstance(value, (Sequence, np.ndarray)) and len(value) != self.total_rows:
                     raise ValueError(
                         f"Length of values array ({len(v)}) for column {k} and total number of rows ({self.total_rows}) aren't equal."
                     )
@@ -935,9 +960,11 @@ class SDFITSLoad(object):
                     b = self._bintable[j]
                     if k in b.data.names:
                         n = len(b.data)
-                        if is_str or not isinstance(v, (Sequence, np.ndarray)):
+                        if is_str or not isinstance(value, (Sequence, np.ndarray)):
+                            b.data.columns[k].array = value
                             b.data[k] = value
                         else:
+                            b.data.columns[k].array
                             b.data[k] = value[start : start + n]
                         start = start + n
                     else:
@@ -951,7 +978,10 @@ class SDFITSLoad(object):
                         else:
                             v1 = value[start : start + n]
                             start = start + n
+                        # print(f"BT{j} update calling add for {k}={v1}")
                         self._add_binary_table_column(k, v1, j)
+                    self._bintable[j].update_header()
+                    print(f"#### {set(self._bintable[j].data['CTYPE2'])=} ####")
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
@@ -962,15 +992,19 @@ class SDFITSLoad(object):
             items = [i.upper() for i in items]
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
-        if "DATA" in items:
-            if not np.all([b.data["DATA"].shape == self._bintable[0].data["DATA"].shape for b in self._bintable]):
-                raise ValueError(
-                    "Data columns for multiple binary tables in this SDFITSLoad have different shapes. They can only be accessed via _bintable.data['DATA'] attribute."
-                )
-            if len(self._bintable) == 1:
-                return self._bintable[0].data["DATA"]
-            else:
-                return np.vstack([b.data["DATA"] for b in self._bintable])
+        # Deal with columns that have multiple dimensions
+        for multikey in ["DATA", "FLAGS"]:
+            if multikey in items:
+                if not np.all(
+                    [b.data[multikey].shape == self._bintable[0].data[multikey].shape for b in self._bintable]
+                ):
+                    raise ValueError(
+                        "{multikey} columns for multiple binary tables in this SDFITSLoad have different shapes. They can only be accessed via _bintable.data['DATA'] attribute."
+                    )
+                if len(self._bintable) == 1:
+                    return self._bintable[0].data[multikey]
+                else:
+                    return np.vstack([b.data[multikey] for b in self._bintable])
         return self._index[items]
 
     def __setitem__(self, items, values):
