@@ -67,11 +67,12 @@ sdf.summary()
 sdf._reload()
 sdf.summary()
 
+sdf2 = GBTOnline("AGBT21B_024_01")
 
 sdf1 = GBTOnline()
 sdf1.summary()
 
 
 
-
+sdf3 = GBTOffline("AGBT21B_024_01")
 
