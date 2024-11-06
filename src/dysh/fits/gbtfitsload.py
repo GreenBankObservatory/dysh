@@ -100,7 +100,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # cds.enable()  # to get mmHg
 
-        if kwargs.get("verbose", None):
+        # ushow/udata depend on the index being present, so check that index is created.
+        if kwargs.get("verbose", None) and kwargs_opts["index"]:
             print("==GBTLoad %s" % fileobj)
             self.ushow("OBJECT", 0)
             self.ushow("SCAN", 0)
@@ -118,7 +119,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
-        self.add_history(f"Project ID: {self.projectID}", add_time=True)
+        if kwargs_opts["index"]:
+            self.add_history(f"Project ID: {self.projectID}", add_time=True)
+        else:
+            print("Reminder: No index created; many functions won't work.")
 
     def __repr__(self):
         return str(self.files)
@@ -141,7 +145,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
         str
             The project ID string
-
         """
         return uniq(self["PROJID"])[0]
 
@@ -2392,7 +2395,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
                             self._sdf[k]._update_binary_table_column({"FLAGS": c})
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
-                        print(f"#### {set(ob.data['CTYPE2'])=} ####")
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
@@ -2416,7 +2418,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if verbose:
                 print(f"Total of {total_rows_written} rows written to files.")
         else:
-            hdu = self._sdf[fi[0]]._hdu[fi[0]].copy()
+            hdu = self._sdf[fi[0]]._hdu[0].copy()
             outhdu = fits.HDUList(hdu)
             for k in fi:
                 df = select_from("FITSINDEX", k, _final)
@@ -2521,7 +2523,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            warnings.warn("Changing an existing SDFITS column")
+            warnings.warn(f"Changing an existing SDFITS column {items}")
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):

@@ -294,6 +294,8 @@ class SDFITSLoad(object):
                 The unique set of values for the input keyword.
 
         """
+        if self._index is None:
+            raise ValueError("Can't retrieve keyword {key} because no index is present.")
         if bintable is not None:
             df = self._index[self._index["BINTABLE"] == bintable]
         else:
@@ -658,10 +660,8 @@ class SDFITSLoad(object):
         # ensure rows are sorted
         rows.sort()
         outbintable = self._bintable[bintable].copy()
-        # print(f"bintable copy data length {len(outbintable.data)}")
         outbintable.data = outbintable.data[rows]
-        # print(f"bintable rows data length {len(outbintable.data)}")
-        outbintable.update()
+        outbintable.update_header()
         return outbintable
 
     def write(
@@ -855,7 +855,6 @@ class SDFITSLoad(object):
         """
         # If we pass the data through a astropy Table first, then the conversion of
         # numpy array dtype to FITS format string (e.g, '12A') gets done automatically and correctly.
-        # print(f"_add_binary_table_column({name}, v={value}, bintable={bintable})")
         is_col = isinstance(value, Column)
         if is_col:
             lenv = len(value.array)
@@ -869,7 +868,8 @@ class SDFITSLoad(object):
             if is_col:
                 self._bintable[bintable].columns.add_col(value)
             else:
-                t = BinTableHDU(Table(names=[name], data=[value]))
+                t1 = Table(names=[name], data=[value])
+                t = BinTableHDU(t1)
                 self._bintable[bintable].columns.add_col(t.columns[name])
             # self._update_column_added(bintable, self._bintable[bintable].columns)
             # self._bintable[bintable].update_header()
@@ -888,14 +888,13 @@ class SDFITSLoad(object):
                     )
                     self._bintable[i].columns.add_col(cut)
                 else:
-                    t = BinTableHDU(Table(names=[name], data=value[start : start + n]))
+                    t = BinTableHDU(Table(names=[name], data=[value[start : start + n]]))
                     self._bintable[i].columns.add_col(t.columns[name])
                 # self._update_column_added(i, self._bintable[i].columns)
                 # self._bintable[bintable].update_header()
                 start = start + n
 
     def _update_column_added(self, bintable, coldefs):
-        print("UPDATE ", coldefs)
         self.bintable[bintable].data = fits.fitsrec.FITS_rec.from_columns(
             columns=coldefs,
             nrows=self.bintable[bintable]._nrows,
@@ -915,7 +914,6 @@ class SDFITSLoad(object):
         # BinTableHDU interface will take care of the types and data lengths matching.
         # It will even allow the case where len(values) == 1 to replace all column values with
         # a single value.
-        print(f"updating {column_dict}")
         if len(self._bintable) == 1:
             for k, v in column_dict.items():
                 is_col = isinstance(v, Column)
@@ -926,22 +924,26 @@ class SDFITSLoad(object):
                 # self._bintable[i].data is an astropy.io.fits.fitsrec.FITS_rec, with length equal
                 # to number of rows
                 is_str = isinstance(value, str)
-                if is_str or not isinstance(value, (Sequence, np.ndarray)):
-                    # print(f"making an array for {k}")
+                if is_str or not isinstance(value, np.ndarray):
                     value = np.full(self._bintable[0]._nrows, value)
+                # NOTE: if k is from the primary header and not a data column
+                # then this test fails, and we will ADD a new binary data column.
+                # So the primary header and data column could be inconsistent.
+                # It actually happens in
+                # test_gbtfitsload.py:test_set_item for SITELONG=[-42.21]*g.total_rows
+                # Indeed there is a warning in _add_primary_hdu about this.
+                # The behavior is intended,the column takes precedence over
+                # the primary hdu, but we should document this publicly.
                 if k in self._bintable[0].data.names:
-                    # have to assigned directly to array becaause somewhere
-                    # deep in astropy a ref is kep to the original coldefs data which
+                    # have to assigned directly to array because somewhere
+                    # deep in astropy a ref is kept to the original coldefs data which
                     # gets recopied if a column is added.
-                    # print(f"Setting {k} {type(value)=}")
                     self._bintable[0].data.columns[k].array = value
                     self._bintable[0].data[k] = value
                 # otherwise we need to add rather than replace/update
                 else:
-                    # print(f"update calling add for {k}={value}")
                     self._add_binary_table_column(k, value, 0)
             self._bintable[0].update_header()
-            print(f"#### {set(self._bintable[0].data['CTYPE2'])=} ####")
         else:
             start = 0
             for k, v in column_dict.items():
@@ -950,11 +952,13 @@ class SDFITSLoad(object):
                     value = v.array
                 else:
                     value = v
+
                 is_str = isinstance(value, str)
                 if not is_str and isinstance(value, (Sequence, np.ndarray)) and len(value) != self.total_rows:
                     raise ValueError(
                         f"Length of values array ({len(v)}) for column {k} and total number of rows ({self.total_rows}) aren't equal."
                     )
+
                 # Split values up by length of the individual binary tables
                 for j in range(len(self._bintable)):
                     b = self._bintable[j]
@@ -964,11 +968,14 @@ class SDFITSLoad(object):
                             b.data.columns[k].array = value
                             b.data[k] = value
                         else:
-                            b.data.columns[k].array
+                            b.data.columns[k].array = value[start : start + n]
                             b.data[k] = value[start : start + n]
                         start = start + n
                     else:
-                        v1 = value
+                        if not is_str and isinstance(value, Sequence):
+                            v1 = np.array(value)
+                        else:
+                            v1 = value
                         n = len(b.data)
                         if is_str or not isinstance(value, (Sequence, np.ndarray)):
                             # we have to make an array from value if the user
@@ -976,12 +983,10 @@ class SDFITSLoad(object):
                             # Need a new variable here or multiple loops keep expanding value
                             v1 = np.full(n, value)
                         else:
-                            v1 = value[start : start + n]
-                            start = start + n
-                        # print(f"BT{j} update calling add for {k}={v1}")
+                            v1 = np.array(value[start : start + n])
+                        start = start + n
                         self._add_binary_table_column(k, v1, j)
                     self._bintable[j].update_header()
-                    print(f"#### {set(self._bintable[j].data['CTYPE2'])=} ####")
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
@@ -1028,11 +1033,11 @@ class SDFITSLoad(object):
             iset = set(items)
         col_exists = len(set(self.columns).intersection(iset)) > 0
         if col_exists and "DATA" not in items:
-            warnings.warn("Changing an existing SDFITS column")
+            warnings.warn(f"Changing an existing SDFITS column {items}")
         try:
             self._update_binary_table_column(d)
         except Exception as e:
-            raise Exception(f"Could not update SDFITS binary table because {e}")
+            raise Exception(f"Could not update SDFITS binary table for {items} because {e}")
         # only update the index if the binary table could be updated.
         # DATA is not in the index.
         if "DATA" not in items:

@@ -253,7 +253,6 @@ class TestGBTFITSLoad:
             8: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": True},
         }
         for k, v in tests.items():
-            print(f"{k}, {v}")
             if v["SIG"] == False:
                 with pytest.raises(Exception):
                     tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], cal=v["CAL"], sig=v["SIG"])
@@ -480,7 +479,8 @@ class TestGBTFITSLoad:
         d = tmp_path / "sub"
         d.mkdir()
         output = d / "test_write_all.fits"
-        org_sdf.write(output, overwrite=True)
+        # don't write flags to avoid TDIM84 new column
+        org_sdf.write(output, overwrite=True, flags=False)
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
         # Note we now auto-add a HISTORY card at instantiation, so drop that
@@ -622,9 +622,6 @@ class TestGBTFITSLoad:
         sdf_org["RADESYS"] = ""
         sdf_org["CTYPE2"] = "AZ"
         sdf_org["CTYPE3"] = "EL"
-        print(f"{sdf_org['RADESYS'][0]=}")
-        print(f"{sdf_org['CTYPE2'][0]=}")
-        print(f"{sdf_org['CTYPE3'][0]=}")
 
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"
