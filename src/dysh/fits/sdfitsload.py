@@ -211,7 +211,8 @@ class SDFITSLoad(object):
                 self._index[k] = v
             elif self._index[k][0] != v:
                 warnings.warn(
-                    f"Column {k} is defined in the primary header and in the binary table index, but their values do not match. Will not update this column in the index.",
+                    f"Column {k} is defined in the primary header and in the binary table index, but their values do"
+                    " not match. Will not update this column in the index.",
                     UserWarning,
                     stacklevel=2,
                 )
@@ -661,7 +662,7 @@ class SDFITSLoad(object):
         rows.sort()
         outbintable = self._bintable[bintable].copy()
         outbintable.data = outbintable.data[rows]
-        outbintable.update_header()
+        outbintable.update()
         return outbintable
 
     def write(
@@ -863,7 +864,8 @@ class SDFITSLoad(object):
         if bintable is not None:
             if lenv != self.nrows(bintable):
                 raise ValueError(
-                    f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.nrows(bintable)}) aren't equal."
+                    f"Length of values array ({len(value)}) for column {name} and total number of rows"
+                    f" ({self.nrows(bintable)}) aren't equal."
                 )
             if is_col:
                 self._bintable[bintable].columns.add_col(value)
@@ -872,11 +874,12 @@ class SDFITSLoad(object):
                 t = BinTableHDU(t1)
                 self._bintable[bintable].columns.add_col(t.columns[name])
             # self._update_column_added(bintable, self._bintable[bintable].columns)
-            # self._bintable[bintable].update_header()
+            # self._bintable[bintable].update()
         else:
             if lenv != self.total_rows:
                 raise ValueError(
-                    f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.total_rows}) aren't equal."
+                    f"Length of values array ({len(value)}) for column {name} and total number of rows"
+                    f" ({self.total_rows}) aren't equal."
                 )
             # Split values up by length of the individual binary tables
             start = 0
@@ -891,7 +894,7 @@ class SDFITSLoad(object):
                     t = BinTableHDU(Table(names=[name], data=[value[start : start + n]]))
                     self._bintable[i].columns.add_col(t.columns[name])
                 # self._update_column_added(i, self._bintable[i].columns)
-                # self._bintable[bintable].update_header()
+                # self._bintable[bintable].update()
                 start = start + n
 
     def _update_column_added(self, bintable, coldefs):
@@ -943,7 +946,7 @@ class SDFITSLoad(object):
                 # otherwise we need to add rather than replace/update
                 else:
                     self._add_binary_table_column(k, value, 0)
-            self._bintable[0].update_header()
+            self._bintable[0].update()
         else:
             start = 0
             for k, v in column_dict.items():
@@ -956,7 +959,8 @@ class SDFITSLoad(object):
                 is_str = isinstance(value, str)
                 if not is_str and isinstance(value, (Sequence, np.ndarray)) and len(value) != self.total_rows:
                     raise ValueError(
-                        f"Length of values array ({len(v)}) for column {k} and total number of rows ({self.total_rows}) aren't equal."
+                        f"Length of values array ({len(v)}) for column {k} and total number of rows ({self.total_rows})"
+                        " aren't equal."
                     )
 
                 # Split values up by length of the individual binary tables
@@ -986,7 +990,7 @@ class SDFITSLoad(object):
                             v1 = np.array(value[start : start + n])
                         start = start + n
                         self._add_binary_table_column(k, v1, j)
-                    self._bintable[j].update_header()
+                    self._bintable[j].update()
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
@@ -1004,7 +1008,8 @@ class SDFITSLoad(object):
                     [b.data[multikey].shape == self._bintable[0].data[multikey].shape for b in self._bintable]
                 ):
                     raise ValueError(
-                        "{multikey} columns for multiple binary tables in this SDFITSLoad have different shapes. They can only be accessed via _bintable.data['DATA'] attribute."
+                        "{multikey} columns for multiple binary tables in this SDFITSLoad have different shapes. They"
+                        " can only be accessed via _bintable.data['DATA'] attribute."
                     )
                 if len(self._bintable) == 1:
                     return self._bintable[0].data[multikey]
