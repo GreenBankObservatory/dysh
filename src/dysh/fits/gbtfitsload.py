@@ -2,6 +2,7 @@
 
 import os
 import copy
+import time
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
@@ -444,7 +445,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 uncompressed_df = _df.filter(show)
             else:  # no longer used
                 uncompressed_df = pd.concat([uncompressed_df, _df.filter(show)])
-
         if verbose:
             uncompressed_df = uncompressed_df.astype(col_dtypes)
             return uncompressed_df
@@ -2507,6 +2507,9 @@ class GBTOffline(GBTFITSLoad):
 
     Note project directories are assumed to exist in /home/sdfits
     or whereever dysh_data thinks your /home/sdfits lives.
+
+    Also note in GBTIDL one can use SDFITS_DATA instead of DYSH_DATA
+
     """
     
     @log_call_to_history
@@ -2518,63 +2521,124 @@ class GBTOffline(GBTFITSLoad):
 
 class GBTOnline(GBTFITSLoad):
     """
-    GBTOnline('?')     returns list of projects in /home/sdfits (or DYSH_DATA/sdfits)
     GBTOnline('foo')   monitors project 'foo' as if it could be online
     GBTOnline()        monitors for new projects and connects, and refreshes when updated
 
     Note project directories are assumed to exist in /home/sdfits
     or whereever dysh_data thinks your /home/sdfits lives.
 
+    Also note in GBTIDL one can use SDFITS_DATA instead of DYSH_DATA
 
+    Use dysh_data('?') as a method to get all filenames in SDFITS_DATA
+    
     GBTIDL says:  Connecting to file: .....
                   File has not been updated in xxx.xx minutes.
     """
     
     @log_call_to_history
     def __init__(self, fileobj=None, **kwargs):
-        print("GBTOnline")
         self._online = fileobj
-        self._online_mode = 0       #  no status        
         if fileobj is not None:
-            # unusual (test?) mode
-            if fileobj == '*' or fileobj == '?':
-                dysh_data('?')
+            self._online_mode = 1    # monitor this file
+            if os.path.isdir(fileobj):
+                GBTFITSLoad.__init__(self, fileobj)
             else:
-                self._online_mode = 1    # monitor this one file
-                if os.path.isdir(fileobj):
-                    GBTFITSLoad.__init__(self, fileobj)
-                else:
-                    GBTFITSLoad.__init__(self, dysh_data(fileobj))                    
-                logger.debug(f"Special online mode {fileobj}")
+                self._online = dysh_data(fileobj)
+                GBTFITSLoad.__init__(self, self._online)
+            print(f"Connecting to explicit file: {self._online} - will be monitoring this")
+
         else:
-            self._online_mode = 2       #  monitor all files
+            self._online_mode = 2       #  monitor all files?
             logger.debug(f"Testing online mode, finding most recent file")
-            if 'DYSH_DATA' in os.environ:
-                print("warning: we have DYSH_DATA =", os.environ['DYSH_DATA'])
-            #
-            fdir = "/home/sdfits"
-            if not os.path.isdir(fdir):
-                print("Cannot find ",fdir)
+            if 'SDFITS_DATA' in os.environ:
+                logger.debug("warning: using SDITS_DATA")
+                sdfits_root = os.environ['SDFITS_DATA']
+            elif 'DYSH_DATA' in os.environ:
+                sdfits_root = os.environ['DYSH_DATA'] + '/sdfits'
+                logger.debug("warning: using DYSH_DATA")
+            else:
+                sdfits_root = "/home/sdfits"
+            logger.debug(f"Using SDFITS_DATA {sdfits_root}")
+                
+            if not os.path.isdir(sdfits_root):
+                print("Cannot find ",sdfits_root)
+                return None
+
+            # 1. check the status_file ?
+            status_file = "sdfitsStatus.txt"
+            if os.path.exists(sdfits_root + '/' + status_file):
+                print(f"Warning, found {status_file} but not using it yet")
+
+            # 2. visit each directory where the final leaf contains fits files, and find the most recent one
             n=0
-            for dirname,subdirs,files in os.walk(fdir):
-                n = n+1
-                for fname in files:
-                    print(fname)
-            print("Found ",n)
+            mtime_max = 0
+            for dirname,subdirs,files in os.walk(sdfits_root):
+                #print("dirname",dirname,"subdirs",subdirs)
+                if len(subdirs) == 0:
+                    n=n+1
+                    #print("===dirname",dirname)
+                    for fname in files:
+                        if fname.split('.')[-1] == 'fits':
+                            mtime = os.path.getmtime(dirname + "/" + fname)
+                            #print(mtime,fname)
+                            if mtime > mtime_max:
+                                mtime_max = mtime
+                                project = dirname
+                            break
+            #print(f"Found {n} under {sdfits_root}")
+            if n == 0:
+                return None
+            
+            self._online = project
+            GBTFITSLoad.__init__(self, self._online)
+            self._mtime = os.path.getmtime(self.filenames()[0])
 
-    def check(self):
-        """ report if the current project was updated.  If so, the user
-            can issue the reload() command
-        """
-        print("check not implemented yet")
-  
 
-    def reload(self, force=True):
+        # we only test the first filename in the list, assuming they're all being written
+        
+        self._mtime = os.path.getmtime(self.filenames()[0])
+        #print("MTIME:",self._mtime)
+        delta = (time.time() - self._mtime)/60.0
+                
+        print(f"Connected to file: {self._online}")
+        print(f"File has not been updated in {delta:.2f} minutes.")
+        # end of __init__    
+
+    def _reload(self, force=False):
         """ force a reload of the latest
         """
+        if not force:
+            mtime = os.path.getmtime(self.filenames()[0])
+            if mtime > self._mtime:
+                self._mtime = mtime
+                print("NEW MTIME:",self._mtime)
+                force = True
         if force:
-            print(f"Forced reload {self._online}")
+            print(f"Reload {self._online}")
             GBTFITSLoad.__init__(self, self._online)
-        else:
-            # @todo check if file changed, if so, reload
-            print(f"Checked reload {self._online} not implemented yet")
+        return force
+
+    # examples of catchers for reloading
+
+    def summary(self, **kwargs):
+        """  reload, if need be
+        """
+        self._reload()
+        return super().summary(**kwargs)
+
+    def gettp(self, **kwargs):
+        self._reload()
+        return super().gettp(**kwargs)
+    
+    def getps(self, **kwargs):
+        self._reload()
+        return super().getps(**kwargs)
+
+    def getnod(self, **kwargs):
+        self._reload()
+        return super().getnod(**kwargs)
+
+    def getfs(self, **kwargs):
+        self._reload()
+        return super().getfs(**kwargs)
+
