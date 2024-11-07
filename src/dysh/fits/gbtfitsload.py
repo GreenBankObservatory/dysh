@@ -2373,7 +2373,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if verbose:
                 print(f"Total of {total_rows_written} rows written to files.")
         else:
-            hdu = self._sdf[fi[0]]._hdu[fi[0]].copy()
+            # hdu = self._sdf[fi[0]]._hdu[fi[0]].copy()
+            hdu = self._sdf[fi[0]]._hdu[0].copy() 
             outhdu = fits.HDUList(hdu)
             for k in fi:
                 df = select_from("FITSINDEX", k, _final)
