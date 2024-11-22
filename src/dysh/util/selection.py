@@ -1230,7 +1230,7 @@ class Flag(SelectionBase):
             else:
                 values = l.split("|")
                 for i, v in enumerate(values):
-                    if v == "*":
+                    if v.strip() == "*":
                         continue
                     else:
                         if header[i] == "IDSTRING":
@@ -1238,6 +1238,10 @@ class Flag(SelectionBase):
                         else:
                             if "," in v:
                                 vdict[header[i]] = [int(float(x)) for x in v.split(",")]
+                            elif ":" in v:
+                                vdict[header[i]] = [int(float(x)) for x in range(*map(int, v.split(":")))] + [
+                                    int(v.split(":")[-1])
+                                ]
                             else:
                                 vdict[header[i]] = int(float(v))
 
@@ -1254,6 +1258,21 @@ class Flag(SelectionBase):
                     echan = [int(float(x)) for x in echan]
                     # pair up echan and bchan
                     vdict["channel"] = list(zip(bchan, echan))
+                elif bchan is not None and echan is None:
+                    if not isinstance(bchan, list):
+                        bchan = [bchan]
+                    bchan = [int(float(x)) for x in bchan]
+                    echan = [2**25] * len(
+                        bchan
+                    )  # Set to a large number so it effectively spans the whole range from `bchan`.
+                    vdict["channel"] = tuple(zip(bchan, echan))
+                elif bchan is None and echan is not None:
+                    if not isinstance(echan, list):
+                        echan = [echan]
+                    echan = [int(float(x)) for x in echan]
+                    bchan = [0] * len(echan)
+                    vdict["channel"] = tuple(zip(bchan, echan))
+
                 if kwargs is not None:
                     vdict.update(kwargs)
                 logger.debug(f"flag({tag=},{vdict})")
