@@ -1213,6 +1213,11 @@ class Flag(SelectionBase):
         # [flags]
         # #RECNUM,SCAN,INTNUM,PLNUM,IFNUM,FDNUM,BCHAN,ECHAN,IDSTRING
         # *|6|*|*|2|0|3072|3072|VEGAS_SPUR
+        #
+        # It is possible there is a space after the *GBTIDL flag files can also indicate ranges with a : and can indicate upper or lower limits
+        # by not including a number. For instancer here is scan range 42 to 51 and channel range with
+        # lower limit of 2299
+        # *|20|42:51|*|*|*|2299|*|unspecified
 
         # Because the table header and table row delimeters are different,
         # Table.read() can't work.  So construct it row by row.
@@ -1236,12 +1241,15 @@ class Flag(SelectionBase):
                         if header[i] == "IDSTRING":
                             vdict[header[i]] = v
                         else:
+                            # handle comma-separated lists
                             if "," in v:
                                 vdict[header[i]] = [int(float(x)) for x in v.split(",")]
+                            # handle colon-separated ranges by expanding into a comma-separated list.
                             elif ":" in v:
                                 vdict[header[i]] = [int(float(x)) for x in range(*map(int, v.split(":")))] + [
                                     int(v.split(":")[-1])
                                 ]
+                            # handle single values
                             else:
                                 vdict[header[i]] = int(float(v))
 
