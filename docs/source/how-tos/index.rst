@@ -86,6 +86,21 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
             Align Spectra
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`flag;3em;green` **Flagging**
+
+        How to read and save data
+
+        .. button-link:: examples/flagging.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Flagging
+
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -95,3 +110,4 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/smoothing
    examples/dataIO
    examples/align_spectra
+   examples/flagging
