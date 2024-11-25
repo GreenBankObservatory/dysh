@@ -1,0 +1,7 @@
+[header]
+created = Fri Nov 22 19:04:55 2024                                                                                                                                                                                                                              
+version = 1.0                                                                                                                                                                                                                                                   
+created_by = gbtidl                                                                                                                                                                                                                                             
+[flags]
+#RECNUM,SCAN,INTNUM,PLNUM,IFNUM,FDNUM,BCHAN,ECHAN,IDSTRING
+ *|20|42:51|*|*|*|2299|*|unspecified
