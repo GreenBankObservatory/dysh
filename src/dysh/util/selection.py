@@ -1218,6 +1218,11 @@ class Flag(SelectionBase):
         # [flags]
         # #RECNUM,SCAN,INTNUM,PLNUM,IFNUM,FDNUM,BCHAN,ECHAN,IDSTRING
         # *|6|*|*|2|0|3072|3072|VEGAS_SPUR
+        #
+        # It is possible there is a space after the *GBTIDL flag files can also indicate ranges with a : and can indicate upper or lower limits
+        # by not including a number. For instancer here is scan range 42 to 51 and channel range with
+        # lower limit of 2299
+        # *|20|42:51|*|*|*|2299|*|unspecified
 
         # Because the table header and table row delimeters are different,
         # Table.read() can't work.  So construct it row by row.
@@ -1235,14 +1240,21 @@ class Flag(SelectionBase):
             else:
                 values = l.split("|")
                 for i, v in enumerate(values):
-                    if v == "*":
+                    if v.strip() == "*":
                         continue
                     else:
                         if header[i] == "IDSTRING":
                             vdict[header[i]] = v
                         else:
+                            # handle comma-separated lists
                             if "," in v:
                                 vdict[header[i]] = [int(float(x)) for x in v.split(",")]
+                            # handle colon-separated ranges by expanding into a comma-separated list.
+                            elif ":" in v:
+                                vdict[header[i]] = [int(float(x)) for x in range(*map(int, v.split(":")))] + [
+                                    int(v.split(":")[-1])
+                                ]
+                            # handle single values
                             else:
                                 vdict[header[i]] = int(float(v))
 
@@ -1259,6 +1271,21 @@ class Flag(SelectionBase):
                     echan = [int(float(x)) for x in echan]
                     # pair up echan and bchan
                     vdict["channel"] = list(zip(bchan, echan))
+                elif bchan is not None and echan is None:
+                    if not isinstance(bchan, list):
+                        bchan = [bchan]
+                    bchan = [int(float(x)) for x in bchan]
+                    echan = [2**25] * len(
+                        bchan
+                    )  # Set to a large number so it effectively spans the whole range from `bchan`.
+                    vdict["channel"] = tuple(zip(bchan, echan))
+                elif bchan is None and echan is not None:
+                    if not isinstance(echan, list):
+                        echan = [echan]
+                    echan = [int(float(x)) for x in echan]
+                    bchan = [0] * len(echan)
+                    vdict["channel"] = tuple(zip(bchan, echan))
+
                 if kwargs is not None:
                     vdict.update(kwargs)
                 logger.debug(f"flag({tag=},{vdict})")
