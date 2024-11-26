@@ -77,7 +77,7 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
         :material-outlined:`compare_arrows;3em;green` **Align Spectra**
 
-        How to read and save data
+        How to align spectra
 
         .. button-link:: examples/align_spectra.html
             :color: primary
@@ -92,7 +92,7 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
         :material-outlined:`flag;3em;green` **Flagging**
 
-        How to read and save data
+        How to flag data
 
         .. button-link:: examples/flagging.html
             :color: primary
