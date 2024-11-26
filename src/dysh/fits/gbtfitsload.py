@@ -784,7 +784,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for i, ((fi, bi), g) in enumerate(dfs):
                 chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
                 rows = g["ROW"].to_numpy()
-                self._sdf[fi]._flagmask[bi][rows] = chan_mask
+                logger.debug(f"Applying {chan} to {rows=}")
+                logger.debug(f"{np.where(chan_mask)}")
+                self._sdf[fi]._flagmask[bi][rows] |= chan_mask
 
     @log_call_to_history
     def clear_flags(self):
