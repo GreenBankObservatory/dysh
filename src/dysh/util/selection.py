@@ -1070,15 +1070,20 @@ class Flag(SelectionBase):
             if isinstance(chan, numbers.Number):
                 chan = [int(chan)]
             self._check_numbers(chan=chan)
-        success = self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
-        if not success:
-            return
-        idx = len(self._table) - 1
-        if chan is not None:
-            self._table[idx]["CHAN"] = abbreviate_to(DEFAULT_COLUMN_WIDTH, chan)
-            self._flag_channel_selection[idx] = chan
+        if len(kwargs) == 0:
+            # The user only entered channel as a keyword, so just call flag_channel
+            self.flag_channel(channel=chan, tag=tag)
         else:
-            self._flag_channel_selection[idx] = ALL_CHANNELS
+            # Select on the other kwargs then add channel to it.
+            success = self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
+            if not success:
+                return
+            idx = len(self._table) - 1
+            if chan is not None:
+                self._table[idx]["CHAN"] = abbreviate_to(DEFAULT_COLUMN_WIDTH, chan)
+                self._flag_channel_selection[idx] = chan
+            else:
+                self._flag_channel_selection[idx] = ALL_CHANNELS
 
     def flag_channel(self, channel, tag=None, **kwargs):
         """
