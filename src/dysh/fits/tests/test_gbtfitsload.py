@@ -1,5 +1,6 @@
 import glob
 import os
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -691,3 +692,25 @@ class TestGBTFITSLoad:
         flags2 = g2._sdf[0]._flagmask
         for i in range(len(sdf._sdf)):
             assert np.all(sdf._sdf[i]._flagmask[0] == flags2[i])
+
+    def test_additive_flags(self, tmp_path):
+        # This test is a regression for issue #429
+        # https://github.com/GreenBankObservatory/dysh/issues/429
+        # We copy the flag mask for each rule
+        # then check that the final flag mask is the logical OR of them
+        fits_path = (
+            util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        )
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, skipflags=True)
+        sdf.flag(scan=6, channel=[[2500, 3000]], intnum=range(0, 3))
+        sdf.apply_flags()
+        flag1 = sdf._sdf[0]._flagmask[0].copy()
+        sdf.clear_flags()
+        sdf.flag_channel(channel=[[80000, 100000]])
+        sdf.apply_flags()
+        flag2 = sdf._sdf[0]._flagmask[0].copy()
+        sdf.clear_flags()
+        sdf.flag(scan=6, channel=[[2500, 3000]], intnum=range(0, 3))
+        sdf.flag_channel(channel=[[80000, 100000]])
+        sdf.apply_flags()
+        assert np.all(sdf._sdf[0]._flagmask[0] == flag1 | flag2)
