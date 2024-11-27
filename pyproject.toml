@@ -12,10 +12,14 @@ authors = [
   { name = "Peter Teuben", email = "teuben@umd.edu" },
   { name = "Thomas Chamberlin", email = "tchamber@nrao.edu" },
   { name = "Pedro Salas", email = "psalas@nrao.edu" },
+  { name = "Evan Smith", email = "esmith@nrao.edu" },
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
@@ -26,7 +30,7 @@ dependencies = [
   "numpy",
   "pandas",
   "scipy",
-  "specutils",
+  "specutils>1.16",
   "httpx",
   "rich",
   "tenacity",

@@ -396,7 +396,7 @@ class TestFScan:
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
 
         print("MWP: NO FOLD")
-        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False)
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False, debug=True)
         ta = fsscan.timeaverage(weights="tsys")
         #    we're using astropy access here, and ujse sdfitsload.SDFITSLoad() in the other test
         hdu = fits.open(gbtidl_file_nofold)
