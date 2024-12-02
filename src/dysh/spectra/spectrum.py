@@ -341,22 +341,24 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-            roll : int
-                Return statistics on a 'rolled' array differenced with the
-                original array. If there is no correllaton between channels,
-                a roll=1 would return an RMS sqrt(2) larger than that of the
-                input array. Another advantage of rolled statistics it will
-                remove most slow variations, thus RMS/sqrt(2) might be a better
-                indication of the underlying RMS.
-                Default: 0
-            qac : bool
-                If set, the returned simple string contains mean,rms,datamin,datamax
-                for easier visual regression. Based on some legacy code.
-                Default: False
+        roll : int
+            Return statistics on a 'rolled' array differenced with the
+            original array. If there is no correllaton between channels,
+            a roll=1 would return an RMS sqrt(2) larger than that of the
+            input array. Another advantage of rolled statistics it will
+            remove most slow variations, thus RMS/sqrt(2) might be a better
+            indication of the underlying RMS.
+            Default: 0
+        qac : bool
+            If set, the returned simple string contains mean,rms,datamin,datamax
+            for easier visual regression. Based on some legacy code.
+            Default: False
+
         Returns
         -------
         stats : dict
             Dictionary consisting of (mean,median,rms,datamin,datamax)
+
         """
 
         if roll == 0:
