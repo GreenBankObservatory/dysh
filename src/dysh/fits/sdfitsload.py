@@ -407,16 +407,17 @@ class SDFITSLoad(object):
 
         Parameters
         ----------
-            i :  int
-                The row index to retrieve.
-            bintable :  int or None
-                The index of the `bintable` attribute. If None, the underlying bintable is computed from i
-            setmask : bool
-                If True, set the data mask according to the current flags in the `_flagmask` attribute.
+        i :  int
+            The row index to retrieve.
+        bintable :  int or None
+            The index of the `bintable` attribute. If None, the underlying bintable is computed from i
+        setmask : bool
+            If True, set the data mask according to the current flags in the `_flagmask` attribute.
+
         Returns
         -------
-            rawspectrum : ~numpy.ma.MaskedArray
-                The i-th row of DATA column of the input bintable, masked according to `setmask`
+        rawspectrum : ~numpy.ma.MaskedArray
+            The i-th row of DATA column of the input bintable, masked according to `setmask`
 
         """
         if bintable is None:

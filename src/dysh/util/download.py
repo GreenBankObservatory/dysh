@@ -7,6 +7,8 @@ import httpx
 from rich.progress import Progress
 from tenacity import retry, stop_after_attempt
 
+from dysh.log import init_logging, logger
+
 
 @retry(stop=stop_after_attempt(3))
 def from_url(url, path=Path(".")):
@@ -30,7 +32,6 @@ def from_url(url, path=Path(".")):
     if type(path) is str:
         path = Path(path)
 
-    print(f"Starting download...")
     try:
         # Make the HTTPX client
         client = httpx.Client(follow_redirects=True)
@@ -49,11 +50,12 @@ def from_url(url, path=Path(".")):
 
             # Skip downloading if file already exists
             if savepath.exists():
-                print(f"{filename} already downloaded at {path}")
+                logger.info(f"{filename} already downloaded at {path}")
                 return savepath
 
             else:
                 # Download the file
+                logger.info("Starting download...")
                 resp.raise_for_status()
 
                 # Download to a temporary path first
@@ -62,7 +64,7 @@ def from_url(url, path=Path(".")):
 
                 # Write chunks to file with progress bar
                 with open(tmp_path, "wb") as out_file:
-                    with Progress() as progress:
+                    with Progress(refresh_per_second=5) as progress:
                         task_length = int(resp.headers.get("content-length", 0))
                         task = progress.add_task("[red]Downloading...", total=task_length)
                         for chunk in resp.iter_raw():
@@ -77,7 +79,7 @@ def from_url(url, path=Path(".")):
 
     # Rename the temp file to the desired name
     tmp_path.rename(savepath)
-    print(f"Saved {filename} to {savepath}")
+    logger.info(f"Saved {filename} to {savepath}")
 
     return Path(savepath)
 
@@ -104,4 +106,5 @@ def main():
 
 
 if __name__ == "__main__":
+    init_logging(2)
     main()
