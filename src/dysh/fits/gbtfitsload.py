@@ -1098,7 +1098,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.PSScan`s
+            ScanBlock containing one or more `~spectra.scan.PSScan`.
 
         """
 
@@ -1260,7 +1260,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.NodScan`s
+            ScanBlock containing one or more `~spectra.scan.NodScan`.
 
         """
 
@@ -1493,7 +1493,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.FSScan`s
+            ScanBlock containing one or more`~spectra.scan.FSScan`.
 
         """
         debug = kwargs.pop("debug", False)
