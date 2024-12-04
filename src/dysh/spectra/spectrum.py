@@ -742,7 +742,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             actualframe = astropy_frame_dict.get(toframe, toframe)
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
-        self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
+        # This line is commented because:
+        # SDFITS defines CTYPE1 as always being the TOPO frequency.
+        # See Issue #373 on GitHub.
+        # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
         if isinstance(actualframe, str):
             self._velocity_frame = actualframe
         else:
