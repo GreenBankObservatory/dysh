@@ -764,7 +764,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._velocity_frame = tfl
         else:
             self._velocity_frame = tfl.name
-        # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF
+        # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF.
+        # SDFITS defines CTYPE1 as always being the TOPO frequency.
+        # See Issue #373 on GitHub.
         self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
 
     def with_frame(self, toframe):
