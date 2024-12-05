@@ -741,23 +741,29 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        toframe - str
-            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
+        toframe - str, or ~astropy.coordinates.BaseCoordinateFrame, or ~astropy.coordinates.SkyCoord
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
+            or an actual coordinate system instance
         """
-        if "topo" in toframe:
-            actualframe = self.observer
-        else:
-            actualframe = astropy_frame_dict.get(toframe, toframe)
-        new_spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
-        print(f"{actualframe=} {all(new_spectral_axis.value == self._spectral_axis.value)=}")
+        # if "topo" in toframe:
+        #    actualframe = self.observer
+        # else:
+        #    actualframe = astropy_frame_dict.get(toframe, toframe)
+        # new_spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
+        # print(f"{actualframe=} {all(new_spectral_axis.value == self._spectral_axis.value)=}")
         a_spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(toframe)
         print(f"{self._velocity_frame=} {toframe=} {all(a_spectral_axis.value == self._spectral_axis.value)=}")
-        self._spectral_axis = new_spectral_axis
+        self._spectral_axis = a_spectral_axis
         self._observer = self._spectral_axis.observer
-        if isinstance(actualframe, str):
-            self._velocity_frame = actualframe
+        # self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
+        # This line is commented because:
+        # SDFITS defines CTYPE1 as always being the TOPO frequency.
+        # See Issue #373 on GitHub.
+        # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
+        if isinstance(toframe, str):
+            self._velocity_frame = toframe
         else:
-            self._velocity_frame = actualframe.name
+            self._velocity_frame = toframe.name
         print(f"final {self._velocity_frame=} {self.observer=}")
 
     def with_frame(self, toframe):
@@ -765,8 +771,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        toframe - str
-            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
+        toframe - str, ~astropy.coordinates.BaseCoordinateFrame, or ~astropy.coordinates.SkyCoord
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
+            or an actual coordinate system instance
 
         Returns
         -------
@@ -775,7 +782,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         s = self._copy()
-        print(f"{all(s.spectral_axis ==self.spectral_axis)=}")
         s.set_frame(toframe)
         return s
 
