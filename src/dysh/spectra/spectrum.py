@@ -28,14 +28,13 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
     Observatory,
     astropy_frame_dict,
-    change_ctype,
     get_velocity_in_frame,
     make_target,
     replace_convention,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..log import HistoricalBase, log_call_to_history, logger
+from ..log import HistoricalBase, log_call_to_history  # , logger
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
@@ -749,12 +748,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
             actualframe = self.observer
         else:
             actualframe = astropy_frame_dict.get(toframe, toframe)
-        self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
-        self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
+        new_spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
+        print(f"{actualframe=} {all(new_spectral_axis.value == self._spectral_axis.value)=}")
+        a_spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(toframe)
+        print(f"{self._velocity_frame=} {toframe=} {all(a_spectral_axis.value == self._spectral_axis.value)=}")
+        self._spectral_axis = new_spectral_axis
+        self._observer = self._spectral_axis.observer
+        # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
         if isinstance(actualframe, str):
             self._velocity_frame = actualframe
         else:
             self._velocity_frame = actualframe.name
+        print(f"final {self._velocity_frame=} {self.observer=}")
 
     def with_frame(self, toframe):
         """Return a copy of this Spectrum with a new coordinate reference frame.
@@ -771,6 +776,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         s = self._copy()
+        print(f"{all(s.spectral_axis ==self.spectral_axis)=}")
         s.set_frame(toframe)
         return s
 

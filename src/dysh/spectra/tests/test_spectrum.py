@@ -526,6 +526,17 @@ class TestSpectrum:
         compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
         compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)
 
+    def test_spectrum_with_frame(self):
+        """Regression test for issue #401 to ensure Spectrum.with_frame functions as advertised.
+        https://github.com/GreenBankObservatory/dysh/issues/401
+        """
+        spec = Spectrum.fake_spectrum()
+        s1 = spec.with_frame("lsrk")
+        s2 = s1.with_frame("lsrk")
+        assert all(s1.spectral_axis == s2.spectral_axis)
+        diff = (spec.with_frame(spec._velocity_frame).spectral_axis.value - spec.spectral_axis.value).sum()
+        assert diff == 0
+
     def test_baseline(self):
         """Test for comparing GBTIDL baseline to Dysh baselines"""
 
