@@ -754,7 +754,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         print(f"{self._velocity_frame=} {toframe=} {all(a_spectral_axis.value == self._spectral_axis.value)=}")
         self._spectral_axis = new_spectral_axis
         self._observer = self._spectral_axis.observer
-        # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
         if isinstance(actualframe, str):
             self._velocity_frame = actualframe
         else:
