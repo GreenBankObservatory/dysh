@@ -544,11 +544,36 @@ class TestSpectrum:
         https://github.com/GreenBankObservatory/dysh/issues/401
         """
         spec = Spectrum.fake_spectrum()
+        # Ensure that repeated changes of frame to the same frame do note
+        # change after the first transform
         s1 = spec.with_frame("lsrk")
         s2 = s1.with_frame("lsrk")
         assert all(s1.spectral_axis == s2.spectral_axis)
-        diff = (spec.with_frame(spec._velocity_frame).spectral_axis.value - spec.spectral_axis.value).sum()
-        assert diff == 0
+        assert s2.velocity_frame == "lsrk"
+        assert s2.meta["VELDEF"][4:] == "-LSR"
+
+        # Test that topographic results in an Exception because
+        # users must provide an ITRS coordinate instance in that case
+        with pytest.raises(ValueError):
+            spec.set_frame("topo")
+
+        # Setting a new frame to the old frame does NOT result in an
+        # identical observer attribute on the resultant SpectralAxis.
+        # See https://github.com/astropy/astropy/issues/17506
+        # This test ensures that the difference remains small.
+
+        location_diff = np.sqrt(
+            (s1.observer.x - s2.observer.x) ** 2
+            + (s1.observer.y - s2.observer.y) ** 2
+            + (s1.observer.z - s2.observer.z) ** 2
+        )
+        velocity_diff = np.sqrt(
+            (s1.observer.v_x - s2.observer.v_x) ** 2
+            + (s1.observer.v_y - s2.observer.v_y) ** 2
+            + (s1.observer.v_z - s2.observer.v_z) ** 2
+        )
+        assert location_diff < 1.0e-5 * u.m
+        assert velocity_diff < 2e-8 * u.km / u.s
 
     def test_baseline(self):
         """Test for comparing GBTIDL baseline to Dysh baselines"""
