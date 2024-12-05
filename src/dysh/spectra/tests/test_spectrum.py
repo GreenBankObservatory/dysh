@@ -540,6 +540,8 @@ class TestSpectrum:
         ps1_org = self.ps1._copy()
 
         avg = average_spectra((self.ps0, self.ps1))
+        avg2 = self.ps0.average((self.ps1))
+        compare_spectrum(avg, avg2, ignore_history=True, ignore_comments=True)
 
         avg = average_spectra((self.ps0, self.ps1), align=True)
         compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
