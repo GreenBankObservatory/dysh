@@ -259,7 +259,7 @@ class TestSpectrum:
         For units we only consider frequencies for now.
         """
         meta_ignore = ["CRPIX1", "CRVAL1"]
-        spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
+        spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
         s = slice(1000, 1100, 1)
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
@@ -328,6 +328,9 @@ class TestSpectrum:
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(1)
+        assert ss.velocity_frame == self.ps0.velocity_frame
+        assert ss.doppler_convention == self.ps0.doppler_convention
+        assert ss.observer.frame_attributes == self.ps0.observer.frame_attributes
 
         # Now, change the reference frame and see if it still works.
         from dysh.coordinates import astropy_frame_dict
@@ -365,6 +368,9 @@ class TestSpectrum:
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
             abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
         )
+        assert ss.velocity_frame == self.ps0.velocity_frame
+        assert ss.doppler_convention == self.ps0.doppler_convention
+        assert ss.observer.frame_attributes == self.ps0.observer.frame_attributes
 
     def test_smooth_nodecimate(self):
         """Test for smooth without decimation."""

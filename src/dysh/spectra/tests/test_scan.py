@@ -398,7 +398,7 @@ class TestFScan:
         print("MWP: NO FOLD")
         fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False, debug=True)
         ta = fsscan.timeaverage(weights="tsys")
-        #    we're using astropy access here, and ujse sdfitsload.SDFITSLoad() in the other test
+        #    we're using astropy access here, and use gbtfitsload.GBTFITSLoad() in the other test
         hdu = fits.open(gbtidl_file_nofold)
         table = hdu[1].data
         data = table["DATA"]
@@ -410,9 +410,9 @@ class TestFScan:
         print("MWP: FOLD")
         fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True)
         ta = fsscan.timeaverage(weights="tsys")
-        # we will be using SDFITSLoad() here instead of astropy
+        # We will be using GBTFITSLoad() here instead of astropy.
         if True:
-            sdf2 = sdfitsload.SDFITSLoad(gbtidl_file)
+            sdf2 = gbtfitsload.GBTFITSLoad(gbtidl_file)
             sp = sdf2.getspec(1).flux.value.astype(np.float32)
         else:
             hdu = fits.open(gbtidl_file)
