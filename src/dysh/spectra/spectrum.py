@@ -1366,6 +1366,40 @@ class Spectrum(Spectrum1D, HistoricalBase):
             observer_location=Observatory[meta["TELESCOP"]],
         )
 
+    def average(self, spectra, weights="tsys", align=False):
+        """
+        Average this `Spectrum` with `spectra`.
+        The resulting `average` will have an exposure equal to the sum of the exposures,
+        and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
+
+        Parameters
+        ----------
+        spectra : list of `Spectrum`
+            Spectra to be averaged. They must have the same number of channels.
+            No checks are done to ensure they are aligned.
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        align : bool
+            If `True` align the `spectra` to itself.
+            This uses `Spectrum.align_to`.
+
+        Returns
+        -------
+        average : `Spectrum`
+            Averaged spectra.
+        """
+
+        if type(spectra) is not list:
+            spectra = [spectra]
+
+        spectra += [self]
+
+        return average_spectra(spectra, weights=weights, align=align)
+
 
 # @todo figure how how to document write()
 ####################################################################
