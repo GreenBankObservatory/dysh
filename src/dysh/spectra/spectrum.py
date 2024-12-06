@@ -28,6 +28,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
     Observatory,
     astropy_frame_dict,
+    change_ctype,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -734,7 +735,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @log_call_to_history
     def set_frame(self, toframe):
-        # @todo VELDEF should be changed as well?
         """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
 
         To make a copy of this Spectrum with new coordinate referece frmae instead, use `with_frame`.
@@ -745,17 +745,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
             or an actual coordinate system instance
         """
-        # if "topo" in toframe:
-        #    actualframe = self.observer
-        # else:
-        #    actualframe = astropy_frame_dict.get(toframe, toframe)
-        # new_spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
-        # print(f"{actualframe=} {all(new_spectral_axis.value == self._spectral_axis.value)=}")
-        a_spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(toframe)
-        print(f"{self._velocity_frame=} {toframe=} {all(a_spectral_axis.value == self._spectral_axis.value)=}")
-        self._spectral_axis = a_spectral_axis
+
+        if isinstance(toframe, str):
+            tfl = toframe.lower()
+            if "topo" in tfl or "itrs" in tfl:
+                raise ValueError(
+                    "For topographic or ITRS coordaintes, you must supply a full astropy Coordinate instance."
+                )
+        self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(toframe)
         self._observer = self._spectral_axis.observer
-        # self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
         # This line is commented because:
         # SDFITS defines CTYPE1 as always being the TOPO frequency.
         # See Issue #373 on GitHub.
@@ -764,7 +762,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._velocity_frame = toframe
         else:
             self._velocity_frame = toframe.name
-        print(f"final {self._velocity_frame=} {self.observer=}")
+        # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF
+        self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
 
     def with_frame(self, toframe):
         """Return a copy of this Spectrum with a new coordinate reference frame.
