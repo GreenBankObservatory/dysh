@@ -336,7 +336,7 @@ class TestSpectrum:
         for frame in astropy_frame_dict.keys():
             try:
                 s.set_frame(frame)
-            except KeyError:
+            except Exception:
                 print(f"set_frame fails for: {frame}")
                 continue
             print(f"frame set to: {frame}")
@@ -538,6 +538,59 @@ class TestSpectrum:
         avg = average_spectra((self.ps0, self.ps1), align=True)
         compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
         compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)
+
+    def test_spectrum_with_frame(self):
+        """Regression test for issue #401 to ensure Spectrum.with_frame functions as advertised.
+        https://github.com/GreenBankObservatory/dysh/issues/401
+        """
+        spec = Spectrum.fake_spectrum()
+        # Ensure that repeated changes of frame to the same frame do note
+        # change after the first transform
+        s1 = spec.with_frame("lsrk")
+        s2 = s1.with_frame("lsrk")
+        assert all(s1.spectral_axis == s2.spectral_axis)
+        assert s2.velocity_frame == "lsrk"
+        assert s2.meta["VELDEF"][4:] == "-LSR"
+
+        # Test that topographic results in an Exception because
+        # users must provide an ITRS coordinate instance in that case.
+        # First change the spectrum frame to somthing else because
+        # if it is already topo/itrs, then the error is circumvented
+        spec2 = Spectrum.fake_spectrum()
+        spec2.set_frame("gcrs")
+        with pytest.raises(ValueError):
+            spec2.set_frame("topo")
+
+        # Setting a new frame to the old frame does NOT result in an
+        # identical observer attribute on the resultant SpectralAxis.
+        # See https://github.com/astropy/astropy/issues/17506
+        # This test ensures that the difference remains small.
+
+        location_diff = np.sqrt(
+            (s1.observer.x - s2.observer.x) ** 2
+            + (s1.observer.y - s2.observer.y) ** 2
+            + (s1.observer.z - s2.observer.z) ** 2
+        )
+        velocity_diff = np.sqrt(
+            (s1.observer.v_x - s2.observer.v_x) ** 2
+            + (s1.observer.v_y - s2.observer.v_y) ** 2
+            + (s1.observer.v_z - s2.observer.v_z) ** 2
+        )
+        assert location_diff < 1.0e-5 * u.m
+        assert velocity_diff < 2e-8 * u.km / u.s
+
+    def test_velocity_axis_to(self):
+        """Regression test for issue 372 https://github.com/GreenBankObservatory/dysh/issues/372
+        Calling velocity_axis_to should not change the object spectral axis.
+        """
+        spec = Spectrum.fake_spectrum()
+        id1 = id(spec.spectral_axis)
+        sa = spec.velocity_axis_to(toframe="lsrk")
+        assert id(spec.spectral_axis) == id1
+        assert id(sa) != id1
+        # converting to identical frame should not change the values in the spectral axis
+        sa = spec.velocity_axis_to(toframe="topo")
+        assert all(sa == spec.spectral_axis)
 
     def test_baseline(self):
         """Test for comparing GBTIDL baseline to Dysh baselines"""
