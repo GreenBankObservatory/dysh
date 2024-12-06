@@ -57,6 +57,19 @@ astropy_frame_dict = {
     "itrs": coord.ITRS,  # but need to add observatory positionsc.sp
 }
 
+astropy_convenience_frame_names = {
+    "bary": "icrs",
+    "barycentric": "icrs",
+    "heliocentric": "icrs",
+    "helio": "icrs",
+    "geo": "icrs",
+    "geocentric": "icrs",
+    "topocentric": "itrs",
+    "topo": "itrs",
+    "vlsr": "lsrk",
+}
+
+
 # astropy-sanctioned coordinate frame string to label
 frame_to_label = {
     "itrs": "Topocentric",

@@ -8,7 +8,7 @@ from copy import deepcopy
 import astropy.units as u
 import numpy as np
 import pandas as pd
-from astropy.coordinates import SkyCoord, SpectralCoord, StokesCoord
+from astropy.coordinates import ITRS, SkyCoord, SpectralCoord, StokesCoord
 from astropy.coordinates.spectral_coordinate import attach_zero_velocities
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
@@ -27,6 +27,7 @@ from dysh.spectra import core
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
     Observatory,
+    astropy_convenience_frame_names,
     astropy_frame_dict,
     change_ctype,
     get_velocity_in_frame,
@@ -722,11 +723,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The converted spectral axis velocity
         """
         if toframe is not None and toframe != self.velocity_frame:
-            self.set_frame(toframe)
-        if doppler_convention is not None:
-            return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
+            s = self.with_frame(toframe)
         else:
-            return self.axis_velocity(unit)
+            s = self
+        if doppler_convention is not None:
+            return s._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
+        else:
+            return s.axis_velocity(unit)
 
     def get_velocity_shift_to(self, toframe):
         if self._target is None:
@@ -746,22 +749,29 @@ class Spectrum(Spectrum1D, HistoricalBase):
             or an actual coordinate system instance
         """
 
+        tfl = toframe
         if isinstance(toframe, str):
             tfl = toframe.lower()
-            if "topo" in tfl or "itrs" in tfl:
+            tfl = astropy_convenience_frame_names.get(tfl, tfl)
+            if "itrs" in tfl:
+                if isinstance(self._observer, ITRS):
+                    return  # nothing to be done, we already have the correct axis
                 raise ValueError(
                     "For topographic or ITRS coordaintes, you must supply a full astropy Coordinate instance."
                 )
-        self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(toframe)
+            elif self._velocity_frame == tfl:
+                return  # the frame is already the requested frame
+
+        self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(tfl)
         self._observer = self._spectral_axis.observer
         # This line is commented because:
         # SDFITS defines CTYPE1 as always being the TOPO frequency.
         # See Issue #373 on GitHub.
         # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
-        if isinstance(toframe, str):
-            self._velocity_frame = toframe
+        if isinstance(tfl, str):
+            self._velocity_frame = tfl
         else:
-            self._velocity_frame = toframe.name
+            self._velocity_frame = tfl.name
         # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF
         self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
 
