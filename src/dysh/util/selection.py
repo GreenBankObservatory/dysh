@@ -859,13 +859,14 @@ class SelectionBase(DataFrame):
             self._base_select(**ukwargs, tag=tag)
 
     def __deepcopy__(self, memo):
-        warnings.simplefilter("ignore", category=UserWarning)
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            setattr(result, k, deepcopy(v, memo))
-        warnings.resetwarnings()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            cls = self.__class__
+            result = cls.__new__(cls)
+            memo[id(self)] = result
+            for k, v in self.__dict__.items():
+                setattr(result, k, deepcopy(v, memo))
+            result._table = self._table.copy()
         return result
 
     def get(self, key):
