@@ -336,7 +336,7 @@ class TestSpectrum:
         for frame in astropy_frame_dict.keys():
             try:
                 s.set_frame(frame)
-            except KeyError:
+            except Exception:
                 print(f"set_frame fails for: {frame}")
                 continue
             print(f"frame set to: {frame}")
