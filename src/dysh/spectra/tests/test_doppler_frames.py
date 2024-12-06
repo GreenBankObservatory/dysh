@@ -42,8 +42,9 @@ class TestVelocityFrames:
             "HEL": "hcrs",
             "LSD": "lsrd",
             "LSR": "lsrk",
+            "TOPO": sp.observer,  # must be an actual coordinate for topographical
         }
-        maxHzdiff = {"BAR": 2.0, "GAL": 13000.0, "GEO": 2.0, "HEL": 2.0, "LSD": 30.0, "LSR": 2.0}
+        maxHzdiff = {"BAR": 2.0, "GAL": 13000.0, "GEO": 2.0, "HEL": 2.0, "LSD": 30.0, "LSR": 2.0, "TOPO": 2.0}
         for k, v in framedict.items():
             gbtidl_file = f"{data_dir}/gbtidl_spectra/onoff-L_gettp_156_intnum_0_{k}.ascii"
             self.compare_gbtidl(filename=gbtidl_file, spectrum=sp, frame=v, maxdiff=maxHzdiff[k])
