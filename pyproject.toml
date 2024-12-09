@@ -23,7 +23,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "astropy<6.1.0",
+  "astropy",
   "ipython",
   "jplephem",
   "matplotlib",
@@ -183,7 +183,7 @@ src = ["src", "benchmark", "notebooks"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-testpaths = ["tests", "src", "docs"]
+testpaths = ["tests", "src", "notebooks/examples"]
 filterwarnings = [
     "ignore::DeprecationWarning"
 ]
