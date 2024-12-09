@@ -42,7 +42,7 @@ class TestVelocityFrames:
             "HEL": "hcrs",
             "LSD": "lsrd",
             "LSR": "lsrk",
-            "TOPO": "topo",
+            "TOPO": sp.observer,  # must be an actual coordinate for topographical
         }
         maxHzdiff = {"BAR": 2.0, "GAL": 13000.0, "GEO": 2.0, "HEL": 2.0, "LSD": 30.0, "LSR": 2.0, "TOPO": 2.0}
         for k, v in framedict.items():
