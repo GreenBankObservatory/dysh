@@ -277,7 +277,7 @@ class TestSpectrum:
         for k in spec_pars:
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
-        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK")
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs")
         # Check that we can write.
         o = tmp_path / "sub"
         o.mkdir()

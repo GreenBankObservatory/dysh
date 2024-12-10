@@ -132,19 +132,20 @@ class SpectrumPlot:
         lw = this_plot_kwargs["linewidth"]
         xunit = this_plot_kwargs["xaxis_unit"]
         yunit = this_plot_kwargs["yaxis_unit"]
-        if "vel_frame" not in this_plot_kwargs:
-            this_plot_kwargs["vel_frame"] = s.velocity_frame
         if xunit is None:
             xunit = str(sa.unit)
-        if "chan" in str(xunit).lower():
-            sa = np.arange(len(sa))
-            this_plot_kwargs["xlabel"] = "Channel"
-        else:
+        if "vel_frame" not in this_plot_kwargs:
             if u.Unit(xunit).is_equivalent("km/s") and "VELDEF" in s.meta:
                 # If the user specified velocity units, default to
                 # the velframe the data were taken in.  This we can
                 # get from VELDEF keyword.  See issue #303
                 this_plot_kwargs["vel_frame"] = decode_veldef(s.meta["VELDEF"])[1].lower()
+            else:
+                this_plot_kwargs["vel_frame"] = s.velocity_frame
+        if "chan" in str(xunit).lower():
+            sa = np.arange(len(sa))
+            this_plot_kwargs["xlabel"] = "Channel"
+        else:
             # convert the x axis to the requested
             # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
             # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
