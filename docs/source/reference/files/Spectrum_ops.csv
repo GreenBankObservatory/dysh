@@ -1,15 +1,15 @@
 GBTIDL,dysh,Notes
-"baseline, bshape, bsubtract, nfit","spec.baseline( [deg], exclude=[ex_reg] )",Compute and optionally remove a baseline with degree `deg` and exclusion regions `ex_reg`
+"baseline, bshape, bsubtract, nfit","spec.baseline( [deg], exclude=[ex_reg],remove=True/False )",Compute and optionally remove a baseline with degree `deg` and exclusion regions `ex_reg`
 "gsmooth, [int]","spec.smooth( ""gauss"", [int] )","Convolve spec with a Gaussian kernel. Default behavior is to decimate, which isn't true in GBTIDL"
-hanning,"spec.smooth( ""hann"" )","Convolve spec with a Hanning window. . Default behavior is to decimate, which isn't true in GBTIDL"
-"boxcar, [int]","spec.smooth( ""box"", [int] )","Convolve spec with a boxcar window. This matches the GBTIDL results only when int is an odd number. . Default behavior is to decimate, which isn't true in GBTIDL"
+hanning,"spec.smooth( ""hann"" )","Convolve `spec` with a Hanning window. Default behavior is to decimate, which isn't true in GBTIDL"
+"boxcar, [int]","spec.smooth( ""box"", [int] )","Convolve `spec` with a boxcar window. This matches the GBTIDL results only when integer `int` is an odd number. Default behavior is to decimate, which isn't true in GBTIDL"
 add/subtract/divide/scale,"spec + other, spec - other, spec/other, spec*other",Perform element-wise math between spectrum `spec` and other vector/scalar `other`.
-"bias, [bias]",spec + bias,Add bias to spec. The units of bias must match those of spec.flux.
+"bias, [bias]",spec + bias,Add scalar `bias` to spectrum `spec`. The units of `bias` must match those of `spec.flux`.
 accum,average_spectra(list of spectra),
-ave,scanblock.timeaverage()\nscanblock.polaverage(),Average a set of scans inside Scan Block `scanblock`.
+ave,scanblock.timeaverage(); scan.timeaverage(),Average a set of scans inside Scan Block `scanblock` or Scan `scan`.
 stats,spec.stats(),Print statistics of spectrum `spec`.
-"fshift, vshift, xshift",spec.find_shift(other),Find the shift between spec and other.
+"fshift, vshift, xshift",spec.find_shift(other),Find the shift between `spec` and `other`.
 gshift,"spec.shift(shift)
-spec.align_to(other)","Shift spec by shift.
-Find the shift between spec and other and apply. Equivalent to spec.shift(spec.find_shift(other))."
+spec.align_to(other)","Shift `spec` by `shift`.
+Find the shift between `spec` and `other` and apply. Equivalent to `spec.shift(spec.find_shift(other))`."
 "write_ascii, filename","spec.write(filename, format=""ascii.basic"")",Write the contents of spec to a text file in ascii format with minimum header information.

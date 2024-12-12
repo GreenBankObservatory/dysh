@@ -14,7 +14,6 @@ Some key differences
 
 * Python allows for well-trackable local and global variables
 
-* See umm project document X, Y, Z for more (todo)
 
 
 
@@ -26,7 +25,6 @@ In the tables below, it is assumed you have executed the following commands in P
 
 `from dysh.fits.gbtfitsload import GBTFITSLoad`
 
-`from dysh.util.selection import Selection`
 
 
 
@@ -45,6 +43,12 @@ File I/O and Metadata Operations
 Calibration and Data Retrieval
 ------------------------------
 
+
+ .. csv-table::
+    :file: files/Calibration.csv
+    :header-rows: 1
+    :class: longtable
+    :widths: 10 15 10
 
 
 Spectrum Operations
