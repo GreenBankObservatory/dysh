@@ -1,0 +1,29 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: Date, datatype: string}
+# - {name: Surface Error, unit: micron, datatype: float64}
+# - {name: A0, datatype: float64}
+# - {name: A1, datatype: float64}
+# - {name: A2, datatype: float64}
+# meta: !!omap
+# - __serialized_columns__:
+#     Date:
+#       __class__: astropy.time.core.Time
+#       format: iso
+#       in_subfmt: '*'
+#       out_subfmt: '*'
+#       precision: 3
+#       scale: utc
+#       value: !astropy.table.SerializedColumn {name: Date}
+#     Surface Error:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: micron}
+#       value: !astropy.table.SerializedColumn {name: Surface Error}
+# schema: astropy-2.0
+Date "Surface Error" A0 A1 A2
+"2002-03-01 00:00:00.000" 490.0 0.4543 0.02855 -0.00037353
+"2006-12-01 00:00:00.000" 440.0 0.815 0.0097 -0.0001273
+"2009-09-30 00:00:00.000" 418.0 0.91 0.00434 -5.22e-05
+"2014-04-30 00:00:00.000" 230.0 0.8618 0.007737 -0.00010838
+"2014-05-01 00:00:00.000" 230.0 0.971 0.00124 -1.31e-05
