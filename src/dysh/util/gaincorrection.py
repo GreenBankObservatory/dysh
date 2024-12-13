@@ -5,7 +5,7 @@ from typing import Union
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import Angle
-from astropy.table import Table
+from astropy.table import QTable
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 
@@ -16,12 +16,13 @@ __all__ = ["BaseGainCorrection", "GBTGainCorrection"]
 
 
 class BaseGainCorrection(ABC):
-    """This class is the base class for gain corrections. It is intended to be subclassed for
+    r"""This class is the base class for gain corrections. It is intended to be subclassed for
     specific antennas. Subclasses will be used to calculate various gain corrections to go
     from antenna temperature to other scales like brightness temperature of flux density.
     Subclasses can implement the following attributes:
         * `ap_eff_0`
-            default aperture efficiency (number between 0 and 1)
+            long wavelength aperture efficiency (number between 0 and 1), i.e., in the absence of surface errors,
+            $\lambda >> \epsilon_0$.
 
         * `epsilon_0`
             default rms surface accuracy with units of length (`~astropy.units.quanitity.Quantity`)
@@ -96,7 +97,7 @@ class GBTGainCorrection(BaseGainCorrection):
         """
         if gain_correction_table is None:
             gain_correction_table = get_project_configuration() / "gaincorrection.tab"
-        self._gct = Table.read(gain_correction_table)
+        self._gct = QTable.read(gain_correction_table)
         # change the Date column from str to Time so we can compare when looking up coefficients
         self._gct["Date"] = Time(self._gct["Date"])
         self._gct.sort("Date")
@@ -165,9 +166,28 @@ class GBTGainCorrection(BaseGainCorrection):
                     break
             return index
 
+        def surface_error(self, date: Time) -> Quantity:
+            """
+            Lookup the applicable surface error in the gain correction table
+            for the observation date.
+
+            Parameters
+            ----------
+            date : ~astropy.time.Time
+                Date of observation
+
+            Returns
+            -------
+            ~astropy.units.quantity.Quantity
+                Surface error for the given date.
+
+            """
+            i = self._get_gct_index(date)
+            return self._gct[i]["Surface Error"]
+
         def gain_correction(
             self,
-            angle: Quantity,
+            angle: Union([Angle, Quantity]),
             date: Time,
             zd: bool = True,
         ) -> Union([float, np.ndarray]):
@@ -182,7 +202,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
             Parameters
             ----------
-            angle : ~astropy.units.quantity.Quantity
+            angle :  ~astropy.coordinates.Angle or ~astro.units.quantity.Quantity
                 The elevation(s) or zenith distance(s) at which to compute the gain correction factor
 
             date  : ~astropy.time.Time
@@ -208,5 +228,41 @@ class GBTGainCorrection(BaseGainCorrection):
 
             return a0 + a1 * z + a2 * z * z
 
-        def aperture_efficiency(self, frequency: Quantity, **kwargs) -> Union([float, np.ndarray]):
-            pass
+        def aperture_efficiency(
+            self, specval: Quantity, angle: Union([Angle, Quantity]), date: Time, zd=False, **kwargs
+        ) -> Union([float, np.ndarray]):
+            r"""
+            Compute the aperture efficiency, as a float between zero and 1. The aperture
+            efficiency $\eta_a$, is determined by:
+
+                    $$\eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon_0/\lambda)^2)$$
+
+            where $\eta_0$ is the long wavelength aperture efficiency, $G(ZD)$ is the gain correction factor
+            at a zenith distance $ZD$, $\epsilon_0$ is the surface error, and $\lambda$ is the wavelength.
+
+            Parameters
+            ----------
+            specval : ~astro.units.quantity.Quantity
+                The spectral value -- frequency or wavelength -- at which to compute the efficiency
+
+            angle :  ~astropy.coordinates.Angle or ~astro.units.quantity.Quantity
+                The elevation(s) or zenith distance(s) at which to compute the efficiency
+
+            date  : ~astropy.time.Time
+                The date at which to cmopute the efficieyncy
+
+            zd: bool
+                True if the input value is zenith distance, False if it is elevation. Default: False
+
+            Returns
+            -------
+                float or np.ndarray
+                The aperture efficiency at the given inputs
+
+            """
+            coeff = self.app_eff0 * self.gain_correction(angle, date, zd)
+            se = self.surface_error(date)
+            _lambda = specval.to(se.unit, equivalencies=u.spectral())
+            a = (4.0 * np.pi * se / _lambda) ** 2
+            eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
+            return eta_a.value
