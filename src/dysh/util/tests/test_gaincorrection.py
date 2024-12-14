@@ -7,7 +7,6 @@ from astropy.coordinates import Angle
 from astropy.table import QTable
 from astropy.time import Time
 
-import dysh
 import dysh.util as util
 from dysh.util.gaincorrection import GBTGainCorrection
 
@@ -38,7 +37,10 @@ class TestGainCorrection:
             assert se == answer[i]
 
     def test_gaincorrection_factor(self):
-        pass
+        angles = Angle([0.0, 25.0, 45.0, 60.0, 77.0, 90.0], unit=u.degree)
+        for i in range(len(self.dates)):
+            gc = self.gbtgc.gain_correction(angles, self.dates[i], zd=True)
+            gc = self.gbtgc.gain_correction(angles, self.dates[i], zd=False)
 
     def test_aperture_efficiency(self):
         pass
