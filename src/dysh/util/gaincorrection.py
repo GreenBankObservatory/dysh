@@ -218,6 +218,7 @@ class GBTGainCorrection(BaseGainCorrection):
         a0 = self._gct[i]["A0"]
         a1 = self._gct[i]["A1"]
         a2 = self._gct[i]["A2"]
+        print(f"Using {a0=} {a1=} {a2=} for {date}")
         ang_deg = angle.to(u.degree)
         if not zd:
             z = 90.0 - ang_deg.value
