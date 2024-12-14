@@ -7,6 +7,8 @@
 # - {name: A1, datatype: float64}
 # - {name: A2, datatype: float64}
 # meta: !!omap
+# - {Source: GBT Memo 301 and dysh aperture efficiency design document}
+# - {Description: 'up to and including Date, the values to be used are in that Date row'}
 # - __serialized_columns__:
 #     Date:
 #       __class__: astropy.time.core.Time
