@@ -3,6 +3,7 @@
 # datatype:
 # - {name: Date, datatype: string}
 # - {name: Surface Error, unit: micron, datatype: float64}
+# - {name: Gmax, unit: K/Jy, datatype: float64},
 # - {name: A0, datatype: float64}
 # - {name: A1, datatype: float64}
 # - {name: A2, datatype: float64}
@@ -23,9 +24,9 @@
 #       unit: !astropy.units.Unit {unit: micron}
 #       value: !astropy.table.SerializedColumn {name: Surface Error}
 # schema: astropy-2.0
-Date "Surface Error" A0 A1 A2
-"2002-02-28 23:59:59.000" 490.0 0.4543 0.02855 -0.00037353
-"2006-11-30 23:59:59.000" 440.0 0.815 0.0097 -0.0001273
-"2009-09-30 23:59:59.000" 418.0 0.91 0.00434 -5.22e-05
-"2014-04-30 23:59:59.000" 230.0 0.8618 0.007737 -0.00010838
-"2014-05-01 00:00:00.000" 230.0 0.971 0.00124 -1.31e-05
+Date "Surface Error" Gmax A0 A1 A2
+"2002-02-28 23:59:59.000" 490.0 1.00 0.4543 0.02855 -0.00037353
+"2006-11-30 23:59:59.000" 440.0 1.74 0.8150 0.0097  -0.0001273
+"2009-09-30 23:59:59.000" 418.0 0.61 0.9100 0.00434 -5.22e-05
+"2014-04-30 23:59:59.000" 240.0 1.82 0.8618 0.007737 -0.00010838
+"2014-05-01 00:00:00.000" 230.0 1.00 0.9710 0.001240 -1.31e-05
