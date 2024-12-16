@@ -259,7 +259,7 @@ class GBTGainCorrection(BaseGainCorrection):
             The aperture efficiency at the given inputs
 
         """
-        coeff = self.app_eff0 * self.gain_correction(angle, date, zd)
+        coeff = self.app_eff_0 * self.gain_correction(angle, date, zd)
         se = self.surface_error(date)
         _lambda = specval.to(se.unit, equivalencies=u.spectral())
         a = (4.0 * np.pi * se / _lambda) ** 2
