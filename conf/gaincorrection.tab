@@ -3,7 +3,7 @@
 # datatype:
 # - {name: Date, datatype: string}
 # - {name: Surface Error, unit: micron, datatype: float64}
-# - {name: Gmax, unit: K/Jy, datatype: float64},
+# - {name: Gmax, unit: K/Jy, datatype: float64}
 # - {name: A0, datatype: float64}
 # - {name: A1, datatype: float64}
 # - {name: A2, datatype: float64}
