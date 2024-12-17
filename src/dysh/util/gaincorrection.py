@@ -134,11 +134,16 @@ class GBTGainCorrection(BaseGainCorrection):
         """
         ang_deg = angle.to(u.degree)
         if zd:
-            ang_deg.value = 90.0 - ang_deg.value
+            ang_deg = 90.0 * u.degree - ang_deg
 
-        c1 = 5.18 * u.degree
-        c2 = 3.35 * u.degree
-        return -0.0234 + 1.014 / np.sin(ang_deg + c1 / (ang_deg + c2))
+        c0 = -0.0234
+        c1 = 5.18
+        c2 = 3.35
+        c3 = 1.014
+        d = ang_deg.value + c1 / (ang_deg.value + c2)
+
+        # print(f"{d=}")
+        return c0 + c3 / np.sin(np.radians(d))
 
     def _get_gct_index(self, date: Time) -> int:
         """

@@ -44,3 +44,10 @@ class TestGainCorrection:
 
     def test_aperture_efficiency(self):
         pass
+
+    def test_airmass(self):
+        angles = Angle([0.0, 25.0, 40.0, 45.0, 50, 65.0, 90.0], unit=u.degree)
+        answer = np.array([37.5541407, 2.35964333, 1.5501963, 1.40793864, 1.29840534, 1.09473653, 0.99060048])
+        am = self.gbtgc.airmass(angles, zd=False)
+        assert np.mean(am - answer) < 1e-10
+        assert all(self.gbtgc.airmass(angles, zd=True) == am[::-1])
