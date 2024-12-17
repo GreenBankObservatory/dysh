@@ -43,7 +43,7 @@ class BaseGainCorrection(ABC):
 
         Parameters
         ----------
-        angle : ~astropy.coordinates.Angle or ~astro.units.quantity.Quantity
+        angle : `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
             The elevation(s) or zenith distance(s) at which to compute the airmass
 
         zd: bool
@@ -54,7 +54,7 @@ class BaseGainCorrection(ABC):
 
         Returns
         -------
-            airmass - float or ~np.ndarray
+            airmass - float or `~numpy.ndarray`
             The value(s) of the airmass at the given elevation(s)/zenith distance(s)
         """
         pass
@@ -66,15 +66,15 @@ class BaseGainCorrection(ABC):
 
         Parameters
         ----------
-        frequency : Quantity
-            The frequency at which to calculate the efficiency.
+        specval : `~astro.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute the efficiency
 
         **kwargs : Any
             Other possible parameters that affect the aperture efficiency, e.g., elevation angle.
 
         Returns
         -------
-            aperture_efficiency  - float or ~np.ndarray
+            aperture_efficiency  - float or `~numpy.ndarray`
             The value(s) of the aperture efficiency at the given frequency.
             The return value(s) are float(s) between zero and one.
 
@@ -109,10 +109,10 @@ class GBTGainCorrection(BaseGainCorrection):
         return self._gct
 
     def airmass(self, angle: Union[Angle, Quantity], zd: bool = False, **kwargs) -> Union[float, np.ndarray]:
-        """
+        r"""
         Computes the airmass at given elevation(s) or zenith distance(s).  The formula used is
 
-        A = -0.0234 + 1.014/sin(El+5.18/(El+3.35))
+        :math:`A = -0.0234 + 1.014/sin(El+5.18/(El+3.35))`
 
         for elevation in degrees. This function is specific for the GBT location derived
         from vertical weather data. Source: (Maddalena 2007)
@@ -120,7 +120,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Parameters
         ----------
-        angle :  ~astropy.coordinates.Angle or ~astro.units.quantity.Quantity
+        angle :  `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
             The elevation(s) or zenith distance(s) at which to compute the airmass
 
         zd: bool
@@ -128,7 +128,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Returns
         -------
-            airmass - float or ~np.ndarray
+            airmass - float or `~numpy.ndarray`
             The value(s) of the airmass at the given elevation(s)/zenith distance(s)
 
         """
@@ -152,7 +152,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Parameters
         ----------
-        date : ~astropy.time.Time
+        date : `~astropy.time.Time`
             Date of observation
 
         Returns
@@ -176,13 +176,13 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Parameters
         ----------
-        date : ~astropy.time.Time
+        date : `~astropy.time.Time`
             Date of observation
 
         Returns
         -------
-        ~astropy.units.quantity.Quantity
-            Surface error for the given date.
+            `~astropy.units.quantity.Quantity`
+                Surface error for the given date.
 
         """
         i = self._get_gct_index(date)
@@ -194,21 +194,21 @@ class GBTGainCorrection(BaseGainCorrection):
         date: Time,
         zd: bool = True,
     ) -> Union[float, np.ndarray]:
-        """
+        r"""
         Compute the gain correction scale factor, to be used in the aperture efficiency
         calculation. The factor is a float between zero and 1.  See GBT Memo 301. The factor is
         determined by:
 
-        G = A0 + A1*ZD + A2*ZD^2
+        :math:`G = A0 + A1*ZD + A2*ZD^2`
 
         where An are the time-dependent coefficients and ZD is the zenith distance angle in degrees.
 
         Parameters
         ----------
-        angle :  ~astropy.coordinates.Angle or ~astro.units.quantity.Quantity
+        angle :  `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
             The elevation(s) or zenith distance(s) at which to compute the gain correction factor
 
-        date  : ~astropy.time.Time
+        date  : `~astropy.time.Time`
             The date at which to cmopute the gain correction factor
 
         zd: bool
@@ -216,7 +216,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Returns
         -------
-            gain_correction - float or np.ndarray
+            gain_correction - float or `~numpy.ndarray`
             The gain correction scale factor(s) at the given elevation(s)/zenith distance(s)
         """
         i = self._get_gct_index(date)
@@ -237,22 +237,22 @@ class GBTGainCorrection(BaseGainCorrection):
     ) -> Union[float, np.ndarray]:
         r"""
         Compute the aperture efficiency, as a float between zero and 1. The aperture
-        efficiency $\eta_a$, is determined by:
+        efficiency :math:`\eta_a`, is determined by:
 
-                $$\eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon_0/\lambda)^2)$$
+                :math:`\eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon_0/\lambda)^2)`
 
-        where $\eta_0$ is the long wavelength aperture efficiency, $G(ZD)$ is the gain correction factor
-        at a zenith distance $ZD$, $\epsilon_0$ is the surface error, and $\lambda$ is the wavelength.
+        where :math:`\eta_0` is the long wavelength aperture efficiency, :math:`G(ZD)` is the gain correction factor
+        at a zenith distance :math:`ZD, \epsilon_0`is the surface error, and :math:`\lambda` is the wavelength.
 
         Parameters
         ----------
-        specval : ~astro.units.quantity.Quantity
+        specval : `~astro.units.quantity.Quantity`
             The spectral value -- frequency or wavelength -- at which to compute the efficiency
 
         angle :  ~astropy.coordinates.Angle or ~astro.units.quantity.Quantity
             The elevation(s) or zenith distance(s) at which to compute the efficiency
 
-        date  : ~astropy.time.Time
+        date  : `~astropy.time.Time`
             The date at which to cmopute the efficieyncy
 
         zd: bool
@@ -260,7 +260,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Returns
         -------
-            float or np.ndarray
+            float or `~numpy.ndarray`
             The aperture efficiency at the given inputs
 
         """
