@@ -796,9 +796,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     #    df = select_from("CAL", TF[cal], df)
                     # the rows with the selected sig state and all cal states
                     tprows = list(_sifdf["ROW"])
-                    logger.debug("TPROWS len=", len(tprows))
-                    logger.debug("CALROWS on len=", len(calrows["ON"]))
-                    logger.debug("fitsindex=", i)
+                    logger.debug(f"TPROWS len={len(tprows)}")
+                    logger.debug(f"CALROWS on len={len(calrows["ON"])}")
+                    logger.debug(f"fitsindex={i}")
                     print("PJT TPROWS", tprows)
                     if len(tprows) == 0:
                         continue
