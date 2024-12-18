@@ -27,6 +27,7 @@ class TestGBTFITSLoad:
         """
         expected = {
             "TGBT21A_501_11.raw.vegas.fits": 4,
+            "TGBT21A_501_11_2.raw.vegas.fits": 8,
             "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits": 1,
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits": 1,
@@ -669,3 +670,30 @@ class TestGBTFITSLoad:
         assert "My dear Aunt Sally" in sdf.comments
         assert "ran the test for history and comments" in sdf.history
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
+
+    def test_online(self):
+        f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
+        #
+        sdfits = "/tmp/sdfits"
+        os.environ["SDFITS_DATA"] = sdfits
+        cmd = f"mkdir -p {sdfits}"
+        os.system(cmd)
+        #
+        cmd = f"cp {f1} {sdfits}/online.fits"
+        print(f1)
+        os.system(cmd)
+        sdf =  gbtfitsload.GBTOnline()
+        s = sdf.summary()
+        n = len(sdf._index)
+        assert n == 4
+        #
+        cmd = f"cp {f2} {sdfits}/online.fits"
+        print(f2)        
+        os.system(cmd)
+        s = sdf.summary()        
+        n = len(sdf._index)
+        assert n == 8
+        #
+        #  @todo should we remove {sdfits} now ?
+        
