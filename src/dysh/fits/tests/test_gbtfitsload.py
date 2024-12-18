@@ -672,7 +672,6 @@ class TestGBTFITSLoad:
         assert "ran the test for history and comments" in sdf.history
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
 
-<<<<<<< HEAD
     def test_online(self):
         f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
@@ -699,7 +698,7 @@ class TestGBTFITSLoad:
         #
         #  @todo should we remove {sdfits} now ?
         
-=======
+
     def test_write_read_flags(self, tmp_path):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
@@ -757,4 +756,3 @@ class TestGBTFITSLoad:
         ps = sdf.getps(scan=19, plnum=0, apply_flags=True, intnum=[i for i in range(43, 52)]).timeaverage()
         assert np.all(ps.mask[2299:] == True)
         assert np.all(ps.mask[:2299] == False)
->>>>>>> origin/main
