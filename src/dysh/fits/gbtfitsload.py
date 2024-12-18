@@ -762,7 +762,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
-        logger.debug("SF=", _sf)
+        logger.debug(f"SF={_sf}")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -905,7 +905,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
-        logger.debug(f"{_sf = }")
+        logger.debug(f"sf = {_sf}")
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
