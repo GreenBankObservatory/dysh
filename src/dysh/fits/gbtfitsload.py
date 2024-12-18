@@ -55,12 +55,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     hdu : int or list
         Header Data Unit to select from input file. Default: all HDUs
 
+    skipflags: bool
+        If True, do not read any flag files associated with these data. Default:False
+
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, source=None, hdu=None, **kwargs):
+    def __init__(self, fileobj, source=None, hdu=None, skipflags=False, **kwargs):
         kwargs_opts = {
-            "fix": False,  # fix non-standard header elements
             "index": True,  # only set to False for performance testing.
             "verbose": False,
         }
@@ -73,7 +75,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self.GBT = Observatory["GBT"]
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
-            self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
+            self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
         elif path.is_dir():
             logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
@@ -95,13 +97,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
         if kwargs_opts["index"]:
-            self._create_index_if_needed()
+            self._create_index_if_needed(skipflags)
             self._update_radesys()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # cds.enable()  # to get mmHg
 
-        if kwargs.get("verbose", None):
+        # ushow/udata depend on the index being present, so check that index is created.
+        if kwargs.get("verbose", None) and kwargs_opts["index"]:
             print("==GBTLoad %s" % fileobj)
             self.ushow("OBJECT", 0)
             self.ushow("SCAN", 0)
@@ -119,7 +122,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
-        self.add_history(f"Project ID: {self.projectID}", add_time=True)
+        if kwargs_opts["index"]:
+            self.add_history(f"Project ID: {self.projectID}", add_time=True)
+        else:
+            print("Reminder: No index created; many functions won't work.")
 
     def __repr__(self):
         return str(self.files)
@@ -142,7 +148,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
         str
             The project ID string
-
         """
         return uniq(self["PROJID"])[0]
 
@@ -781,7 +786,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for i, ((fi, bi), g) in enumerate(dfs):
                 chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
                 rows = g["ROW"].to_numpy()
-                self._sdf[fi]._flagmask[bi][rows] = chan_mask
+                logger.debug(f"Applying {chan} to {rows=}")
+                logger.debug(f"{np.where(chan_mask)}")
+                self._sdf[fi]._flagmask[bi][rows] |= chan_mask
 
     @log_call_to_history
     def clear_flags(self):
@@ -790,7 +797,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sdf._init_flags()
         self._flag.clear()
 
-    def _create_index_if_needed(self):
+    def _create_index_if_needed(self, skipflags=False):
+        """
+        Parameters
+        ----------
+        skipflags : bool, optional
+            If True, do not read any flag files associated with these data.  The default is False.
+
+        Returns
+        -------
+        None.
+
+        """
+
         if self._selection is not None:
             return
         i = 0
@@ -810,6 +829,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
+
+        if skipflags:
+            return
+
+        # for directories with multiple FITS files and possibly multiple FLAG files
+        # we have to ensure the right flag file goes with the right FITS tile.
+        # The GBT convention is the same filename with '.flag' instead of '.fits'.
+        # We construct the flagfile and also pass in FITSINDEX column to ensure
+        # only the data associated with that file are flagged.
+        found_flags = False
+        for s in self._sdf:
+            p = Path(s.filename)
+            flagfile = p.with_suffix(".flag")
+            if flagfile.exists():
+                fi = uniq(s["FITSINDEX"])[0]
+                self.flags.read(flagfile, fitsindex=fi)
+                found_flags = True
+        if found_flags:
+            print("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
     def _construct_procedure(self):
         """
@@ -1062,7 +1100,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.PSScan`s
+            ScanBlock containing one or more `~spectra.scan.PSScan`.
 
         """
 
@@ -1224,7 +1262,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.NodScan`s
+            ScanBlock containing one or more `~spectra.scan.NodScan`.
 
         """
 
@@ -1457,7 +1495,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.FSScan`s
+            ScanBlock containing one or more`~spectra.scan.FSScan`.
 
         """
         debug = kwargs.pop("debug", False)
@@ -2285,6 +2323,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self,
         fileobj,
         multifile=True,
+        flags=True,
         verbose=False,
         output_verify="exception",
         overwrite=False,
@@ -2302,6 +2341,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         multifile: bool, optional
             If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
             Otherwise, write to a single SDFITS file.
+        flags: bool, optional
+            If True, write the applied flags to a `FLAGS` column in the binary table.
         verbose: bool, optional
             If True, print out some information about number of rows written per file
         output_verify : str
@@ -2351,6 +2392,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
+                        if flags:  # update the flags before we select rows
+                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
+                            dim1 = np.shape(flagval)[1]
+                            form = f"{dim1}B"
+                            c = fits.Column(name="FLAGS", format=form, array=flagval)
+                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
@@ -2375,7 +2422,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if verbose:
                 print(f"Total of {total_rows_written} rows written to files.")
         else:
-            hdu = self._sdf[fi[0]]._hdu[fi[0]].copy()
+            hdu = self._sdf[fi[0]]._hdu[0].copy()
             outhdu = fits.HDUList(hdu)
             for k in fi:
                 df = select_from("FITSINDEX", k, _final)
@@ -2385,6 +2432,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
+                        if flags:  # update the flags before we select rows
+                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
+                            dim1 = np.shape(flagval)[1]
+                            form = f"{dim1}B"
+                            # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this
+                            c = fits.Column(name="FLAGS", format=form, array=flagval)
+                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
@@ -2473,7 +2527,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            warnings.warn("Changing an existing SDFITS column")
+            warnings.warn(f"Changing an existing SDFITS column {items}")
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):

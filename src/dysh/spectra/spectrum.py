@@ -8,7 +8,7 @@ from copy import deepcopy
 import astropy.units as u
 import numpy as np
 import pandas as pd
-from astropy.coordinates import SkyCoord, SpectralCoord, StokesCoord
+from astropy.coordinates import ITRS, SkyCoord, SpectralCoord, StokesCoord
 from astropy.coordinates.spectral_coordinate import attach_zero_velocities
 from astropy.io import registry
 from astropy.io.fits.verify import VerifyWarning
@@ -27,6 +27,7 @@ from dysh.spectra import core
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
     Observatory,
+    astropy_convenience_frame_names,
     astropy_frame_dict,
     change_ctype,
     get_velocity_in_frame,
@@ -35,7 +36,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..log import HistoricalBase, log_call_to_history, logger
+from ..log import HistoricalBase, log_call_to_history  # , logger
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import baseline, get_spectral_equivalency
@@ -341,22 +342,24 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-            roll : int
-                Return statistics on a 'rolled' array differenced with the
-                original array. If there is no correllaton between channels,
-                a roll=1 would return an RMS sqrt(2) larger than that of the
-                input array. Another advantage of rolled statistics it will
-                remove most slow variations, thus RMS/sqrt(2) might be a better
-                indication of the underlying RMS.
-                Default: 0
-            qac : bool
-                If set, the returned simple string contains mean,rms,datamin,datamax
-                for easier visual regression. Based on some legacy code.
-                Default: False
+        roll : int
+            Return statistics on a 'rolled' array differenced with the
+            original array. If there is no correllaton between channels,
+            a roll=1 would return an RMS sqrt(2) larger than that of the
+            input array. Another advantage of rolled statistics it will
+            remove most slow variations, thus RMS/sqrt(2) might be a better
+            indication of the underlying RMS.
+            Default: 0
+        qac : bool
+            If set, the returned simple string contains mean,rms,datamin,datamax
+            for easier visual regression. Based on some legacy code.
+            Default: False
+
         Returns
         -------
         stats : dict
             Dictionary consisting of (mean,median,rms,datamin,datamax)
+
         """
 
         if roll == 0:
@@ -720,11 +723,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The converted spectral axis velocity
         """
         if toframe is not None and toframe != self.velocity_frame:
-            self.set_frame(toframe)
-        if doppler_convention is not None:
-            return self._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
+            s = self.with_frame(toframe)
         else:
-            return self.axis_velocity(unit)
+            s = self
+        if doppler_convention is not None:
+            return s._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
+        else:
+            return s.axis_velocity(unit)
 
     def get_velocity_shift_to(self, toframe):
         if self._target is None:
@@ -733,34 +738,51 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @log_call_to_history
     def set_frame(self, toframe):
-        # @todo VELDEF should be changed as well?
         """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
 
         To make a copy of this Spectrum with new coordinate referece frmae instead, use `with_frame`.
 
         Parameters
         ----------
-        toframe - str
-            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
+        toframe - str, or ~astropy.coordinates.BaseCoordinateFrame, or ~astropy.coordinates.SkyCoord
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
+            or an actual coordinate system instance
         """
-        if "topo" in toframe:
-            actualframe = self.observer
+
+        tfl = toframe
+        if isinstance(toframe, str):
+            tfl = toframe.lower()
+            tfl = astropy_convenience_frame_names.get(tfl, tfl)
+            if "itrs" in tfl:
+                if isinstance(self._observer, ITRS):
+                    return  # nothing to be done, we already have the correct axis
+                raise ValueError(
+                    "For topographic or ITRS coordaintes, you must supply a full astropy Coordinate instance."
+                )
+            elif self._velocity_frame == tfl:
+                return  # the frame is already the requested frame
+
+        self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(tfl)
+        self._observer = self._spectral_axis.observer
+        # This line is commented because:
+        # SDFITS defines CTYPE1 as always being the TOPO frequency.
+        # See Issue #373 on GitHub.
+        # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
+        if isinstance(tfl, str):
+            self._velocity_frame = tfl
         else:
-            actualframe = astropy_frame_dict.get(toframe, toframe)
-        self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(actualframe)
-        self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
-        if isinstance(actualframe, str):
-            self._velocity_frame = actualframe
-        else:
-            self._velocity_frame = actualframe.name
+            self._velocity_frame = tfl.name
+        # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF
+        self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
 
     def with_frame(self, toframe):
         """Return a copy of this Spectrum with a new coordinate reference frame.
 
         Parameters
         ----------
-        toframe - str
-            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.
+        toframe - str, ~astropy.coordinates.BaseCoordinateFrame, or ~astropy.coordinates.SkyCoord
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
+            or an actual coordinate system instance
 
         Returns
         -------

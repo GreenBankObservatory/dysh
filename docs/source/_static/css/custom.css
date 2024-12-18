@@ -10,6 +10,20 @@ are more visible */
   background-color: #C6B9D2;
 }
 
+/*
+ * */
+.widget-subarea {
+    background-color: var(--pst-color-surface) !important;
+    border-radius: 0.25rem !important;
+    /*border: 1px solid var(--mystnb-stdout-border-color) !important;*/
+    /*background: var(--mystnb-stdout-bg-color) !important;*/
+}
+
+div.output.text_html {
+    background-color: var(--pst-color-background) !important;
+    background: var(--pst-color-background) !important;
+}
+
 .black {
     color: black;
 }

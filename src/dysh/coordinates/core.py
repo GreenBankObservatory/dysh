@@ -54,7 +54,21 @@ astropy_frame_dict = {
     "galactocentric": coord.Galactocentric,
     "topocentric": coord.ITRS,  # but need to add observatory position
     "topo": coord.ITRS,  # but need to add observatory position
+    "itrs": coord.ITRS,  # but need to add observatory positionsc.sp
 }
+
+astropy_convenience_frame_names = {
+    "bary": "icrs",
+    "barycentric": "icrs",
+    "heliocentric": "icrs",
+    "helio": "icrs",
+    "geo": "icrs",
+    "geocentric": "icrs",
+    "topocentric": "itrs",
+    "topo": "itrs",
+    "vlsr": "lsrk",
+}
+
 
 # astropy-sanctioned coordinate frame string to label
 frame_to_label = {
@@ -450,7 +464,6 @@ def veltofreq(velocity, restfreq, veldef):
     vdef = veldef_to_convention(veldef)
     if vdef is None:
         raise ValueError(f"Unrecognized VELDEF: {veldef}")
-    vc = velocity / const.c
     if vdef == "radio":
         radio = u.doppler_radio(restfreq)
         frequency = velocity.to(u.Hz, equivalencies=radio)
@@ -469,7 +482,6 @@ def veltofreq(velocity, restfreq, veldef):
 def change_ctype(ctype, toframe):
     # when changing frame, we should also change CTYPE1. Pretty sure GBTIDL does not do this
     prefix = ctype[0:4]
-    postfix = ctype[4:]
     newpostfix = reverse_frame_dict[toframe]
     newctype = prefix + newpostfix
     # print(f"changing {ctype} to {newctype}")
