@@ -232,7 +232,7 @@ class GBTGainCorrection(BaseGainCorrection):
         return a0 + a1 * z + a2 * z * z
 
     def aperture_efficiency(
-        self, specval: Quantity, angle: Union[Angle, Quantity], date: Time, zd=False, **kwargs
+        self, specval: Quantity, angle: Union[Angle, Quantity], date: Time, zd=False, eps0=None, **kwargs
     ) -> Union[float, np.ndarray]:
         r"""
         Compute the aperture efficiency, as a float between zero and 1. The aperture
@@ -257,6 +257,10 @@ class GBTGainCorrection(BaseGainCorrection):
         zd: bool
             True if the input value is zenith distance, False if it is elevation. Default: False
 
+        eps0 :  `~astro.units.quantity.Quantity` or None
+            The value of :math:`\epsilon_0` to use. If given, must have units of length (typically microns).
+            If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
+
         Returns
         -------
             float or `~numpy.ndarray`
@@ -264,8 +268,9 @@ class GBTGainCorrection(BaseGainCorrection):
 
         """
         coeff = self.app_eff_0 * self.gain_correction(angle, date, zd)
-        se = self.surface_error(date)
-        _lambda = specval.to(se.unit, equivalencies=u.spectral())
-        a = (4.0 * np.pi * se / _lambda) ** 2
+        if eps0 is None:
+            eps0 = self.surface_error(date)
+        _lambda = specval.to(eps0.unit, equivalencies=u.spectral())
+        a = (4.0 * np.pi * eps0 / _lambda) ** 2
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
