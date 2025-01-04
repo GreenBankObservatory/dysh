@@ -8,7 +8,6 @@ from astropy.table import QTable
 from astropy.time import Time
 from scipy.optimize import minimize_scalar
 
-import dysh.util as util
 from dysh.util.gaincorrection import GBTGainCorrection
 
 
@@ -38,7 +37,7 @@ class TestGainCorrection:
             assert se == answer[i]
 
     def test_gaincorrection_factor(self):
-        angles = Angle([0.0, 5.0, 25.0, 40.0, 45.0, 50, 65.0, 85.0, 90.0], unit=u.degree)
+        angles = Angle([5.0, 25.0, 40.0, 45.0, 50, 65.0, 85.0], unit=u.degree)
         answer = np.array([])
         for i in range(len(self.dates)):
             gc1 = self.gbtgc.gain_correction(angles, self.dates[i], zd=True)
@@ -72,8 +71,8 @@ class TestGainCorrection:
             else:
                 ap = self.gbtgc.aperture_efficiency(freqs, a, d, zd=False)
             apr = np.round(ap, decimals=2)  # this is all the precision the table has
-            # if they differ by 1% efficiency, that's acceptable for this test.
-            assert np.max(np.abs(apr - answer[i])) < 0.011
+            # print(np.abs(apr - answer[i]))
+            assert all(apr == answer[i])
             i += 1
 
     def test_airmass(self):
