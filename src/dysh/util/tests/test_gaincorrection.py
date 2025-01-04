@@ -1,10 +1,6 @@
-import pathlib
-
 import astropy.units as u
 import numpy as np
-import pytest
 from astropy.coordinates import Angle
-from astropy.table import QTable
 from astropy.time import Time
 from scipy.optimize import minimize_scalar
 
