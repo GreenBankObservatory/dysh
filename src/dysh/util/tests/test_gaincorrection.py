@@ -97,7 +97,9 @@ class TestGainCorrection:
         gc = self.gbtgc.gain_correction(angles, self.dates[-1], zd=False)
         # measured using graphreader.com on a screenshot of Figure 1 from GBT memo 301 for "2014" curve
         # harder to do because of graph crowding.
-        answer = np.array([0.987, 0.991, 0.994, 0.997, 0.999, 1, 1, 1, 1, 1, 0.998, 0.995, 0.991, 0.987, 0.983, 0.978])
+        answer = np.array(
+            [0.987, 0.991, 0.994, 0.997, 0.999, 1.0, 1.0, 1.0, 1.0, 1.0, 0.998, 0.995, 0.991, 0.987, 0.983, 0.978]
+        )
         assert np.abs(np.mean(gc - answer)) < 0.001
         #
         # 2003 curve was not generated using G(ZD) so we do not test it here.
