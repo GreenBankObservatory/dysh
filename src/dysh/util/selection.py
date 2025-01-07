@@ -31,6 +31,8 @@ default_aliases = {
     "subref": "subref_state",  # subreflector state
 }
 
+# pd.options.mode.copy_on_write = True
+
 
 # workaround to avoid circular import error in sphinx (and only sphinx)
 def _default_sdfits_columns():
@@ -430,9 +432,17 @@ class SelectionBase(DataFrame):
         #        ------
         #        Exception
         #            If an identical rule (DataFrame) has already been added.
+        print(f"checkinf for duplicates with {df}")
         for _id, s in self._selection_rules.items():
+            # if s.dropna(axis=1, how="all").equals(df.dropna(axis=1, how="all")):
+            tag = self._table.loc[_id]["TAG"]
+            print(f"Checking {tag}")
             if s.equals(df):
                 tag = self._table.loc[_id]["TAG"]
+                print(
+                    f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
+                    " Ignoring."
+                )
                 # raise Exception(
                 warnings.warn(
                     f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
@@ -440,6 +450,10 @@ class SelectionBase(DataFrame):
                 )
                 return True
                 # )
+            else:
+                diff = pd.concat([s, df]).drop_duplicates(keep=False)
+                tag = self._table.loc[_id]["TAG"]
+                print(f"DID not find duplicates for {tag} {diff=}")
         return False
 
     def _addrow(self, row, dataframe, tag=None):
@@ -1083,8 +1097,10 @@ class Flag(SelectionBase):
             if chan is not None:
                 self._table[idx]["CHAN"] = abbreviate_to(DEFAULT_COLUMN_WIDTH, chan)
                 self._flag_channel_selection[idx] = chan
+                self._selection_rules[idx]["CHAN"] = str(chan)
             else:
                 self._flag_channel_selection[idx] = ALL_CHANNELS
+                self._selection_rules[idx].loc[:, "CHAN"] = ALL_CHANNELS
 
     def flag_channel(self, channel, tag=None, **kwargs):
         """
@@ -1123,6 +1139,7 @@ class Flag(SelectionBase):
         self._base_select_channel(channel, tag, **kwargs)
         idx = len(self._table) - 1
         self._flag_channel_selection[idx] = channel
+        self._selection_rules[idx]["CHAN"] = str(channel)
         self._channel_selection = None  # unused for flagging
 
     def flag_range(self, tag=None, **kwargs):
@@ -1149,6 +1166,10 @@ class Flag(SelectionBase):
         None.
         """
         self._base_select_range(tag, **kwargs)
+        idx = len(self._table) - 1
+        self._flag_channel_selection[idx] = ALL_CHANNELS
+        self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
+        self._channel_selection = None  # unused for flagging
 
     def flag_within(self, tag=None, **kwargs):
         """
@@ -1174,6 +1195,10 @@ class Flag(SelectionBase):
 
         """
         self._base_select_within(tag, **kwargs)
+        idx = len(self._table) - 1
+        self._flag_channel_selection[idx] = ALL_CHANNELS
+        self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
+        self._channel_selection = None  # unused for flagging
 
     def read(self, fileobj, **kwargs):
         """Read a GBTIDL flag file and instantiate Flag object.

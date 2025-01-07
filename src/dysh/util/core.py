@@ -36,7 +36,37 @@ def select_from(key, value, df):
         The subselected DataFrame
 
     """
+    # nb this fails if value is None
     return df[(df[key] == value)]
+
+
+def eliminate_flagged_rows(df, flag):
+    """
+    Remove rows from an index (selection) where all channels have been flagged.
+
+    Parameters
+    ----------
+    df : `~pandas.DataFrame`
+        The input dataframe from which flagged rows will be removed.
+    flag : `~pandas.DataFrame`
+        The flag dataframe.  Should be the result of e.g. `~util.Flag.final`
+
+    Returns
+    -------
+        A data frame which is the input data frame with flagged rows removed.
+    """
+    if len(flag) > 0:
+        # in the final flagging selection any rows that have CHAN=ALL_CHANNELS
+        # indicate that the entire row is flagged
+        ff = flag[flag["CHAN"].isin([ALL_CHANNELS])]
+        flagged_rows = set(ff["ROW"])
+        if len(flagged_rows) > 0:
+            userows = list(set(df["ROW"]) - flagged_rows)
+            if len(userows) > 0:
+                return df[df["ROW"].isin(userows)]
+            else:
+                return df.iloc[0:0]  # all rows removed
+    return df
 
 
 def indices_where_value_changes(colname, df):

@@ -451,7 +451,7 @@ class SDFITSLoad(object):
         """
         return self._bintable[bintable].data[i]
 
-    def getspec(self, i, bintable=0, observer_location=None):
+    def getspec(self, i, bintable=0, observer_location=None, setmask=False):
         """
         Get a row (record) as a Spectrum
 
@@ -465,6 +465,8 @@ class SDFITSLoad(object):
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in
             the SDFITS header.  The default is None.
+        setmask : bool
+            If True, set the data mask according to the current flags in the `_flagmask` attribute.
 
         Returns
         -------
@@ -474,7 +476,7 @@ class SDFITSLoad(object):
         """
         df = self.index(bintable=bintable)
         meta = df.iloc[i].dropna().to_dict()
-        data = self.rawspectrum(i, bintable)
+        data = self.rawspectrum(i, bintable, setmask=setmask)
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?

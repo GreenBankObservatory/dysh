@@ -995,7 +995,7 @@ class PSScan(ScanBase):
         nsigrows = len(self._sigonrows) + len(self._sigoffrows)
         self._nrows = nsigrows
 
-        self._nchan = len(self._sigcalon[0])
+        self._nchan = gbtfits.nchan(self._bintable_index)
         self._tsys = None
         self._exposure = None
         self._calibrated = None
