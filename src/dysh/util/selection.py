@@ -318,8 +318,12 @@ class SelectionBase(DataFrame):
             If one or more keywords are unrecognized
 
         """
+        ignorekeys = ["PROPOSED_CHANNEL_RULE"]
         unrecognized = []
         ku = [k.upper() for k in keys]
+        for k in ignorekeys:
+            if k in ku:
+                ku.remove(k)
         for k in ku:
             if k not in self and k not in self._aliases:
                 unrecognized.append(k)
@@ -432,11 +436,11 @@ class SelectionBase(DataFrame):
         #        ------
         #        Exception
         #            If an identical rule (DataFrame) has already been added.
-        print(f"checkinf for duplicates with {df}")
+        # print(f"checkinf for duplicates with {df}")
         for _id, s in self._selection_rules.items():
             # if s.dropna(axis=1, how="all").equals(df.dropna(axis=1, how="all")):
             tag = self._table.loc[_id]["TAG"]
-            print(f"Checking {tag}")
+            # print(f"Checking {tag}")
             if s.equals(df):
                 tag = self._table.loc[_id]["TAG"]
                 print(
@@ -450,10 +454,10 @@ class SelectionBase(DataFrame):
                 )
                 return True
                 # )
-            else:
-                diff = pd.concat([s, df]).drop_duplicates(keep=False)
-                tag = self._table.loc[_id]["TAG"]
-                print(f"DID not find duplicates for {tag} {diff=}")
+            # else:
+            #    diff = s.compare(df, align_axis=1)
+            #    tag = self._table.loc[_id]["TAG"]
+            #   print(f"DID not find duplicates for {tag} {diff=}")
         return False
 
     def _addrow(self, row, dataframe, tag=None):
@@ -520,6 +524,7 @@ class SelectionBase(DataFrame):
         # if called via _select_from_mixed_kwargs, then we want to merge all the
         # selections
         df = kwargs.pop("startframe", self)
+        proposed_channel_rule = kwargs.pop("proposed_channel_rule", None)
         single_value_queries = None
         multi_value_queries = None
         for k, v in list(kwargs.items()):
@@ -579,6 +584,7 @@ class SelectionBase(DataFrame):
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
             return False
+        df.loc[:, "CHAN"] = proposed_channel_rule  # this column is normally None so no need to check if None first.
         self._addrow(row, df, tag)
         return True
 
@@ -857,11 +863,12 @@ class SelectionBase(DataFrame):
         """
 
         # get the tag if given or generate one if not
-        tag = kwargs.pop("tag", self._generate_tag(kwargs))
+        kwlist = list(kwargs.items())
+        tag = kwargs.pop("tag", self._generate_tag(kwlist))
         if len(kwargs) == 0:
             return  # user gave no additional kwargs
         if tag is None:  # in case user did tag=None (facepalm)
-            tag = self._generate_tag(kwargs)
+            tag = self._generate_tag(kwlist)
         logger.debug(f"working TAG IS {tag}")
         # in order to pop channel we need to check case insensitively
         ukwargs = keycase(kwargs)
@@ -1090,6 +1097,16 @@ class Flag(SelectionBase):
             self.flag_channel(channel=chan, tag=tag)
         else:
             # Select on the other kwargs then add channel to it.
+            # Since we are allowing the behavior that the user can select
+            # identical rows with different channel flags, we must
+            # use a 'proposed channel rule' because the "CHAN" column is not normally set
+            # before the _check_for_duplicates call inside _base_select.
+            # The selection rules dataframes are allowed to be identical if the
+            # the CHAN columns will be different.
+            if chan is None:
+                kwargs["proposed_channel_rule"] = ALL_CHANNELS
+            else:
+                kwargs["proposed_channel_rule"] = str(chan)
             success = self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
             if not success:
                 return

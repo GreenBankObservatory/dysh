@@ -123,7 +123,7 @@ def gbt_timestamp_to_time(timestamp):
     return Time(t, scale="utc")
 
 
-def generate_tag(values, hashlen):
+def generate_tag(values, hashlen, add_time=True):
     """
     Generate a unique tag based on input values.  A hash object is
     created from the input values using SHA256, and a hex representation is created.
@@ -135,6 +135,8 @@ def generate_tag(values, hashlen):
         The values to use in creating the hash object
     hashlen : int, optional
         The length of the returned hash string.
+    add_time: bool
+        Add the time of the call to the values for hash generation.
 
     Returns
     -------
@@ -142,6 +144,8 @@ def generate_tag(values, hashlen):
         The hash string
 
     """
+    if add_time:
+        values.append(Time.now().value)
     data = "".join(map(str, values))
     hash_object = hashlib.sha256(data.encode())
     unique_id = hash_object.hexdigest()
