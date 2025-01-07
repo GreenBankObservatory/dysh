@@ -11,6 +11,7 @@ import pandas as pd
 from astropy.io import fits
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table
+from astropy.utils.masked import Masked
 
 from dysh.log import logger
 
@@ -413,7 +414,6 @@ class SDFITSLoad(object):
             The index of the `bintable` attribute. If None, the underlying bintable is computed from i
         setmask : bool
             If True, set the data mask according to the current flags in the `_flagmask` attribute.
-
         Returns
         -------
         rawspectrum : ~numpy.ma.MaskedArray
@@ -517,10 +517,12 @@ class SDFITSLoad(object):
             bunit = u.ct
         logger.debug(f"BUNIT = {bunit}")
         if bunit == "ct":
-            logger.info(f"Your data have no units, 'ct' was selected")
+            logger.info("Your data have no units, 'ct' was selected")
             # PJT hack: bunit = u.K
-
-        s = Spectrum.make_spectrum(data * bunit, meta, observer_location=observer_location)
+        # use from_unmasked so we don't get the astropy INFO level message about replacing a mask
+        # (doesn't work -- the INFO message comes from the Spectrum1D constructor)
+        masked_data = Masked.from_unmasked(data.data, data.mask) * u.K
+        s = Spectrum.make_spectrum(masked_data, meta, observer_location=observer_location)
         return s
 
     def nrows(self, bintable):
