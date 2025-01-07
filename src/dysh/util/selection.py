@@ -318,12 +318,12 @@ class SelectionBase(DataFrame):
             If one or more keywords are unrecognized
 
         """
-        ignorekeys = ["PROPOSED_CHANNEL_RULE"]
+        # ignorekeys = ["PROPOSED_CHANNEL_RULE"]
         unrecognized = []
         ku = [k.upper() for k in keys]
-        for k in ignorekeys:
-            if k in ku:
-                ku.remove(k)
+        # for k in ignorekeys:
+        #    if k in ku:
+        #        ku.remove(k)
         for k in ku:
             if k not in self and k not in self._aliases:
                 unrecognized.append(k)
@@ -519,12 +519,14 @@ class SelectionBase(DataFrame):
             True if the selection resulted in a new fule, False if not (no data selected)
 
         """
-        self._check_keys(kwargs.keys())
-        row = {}
+        # pop these before check_keys, which is intended to check SDFITS keywords
+        proposed_channel_rule = kwargs.pop("proposed_channel_rule", None)
         # if called via _select_from_mixed_kwargs, then we want to merge all the
         # selections
         df = kwargs.pop("startframe", self)
-        proposed_channel_rule = kwargs.pop("proposed_channel_rule", None)
+        self._check_keys(kwargs.keys())
+        row = {}
+
         single_value_queries = None
         multi_value_queries = None
         for k, v in list(kwargs.items()):
