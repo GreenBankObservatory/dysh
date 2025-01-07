@@ -61,8 +61,13 @@ class TestGBTFITSLoad:
 
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        spec = sdf.getspec(0)
-        # @todo add flag check.
+        sdf.flag_channel([[0, 100]])
+        sdf.apply_flags()
+        spec = sdf.getspec(0, setmask=False)
+        spec2 = sdf.getspec(0, setmask=True)
+        assert any(spec.mask != spec2.mask)
+        assert all(spec2.mask[0:101])
+        assert all(spec2.mask[102:] == False)
 
     def test_getps_single_int(self):
         """
