@@ -319,7 +319,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
         setmask : bool
             If True, set the data mask according to the current flags. Default:False
-
+            Note: if :meth:`apply_flags` has not been called, flags will not yet be set.
         Returns
         -------
         rawspectrum : ~numpy.ma.MaskedArray
@@ -328,7 +328,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].rawspectrum(i, bintable, setmask=setmask)
 
-    def getspec(self, i, bintable=0, observer_location=Observatory["GBT"], fitsindex=0):
+    def getspec(self, i, bintable=0, observer_location=Observatory["GBT"], fitsindex=0, setmask=False):
         """
         Get a row (record) as a Spectrum
 
@@ -345,13 +345,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the SDFITS header.  The default is the location of the GBT.
         fitsindex: int
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        setmask : bool
+            If True, set the data mask according to the current flags. Default:False
+            Note: if :meth:`apply_flags` has not been called, flags will not yet be set.
         Returns
         -------
         s : `~dysh.spectra.spectrum.Spectrum`
             The Spectrum object representing the data row.
 
         """
-        return self._sdf[fitsindex].getspec(i, bintable, observer_location)
+        return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
     def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
