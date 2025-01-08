@@ -17,6 +17,7 @@ from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, T
 from ..util import (
     consecutive,
     convert_array_to_mask,
+    eliminate_flagged_rows,
     indices_where_value_changes,
     keycase,
     select_from,
@@ -294,17 +295,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fitsindex: int
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
         setmask : boolean
-            If True, set the mask according to the current flags. Defaultf:false
+            If True, set the mask according to the current flags. Default:False
 
         Returns
         -------
         rawspectra : ~numpy.ndarray
-            The DATA column of the input bintable
+            The DATA column of the input bintable, masked according to `setmask`
 
         """
-        return self._sdf[fitsindex].rawspectra(bintable)
+        return self._sdf[fitsindex].rawspectra(bintable, setmask=setmask)
 
-    def rawspectrum(self, i, bintable=0, fitsindex=0):
+    def rawspectrum(self, i, bintable=0, fitsindex=0, setmask=False):
         """
         Get a single raw (unprocessed) spectrum from the input bintable.
 
@@ -316,16 +317,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The index of the `bintable` attribute. If None, the underlying bintable is computed from i
         fitsindex: int
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
-
+        setmask : bool
+            If True, set the data mask according to the current flags. Default:False
+            Note: if :meth:`apply_flags` has not been called, flags will not yet be set.
         Returns
         -------
-        rawspectrum : ~numpy.ndarray
-            The i-th row of DATA column of the input bintable
+        rawspectrum : ~numpy.ma.MaskedArray
+            The i-th row of DATA column of the input bintable, masked according to `setmask`
 
         """
-        return self._sdf[fitsindex].rawspectrum(i, bintable)
+        return self._sdf[fitsindex].rawspectrum(i, bintable, setmask=setmask)
 
-    def getspec(self, i, bintable=0, observer_location=Observatory["GBT"], fitsindex=0):
+    def getspec(self, i, bintable=0, observer_location=Observatory["GBT"], fitsindex=0, setmask=False):
         """
         Get a row (record) as a Spectrum
 
@@ -342,13 +345,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the SDFITS header.  The default is the location of the GBT.
         fitsindex: int
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        setmask : bool
+            If True, set the data mask according to the current flags. Default:False
+            Note: if :meth:`apply_flags` has not been called, flags will not yet be set.
         Returns
         -------
         s : `~dysh.spectra.spectrum.Spectrum`
             The Spectrum object representing the data row.
 
         """
-        return self._sdf[fitsindex].getspec(i, bintable, observer_location)
+        return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
     def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
@@ -786,6 +792,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
+                # print(f"Applying {chan} to {rows=}")
+                # print(f"{np.where(chan_mask)}")
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
 
     @log_call_to_history
@@ -996,6 +1004,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        if len(_sf) == 0:
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         logger.debug(f"SF={_sf}")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
@@ -1137,9 +1150,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
+
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
         logger.debug(f"{_sf = }")
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1340,8 +1357,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         elif len(_sf) < 100:
             logger.debug(f"{_sf = }")
         else:
@@ -1418,7 +1438,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         scanblock.append(g)
                         c = c + 1
         if len(scanblock) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
             raise Exception("Odd number of scans for getnod, check your feeds if they are valid")
         # note the two nods are not merged, but added to the pool as two "independant" PS scans
@@ -1526,8 +1546,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fs_selection._select_from_mixed_kwargs(**kwargs)
         logger.debug(fs_selection.show())
         _sf = fs_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         # _sf = fs_selection.merge(how='inner')   ## ??? PJT
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
@@ -1577,7 +1600,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     g.merge_commentary(self)
                     scanblock.append(g)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
         return scanblock
         # end of getfs()
@@ -1675,6 +1698,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ps_selection = copy.deepcopy(self._selection)
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        if len(_sf) == 0:
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -1848,7 +1876,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         sb.merge_commentary(self)
                         scanblock.append(sb)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
         return scanblock
 
