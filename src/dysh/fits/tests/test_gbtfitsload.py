@@ -673,7 +673,7 @@ class TestGBTFITSLoad:
         assert "ran the test for history and comments" in sdf.history
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
 
-    def test_online(self,tmp_path):
+    def test_online(self, tmp_path):
         f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
         #
@@ -687,11 +687,10 @@ class TestGBTFITSLoad:
         n = len(sdf._index)
         assert n == 4
         #
-        shutil.copyfile(f2, f"{sdfits}/online.fits")        
+        shutil.copyfile(f2, f"{sdfits}/online.fits")
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 8
-
 
     def test_write_read_flags(self, tmp_path):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
