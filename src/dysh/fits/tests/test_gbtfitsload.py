@@ -684,20 +684,19 @@ class TestGBTFITSLoad:
         cmd = f"cp {f1} {sdfits}/online.fits"
         print(f1)
         os.system(cmd)
-        sdf =  gbtfitsload.GBTOnline()
+        sdf = gbtfitsload.GBTOnline()
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 4
         #
         cmd = f"cp {f2} {sdfits}/online.fits"
-        print(f2)        
+        print(f2)
         os.system(cmd)
-        s = sdf.summary()        
+        s = sdf.summary()
         n = len(sdf._index)
         assert n == 8
         #
         #  @todo should we remove {sdfits} now ?
-        
 
     def test_write_read_flags(self, tmp_path):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
