@@ -1,6 +1,7 @@
 import glob
 import os
 import shutil
+import pathlib
 from copy import deepcopy
 from pathlib import Path
 
@@ -695,7 +696,8 @@ class TestGBTFITSLoad:
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 4
-        os.remove(o1)
+        # os.remove(o1)
+        pathlib.Path.unlink(o1)
         #
         shutil.copyfile(f2, o1)
         s = sdf.summary()
