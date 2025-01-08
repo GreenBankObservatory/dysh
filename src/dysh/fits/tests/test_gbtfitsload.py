@@ -680,9 +680,9 @@ class TestGBTFITSLoad:
         sdfits = tmp_path / "sdfits"
         sdfits.mkdir()
         os.environ["SDFITS_DATA"] = str(sdfits)
-        print("PJT1",sdfits)
+        print("PJT1", sdfits)
         o1 = sdfits / "online.fits"
-        print("PJT2",o1)
+        print("PJT2", o1)
         #
         shutil.copyfile(f1, o1)
         sdf = gbtfitsload.GBTOnline()
