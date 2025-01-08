@@ -1,5 +1,6 @@
 import glob
 import os
+import shutil
 from copy import deepcopy
 from pathlib import Path
 
@@ -672,31 +673,25 @@ class TestGBTFITSLoad:
         assert "ran the test for history and comments" in sdf.history
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
 
-    def test_online(self):
+    def test_online(self,tmp_path):
         f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
         #
-        sdfits = "/tmp/sdfits"
-        os.environ["SDFITS_DATA"] = sdfits
-        cmd = f"mkdir -p {sdfits}"
-        os.system(cmd)
+        sdfits = tmp_path / "sdfits"
+        sdfits.mkdir()
+        os.environ["SDFITS_DATA"] = str(sdfits)
         #
-        cmd = f"cp {f1} {sdfits}/online.fits"
-        print(f1)
-        os.system(cmd)
+        shutil.copyfile(f1, f"{sdfits}/online.fits")
         sdf = gbtfitsload.GBTOnline()
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 4
         #
-        cmd = f"cp {f2} {sdfits}/online.fits"
-        print(f2)
-        os.system(cmd)
+        shutil.copyfile(f2, f"{sdfits}/online.fits")        
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 8
-        #
-        #  @todo should we remove {sdfits} now ?
+
 
     def test_write_read_flags(self, tmp_path):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
