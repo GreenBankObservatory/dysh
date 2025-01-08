@@ -21,7 +21,7 @@ from dysh.fits.gbtfitsload import GBTOnline
 from dysh.fits.gbtfitsload import GBTOffline
 from dysh.util.files import dysh_data
 
-
+from dysh.util import get_project_testdata
 
 #%%  debugging
 
@@ -76,3 +76,11 @@ sdf1.summary()
 
 sdf3 = GBTOffline("AGBT21B_024_01")
 
+#%%
+
+sdf =  GBTOnline()
+
+#%%
+
+f1 = dysh_data(example="getps") 
+sdf1=GBTFITSLoad(f1)
