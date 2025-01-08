@@ -680,14 +680,17 @@ class TestGBTFITSLoad:
         sdfits = tmp_path / "sdfits"
         sdfits.mkdir()
         os.environ["SDFITS_DATA"] = str(sdfits)
+        print("PJT1",sdfits)
+        o1 = sdfits / "online.fits"
+        print("PJT2",o1)
         #
-        shutil.copyfile(f1, sdfits / "online.fits")
+        shutil.copyfile(f1, o1)
         sdf = gbtfitsload.GBTOnline()
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 4
         #
-        shutil.copyfile(f2, sdfits / "online.fits")
+        shutil.copyfile(f2, o1)
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 8
