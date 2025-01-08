@@ -1,7 +1,7 @@
 import glob
 import os
-import shutil
 import pathlib
+import shutil
 from copy import deepcopy
 from pathlib import Path
 
