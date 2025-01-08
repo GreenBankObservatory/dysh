@@ -695,6 +695,7 @@ class TestGBTFITSLoad:
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 4
+        os.remove(o1)
         #
         shutil.copyfile(f2, o1)
         s = sdf.summary()
