@@ -1,7 +1,7 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
-import os
 import copy
+import os
 import time
 import warnings
 from collections.abc import Sequence
@@ -24,8 +24,8 @@ from ..util import (
     select_from,
     uniq,
 )
-from ..util.selection import Flag, Selection
 from ..util.files import dysh_data
+from ..util.selection import Flag, Selection
 from .sdfitsload import SDFITSLoad
 
 calibration_kwargs = {
@@ -2565,7 +2565,7 @@ class GBTOffline(GBTFITSLoad):
     Also note in GBTIDL one can use SDFITS_DATA instead of DYSH_DATA
 
     """
-    
+
     @log_call_to_history
     def __init__(self, fileobj, **kwargs):
         self._offline = fileobj
@@ -2584,16 +2584,16 @@ class GBTOnline(GBTFITSLoad):
     Also note in GBTIDL one can use SDFITS_DATA instead of DYSH_DATA
 
     Use dysh_data('?') as a method to get all filenames in SDFITS_DATA
-    
+
     GBTIDL says:  Connecting to file: .....
                   File has not been updated in xxx.xx minutes.
     """
-    
+
     @log_call_to_history
     def __init__(self, fileobj=None, **kwargs):
         self._online = fileobj
         if fileobj is not None:
-            self._online_mode = 1    # monitor this file
+            self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
                 GBTFITSLoad.__init__(self, fileobj)
             else:
@@ -2602,70 +2602,68 @@ class GBTOnline(GBTFITSLoad):
             print(f"Connecting to explicit file: {self._online} - will be monitoring this")
 
         else:
-            self._online_mode = 2       #  monitor all files?
+            self._online_mode = 2  #  monitor all files?
             logger.debug(f"Testing online mode, finding most recent file")
-            if 'SDFITS_DATA' in os.environ:
+            if "SDFITS_DATA" in os.environ:
                 logger.debug("warning: using SDITS_DATA")
-                sdfits_root = os.environ['SDFITS_DATA']
-            elif 'DYSH_DATA' in os.environ:
-                sdfits_root = os.environ['DYSH_DATA'] + '/sdfits'
+                sdfits_root = os.environ["SDFITS_DATA"]
+            elif "DYSH_DATA" in os.environ:
+                sdfits_root = os.environ["DYSH_DATA"] + "/sdfits"
                 logger.debug("warning: using DYSH_DATA")
             else:
                 sdfits_root = "/home/sdfits"
             logger.debug(f"Using SDFITS_DATA {sdfits_root}")
-                
+
             if not os.path.isdir(sdfits_root):
-                print("Cannot find ",sdfits_root)
+                print("Cannot find ", sdfits_root)
                 return None
 
             # 1. check the status_file ?
             status_file = "sdfitsStatus.txt"
-            if os.path.exists(sdfits_root + '/' + status_file):
+            if os.path.exists(sdfits_root + "/" + status_file):
                 print(f"Warning, found {status_file} but not using it yet")
 
             # 2. visit each directory where the final leaf contains fits files, and find the most recent one
-            n=0
+            n = 0
             mtime_max = 0
-            for dirname,subdirs,files in os.walk(sdfits_root):
-                #print("dirname",dirname,"subdirs",subdirs)
+            for dirname, subdirs, files in os.walk(sdfits_root):
+                # print("dirname",dirname,"subdirs",subdirs)
                 if len(subdirs) == 0:
-                    n=n+1
-                    #print("===dirname",dirname)
+                    n = n + 1
+                    # print("===dirname",dirname)
                     for fname in files:
-                        if fname.split('.')[-1] == 'fits':
+                        if fname.split(".")[-1] == "fits":
                             mtime = os.path.getmtime(dirname + "/" + fname)
-                            #print(mtime,fname)
+                            # print(mtime,fname)
                             if mtime > mtime_max:
                                 mtime_max = mtime
                                 project = dirname
                             break
-            #print(f"Found {n} under {sdfits_root}")
+            # print(f"Found {n} under {sdfits_root}")
             if n == 0:
                 return None
-            
+
             self._online = project
             GBTFITSLoad.__init__(self, self._online)
             self._mtime = os.path.getmtime(self.filenames()[0])
 
-
         # we only test the first filename in the list, assuming they're all being written
-        
+
         self._mtime = os.path.getmtime(self.filenames()[0])
-        #print("MTIME:",self._mtime)
-        delta = (time.time() - self._mtime)/60.0
-                
+        # print("MTIME:",self._mtime)
+        delta = (time.time() - self._mtime) / 60.0
+
         print(f"Connected to file: {self._online}")
         print(f"File has not been updated in {delta:.2f} minutes.")
-        # end of __init__    
+        # end of __init__
 
     def _reload(self, force=False):
-        """ force a reload of the latest
-        """
+        """force a reload of the latest"""
         if not force:
             mtime = os.path.getmtime(self.filenames()[0])
             if mtime > self._mtime:
                 self._mtime = mtime
-                print("NEW MTIME:",self._mtime)
+                print("NEW MTIME:", self._mtime)
                 force = True
         if force:
             print(f"Reload {self._online}")
@@ -2675,15 +2673,14 @@ class GBTOnline(GBTFITSLoad):
     # examples of catchers for reloading
 
     def summary(self, **kwargs):
-        """  reload, if need be
-        """
+        """reload, if need be"""
         self._reload()
         return super().summary(**kwargs)
 
     def gettp(self, **kwargs):
         self._reload()
         return super().gettp(**kwargs)
-    
+
     def getps(self, **kwargs):
         self._reload()
         return super().getps(**kwargs)
@@ -2695,4 +2692,3 @@ class GBTOnline(GBTFITSLoad):
     def getfs(self, **kwargs):
         self._reload()
         return super().getfs(**kwargs)
-
