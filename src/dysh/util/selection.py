@@ -432,32 +432,15 @@ class SelectionBase(DataFrame):
            True if a duplicate was found, False if not.
 
         """
-        #        Raises
-        #        ------
-        #        Exception
-        #            If an identical rule (DataFrame) has already been added.
-        # print(f"checkinf for duplicates with {df}")
         for _id, s in self._selection_rules.items():
-            # if s.dropna(axis=1, how="all").equals(df.dropna(axis=1, how="all")):
             tag = self._table.loc[_id]["TAG"]
-            # print(f"Checking {tag}")
             if s.equals(df):
                 tag = self._table.loc[_id]["TAG"]
-                print(
-                    f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
-                    " Ignoring."
-                )
-                # raise Exception(
                 warnings.warn(
                     f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
                     " Ignoring."
                 )
                 return True
-                # )
-            # else:
-            #    diff = s.compare(df, align_axis=1)
-            #    tag = self._table.loc[_id]["TAG"]
-            #   print(f"DID not find duplicates for {tag} {diff=}")
         return False
 
     def _addrow(self, row, dataframe, tag=None):
