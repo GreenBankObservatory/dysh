@@ -11,6 +11,7 @@ import pandas as pd
 from astropy.io import fits
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table
+from astropy.utils.masked import Masked
 
 from dysh.log import logger
 
@@ -413,7 +414,6 @@ class SDFITSLoad(object):
             The index of the `bintable` attribute. If None, the underlying bintable is computed from i
         setmask : bool
             If True, set the data mask according to the current flags in the `_flagmask` attribute.
-
         Returns
         -------
         rawspectrum : ~numpy.ma.MaskedArray
@@ -451,7 +451,7 @@ class SDFITSLoad(object):
         """
         return self._bintable[bintable].data[i]
 
-    def getspec(self, i, bintable=0, observer_location=None):
+    def getspec(self, i, bintable=0, observer_location=None, setmask=False):
         """
         Get a row (record) as a Spectrum
 
@@ -465,6 +465,8 @@ class SDFITSLoad(object):
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in
             the SDFITS header.  The default is None.
+        setmask : bool
+            If True, set the data mask according to the current flags in the `_flagmask` attribute.
 
         Returns
         -------
@@ -474,7 +476,7 @@ class SDFITSLoad(object):
         """
         df = self.index(bintable=bintable)
         meta = df.iloc[i].dropna().to_dict()
-        data = self.rawspectrum(i, bintable)
+        data = self.rawspectrum(i, bintable, setmask=setmask)
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
@@ -515,10 +517,12 @@ class SDFITSLoad(object):
             bunit = u.ct
         logger.debug(f"BUNIT = {bunit}")
         if bunit == "ct":
-            logger.info(f"Your data have no units, 'ct' was selected")
+            logger.info("Your data have no units, 'ct' was selected")
             # PJT hack: bunit = u.K
-
-        s = Spectrum.make_spectrum(data * bunit, meta, observer_location=observer_location)
+        # use from_unmasked so we don't get the astropy INFO level message about replacing a mask
+        # (doesn't work -- the INFO message comes from the Spectrum1D constructor)
+        masked_data = Masked.from_unmasked(data.data, data.mask) * u.K
+        s = Spectrum.make_spectrum(masked_data, meta, observer_location=observer_location)
         return s
 
     def nrows(self, bintable):
