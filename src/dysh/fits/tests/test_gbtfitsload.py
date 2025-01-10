@@ -1,8 +1,8 @@
-import os
 import glob
-import shutil
+import os
 import pathlib
 import platform
+import shutil
 from copy import deepcopy
 from pathlib import Path
 
