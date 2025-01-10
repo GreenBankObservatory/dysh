@@ -1127,9 +1127,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if not _required <= meta.keys():
             raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
 
-        if (observer or observer_location) is None:
-            raise Exception("One of `observer` or `observer_location` is required.")
-
         # @todo WCS is expensive.
         # Possibly figure how to calculate spectral_axis instead.
         # @todo allow fix=False in WCS constructor?
