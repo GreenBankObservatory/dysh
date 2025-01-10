@@ -345,6 +345,19 @@ class TestSpectrum:
             print(f"frame set to: {frame}")
             s.smooth("box", 3)
 
+        # Now, change the reference frame and see if it still works.
+        from dysh.coordinates import astropy_frame_dict
+
+        s = Spectrum.fake_spectrum()
+        for frame in astropy_frame_dict.keys():
+            try:
+                s.set_frame(frame)
+            except KeyError:
+                print(f"set_frame fails for: {frame}")
+                continue
+            print(f"frame set to: {frame}")
+            s.smooth("box", 3)
+
     def test_smooth_decimate(self):
         """Test for smooth with `decimate!=width`."""
         width = 10
