@@ -217,6 +217,19 @@ def get_project_testdata() -> Path:
     return get_project_root() / "testdata"
 
 
+def get_project_configuration() -> Path:
+    """
+    Returns the directory where dysh configuration files are kept.
+
+    Returns
+    -------
+    Path
+        The project configuration directory.
+
+    """
+    return get_project_root() / "conf"
+
+
 def get_size(obj, seen=None):
     """Recursively finds size of objects.
     See https://goshippo.com/blog/measure-real-size-any-python-object/
