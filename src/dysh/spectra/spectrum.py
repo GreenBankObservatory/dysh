@@ -76,14 +76,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._velocity_frame = self._target.frame.name
         else:
             self._velocity_frame = None
-        # @todo - have _observer_location attribute instead?
-        # and observer property returns getITRS(observer_location,obstime)
-        self._observer_location = kwargs.pop("observer_location", None)
         self._observer = kwargs.pop("observer", None)
-        if self._observer is not None and self._observer_location is not None:
-            raise Exception("You can only specify one of observer_location or observer")
         Spectrum1D.__init__(self, *args, **kwargs)
-        # super(Spectrum1D, self).__init__(*args, **kwargs)
         # Try making a target from meta. If it fails, don't worry about it.
         if False:
             if self._target is None:
@@ -384,6 +378,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         return out
 
+    @log_call_to_history
     def decimate(self, n):
         """
         Decimate the `Spectrum` by n pixels.
@@ -412,7 +407,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
         new_meta["CRVAL1"] += cell_shift
 
-        s = Spectrum.make_spectrum(new_data, meta=new_meta)
+        s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
 
         if self._baseline_model is not None:
             s._baseline_model = None
@@ -511,7 +506,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         new_data = s1 * self.flux.unit
         new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
 
-        s = Spectrum.make_spectrum(new_data, meta=new_meta)
+        s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
         s._baseline_model = self._baseline_model
 
         # Now decimate if needed.
@@ -674,10 +669,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             observer : `~astropy.coordinates.BaseCoordinateFrame` or derivative
             The coordinate frame of the observer if present.
         """
-        if self._observer is None and self._observer_location is not None:
-            return SpectralCoord._validate_coordinate(self._observer_location.get_itrs(obstime=self._obstime))
-        else:
-            return self._observer
+        return self._observer
 
     @property
     def velocity_frame(self):
@@ -772,7 +764,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._velocity_frame = tfl
         else:
             self._velocity_frame = tfl.name
-        # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF
+        # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF.
+        # SDFITS defines CTYPE1 as always being the TOPO frequency.
+        # See Issue #373 on GitHub.
         self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
 
     def with_frame(self, toframe):
@@ -1078,7 +1072,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
-    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None):
+    def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None):
         # , shift_topo=False):
         """Factory method to create a Spectrum object from a data and header.  The the data are masked,
         the Spectrum mask will be set to the data mask.
@@ -1098,13 +1092,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in `meta`.
             If this parameter is given the special str value 'from_meta', then an observer_location
             will be created from SITELONG, SITELAT, and SITEELEV in the meta dictionary.
+        observer : `~astropy.coordinates.BaseCoordinateFrame`
+            Coordinate frame for the observer.
+            Will be ignored if DATE-OBS or MJD-OBS are present in `meta` and `observer_location` is not `None`.
 
         Returns
         -------
         spectrum : `~dysh.spectra.Spectrum`
             The spectrum object
         """
-        # @todo add resolution being the channel separation, unless we use the FREQRES column
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).
         # @todo requirement should be either DATE-OBS or MJD-OBS, but make_target() needs to be updated
         # in that case as well.
@@ -1164,15 +1160,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         target = make_target(meta)
         vc = veldef_to_convention(meta["VELDEF"])
-        # vf = astropy_frame_dict[decode_veldef(meta["VELDEF"])[1]]
-        # could be clever:
-        # obstime = Time(meta.get("DATE-OBS",meta.get("MJD-OBS",None)))
-        # if obstime is not None: blah blah
-        if "DATE-OBS" in meta:
-            obstime = Time(meta["DATE-OBS"])
-        elif "MJD-OBS" in meta:
-            obstime = Time(meta["MJD-OBS"])
-        if "DATE-OBS" in meta or "MJD-OBS" in meta:
+
+        # Define an observer as needed.
+        if observer is not None:
+            obsitrs = observer
+        elif observer_location is not None and (meta.get("DATE-OBS") or meta.get("MJD-OBS")) is not None:
+            obstime = Time(meta.get("DATE-OBS") or meta.get("MJD-OBS"))
             if observer_location == "from_meta":
                 try:
                     observer_location = Observatory.get_earth_location(
@@ -1180,12 +1173,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     )
                 except KeyError as ke:
                     raise Exception(f"Not enough info to create observer_location: {ke}")
-            if observer_location is None:
-                obsitrs = None
-            else:
-                obsitrs = SpectralCoord._validate_coordinate(
-                    attach_zero_velocities(observer_location.get_itrs(obstime=obstime))
-                )
+            obsitrs = SpectralCoord._validate_coordinate(
+                attach_zero_velocities(observer_location.get_itrs(obstime=obstime))
+            )
         else:
             warnings.warn(
                 "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
@@ -1219,7 +1209,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
-        if observer_location is None:
+        if observer_location is None and observer is None:
             s.set_radial_velocity_to(target.radial_velocity)  # open
         return s
 
@@ -1394,6 +1384,40 @@ class Spectrum(Spectrum1D, HistoricalBase):
             meta=meta,
             observer_location=Observatory[meta["TELESCOP"]],
         )
+
+    def average(self, spectra, weights="tsys", align=False):
+        """
+        Average this `Spectrum` with `spectra`.
+        The resulting `average` will have an exposure equal to the sum of the exposures,
+        and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
+
+        Parameters
+        ----------
+        spectra : list of `Spectrum`
+            Spectra to be averaged. They must have the same number of channels.
+            No checks are done to ensure they are aligned.
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        align : bool
+            If `True` align the `spectra` to itself.
+            This uses `Spectrum.align_to`.
+
+        Returns
+        -------
+        average : `Spectrum`
+            Averaged spectra.
+        """
+
+        if type(spectra) is not list:
+            spectra = [spectra]
+
+        spectra += [self]
+
+        return average_spectra(spectra, weights=weights, align=align)
 
 
 # @todo figure how how to document write()
@@ -1585,7 +1609,7 @@ def average_spectra(spectra, weights="tsys", align=False):
     tsyss = np.empty(nspec, dtype=float)
     xcoos = np.empty(nspec, dtype=float)
     ycoos = np.empty(nspec, dtype=float)
-    obs_location = spectra[0]._observer_location
+    observer = spectra[0].observer
     units = spectra[0].flux.unit
 
     for i, s in enumerate(spectra):
@@ -1623,6 +1647,6 @@ def average_spectra(spectra, weights="tsys", align=False):
     new_meta["CRVAL2"] = xcoo
     new_meta["CRVAL3"] = ycoo
 
-    averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer_location=obs_location)
+    averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
 
     return averaged
