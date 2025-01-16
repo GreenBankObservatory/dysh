@@ -194,41 +194,41 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-            degree : int
-                The degree of the polynomial series, a.k.a. baseline order
-            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
-                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
-                In channel units.
+        degree : int
+            The degree of the polynomial series, a.k.a. baseline order
+        exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+            List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+            In channel units.
 
-                Examples:
+            Examples:
 
-                One channel-based region: [11,51]
+            One channel-based region: [11,51]
 
-                Two channel-based regions: [(11,51),(99,123)].
+            Two channel-based regions: [(11,51),(99,123)].
 
-                One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
+            One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
 
-                One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+            One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
-                Default: no exclude region
+            Default: no exclude region
 
-            include: list of 2-tuples of int (currently units not supported yet, pending issue 251/260)
+        include: list of 2-tuples of int (currently units not supported yet, pending issue 251/260)
 
-            model : str
-                One of 'polynomial' 'chebyshev', 'legendre', or 'hermite'
-                Default: 'chebyshev'
-            fitter  :  `~astropy.fitting._FitterMeta`
-                The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
-                Be care when choosing a different fitter to be sure it is optimized for this problem.
-            remove : bool
-                If True, the baseline is removed from the spectrum. Default: False
-            normalize : bool
-                If True, the frequency axis is internally rescaled from 0..1
-                to avoid roundoff problems (and make the coefficients slightly more
-                understandable). This is usually needed for a polynomial, though overkill
-                for the others who do their own normalization.
-                CAVEAT:   with normalize=True, you cannot undo a baseline fit.
-                Default: False
+        model : str
+            One of 'polynomial' 'chebyshev', 'legendre', or 'hermite'
+            Default: 'chebyshev'
+        fitter  :  `~astropy.fitting._FitterMeta`
+            The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
+            Be care when choosing a different fitter to be sure it is optimized for this problem.
+        remove : bool
+            If True, the baseline is removed from the spectrum. Default: False
+        normalize : bool
+            If True, the frequency axis is internally rescaled from 0..1
+            to avoid roundoff problems (and make the coefficients slightly more
+            understandable). This is usually needed for a polynomial, though overkill
+            for the others who do their own normalization.
+            CAVEAT:   with normalize=True, you cannot undo a baseline fit.
+            Default: False
 
         """
         # fmt: on
