@@ -627,7 +627,7 @@ class TestSpectrum:
         test_single_baseline(sdf, ex_reg, order, "legendre", gbtidl_two_reg)
         test_single_baseline(sdf, ex_reg, order, "hermite", gbtidl_two_reg)
         # TODO: polynomial fit test fails until issues 174, 252 are fixed
-        # test_single_baseline(sdf,ex_reg,order,'polynomial',gbtidl_two_reg)
+        test_single_baseline(sdf, ex_reg, order, "polynomial", gbtidl_two_reg)
 
         ex_reg = None
         test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_no_reg)
