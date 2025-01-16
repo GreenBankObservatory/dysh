@@ -1386,7 +1386,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         )
 
     def average(self, spectra, weights="tsys", align=False):
-        """
+        r"""
         Average this `Spectrum` with `spectra`.
         The resulting `average` will have an exposure equal to the sum of the exposures,
         and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
