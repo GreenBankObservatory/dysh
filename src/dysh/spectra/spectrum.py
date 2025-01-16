@@ -241,6 +241,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         }
         kwargs_opts.update(kwargs)
 
+        # Switch to GHz to avoid poorly conditioned fit warnings due to large x-axis values.
+        # See Issue 174.
+        org_unit = self._spectral_axis.unit
+        self._spectral_axis = self._spectral_axis.to("GHz")
+
         if kwargs_opts["normalize"]:
             print("Warning: baseline fit done in [0,1) space, even though it might say Hz (issue ###)")
             spectral_axis = deepcopy(self._spectral_axis)  # save the old axis
@@ -268,6 +273,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if kwargs_opts["normalize"]:
             self._spectral_axis = spectral_axis
             del spectral_axis
+
+        self._spectral_axis = self._spectral_axis.to(org_unit)
 
     # baseline
     @log_call_to_history
