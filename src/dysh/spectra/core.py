@@ -158,7 +158,7 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     return goodrows
 
 
-def exclude_to_region(exclude, refspec, fix_exclude=False):
+def exclude_to_region(exclude, refspec, fix_exclude=True):
     """Convert an exclude list to a list of ~specutuls.SpectralRegion.
 
     Parameters
@@ -188,81 +188,53 @@ def exclude_to_region(exclude, refspec, fix_exclude=False):
     fix_exclude: bool
         If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
 
-      Returns
-      -------
-      regionlist : list of `~specutil.SpectralRegion`
-        A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
+    Returns
+    -------
+    regionlist : list of `~specutil.SpectralRegion`
+      A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
     """
+
     regionlist = []
     p = refspec
     sa = refspec.spectral_axis
+    lastchan = len(sa) - 1
+
+    o = 1
+    # If the spectral axis is inverted, flip the order of the elements.
+    if refspec.spectral_axis_direction == "decreasing":
+        o = -1
+
     if exclude is not None:
-        regionlist = []
-        # a single SpectralRegion was given
+        # A single SpectralRegion was given.
         if isinstance(exclude, SpectralRegion):
             b = exclude.bounds
-            if b[0] < sa[0] or b[1] > sa[1]:
-                msg = f"Exclude limits {b} are not fully within the spectral axis {sa}"
-                raise Exception(msg)
             regionlist.append(exclude)
-        # list of int or Quantity or SpectralRegion was given
+        # list of int or Quantity or SpectralRegion was given.
         else:
-            # if user provided a single list, we have to
-            # add another set of brackets so we an iterate.
-            # If SpectralRegion took a list argument, we wouldn't
-            # have to do this.
-            if len(np.shape(exclude[0])) == 0:
-                exclude = [exclude]
-            # NB: we are assuming that a SpectralAxis is always [lower...upper].  Is this true???
-            for pair in exclude:
-                if type(pair[0]) == int:
-                    # convert channel to spectral axis units
-                    lastchan = len(sa) - 1
-                    msg = f"Exclude limits {pair} are not fully within the spectral axis [0,{lastchan}]."
-                    if pair[0] < 0 or pair[1] > lastchan:
-                        if fix_exclude:
-                            msg += f" Setting upper limit to {lastchan}."
-                            pair[1] = lastchan
-                            warnings.warn(msg)
-                        else:
-                            raise Exception(msg)
-                    pair = [sa[pair[0]], sa[pair[1]]]
-                # if it is already a spectral region no additional
-                # work is needed
-                # @todo we should test that the SpectralRegion is not out of bounds
-                if isinstance(pair[0], SpectralRegion):
-                    b = pair[0].bounds
-                    if b[0] < sa[0] or b[1] > sa[1]:
-                        msg = f"Exclude limits {pair} are not fully within the spectral axis {p.spectral_axis}"
-                        raise Exception(msg)
-                    regionlist.append(pair)
-                else:  # it is a Quantity that may need conversion to spectral_axis units
-                    q = [pair[0].value, pair[1].value] * pair[0].unit
-                    if q.unit.is_equivalent("km/s"):
-                        veldef = p.meta.get("VELDEF", None)
-                        if veldef is None:
-                            raise KeyError("Input spectrum has no VELDEF in header, can't convert to frequency units.")
-                        pair = veltofreq(q, p.rest_value, veldef)
-                        # offset = p.rest_value - p.radial_velocity.to(sa.unit, equivalencies=p.equivalencies)
-                    else:
-                        pair[0] = pair[0].to(sa.unit, equivalencies=p.equivalencies)
-                        pair[1] = pair[1].to(sa.unit, equivalencies=p.equivalencies)
-                    # Ensure test is with sorted [lower,upper]
-                    pair = sorted(pair)
-                    salimits = sorted([sa[0], sa[-1]])
-                    if pair[0] < salimits[0] or pair[1] > salimits[-1]:
-                        msg = (
-                            f"Exclude limits {pair} are not fully within the spectral axis"
-                            f" {[salimits[0],salimits[-1]]}."
-                        )
-                        if fix_exclude:
-                            msg += f" Setting upper limit to {p.spectral_axis[-1]}."
-                            pair[1] = sa[-1]
-                            warnings.warn(msg)
-                        else:
-                            raise Exception(msg)
-                    sr = SpectralRegion(pair[0], pair[1])
-                    regionlist.append(sr)
+            # If user provided a single list, we have to
+            # turn it into a list of tuples. If SpectralRegion
+            # took a list argument, we wouldn't have to do this.
+            if type(exclude[0]) is not tuple:
+                it = iter(exclude)
+                exclude = list(zip(it, it))
+            try:
+                sr = SpectralRegion(exclude)
+                # The above will error if the elements are not quantities.
+                # In that case use the spectral axis to define the exclusion regions.
+            except ValueError:
+                # If the user requested to fix the exclude range.
+                if fix_exclude:
+                    exclude = np.array(exclude)
+                    mask = exclude > len(sa)
+                    if mask.sum() > 0:
+                        msg = f"Setting upper limit to {lastchan}."
+                        exclude[exclude > len(sa)] = lastchan
+                        warnings.warn(msg)
+                # If the spectral_axis is decreasing, flip it.
+                sr = SpectralRegion(sa[exclude][:, ::o])
+            # The continuum fitting routines use a list of SpectralRegions as input.
+            for r in sr.subregions:
+                regionlist.append(SpectralRegion([r]))
 
             return regionlist
 
