@@ -207,13 +207,13 @@ def exclude_to_region(exclude, refspec, fix_exclude=True):
     if exclude is not None:
         # A single SpectralRegion was given.
         if isinstance(exclude, SpectralRegion):
-            b = exclude.bounds
-            regionlist.append(exclude)
-        # list of int or Quantity or SpectralRegion was given.
+            sr = exclude
+        # `list` of `int` or `Quantity` or `SpectralRegion` was given.
         else:
             # If user provided a single list, we have to
             # turn it into a list of tuples. If SpectralRegion
             # took a list argument, we wouldn't have to do this.
+            print(exclude)
             if type(exclude[0]) is not tuple:
                 it = iter(exclude)
                 exclude = list(zip(it, it))
@@ -232,11 +232,18 @@ def exclude_to_region(exclude, refspec, fix_exclude=True):
                         warnings.warn(msg)
                 # If the spectral_axis is decreasing, flip it.
                 sr = SpectralRegion(sa[exclude][:, ::o])
-            # The continuum fitting routines use a list of SpectralRegions as input.
-            for r in sr.subregions:
-                regionlist.append(SpectralRegion([r]))
 
-            return regionlist
+        # Change units to match those of the `Spectrum`.
+        qt = sr.as_table()
+        lb = qt["lower_bound"].to(p._spectral_axis.unit, equivalencies=p.equivalencies)
+        ub = qt["upper_bound"].to(p._spectral_axis.unit, equivalencies=p.equivalencies)
+        lsr = list(zip(lb, ub))
+
+        # The continuum fitting routines use a list of `SpectralRegions` as input.
+        for r in lsr:
+            regionlist.append(SpectralRegion([r]))
+
+        return regionlist
 
 
 def region_to_axis_indices(region, refspec):
