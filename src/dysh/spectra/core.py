@@ -158,29 +158,108 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     return goodrows
 
 
-def exclude_to_region(exclude, refspec, fix_exclude=True):
+def sort_spectral_region(spectral_region):
+    """
+    Sort the elements of a `~specutils.SpectralRegion`.
+
+    Parameters
+    ----------
+    spectral_region : `~specutils.SpectralRegion`
+        `~specutils.SpectralRegion` to be sorted.
+
+    Returns
+    -------
+    sorted_spectral_region : `~specutils.SpectralRegion`
+        Sorted `~specutils.SpectralRegion`.
+    """
+
+    unit = spectral_region.lower.unit
+    bound_list = np.sort([srb.value for sr in spectral_region.subregions for srb in sr]) * unit
+    it = iter(bound_list)
+    sorted_spectral_region = SpectralRegion(list(zip(it, it)))
+
+    return sorted_spectral_region
+
+
+def include_to_exclude_spectral_region(include, refspec):
+    """
+    Convert an inclusion region to an exclude region.
+
+    Parameters
+    ----------
+    include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+        Examples:
+
+        One channel-based region:
+
+        >>> [11,51]
+
+        Two channel-based regions:
+
+        >>> [(11,51),(99,123)]
+
+        One `~astropy.units.Quantity` region:
+
+        >>> [110.198*u.GHz,110.204*u.GHz].
+
+        One compound `~specutils.SpectralRegion`:
+
+        >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+
+    refspec: `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used
+        when converting between include and axis units (e.g. channels to GHz).
+
+    Returns
+    -------
+    exclude_region : `~specutils.SpectralRegion`
+        `include` as a region to be excluded.
+    """
+
+    unit = "cm"  # This has to be wavelength units. cm are familiar to observers?
+
+    spectral_region = exclude_to_spectral_region(include, refspec)
+    spectral_region = spectral_region_to_unit(spectral_region, refspec, unit=unit)
+    # Convert unit of reference spectrum to wavelength.
+    # For some reason `SpectralRegion.invert_from_spectrum`
+    # only works in wavelength units.
+    org_unit = refspec._spectral_axis.unit
+    refspec._spectral_axis = refspec._spectral_axis.to(unit, equivalencies=refspec.equivalencies)
+    exclude_region = spectral_region.invert_from_spectrum(refspec)
+    refspec._spectral_axis = refspec._spectral_axis.to(org_unit, equivalencies=refspec.equivalencies)
+    exclude_region = spectral_region_to_unit(exclude_region, refspec)
+    # Sort the output.
+    # For some reason it is scrambled.
+    exclude_region = sort_spectral_region(exclude_region)
+
+    return exclude_region
+
+
+def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
     """Convert an exclude list to a list of ~specutuls.SpectralRegion.
 
     Parameters
     ----------
     exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.    Examples:
+        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+        Examples:
 
-                One channel-based region:
+        One channel-based region:
 
-                >>> [11,51]
+        >>> [11,51]
 
-                Two channel-based regions:
+        Two channel-based regions:
 
-                >>> [(11,51),(99,123)]
+        >>> [(11,51),(99,123)]
 
-                One `~astropy.units.Quantity` region:
+        One `~astropy.units.Quantity` region:
 
-                >>> [110.198*u.GHz,110.204*u.GHz].
+        >>> [110.198*u.GHz,110.204*u.GHz].
 
-                One compound `~specutils.SpectralRegion`:
+        One compound `~specutils.SpectralRegion`:
 
-                >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+        >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
     refspec: `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
@@ -190,11 +269,10 @@ def exclude_to_region(exclude, refspec, fix_exclude=True):
 
     Returns
     -------
-    regionlist : list of `~specutil.SpectralRegion`
-      A list of `~specutil.SpectralRegion` corresponding to `exclude` with units of the `refspec.spectral_axis`.
+    sr : `~specutil.SpectralRegion`
+        A `~specutil.SpectralRegion` corresponding to `exclude`.
     """
 
-    regionlist = []
     p = refspec
     sa = refspec.spectral_axis
     lastchan = len(sa) - 1
@@ -213,7 +291,6 @@ def exclude_to_region(exclude, refspec, fix_exclude=True):
             # If user provided a single list, we have to
             # turn it into a list of tuples. If SpectralRegion
             # took a list argument, we wouldn't have to do this.
-            print(exclude)
             if type(exclude[0]) is not tuple:
                 it = iter(exclude)
                 exclude = list(zip(it, it))
@@ -233,17 +310,64 @@ def exclude_to_region(exclude, refspec, fix_exclude=True):
                 # If the spectral_axis is decreasing, flip it.
                 sr = SpectralRegion(sa[exclude][:, ::o])
 
-        # Change units to match those of the `Spectrum`.
-        qt = sr.as_table()
-        lb = qt["lower_bound"].to(p._spectral_axis.unit, equivalencies=p.equivalencies)
-        ub = qt["upper_bound"].to(p._spectral_axis.unit, equivalencies=p.equivalencies)
-        lsr = list(zip(lb, ub))
+        return sr
 
-        # The continuum fitting routines use a list of `SpectralRegions` as input.
-        for r in lsr:
-            regionlist.append(SpectralRegion([r]))
 
-        return regionlist
+def spectral_region_to_unit(spectral_region, refspec, unit=None):
+    """
+    Change the unit of `spectral_region` to `unit` using the equivalencies of `refspec`.
+    If no `unit` is provided, it will change to the units of `refspec._spectral_axis`.
+
+    Parameters
+    ----------
+    spectral_region : `~specutil.SpectralRegion`
+        `~specutil.SpectralRegion` whose units will be converted.
+    refspec : `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used
+        when converting to `unit` (e.g. channels to GHz).
+    unit : str or `~astropy.units.Quantity`
+        The target units for `spectral_region`.
+
+    Returns
+    -------
+    spectral_region : `~specutil.SpectralRegion`
+        SpectralRegion with units of `unit`.
+    """
+
+    qt = spectral_region.as_table()
+
+    if unit is None:
+        unit = refspec._spectral_axis.unit
+
+    lb = qt["lower_bound"].to(unit, equivalencies=refspec.equivalencies)
+    ub = qt["upper_bound"].to(unit, equivalencies=refspec.equivalencies)
+
+    return SpectralRegion(list(zip(lb, ub)))
+
+
+def spectral_region_to_list(spectral_region):
+    """
+    Turn `spectral_region` into a list of `~specutil.SpectralRegion`.
+    Each subregion in `spectral_region` will be a list element.
+
+    Parameters
+    ----------
+    spectral_region : `~specutil.SpectralRegion`
+        `~specutil.SpectralRegion` to convert into a list of `~specutil.SpectralRegion`.
+
+    Returns
+    -------
+    region_list : list of `~specutil.SpectralRegion`
+        Subregions of `spectral_region` in a list of `~specutil.SpectralRegion`.
+    """
+
+    region_list = []
+
+    # The continuum fitting routines use a list of `SpectralRegion` as input.
+    for r in spectral_region.subregions:
+        region_list.append(SpectralRegion([r]))
+
+    return region_list
 
 
 def region_to_axis_indices(region, refspec):
@@ -277,18 +401,16 @@ def exclude_to_mask(exclude, refspec):
     pass
 
 
-@log_function_call()
-def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
-    """Fit a baseline for a spectrum
+def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
+    """
+    Convert an exclusion region, `exclude`, to a list of `~SpectralRegion`.
+    This is used for baseline fitting.
 
     Parameters
     ----------
-    spectrum : `~spectra.spectrum.Spectrum`
-        The input spectrum
-    order : int
-        The order of the polynomial series, a.k.a. baseline order
     exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.  Examples:
+        List of region(s) to exclude from the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
+        Examples:
 
         One channel-based region:
 
@@ -305,14 +427,66 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         One compound `~specutils.SpectralRegion`:
 
         >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+
+    spectrum : `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used
+        when converting between exclude and axis units (e.g. channels to GHz).
+    fix_exclude : bool
+        See `~spectra.core.exclude_to_spectral_region` for details. Default: True
+
+    Returns
+    -------
+    region_list : list of `~specutil.SpectralRegion`
+        Regions defined in `exclude` as a list of `~specutil.SpectralRegion`.
+    """
+
+    spectral_region = exclude_to_spectral_region(exclude, spectrum, fix_exclude=fix_exclude)
+    spectral_region = spectral_region_to_unit(spectral_region, spectrum)
+    region_list = spectral_region_to_list(spectral_region)
+
+    return region_list
+
+
+@log_function_call()
+def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
+    """Fit a baseline to `spectrum`.
+
+    Parameters
+    ----------
+    spectrum : `~spectra.spectrum.Spectrum`
+        The input spectrum.
+    order : int
+        The order of the polynomial series, a.k.a. baseline order.
+    exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+        Examples:
+
+        One channel-based region:
+
+        >>> [11,51]
+
+        Two channel-based regions:
+
+        >>> [(11,51),(99,123)]
+
+        One `~astropy.units.Quantity` region:
+
+        >>> [110.198*u.GHz,110.204*u.GHz].
+
+        One compound `~specutils.SpectralRegion`:
+
+        >>> SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+
         Default: no exclude region
 
     model : str
         One of 'polynomial' or 'chebyshev', Default: 'polynomial'
     fitter : `~astropy.fitting._FitterMeta`
-        The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+        The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
+        Be careful when choosing a different fitter to be sure it is optimized for this problem.
     exclude_region_upper_bounds : bool
-        Makes the upper bound of any excision region(s) inclusive. Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
+        Makes the upper bound of any excision region(s) inclusive.
+        Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
 
     Returns
     -------
@@ -325,7 +499,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         #'show': False,
         "model": "chebyshev",
         "fitter": LinearLSQFitter(calc_uncertainties=True),
-        "fix_exclude": False,
+        "fix_exclude": True,
         "exclude_action": "replace",  # {'replace','append', None}
     }
     kwargs_opts.update(kwargs)
@@ -353,7 +527,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         # @todo handle masks
         return None  # or raise exception
     if exclude is not None:
-        regionlist = exclude_to_region(exclude, spectrum, fix_exclude=kwargs_opts["fix_exclude"])
+        regionlist = exclude_to_region_list(exclude, spectrum, fix_exclude=kwargs_opts["fix_exclude"])
         if kwargs_opts["exclude_action"] == "replace":
             p._exclude_regions = regionlist
         elif kwargs_opts["exclude_action"] == "append":

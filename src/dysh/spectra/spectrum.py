@@ -256,7 +256,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             if exclude != None:
                 print(f"Warning: ignoring exclude={exclude}")
             nchan = len(self._spectral_axis)
-            exclude = self._toggle_sections(nchan, include)
+            exclude = core.include_to_exclude_spectral_region(include, self)
+            # exclude = self._toggle_sections(nchan, include)
 
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
 
