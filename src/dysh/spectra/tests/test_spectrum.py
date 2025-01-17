@@ -632,6 +632,16 @@ class TestSpectrum:
         ex_reg = None
         test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_no_reg)
 
+        # Test with units. Nothing to compare to though.
+        dysh_spec = sdf.getspec(0)
+        kms = u.km / u.s
+        ex_reg = [(0 * kms, 4200 * kms), (6000 * kms, 7000 * kms), (8800 * kms, 90000 * kms)]
+        dysh_spec.baseline(order, ex_reg, model="chebyshev")
+        ex_reg = [(1 * u.GHz, 1.38 * u.GHz), (1.388 * u.GHz, 1.392 * u.GHz), (1.4 * u.GHz, 2 * u.GHz)]
+        dysh_spec.baseline(order, ex_reg, model="chebyshev")
+        ex_reg = [21 * u.cm, 21.5 * u.cm]
+        dysh_spec.baseline(order, ex_reg, model="chebyshev")
+
     def test_baseline_include(self):
         """
         Test for comparing GBTIDL baseline to dysh baselines
@@ -661,3 +671,13 @@ class TestSpectrum:
         test_single_baseline(sdf, in_reg, order, "chebyshev", gbtidl_two_reg)
         test_single_baseline(sdf, in_reg, order, "legendre", gbtidl_two_reg)
         test_single_baseline(sdf, in_reg, order, "hermite", gbtidl_two_reg)
+
+        # Test with units. Nothing to compare to though.
+        dysh_spec = sdf.getspec(0)
+        kms = u.km / u.s
+        in_reg = [(4200 * kms, 6000 * kms), (7000 * kms, 8800 * kms)]
+        dysh_spec.baseline(order, include=in_reg, model="chebyshev")
+        in_reg = [(1.38 * u.GHz, 1.388 * u.GHz), (1.392 * u.GHz, 1.4 * u.GHz)]
+        dysh_spec.baseline(order, include=in_reg, model="chebyshev")
+        in_reg = [21 * u.cm, 21.5 * u.cm]
+        dysh_spec.baseline(order, include=in_reg, model="chebyshev")
