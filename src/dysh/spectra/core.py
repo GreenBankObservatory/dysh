@@ -209,7 +209,7 @@ def include_to_exclude_spectral_region(include, refspec):
 
     refspec: `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
-        when converting between include and axis units (e.g. channels to GHz).
+        when converting between `include` and axis units (e.g. channels to GHz).
 
     Returns
     -------
@@ -237,12 +237,12 @@ def include_to_exclude_spectral_region(include, refspec):
 
 
 def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
-    """Convert an exclude list to a list of ~specutuls.SpectralRegion.
+    """Convert `exclude` to a `~specutils.SpectralRegion`.
 
     Parameters
     ----------
     exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+        List of region(s) to exclude. The tuple(s) represent a range in the form [lower,upper], inclusive.
         Examples:
 
         One channel-based region:
@@ -263,14 +263,15 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
 
     refspec: `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
-        when converting between exclude and axis units (e.g. channels to GHz).
+        when converting between `exclude` and axis units (e.g. channels to GHz).
     fix_exclude: bool
-        If True, fix exclude regions that are out of bounds of the specctral axis to be within the spectral axis. Default:False
+        If True, fix exclude regions that are out of bounds of the spectral axis to be within the spectral axis.
+        Default: True
 
     Returns
     -------
-    sr : `~specutil.SpectralRegion`
-        A `~specutil.SpectralRegion` corresponding to `exclude`.
+    sr : `~specutils.SpectralRegion`
+        A `~specutils.SpectralRegion` corresponding to `exclude`.
     """
 
     p = refspec
@@ -320,8 +321,8 @@ def spectral_region_to_unit(spectral_region, refspec, unit=None):
 
     Parameters
     ----------
-    spectral_region : `~specutil.SpectralRegion`
-        `~specutil.SpectralRegion` whose units will be converted.
+    spectral_region : `~specutils.SpectralRegion`
+        `~specutils.SpectralRegion` whose units will be converted.
     refspec : `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
         when converting to `unit` (e.g. channels to GHz).
@@ -330,7 +331,7 @@ def spectral_region_to_unit(spectral_region, refspec, unit=None):
 
     Returns
     -------
-    spectral_region : `~specutil.SpectralRegion`
+    spectral_region : `~specutils.SpectralRegion`
         SpectralRegion with units of `unit`.
     """
 
@@ -347,18 +348,18 @@ def spectral_region_to_unit(spectral_region, refspec, unit=None):
 
 def spectral_region_to_list(spectral_region):
     """
-    Turn `spectral_region` into a list of `~specutil.SpectralRegion`.
+    Turn `spectral_region` into a list of `~specutils.SpectralRegion`.
     Each subregion in `spectral_region` will be a list element.
 
     Parameters
     ----------
-    spectral_region : `~specutil.SpectralRegion`
-        `~specutil.SpectralRegion` to convert into a list of `~specutil.SpectralRegion`.
+    spectral_region : `~specutils.SpectralRegion`
+        `~specutils.SpectralRegion` to convert into a list of `~specutils.SpectralRegion`.
 
     Returns
     -------
-    region_list : list of `~specutil.SpectralRegion`
-        Subregions of `spectral_region` in a list of `~specutil.SpectralRegion`.
+    region_list : list of `~specutils.SpectralRegion`
+        Subregions of `spectral_region` in a list of `~specutils.SpectralRegion`.
     """
 
     region_list = []
@@ -403,13 +404,13 @@ def exclude_to_mask(exclude, refspec):
 
 def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
     """
-    Convert an exclusion region, `exclude`, to a list of `~SpectralRegion`.
+    Convert an exclusion region, `exclude`, to a list of `~specutils.SpectralRegion`.
     This is used for baseline fitting.
 
     Parameters
     ----------
     exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-        List of region(s) to exclude from the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
+        List of region(s) to exclude. The tuple(s) represent a range in the form [lower,upper], inclusive.
         Examples:
 
         One channel-based region:
@@ -430,14 +431,15 @@ def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
 
     spectrum : `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
-        when converting between exclude and axis units (e.g. channels to GHz).
+        when converting between `exclude` and axis units (e.g. channels to GHz).
     fix_exclude : bool
-        See `~spectra.core.exclude_to_spectral_region` for details. Default: True
+        See `~spectra.core.exclude_to_spectral_region` for details.
+        Default: True
 
     Returns
     -------
-    region_list : list of `~specutil.SpectralRegion`
-        Regions defined in `exclude` as a list of `~specutil.SpectralRegion`.
+    region_list : list of `~specutils.SpectralRegion`
+        Regions defined in `exclude` as a list of `~specutils.SpectralRegion`.
     """
 
     spectral_region = exclude_to_spectral_region(exclude, spectrum, fix_exclude=fix_exclude)
@@ -458,7 +460,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     order : int
         The order of the polynomial series, a.k.a. baseline order.
     exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-        List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+        List of region(s) to exclude from the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
         Examples:
 
         One channel-based region:
@@ -492,7 +494,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     -------
     models : list of `~astropy.modeling.Model`
         The list of models that contain the fitted model parameters.
-        See `~specutuls.fitting.fit_continuum`.
+        See `~specutils.fitting.fit_continuum`.
 
     """
     kwargs_opts = {
