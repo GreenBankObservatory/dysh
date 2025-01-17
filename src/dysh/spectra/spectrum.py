@@ -144,28 +144,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """The baseline exclusion region(s) of this spectrum"""
         return self._exclude_regions
 
-    def _toggle_sections(self, nchan, s):
-        """helper routine to toggle between an include= and exclude=
-        only works in channel (0..nchan-1) units
-        sections s need to be a list of (start_chan,end_chan) tuples,
-        for example [(100,200),(500,600)] would be an include=
-        An exclude= needs to start with 0
-        channels need to be ordered low to high, but there is no check
-        for this yet!
-        """
-        ns = len(s)
-        s1 = []
-        e = 0  #  set this to 1 if you want to be exact complementary
-        if s[0][0] == 0:
-            for i in range(ns - 1):
-                s1.append((s[i][1] + e, s[i + 1][0] - e))
-        else:
-            s1.append((0, s[0][0]))
-            for i in range(ns - 1):
-                s1.append((s[i][1], s[i + 1][0]))
-            s1.append((s[ns - 1][1], nchan - 1))
-        return s1
-
     ##@todo
     # def exclude_region(self,region):
     # where region is SpectralRegion, channels, velocity, etc.  See core.py baseline method.
@@ -182,23 +160,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def baseline(self, degree, exclude=None, include=None, **kwargs):
         # fmt: off
         """
-        Compute and optionally remove a baseline.  The model for the
+        Compute and optionally remove a baseline. The model for the
         baseline can be either a
         `1D polynomial model <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html>`_ or a
         `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.
-        The code uses `astropy.modeling`
-        and `astropy.fitter` to compute the baseline.  See the documentation for those modules.
+        The code uses `~astropy.modeling`
+        and `~astropy.fitter` to compute the baseline. See the documentation for those modules.
         This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
 
-        Note that include= and exclude= are mutually exclusive.
+        Note that `include` and `exclude` are mutually exclusive. If both are present, only `include` will be used.
 
         Parameters
         ----------
             degree : int
                 The degree of the polynomial series, a.k.a. baseline order
-            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+            exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
                 List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
-                In channel units.
+                If both `exclude` and `include` are given, only `include` is used.
 
                 Examples:
 
@@ -206,13 +184,28 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
                 Two channel-based regions: [(11,51),(99,123)].
 
-                One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
+                One `~astropy.units.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
 
                 One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
-                Default: no exclude region
+                Default: no `exclude` region
 
-            include: list of 2-tuples of int (currently units not supported yet, pending issue 251/260)
+            include: list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+                List of region(s) to include in the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+                If both `exclude` and `include` are given, only `include` is used.
+
+                Examples:
+
+                One channel-based region: [11,51]
+
+                Two channel-based regions: [(11,51),(99,123)].
+
+                One `~astropy.units.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
+
+                One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+
+                Default: no `include` region
+
 
             model : str
                 One of 'polynomial' 'chebyshev', 'legendre', or 'hermite'
@@ -257,7 +250,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 print(f"Warning: ignoring exclude={exclude}")
             nchan = len(self._spectral_axis)
             exclude = core.include_to_exclude_spectral_region(include, self)
-            # exclude = self._toggle_sections(nchan, include)
 
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
 
