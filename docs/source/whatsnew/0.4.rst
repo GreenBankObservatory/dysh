@@ -1,0 +1,20 @@
+
+.. _whatsnew-0.4:
+
+***********************
+What's New in dysh 0.4?
+***********************
+
+Overview
+========
+In this release, `dysh` has the following new or updated features:
+
+* Smoothing of :py:class:`~dysh.spectra.Spectrum` objects along their spectral axis. (see :py:meth:`Spectrum.smooth <dysh.spectra.Spectrum.smooth>`)
+* Alignment of :py:class:`~dysh.spectra.Spectrum` objects (see :py:meth:`Spectrum.align_to <dysh.spectra.Spectrum.align_to>`)
+*
+
+Full change log
+===============
+
+To see a detailed list of all changes in version 0.4, including changes in
+API, please see the :ref:`changelog`.
