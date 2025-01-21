@@ -146,6 +146,7 @@ html_theme_options = {
             "icon": "fa-brands fa-github",
         },
     ],
+    "path_to_docs": "docs/source/",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
