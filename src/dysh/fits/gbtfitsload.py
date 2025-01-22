@@ -2621,7 +2621,7 @@ class GBTOnline(GBTFITSLoad):
     @log_call_to_history
     def __init__(self, fileobj=None, **kwargs):
         self._online = fileobj
-        self._platform = platform.system()      # cannot update in "Windows":
+        self._platform = platform.system()  # cannot update in "Windows":
         # print("GBTOnline not supported on Windows yet, see issue #447")
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
