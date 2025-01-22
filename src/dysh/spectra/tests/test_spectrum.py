@@ -636,3 +636,16 @@ class TestSpectrum:
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             self.ps0.baseline(model="poly", degree=2)
+
+        # Test baseline removal with velocity units and known anwser.
+        s = Spectrum.fake_spectrum()
+        s.spectral_axis.to("km/s")
+        s._spectral_axis = s.spectral_axis.to("km/s")
+        # Add a polynomial.
+        pcoef = np.array([1, 5, 10])
+        s += np.poly1d(pcoef)(np.linspace(1, -1, len(s.spectral_axis)))
+        s.baseline(degree=2, model="poly", remove=True)
+        for pn in s._baseline_model.unitless_model.param_names:
+            fit_val = getattr(s._baseline_model.unitless_model, pn).value
+            in_val = pcoef[::-1][int(pn[-1])]
+            assert (in_val - fit_val) / in_val < 0.1
