@@ -539,7 +539,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         # use the spectrum's preset exclude regions if they
         # exist (they will be a list of SpectralRegions or None)
         regionlist = p._exclude_regions
-    print(f"EXCLUDING {regionlist}")
+    logger.info(f"EXCLUDING {regionlist}")
     return fit_continuum(
         spectrum=p,
         model=selected_model,
