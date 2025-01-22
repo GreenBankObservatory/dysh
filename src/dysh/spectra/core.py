@@ -19,6 +19,8 @@ from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Poly
 from scipy import ndimage
 from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
+from specutils.fitting.fitmodels import _strip_units_from_model
+from specutils.utils import QuantityModel
 
 from ..coordinates import veltofreq
 from ..log import log_function_call, logger
@@ -360,7 +362,9 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
     if model == None:
         raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {list(available_models.keys())}')
-    selected_model = available_models[model](degree=order)
+    sa_min = spectrum.spectral_axis.min().value
+    sa_max = spectrum.spectral_axis.max().value
+    selected_model = available_models[model](degree=order, domain=(sa_max, sa_min))
 
     _valid_exclude_actions = ["replace", "append", None]
     if kwargs_opts["exclude_action"] not in _valid_exclude_actions:
@@ -385,13 +389,26 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         # exist (they will be a list of SpectralRegions or None)
         regionlist = p._exclude_regions
     print(f"EXCLUDING {regionlist}")
-    return fit_continuum(
+
+    fitted_model = fit_continuum(
         spectrum=p,
         model=selected_model,
         fitter=fitter,
         exclude_regions=regionlist,
         exclude_region_upper_bounds=exclude_region_upper_bounds,
     )
+
+    # astropy's Polynomial1D model does not work well when using
+    # a domain other than (-1,1), so we need to remove the units
+    # of the model. We use `specutils` methods to do so. This has the
+    # downside that the uncertainties of the model are removed.
+    if not isinstance(fitted_model, QuantityModel):
+        strip_model, _, _ = _strip_units_from_model(fitted_model, p)
+        strip_model.domain = fitted_model.domain
+        strip_model.window = fitted_model.window
+        fitted_model = QuantityModel(strip_model, p.spectral_axis.unit, p.flux.unit)
+
+    return fitted_model
 
 
 def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
