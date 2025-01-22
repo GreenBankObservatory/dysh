@@ -95,7 +95,3 @@ sdf
 
 
 sdf = GBTOnline('online.fits')
-
-
-
-
