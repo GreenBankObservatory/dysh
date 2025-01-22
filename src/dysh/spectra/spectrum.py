@@ -222,44 +222,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
             Be care when choosing a different fitter to be sure it is optimized for this problem.
         remove : bool
             If True, the baseline is removed from the spectrum. Default: False
-        normalize : bool
-            If True, the frequency axis is internally rescaled from 0..1
-            to avoid roundoff problems (and make the coefficients slightly more
-            understandable). This is usually needed for a polynomial, though overkill
-            for the others who do their own normalization.
-            CAVEAT:   with normalize=True, you cannot undo a baseline fit.
-            Default: False
-
         """
         # fmt: on
         # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
         kwargs_opts = {
             "remove": False,
-            "normalize": False,
             "model": "chebyshev",
             "fitter": LinearLSQFitter(calc_uncertainties=True),
         }
         kwargs_opts.update(kwargs)
 
-        # Switch to GHz to avoid poorly conditioned fit warnings due to large x-axis values.
-        # See Issue 174.
-        org_unit = self._spectral_axis.unit
-        self._spectral_axis = self._spectral_axis.to("GHz")
-
-        if kwargs_opts["normalize"]:
-            print("Warning: baseline fit done in [0,1) space, even though it might say Hz (issue ###)")
-            spectral_axis = deepcopy(self._spectral_axis)  # save the old axis
-            self._normalized = True  # remember it's now normalized
-            nchan = len(spectral_axis)
-            for i in range(nchan):
-                self._spectral_axis[i] = (i * 1.0 / nchan) * u.Hz  # would like to use "u.chan" units - not working yet
-            # some @todo here about single setter, units u.chan etc.
-
         # include= and exclude= are mutually exclusive, but we allow include=
         # if include is used, transform it to exclude=
         if include != None:
             if exclude != None:
-                print(f"Warning: ignoring exclude={exclude}")
+                logger.info(f"Warning: ignoring exclude={exclude}")
             nchan = len(self._spectral_axis)
             exclude = self._toggle_sections(nchan, include)
 
@@ -269,12 +246,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._subtracted = True
-
-        if kwargs_opts["normalize"]:
-            self._spectral_axis = spectral_axis
-            del spectral_axis
-
-        self._spectral_axis = self._spectral_axis.to(org_unit)
 
     # baseline
     @log_call_to_history
