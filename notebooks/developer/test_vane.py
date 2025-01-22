@@ -216,7 +216,7 @@ def getnod(sdf, scan1, scan2, beam1, beam2):
 
     return (sp1,sp2)
 
-#%%
+#%% calc_etamb
 
 def calc_etamb(freq, Jupiter=False):
 
@@ -349,9 +349,9 @@ np.nanmean(t1[100:900])  # 0.52613854
 np.nanstd(t1[100:900])   # 0.016047847
 
 v1 = vane1.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage()
-# ok
+# ok   Message: 'fitsindex='
 s1 = vane1.gettp(scan=282, fdnum=8, calibrate=True, cal=False).timeaverage()
-# ok
+# ok   Message: 'fitsindex='
 
 t1 = s1/(v1-s1) 
 t1 = t1[100:900]
@@ -651,4 +651,5 @@ vane6 = GBTFITSLoad("vane6")
 vane6.summary()
 vane6._index[kw]
 
+#%%
 
