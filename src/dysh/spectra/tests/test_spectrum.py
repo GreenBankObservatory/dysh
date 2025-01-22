@@ -649,7 +649,7 @@ class TestSpectrum:
             fit_val = getattr(s._baseline_model.unitless_model, pn).value
             in_val = pcoef[::-1][int(pn[-1])]
             assert (in_val - fit_val) / in_val < 0.1
-        
+
         # Test with units. Nothing to compare to though.
         dysh_spec = sdf.getspec(0)
         kms = u.km / u.s
