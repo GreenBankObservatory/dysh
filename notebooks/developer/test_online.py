@@ -84,3 +84,18 @@ sdf =  GBTOnline()
 
 f1 = dysh_data(example="getps") 
 sdf1=GBTFITSLoad(f1)
+
+
+#%%
+
+os.environ["SDFITS_DATA"] = '/tmp/sdfits'
+sdf = GBTOnline()
+sdf.summary()
+sdf
+
+
+sdf = GBTOnline('online.fits')
+
+
+
+
