@@ -697,7 +697,7 @@ class TestGBTFITSLoad:
         s = sdf.summary()
         n = len(sdf._index)
         assert n == 4
-        if platform.system() == "Windows":
+        if sdf._platform == "Windows":
             # os.remove(o1)
             # pathlib.Path.unlink(o1)
             print("Windows seems to lock the file, can't remover or overwite")

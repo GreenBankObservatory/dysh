@@ -2,6 +2,7 @@
 
 import copy
 import os
+import platform
 import time
 import warnings
 from collections.abc import Sequence
@@ -2620,6 +2621,8 @@ class GBTOnline(GBTFITSLoad):
     @log_call_to_history
     def __init__(self, fileobj=None, **kwargs):
         self._online = fileobj
+        self._platform = platform.system()      # cannot update in "Windows":
+        # print("GBTOnline not supported on Windows yet, see issue #447")
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
@@ -2687,6 +2690,9 @@ class GBTOnline(GBTFITSLoad):
 
     def _reload(self, force=False):
         """force a reload of the latest"""
+        if self._platform == "Windows":
+            print("warning, cannot reload on Windows, see issue #447")
+            return
         if not force:
             mtime = os.path.getmtime(self.filenames()[0])
             if mtime > self._mtime:
