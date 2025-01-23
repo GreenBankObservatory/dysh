@@ -1,6 +1,6 @@
 GBTIDL,dysh,explanation
-select,"`sdf.select( [col1]=[val1], [col2]=[val2] )`","Select subsets of the GBTFITSLoad object `sdf` based on the constraints on `col1` and `col2` given by `val1` and `val2`. See Selection explanation given ""here""."
-flag,"`sdf.flag( [col1]=[val1], [col2]=[val2] )`", "Create flagging rules of the GBTFITSLoad object `sdf` based on the constraints on `col1` and `col2` given by `val1` and `val2`. See Flagging examples given here."
+select,"`sdf.select( [col1]=[val1], [col2]=[val2] )`","Select subsets of the GBTFITSLoad object `sdf` based on the constraints on `col1` and `col2` given by `val1` and `val2`"
+flag,"`sdf.flag( [col1]=[val1], [col2]=[val2] )`", "Create flagging rules of the GBTFITSLoad object `sdf` based on the constraints on `col1` and `col2` given by `val1` and `val2`. See flagging examples given in the Recipes."
 "gettp, [scan_num]",sdfits.gettp( scan=[scan_num] ),"Returns a Scan Block. Get a total power scan, with the option in dysh to optionally calibrate it."
 "getps, [scan_num]",sdfits.getps( scan=[scan_num] ),Returns a Scan Block. Retrieve and calibrate position-switched data.
 "getfs, [scan_num]",sdfits.getfs( scan=[scan_num] ),Returns a Scan Block. Retrieve and calibrate frequency-switched data.

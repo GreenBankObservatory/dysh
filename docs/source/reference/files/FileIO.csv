@@ -1,7 +1,7 @@
 GBTIDL,dysh,Notes
-online,                                        ,Planned for implementation in version 0.4.0.
-offline,,Planned for implementation in version 0.4.0.
-"filein, [SDFITS file]",sdfits = GBTFITSLoad( [SDFITSfile] ),This will load a SDFITS file into python.
+online,sdf = GBTOnline(); sdf = GBTOnline([projID]) ,Monitor the currently online project or a specific project `projID`. Load the SDFITS into `sdf`.
+offline,sdf = GBTOffline([projID]),Load data from project/session `projID` into `sdf`.
+"filein, [SDFITS file]",sdfits = GBTFITSLoad( [SDFITSfile] ),This will directly load a SDFITS file into python.
 "dirin, [SDFITS dir]",sdfits = GBTFITSLoad( [SDFITS dir] ),"This will load each SDFITS file in a directory into python, in the case it is a project directory where each file is a different VEGAS bank. (A, B, C, etc.). The implementation is identical to the single SDFITS file load."
 fileout,,"There is no direct translation; in dysh, simply specify a filename with the spectrum.write function"
 keep,"spec.write( [SDFITSfile], format=[fmt] )","Write the spectrum `spec` to the output `SDFITS file` specified, using the format `fmt`"
