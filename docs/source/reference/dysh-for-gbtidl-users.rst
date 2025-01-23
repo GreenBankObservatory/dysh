@@ -60,15 +60,3 @@ Spectrum Operations
     :header-rows: 1
     :class: longtable
     :widths: 10 15 10
-
-
-
-
-
-
-
-
-
-
-
-
