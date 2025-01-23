@@ -125,7 +125,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._resolution = 1
 
     def _len(self):
-        """return the size of the Spectrum in the spectral dimension.
+        """return the size of the `Spectrum` in the spectral dimension.
         @todo __len__  has unintended consquences, yuck.
         """
         return len(self.frequency)
@@ -160,12 +160,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def baseline(self, degree, exclude=None, include=None, **kwargs):
         # fmt: off
         """
-        Compute and optionally remove a baseline. The model for the
-        baseline can be either a
-        `1D polynomial model <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Polynomial1D.html>`_ or a
-        `1D Chebyshev polynomial of the first kind <https://docs.astropy.org/en/latest/api/astropy.modeling.polynomial.Chebyshev1D.html>`_.
-        The code uses `~astropy.modeling`
-        and `~astropy.fitter` to compute the baseline. See the documentation for those modules.
+        Compute and optionally remove a baseline.
+        The code uses `~astropy.modeling.fitting.Fitter` and `~astropy.modeling.polynomial` to compute the baseline.
+        See the documentation for those modules for details.
         This method will set the `baseline_model` attribute to the fitted model function which can be evaluated over a domain.
 
         Note that `include` and `exclude` are mutually exclusive. If both are present, only `include` will be used.
@@ -183,21 +180,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
             Two channel-based regions: [(11,51),(99,123)].
 
-            One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
+            One `~astropy.units.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
 
             One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
             Default: no exclude region
 
-        include: list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
-            List of region(s) to include in the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+        include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+            List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
         model : str
-            One of 'polynomial' 'chebyshev', 'legendre', or 'hermite'
+            One of 'polynomial', 'chebyshev', 'legendre', or 'hermite'
             Default: 'chebyshev'
-        fitter  :  `~astropy.fitting._FitterMeta`
-            The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
-            Be care when choosing a different fitter to be sure it is optimized for this problem.
+        fitter : `~astropy.modeling.fitting.Fitter`
+            The fitter to use. Default: `~astropy.modeling.fitting.LinearLSQFitter` (with `calc_uncertaintes=True`).
+            Be careful when choosing a different fitter to be sure it is optimized for this problem.
         remove : bool
             If True, the baseline is removed from the spectrum. Default: False
         """
@@ -210,12 +207,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         }
         kwargs_opts.update(kwargs)
 
-        # include= and exclude= are mutually exclusive, but we allow include=
-        # if include is used, transform it to exclude=
+        # `include` and `exclude` are mutually exclusive, but we allow `include`
+        # if `include` is used, transform it to `exclude`.
         if include != None:
             if exclude != None:
                 logger.info(f"Warning: ignoring exclude={exclude}")
-            nchan = len(self._spectral_axis)
             exclude = core.include_to_exclude_spectral_region(include, self)
 
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
@@ -249,14 +245,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-            exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
-                List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
-                In channel units.
+        exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+            List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
+            In channel units.
 
-                Examples: One channel-based region: [11,51],
-                          Two channel-based regions: [(11,51),(99,123)].
-                          One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
-                          One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+            Examples: One channel-based region: [11,51],
+                      Two channel-based regions: [(11,51),(99,123)].
+                      One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
+                      One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
         """
         pass
@@ -726,18 +722,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
 
     def with_frame(self, toframe):
-        """Return a copy of this Spectrum with a new coordinate reference frame.
+        """Return a copy of this `Spectrum` with a new coordinate reference frame.
 
         Parameters
         ----------
-        toframe - str, ~astropy.coordinates.BaseCoordinateFrame, or ~astropy.coordinates.SkyCoord
+        toframe - str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.SkyCoord`
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
             or an actual coordinate system instance
 
         Returns
         -------
-        spectrum : `~dysh.spectra.Spectrum`
-            A new Spectrum object
+        spectrum : `Spectrum`
+            A new `Spectrum` object with the rest frame set to `toframe`.
         """
 
         s = self._copy()
@@ -746,11 +742,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @log_call_to_history
     def set_convention(self, doppler_convention):
-        """Set the velocity convention of this Spectrum.  The spectral axis of this Spectrum will be replaced
+        """Set the velocity convention of this `Spectrum`.  The spectral axis of this `Spectrum` will be replaced
         with a new spectral axis with the input velocity convention.  The header 'VELDEF' value will
         be changed accordingly.
 
-        To make a copy of this Spectrum with a new velocity convention instead, use `with_velocity_convention`.
+        To make a copy of this `Spectrum` with a new velocity convention instead, use `with_velocity_convention`.
 
         Parameters
         ----------
@@ -765,7 +761,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
 
     def with_velocity_convention(self, doppler_convention):
-        """Returns a copy of this Spectrum with the input velocity convention.  The header 'VELDEF' value will
+        """Returns a copy of this `Spectrum` with the input velocity convention.  The header 'VELDEF' value will
         be changed accordingly.
 
         Parameters
@@ -775,8 +771,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        spectrum : `~dysh.spectra.Spectrum`
-            A new Spectrum object
+        spectrum : `Spectrum`
+            A new `Spectrum` object with `doppler_convention` as its Doppler convention.
         """
         if False:
             # this doesn't work.
@@ -921,7 +917,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        spectrum : `~dysh.spectra.Spectrum`
+        spectrum : `Spectrum`
             The spectrum object
         """
 
@@ -1030,8 +1026,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @classmethod
     def make_spectrum(cls, data, meta, use_wcs=True, observer_location=None, observer=None):
         # , shift_topo=False):
-        """Factory method to create a Spectrum object from a data and header.  The the data are masked,
-        the Spectrum mask will be set to the data mask.
+        """Factory method to create a `Spectrum` object from a data and header.  The the data are masked,
+        the `Spectrum` mask will be set to the data mask.
 
         Parameters
         ----------
@@ -1054,7 +1050,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        spectrum : `~dysh.spectra.Spectrum`
+        spectrum : `Spectrum`
             The spectrum object
         """
         # @todo generic check_required method since I now have this code in two places (coordinates/core.py).

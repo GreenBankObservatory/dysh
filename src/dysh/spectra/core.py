@@ -454,6 +454,8 @@ def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
 @log_function_call()
 def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
     """Fit a baseline to `spectrum`.
+    The code uses `~astropy.modeling.fitting.Fitter` and `~astropy.modeling.polynomial` to compute the baseline.
+    See the documentation for those modules for details.
 
     Parameters
     ----------
@@ -485,8 +487,8 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
 
     model : str
         One of 'polynomial' or 'chebyshev', Default: 'polynomial'
-    fitter : `~astropy.fitting._FitterMeta`
-        The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
+    fitter : `~astropy.modeling.fitting.Fitter`
+        The fitter to use. Default: `~astropy.modeling.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).
         Be careful when choosing a different fitter to be sure it is optimized for this problem.
     exclude_region_upper_bounds : bool
         Makes the upper bound of any excision region(s) inclusive.
@@ -494,10 +496,9 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
 
     Returns
     -------
-    models : list of `~astropy.modeling.Model`
-        The list of models that contain the fitted model parameters.
+    model : `~specutils.utils.QuantityModel`
+        Best fit model.
         See `~specutils.fitting.fit_continuum`.
-
     """
     kwargs_opts = {
         #'show': False,
