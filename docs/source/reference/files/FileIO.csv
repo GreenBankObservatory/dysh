@@ -8,4 +8,3 @@ keep,"spec.write( [SDFITSfile], format=[fmt] )","Write the spectrum `spec` to th
 summary,sdfits.summary(),"In dysh, you can also input a list of scan numbers you would like to see."
 list,sdfits.summary( verbose=True ),"Using the ""verbose=True"" option returns similar results to GBTIDL's ""list""."
 "header, scan_info",spec.meta,"Return meta information about the spectrum `spec`. In GBTIDL, this returns a text printout. In dysh, this returns a dictionary with all SDFITS keywords and values."
-!g.s[0].blah blah blah, 
