@@ -775,7 +775,7 @@ def data_ishift(y, ishift, axis=-1, remove_wrap=True, fill_value=np.nan):
 
 def data_fshift(y, fshift, method="fft", pad=False, window=True):
     """
-    Shift `y` by `fshift` channels, where |`fshift`|<1.
+    Shift `y` by `fshift` channels, where `abs(fshift)<1`.
 
     Parameters
     ----------

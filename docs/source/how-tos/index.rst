@@ -77,7 +77,9 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
         :material-outlined:`compare_arrows;3em;green` **Align Spectra**
 
-        How to align frequency-shifted spectra
+
+        How to align spectra
+
 
         .. button-link:: examples/align_spectra.html
             :color: primary
@@ -90,9 +92,10 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
         :shadow: md
         :margin: 2 2 0 0
 
-        :material-outlined:`compare_arrows;3em;green` **Flagging**
+        :material-outlined:`flag;3em;green` **Flagging**
 
-        How to flag poor data
+        How to flag data
+
 
         .. button-link:: examples/flagging.html
             :color: primary

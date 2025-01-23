@@ -860,7 +860,10 @@ class TPScan(ScanBase):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        s = Spectrum.make_spectrum(self._data[i] * u.ct, meta, observer_location=self._observer_location)
+
+        s = Spectrum.make_spectrum(
+            Masked(self._data[i] * u.ct, self._data[i].mask), meta=meta, observer_location=self._observer_location
+        )
         s.merge_commentary(self)
         return s
 
