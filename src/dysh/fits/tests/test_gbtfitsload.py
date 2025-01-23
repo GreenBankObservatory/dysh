@@ -61,7 +61,13 @@ class TestGBTFITSLoad:
 
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        spec = sdf.getspec(0)
+        sdf.flag_channel([[0, 100]])
+        sdf.apply_flags()
+        spec = sdf.getspec(0, setmask=False)
+        spec2 = sdf.getspec(0, setmask=True)
+        assert any(spec.mask != spec2.mask)
+        assert all(spec2.mask[0:101])
+        assert all(spec2.mask[102:] == False)
 
     def test_getps_single_int(self):
         """
@@ -728,3 +734,16 @@ class TestGBTFITSLoad:
         ps = sdf.getps(scan=19, plnum=0, apply_flags=True, intnum=[i for i in range(43, 52)]).timeaverage()
         assert np.all(ps.mask[2299:] == True)
         assert np.all(ps.mask[:2299] == False)
+
+    def test_rawspectrum(self):
+        """regression test for issue 442"""
+        fits_path = util.get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        psscan = sdf.getps(plnum=0)
+        spec = psscan.timeaverage()
+        exp1 = spec.meta["EXPOSURE"]  # 214.86978780485427
+        sdf.flag_range(elevation=((None, 18.4)))
+        psscan2 = sdf.getps(plnum=0)
+        spec2 = psscan2.timeaverage()
+        exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
+        assert exp2 < exp1

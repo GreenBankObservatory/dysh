@@ -31,6 +31,8 @@ default_aliases = {
     "subref": "subref_state",  # subreflector state
 }
 
+# pd.options.mode.copy_on_write = True
+
 
 # workaround to avoid circular import error in sphinx (and only sphinx)
 def _default_sdfits_columns():
@@ -316,8 +318,12 @@ class SelectionBase(DataFrame):
             If one or more keywords are unrecognized
 
         """
+        # ignorekeys = ["PROPOSED_CHANNEL_RULE"]
         unrecognized = []
         ku = [k.upper() for k in keys]
+        # for k in ignorekeys:
+        #    if k in ku:
+        #        ku.remove(k)
         for k in ku:
             if k not in self and k not in self._aliases:
                 unrecognized.append(k)
@@ -426,20 +432,15 @@ class SelectionBase(DataFrame):
            True if a duplicate was found, False if not.
 
         """
-        #        Raises
-        #        ------
-        #        Exception
-        #            If an identical rule (DataFrame) has already been added.
         for _id, s in self._selection_rules.items():
+            tag = self._table.loc[_id]["TAG"]
             if s.equals(df):
                 tag = self._table.loc[_id]["TAG"]
-                # raise Exception(
                 warnings.warn(
                     f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
                     " Ignoring."
                 )
                 return True
-                # )
         return False
 
     def _addrow(self, row, dataframe, tag=None):
@@ -501,11 +502,14 @@ class SelectionBase(DataFrame):
             True if the selection resulted in a new fule, False if not (no data selected)
 
         """
-        self._check_keys(kwargs.keys())
-        row = {}
+        # pop these before check_keys, which is intended to check SDFITS keywords
+        proposed_channel_rule = kwargs.pop("proposed_channel_rule", None)
         # if called via _select_from_mixed_kwargs, then we want to merge all the
         # selections
         df = kwargs.pop("startframe", self)
+        self._check_keys(kwargs.keys())
+        row = {}
+
         single_value_queries = None
         multi_value_queries = None
         for k, v in list(kwargs.items()):
@@ -565,6 +569,7 @@ class SelectionBase(DataFrame):
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
             return False
+        df.loc[:, "CHAN"] = proposed_channel_rule  # this column is normally None so no need to check if None first.
         self._addrow(row, df, tag)
         return True
 
@@ -843,11 +848,12 @@ class SelectionBase(DataFrame):
         """
 
         # get the tag if given or generate one if not
-        tag = kwargs.pop("tag", self._generate_tag(kwargs))
+        kwlist = list(kwargs.items())
+        tag = kwargs.pop("tag", self._generate_tag(kwlist))
         if len(kwargs) == 0:
             return  # user gave no additional kwargs
         if tag is None:  # in case user did tag=None (facepalm)
-            tag = self._generate_tag(kwargs)
+            tag = self._generate_tag(kwlist)
         logger.debug(f"working TAG IS {tag}")
         # in order to pop channel we need to check case insensitively
         ukwargs = keycase(kwargs)
@@ -1076,6 +1082,16 @@ class Flag(SelectionBase):
             self.flag_channel(channel=chan, tag=tag)
         else:
             # Select on the other kwargs then add channel to it.
+            # Since we are allowing the behavior that the user can select
+            # identical rows with different channel flags, we must
+            # use a 'proposed channel rule' because the "CHAN" column is not normally set
+            # before the _check_for_duplicates call inside _base_select.
+            # The selection rules dataframes are allowed to be identical if the
+            # the CHAN columns will be different.
+            if chan is None:
+                kwargs["proposed_channel_rule"] = ALL_CHANNELS
+            else:
+                kwargs["proposed_channel_rule"] = str(chan)
             success = self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
             if not success:
                 return
@@ -1083,8 +1099,10 @@ class Flag(SelectionBase):
             if chan is not None:
                 self._table[idx]["CHAN"] = abbreviate_to(DEFAULT_COLUMN_WIDTH, chan)
                 self._flag_channel_selection[idx] = chan
+                self._selection_rules[idx]["CHAN"] = str(chan)
             else:
                 self._flag_channel_selection[idx] = ALL_CHANNELS
+                self._selection_rules[idx].loc[:, "CHAN"] = ALL_CHANNELS
 
     def flag_channel(self, channel, tag=None, **kwargs):
         """
@@ -1123,6 +1141,7 @@ class Flag(SelectionBase):
         self._base_select_channel(channel, tag, **kwargs)
         idx = len(self._table) - 1
         self._flag_channel_selection[idx] = channel
+        self._selection_rules[idx]["CHAN"] = str(channel)
         self._channel_selection = None  # unused for flagging
 
     def flag_range(self, tag=None, **kwargs):
@@ -1149,6 +1168,10 @@ class Flag(SelectionBase):
         None.
         """
         self._base_select_range(tag, **kwargs)
+        idx = len(self._table) - 1
+        self._flag_channel_selection[idx] = ALL_CHANNELS
+        self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
+        self._channel_selection = None  # unused for flagging
 
     def flag_within(self, tag=None, **kwargs):
         """
@@ -1174,6 +1197,10 @@ class Flag(SelectionBase):
 
         """
         self._base_select_within(tag, **kwargs)
+        idx = len(self._table) - 1
+        self._flag_channel_selection[idx] = ALL_CHANNELS
+        self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
+        self._channel_selection = None  # unused for flagging
 
     def read(self, fileobj, **kwargs):
         """Read a GBTIDL flag file and instantiate Flag object.

@@ -36,7 +36,37 @@ def select_from(key, value, df):
         The subselected DataFrame
 
     """
+    # nb this fails if value is None
     return df[(df[key] == value)]
+
+
+def eliminate_flagged_rows(df, flag):
+    """
+    Remove rows from an index (selection) where all channels have been flagged.
+
+    Parameters
+    ----------
+    df : `~pandas.DataFrame`
+        The input dataframe from which flagged rows will be removed.
+    flag : `~pandas.DataFrame`
+        The flag dataframe.  Should be the result of e.g. `~util.Flag.final`
+
+    Returns
+    -------
+        A data frame which is the input data frame with flagged rows removed.
+    """
+    if len(flag) > 0:
+        # in the final flagging selection any rows that have CHAN=ALL_CHANNELS
+        # indicate that the entire row is flagged
+        ff = flag[flag["CHAN"].isin([ALL_CHANNELS])]
+        flagged_rows = set(ff["ROW"])
+        if len(flagged_rows) > 0:
+            userows = list(set(df["ROW"]) - flagged_rows)
+            if len(userows) > 0:
+                return df[df["ROW"].isin(userows)]
+            else:
+                return df.iloc[0:0]  # all rows removed
+    return df
 
 
 def indices_where_value_changes(colname, df):
@@ -93,7 +123,7 @@ def gbt_timestamp_to_time(timestamp):
     return Time(t, scale="utc")
 
 
-def generate_tag(values, hashlen):
+def generate_tag(values, hashlen, add_time=True):
     """
     Generate a unique tag based on input values.  A hash object is
     created from the input values using SHA256, and a hex representation is created.
@@ -105,6 +135,8 @@ def generate_tag(values, hashlen):
         The values to use in creating the hash object
     hashlen : int, optional
         The length of the returned hash string.
+    add_time: bool
+        Add the time of the call to the values for hash generation.
 
     Returns
     -------
@@ -112,6 +144,8 @@ def generate_tag(values, hashlen):
         The hash string
 
     """
+    if add_time:
+        values.append(Time.now().value)
     data = "".join(map(str, values))
     hash_object = hashlib.sha256(data.encode())
     unique_id = hash_object.hexdigest()
@@ -181,6 +215,19 @@ def get_project_testdata() -> Path:
     Returns the project testdata directory
     """
     return get_project_root() / "testdata"
+
+
+def get_project_configuration() -> Path:
+    """
+    Returns the directory where dysh configuration files are kept.
+
+    Returns
+    -------
+    Path
+        The project configuration directory.
+
+    """
+    return get_project_root() / "conf"
 
 
 def get_size(obj, seen=None):
