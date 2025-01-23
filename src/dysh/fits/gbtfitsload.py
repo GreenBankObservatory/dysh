@@ -2596,10 +2596,10 @@ class GBTOffline(GBTFITSLoad):
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, **kwargs):
+    def __init__(self, fileobj, *args, **kwargs):
         self._offline = fileobj
         self._filename = dysh_data(fileobj)
-        GBTFITSLoad.__init__(self, self._filename)
+        GBTFITSLoad.__init__(self, self._filename, *args, **kwargs)
 
 
 class GBTOnline(GBTFITSLoad):
@@ -2619,17 +2619,17 @@ class GBTOnline(GBTFITSLoad):
     """
 
     @log_call_to_history
-    def __init__(self, fileobj=None, **kwargs):
+    def __init__(self, fileobj=None, *args, **kwargs):
         self._online = fileobj
         self._platform = platform.system()  # cannot update in "Windows":
         # print("GBTOnline not supported on Windows yet, see issue #447")
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
-                GBTFITSLoad.__init__(self, fileobj)
+                GBTFITSLoad.__init__(self, fileobj, *args, **kwargs)
             else:
                 self._online = dysh_data(fileobj)
-                GBTFITSLoad.__init__(self, self._online)
+                GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
             print(f"Connecting to explicit file: {self._online} - will be monitoring this")
 
         else:
@@ -2675,7 +2675,7 @@ class GBTOnline(GBTFITSLoad):
                 return None
 
             self._online = project
-            GBTFITSLoad.__init__(self, self._online)
+            GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
             self._mtime = os.path.getmtime(self.filenames()[0])
 
         # we only test the first filename in the list, assuming they're all being written
@@ -2726,3 +2726,7 @@ class GBTOnline(GBTFITSLoad):
     def getfs(self, **kwargs):
         self._reload()
         return super().getfs(**kwargs)
+
+    def subbeamnod(self, **kwargs):
+        self._reload()
+        return super().subbeamnod(**kwargs)
