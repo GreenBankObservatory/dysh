@@ -70,7 +70,7 @@ We provide steps for working in one of `GBO data reduction hosts <https://greenb
 
 .. tab:: Outside of GBO
 
-    Create a `Python3.9+` virtual environment
+    Create a `Python3.10+` virtual environment
 
     .. code:: bash
 

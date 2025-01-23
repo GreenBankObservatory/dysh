@@ -61,10 +61,12 @@ class TestPSScan:
 
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
+        print(f"{sdf_file=}")
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
+        print(np.shape(ps_scans[0]._calibrated), np.shape(ps_scans[1]._calibrated))
         ta = ps_scans.timeaverage()
 
         hdu = fits.open(gbtidl_file)
@@ -394,9 +396,9 @@ class TestFScan:
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
 
         print("MWP: NO FOLD")
-        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False)
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False, debug=True)
         ta = fsscan.timeaverage(weights="tsys")
-        #    we're using astropy access here, and ujse sdfitsload.SDFITSLoad() in the other test
+        #    we're using astropy access here, and use gbtfitsload.GBTFITSLoad() in the other test
         hdu = fits.open(gbtidl_file_nofold)
         table = hdu[1].data
         data = table["DATA"]
@@ -408,9 +410,9 @@ class TestFScan:
         print("MWP: FOLD")
         fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True)
         ta = fsscan.timeaverage(weights="tsys")
-        # we will be using SDFITSLoad() here instead of astropy
+        # We will be using GBTFITSLoad() here instead of astropy.
         if True:
-            sdf2 = sdfitsload.SDFITSLoad(gbtidl_file)
+            sdf2 = gbtfitsload.GBTFITSLoad(gbtidl_file)
             sp = sdf2.getspec(1).flux.value.astype(np.float32)
         else:
             hdu = fits.open(gbtidl_file)

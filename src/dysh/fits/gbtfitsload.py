@@ -12,10 +12,18 @@ from astropy.io import fits
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
-from ..log import HistoricalBase, dysh_date, log_call_to_history, log_call_to_result
+from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
-from ..util import consecutive, indices_where_value_changes, keycase, select_from, uniq
-from ..util.selection import Selection
+from ..util import (
+    consecutive,
+    convert_array_to_mask,
+    eliminate_flagged_rows,
+    indices_where_value_changes,
+    keycase,
+    select_from,
+    uniq,
+)
+from ..util.selection import Flag, Selection
 from .sdfitsload import SDFITSLoad
 
 calibration_kwargs = {
@@ -28,7 +36,7 @@ calibration_kwargs = {
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
-_PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
+# _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
 
 class GBTFITSLoad(SDFITSLoad, HistoricalBase):
@@ -45,12 +53,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     hdu : int or list
         Header Data Unit to select from input file. Default: all HDUs
 
+    skipflags: bool
+        If True, do not read any flag files associated with these data. Default:False
+
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, source=None, hdu=None, **kwargs):
+    def __init__(self, fileobj, source=None, hdu=None, skipflags=False, **kwargs):
         kwargs_opts = {
-            "fix": False,  # fix non-standard header elements
             "index": True,  # only set to False for performance testing.
             "verbose": False,
         }
@@ -60,10 +70,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._sdf = []
         self._selection = None
         self._tpnocal = None      # should become True or False once known
+        self._flag = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
-            self._sdf.append(SDFITSLoad(fileobj, source, hdu, **kwargs_opts))
+            self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
         elif path.is_dir():
             logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
@@ -71,8 +82,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for f in sorted(path.glob("*.fits")):
                 logger.debug(f"Selecting {f} to load")
                 if kwargs.get("verbose", None):
-                    print(f"doing {f}")
+                    print(f"Loading {f}")
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
+            if len(self._sdf) == 0:  # fixes issue 381
+                raise Exception(f"No FITS files found in {fileobj}.")
             self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}", add_time=True)
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
@@ -83,13 +96,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
         if kwargs_opts["index"]:
-            self._create_index_if_needed()
+            self._create_index_if_needed(skipflags)
             self._update_radesys()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # cds.enable()  # to get mmHg
 
-        if kwargs.get("verbose", None):
+        # ushow/udata depend on the index being present, so check that index is created.
+        if kwargs.get("verbose", None) and kwargs_opts["index"]:
             print("==GBTLoad %s" % fileobj)
             self.ushow("OBJECT", 0)
             self.ushow("SCAN", 0)
@@ -107,7 +121,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         lsdf = len(self._sdf)
         if lsdf > 1:
             print(f"Loaded {lsdf} FITS files")
-        self.add_history(f"Project ID: {self.projectID}", add_time=True)
+        if kwargs_opts["index"]:
+            self.add_history(f"Project ID: {self.projectID}", add_time=True)
+        else:
+            print("Reminder: No index created; many functions won't work.")
 
     def __repr__(self):
         return str(self.files)
@@ -130,7 +147,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
         str
             The project ID string
-
         """
         return uniq(self["PROJID"])[0]
 
@@ -194,6 +210,35 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             files.append(sdf.filename)
         return files
 
+    @property
+    def flags(self):
+        """
+        The data flag object
+
+        Returns
+        -------
+        ~dysh.util.Flag
+            The Flag object
+
+        """
+        return self._flag
+
+    @property
+    def final_flags(self):
+        # this method is not particularly useful. consider removing it
+        """
+        The merged flag rules in the Flag object.
+        See :meth:`~dysh.util.SelectionBase.final`
+
+        Returns
+        -------
+        ~pandas.DataFrame
+            The final merged flags
+
+        """
+        # all_channels_flagged = np.where(self._table["CHAN"] == "")j
+        return self._flag.final
+
     def filenames(self):
         """
         The list of SDFITS filenames(s) that make up this GBTFITSLoad object
@@ -240,7 +285,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return df
 
     # override sdfits version
-    def rawspectra(self, bintable, fitsindex):
+    def rawspectra(self, bintable, fitsindex, setmask=False):
         """
         Get the raw (unprocessed) spectra from the input bintable.
 
@@ -250,16 +295,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The index of the `bintable` attribute
         fitsindex: int
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        setmask : boolean
+            If True, set the mask according to the current flags. Default:False
 
         Returns
         -------
         rawspectra : ~numpy.ndarray
-            The DATA column of the input bintable
+            The DATA column of the input bintable, masked according to `setmask`
 
         """
-        return self._sdf[fitsindex].rawspectra(bintable)
+        return self._sdf[fitsindex].rawspectra(bintable, setmask=setmask)
 
-    def rawspectrum(self, i, bintable=0, fitsindex=0):
+    def rawspectrum(self, i, bintable=0, fitsindex=0, setmask=False):
         """
         Get a single raw (unprocessed) spectrum from the input bintable.
 
@@ -271,16 +318,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The index of the `bintable` attribute. If None, the underlying bintable is computed from i
         fitsindex: int
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
-
+        setmask : bool
+            If True, set the data mask according to the current flags. Default:False
+            Note: if :meth:`apply_flags` has not been called, flags will not yet be set.
         Returns
         -------
-        rawspectrum : ~numpy.ndarray
-            The i-th row of DATA column of the input bintable
+        rawspectrum : ~numpy.ma.MaskedArray
+            The i-th row of DATA column of the input bintable, masked according to `setmask`
 
         """
-        return self._sdf[fitsindex].rawspectrum(i, bintable)
+        return self._sdf[fitsindex].rawspectrum(i, bintable, setmask=setmask)
 
-    def getspec(self, i, bintable=0, observer_location=Observatory["GBT"], fitsindex=0):
+    def getspec(self, i, bintable=0, observer_location=Observatory["GBT"], fitsindex=0, setmask=False):
         """
         Get a row (record) as a Spectrum
 
@@ -297,13 +346,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the SDFITS header.  The default is the location of the GBT.
         fitsindex: int
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
+        setmask : bool
+            If True, set the data mask according to the current flags. Default:False
+            Note: if :meth:`apply_flags` has not been called, flags will not yet be set.
         Returns
         -------
         s : `~dysh.spectra.spectrum.Spectrum`
             The Spectrum object representing the data row.
 
         """
-        return self._sdf[fitsindex].getspec(i, bintable, observer_location)
+        return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
     def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
@@ -481,15 +533,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def _select_scans(self, scans, df):
         return df[(df["SCAN"] >= scans[0]) & (df["SCAN"] <= scans[1])]
 
-    # def _select_onoff(self, df):
-    #    return df[(df["PROC"] == "OnOff") | (df["PROC"] == "OffOn")]
-
-    # def select_track(self, df):
-    #    return df[(df["PROC"] == "Track")]
-
-    # @todo move all selection methods to sdfitsload after adding Selection
+    # @todo maybe move all selection/flag methods to sdfitsload after adding Selection/Flag
     # to sdfitsload
-    # @todo write a Delegator class to autopass to Selection. See, e.g., https://michaelcho.me/article/method-delegation-in-python/
+    # @todo maybe write a Delegator class to autopass to Selection.
+    # See, e.g., https://michaelcho.me/article/method-delegation-in-python/
     @log_call_to_history
     def select(self, tag=None, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
@@ -566,9 +613,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
+        self._selection.select_within(tag=tag, **kwargs)
 
     @log_call_to_history
-    def select_channel(self, chan, tag=None):
+    def select_channel(self, channel, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
@@ -590,16 +638,185 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        chan : number, or array-like
+        channel : number, or array-like
             The channels to select
 
         Returns
         -------
         None.
         """
-        self._selection.select_channel(tag=tag, chan=chan)
+        self._selection.select_channel(tag=tag, channel=channel)
 
-    def _create_index_if_needed(self):
+    @log_call_to_history
+    def clear_selection(self):
+        """Clear all selections for these data"""
+        self._selection.clear()
+
+    @log_call_to_history
+    def flag(self, tag=None, **kwargs):
+        """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
+        If `value` is array-like then a match to any of the array members will be flagged.
+        For instance `flag(object=['3C273', 'NGC1234'])` will select data for either of those
+        objects and `flag(ifnum=[0,2])` will flag IF number 0 or IF number 2.  Channels for selected data
+        can be flagged using keyword `channel`, e.g., `flag(object='MBM12',channel=[0,23])`
+        will flag channels 0 through 23 *inclusive* for object MBM12.
+        See `~dysh.util.selection.Flag`.
+
+        Parameters
+        ----------
+            tag : str
+                An identifying tag by which the rule may be referred to later.
+                If None, a  randomly generated tag will be created.
+            key : str
+                The key  (SDFITS column name or other supported key)
+            value : any
+                The value to select
+
+        """
+        self._flag.flag(tag=tag, **kwargs)
+
+    @log_call_to_history
+    def flag_range(self, tag=None, **kwargs):
+        """
+        Flag a range of inclusive values for a given key(s).
+        e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
+        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+        Upper and lower limits may be given by setting one of the tuple values
+        to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
+        `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
+        limits may also be specified by a one-element tuple `key1 = (v1,)`.
+        See `~dysh.util.selection.Flag`.
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the lower and upper limits of the range.
+
+        Returns
+        -------
+        None.
+
+        """
+        self._flag.flag_range(tag=tag, **kwargs)
+
+    @log_call_to_history
+    def flag_within(self, tag=None, **kwargs):
+        """
+        Flag a value within a plus or minus for a given key(s).
+        e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
+        Will select data
+        `value1-epsilon1 <= data1 <= value1+epsilon1,`
+        `value2-epsilon2 <= data2 <= value2+epsilon2,...`
+
+        See `~dysh.util.selection.Flag`.
+
+        Parameters
+        ----------
+        tag : str, optional
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key (SDFITS column name or other supported key)
+        value : array-like
+            Tuple or list giving the value and epsilon
+
+        Returns
+        -------
+        None.
+
+        """
+        self._flag.flag_within(tag=tag, **kwargs)
+
+    @log_call_to_history
+    def flag_channel(self, channel, tag=None):
+        """
+        Select channels and/or channel ranges. These are NOT used in :meth:`final`
+        but rather will be used to create a mask for
+        flagging. Single arrays/tuples will be treated as channel lists;
+        nested arrays will be treated as ranges, for instance
+
+        ``
+        # flag channel 128
+        flag_channel(128)
+        # flags channels 1 and 10
+        flag_channel([1,10])
+        # flags channels 1 thru 10 inclusive
+        flag_channel([[1,10]])
+        # flags channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
+        flag_channel([[1,10], [47,56], 75)])
+        # tuples also work, though can be harder for a human to read
+        flag_channel(((1,10), [47,56], 75))
+        ``
+
+        See `~dysh.util.selection.Flag`.
+
+        Parameters
+        ----------
+        channel : number, or array-like
+            The channels to flag
+
+        Returns
+        -------
+        None.
+        """
+        self._flag.flag_channel(tag=tag, channel=channel)
+
+    @log_call_to_history
+    def apply_flags(self):
+        """
+        Set the channel flags according to the rules specified in the `flags` attribute.
+        This sets numpy masks in the underlying `SDFITSLoad` objects.
+
+        Returns
+        -------
+        None.
+
+        """
+        # Loop over the dict of flagged channels, which
+        # have the same key as the flag rules.
+        # For all SDFs in each flag rule, set the flag mask(s)
+        # for their rows.  The index of the sdf._flagmask array is the bintable index
+        for key, chan in self._flag._flag_channel_selection.items():
+            selection = self._flag.get(key)
+            # chan will be a list or a list of lists
+            # If it is a single list, it is just a list of channels
+            # if it is list of lists, then it is upper lower inclusive
+            dfs = selection.groupby(["FITSINDEX", "BINTABLE"])
+            # the dict key for the groups is a tuple (fitsindex,bintable)
+            for i, ((fi, bi), g) in enumerate(dfs):
+                chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
+                rows = g["ROW"].to_numpy()
+                logger.debug(f"Applying {chan} to {rows=}")
+                logger.debug(f"{np.where(chan_mask)}")
+                # print(f"Applying {chan} to {rows=}")
+                # print(f"{np.where(chan_mask)}")
+                self._sdf[fi]._flagmask[bi][rows] |= chan_mask
+
+    @log_call_to_history
+    def clear_flags(self):
+        """Clear all flags for these data"""
+        for sdf in self._sdf:
+            sdf._init_flags()
+        self._flag.clear()
+
+    def _create_index_if_needed(self, skipflags=False):
+        """
+        Parameters
+        ----------
+        skipflags : bool, optional
+            If True, do not read any flag files associated with these data.  The default is False.
+
+        Returns
+        -------
+        None.
+
+        """
+
         if self._selection is not None:
             return
         i = 0
@@ -616,8 +833,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     df = pd.concat([df, s._index], axis=0, ignore_index=True)
                 i = i + 1
         self._selection = Selection(df)
+        self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
+
+        if skipflags:
+            return
+
+        # for directories with multiple FITS files and possibly multiple FLAG files
+        # we have to ensure the right flag file goes with the right FITS tile.
+        # The GBT convention is the same filename with '.flag' instead of '.fits'.
+        # We construct the flagfile and also pass in FITSINDEX column to ensure
+        # only the data associated with that file are flagged.
+        found_flags = False
+        for s in self._sdf:
+            p = Path(s.filename)
+            flagfile = p.with_suffix(".flag")
+            if flagfile.exists():
+                fi = uniq(s["FITSINDEX"])[0]
+                self.flags.read(flagfile, fitsindex=fi)
+                found_flags = True
+        if found_flags:
+            print("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
     def _construct_procedure(self):
         """
@@ -633,12 +870,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
             return
         df = self["OBSMODE"].str.split(":", expand=True)
-        self._index["PROC"] = df[0]
-        # Assign these to something that might be useful later,
-        # since we have them
-        self._index["OBSTYPE"] = df[1]
-        self._index["SUBOBSMODE"] = df[2]
-        for sdf in self._sdf:
+        for obj in [self._index, self._flag]:
+            obj["PROC"] = df[0]
+            # Assign these to something that might be useful later,
+            # since we have them
+            obj["OBSTYPE"] = df[1]
+            obj["SUBOBSMODE"] = df[2]
+        for sdf in self._sdf:  # Note: sdf._index is a Dataframe, not a Selection
             df = sdf._index["OBSMODE"].str.split(":", expand=True)
             sdf._index["PROC"] = df[0]
             sdf._index["OBSTYPE"] = df[1]
@@ -673,21 +911,23 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 idx = g.index
                 intnumarray[idx] = intnums[i]
         self._index["INTNUM"] = intnumarray
+        self._flag["INTNUM"] = intnumarray
 
-        # Here need to add it as a new column in the BinTableHDU,
-        # but we have to sort out FITSINDEX.
-        # s.add_col("INTNUM",intnumarray)
-        fits_index_changes = indices_where_value_changes("FITSINDEX", self._index)
-        lf = len(fits_index_changes)
-        for i in range(lf):
-            fic = fits_index_changes[i]
-            if i + 1 < lf:
-                fici = fits_index_changes[i + 1]
-            else:
-                fici = -1
-            fi = self["FITSINDEX"][fic]
-            # @todo fix this MWP
-            # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
+        if False:
+            # Here need to add it as a new column in the BinTableHDU,
+            # but we have to sort out FITSINDEX.
+            # s.add_col("INTNUM",intnumarray)
+            fits_index_changes = indices_where_value_changes("FITSINDEX", self._index)
+            lf = len(fits_index_changes)
+            for i in range(lf):
+                fic = fits_index_changes[i]
+                if i + 1 < lf:
+                    fici = fits_index_changes[i + 1]
+                else:
+                    fici = -1
+                fi = self["FITSINDEX"][fic]
+                # @todo fix this MWP
+                # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
 
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
@@ -705,6 +945,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
+        apply_flags=True,
         **kwargs,
     ):
         """
@@ -728,6 +969,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             None or 'tsys' to indicate equal weighting or tsys weighting to use in time averaging. Default: 'tsys'
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -740,13 +983,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         TF = {True: "T", False: "F"}
-
+        if apply_flags:
+            self.apply_flags()
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
             _final = self._index
         scans = kwargs.get("scan", None)
-        debug = kwargs.pop("debug", False)
+        # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
@@ -762,6 +1006,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        if len(_sf) == 0:
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         logger.debug(f"SF={_sf}")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
@@ -797,7 +1046,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     # the rows with the selected sig state and all cal states
                     tprows = list(_sifdf["ROW"])
                     logger.debug(f"TPROWS len={len(tprows)}")
-                    logger.debug(f"CALROWS on len={len(calrows["ON"])}")
+                    logger.debug(f"CALROWS on len={len(calrows['ON'])}")
                     logger.debug(f"fitsindex={i}")
                     print("PJT TPROWS", tprows)
                     if len(tprows) == 0:
@@ -812,6 +1061,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         bintable,
                         calibrate,
                         smoothref=smoothref,
+                        apply_flags=apply_flags,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
@@ -823,7 +1073,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     @log_call_to_result
     def getps(
-        self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
+        self,
+        calibrate=True,
+        timeaverage=True,
+        polaverage=False,
+        weights="tsys",
+        bintable=None,
+        smoothref=1,
+        apply_flags=True,
+        **kwargs,
     ):
         """
         Retrieve and calibrate position-switched data.
@@ -843,6 +1101,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -856,9 +1118,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.PSScan`s
+            ScanBlock containing one or more `~spectra.scan.PSScan`.
 
         """
+
+        if apply_flags:
+            self.apply_flags()
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
@@ -902,10 +1167,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
+
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
         logger.debug(f"sf = {_sf}")
+
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
@@ -961,6 +1231,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         bintable=bintable,
                         calibrate=calibrate,
                         smoothref=smoothref,
+                        apply_flags=apply_flags,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
@@ -973,7 +1244,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     @log_call_to_result
     def getnod(
-        self, calibrate=True, timeaverage=True, polaverage=False, weights="tsys", bintable=None, smoothref=1, **kwargs
+        self,
+        calibrate=True,
+        timeaverage=True,
+        polaverage=False,
+        weights="tsys",
+        bintable=None,
+        smoothref=1,
+        apply_flags=True,
+        **kwargs,
     ):
         """
         Retrieve and calibrate nodding data.
@@ -997,6 +1276,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1012,7 +1295,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.NodScan`s
+            ScanBlock containing one or more `~spectra.scan.NodScan`.
 
         """
 
@@ -1028,8 +1311,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
                 beam1 = d1["FDNUM"].unique()[0]
                 beam2 = d2["FDNUM"].unique()[0]
-                fdnum1 = d1["FEED"].unique()[0]
-                fdnum2 = d2["FEED"].unique()[0]
+                # fdnum1 = d1["FEED"].unique()[0]
+                # fdnum2 = d2["FEED"].unique()[0]
                 return [beam1, beam2]
             else:
                 # one more attempt (this can happen if PROCSCAN contains "Unknown")
@@ -1040,6 +1323,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     return list(b)
                 return []
 
+        if apply_flags:
+            self.apply_flags()
         nod_beams = get_nod_beams(self)
         feeds = kwargs.pop("fdnum", None)
         if feeds is None:
@@ -1090,8 +1375,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         elif len(_sf) < 100:
             logger.debug(f"{_sf = }")
         else:
@@ -1162,12 +1450,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             bintable=bintable,
                             calibrate=calibrate,
                             smoothref=smoothref,
+                            apply_flags=apply_flags,
                         )
                         g.merge_commentary(self)
                         scanblock.append(g)
                         c = c + 1
         if len(scanblock) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
             raise Exception("Odd number of scans for getnod, check your feeds if they are valid")
         # note the two nods are not merged, but added to the pool as two "independant" PS scans
@@ -1187,6 +1476,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
+        apply_flags=True,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -1219,6 +1509,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
         observer_location : `~astropy.coordinates.EarthLocation`
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1237,11 +1531,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing the individual `~spectra.scan.FSScan`s
+            ScanBlock containing one or more`~spectra.scan.FSScan`.
 
         """
         debug = kwargs.pop("debug", False)
         logger.debug(kwargs)
+
+        if apply_flags:
+            self.apply_flags()
         # either the user gave scans on the command line (scans !=None) or pre-selected them
         # with self.selection.selectXX()
         if len(self._selection._selection_rules) > 0:
@@ -1260,15 +1557,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
-        logger.debug("scans/w sel:", scans, self._selection)
+        logger.debug(f"scans/w sel: {scans} {self._selection}")
         fs_selection = copy.deepcopy(self._selection)
         # now downselect with any additional kwargs
         logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
         fs_selection._select_from_mixed_kwargs(**kwargs)
         logger.debug(fs_selection.show())
         _sf = fs_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         # _sf = fs_selection.merge(how='inner')   ## ??? PJT
         ifnum = set(_sf["IFNUM"])
         plnum = set(_sf["PLNUM"])
@@ -1277,6 +1577,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
+            logger.debug(f"Processing file {i}: {self._sdf[i].filename}")
+
             df = select_from("FITSINDEX", i, _sf)
             for k in ifnum:
                 _ifdf = select_from("IFNUM", k, df)  # one FSScan per ifnum
@@ -1310,12 +1612,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         use_sig=use_sig,
                         observer_location=observer_location,
                         smoothref=1,
+                        apply_flags=apply_flags,
                         debug=debug,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
         return scanblock
         # end of getfs()
@@ -1333,6 +1636,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         bintable=None,
         smoothref=1,
+        apply_flags=True,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -1355,6 +1659,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             None to indicate equal weighting or 'tsys' to indicate tsys weighting to use in time averaging. Default: 'tsys'
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1365,12 +1673,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         data : `~spectra.scan.ScanBlock`
             A ScanBlock containing one or more `~spectra.scan.SubBeamNodScan`
         """
+
+        if apply_flags:
+            self.apply_flags()
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
             _final = self._index
         scans = kwargs.get("scan", None)
-        debug = kwargs.pop("debug", False)
+        # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         logger.debug(kwargs)
 
@@ -1405,6 +1716,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ps_selection = copy.deepcopy(self._selection)
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        if len(_sf) == 0:
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
         plnum = uniq(_sf["PLNUM"])
         scans = uniq(_sf["SCAN"])
@@ -1481,6 +1797,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                     bintable,
                                     calibrate=calibrate,
                                     smoothref=smoothref,
+                                    apply_flags=apply_flags,
                                 )
                             )
                             calrows = {"ON": sgon, "OFF": sgoff}
@@ -1496,9 +1813,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                     bintable,
                                     calibrate=calibrate,
                                     smoothref=smoothref,
+                                    apply_flags=apply_flags,
                                 )
                             )
-                        sb = SubBeamNodScan(sigtp, reftp, calibrate=calibrate, weights=weights, smoothref=smoothref)
+                        sb = SubBeamNodScan(
+                            sigtp,
+                            reftp,
+                            calibrate=calibrate,
+                            weights=weights,
+                            smoothref=smoothref,
+                            apply_flags=apply_flags,
+                        )
                         scanblock.append(sb)
         elif method == "scan":
             for sdfi in range(len(self._sdf)):
@@ -1524,6 +1849,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 weights=weights,
                                 calibrate=calibrate,
                                 smoothref=smoothref,
+                                apply_flags=apply_flags,
                             )
                             sigtp.append(tpon[0])
                             tpoff = self.gettp(
@@ -1538,6 +1864,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 weights=weights,
                                 calibrate=calibrate,
                                 smoothref=smoothref,
+                                apply_flags=apply_flags,
                             )
                             reftp.append(tpoff[0])
                             # in order to reproduce gbtidl tsys, we need to do a normal
@@ -1553,7 +1880,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 weights=weights,
                                 calibrate=calibrate,
                                 smoothref=smoothref,
-                            )  # .timeaverage(weights=w)
+                                apply_flags=apply_flags,
+                            )
                             fulltp.append(ftp[0])
                         sb = SubBeamNodScan(
                             sigtp,
@@ -1561,11 +1889,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             calibrate=calibrate,
                             weights=weights,
                             smoothref=smoothref,
+                            apply_flags=apply_flags,
                         )
                         sb.merge_commentary(self)
                         scanblock.append(sb)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
         return scanblock
 
@@ -2038,6 +2367,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self,
         fileobj,
         multifile=True,
+        flags=True,
         verbose=False,
         output_verify="exception",
         overwrite=False,
@@ -2055,6 +2385,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         multifile: bool, optional
             If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
             Otherwise, write to a single SDFITS file.
+        flags: bool, optional
+            If True, write the applied flags to a `FLAGS` column in the binary table.
         verbose: bool, optional
             If True, print out some information about number of rows written per file
         output_verify : str
@@ -2075,7 +2407,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
         """
-        debug = kwargs.pop("debug", False)
+        # debug = kwargs.pop("debug", False)
         logger.debug(kwargs)
         selection = Selection(self._index)
         if len(kwargs) > 0:
@@ -2104,6 +2436,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
+                        if flags:  # update the flags before we select rows
+                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
+                            dim1 = np.shape(flagval)[1]
+                            form = f"{dim1}B"
+                            c = fits.Column(name="FLAGS", format=form, array=flagval)
+                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
@@ -2128,7 +2466,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if verbose:
                 print(f"Total of {total_rows_written} rows written to files.")
         else:
-            hdu = self._sdf[fi[0]]._hdu[fi[0]].copy()
+            hdu = self._sdf[fi[0]]._hdu[0].copy()
             outhdu = fits.HDUList(hdu)
             for k in fi:
                 df = select_from("FITSINDEX", k, _final)
@@ -2138,6 +2476,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
+                        if flags:  # update the flags before we select rows
+                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
+                            dim1 = np.shape(flagval)[1]
+                            form = f"{dim1}B"
+                            # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this
+                            c = fits.Column(name="FLAGS", format=form, array=flagval)
+                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
@@ -2226,7 +2571,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            warnings.warn("Changing an existing SDFITS column")
+            warnings.warn(f"Changing an existing SDFITS column {items}")
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):

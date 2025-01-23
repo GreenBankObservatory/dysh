@@ -9,8 +9,9 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from astropy.io.fits import BinTableHDU
+from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table
+from astropy.utils.masked import Masked
 
 from dysh.log import logger
 
@@ -53,8 +54,15 @@ class SDFITSLoad(object):
         self._header = self._hdu[0].header
         self.load(hdu, **kwargs_opts)
         doindex = kwargs_opts.get("index", True)
+        doflag = kwargs_opts.get("flags", True)  # for testing
         if doindex:
             self.create_index()
+        # add default channel masks
+        # These are numpy masks where False is not flagged, True is flagged.
+        # There is one 2-D flag mask arraywith shape NROWSxNCHANNELS per bintable
+        self._flagmask = None
+        if doflag:
+            self._init_flags()
 
     def __del__(self):
         # We need to ensure that any open HDUs are properly
@@ -64,6 +72,19 @@ class SDFITSLoad(object):
             self._hdu.close()
         except Exception:
             pass
+
+    def _init_flags(self):
+        """initialize the channel masks to False"""
+
+        self._flagmask = np.empty(len(self._bintable), dtype=object)
+        for i in range(len(self._flagmask)):
+            if "FLAGS" in self._bintable[i].data.columns.names:
+                self._flagmask[i] = self._bintable[i].data["FLAGS"].astype(bool)
+            else:
+                nc = self.nchan(i)
+                nr = self.nrows(i)
+                logger.debug(f"flag {nr=} {nc=}")
+                self._flagmask[i] = np.full((nr, nc), fill_value=False)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
@@ -127,7 +148,7 @@ class SDFITSLoad(object):
             df = df[df["BINTABLE"] == bintable]
         return df
 
-    def create_index(self, hdu=None):
+    def create_index(self, hdu=None, skipindex=["DATA", "FLAGS"]):
         """
         Create the index of the SDFITS file.
 
@@ -135,6 +156,9 @@ class SDFITSLoad(object):
         ----------
             hdu : int or list
                 Header Data Unit to select from input file. Default: all HDUs
+            skipindex : list
+                List of str column names to not put in the index.  The default are
+                the multidimensional columns DATA and FLAGS
 
         """
         if hdu is not None:
@@ -144,7 +168,7 @@ class SDFITSLoad(object):
         self._index = None
         for i in ldu:
             # Create a DataFrame without the data column.
-            df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, "DATA"))
+            df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, skipindex))
             # Select columns that are strings, decode them and remove white spaces.
             df_obj = df.select_dtypes(["object"])
             df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
@@ -188,7 +212,8 @@ class SDFITSLoad(object):
                 self._index[k] = v
             elif self._index[k][0] != v:
                 warnings.warn(
-                    f"Column {k} is defined in the primary header and in the binary table index, but their values do not match. Will not update this column in the index.",
+                    f"Column {k} is defined in the primary header and in the binary table index, but their values do"
+                    " not match. Will not update this column in the index.",
                     UserWarning,
                     stacklevel=2,
                 )
@@ -271,6 +296,8 @@ class SDFITSLoad(object):
                 The unique set of values for the input keyword.
 
         """
+        if self._index is None:
+            raise ValueError("Can't retrieve keyword {key} because no index is present.")
         if bintable is not None:
             df = self._index[self._index["BINTABLE"] == bintable]
         else:
@@ -351,7 +378,7 @@ class SDFITSLoad(object):
         """
         return (self._index.iloc[row]["BINTABLE"], self._index.iloc[row]["ROW"])
 
-    def rawspectra(self, bintable):
+    def rawspectra(self, bintable, setmask=False):
         """
         Get the raw (unprocessed) spectra from the input bintable.
 
@@ -359,37 +386,51 @@ class SDFITSLoad(object):
         ----------
             bintable :  int
                 The index of the `bintable` attribute
+            setmask : bool
+                If True, set the data mask according to the current flags in the `_flagmask` attribute. If False, set the data mask to False.
 
         Returns
         -------
-            rawspectra : ~numpy.ndarray
-                The DATA column of the input bintable
+            rawspectra : ~numpy.ma.MaskedArray
+                The DATA column of the input bintable, masked according to `setmask`
 
         """
-        return self._bintable[bintable].data[:]["DATA"]
+        data = self._bintable[bintable].data[:]["DATA"]
+        if setmask:
+            rawspec = np.ma.MaskedArray(data, mask=self._flagmask[bintable])
+        else:
+            rawspec = np.ma.MaskedArray(data, mask=False)
+        return rawspec
 
-    def rawspectrum(self, i, bintable=0):
+    def rawspectrum(self, i, bintable=0, setmask=False):
         """
         Get a single raw (unprocessed) spectrum from the input bintable.
 
         Parameters
         ----------
-            i :  int
-                The row index to retrieve.
-            bintable :  int or None
-                The index of the `bintable` attribute. If None, the underlying bintable is computed from i
-
+        i :  int
+            The row index to retrieve.
+        bintable :  int or None
+            The index of the `bintable` attribute. If None, the underlying bintable is computed from i
+        setmask : bool
+            If True, set the data mask according to the current flags in the `_flagmask` attribute.
         Returns
         -------
-            rawspectrum : ~numpy.ndarray
-                The i-th row of DATA column of the input bintable
+        rawspectrum : ~numpy.ma.MaskedArray
+            The i-th row of DATA column of the input bintable, masked according to `setmask`
 
         """
         if bintable is None:
             (bt, row) = self._find_bintable_and_row(i)
-            return self._bintable[bt].data[:]["DATA"][row]
+            data = self._bintable[bt].data[:]["DATA"][row]
         else:
-            return self._bintable[bintable].data[:]["DATA"][i]
+            data = self._bintable[bintable].data[:]["DATA"][i]
+            row = i
+        if setmask:
+            rawspec = np.ma.MaskedArray(data, mask=self._flagmask[bintable][row])
+        else:
+            rawspec = np.ma.MaskedArray(data, False)
+        return rawspec
 
     def getrow(self, i, bintable=0):
         """
@@ -410,7 +451,7 @@ class SDFITSLoad(object):
         """
         return self._bintable[bintable].data[i]
 
-    def getspec(self, i, bintable=0, observer_location=None):
+    def getspec(self, i, bintable=0, observer_location=None, setmask=False):
         """
         Get a row (record) as a Spectrum
 
@@ -424,6 +465,8 @@ class SDFITSLoad(object):
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of observation DATE-OBS or MJD-OBS in
             the SDFITS header.  The default is None.
+        setmask : bool
+            If True, set the data mask according to the current flags in the `_flagmask` attribute.
 
         Returns
         -------
@@ -433,11 +476,11 @@ class SDFITSLoad(object):
         """
         df = self.index(bintable=bintable)
         meta = df.iloc[i].dropna().to_dict()
-        data = self.rawspectrum(i, bintable)
+        data = self.rawspectrum(i, bintable, setmask=setmask)
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-            logger.debug(f"Fixing CUNIT1 to Hz")
+            logger.debug("Fixing CUNIT1 to Hz")
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
         restfrq = meta["RESTFREQ"]
@@ -474,10 +517,12 @@ class SDFITSLoad(object):
             bunit = u.ct
         logger.debug(f"BUNIT = {bunit}")
         if bunit == "ct":
-            logger.info(f"Your data have no units, 'ct' was selected")
+            logger.info("Your data have no units, 'ct' was selected")
             # PJT hack: bunit = u.K
-
-        s = Spectrum.make_spectrum(data * bunit, meta, observer_location=observer_location)
+        # use from_unmasked so we don't get the astropy INFO level message about replacing a mask
+        # (doesn't work -- the INFO message comes from the Spectrum1D constructor)
+        masked_data = Masked.from_unmasked(data.data, data.mask) * u.K
+        s = Spectrum.make_spectrum(masked_data, meta, observer_location=observer_location)
         return s
 
     def nrows(self, bintable):
@@ -509,10 +554,10 @@ class SDFITSLoad(object):
         Returns
         -------
             nchan : int
-                Number channels in the first spectrum of the input bintbale
+                Number channels in the first spectrum of the input bintable
 
         """
-        return np.shape(self.rawspectrum(1, bintable))[0]
+        return np.shape(self.rawspectrum(0, bintable))[0]
 
     def npol(self, bintable):
         """
@@ -621,13 +666,13 @@ class SDFITSLoad(object):
         # ensure rows are sorted
         rows.sort()
         outbintable = self._bintable[bintable].copy()
-        # print(f"bintable copy data length {len(outbintable.data)}")
         outbintable.data = outbintable.data[rows]
-        # print(f"bintable rows data length {len(outbintable.data)}")
         outbintable.update()
         return outbintable
 
-    def write(self, fileobj, rows=None, bintable=None, output_verify="exception", overwrite=False, checksum=False):
+    def write(
+        self, fileobj, rows=None, bintable=None, flags=True, output_verify="exception", overwrite=False, checksum=False
+    ):
         """
         Write the `SDFITSLoad` to a new file, potentially sub-selecting rows or bintables.
 
@@ -643,6 +688,9 @@ class SDFITSLoad(object):
 
             bintable :  int
                 The index of the `bintable` attribute or None for all bintables. Default: None
+
+            flags: bool, optional
+                If True, write the applied flags to a `FLAGS` column in the binary table
 
             output_verify : str
                 Output verification option.  Must be one of ``"fix"``,
@@ -801,7 +849,7 @@ class SDFITSLoad(object):
         ----------
         name : str
             column name to add
-        value : list-like
+        value : list-like or ~`astropy.io.fits.Column`
             The column values
         bintable : int, optional
             Index of the binary table on which to operate, or None for all binary tables. The default is None.
@@ -813,28 +861,54 @@ class SDFITSLoad(object):
         """
         # If we pass the data through a astropy Table first, then the conversion of
         # numpy array dtype to FITS format string (e.g, '12A') gets done automatically and correctly.
-        # print(f"_add_binary_table_column({name}, v={value}, bintable={bintable})")
-        if bintable is not None:
-            if len(value) != self.nrows(bintable):
-                raise ValueError(
-                    f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.nrows(bintable)}) aren't equal."
-                )
-            t = BinTableHDU(Table(names=[name], data=[value]))
-            self._bintable[bintable].columns.add_col(t.columns[name])
+        is_col = isinstance(value, Column)
+        if is_col:
+            lenv = len(value.array)
         else:
-            if len(value) != self.total_rows:
+            lenv = len(value)
+        if bintable is not None:
+            if lenv != self.nrows(bintable):
                 raise ValueError(
-                    f"Length of values array ({len(value)}) for column {name} and total number of rows ({self.total_rows}) aren't equal."
+                    f"Length of values array ({len(value)}) for column {name} and total number of rows"
+                    f" ({self.nrows(bintable)}) aren't equal."
+                )
+            if is_col:
+                self._bintable[bintable].columns.add_col(value)
+            else:
+                t1 = Table(names=[name], data=[value])
+                t = BinTableHDU(t1)
+                self._bintable[bintable].columns.add_col(t.columns[name])
+            # self._update_column_added(bintable, self._bintable[bintable].columns)
+            # self._bintable[bintable].update()
+        else:
+            if lenv != self.total_rows:
+                raise ValueError(
+                    f"Length of values array ({len(value)}) for column {name} and total number of rows"
+                    f" ({self.total_rows}) aren't equal."
                 )
             # Split values up by length of the individual binary tables
             start = 0
-            for i in range(len(self._nrows)):
-                print(f"new column {name}")
+            for i in range(len(self._bintable)):
                 n = self._nrows[i]
-                print(f"bintable {i} value={value}")
-                t = BinTableHDU(Table(names=[name], data=value[start : start + n]))
-                self._bintable[i].columns.add_col(t.columns[name])
+                if isinstance(value, Column):
+                    cut = Column(
+                        name=value.name, format=value.format, dim=value.dim, array=value.array[start : start + n]
+                    )
+                    self._bintable[i].columns.add_col(cut)
+                else:
+                    t = BinTableHDU(Table(names=[name], data=[value[start : start + n]]))
+                    self._bintable[i].columns.add_col(t.columns[name])
+                # self._update_column_added(i, self._bintable[i].columns)
+                # self._bintable[bintable].update()
                 start = start + n
+
+    def _update_column_added(self, bintable, coldefs):
+        self.bintable[bintable].data = fits.fitsrec.FITS_rec.from_columns(
+            columns=coldefs,
+            nrows=self.bintable[bintable]._nrows,
+            fill=False,
+            character_as_bytes=self.bintable[bintable]._character_as_bytes,
+        )
 
     def _update_binary_table_column(self, column_dict):
         """Change or add one or more columns to the SDFITS binary table(s)
@@ -842,7 +916,7 @@ class SDFITSLoad(object):
         Parameters
         ----------
             column_dict : dict
-            Dictionary with column names as keys and column values
+            Dictionary with column names as keys and column values. Values can be numpy arrays or `~astropy.io.fits.Column`
         """
         # if there is only one bintable, it is straightforward.
         # BinTableHDU interface will take care of the types and data lengths matching.
@@ -850,73 +924,105 @@ class SDFITSLoad(object):
         # a single value.
         if len(self._bintable) == 1:
             for k, v in column_dict.items():
-                # data is an astropy.io.fits.fitsrec.FITS_rec
-                is_str = isinstance(v, str)
-                if is_str or not isinstance(v, (Sequence, np.ndarray)):
-                    v = np.full(len(self._bintable[0].data), v)
+                is_col = isinstance(v, Column)
+                if is_col:
+                    value = v.array
+                else:
+                    value = v
+                # self._bintable[i].data is an astropy.io.fits.fitsrec.FITS_rec, with length equal
+                # to number of rows
+                is_str = isinstance(value, str)
+                if is_str or not isinstance(value, np.ndarray):
+                    value = np.full(self._bintable[0]._nrows, value)
+                # NOTE: if k is from the primary header and not a data column
+                # then this test fails, and we will ADD a new binary data column.
+                # So the primary header and data column could be inconsistent.
+                # It actually happens in
+                # test_gbtfitsload.py:test_set_item for SITELONG=[-42.21]*g.total_rows
+                # Indeed there is a warning in _add_primary_hdu about this.
+                # The behavior is intended,the column takes precedence over
+                # the primary hdu, but we should document this publicly.
                 if k in self._bintable[0].data.names:
-                    self._bintable[0].data[k] = v
+                    # have to assigned directly to array because somewhere
+                    # deep in astropy a ref is kept to the original coldefs data which
+                    # gets recopied if a column is added.
+                    self._bintable[0].data.columns[k].array = value
+                    self._bintable[0].data[k] = value
                 # otherwise we need to add rather than replace/update
                 else:
-                    # print("ADDING {k}={v}")
-                    self._add_binary_table_column(k, v, 0)
+                    self._add_binary_table_column(k, value, 0)
+            self._bintable[0].update()
         else:
             start = 0
             for k, v in column_dict.items():
-                is_str = isinstance(v, str)
-                if not is_str and isinstance(v, (Sequence, np.ndarray)) and len(v) != self.total_rows:
+                is_col = isinstance(v, Column)
+                if is_col:
+                    value = v.array
+                else:
+                    value = v
+
+                is_str = isinstance(value, str)
+                if not is_str and isinstance(value, (Sequence, np.ndarray)) and len(value) != self.total_rows:
                     raise ValueError(
-                        f"Length of values array ({len(v)}) for column {k} and total number of rows ({self.total_rows}) aren't equal."
+                        f"Length of values array ({len(v)}) for column {k} and total number of rows ({self.total_rows})"
+                        " aren't equal."
                     )
+
                 # Split values up by length of the individual binary tables
                 for j in range(len(self._bintable)):
                     b = self._bintable[j]
                     if k in b.data.names:
                         n = len(b.data)
-                        if is_str or not isinstance(v, (Sequence, np.ndarray)):
-                            # print(f"ADD setting bintable[{j}][{k}]={v}")
-                            b.data[k] = v
+                        if is_str or not isinstance(value, (Sequence, np.ndarray)):
+                            b.data.columns[k].array = value
+                            b.data[k] = value
                         else:
-                            # print(f"doing bintable {b} {k} {v[start:start+n]}")
-                            b.data[k] = v[start : start + n]
+                            b.data.columns[k].array = value[start : start + n]
+                            b.data[k] = value[start : start + n]
                         start = start + n
                     else:
-                        v1 = v
-                        n = len(b.data)
-                        if is_str or not isinstance(v, (Sequence, np.ndarray)):
-                            # we have to make an array from v
-                            # print(f"{k} expanding {v} to {len(b.data)} for bintable {j}")
-                            # need a new variable here or multiple loops keep expanding v
-                            v1 = np.full(n, v)
-                            # print(f"trying to add {k}={v1}")
+                        if not is_str and isinstance(value, Sequence):
+                            v1 = np.array(value)
                         else:
-                            v1 = v[start : start + n]
-                            start = start + n
+                            v1 = value
+                        n = len(b.data)
+                        if is_str or not isinstance(value, (Sequence, np.ndarray)):
+                            # we have to make an array from value if the user
+                            # did a single assignment for a column, e.g. sdf["TCAL"] = 3.
+                            # Need a new variable here or multiple loops keep expanding value
+                            v1 = np.full(n, value)
+                        else:
+                            v1 = np.array(value[start : start + n])
+                        start = start + n
                         self._add_binary_table_column(k, v1, j)
+                    self._bintable[j].update()
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
         # Want case insensitivity
-        # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
         elif isinstance(items, (Sequence, np.ndarray)):
             items = [i.upper() for i in items]
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
-        if "DATA" in items:
-            if not np.all([b.data["DATA"].shape == self._bintable[0].data["DATA"].shape for b in self._bintable]):
-                raise ValueError(
-                    "Data columns for multiple binary tables in this SDFITSLoad have different shapes. They can only be accessed via _bintable.data['DATA'] attribute."
-                )
-            if len(self._bintable) == 1:
-                return self._bintable[0].data["DATA"]
-            else:
-                return np.vstack([b.data["DATA"] for b in self._bintable])
+        # Deal with columns that have multiple dimensions
+        for multikey in ["DATA", "FLAGS"]:
+            if multikey in items:
+                if not np.all(
+                    [b.data[multikey].shape == self._bintable[0].data[multikey].shape for b in self._bintable]
+                ):
+                    raise ValueError(
+                        "{multikey} columns for multiple binary tables in this SDFITSLoad have different shapes. They"
+                        " can only be accessed via _bintable.data['DATA'] attribute."
+                    )
+                if len(self._bintable) == 1:
+                    return self._bintable[0].data[multikey]
+                else:
+                    return np.vstack([b.data[multikey] for b in self._bintable])
         return self._index[items]
 
     def __setitem__(self, items, values):
-        # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
             d = {items: values}
@@ -936,13 +1042,12 @@ class SDFITSLoad(object):
         else:
             iset = set(items)
         col_exists = len(set(self.columns).intersection(iset)) > 0
-        # col_in_selection =
         if col_exists and "DATA" not in items:
-            warnings.warn("Changing an existing SDFITS column")
+            warnings.warn(f"Changing an existing SDFITS column {items}")
         try:
             self._update_binary_table_column(d)
         except Exception as e:
-            raise Exception(f"Could not update SDFITS binary table because {e}")
+            raise Exception(f"Could not update SDFITS binary table for {items} because {e}")
         # only update the index if the binary table could be updated.
         # DATA is not in the index.
         if "DATA" not in items:

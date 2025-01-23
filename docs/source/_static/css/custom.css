@@ -1,11 +1,109 @@
 /* Remove width restriction on content so that diagrams
-   are more visible */
-   .wy-nav-content {
-      max-width: none;
-  }
+are more visible */
+.wy-nav-content {
+  max-width: none;
+}
 
-  /* Override the logo/searchbar background color;
-     it conflicts with the logo color */
-  .wy-side-nav-search {
-      background-color: #C6B9D2;
-  }
+/* Override the logo/searchbar background color;
+ it conflicts with the logo color */
+.wy-side-nav-search {
+  background-color: #C6B9D2;
+}
+
+/*
+ * */
+.widget-subarea {
+    background-color: var(--pst-color-surface) !important;
+    border-radius: 0.25rem !important;
+    /*border: 1px solid var(--mystnb-stdout-border-color) !important;*/
+    /*background: var(--mystnb-stdout-bg-color) !important;*/
+}
+
+div.output.text_html {
+    background-color: var(--pst-color-background) !important;
+    background: var(--pst-color-background) !important;
+}
+
+.black {
+    color: black;
+}
+
+.gray {
+    color: gray;
+}
+
+.grey {
+    color: gray;
+}
+
+.silver {
+    color: silver;
+}
+
+.white {
+    color: white;
+}
+
+.maroon {
+    color: maroon;
+}
+
+.red {
+    color: red;
+}
+
+.magenta {
+    color: magenta;
+}
+
+.fuchsia {
+    color: fuchsia;
+}
+
+.pink {
+    color: pink;
+}
+
+.orange {
+    color: orange;
+}
+
+.yellow {
+    color: yellow;
+}
+
+.lime {
+    color: lime;
+}
+
+.green {
+    color: green;
+}
+
+.olive {
+    color: olive;
+}
+
+.teal {
+    color: teal;
+}
+
+.cyan {
+    color: cyan;
+}
+
+.aqua {
+    color: aqua;
+}
+
+.blue {
+    color: blue;
+}
+
+.navy {
+    color: navy;
+}
+
+.purple {
+    color: purple;
+}

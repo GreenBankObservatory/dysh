@@ -1,5 +1,6 @@
 import glob
 import os
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -60,7 +61,13 @@ class TestGBTFITSLoad:
 
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        spec = sdf.getspec(0)
+        sdf.flag_channel([[0, 100]])
+        sdf.apply_flags()
+        spec = sdf.getspec(0, setmask=False)
+        spec2 = sdf.getspec(0, setmask=True)
+        assert any(spec.mask != spec2.mask)
+        assert all(spec2.mask[0:101])
+        assert all(spec2.mask[102:] == False)
 
     def test_getps_single_int(self):
         """
@@ -269,8 +276,8 @@ class TestGBTFITSLoad:
             else:
                 # CAL=True
                 cal = tps[0]._refcalon.astype(np.float64)
-            assert np.all(tp.flux.value == np.nanmean(cal, axis=0))
-
+            # diff = tp.flux.value - np.nanmean(cal, axis=0)
+            assert np.all(tp.flux.value - np.nanmean(cal, axis=0) == 0)
         # Check that selection is being applied properly.
         tp_scans = sdf.gettp(scan=[6, 7], plnum=0)
         # Weird that the results are different for a bunch of channels.
@@ -402,7 +409,7 @@ class TestGBTFITSLoad:
         index_file = p / "AGBT20B_014_03.raw.vegas.A6.index"
         data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
         g = gbtfitsload.GBTFITSLoad(data_file)
-        gbtidl_index = pd.read_csv(index_file, skiprows=10, delim_whitespace=True)
+        gbtidl_index = pd.read_csv(index_file, skiprows=10, sep="\s+")
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
 
     def test_getps_smoothref(self):
@@ -432,6 +439,17 @@ class TestGBTFITSLoad:
                 assert v == table[k][0]
             except KeyError:
                 continue
+
+    def test_getps_flagging(self):
+        path = util.get_project_testdata() / "TGBT21A_501_11"
+        data_file = path / "TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(data_file)
+        sdf.flag_channel([[10, 20], [30, 41]])
+        sb = sdf.getps(scan=152, ifnum=0, plnum=0, apply_flags=True)
+        ta = sb.timeaverage()
+        # average_spectra masks out the NaN in channel 3072
+        expected_mask = np.hstack([np.arange(10, 21), np.arange(30, 42), np.array([3072])])
+        assert np.all(np.where(ta.mask) == expected_mask)
 
     def test_write_single_file(self, tmp_path):
         "Test that writing an SDFITS file works when subselecting data"
@@ -468,7 +486,8 @@ class TestGBTFITSLoad:
         d = tmp_path / "sub"
         d.mkdir()
         output = d / "test_write_all.fits"
-        org_sdf.write(output, overwrite=True)
+        # don't write flags to avoid TDIM84 new column
+        org_sdf.write(output, overwrite=True, flags=False)
         new_sdf = gbtfitsload.GBTFITSLoad(output)
         # Compare the index for both SDFITS.
         # Note we now auto-add a HISTORY card at instantiation, so drop that
@@ -515,7 +534,7 @@ class TestGBTFITSLoad:
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
             print(f"trying to writing file #{i} {out}")
-            g.write(out, overwrite=True)
+            g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
@@ -545,7 +564,7 @@ class TestGBTFITSLoad:
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
             print(f"trying to writing file #{i} {out}")
-            g.write(out, overwrite=True)
+            g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
@@ -614,7 +633,7 @@ class TestGBTFITSLoad:
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"
         new_path.mkdir(parents=True, exist_ok=True)
-        sdf_org.write(new_path / "test_azel.fits", overwrite=True)
+        sdf_org.write(new_path / "test_azel.fits", overwrite=True, flags=True)
 
         # Now the actual test.
         sdf = gbtfitsload.GBTFITSLoad(new_path)
@@ -657,3 +676,74 @@ class TestGBTFITSLoad:
         assert "My dear Aunt Sally" in sdf.comments
         assert "ran the test for history and comments" in sdf.history
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
+
+    def test_write_read_flags(self, tmp_path):
+        fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf.flag(ifnum=3)
+        sdf.apply_flags()
+
+        new_path = tmp_path / "flagtest_multi"
+        new_path.mkdir(parents=True, exist_ok=True)
+        # first test with multifile=True. Default is flags=True
+        sdf.write(new_path / "test.fits", multifile=True, overwrite=True)
+        mdf = gbtfitsload.GBTFITSLoad(new_path)
+        for i in range(len(sdf._sdf)):
+            assert np.all(sdf._sdf[i]._flagmask[0] == mdf._sdf[i]._flagmask[0])
+        # now with multifile = False
+        new_path = tmp_path / "flagtest_single"
+        new_path.mkdir(parents=True, exist_ok=True)
+        sdf.write(new_path / "foobar.fits", multifile=False, overwrite=True)
+        g2 = gbtfitsload.GBTFITSLoad(new_path / "foobar.fits", verbose=True)
+        flags2 = g2._sdf[0]._flagmask
+        for i in range(len(sdf._sdf)):
+            assert np.all(sdf._sdf[i]._flagmask[0] == flags2[i])
+
+    def test_additive_flags(self, tmp_path):
+        # This test is a regression for issue #429
+        # https://github.com/GreenBankObservatory/dysh/issues/429
+        # We copy the flag mask for each rule
+        # then check that the final flag mask is the logical OR of them
+        fits_path = (
+            util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
+        )
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, skipflags=True)
+        sdf.flag(scan=6, channel=[[2500, 3000]], intnum=range(0, 3))
+        sdf.apply_flags()
+        flag1 = sdf._sdf[0]._flagmask[0].copy()
+        sdf.clear_flags()
+        sdf.flag_channel(channel=[[80000, 100000]])
+        sdf.apply_flags()
+        flag2 = sdf._sdf[0]._flagmask[0].copy()
+        sdf.clear_flags()
+        sdf.flag(scan=6, channel=[[2500, 3000]], intnum=range(0, 3))
+        sdf.flag_channel(channel=[[80000, 100000]])
+        sdf.apply_flags()
+        assert np.all(sdf._sdf[0]._flagmask[0] == flag1 | flag2)
+
+    def test_read_gbtidl_flags(self):
+        """
+        Test reading a flag file generated by GBTIDL.
+        """
+        fits_path = util.get_project_testdata() / "AGBT17A_404_01/AGBT17A_404_01.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        # The data should not be flagged, as the flags are only for intnum=arange(43,52)
+        ps = sdf.getps(scan=19, plnum=0, apply_flags=True).timeaverage()
+        assert np.all(ps.mask == False)
+        # The data should be flagged for these integrations.
+        ps = sdf.getps(scan=19, plnum=0, apply_flags=True, intnum=[i for i in range(43, 52)]).timeaverage()
+        assert np.all(ps.mask[2299:] == True)
+        assert np.all(ps.mask[:2299] == False)
+
+    def test_rawspectrum(self):
+        """regression test for issue 442"""
+        fits_path = util.get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        psscan = sdf.getps(plnum=0)
+        spec = psscan.timeaverage()
+        exp1 = spec.meta["EXPOSURE"]  # 214.86978780485427
+        sdf.flag_range(elevation=((None, 18.4)))
+        psscan2 = sdf.getps(plnum=0)
+        spec2 = psscan2.timeaverage()
+        exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
+        assert exp2 < exp1

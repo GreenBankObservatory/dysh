@@ -7,8 +7,9 @@ from copy import deepcopy
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.utils.masked import Masked
 
-from ..coordinates import frame_to_label
+from ..coordinates import decode_veldef, frame_to_label
 
 _KMS = u.km / u.s
 
@@ -131,10 +132,16 @@ class SpectrumPlot:
         lw = this_plot_kwargs["linewidth"]
         xunit = this_plot_kwargs["xaxis_unit"]
         yunit = this_plot_kwargs["yaxis_unit"]
-        if "vel_frame" not in this_plot_kwargs:
-            this_plot_kwargs["vel_frame"] = s.velocity_frame
         if xunit is None:
             xunit = str(sa.unit)
+        if "vel_frame" not in this_plot_kwargs:
+            if u.Unit(xunit).is_equivalent("km/s") and "VELDEF" in s.meta:
+                # If the user specified velocity units, default to
+                # the velframe the data were taken in.  This we can
+                # get from VELDEF keyword.  See issue #303
+                this_plot_kwargs["vel_frame"] = decode_veldef(s.meta["VELDEF"])[1].lower()
+            else:
+                this_plot_kwargs["vel_frame"] = s.velocity_frame
         if "chan" in str(xunit).lower():
             sa = np.arange(len(sa))
             this_plot_kwargs["xlabel"] = "Channel"
@@ -150,6 +157,7 @@ class SpectrumPlot:
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
+        sf = Masked(sf, s.mask)
         self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
         self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])

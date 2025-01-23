@@ -54,7 +54,21 @@ astropy_frame_dict = {
     "galactocentric": coord.Galactocentric,
     "topocentric": coord.ITRS,  # but need to add observatory position
     "topo": coord.ITRS,  # but need to add observatory position
+    "itrs": coord.ITRS,  # but need to add observatory positionsc.sp
 }
+
+astropy_convenience_frame_names = {
+    "bary": "icrs",
+    "barycentric": "icrs",
+    "heliocentric": "icrs",
+    "helio": "icrs",
+    "geo": "icrs",
+    "geocentric": "icrs",
+    "topocentric": "itrs",
+    "topo": "itrs",
+    "vlsr": "lsrk",
+}
+
 
 # astropy-sanctioned coordinate frame string to label
 frame_to_label = {
@@ -342,28 +356,29 @@ def sanitize_skycoord(target):
 # @todo version that takes a SpectralCoord
 def topocentric_velocity_to_frame(target, toframe, observer, obstime):
     """Compute the difference in topocentric velocity and the velocity in the input frame.
+
     Parameters
     ----------
-        target: `~astropy.coordinates.SkyCoord`
-            The sky coordinates of the object including proper motion and distance. Must be in ICRS
-        target: `~astropy.coordinates.SkyCoord`
-            The sky coordinates of the object including proper motion and distance. Must be in ICRS
+    target: `~astropy.coordinates.SkyCoord`
+        The sky coordinates of the object including proper motion and distance. Must be in ICRS
+    target: `~astropy.coordinates.SkyCoord`
+        The sky coordinates of the object including proper motion and distance. Must be in ICRS
 
-        toframe: str
-            The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
-            The string 'topo' is interpreted as 'itrs'.
-            See astropy-supported reference frames (link)
+    toframe: str
+        The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
+        The string 'topo' is interpreted as 'itrs'.
+        See astropy-supported reference frames (link)
 
-        observer: `~astropy.coordinates.EarthLocation`
-            The location of the observer
+    observer: `~astropy.coordinates.EarthLocation`
+        The location of the observer
 
-        obstime: `~astropy.time.Time`
-            The time of the observation
+    obstime: `~astropy.time.Time`
+        The time of the observation
 
     Returns
     -------
-        radial_velocity : `~astropy.units.Quantity`
-            The radial velocity of the source in `toframe`
+    radial_velocity : `~astropy.units.Quantity`
+        The radial velocity of the source in `toframe`
 
     """
     if not isinstance(target.frame, coord.ICRS):
@@ -389,8 +404,7 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
             done:
 
             * If proper motions attributes of `target` are not set, they will be set to zero.
-            * Similarly, if distance attribute of `target` is not set, it will
-            be set to a very large number.
+            * Similarly, if distance attribute of `target` is not set, it will be set to a very large number.
             * This is done on a copy of the coordinate so as not to change the input object.
 
         toframe: str
@@ -438,18 +452,18 @@ def veltofreq(velocity, restfreq, veldef):
     restfreq: `~astropy.units.Quantity`
         The rest frequency
     veldef : str
-        Velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'
+        Velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'.
 
     Returns
     -------
-        frequency: `~astropy.units.Quantity`
-            The velocity values converted to frequency using `restfreq` and `veldef'
+    frequency: `~astropy.units.Quantity`
+        The velocity values converted to frequency using `restfreq` and `veldef`.
+
     """
 
     vdef = veldef_to_convention(veldef)
     if vdef is None:
         raise ValueError(f"Unrecognized VELDEF: {veldef}")
-    vc = velocity / const.c
     if vdef == "radio":
         radio = u.doppler_radio(restfreq)
         frequency = velocity.to(u.Hz, equivalencies=radio)
@@ -468,7 +482,6 @@ def veltofreq(velocity, restfreq, veldef):
 def change_ctype(ctype, toframe):
     # when changing frame, we should also change CTYPE1. Pretty sure GBTIDL does not do this
     prefix = ctype[0:4]
-    postfix = ctype[4:]
     newpostfix = reverse_frame_dict[toframe]
     newctype = prefix + newpostfix
     # print(f"changing {ctype} to {newctype}")
@@ -546,7 +559,7 @@ class GB20M:
 def gbt_location():
     """
     Create an astropy EarthLocation for the GBT using the same established by GBO.
-    See: page 3: https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf
+    See page 3 of https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf
         latitude    = 38d 25m 59.265s N
         longitude   = 79d 50m 23.419s W
         height      = 854.83 m
@@ -554,9 +567,9 @@ def gbt_location():
     Note these differ from astropy's "GBT" EarthLocation by several meters.
 
     Returns
-    ----------
-        gbt : `~astropy.coordinates.EarthLocation`
-            astropy EarthLocation for the GBT
+    -------
+    gbt : `~astropy.coordinates.EarthLocation`
+        astropy EarthLocation for the GBT
     """
     gbt_lat = 38.4331291667 * u.deg
     gbt_lon = -79.839838611 * u.deg
@@ -582,9 +595,10 @@ class Observatory:
     This can be used for instance in transforming velocities between
     different reference frames.
 
-    Example usage
-    -------------
+    Examples
+    --------
     .. code-block::
+
         obs = Observatory()
         print(obs['GBT'])
         print(obs['ALMA'])
@@ -592,6 +606,7 @@ class Observatory:
     Alternatively, you can treat Observatory like a dict:
 
     .. code-block::
+
         gbt = Observatory["GBT"]
 
     """

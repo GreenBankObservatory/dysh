@@ -3,9 +3,10 @@ from unittest.mock import patch
 import astropy.units as u
 import numpy as np
 import pytest
+from astropy.io import fits
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum
+from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum, average_spectra
 from dysh.util import get_project_testdata
 
 
@@ -25,14 +26,16 @@ def fit_gauss(spectrum):
     return g_fit
 
 
-def compare_spectrum(one, other):
+def compare_spectrum(one, other, ignore_history=False, ignore_comments=False):
     """ """
 
     for k, v in vars(one).items():
         if k in IGNORE_ON_COPY:
             continue
-        # elif k in ["_data", "_mask", "_weights"]:
-        #    assert np.all(v == vars(other)[k])
+        if ignore_history and k == "_history":
+            continue
+        if ignore_history and k == "_comments":
+            continue
         elif k in ["_wcs"]:
             v.to_header() == vars(other)[k].to_header()
         elif k in ["_spectral_axis"]:
@@ -42,15 +45,22 @@ def compare_spectrum(one, other):
             assert v == vars(other)[k]
 
 
+def loadfits(fname):
+    hdu = fits.open(fname)
+    spec = hdu[1].data["DATA"][0]
+    hdu.close()
+    return spec
+
+
 class TestSpectrum:
     def setup_method(self):
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
-        getps0 = sdf.getps(scan=51, plnum=0)
-        self.ps0 = getps0.timeaverage()
-        getps1 = sdf.getps(scan=51, plnum=1)
-        self.ps1 = getps1.timeaverage()
+        self.getps0 = sdf.getps(scan=51, plnum=0)
+        self.ps0 = self.getps0.timeaverage()
+        self.getps1 = sdf.getps(scan=51, plnum=1)
+        self.ps1 = self.getps1.timeaverage()
         self.ss = self.ps0._copy()  # Synthetic one.
         x = np.arange(0, len(self.ss.data))
         fwhm = 5
@@ -60,6 +70,7 @@ class TestSpectrum:
         self.ss.meta["FREQRES"] = abs(self.ss.meta["CDELT1"])
         self.ss.meta["FWHM"] = fwhm
         self.ss.meta["CENTER"] = self.ss.spectral_axis[mean].value
+        self.ss.meta["STDD"] = stdd
 
     def test_add(self):
         """Test that we can add two `Spectrum`."""
@@ -248,9 +259,8 @@ class TestSpectrum:
         For units we only consider frequencies for now.
         """
         meta_ignore = ["CRPIX1", "CRVAL1"]
-        spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
+        spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
         s = slice(1000, 1100, 1)
-
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
         assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
@@ -267,7 +277,7 @@ class TestSpectrum:
         for k in spec_pars:
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
-        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK")
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs")
         # Check that we can write.
         o = tmp_path / "sub"
         o.mkdir()
@@ -318,6 +328,22 @@ class TestSpectrum:
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(1)
+        assert ss.velocity_frame == self.ps0.velocity_frame
+        assert ss.doppler_convention == self.ps0.doppler_convention
+        assert ss.observer.frame_attributes == self.ps0.observer.frame_attributes
+
+        # Now, change the reference frame and see if it still works.
+        from dysh.coordinates import astropy_frame_dict
+
+        s = Spectrum.fake_spectrum()
+        for frame in astropy_frame_dict.keys():
+            try:
+                s.set_frame(frame)
+            except Exception:
+                print(f"set_frame fails for: {frame}")
+                continue
+            print(f"frame set to: {frame}")
+            s.smooth("box", 3)
 
     def test_smooth_decimate(self):
         """Test for smooth with `decimate!=width`."""
@@ -342,6 +368,9 @@ class TestSpectrum:
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
             abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
         )
+        assert ss.velocity_frame == self.ps0.velocity_frame
+        assert ss.doppler_convention == self.ps0.doppler_convention
+        assert ss.observer.frame_attributes == self.ps0.observer.frame_attributes
 
     def test_smooth_nodecimate(self):
         """Test for smooth without decimation."""
@@ -360,7 +389,9 @@ class TestSpectrum:
 
         # Check fitter first.
         g_fit = fit_gauss(self.ss)
-        assert g_fit.stddev.value * 2.35482 == pytest.approx(abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"])
+        assert g_fit.stddev.value * 2.35482 == pytest.approx(
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], g_fit.stddev.std * 2.35482
+        )
 
         # Now smooth the same Spectrum multiple times.
         sss = self.ss._copy()
@@ -391,3 +422,212 @@ class TestSpectrum:
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
             abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
         )
+
+    def test_shift(self):
+        """Test the shift method against the results produced by GBTIDL"""
+
+        # Prepare test data.
+        filename = get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
+        sdf = GBTFITSLoad(filename)
+        nchan = sdf["DATA"].shape[-1]
+        spec = Spectrum.fake_spectrum(nchan=nchan, seed=1)
+        spec.data[nchan // 2 - 5 : nchan // 2 + 6] = 10
+        org_spec = spec._copy()
+        # The next two lines were used to create the input for GBTIDL.
+        # sdf["DATA"] = [spec.data]
+        # sdf.write("shift_testdata.fits")
+
+        # Apply method to be tested.
+        shift = 5.5
+        spec = spec.shift(shift)
+
+        # Internal tests.
+        assert np.all(np.isnan(spec[: int(np.round(shift))].data))
+
+        # Load GBTIDL answer.
+        with fits.open(get_project_testdata() / "gshift_box.fits") as hdu:
+            table = hdu[1].data
+        gbtidl = table["DATA"][0]
+
+        # Compare.
+        # Ignore the edge channels to avoid edge effects.
+        diff = (spec.data - gbtidl)[10:-10]
+        assert np.all(abs(diff) < 5e-4)
+
+        assert spec.meta["CRPIX1"] == org_spec.meta["CRPIX1"] + shift
+        assert spec.spectral_axis[0].to("Hz").value == (
+            org_spec.spectral_axis[0].to("Hz").value - spec.meta["CDELT1"] * shift
+        )
+
+    def test_find_shift(self):
+        """
+        Test the find_shift method.
+        * Test that the shift with respect to itself is zero.
+        * Test that it can find an integer shift.
+        * Test that it can find a fractional shift.
+        * Test that it can find a shift in velocity units.
+        * Test that it can find a shift in a different frame.
+        """
+        spec = Spectrum.fake_spectrum(seed=1)
+
+        # Shift should be zero.
+        assert spec.find_shift(spec) == pytest.approx(0)
+
+        chan_wid = np.mean(np.diff(spec._spectral_axis))
+
+        # Shift by one channel.
+        spec2 = spec._copy()
+        spec2._spectral_axis = spec2.spectral_axis.replicate(value=spec2.spectral_axis + chan_wid)
+        assert spec.find_shift(spec2) == pytest.approx(-1)
+
+        # Shift by one and a half channels.
+        spec3 = spec._copy()
+        spec3._spectral_axis = spec3.spectral_axis.replicate(value=spec3.spectral_axis + chan_wid * 1.5)
+        assert spec.find_shift(spec3) == pytest.approx(-1.5)
+
+        # Shift in velocity.
+        spec4 = spec._copy()
+        velo = spec4.spectral_axis.replicate(value=spec4.spectral_axis.to("km/s"))
+        dvel = velo[1] - velo[0]
+        spec4._spectral_axis = spec4.spectral_axis.replicate(value=velo + dvel * 0.5)
+        assert spec.find_shift(spec4) == pytest.approx(-0.5)
+
+        # Shift in a different frame.
+        assert spec.find_shift(spec4, frame="lsrk") == pytest.approx(-0.5)
+
+    def test_align_to(self):
+        """
+        Tests for align_to method.
+        * Test that align_to itself does not change the spectrum.
+        * Test that aligning to a spectrum with a integer shift preserves the data.
+        * Test that aligning to a spectrum with a fractional shift preserves signal amplitude within errorbars.
+        """
+
+        spec = Spectrum.fake_spectrum(nchan=1024, seed=1)
+        org_spec = spec._copy()
+
+        # Align to itself.
+        spec = spec.align_to(spec)
+        compare_spectrum(spec, org_spec, ignore_history=True)
+        assert np.all((spec - org_spec).data == 0)
+
+        # Align to a shifted version.
+        shift = 5
+        spec = spec.shift(shift)
+        assert np.all((spec.data[shift:] - org_spec.data[:-shift]) == 0.0)
+
+        # Align to a shifted version with signal.
+        fshift = 0.5
+        spec = self.ss._copy()
+        org_spec = spec._copy()
+        spec = spec.shift(shift + fshift)
+        # The amplitude of the signal will decrease because of the sampling.
+        tol = np.sqrt(
+            (1 - np.exp(-0.5 * (fshift) ** 2 / spec.meta["STDD"] ** 2)) ** 2.0
+            + (np.nanstd(spec.data[: len(spec.data) - 50])) ** 2.0
+        )
+        assert spec.max().value == pytest.approx(org_spec.max().value, abs=3 * tol)
+
+    def test_average_spectra(self):
+        """
+        Tests for average_spectra.
+        Although not a class method of `Spectra` it is included here to reuse the setup method of the test.
+        * Test that it does not crash.
+        * Test that it does not crash whit alignment.
+        """
+
+        ps0_org = self.ps0._copy()
+        ps1_org = self.ps1._copy()
+
+        avg = average_spectra((self.ps0, self.ps1))
+        avg2 = self.ps0.average((self.ps1))
+        compare_spectrum(avg, avg2, ignore_history=True, ignore_comments=True)
+
+        avg = average_spectra((self.ps0, self.ps1), align=True)
+        compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
+        compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)
+
+    def test_spectrum_with_frame(self):
+        """Regression test for issue #401 to ensure Spectrum.with_frame functions as advertised.
+        https://github.com/GreenBankObservatory/dysh/issues/401
+        """
+        spec = Spectrum.fake_spectrum()
+        # Ensure that repeated changes of frame to the same frame do note
+        # change after the first transform
+        s1 = spec.with_frame("lsrk")
+        s2 = s1.with_frame("lsrk")
+        assert all(s1.spectral_axis == s2.spectral_axis)
+        assert s2.velocity_frame == "lsrk"
+        assert s2.meta["VELDEF"][4:] == "-LSR"
+
+        # Test that topographic results in an Exception because
+        # users must provide an ITRS coordinate instance in that case.
+        # First change the spectrum frame to somthing else because
+        # if it is already topo/itrs, then the error is circumvented
+        spec2 = Spectrum.fake_spectrum()
+        spec2.set_frame("gcrs")
+        with pytest.raises(ValueError):
+            spec2.set_frame("topo")
+
+        # Setting a new frame to the old frame does NOT result in an
+        # identical observer attribute on the resultant SpectralAxis.
+        # See https://github.com/astropy/astropy/issues/17506
+        # This test ensures that the difference remains small.
+
+        location_diff = np.sqrt(
+            (s1.observer.x - s2.observer.x) ** 2
+            + (s1.observer.y - s2.observer.y) ** 2
+            + (s1.observer.z - s2.observer.z) ** 2
+        )
+        velocity_diff = np.sqrt(
+            (s1.observer.v_x - s2.observer.v_x) ** 2
+            + (s1.observer.v_y - s2.observer.v_y) ** 2
+            + (s1.observer.v_z - s2.observer.v_z) ** 2
+        )
+        assert location_diff < 1.0e-5 * u.m
+        assert velocity_diff < 2e-8 * u.km / u.s
+
+    def test_velocity_axis_to(self):
+        """Regression test for issue 372 https://github.com/GreenBankObservatory/dysh/issues/372
+        Calling velocity_axis_to should not change the object spectral axis.
+        """
+        spec = Spectrum.fake_spectrum()
+        id1 = id(spec.spectral_axis)
+        sa = spec.velocity_axis_to(toframe="lsrk")
+        assert id(spec.spectral_axis) == id1
+        assert id(sa) != id1
+        # converting to identical frame should not change the values in the spectral axis
+        sa = spec.velocity_axis_to(toframe="topo")
+        assert all(sa == spec.spectral_axis)
+
+    def test_baseline(self):
+        """Test for comparing GBTIDL baseline to Dysh baselines"""
+
+        def test_single_baseline(sdf, ex_reg, order, model, gbtidl_bmodel, exclude_region_upper_bounds=True):
+            """For use with TestSpectrum.test_baseline()"""
+            dysh_spec = sdf.getspec(0)
+            temp_bmodel = np.copy(dysh_spec.data)
+            dysh_spec.baseline(
+                order, ex_reg, remove=True, model=model, exclude_region_upper_bounds=exclude_region_upper_bounds
+            )
+            dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
+            diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
+            assert diff < 1.5e-6
+
+        data_dir = get_project_testdata() / "AGBT17A_404_01"
+        sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
+        sdf = GBTFITSLoad(sdf_file)
+        gbtidl_two_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_bmodel.fits")
+        gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")
+
+        order = 3
+        ex_reg = [(0, 99), (381, 449), (721, 819)]
+
+        test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_two_reg)
+        test_single_baseline(sdf, ex_reg, order, "legendre", gbtidl_two_reg)
+        test_single_baseline(sdf, ex_reg, order, "hermite", gbtidl_two_reg)
+        # TODO: polynomial fit test fails until issues 174, 252 are fixed
+        # test_single_baseline(sdf,ex_reg,order,'polynomial',gbtidl_two_reg)
+
+        ex_reg = None
+        test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_no_reg)

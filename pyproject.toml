@@ -2,7 +2,7 @@
 name = "dysh"
 description = ''
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10,<3.13"
 license = {file = "LICENSE"}
 keywords = []
 dynamic = ["version"]
@@ -12,25 +12,25 @@ authors = [
   { name = "Peter Teuben", email = "teuben@umd.edu" },
   { name = "Thomas Chamberlin", email = "tchamber@nrao.edu" },
   { name = "Pedro Salas", email = "psalas@nrao.edu" },
+  { name = "Evan Smith", email = "esmith@nrao.edu" },
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "astropy<6.1.0",
+  "astropy",
   "ipython",
   "jplephem",
   "matplotlib",
   "numpy",
   "pandas",
   "scipy",
-  "specutils",
+  "specutils>1.16",
   "httpx",
   "rich",
   "tenacity",
@@ -50,6 +50,8 @@ dev = [
   "sphinx-autobuild",
   "sphinx-inline-tabs",
   "sphinx-book-theme",
+  "sphinx-design",
+  "sphinx-copybutton",
   "sphinxcontrib-mermaid",
   "nbformat",
   "nbclient",
@@ -95,7 +97,7 @@ cov = "pytest --cov-report=xml --cov-config=pyproject.toml --cov=src/dysh --cov=
 
 # Run tests across all supported version of Python
 [[tool.hatch.envs.test.matrix]]
-python = ["39", "310", "311", "312"]
+python = ["310", "311", "312"]
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/tests", "/bin"]
@@ -181,7 +183,7 @@ src = ["src", "benchmark", "notebooks"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-testpaths = ["tests", "src", "docs"]
+testpaths = ["tests", "src", "notebooks/examples"]
 filterwarnings = [
     "ignore::DeprecationWarning"
 ]

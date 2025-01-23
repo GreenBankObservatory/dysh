@@ -3,6 +3,8 @@ Core functions for spectral data.
 """
 
 import warnings
+from copy import deepcopy
+from functools import reduce
 
 import astropy.units as u
 import numpy as np
@@ -14,11 +16,12 @@ from astropy.convolution import (
 )
 from astropy.modeling.fitting import LinearLSQFitter
 from astropy.modeling.polynomial import Chebyshev1D, Hermite1D, Legendre1D, Polynomial1D
+from scipy import ndimage
 from specutils import SpectralRegion
 from specutils.fitting import fit_continuum
 
 from ..coordinates import veltofreq
-from ..log import log_function_call
+from ..log import log_function_call, logger
 from ..util import minimum_string_match, powerof2
 
 
@@ -107,10 +110,52 @@ def find_blanks(data):
     Returns
     -------
     blanks : `~numpy.ndarray`
-        Array with indices of \blanked integrations.
+        Array with indices of blanked integrations.
     """
 
     return np.where(integration_isnan(data))
+
+
+def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
+    """
+    Find the indices of integrations that are not blanked.
+
+    Parameters
+    ----------
+    cycle1 : `~numpy.ndarray`
+        Data for cycle 1. For example, signal with the noise diode off.
+    cycle2 : `~numpy.ndarray`
+        Data for cycle 2. For example, reference with the noise diode off.
+    cycle3 : `~numpy.ndarray`
+        Data for cycle 3. For example, signal with the noise diode on.
+        Default is `None`.
+    cycle4 : `~numpy.ndarray`
+        Data for cycle 4. For example, reference with the noise diode on.
+        Default is `None`.
+
+    Returns
+    -------
+    goodrows : `~numpy.array`
+        Indices of the non-blanked rows.
+    """
+
+    nb1 = find_non_blanks(cycle1)
+    nb2 = find_non_blanks(cycle2)
+    if cycle3 is not None:
+        nb3 = find_non_blanks(cycle3)
+    else:
+        nb3 = nb1
+    if cycle4 is not None:
+        nb4 = find_non_blanks(cycle4)
+    else:
+        nb4 = nb2
+    goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
+
+    if len(goodrows) != len(cycle1):
+        nblanks = len(cycle1) - len(goodrows)
+        logger.info(f"Ignoring {nblanks} blanked integration(s).")
+
+    return goodrows
 
 
 def exclude_to_region(exclude, refspec, fix_exclude=False):
@@ -254,7 +299,7 @@ def exclude_to_mask(exclude, refspec):
 
 
 @log_function_call()
-def baseline(spectrum, order, exclude=None, **kwargs):
+def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
     """Fit a baseline for a spectrum
 
     Parameters
@@ -287,6 +332,8 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         One of 'polynomial' or 'chebyshev', Default: 'polynomial'
     fitter : `~astropy.fitting._FitterMeta`
         The fitter to use. Default: `~astropy.fitter.LinearLSQFitter` (with `calc_uncertaintes=True`).  Be care when choosing a different fitter to be sure it is optimized for this problem.
+    exclude_region_upper_bounds : bool
+        Makes the upper bound of any excision region(s) inclusive. Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
 
     Returns
     -------
@@ -338,7 +385,13 @@ def baseline(spectrum, order, exclude=None, **kwargs):
         # exist (they will be a list of SpectralRegions or None)
         regionlist = p._exclude_regions
     print(f"EXCLUDING {regionlist}")
-    return fit_continuum(spectrum=p, model=selected_model, fitter=fitter, exclude_regions=regionlist)
+    return fit_continuum(
+        spectrum=p,
+        model=selected_model,
+        fitter=fitter,
+        exclude_regions=regionlist,
+        exclude_region_upper_bounds=exclude_region_upper_bounds,
+    )
 
 
 def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
@@ -678,5 +731,123 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
     if show:
         return kernel
     # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
-    new_data = convolve(data, kernel, boundary="extend")
+    if hasattr(data, "mask"):
+        mask = data.mask
+    else:
+        mask = None
+    new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
     return new_data
+
+
+def data_ishift(y, ishift, axis=-1, remove_wrap=True, fill_value=np.nan):
+    """
+    Shift `y` by `ishift` channels, where `ishift` is a natural number.
+
+    Parameters
+    ----------
+    y : array
+        Data to be shifted.
+    ishift : int
+        Amount to shift data by.
+    axis : int
+        Axis along which to apply the shift.
+    remove_wrap : bool
+        Replace channels that wrap around with `fill_value`.
+    fill_value : float
+        Value used to replace the data in channels that wrap around after the shift.
+
+    Returns
+    -------
+    new_y : array
+        Shifted `y`.
+    """
+
+    new_y = np.roll(y, ishift, axis=axis)
+
+    if remove_wrap:
+        if ishift < 0:
+            new_y[ishift:] = fill_value
+        else:
+            new_y[:ishift] = fill_value
+
+    return new_y
+
+
+def data_fshift(y, fshift, method="fft", pad=False, window=True):
+    """
+    Shift `y` by `fshift` channels, where `abs(fshift)<1`.
+
+    Parameters
+    ----------
+    y : array
+        Data to be shifted.
+    fshift : float
+        Amount to shift the data by.
+        abs(fshift) must be less than 1.
+    method : "fft" | "interpolate"
+        Method to use for shifting.
+        "fft" uses a phase shift.
+        "interpolate" uses `scipy.ndimage.shift`.
+    pad : bool
+        Pad the data during the phase shift.
+        Only used if `method="fft"`.
+    window : bool
+        Apply a Welch window during phase shift.
+        Only used if `method="fft"`.
+    """
+
+    if abs(fshift) > 1:
+        raise ValueError("abs(fshift) must be less than one: {fshift}")
+
+    if method == "fft":
+        new_y = fft_shift(y, fshift, pad=pad, window=window)
+    elif method == "interpolate":
+        new_y = ndimage.shift(y, [fshift])
+
+    return new_y
+
+
+def data_shift(y, s, axis=-1, remove_wrap=True, fill_value=np.nan, method="fft", pad=False, window=True):
+    """
+    Shift `y` by `s` channels.
+
+    Parameters
+    ----------
+    y : array
+        Data to be shifted.
+    s : float
+        Amount to shift the data by.
+    axis : int
+        Axis along which to apply the shift.
+    remove_wrap : bool
+        Replace channels that wrap around with `fill_value`.
+    fill_value : float
+        Value used to replace the data in channels that wrap around after the shift.
+    method : "fft" | "interpolate"
+        Method to use for shifting.
+        "fft" uses a phase shift.
+        "interpolate" uses `scipy.ndimage.shift`.
+    pad : bool
+        Pad the data during the phase shift.
+        Only used if `method="fft"`.
+    window : bool
+        Apply a Welch window during phase shift.
+        Only used if `method="fft"`.
+    """
+
+    ishift = int(np.round(s))  # Integer shift.
+    fshift = s - ishift  # Fractional shift.
+
+    logger.debug(f"Shift: s={s}  ishift={ishift} fshift={fshift}")
+
+    if ishift != 0:
+        # Apply integer shift.
+        y_new = data_ishift(y, ishift, axis=axis, remove_wrap=remove_wrap, fill_value=fill_value)
+    else:
+        y_new = deepcopy(y)
+
+    if fshift != 0:
+        # Apply fractional shift.
+        y_new = data_fshift(y_new, fshift, method=method, pad=pad, window=window)
+
+    return y_new
