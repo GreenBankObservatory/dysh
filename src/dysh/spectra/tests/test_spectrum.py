@@ -1,3 +1,4 @@
+import warnings
 from unittest.mock import patch
 
 import astropy.units as u
@@ -626,11 +627,28 @@ class TestSpectrum:
         test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_two_reg)
         test_single_baseline(sdf, ex_reg, order, "legendre", gbtidl_two_reg)
         test_single_baseline(sdf, ex_reg, order, "hermite", gbtidl_two_reg)
-        # TODO: polynomial fit test fails until issues 174, 252 are fixed
-        # test_single_baseline(sdf,ex_reg,order,'polynomial',gbtidl_two_reg)
+        test_single_baseline(sdf, ex_reg, order, "polynomial", gbtidl_two_reg)
 
         ex_reg = None
         test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_no_reg)
+
+        # Test that no warnings are issued.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self.ps0.baseline(model="poly", degree=2)
+
+        # Test baseline removal with velocity units and known anwser.
+        s = Spectrum.fake_spectrum()
+        s.spectral_axis.to("km/s")
+        s._spectral_axis = s.spectral_axis.to("km/s")
+        # Add a polynomial.
+        pcoef = np.array([1, 5, 10])
+        s += np.poly1d(pcoef)(np.linspace(1, -1, len(s.spectral_axis)))
+        s.baseline(degree=2, model="poly", remove=True)
+        for pn in s._baseline_model.unitless_model.param_names:
+            fit_val = getattr(s._baseline_model.unitless_model, pn).value
+            in_val = pcoef[::-1][int(pn[-1])]
+            assert (in_val - fit_val) / in_val < 0.1
 
         # Test with units. Nothing to compare to though.
         dysh_spec = sdf.getspec(0)
