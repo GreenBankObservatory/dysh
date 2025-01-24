@@ -1,5 +1,8 @@
 import glob
 import os
+import pathlib
+import platform
+import shutil
 from copy import deepcopy
 from pathlib import Path
 
@@ -28,6 +31,7 @@ class TestGBTFITSLoad:
         """
         expected = {
             "TGBT21A_501_11.raw.vegas.fits": 4,
+            "TGBT21A_501_11_2.raw.vegas.fits": 8,
             "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits": 1,
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits": 1,
@@ -676,6 +680,32 @@ class TestGBTFITSLoad:
         assert "My dear Aunt Sally" in sdf.comments
         assert "ran the test for history and comments" in sdf.history
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
+
+    def test_online(self, tmp_path):
+        f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
+        #
+        sdfits = tmp_path / "sdfits"
+        sdfits.mkdir()
+        os.environ["SDFITS_DATA"] = str(sdfits)
+        print("PJT1", sdfits)
+        o1 = sdfits / "online.fits"
+        print("PJT2", o1)
+        #
+        shutil.copyfile(f1, o1)
+        sdf = gbtfitsload.GBTOnline()
+        s = sdf.summary()
+        n = len(sdf._index)
+        assert n == 4
+        if sdf._platform == "Windows":
+            # os.remove(o1)
+            # pathlib.Path.unlink(o1)
+            print("Windows seems to lock the file, can't remover or overwite")
+        else:
+            shutil.copyfile(f2, o1)
+            s = sdf.summary()
+            n = len(sdf._index)
+            assert n == 8
 
     def test_write_read_flags(self, tmp_path):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"

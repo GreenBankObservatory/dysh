@@ -23,6 +23,7 @@ class TestSDFITSLoad:
         """
         expected = {
             "TGBT21A_501_11.raw.vegas.fits": 4,
+            "TGBT21A_501_11_2.raw.vegas.fits": 8,
             "TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits": 1,
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits": 1,
             "TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits": 1,
