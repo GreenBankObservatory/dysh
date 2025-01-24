@@ -267,6 +267,7 @@ nb_execution_mode = "cache"
 # Use this mode if working on the documentation with sphinx-autobuild.
 # nb_execution_mode = "auto"
 
+
 # Where to store the notebook cache
 nb_execution_cache_path = "jupyter_cache"
 
