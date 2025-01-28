@@ -2,6 +2,29 @@
 Version 0.4.0
 =============
 
+Functionality & Enhancements
+----------------------------
+- Calibration of Nod observations
+  - Nod observations can be calibrated using `GBTFITSLoad.getnod() <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getnod>`_. By default `dysh` will identify which beams were used for the nodding, but these can be specified via the `fdnum` argument.
+- Metadata management
+  - `SDFITSLoad` and `GBTFITSLoad` objects now have access to their column data via their get and set methods. For an example see the `metadata management recipes <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/metadata_management.html>`_.
+- Smoothing
+  - `Spectrum` objects can now be smoothed using their `smooth` method.
+  - Current smoothing kernels include a Gaussian, boxcar and Hanning windows. Their widths are specified in channels.
+  - By default the `Spectrum` will be decimated by the kernel width. This can be changed with the `decimate` argument.
+- Alignment of `Spectrum` objects
+  - `Spectrum` objects can now be aligned with respect to each other to match their spectral axes.
+  - The alignment matches the first channel of the `Spectrum` being aligned.
+  - The alignment can be done in frequency or velocity space.
+- Data IO
+  - `dysh` can now write and read `SDFITSLoad`, `ScanBlock` and `Spectrum` objects to a variety of formats. For an example see `data IO recipes <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/dataIO.html>`_.
+- Logging
+  - `dysh` now uses `logging`. The logging level can be set at startup using the `-v` option or at runtime using `dysh.log.init_logging`.
+- Data reduction history
+  - `dysh` objects now keep track of their history in their `history` attribute. This is written to disk to enhance data reduction reproducibility.
+- Drop support for `Python3.8`
+  - `dysh` now is only available for `Python3.9` and above.
+
 Bug Fixes
 ---------
 - `Velocity frame documentation <https://github.com/GreenBankObservatory/dysh/issues/303>`_
@@ -21,7 +44,7 @@ Version 0.3.0
 ==============
 
 Functionality & Enhancements
----------------------------------
+----------------------------
 - Handling of Doppler frames and conventions
     - A GBT Spectrum has a spectral axis derived from the WCS of the spectrum (which in turn is created from meta data in the SDFITS file).  The default Doppler frame for this axis is topocentric.  The spectral axis of a Spectrum can be converted to standard frames recognized by astropy: LSRK, HCRS, ICRS, GCRS, ITRS, GalactoCentric. See `Spectrum.set_frame <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.set_frame>`_, `Spectrum.with_frame <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.with_frame>`_, and also the `xaxis_unit` and `vel_frame` keywords to `SpecPlot.plot.  <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.plot>`_
     -  The Doppler conventions *radio, optical, relativistic* are recognized by `dysh`.  Users can convert a Spectrum to different conventions with `Spectrum.set_convention <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.set_convention>`_ and `Spectrum.with_velocity_convention <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.set_convention>`_.  See also, the `doppler_convention` keyword of  `SpecPlot.plot <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.plot>`_
