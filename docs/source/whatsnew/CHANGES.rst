@@ -2,28 +2,32 @@
 Version 0.4.0
 =============
 
+.. _0.4.0-functionality
+
 Functionality & Enhancements
 ----------------------------
 - Calibration of Nod observations
-  - Nod observations can be calibrated using `GBTFITSLoad.getnod() <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getnod>`_. By default `dysh` will identify which beams were used for the nodding, but these can be specified via the `fdnum` argument.
+    - Nod observations can be calibrated using `GBTFITSLoad.getnod() <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getnod>`_. By default `dysh` will identify which beams were used for the nodding, but these can be specified via the `fdnum` argument.
 - Metadata management
-  - `SDFITSLoad` and `GBTFITSLoad` objects now have access to their column data via their get and set methods. For an example see the `metadata management recipes <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/metadata_management.html>`_.
+    - `SDFITSLoad` and `GBTFITSLoad` objects now have access to their column data via their get and set methods. For an example see the `metadata management recipes <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/metadata_management.html>`_.
 - Smoothing
-  - `Spectrum` objects can now be smoothed using their `smooth` method.
-  - Current smoothing kernels include a Gaussian, boxcar and Hanning windows. Their widths are specified in channels.
-  - By default the `Spectrum` will be decimated by the kernel width. This can be changed with the `decimate` argument.
+    - `Spectrum` objects can now be smoothed using their `smooth <https://dysh.readthedocs.io/en/latest/release-0.4.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.smooth>`_ method.
+    - Current smoothing kernels include a Gaussian, boxcar and Hanning windows. Their widths are specified in channels.
+    - By default the `Spectrum` will be decimated by the kernel width. This can be changed with the `decimate` argument.
 - Alignment of `Spectrum` objects
-  - `Spectrum` objects can now be aligned with respect to each other to match their spectral axes.
-  - The alignment matches the first channel of the `Spectrum` being aligned.
-  - The alignment can be done in frequency or velocity space.
+    - `Spectrum` objects can now be aligned with respect to each other to match their spectral axes.
+    - The alignment matches the first channel of the `Spectrum` being aligned.
+    - The alignment can be done in frequency or velocity space.
 - Data IO
-  - `dysh` can now write and read `SDFITSLoad`, `ScanBlock` and `Spectrum` objects to a variety of formats. For an example see `data IO recipes <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/dataIO.html>`_.
+    - `dysh` can now write and read `SDFITSLoad`, `ScanBlock` and `Spectrum` objects to a variety of formats. For an example see `data IO recipes <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/dataIO.html>`_.
 - Logging
-  - `dysh` now uses `logging`. The logging level can be set at startup using the `-v` option or at runtime using `dysh.log.init_logging`.
+    - `dysh` now uses `logging`. The logging level can be set at startup using the `-v` option or at runtime using `dysh.log.init_logging <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.log.html#dysh.log.init_logging>`_.
 - Data reduction history
-  - `dysh` objects now keep track of their history in their `history` attribute. This is written to disk to enhance data reduction reproducibility.
+    - `dysh` objects now keep track of their history in their `history` attribute. This is written to disk to enhance data reduction reproducibility.
 - Drop support for `Python3.8`
-  - `dysh` now is only available for `Python3.9` and above.
+    - `dysh` now is only available for `Python3.9` and above.
+
+.. _0.4.0-bugfixes
 
 Bug Fixes
 ---------
@@ -43,6 +47,8 @@ Bug Fixes
 Version 0.3.0
 ==============
 
+.. _0.3.0-functionality
+
 Functionality & Enhancements
 ----------------------------
 - Handling of Doppler frames and conventions
@@ -58,8 +64,10 @@ Functionality & Enhancements
 - `ScanBlock <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock>`_  API change
     - `timeaverage() <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock.timeaverage>`_ now returns a Spectrum instead of a list.  Previously the list contained the time average of each Scan within the ScanBlock.   Now the time average across all Scans in the ScanBlock is returned.
 
+.. _0.3.0-bugfixes
+
 Bug Fixes
------------
+---------
 -  `SubBeamNod error when using cycle method <https://github.com/GreenBankObservatory/dysh/issues/207>`_
 -  `Spectrum arithmetic operations not working <https://github.com/GreenBankObservatory/dysh/issues/208>`_
 -  `SDFITS summary() reports wrong number of integrations <https://github.com/GreenBankObservatory/dysh/issues/211>`_
