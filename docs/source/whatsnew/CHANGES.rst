@@ -1,4 +1,22 @@
 
+Version 0.4.0
+=============
+
+Bug Fixes
+---------
+- `Velocity frame documentation <https://github.com/GreenBankObservatory/dysh/issues/303>`_
+- `Error with frame conversion of Spectrum <https://github.com/GreenBankObservatory/dysh/issues/401>`_
+- `pytest does not remove the files it creates <https://github.com/GreenBankObservatory/dysh/issues/369>`_
+- `specutils excise_regions are not inclusive on the first boundary <https://github.com/GreenBankObservatory/dysh/issues/378>`_
+- `use of Table.loc fails for astropy 6.1.0 <https://github.com/GreenBankObservatory/dysh/issues/245>`_
+- `Descriptive error/warning message for blank integrations <https://github.com/GreenBankObservatory/dysh/issues/254>`_
+- `Notebook download outputs have white background in dark mode <https://github.com/GreenBankObservatory/dysh/issues/336>`_
+- `ReadTheDocs raises new warnings <https://github.com/GreenBankObservatory/dysh/issues/338>`_
+- `Use of Pathlib <https://github.com/GreenBankObservatory/dysh/issues/347>`_
+- `Plotting changes spectral_axis of a Spectrum <https://github.com/GreenBankObservatory/dysh/issues/372>`_
+- `gettp() does not separate the IF's in a nodding example <https://github.com/GreenBankObservatory/dysh/issues/361>`_
+- `Spectrum smooth does not preserve vel frame <https://github.com/GreenBankObservatory/dysh/issues/417>`_
+
 Version 0.3.0
 ==============
 
