@@ -9,9 +9,18 @@ Overview
 ========
 In this release, `dysh` has the following new or updated features:
 
-* Smoothing of :py:class:`~dysh.spectra.Spectrum` objects along their spectral axis. (see :py:meth:`Spectrum.smooth <dysh.spectra.Spectrum.smooth>`)
-* Alignment of :py:class:`~dysh.spectra.Spectrum` objects (see :py:meth:`Spectrum.align_to <dysh.spectra.Spectrum.align_to>`)
-*
+* Smoothing of :py:class:`Spectrum` objects along their spectral axis. (see :py:meth:`Spectrum.smooth <dysh.spectra.Spectrum.smooth>`)
+* Alignment of :py:class:`Spectrum` objects (see :py:meth:`Spectrum.align_to <dysh.spectra.Spectrum.align_to>`)
+* Calibration of Nod observations (see :py:meth:`GBTFITSLoad.getnod`)
+* Selection of baseline inclusion and exclusion ranges using units
+* Flagging (see `https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/flagging.html`_)
+* Metadata management (see `https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/metadata_management.html`_)
+* Reading and writing data (see `https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/dataIO.html`_)
+* Logging functionality
+* Data reduction history
+* Updates to the documentation
+* Drop support for `Python3.8`
+* Bug fixes
 
 Full change log
 ===============
