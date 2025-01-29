@@ -8,6 +8,10 @@ From nodding we have two cases:
 getps - review the standard test='getps'
 nod1  fdnum=[10,1]      unbalanced calrows 0 != 6        tp nocal;  TBD
 nod3  fdnum=[0,1]       unbalanced calrows 0 != 6        tp nocal;  TBD
+
+Related issues:
+
+https://github.com/GreenBankObservatory/dysh/issues/457     flagging problem
 """
 
 import os
@@ -327,9 +331,9 @@ _help = """
 3   289  1-631680      0.0    Nod         1  111.711282  111.711282    1     1     6     16  310.344245  55.705345
 """
 
-
+)
 f1 = dysh_data(accept='AGBT22A_325_15/AGBT22A_325_15.raw.vegas')  # accept='nod1'
-sdf1=GBTFITSLoad(f1)
+sdf1=GBTFITSLoad(f1, skipflags=True)
 # 8 files, 16 beams, each file has 2 beams - 4 scans, VANE/SKY/Nod/Nod
 sdf1.summary()    # 256 rows
 # extract 290 and 289 (note order is odd in sdfits:   290 came before 289
@@ -388,7 +392,7 @@ _help = """
 6      23   NGC0001      0.0  DecLatMap         1  113.571858  113.571858    1     1    68     16  177.410654  78.233486
 """
 
-sdf2 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'))
+sdf2 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'), skipflags=True)
 a = sdf2.summary()  # 208 scans   1363MB
 print(a)
 b=a[a["OBJECT"] == "VANE"]
@@ -437,7 +441,7 @@ sp3.plot(xaxis_unit="km/s")
 
 
 #%% EDGE2 nod example on NGC5908
-sdf1=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'))
+sdf1=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'), skipflags=True)
 
 mkdir("edge2")
 sdf1.write("edge2/file.fits", scan=[327,328,329,330,331,332,333,334], overwrite=True)                # 4576 rows
@@ -510,7 +514,7 @@ _help = """
 """
 
 f3 = dysh_data(accept='AGBT15B_244_07/AGBT15B_244_07.raw.vegas')
-sdf3=GBTFITSLoad(f3)
+sdf3=GBTFITSLoad(f3, skipflags=True)
 # 8 fits files,   2 for beams, 4 for IF  - 12 scans (2 CALSEQ - W-band receiver at 87 GHz)
 sdf3.summary()
 # 11072 rows
@@ -596,7 +600,7 @@ _help = """
 """
 
 f5 = dysh_data(example="mapping-Argus/data/TGBT22A_603_05.raw.vegas")
-sdf5 = GBTFITSLoad(f5)
+sdf5 = GBTFITSLoad(f5, skipflags=True)
 sdf5.summary()   # 53 scans (10..62)
 
 mkdir("vane5")
@@ -640,7 +644,7 @@ _help = """
 """
 
 f6 = dysh_data(example="rxco-W/data/TSCAL_220105_W.raw.vegas")
-sdf6 = GBTFITSLoad(f6)
+sdf6 = GBTFITSLoad(f6, skipflags=True)
 sdf6.summary()
 sdf6._index[kw]    # 1728
 
