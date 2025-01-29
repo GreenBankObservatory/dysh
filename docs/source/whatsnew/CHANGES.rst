@@ -24,8 +24,13 @@ Functionality & Enhancements
     - `dysh` now uses `logging`. The logging level can be set at startup using the `-v` option or at runtime using `dysh.log.init_logging <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.log.html#dysh.log.init_logging>`_.
 - Data reduction history
     - `dysh` objects now keep track of their history in their `history` attribute. This is written to disk to enhance data reduction reproducibility.
+- Online/Offline mode
+    - `dysh` can now access the latest spectral line observations using `GBTOnline <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTOnline>`_. This will also automatically update the contents of the `GBTFITSLoad` object as new data is written to disk. This mode is only available when working from a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_.
+    - `GBTOffline <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTOffline>`_ will fetch the data for an observations by specifying the session id (e.g., AGBT24A_999_01).
 - Drop support for `Python3.8`
     - `dysh` now is only available for `Python3.9` and above.
+- Gain correction classes
+    - Gain correction classes for computing gain correction as a function of elevation, aperture efficiency, surface error, and airmass. (See `GBTGainCorrection https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.util.html#dysh.util.gaincorrection.GBTGainCorrection>`_.
 
 .. _0.4.0-bugfixes
 
