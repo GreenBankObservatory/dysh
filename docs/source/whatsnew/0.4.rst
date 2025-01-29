@@ -9,8 +9,8 @@ Overview
 ========
 In this release, `dysh` has the following new or updated features:
 
-* Smoothing of :py:class:`Spectrum` objects along their spectral axis. (see `Spectrum.smooth <https://dysh.readthedocs.io/en/latest/release-0.4.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.smooth>`_)
-* Alignment of :py:class:`Spectrum` objects (see `Spectrum.align_to <https://dysh.readthedocs.io/en/latest/release-0.4.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.align_to>`_)
+* Smoothing of :py:class:`Spectrum` objects along their spectral axis. (see `Spectrum.smooth <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.smooth>`_)
+* Alignment of :py:class:`Spectrum` objects (see `Spectrum.align_to <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.align_to>`_)
 * Calibration of Nod observations (see `GBTFITSLoad.getnod() <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getnod>`_)
 * Selection of baseline inclusion and exclusion ranges using units
 * Flagging (see `flagging recipe <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/flagging.html>`_)
