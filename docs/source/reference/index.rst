@@ -40,9 +40,27 @@
 
             SDFITS files
 
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Dysh for GBTIDL Users**
+
+        Dysh for GBTIDL Users
+
+        .. button-link:: dysh-for-gbtidl-users.html
+            :color: primary
+            :tooltip: Dysh for GBTIDL Users
+            :outline:
+            :click-parent:
+
+            Dysh for GBTIDL Users
+
 .. toctree::
     :maxdepth: 3
     :hidden:
 
     modules/index
     sdfits_files/index
+    dysh-for-gbtidl-users
