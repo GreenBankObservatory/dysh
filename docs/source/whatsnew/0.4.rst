@@ -19,7 +19,7 @@ In this release, `dysh` has the following new or updated features:
 * Logging functionality
 * Data reduction history
 * Online and offline modes
-* Gain correction classes for computing gain correction as a function of elevation, aperture efficiency, surface error, and airmass. (See `GBTGainCorrection https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.util.html#dysh.util.gaincorrection.GBTGainCorrection>`_
+* Gain correction classes
 * Updates to the documentation
 * Drop support for `Python3.8`
 * Bug fixes

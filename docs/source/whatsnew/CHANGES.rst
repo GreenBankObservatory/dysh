@@ -30,7 +30,7 @@ Functionality & Enhancements
 - Drop support for `Python3.8`
     - `dysh` now is only available for `Python3.9` and above.
 - Gain correction classes
-    - Gain correction classes for computing gain correction as a function of elevation, aperture efficiency, surface error, and airmass. (See `GBTGainCorrection https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.util.html#dysh.util.gaincorrection.GBTGainCorrection>`_.
+    - Gain correction classes for computing gain correction as a function of elevation, aperture efficiency, surface error, and airmass. (See `GBTGainCorrection <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.util.html#dysh.util.gaincorrection.GBTGainCorrection>`_).
 
 .. _0.4.0-bugfixes
 
