@@ -92,7 +92,7 @@ class GBTGainCorrection(BaseGainCorrection):
         gain_correction_table : str or `pathlib.Path`
              File to read that contains the parameterized gain correction as a function
              of zenith distance and time
-            (see `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>_`).
+            (see `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
              Must be in an `~astropy.table.QTable` readable format.
              Default None will usedysh's internal GBT gain correction table.
         """
@@ -110,14 +110,13 @@ class GBTGainCorrection(BaseGainCorrection):
         return self._gct
 
     def airmass(self, angle: Union[Angle, Quantity], zd: bool = False, **kwargs) -> Union[float, np.ndarray]:
-        r"""
+        """
         Computes the airmass at given elevation(s) or zenith distance(s).  The formula used is
 
         :math:`A = -0.0234 + 1.014/sin(El+5.18/(El+3.35))`
 
         for elevation in degrees. This function is specific for the GBT location derived
-        from vertical weather data. Source: `(Maddalena 2007)
-        <https://www.gb.nrao.edu/~rmaddale/GBT/Maddalena_HighPrecisionCalibration.pdf>_`
+        from vertical weather data. Source: `(Maddalena 2007) <https://www.gb.nrao.edu/~rmaddale/GBT/Maddalena_HighPrecisionCalibration.pdf>`_
 
         Parameters
         ----------
@@ -197,7 +196,7 @@ class GBTGainCorrection(BaseGainCorrection):
         r"""
                 Compute the gain correction scale factor, to be used in the aperture efficiency
                 calculation. The factor is a float between zero and 1.
-                (See `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>_`).
+                (See `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
         The factor is
                 determined by:
 
@@ -244,7 +243,7 @@ class GBTGainCorrection(BaseGainCorrection):
                 :math:`\eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon_0/\lambda)^2)`
 
         where :math:`\eta_0` is the long wavelength aperture efficiency, :math:`G(ZD)` is the gain correction factor
-        at a zenith distance :math:`ZD, \epsilon_0`is the surface error, and :math:`\lambda` is the wavelength.
+        at a zenith distance :math:`ZD, \epsilon_0` is the surface error, and :math:`\lambda` is the wavelength.
 
         Parameters
         ----------
