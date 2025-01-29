@@ -9,9 +9,20 @@ Overview
 ========
 In this release, `dysh` has the following new or updated features:
 
-* Smoothing of :py:class:`~dysh.spectra.Spectrum` objects along their spectral axis. (see :py:meth:`Spectrum.smooth <dysh.spectra.Spectrum.smooth>`)
-* Alignment of :py:class:`~dysh.spectra.Spectrum` objects (see :py:meth:`Spectrum.align_to <dysh.spectra.Spectrum.align_to>`)
-*
+* Smoothing of :py:class:`Spectrum` objects along their spectral axis. (see `Spectrum.smooth <https://dysh.readthedocs.io/en/latest/release-0.4.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.smooth>`_)
+* Alignment of :py:class:`Spectrum` objects (see `Spectrum.align_to <https://dysh.readthedocs.io/en/latest/release-0.4.0/modules/dysh.spectra.html#dysh.spectra.spectrum.Spectrum.align_to>`_)
+* Calibration of Nod observations (see `GBTFITSLoad.getnod() <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getnod>`_)
+* Selection of baseline inclusion and exclusion ranges using units
+* Flagging (see `flagging recipe <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/flagging.html>`_)
+* Metadata management (see `modifying metadata recipe <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/metadata_management.html>`_)
+* Reading and writing data (see `saving data recipe <https://dysh.readthedocs.io/en/release-0.4.0/how-tos/examples/dataIO.html>`_)
+* Logging functionality
+* Data reduction history
+* Online and offline modes
+* Gain correction classes for computing gain correction as a function of elevation, aperture efficiency, surface error, and airmass. (See `GBTGainCorrection https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.util.html#dysh.util.gaincorrection.GBTGainCorrection>`_
+* Updates to the documentation
+* Drop support for `Python3.8`
+* Bug fixes
 
 Full change log
 ===============
