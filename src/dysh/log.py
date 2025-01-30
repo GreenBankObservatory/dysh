@@ -11,7 +11,6 @@ from io import StringIO
 from pathlib import Path
 from typing import Callable, NewType, Union  # , Self # not available until 3.11
 
-import _testcapi
 from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
 
@@ -202,9 +201,7 @@ def log_function_call(log_level: str = "info"):
                 result = func(*args, **kwargs)
             except:  # remove the wrapper from the stack trace
                 tp, exc, tb = sys.exc_info()
-                _testcapi.set_exc_info(tp, exc, tb.tb_next)
-                del tp, exc, tb
-                raise
+                raise tp(exc).with_traceback(tb.tb_next)
             # Log the function name and arguments
             sig = inspect.signature(func)
             logmsg = f"DYSH v{dysh_version} : {func.__module__}"
@@ -283,18 +280,15 @@ def log_call_to_result(func: Callable):
             try:
                 result = func(*args, **kwargs)
             except:  # remove the wrapper from the stack trace
+                # @todo this no longer works under python >3.9
                 tp, exc, tb = sys.exc_info()
-                _testcapi.set_exc_info(tp, exc, tb.tb_next)
-                del tp, exc, tb
-                raise
+                raise tp(exc).with_traceback(tb.tb_next)
         else:
             try:
                 result = func(self, *args, **kwargs)
             except:  # remove the wrapper from the stack trace
                 tp, exc, tb = sys.exc_info()
-                _testcapi.set_exc_info(tp, exc, tb.tb_next)
-                del tp, exc, tb
-                raise
+                raise tp(exc).with_traceback(tb.tb_next)
         resultname = result.__class__.__name__
         if hasattr(result, "_history"):
             sig = inspect.signature(func)
@@ -352,17 +346,13 @@ def log_call_to_history(func: Callable):
                 result = func(*args, **kwargs)
             except:  # remove the wrapper from the stack trace
                 tp, exc, tb = sys.exc_info()
-                _testcapi.set_exc_info(tp, exc, tb.tb_next)
-                del tp, exc, tb
-                raise
+                raise tp(exc).with_traceback(tb.tb_next)
         else:  # it's a class instance
             try:
                 result = func(self, *args, **kwargs)
             except:  # remove the wrapper from the stack trace
                 tp, exc, tb = sys.exc_info()
-                _testcapi.set_exc_info(tp, exc, tb.tb_next)
-                del tp, exc, tb
-                raise
+                raise tp(exc).with_traceback(tb.tb_next)
             classname = self.__class__.__name__
             if hasattr(self, "_history"):
                 sig = inspect.signature(func)
