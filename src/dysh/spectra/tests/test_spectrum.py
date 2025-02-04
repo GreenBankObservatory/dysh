@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
+from dysh.coordinates import Observatory
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum, average_spectra
 from dysh.util import get_project_testdata
@@ -699,3 +700,39 @@ class TestSpectrum:
         dysh_spec.baseline(order, include=in_reg, model="chebyshev")
         in_reg = [21 * u.cm, 21.5 * u.cm]
         dysh_spec.baseline(order, include=in_reg, model="chebyshev")
+
+    def test_make_spectrum(self):
+        """
+        * Test that make_spectrum raises ValueError
+        """
+
+        meta = {
+            "CTYPE3": "DEC",
+            "CTYPE2": "RA",
+            "CTYPE1": "FREQ-OBS",
+            "EQUINOX": 2000.0,
+            "VELOCITY": 0.0,
+            "CUNIT1": "Hz",
+            "CUNIT2": "deg",
+            "CUNIT3": "deg",
+            "CRVAL1": 1e9,
+            "CDELT1": 0.1e9,
+            "CRVAL2": 121.0,
+            "CRVAL3": 15.0,
+            "RADECSYS": "FK5",
+            "VELDEF": "OPTI-HEL",
+            "DATE-OBS": "2021-02-10T07:38:37.50",
+            #'RESTFRQ': 1e9,
+        }
+        with pytest.raises(ValueError) as excinfo:
+            s = Spectrum.make_spectrum(
+                data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+            )
+        assert excinfo.type is ValueError
+        assert excinfo.value.args == ("Header (meta) is missing one or more required keywords: {'RESTFRQ'}",)
+
+        meta["RESTFRQ"] = 1e9
+        s = Spectrum.make_spectrum(
+            data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+        )
+        assert s.meta["RADESYS"] == meta["RADECSYS"]
