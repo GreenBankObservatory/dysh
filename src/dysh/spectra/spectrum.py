@@ -1076,8 +1076,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
             ]
         )
 
-        if not _required <= meta.keys():
-            raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
+        missing = set(_required).difference(set(meta.keys()))
+        # RADECSYS is also a valid column name. See issue #287
+        # https://github.com/GreenBankObservatory/dysh/issues/287
+        if missing == set({"RADESYS"}) and "RADECSYS" in meta.keys():
+            meta["RADESYS"] = deepcopy(meta["RADECSYS"])
+            del meta["RADECSYS"]
+        else:
+            raise ValueError(f"Header (meta) is missing one or more required keywords: {missing}")
 
         # @todo WCS is expensive.
         # Possibly figure how to calculate spectral_axis instead.
