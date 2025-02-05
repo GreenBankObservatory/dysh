@@ -2,7 +2,7 @@
 Version 0.4.0
 =============
 
-.. _0.4.0-functionality
+.. _0.4.0-functionality:
 
 Functionality & Enhancements
 ----------------------------
@@ -32,7 +32,7 @@ Functionality & Enhancements
 - Gain correction classes
     - Gain correction classes for computing gain correction as a function of elevation, aperture efficiency, surface error, and airmass. (See `GBTGainCorrection <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.util.html#dysh.util.gaincorrection.GBTGainCorrection>`_).
 
-.. _0.4.0-bugfixes
+.. _0.4.0-bugfixes:
 
 Bug Fixes
 ---------
@@ -52,7 +52,7 @@ Bug Fixes
 Version 0.3.0
 ==============
 
-.. _0.3.0-functionality
+.. _0.3.0-functionality:
 
 Functionality & Enhancements
 ----------------------------
@@ -69,7 +69,7 @@ Functionality & Enhancements
 - `ScanBlock <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock>`_  API change
     - `timeaverage() <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock.timeaverage>`_ now returns a Spectrum instead of a list.  Previously the list contained the time average of each Scan within the ScanBlock.   Now the time average across all Scans in the ScanBlock is returned.
 
-.. _0.3.0-bugfixes
+.. _0.3.0-bugfixes:
 
 Bug Fixes
 ---------
