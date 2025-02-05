@@ -176,13 +176,14 @@ def log_function_call(log_level: str = "info"):
     log_level : str
         The logging level to use for logging. One of
         ['CRITICAL', 'FATAL', 'ERROR', 'WARN', 'WARNING',
-         'INFO', 'DEBUG', 'NOTSET'].
+        'INFO', 'DEBUG', 'NOTSET'].
         Case-insensitive. Default: 'info'
 
     Returns
     -------
-    Any
+    inner_decorator : Any
         Whatever the function returns.
+
     """
     # if not callable(arg):  doesn't work
     #    log_level = "info"
