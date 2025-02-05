@@ -1076,8 +1076,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
             ]
         )
 
-        if not _required <= meta.keys():
-            raise ValueError(f"Header (meta) is missing one or more required keywords: {_required}")
+        # Otherwise we change the input meta, which could lead to confusion.
+        _meta = deepcopy(meta)
+
+        # RADECSYS is also a valid column name. See issue #287
+        # https://github.com/GreenBankObservatory/dysh/issues/287
+        if "RADECSYS" in _meta.keys() and not "RADESYS" in _meta.keys():
+            _meta["RADESYS"] = deepcopy(_meta["RADECSYS"])
+            del _meta["RADECSYS"]
+
+        missing = set(_required).difference(set(_meta.keys()))
+        if len(missing) > 0:
+            raise ValueError(f"Header (meta) is missing one or more required keywords: {missing}")
 
         # @todo WCS is expensive.
         # Possibly figure how to calculate spectral_axis instead.
@@ -1091,37 +1101,37 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 warnings.filterwarnings("ignore", category=VerifyWarning)
                 # lists are problematic in constructor to WCS
                 # so temporarily remove history and comment values
-                savehist = meta.pop("HISTORY", None)
-                savecomment = meta.pop("COMMENT", None)
+                savehist = _meta.pop("HISTORY", None)
+                savecomment = _meta.pop("COMMENT", None)
                 if savecomment is None:
-                    savecomment = meta.pop("comments", None)
-                wcs = WCS(header=meta)
+                    savecomment = _meta.pop("comments", None)
+                wcs = WCS(header=_meta)
                 if savehist is not None:
-                    meta["HISTORY"] = savehist
+                    _meta["HISTORY"] = savehist
                 if savecomment is not None:
-                    meta["COMMENT"] = savecomment
+                    _meta["COMMENT"] = savecomment
                 # It would probably be safer to add NAXISi to meta.
                 if wcs.naxis > 3:
                     wcs.array_shape = (0, 0, 0, len(data))
                 # For some reason these aren't identified while creating the WCS object.
-                if "SITELONG" in meta.keys():
-                    wcs.wcs.obsgeo[:3] = meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
+                if "SITELONG" in _meta.keys():
+                    wcs.wcs.obsgeo[:3] = _meta["SITELONG"], _meta["SITELAT"], _meta["SITEELEV"]
                 # Reset warnings.
         else:
             wcs = None
         # is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
-        target = make_target(meta)
-        vc = veldef_to_convention(meta["VELDEF"])
+        target = make_target(_meta)
+        vc = veldef_to_convention(_meta["VELDEF"])
 
         # Define an observer as needed.
         if observer is not None:
             obsitrs = observer
-        elif observer_location is not None and (meta.get("DATE-OBS") or meta.get("MJD-OBS")) is not None:
-            obstime = Time(meta.get("DATE-OBS") or meta.get("MJD-OBS"))
+        elif observer_location is not None and (_meta.get("DATE-OBS") or _meta.get("MJD-OBS")) is not None:
+            obstime = Time(_meta.get("DATE-OBS") or _meta.get("MJD-OBS"))
             if observer_location == "from_meta":
                 try:
                     observer_location = Observatory.get_earth_location(
-                        meta["SITELONG"], meta["SITELAT"], meta["SITEELEV"]
+                        _meta["SITELONG"], _meta["SITELAT"], _meta["SITEELEV"]
                     )
                 except KeyError as ke:
                     raise Exception(f"Not enough info to create observer_location: {ke}")
@@ -1139,10 +1149,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = cls(
                 flux=data,
                 wcs=wcs,
-                meta=meta,
+                meta=_meta,
                 velocity_convention=vc,
                 radial_velocity=target.radial_velocity,
-                rest_value=meta["RESTFRQ"] * u.Hz,
+                rest_value=_meta["RESTFRQ"] * u.Hz,
                 observer=obsitrs,
                 target=target,
                 mask=data.mask,
@@ -1151,10 +1161,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = cls(
                 flux=data,
                 wcs=wcs,
-                meta=meta,
+                meta=_meta,
                 velocity_convention=vc,
                 radial_velocity=target.radial_velocity,
-                rest_value=meta["RESTFRQ"] * u.Hz,
+                rest_value=_meta["RESTFRQ"] * u.Hz,
                 observer=obsitrs,
                 target=target,
             )
