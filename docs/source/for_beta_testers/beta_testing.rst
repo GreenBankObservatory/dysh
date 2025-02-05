@@ -108,7 +108,13 @@ We provide steps for working in one of `GBO data reduction hosts <ihttps://green
 
     It should print 0.4.2.
 
-In the future we will provide `dysh` executables at GBO.
+`dysh` is installed in the GBO data reduction hosts, however, it may not be the latest version.
+You can launch it using
+
+.. code:: bash
+
+    dysh
+
 
 Previous beta releases
 ======================
