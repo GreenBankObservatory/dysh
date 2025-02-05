@@ -2,16 +2,29 @@
 
 """
 This script was developed in spyder during the vane calibration work. 
+
+Argus and the W (3mm) band use a vane to determine Tsys
+Q (7mm) band has a vane as well as noise diodes.   Cross check?
+
+
+
 The following examples are covered here:
 
 From nodding we have two cases:
 getps - review the standard test='getps'
-nod1  fdnum=[10,1]      unbalanced calrows 0 != 6        tp nocal;  TBD
-nod3  fdnum=[0,1]       unbalanced calrows 0 != 6        tp nocal;  TBD
+nod1  - fdnum=[10,1]      unbalanced calrows 0 != 6        tp nocal;  TBD
+edge1 -
+edge2 -
+nod3  - fdnum=[0,1]       unbalanced calrows 0 != 6        tp nocal;  TBD
+vane4 -
+vane5 -
+vane6 -
 
 Related issues:
 
 https://github.com/GreenBankObservatory/dysh/issues/457     flagging problem
+
+for Peter:    cd ~/GBT/dysh_data/nodding
 """
 
 import os
@@ -320,7 +333,6 @@ tp1b.plot(title='gettp scan=153')
 tp1a.stats(qac=True)  # '490015338.1141468 152969155.2487644 3311173.5 805602304.0'
 
 
-
 #%% NOD EXAMPLE-1   tp_nocal    NOD_BEAMS  10,1   (FEED 11,2)
 
 _help = """
@@ -331,7 +343,7 @@ _help = """
 3   289  1-631680      0.0    Nod         1  111.711282  111.711282    1     1     6     16  310.344245  55.705345
 """
 
-)
+
 f1 = dysh_data(accept='AGBT22A_325_15/AGBT22A_325_15.raw.vegas')  # accept='nod1'
 sdf1=GBTFITSLoad(f1, skipflags=True)
 # 8 files, 16 beams, each file has 2 beams - 4 scans, VANE/SKY/Nod/Nod
@@ -580,7 +592,7 @@ sp4b.timeaverage().plot(ymin=-1e8, ymax=1e9, title="TSCI_RYAN_16 scan=1 plnum=1"
 sdf4.gettp(scan=2, plnum=0, calibrate=True, cal=False).timeaverage().plot(ymin=-1e8, ymax=1e9)
 # ok
 
-#%%  VANE5   argus TGBT22A_605_05 
+#%%  VANE5   argus TGBT22A_605_05 (26 GB big dataset)
 
 _help = """
     SCAN OBJECT VELOCITY       PROC  PROCSEQN   RESTFREQ    DOPFREQ # IF # POL # INT # FEED    AZIMUTH   ELEVATIO
@@ -602,9 +614,11 @@ _help = """
 f5 = dysh_data(example="mapping-Argus/data/TGBT22A_603_05.raw.vegas")
 sdf5 = GBTFITSLoad(f5, skipflags=True)
 sdf5.summary()   # 53 scans (10..62)
+# lots memory
 
 mkdir("vane5")
 sdf5.write("vane5/file.fits", scan=[10,11,12], overwrite=True)
+# takes long time
 
 vane5 = GBTFITSLoad("vane5")
 vane5.summary()
