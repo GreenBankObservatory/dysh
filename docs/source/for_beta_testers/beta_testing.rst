@@ -47,6 +47,7 @@ Installing `dysh`
 
 Here we provide additional installation steps that include creating a virtual environment to keep `dysh` isolated from your system `Python` version.
 We provide steps for working in one of `GBO data reduction hosts <ihttps://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier), and if you're working outside one of the GBO data reduction hosts. The provided command will install `dysh` and `jupyterlab`, which can be used to run the example notebooks locally.
+Please remember that as of version 0.4 `dysh` requires `Python3.10+`.
 
 .. tab:: At GBO
 
