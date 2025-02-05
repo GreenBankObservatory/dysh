@@ -16,12 +16,12 @@ Providing feedback
 
 If you encounter a problem with `dysh`, would like to request a new feature or enhancement or would like to leave feedback, please do so using `GitHub issues <https://github.com/GreenBankObservatory/dysh/issues>`_. There are some basic instructions of how to do this :ref:`here <githubissues>`. This requires `creating a free account <https://github.com/>`_ on GitHub if you do not have one.
 
-If you prefer not to create a GitHub account, please provide your feedback to the `dysh-beta mailing list <https://groups.google.com/g/dysh-beta/about>`_, or send an email to dysh-beta@googlegroups.com. Additionally, we will provide a `form for collecting feedback <https://forms.gle/jNaiMTcXBiHAQUim7>`_.
+If you prefer not to create a GitHub account, please provide your feedback to the `dysh-beta mailing list <https://groups.google.com/g/dysh-beta/about>`_, or send an email to dysh-beta@googlegroups.com. Additionally, we provide a `form for collecting feedback <https://forms.gle/gf9rydgNE8v7iDKR8>`_.
 
-When providing feedback, please provide
+When providing feedback, please indicate
 
-* `Python` version
-* `dysh` version
+* `Python` version (:code:`python --version`)
+* `dysh` version (:code:`dysh --version`)
 * operating system
 
 If reporting an issue please also provide
@@ -46,29 +46,41 @@ Installing `dysh`
 =================
 
 Here we provide additional installation steps that include creating a virtual environment to keep `dysh` isolated from your system `Python` version.
-We provide steps for working in one of `GBO data reduction hosts <https://greenbankobservatory.org/science/gbt-observers/public-access-data-reduction/>`_ (e.g., fourier), and if you're working outside one of the GBO data reduction hosts. The provided command will install `dysh` and `jupyterlab`, which can be used to run the example notebooks locally.
+We provide steps for working in one of `GBO data reduction hosts <ihttps://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier), and if you're working outside one of the GBO data reduction hosts. The provided command will install `dysh` and `jupyterlab`, which can be used to run the example notebooks locally.
 
 .. tab:: At GBO
+
+    On a linux data reduction machine using a terminal.
 
     Create a `Python3.11` virtual environment
 
     .. code:: bash
 
-        /users/gbosdd/python/bin/python3.11 -m venv /home/scratch/$USER/dysh-0.3-env
+        /users/gbosdd/python/bin/python3.11 -m venv /home/scratch/$USER/dysh-env
 
     Activate your virtual environment
 
     .. code:: bash
 
-        source /home/scratch/$USER/dysh-0.3-env/bin/activate
+        source /home/scratch/$USER/dysh-env/bin/activate
 
     Install `dysh` and Jupyter Lab
 
     .. code:: bash
 
-        pip install "dysh[nb]==0.3.0b"
+        pip install "dysh[nb]==0.4.2"
+
+    Check that the correct version of `dysh` was installed
+
+    .. code:: bash
+
+        dysh --version
+
+    It should print 0.4.2.
 
 .. tab:: Outside of GBO
+
+    From a terminal.
 
     Create a `Python3.10+` virtual environment
 
@@ -86,7 +98,15 @@ We provide steps for working in one of `GBO data reduction hosts <https://greenb
 
     .. code:: bash
 
-        pip install "dysh[nb]==0.3.0b"
+        pip install "dysh[nb]==0.4.2"
+
+    Check that the correct version of `dysh` was installed
+
+    .. code:: bash
+
+        dysh --version
+
+    It should print 0.4.2.
 
 In the future we will provide `dysh` executables at GBO.
 
@@ -94,6 +114,11 @@ Previous beta releases
 ======================
 
 Feedback on previous beta releases is also welcome. Here you can find links to previous beta release documents.
+
+0.3.0
+-----
+
+`Instructions <https://docs.google.com/document/d/182FMM3f0pi54r6qDc_Ttv59Sgms2i4hJzVqf9Nw9GfY/edit?usp=sharing>`_ and `questionnaire <https://forms.gle/MGSD2tR1sPdZXxNq9>`_.
 
 0.2.0
 -----
