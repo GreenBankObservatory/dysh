@@ -77,7 +77,9 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
         :material-outlined:`compare_arrows;3em;green` **Align Spectra**
 
+
         How to align spectra
+
 
         .. button-link:: examples/align_spectra.html
             :color: primary
@@ -94,12 +96,14 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
         How to flag data
 
+
         .. button-link:: examples/flagging.html
             :color: primary
             :outline:
             :click-parent:
 
             Flagging
+
 
 .. toctree::
    :maxdepth: 4

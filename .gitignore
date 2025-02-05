@@ -6,6 +6,7 @@ docs/source/_build/
 docs/source/build/
 docs/jupyter_execute/
 docs/jupyter_cache/
+jupyter_cache/
 notebooks/examples/data/*.fits
 notebooks/examples/output/*
 
