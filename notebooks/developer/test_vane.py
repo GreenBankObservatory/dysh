@@ -12,13 +12,13 @@ The following examples are covered here:
 
 From nodding we have two cases:
 getps - review the standard test='getps'
-nod1  - fdnum=[10,1]      unbalanced calrows 0 != 6        tp nocal;  TBD
-edge1 -
-edge2 -
-nod3  - fdnum=[0,1]       unbalanced calrows 0 != 6        tp nocal;  TBD
-vane4 -
-vane5 -
-vane6 -
+nod1  - VANE/SKY     fdnum=[10,1]           tp nocal;  TBD
+edge1 - VANE/SKY
+edge2 - VANE/SKY   at 112,114 GHz
+nod3  - CALSEQ         fdnum=[0,1]            tp nocal;  TBD
+vane4 - ?
+vane5 - VANE/SKY
+vane6 - CALSEQ    at 4 freqs
 
 Related issues:
 
@@ -45,7 +45,7 @@ from dysh.spectra.core import mean_tsys
 
 k=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'PROCSCAN','FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF', 'SIG', 'CAL', 'PROCSEQN', 'PROCSIZE']
 ks=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN']
-kw=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN']
+kw=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN', 'CALPOSITION']
 
 #  some more liberal panda dataframe display options
 import pandas as pd
@@ -63,7 +63,7 @@ dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
 #%%  helper functions
 
 def mkdir(name, clean=True):
-    """ simpler frontend for making a directory that might also aready exist
+    """ simpler frontend for making a directory that might also already exist
         clean=True:    also remove files inside
     """
     os.makedirs(name, exist_ok = True)
@@ -81,6 +81,8 @@ def vcal(sdf, vane, sky, debug=False):
     a = sdf._index[kb]
     feeds = a['FDNUM'].unique()
     feeds.sort()
+    if debug:
+        print("Found feeds", feeds)
     for f in feeds:
         b = a.loc[a['FDNUM']==f]
         c1 = b.loc[b['SCAN']==vane]
@@ -116,7 +118,8 @@ def vcal(sdf, vane, sky, debug=False):
         return []
 
 def getbeam(sdf, debug=False):
-    """ find the two nodding beams
+    """ find the two nodding beams based on FDNUM, FEED 
+        needs PROCSCAN='BEAM1' or 'BEAM2'
     """
     kb=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'PROCSCAN', 'FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF']
     a = sdf._index[kb]
@@ -142,8 +145,18 @@ def getbeam(sdf, debug=False):
         print("too many in beam1:",d1['FDNUM'].unique())
         print("too many in beam2:",d2['FDNUM'].unique())
         return []
-
-def vanecal(sdf, vane, sky,  feeds=[], tcal=1.0, tmpfile=False):
+    
+def mean_data(data, fedge=0.1, nedge=None):
+    """ special mean to exclude the edges like mean_tsys()
+    """
+    nchan = len(data)
+    if nedge is None:
+        nedge = int(nchan * fedge)
+    chrng = slice(nedge, -(nedge - 1), 1)
+    meandata = np.nanmean(data[chrng])
+    return meandata
+    
+def vanecal(sdf, vane, sky,  feeds=[], tcal=None, tmpfile=False):
     """ loop over feeds to get tsys factor
         for efficiency of large data, it's better to sdf.write() and use only the
         vane and sky scans'
@@ -153,6 +166,7 @@ def vanecal(sdf, vane, sky,  feeds=[], tcal=1.0, tmpfile=False):
              just vane/cal:       20s
     """
     if len(feeds) == 0:
+        print("Warning, no feeds= given")
         return None
     tsys = np.zeros(len(feeds), dtype=float)
     if tmpfile:
@@ -163,21 +177,70 @@ def vanecal(sdf, vane, sky,  feeds=[], tcal=1.0, tmpfile=False):
         sdf1 = GBTFITSLoad('_vanecal')
     else:
         sdf1 = sdf
+       
+    #  for VANE/CAL data usually tcal=1
+    if tcal is None:
+        tcal = sdf._index['TCAL'].mean()
+
     
-    i=0
+    i = 0
     for f in feeds:
         v = sdf1.gettp(scan=vane, fdnum=f, calibrate=True, cal=False).timeaverage()
         s = sdf1.gettp(scan=sky,  fdnum=f, calibrate=True, cal=False).timeaverage()
-        tsys[i] = mean_tsys(v.flux, s.flux, 1.0) * tcal    # wrong for vane/cal
-        # optional?    += tcal/2.0
+        if True:
+            mean_off = mean_data(s.data)
+            mean_dif = mean_data(v.data - s.data)
+            tsys[i] = tcal * mean_dif/mean_off
+        else:   
+            tsys[i] = mean_tsys(v.flux, s.flux, 1.0) * tcal    # wrong for vane/cal
+            # optional?    += tcal/2.0
         i = i + 1
+    print("TCAL=",tcal)
+     
     return tsys
 
-def calseq(sdf, scan, tcold=54, ifnum=0, plnum=0, fdnum=0):
+    
+def calseq(sdf, scan, tcold=54, ifnum=0, plnum=0, fdnum=0, freq=None):
     """ W-band receivers use a CALSEQ
         This routine returns the gain and Tsys for W-band channel
+        
+        Tcold = 54 - 0.6*(FREQ-77)      FREQ in GHz
     """
-    return 0.0
+    if freq is not None:
+        # see eq.(13) in GBT memo 302
+        tcold = 54 - 0.6*(freq-77)
+        print(f"Warning: calseq using freq={freq} GHz and setting tcold={tcold} K")
+        
+    twarm = sdf._index['TAMBIENT'].mean()
+        
+    if False:
+        a = sdf._index[['CALPOSITION']]
+        o = list(a.loc[a['CALPOSITION']=='Observing'].index)
+        c1 = list(a.loc[a['CALPOSITION']=='Cold1'].index)
+        c2 = list(a.loc[a['CALPOSITION']=='Cold2'].index)
+        vsky = sdf.gettp(scan=scan,ifnum=ifnum,plnum=plnum,fdnum=fdnum,intnum=o,calibrate=True,cal=False).timeaverage()
+        vcold1  = sdf.gettp(scan=scan,ifnum=ifnum,plnum=plnum,fdnum=fdnum,intnum=c1,calibrate=True,cal=False).timeaverage()
+        vcold2  = sdf.gettp(scan=scan,ifnum=ifnum,plnum=plnum,fdnum=fdnum,intnum=c2,calibrate=True,cal=False).timeaverage()
+    else:
+        tp_args = {"scan":scan,"ifnum":ifnum,"plnum":plnum,"fdnum":fdnum,"calibrate":True,"cal":False}
+        vsky = sdf.gettp(CALPOSITION="Observing", **tp_args).timeaverage()
+        vcold1  = sdf.gettp(CALPOSITION="Cold1", **tp_args).timeaverage()
+        vcold2  = sdf.gettp(CALPOSITION="Cold2", **tp_args).timeaverage()
+    
+    if fdnum == 0:
+        g = (twarm-tcold)/mean_data(vcold2.data-vcold1.data)
+    elif fdnum == 1:
+        g = (twarm-tcold)/mean_data(vcold1.data-vcold2.data)
+    else:   
+        print(f"Illegal fdnum={fdnum} for a CALSEQ")
+        return None
+    tsys = mean_data(g*vsky.data)
+   
+    print(f"Twarm={twarm} Tcold={tcold}")
+    print(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
+    print(f"Tsys = {tsys}")
+    print(f"Gain [K/counts] = {g}")
+    return tsys, g
 
 # scan = auto calseq scan
 # tcold = effective temperature of cold load (e.g., 50K)
@@ -188,7 +251,7 @@ def calseq(sdf, scan, tcold=54, ifnum=0, plnum=0, fdnum=0):
 """
 ;;Output:
 ;;Prints Tsys and gain and returns OUTgain
-;;OUTgain= gain = Twarm-Tcold)/(warm-cold) [K/counts]
+;;OUTgain= gain = (Twarm-Tcold)/(warm-cold) [K/counts]
 ;;Tsys=median(gain*sky)
 
 if (n_elements(ifnum) eq 0) then ifnum = 0
@@ -332,7 +395,6 @@ tp1b.plot(title='gettp scan=153')
 
 tp1a.stats(qac=True)  # '490015338.1141468 152969155.2487644 3311173.5 805602304.0'
 
-
 #%% NOD EXAMPLE-1   tp_nocal    NOD_BEAMS  10,1   (FEED 11,2)
 
 _help = """
@@ -378,10 +440,9 @@ v1.plot(title='VANE')
 s1.plot(title='SKY')
 
 print(vanecal(vane1, 281, 282, feeds=range(16)))
-# [1.21549487 1.07764171 4.13970304 1.15904234 0.9971537  1.122969
-# 0.99023236 1.01537602 1.02035436 0.98760956 1.00412189 1.05833454
-# 0.99750374 1.02722791 1.00445433 1.00216715]
-
+# 1.39763406 1.73117692 0.27474769 1.51735319 2.0114504  1.60521632
+# 2.03984903 1.94033088 1.92176731 2.05082117 1.98364723 1.7910409
+# 2.01003515 1.89671295 1.98234    1.99136881]
 
 sp1,sp2 = getnod(sdf1, 289, 290, 1, 10)
 sp1.plot()
@@ -425,12 +486,18 @@ tsys = vanecal(edge1, 17, 18, feeds=range(16))
 #  sdf2   CPU times: user 6min 29s, sys: 10.5 s, total: 6min 40s   Wall time: 6min 33s
 #  edge1  CPU times: user   20.1 s, sys: 271 ms, total:   20.4 s   Wall time:   20.1 s
 print(tsys)
-# array([1.26915776, 1.14312562, 1.13592276, 1.1619848 , 1.11120068,
-#       1.20323269, 1.12788577, 1.13010956, 1.10427554, 1.1221987 ,
-#       1.15696975, 1.15716321, 1.0804609 , 1.16266635, 1.0460511 ,
-#       1.09217787])
-#
- 
+
+# 17,18
+# [1.3001234  1.55490619 1.57251803 1.51060869 1.63612382 1.42200443
+#  1.59264637 1.58702561 1.65487421 1.60720362 1.52214009 1.52169199
+#  1.72276893 1.50905505 1.83133043 1.68868181]
+
+# 21,22
+# [1.28974196, 1.53318127, 1.55064672, 1.50331784, 1.61864391,
+#  1.37614122, 1.56854187, 1.56631664, 1.63607151, 1.56983139,
+#  1.4890203 , 1.50031436, 1.71650273, 1.47633432, 1.80116151,
+#  1.679226  ])
+
 # plotting a passband
 edge1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
 # ok !!
@@ -477,19 +544,21 @@ _s = """
 tsys1 = vanecal(edge2, 327, 328, feeds=range(16))
 print(tsys1)
 # @112.3 GHz
-# [1.20676998 1.12933116 1.09430538 1.18707773 1.08870158 1.38427164
-#  1.08151629 1.06933859 1.07527814 1.06119602 1.07773119 1.09914186
-#  1.05032223 1.09743774 1.06316352 1.04670035]
+
+#[1.41488748 1.58898855 1.68263663 1.45543941 1.69865351 1.13087422
+# 1.71964229 1.75642407 1.73828958 1.78190857 1.7309088  1.66905382
+# 1.81711721 1.67381457 1.77568321 1.8291556 ]
 
 
 tsys2 = vanecal(edge2, 329, 330, feeds=range(16))
 print(tsys2)
 # @114.0 GHz
-# [1.40294513 1.2976351  1.28455571 1.16614836 1.21608555 1.37295378
-# 1.27542001 1.22878323 1.23203965 1.23371031 1.25607937 1.23815973
-# 1.2139721  1.29401993 1.17909461 1.2009243 ]
 
-# difference:   0.14 +/- 0.06
+#[1.10748701 1.25370611 1.27460674 1.5011671  1.39648119 1.14553602
+# 1.28962367 1.37215013 1.36604623 1.36293573 1.32261247 1.35472034
+# 1.40061496 1.25941423 1.47254888 1.42668759]
+
+# ratio:        1.24 +/- 0.11
 
 sp1,sp2 = getnod(edge2, 331, 332, 4, 7)
 
@@ -535,7 +604,12 @@ mkdir("nod3cal")
 sdf3.write("nod3cal/file.fits", scan=130, ifnum=0, plnum=0, overwrite=True)
 nod3cal = GBTFITSLoad("nod3cal")
 nod3cal.summary()
-nod3cal._index[ks]   # 82 rows
+nod3cal._index[kw]   # 82 rows  (Observing, Cold1, Cold2 and a few Unknown in state transition)
+
+calseq(nod3cal, 130)
+# calseq(sdf3, 130)
+#   -> RecursionError: maximum recursion depth exceeded
+
 
 v1 = nod3cal.gettp(scan=130, fdnum=0, calibrate=True, cal=False).timeaverage()
 s1 = nod3cal.gettp(scan=130, fdnum=1, calibrate=True, cal=False).timeaverage()
@@ -554,6 +628,9 @@ nod3.summary()
 nod3._index[k]    # 244 rows
 getbeam(nod3)     # [0,1]
 
+sp0 = nod3.getnod(scan=[131,132],ifnum=0,plnum=0)
+
+# .timeaverage()
 
 
 nod3.gettp(scan=131,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
@@ -620,11 +697,11 @@ mkdir("vane5")
 sdf5.write("vane5/file.fits", scan=[10,11,12], overwrite=True)
 # takes long time
 
-vane5 = GBTFITSLoad("vane5")
+vane5 = GBTFITSLoad("vane5", skipflags=True)
 vane5.summary()
 
 
-tsys_10 = vanecal(sdf5, 10, 11, feeds=range(16))
+tsys_10 = vanecal(vane5, 10, 11, feeds=range(16))
 #      1.45318402, 1.25949678, 1.27948539, 1.41625876, 1.26606387,
 #      1.42277304, 1.2289571 , 1.29762214, 1.27845341, 1.24670253,
 #      1.24174926, 1.32368279, 1.2663306 , 1.2432676 , 1.29513699,
@@ -639,7 +716,7 @@ tsys_34 = vanecal(sdf5, 34, 35, feeds=range(16))
 # mean and std of diff:    -0.0020865396509081036  0.05241421768622772
 
 
-#%%  VANE6   W-band rxco-W/data/TSCAL_220105_W.raw.vegas
+#%%  VANE6   W-band rxco-W/data/TSCAL_220105_W.raw.vegas  (10 MB)
 
 _help = """
     SCAN     OBJECT VELOCITY    PROC  PROCSEQN RESTFREQ DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
@@ -663,11 +740,39 @@ sdf6.summary()
 sdf6._index[kw]    # 1728
 
 mkdir("vane6")
-sdf6.write("vane6/file.fits", plnum=0, scan=32, overwrite=True)
+scans = [32,33,34]
+scans = [32]
+scans = [32,23,26,29]
+scans = [23,26,29,32]
+sdf6.write("vane6/file.fits", plnum=0, scan=scans, overwrite=True)
+#sdf6.write("vane6/file.fits", scan=scans, overwrite=True)
 
 vane6 = GBTFITSLoad("vane6")
 vane6.summary()
-vane6._index[kw]
+vane6._index[kw]    # 92 in just scan 32      368 if all 4 CALSEQ
+
+calseq(vane6, 23, plnum=0, ifnum=0, fdnum=1)
+# syntaxError: too many nested parentheses    <--- only if all plnum's selected to into vane6
+calseq(vane6, 26, fdnum=1)
+calseq(vane6, 29, fdnum=1)
+calseq(vane6, 32, fdnum=1)
+#    fdnum=0    608K    (612 when adding the Nod)
+#          1    179K    (189 when adding the Nod)
+#    something odd:   when doing [32,33,34] i get different answers from using just [32]
+
+# getbeam fails if only scan 32 is used
+getbeam(vane6)
+
+vane6.gettp(scan=32,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
+vane6.gettp(scan=32,fdnum=1,calibrate=True, cal=False).timeaverage().plot()
+
+sp1,sp2 = getnod(vane6, 33, 34, 0, 1)
+
+sp3 = 0.5*(sp1+sp2)
+sp3.plot()
+sp3.stats(roll=1, qac=True)   # 4.923401847859579e-05 0.0016115564993204495 -0.0007704968985869036 0.051103618263309156'
+
+
 
 #%%
 
