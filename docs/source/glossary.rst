@@ -11,6 +11,7 @@ Although GBT centric, some LMT terms are shown here as well.
     band
       A coherent section of channels in frequency space, all with
       the same channel width. Sometimes called an IF band.
+      Explain L-band, K-band, Q-band, W-band etc. Need a table.
       See also **ifnum**
 
     beam
@@ -82,8 +83,9 @@ Although GBT centric, some LMT terms are shown here as well.
     masking vs. flagging blanking
 
     OTF Mapping
-      In this procedure the telescope is scanned across the sky to sample the emission.
-      The samples are then "gridded" into a map.
+      On-The-Fly (OTF) mapping is where the telescope is continuesly scanned across the sky
+      to sample the emission.
+      The samples are then "gridded" into a map, after calibration.
    
     plnum
       Polarization number (0,1,...). Usually 0 and 1, but of course up to 4 values could be present
@@ -134,6 +136,9 @@ Although GBT centric, some LMT terms are shown here as well.
 
     SubBeamNod
       Another scan mode
+
+    Waterfall Plot
+      Tyically
 
     Window
       See **Spectral Window**
@@ -356,3 +361,20 @@ an observing script executes, each source will gets its own **ObsNum**, though
 calibration data often gets another **ObsNum**.
 
 
+Band Designations
+~~~~~~~~~~~~~~~~~
+
+
+Nomenclature comes from the IEEE radar band names, but there is also
+a NATO nomenclature standard. See e.g. https://en.wikipedia.org/wiki/Radio_spectrum
+
+* L: 1-2 GHz
+* S: 2-4 GHz
+* C: 4-8 GHz
+* X: 8-12 GHz
+* Ku: 12-18 GHz
+* K: 18-27 GHz
+* Ka: 28-40 GHz
+* V: 40-75
+* Q: 33-50 GHz or 6-9.1mm
+* W: 84-116 GHz (also: 75-110)
