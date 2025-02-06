@@ -2,7 +2,7 @@
 Version 0.4.0
 =============
 
-.. _0.4.0-functionality
+.. _0.4.0-functionality:
 
 Functionality & Enhancements
 ----------------------------
@@ -27,12 +27,12 @@ Functionality & Enhancements
 - Online/Offline mode
     - `dysh` can now access the latest spectral line observations using `GBTOnline <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTOnline>`_. This will also automatically update the contents of the `GBTFITSLoad` object as new data is written to disk. This mode is only available when working from a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_.
     - `GBTOffline <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTOffline>`_ will fetch the data for an observations by specifying the session id (e.g., AGBT24A_999_01).
-- Drop support for `Python3.8`
-    - `dysh` now is only available for `Python3.9` and above.
+- Drop support for `Python3.8` and `Python3.9`
+    - `dysh` now is only available for `Python3.10` and above.
 - Gain correction classes
     - Gain correction classes for computing gain correction as a function of elevation, aperture efficiency, surface error, and airmass. (See `GBTGainCorrection <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.util.html#dysh.util.gaincorrection.GBTGainCorrection>`_).
 
-.. _0.4.0-bugfixes
+.. _0.4.0-bugfixes:
 
 Bug Fixes
 ---------
@@ -52,7 +52,7 @@ Bug Fixes
 Version 0.3.0
 ==============
 
-.. _0.3.0-functionality
+.. _0.3.0-functionality:
 
 Functionality & Enhancements
 ----------------------------
@@ -69,7 +69,7 @@ Functionality & Enhancements
 - `ScanBlock <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock>`_  API change
     - `timeaverage() <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock.timeaverage>`_ now returns a Spectrum instead of a list.  Previously the list contained the time average of each Scan within the ScanBlock.   Now the time average across all Scans in the ScanBlock is returned.
 
-.. _0.3.0-bugfixes
+.. _0.3.0-bugfixes:
 
 Bug Fixes
 ---------
