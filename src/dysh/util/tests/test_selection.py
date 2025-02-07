@@ -7,6 +7,7 @@ from astropy.time import Time
 import dysh
 from dysh import util
 from dysh.fits import gbtfitsload
+from dysh.util.files import dysh_data
 from dysh.util.selection import Flag
 
 dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
@@ -164,3 +165,15 @@ class TestSelection:
         assert g.flags._table["SCAN"][0] == "6"
         assert g.flags._table["IFNUM"][0] == "2"
         assert g.flags._table["FDNUM"][0] == "0"
+
+    def test_flag_read_index_ok(self):
+        # regression test for issue 457
+        # first skipflags and read files separately
+        f1 = dysh_data(test="AGBT22A_325_15/")
+        sdf = gbtfitsload.GBTFITSLoad(f1, skipflags=True)
+        flagA = f1 / "AGBT22A_325_15.raw.vegas.A.flag"
+        flagB = f1 / "AGBT22A_325_15.raw.vegas.B.flag"
+        sdf.flags.read(flagA)
+        sdf.flags.read(flagB)
+        # second, load flags at instantiation
+        sdf = gbtfitsload.GBTFITSLoad(f1)
