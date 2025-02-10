@@ -480,6 +480,10 @@ class SelectionBase(DataFrame):
         for k, v in row.items():
             row[k] = abbreviate_to(DEFAULT_COLUMN_WIDTH, v)
         self._table.add_row(row)
+        # for some reason the table gets "unsorted" from its index
+        # resulting in issue #457
+        # so always do a sort (by primary index by default) after adding a rows
+        self._table.sort(self._idtag[0])
         # self._last_row_added = row
 
     def _base_select(self, tag=None, **kwargs):
@@ -1097,9 +1101,11 @@ class Flag(SelectionBase):
                 return
             idx = len(self._table) - 1
             if chan is not None:
-                self._table[idx]["CHAN"] = abbreviate_to(DEFAULT_COLUMN_WIDTH, chan)
+                cc = abbreviate_to(DEFAULT_COLUMN_WIDTH, chan)
+                self._table.loc[idx]["CHAN"] = cc
                 self._flag_channel_selection[idx] = chan
-                self._selection_rules[idx]["CHAN"] = str(chan)
+                # self._selection_rules[idx]["CHAN"] = str(chan)
+                self._selection_rules[idx].loc[:, "CHAN"] = str(chan)
             else:
                 self._flag_channel_selection[idx] = ALL_CHANNELS
                 self._selection_rules[idx].loc[:, "CHAN"] = ALL_CHANNELS
@@ -1318,3 +1324,4 @@ class Flag(SelectionBase):
                     vdict.update(kwargs)
                 logger.debug(f"flag({tag=},{vdict})")
                 self.flag(tag=tag, **vdict)
+            self._table.sort(self._idtag[0])
