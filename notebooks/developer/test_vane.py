@@ -14,15 +14,17 @@ From nodding we have two cases:
 getps - review the standard test='getps'
 nod1  - VANE/SKY     fdnum=[10,1]           tp nocal;  TBD
 edge1 - VANE/SKY
-edge2 - VANE/SKY   at 112,114 GHz
-nod3  - CALSEQ         fdnum=[0,1]            tp nocal;  TBD
-vane4 - ?
+edge2 - VANE/SKY   at 112,114 GHz                                               some weak signal!
+nod3  - CALSEQ         fdnum=[0,1]          tp nocal;  TBD
+vane4 - "ISSUE 257"
 vane5 - VANE/SKY
 vane6 - CALSEQ    at 4 freqs
 
 Related issues:
 
+https://github.com/GreenBankObservatory/dysh/issues/257  
 https://github.com/GreenBankObservatory/dysh/issues/457     flagging problem
+https://github.com/GreenBankObservatory/dysh/issues/484     tp_nocal
 
 for Peter:    cd ~/GBT/dysh_data/nodding
 """
@@ -45,7 +47,7 @@ from dysh.spectra.core import mean_tsys
 
 k=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'PROCSCAN','FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF', 'SIG', 'CAL', 'PROCSEQN', 'PROCSIZE']
 ks=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN']
-kw=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN', 'CALPOSITION']
+kw=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN', 'CALPOSITION','TCAL','TSYS']
 
 #  some more liberal panda dataframe display options
 import pandas as pd
@@ -57,9 +59,83 @@ pd.set_option('display.width', 1000)
 
 #%%  debugging
 
+# ?? can one only do this once per kernel ??
+
 import dysh
-#dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
-dysh.log.init_logging(1)
+dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
+#dysh.log.init_logging(1)    # 0 didn't work
+
+#%%  helper classes
+
+class Tsys(object):
+    """ 
+    Toolkit to compute the TSYS 
+    
+    Parameters
+    ----------
+    ifnum: int
+        list (or single value) of the IFs
+    fdnum: int
+        list (or single value) of the feeds
+    plnum: int
+        list (or single value) of the polarizations
+
+    In situations where computing the Tsys is cumbersome, a special Tsys class
+    is available to contruct a container that can be passed to any of the get*
+    routines to apply a Tsys calibration.
+    
+    1. Setting up a Tsys container needs the number of IF/FD/PL:
+        
+        mytsys = Tsys(fdnum=1, ifnum=[0,1], plnum=1)
+        mydata.data[0,0,0] = 200    # ifnum=0
+        mydata.data[0,1,0] = 210    # ifnum=1
+        getps(ifnum=[0,1], plnum=1, fdnum=1, cal_tsys = mytsys)
+  
+    """
+    def __init__(self, fdnum=0, ifnum=0, plnum=0, **kawrgs):
+        # set the feeds
+        if type(fdnum) == list:   
+            self.fdnum = fdnum
+        else:
+            self.fdnum = [fdnum]
+            
+        # set the IF's
+        if type(ifnum) == list:
+            self.ifnum = ifnum
+        else:
+            self.ifnum = [ifnum]
+
+        # set the polarizations
+        if type(plnum) == list:   
+            self.plnum = plnum
+        else:
+            self.plnum = [plnum]
+        print(f"TSYS for fdnum={self.fdnum} ifnum={self.ifnum} plnum={self.plnum}")
+        
+        self.data = np.ones((len(self.fdnum),len(self.ifnum),len(self.plnum)))
+        
+    def get(self, fdnum, ifnum, plnum):
+        """ get a single Tsys
+        """
+        # @todo check index
+        return self.data[self.fdnum.index(fdnum), self.ifnum.index(ifnum), self.fdnum.index(fdnum)]
+    
+    def set(self, tsys, fdnum, ifnum, plnum):
+       """ set a single Tsys
+       """
+       # @todo check index
+       self.data[self.fdnum.index(fdnum), self.ifnum.index(ifnum), self.fdnum.index(fdnum)]= tsys 
+        
+junk = Tsys([0,1],[0,1,2,3],[0,1])
+print(junk.data)
+
+mytsys = Tsys(fdnum=1, ifnum=[0,1], plnum=1)
+mytsys.data[0,0,0] = 200    # ifnum=0
+mytsys.data[0,1,0] = 210    # ifnum=1
+print(mytsys.data)
+mytsys.set(220,1,1,1)
+print(mytsys.get(1,1,1))
+
 
 #%%  helper functions
 
@@ -114,7 +190,7 @@ def mean_data(data, fedge=0.1, nedge=None):
     meandata = np.nanmean(data[chrng])
     return meandata
     
-def vanecal(sdf, vane, sky,  feeds=[], tcal=None, tmpfile=False):
+def vanecal(sdf, vane_sky,  feeds=[], tcal=None, tmpfile=False):
     """ loop over feeds to get tsys factor
         for efficiency of large data, it's better to sdf.write() and use only the
         vane and sky scans'
@@ -123,6 +199,8 @@ def vanecal(sdf, vane, sky,  feeds=[], tcal=None, tmpfile=False):
              write small sdf:     25s    
              just vane/cal:       20s
     """
+    vane = vane_sky[0]
+    sky = vane_sky[1]
     if len(feeds) == 0:
         print("Warning, no feeds= given")
         return None
@@ -139,19 +217,20 @@ def vanecal(sdf, vane, sky,  feeds=[], tcal=None, tmpfile=False):
     #  for VANE/CAL data usually tcal=1
     if tcal is None:
         tcal = sdf._index['TCAL'].mean()
+        
+    if True:
+        # until we figure this out via getatmos
+        tcal = 100.0    # set to 100K for now
 
     
     i = 0
     for f in feeds:
         v = sdf1.gettp(scan=vane, fdnum=f, calibrate=True, cal=False).timeaverage()
         s = sdf1.gettp(scan=sky,  fdnum=f, calibrate=True, cal=False).timeaverage()
-        if True:
-            mean_off = mean_data(s.data)
-            mean_dif = mean_data(v.data - s.data)
-            tsys[i] = tcal * mean_off/mean_dif
-        else:   
-            tsys[i] = mean_tsys(v.flux, s.flux, 1.0) * tcal    # wrong for vane/cal
-            # optional?    += tcal/2.0
+        mean_off = mean_data(s.data)
+        mean_dif = mean_data(v.data - s.data)
+        tsys[i] = tcal * mean_off/mean_dif
+        #  vanecal.pro seems to do    tcal / median( (v-s)/s)
         i = i + 1
     print("TCAL=",tcal)
     # print("TSYS=",tsys)
@@ -159,7 +238,7 @@ def vanecal(sdf, vane, sky,  feeds=[], tcal=None, tmpfile=False):
     return tsys
 
     
-def calseq(sdf, scan, tcold=54, ifnum=0, plnum=0, fdnum=0, freq=None):
+def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None):
     """ W-band receivers use a CALSEQ
         This routine returns the gain and Tsys for W-band channel
         
@@ -244,22 +323,23 @@ OUTgain=gain
 
 """
 
-def getnod(sdf, scan1, scan2, beam1, beam2, tsys=None):
+def getnod(sdf, scans, beams, tsys=None):
     """ fake getnod() based on alternating gettp() with averaging done internally
         use the real sdf.getnod() for final analysis
         new API:    scans[], feeds[], tsys[]
         """
-    ps1_on = sdf.gettp(scan=scan1, fdnum=beam1, calibrate=True, cal=False).timeaverage()
-    ps1_off = sdf.gettp(scan=scan2, fdnum=beam1, calibrate=True, cal=False).timeaverage()
+    if tsys is None:
+        tsys = [1.0, 1.0]
+    ps1_on = sdf.gettp(scan=scans[0], fdnum=beams[0], calibrate=True, cal=False).timeaverage()
+    ps1_off = sdf.gettp(scan=scans[1], fdnum=beams[0], calibrate=True, cal=False).timeaverage()
     sp1 = (ps1_on - ps1_off)/ps1_off
 
-    ps2_on = sdf.gettp(scan=scan2, fdnum=beam2, calibrate=True, cal=False).timeaverage()
-    ps2_off = sdf.gettp(scan=scan1, fdnum=beam2, calibrate=True, cal=False).timeaverage()
+    ps2_on = sdf.gettp(scan=scans[1], fdnum=beams[1], calibrate=True, cal=False).timeaverage()
+    ps2_off = sdf.gettp(scan=scans[0], fdnum=beams[1], calibrate=True, cal=False).timeaverage()
     sp2 = (ps2_on - ps2_off)/ps2_off
 
     return (sp1,sp2)
 
-#%% calc_etamb
 
 def calc_etamb(freq, Jupiter=False):
 
@@ -330,6 +410,24 @@ def calc_etamb(freq, Jupiter=False):
     return (eta_a, eta_mb)
 
 
+def plot_pb(sdf, scans, title = None):
+    """   plot vegas 16 beams
+    """
+    fig,ax = plt.subplots(4,4)
+    for r in range(4):
+        for c in range(4):
+            p = r*4 + c
+            ax[r,c].plot()
+            #ax[r,c].set_xlabel(f"{r} {c} {p}")
+            for s in scans:
+                v1 = sdf.gettp(scan=s, fdnum=p, calibrate=True, cal=False).timeaverage()
+                ax[r,c].plot(v1.data)
+            ax[r,c].set_title(f"beam {p}")
+    if title is not None:
+        plt.suptitle(title)
+    plt.tight_layout()
+    
+
 
 #%%  classic tp/ps
 
@@ -340,18 +438,20 @@ fn1 = f1.parts[-1]
 print(f"Using {fn1}")
 
 
-sdf1 = GBTFITSLoad(f1)
-sdf1.summary()
-sdf1.summary(verbose=True)
-sdf1._index[k]
+sdf0 = GBTFITSLoad(f1)
+sdf0.summary()
+sdf0.summary(verbose=True)
+sdf0._index[k]
 
-sp1 = sdf1.getps().timeaverage()
+sp1 = sdf0.getps().timeaverage()
 sp1.plot(title='getps: %s' % fn1)
 sp1.stats(qac=True)
 # 0.21853874407385052 0.6796743343920357 -3.7057502269744873 4.343878746032715
 
-tp1a = sdf1.gettp(scan=152).timeaverage()
-tp1b = sdf1.gettp(scan=153).timeaverage()
+tp1a = sdf0.gettp(scan=152).timeaverage()
+tp1b = sdf0.gettp(scan=153).timeaverage()
+
+# why can't I do   len(tp1a), but I need len(tp1a.data)
 
 tp1a.plot(title='gettp scan=152')
 tp1b.plot(title='gettp scan=153')
@@ -373,21 +473,26 @@ f1 = dysh_data(accept='AGBT22A_325_15/AGBT22A_325_15.raw.vegas')                
 sdf1=GBTFITSLoad(f1)   # skipflags=True)
 # 8 files, 16 beams, each file has 2 beams - 4 scans, VANE/SKY/Nod/Nod
 sdf1.summary()    # 256 rows
-
+sdf1.flags.show() # 64 rows
 
 # extract 290 and 289 (note order is odd in sdfits:   290 came before 289 (odd))
 mkdir("vane1")
-sdf1.write('vane1/file.fits',scan=[281,282], overwrite=True)   # 64 rows
+scans=[281,282]
+sdf1.write('vane1/file.fits',scan=scans, overwrite=True)   # 64 rows
 
-getbeam(sdf1)    # [10,1]
+plot_pb(vane1,[281,282])
+
+# our EDGE notes claim that 1,9 are the nodding beams
+feeds1 = getbeam(sdf1)    # [10,1]
+print("Nodding feeds",feeds1)
 
 vane1 = GBTFITSLoad('vane1')
 vane1.summary()
-vane1._index[kw]    # 64 rows
+vane1._index[kw]    # 64 rows  -- TPNOCAL
+getbeam(vane1)   # -> not defined here in just the vane/sky
 
-# vcal(vane1, 281, 282)
 
-#  do a single vane/sky comparison for fdnum=8
+#  do a single vane/sky comparison for fdnum=8 (the first entry, but not a nodding beam)
 v1 = vane1.getspec(0).flux.value
 s1 = vane1.getspec(4).flux.value
 t1 = s1/(v1-s1)    
@@ -396,33 +501,44 @@ np.nanmean(t1)  # 0.52613854
 np.nanstd(t1)   # 0.016047847
 plt.plot(t1)
 
+t2 = (v1-s1)/s1
+t2 = t2[100:900]                      
+np.nanmean(t2) 
+np.nanstd(t2)  
+plt.plot(t2)
+
+
 v1 = vane1.gettp(scan=281, fdnum=8, calibrate=True, cal=False).timeaverage()
 s1 = vane1.gettp(scan=282, fdnum=8, calibrate=True, cal=False).timeaverage()
 
 # nchan is 1024
 t1 = s1/(v1-s1) 
 # t1 = t1[100:900]
-# UnitTypeError: Longitude instances require units equivalent to 'rad', so cannot set it to ''
+# ISSUE: UnitTypeError: Longitude instances require units equivalent to 'rad', so cannot set it to ''
 t1 = t1.data[100:900]
 plt.plot(t1)
 
 v1.plot(title='VANE')
 s1.plot(title='SKY')
 
-print(vanecal(vane1, 281, 282, feeds=range(16)))
-# [0.71549487 0.57764171 3.63970304 0.65904234 0.4971537  0.622969
-#  0.49023236 0.51537602 0.52035436 0.48760956 0.50412189 0.55833454
-#  0.49750374 0.52722791 0.50445433 0.50216715]
+tsys1=vanecal(vane1, [281, 282], feeds=feeds1)
+print(tsys1)   #  [50.41218948 57.76417121]
 
-sp1,sp2 = getnod(sdf1, 289, 290, 1, 10)
+
+sp1,sp2 = getnod(sdf1, [289, 290], feeds1)
 sp1.plot()
 sp2.plot()
 
 sp3 = 0.5*(sp1+sp2)
+sp3 *= tsys.mean()
 sp3.plot()
+sp3.plot(xaxis_unit="km/s")      # no obvious signal
+
+sp3.stats(qac=True)
+sp3.stats(qac=True, roll=1)
 
 sdf1.getnod(scan=[289,290],fdnum=[10,1])
-# IndexError: index 0 is out of bounds for axis 0 with size 0
+# ISSUE#484: IndexError: index 0 is out of bounds for axis 0 with size 0
 
 
 #%%   EDGE1 data  (1363MB)
@@ -438,75 +554,71 @@ _help = """
 6      23   NGC0001      0.0  DecLatMap         1  113.571858  113.571858    1     1    68     16  177.410654  78.233486
 """
 
-sdf2 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'), skipflags=True)
-#  CPU=9s with skipflags,  but 9min 5 sec with skipflags
-a = sdf2.summary()  # 208 scans   1363MB
+sdf1 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'), skipflags=True)
+#  ISSUE: CPU=9s with skipflags,  but 9min 5 sec with skipflags
+a = sdf1.summary()  # 208 scans   1363MB
 print(a)
 b=a[a["OBJECT"] == "VANE"]
 print(b)   # there are 13 vane's in here (17,21,58,65,102,111,115,152,196,198,212,249)
 
+plot_pb(sdf1,[17,21])    # this is slow, see using it frome edge1 below
+
 # make a smaller dataset for testing
 mkdir("edge1")
-scans = [17,18]
-# sdf2.write("edge1/file.fits", fdnum=8, scan=scans, intnum=[0,1], overwrite=True)
-# sdf2.write("edge1/file.fits", fdnum=8, scan=scans, overwrite=True)
-sdf2.write("edge1/file.fits", scan=scans, overwrite=True)                # 4576 rows
-#       TypeError: object of type 'Column' has no len()
+scans = [17,18,21,22]
+# sdf1.write("edge1/file.fits", fdnum=8, scan=scans, intnum=[0,1], overwrite=True)
+# sdf1.write("edge1/file.fits", fdnum=8, scan=scans, overwrite=True)
+sdf1.write("edge1/file.fits", scan=scans, overwrite=True)                # 4576 rows  -  also fails if skipflags=True
+#   ISSUE:    TypeError: object of type 'Column' has no len()
 #  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
+sdf1.write("edge1/file.fits", scan=scans, overwrite=True, flags=False)     # now ok
+#    temp fix
 
 edge1 = GBTFITSLoad("edge1")
 edge1.summary()
 edge1._index[ks]
 
-tsys = vanecal(sdf2, 17, 18, feeds=range(16))
-# [0.76915776 0.64312562 0.63592276 0.6619848  0.61120068 0.70323269
-#  0.62788577 0.63010956 0.60427554 0.6221987  0.65696975 0.65716321
-#  0.5804609  0.66266635 0.5460511  0.59217787]
+plot_pb(edge1,[17,21])      # super fast now
 
-tsys = vanecal(edge1, 17, 18, feeds=range(16))
+beams1=getbeam(sdf1)   # 4,7
+print(beams1)
+
+tsys = vanecal(sdf1, [17, 18], feeds=beams1)
 print(tsys)
-#  .. used to work
+# [61.12006835 63.01095552]
 
-getbeam(sdf2)   # 4,7
+
+tsys = vanecal(edge1, [17, 18], feeds=beams1)
+print(tsys)
+# [61.12006835 63.01095552].
+
 
 # plotting a passband
-sdf2.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
+sdf1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
 edge1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
 # ok !!
 
 # not working yet, since it wants ON/OFF, needs the GETTP hack
-sp2 = sdf2.getnod(scan=19)
+sp2 = sdf1.getnod(scan=19)
 # IndexError: index 0 is out of bounds for axis 0 with size 0
 
 
 # if getnod() is not converted, we can use the old trick of doing two gettp()
-scan1 = 19
-scan2 = 20
-beam1 = 4
-beam2 = 7
-sp1,sp2 = getnod(sdf2, scan1, scan2, beam1, beam2)
+scans = [19,20]
+sp1,sp2 = getnod(sdf1, scans, beams)
 
 sp3 = 0.5*(sp1+sp2)
-sp3.plot(xaxis_unit="km/s")
-# center is at 0 km/s, that seems wrong, should be VLSR 4500 km/s at 113.57
+sp3 *= tsys[0]
+sp3 = sp3[100:900]
+sp3.plot(xaxis_unit="km/s")     # no obvious signal, pretty bad baseline
+# center is at 0 km/s, where VLSR 4500 km/s at 113.57 is
 
+sp3.stats(qac=True)
+sp3.stats(qac=True, roll=1)
 
-#%% EDGE2 nod example on NGC5908
-sdf1=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'), skipflags=True)
-sdf1.summary()
+#%% EDGE2 nod example on NGC5908       1640 MB
 
-mkdir("edge2")
-scans = [327,328,329,330,331,332,333,334]
-sdf1.write("edge2/file.fits", scan=scans, overwrite=True)                # 4576 rows
-#  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
-
-getbeam(sdf1)   # 1,9
-
-edge2 = GBTFITSLoad("edge2")
-edge2.summary()
-edge2._index[kw] # 5248 rows
-
-_s = """
+_help = """
    SCAN   OBJECT VELOCITY   PROC  PROCSEQN    RESTFREQ     DOPFREQ # IF # POL # INT # FEED     AZIMUTH   ELEVATIO
 0   327     VANE      0.0  Track         1  112.365952  112.365952    1     1    21     16  314.014676  69.054141
 1   328      SKY      0.0  Track         1  112.365952  112.365952    1     1    21     16  314.015393  69.054142
@@ -517,17 +629,37 @@ _s = """
 6   333  NGC5908      0.0    Nod         1   114.03043   114.03043    1     1    61     16  332.654981  69.984783
 7   334  NGC5908      0.0    Nod         2   114.03043   114.03043    1     1    61     16   332.44083  69.907597
 """
-tsys1 = vanecal(edge2, 327, 328, feeds=range(16))
+
+
+sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'), skipflags=True)
+sdf2.summary()
+
+mkdir("edge2")
+scans = [327,328,329,330,331,332,333,334]
+sdf2.write("edge2/file.fits", scan=scans, overwrite=True)                # 4576 rows
+#  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
+
+beams = getbeam(sdf2)   # 1,9
+print("feeds",beams)
+
+edge2 = GBTFITSLoad("edge2")
+edge2.summary()
+edge2._index[kw] # 5248 rows
+
+plot_pb(edge2,[327,329],"edge2 at 112 and 114 GHz")
+
+# this was at 112 GHz for NGC570
+tsys1 = vanecal(edge2, [327, 328], feeds=beams)
 print(tsys1)
-# @112.3 GHz
+# @112.3 GHz   [62.93311553 56.119602  ]
 # [0.70676998 0.62933116 0.59430538 0.68707773 0.58870158 0.88427164
 #  0.58151629 0.56933859 0.57527814 0.56119602 0.57773119 0.59914186
 #  0.55032223 0.59743774 0.56316352 0.54670035]
 
-
-tsys2 = vanecal(edge2, 329, 330, feeds=range(16))
+# this was at 114 GHz for NGC5908
+tsys2 = vanecal(edge2, [329, 330], feeds=beams)
 print(tsys2)
-# @114.0 GHz
+# @114.0 GHz[   79.76351041 73.37103122]
 # [0.90294513 0.7976351  0.78455571 0.66614836 0.71608555 0.87295378
 #  0.77542001 0.72878323 0.73203965 0.73371031 0.75607937 0.73815973
 #  0.7139721  0.79401993 0.67909461 0.7009243 ]
@@ -536,20 +668,28 @@ print(tsys2)
 # ratio:        1.24 +/- 0.11
 
 # sp1,sp2 = getnod(edge2, 331, 332, 4, 7)
-sp1,sp2 = getnod(edge2, 331, 332, 1, 9)
+sp1,sp2 = getnod(edge2, [331, 332], beams)
 
-sp3 = 0.5*(sp1+sp2)
+sp3a= 0.5*(sp1+sp2)
+sp3a *= tsys1.mean()
+
+sp3a.plot(xaxis_unit="km/s")   # no obvious signal
+sp3a.stats(roll=1, qac=True)   # -1.181354074899116e-05 0.00041549827372127805 -0.011442474977454774 0.0006429187544796944
+
+
+sp1,sp2 = getnod(edge2, [333, 334], beams)
+
+sp3b = 0.5*(sp1+sp2)
+sp3b *= tsys2.mean()
+
+sp3b.plot(xaxis_unit="km/s")  # some signal !!!
+sp3b.stats(roll=1,qac=True)   # 1.5149874868049228e-07 0.00022024819767170955 -0.0007531398211747958 0.0006198584990495457
+
+
+sp3 = sp3a + sp3b
 sp3.plot(xaxis_unit="km/s")
-sp3.stats(roll=1, qac=True)   # -1.181354074899116e-05 0.00041549827372127805 -0.011442474977454774 0.0006429187544796944
 
 
-sp1,sp2 = getnod(edge2, 333, 334, 1,9)
-
-sp3 = 0.5*(sp1+sp2)
-sp3.plot(xaxis_unit="km/s")
-sp3.stats(roll=1,qac=True)   # 1.5149874868049228e-07 0.00022024819767170955 -0.0007531398211747958 0.0006198584990495457
-
-# no obvious signal
 
 
 #%% NOD EXAMPLE-3 tp_nocal   NOD_BEAMS 0,1       729 MB
@@ -582,9 +722,10 @@ mkdir("nod3cal")
 sdf3.write("nod3cal/file.fits", scan=130, ifnum=0, plnum=0, overwrite=True)
 nod3cal = GBTFITSLoad("nod3cal")
 nod3cal.summary()
-nod3cal._index[kw]   # 82 rows  (Observing, Cold1, Cold2 and a few Unknown in state transition)
+nod3cal._index[kw]   # 82 rows  (Observing, Cold1, Cold2 and a few Unknown in state transition)  -- TPNOCAL
 
-calseq(nod3cal, 130)     # 100.27992034259859, 9.129371938341321e-07
+tsys,g = calseq(nod3cal, 130)     # 100.27992034259859, 9.129371938341321e-07
+print(tsys,g)
 # calseq(sdf3, 130)      # 100.13203834626455, 9.115908926574802e-07   - if/pol multivalued....
 #   -> RecursionError: maximum recursion depth exceeded
 #   now ok
@@ -603,15 +744,17 @@ nod3 = GBTFITSLoad('nod3')
 nod3.summary()
 nod3._index[k]    # 244 rows
 
-getbeam(nod3)     # [0,1]
+beams3 = getbeam(nod3)     # [0,1]
+print(beams3)
 
-sp1,sp2 = getnod(nod3, s,s+1, 0,1)
+sp1,sp2 = getnod(nod3, [s,s+1],beams3)
 sp3 = 0.5*(sp1+sp2)
+sp3 *= tsys
 sp3.plot()
 sp3.plot(xaxis_unit="km/s")
-sp3.stats(roll=1,qac=True)   # -4.2108108778559965e-08 0.0007399090101101702 -0.04234319841414078 0.022299233818862226
 
-
+sp3.stats(qac=True)
+sp3.stats(roll=1,qac=True)   
 
 
 sp0 = nod3.getnod(scan=[s,s+1],ifnum=0,plnum=0)
@@ -639,7 +782,7 @@ sdf4 = GBTFITSLoad(f4)
 sdf4.summary()
 
 kw=['DATE-OBS','SCAN', 'SUBOBSMODE', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'TCOLD', 'CALPOSITION']
-sdf4._index[kw]   # 192 rows
+sdf4._index[kw]   # 192 rows   TCAL ~ 1.5   TPNOCAL
 
 sdf4.getps()
 # Exception: Multiple SUBOBSMODE present, cannot deal with this yet ['TPWCAL', 'TPNOCAL']
@@ -687,10 +830,12 @@ sdf5.write("vane5/file.fits", scan=[10,11,12], overwrite=True)
 
 vane5 = GBTFITSLoad("vane5", skipflags=True)
 vane5.summary()
+vane5._index[kw]      # 2560 ;    FSW12NOCAL
 
 getbeam(vane5)
 
-tsys_10 = vanecal(vane5, 10, 11, feeds=range(16))
+tsys_10 = vanecal(vane5, [10, 11], feeds=range(16))
+print(tsys_10)
 # [0.95318402 0.75949678 0.77948539 0.91625876 0.76606387 0.92277304
 #  0.7289571  0.79762214 0.77845341 0.74670253 0.74174926 0.82368279
 #  0.7663306  0.7432676  0.79513699 0.73222654]
@@ -728,7 +873,8 @@ sdf6 = GBTFITSLoad(f6, skipflags=True)
 sdf6.summary()
 sdf6._index[kw]    # 1728
 
-getbeam(sdf6)    # 0,1
+beams6 = getbeam(sdf6)    # 0,1
+print(beams6)
 
 mkdir("vane6")
 scans = [32,33,34]
@@ -740,30 +886,30 @@ sdf6.write("vane6/file.fits", plnum=0, scan=scans, overwrite=True)
 
 vane6 = GBTFITSLoad("vane6")
 vane6.summary()
-vane6._index[kw]    # 92 in just scan 32      368 if all 4 CALSEQ
+vane6._index[kw]    # 92 in just scan 32      368 if all 4 CALSEQ  --  TPNOCAL
 
 calseq(vane6, 23, plnum=0, ifnum=0, fdnum=1)
 # syntaxError: too many nested parentheses    <--- only if all plnum's selected to into vane6
 calseq(vane6, 26, fdnum=1)
 calseq(vane6, 29, fdnum=1)
 calseq(vane6, 32, fdnum=0)
+calseq(vane6, 32, fdnum=1)
 #    fdnum=0    608K    (612 when adding the Nod)
 #          1    179K    (189 when adding the Nod)
 #    something odd:   when doing [32,33,34] i get different answers from using just [32]
 
-# getbeam fails if only scan 32 is used
-getbeam(vane6)
 
 vane6.gettp(scan=32,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
 vane6.gettp(scan=32,fdnum=1,calibrate=True, cal=False).timeaverage().plot()
 
-sp1,sp2 = getnod(vane6, 33, 34, 0, 1)
+sp1,sp2 = getnod(vane6, [33, 34], beams6)
 
 sp3 = 0.5*(sp1+sp2)
-sp3.plot()                 #   no obvious signal
-sp3.stats(roll=1, qac=True)   # 4.923401847859579e-05 0.0016115564993204495 -0.0007704968985869036 0.051103618263309156'
+sp3 = sp3[50:-50]
+sp3.plot(xaxis_unit="km/s")              #   no obvious signal, very bad baselines
 
-
+sp3.stats(qac=True)
+sp3.stats(roll=1, qac=True)   
 
 #%%
 
