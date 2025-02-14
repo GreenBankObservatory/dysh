@@ -8,6 +8,7 @@ from astropy.coordinates import Angle
 from astropy.table import QTable
 from astropy.time import Time
 from astropy.units.quantity import Quantity
+from numpy.polynomial.polynomial import Polynomial
 
 from ..log import logger
 from ..util import get_project_configuration
@@ -78,9 +79,28 @@ class BaseGainCorrection(ABC):
         Returns
         -------
             aperture_efficiency  - float or `~numpy.ndarray`
-            The value(s) of the aperture efficiency at the given frequency.
+            The value(s) of the aperture efficiency at the given frequency/wavelength.
             The return value(s) are float(s) between zero and one.
 
+        """
+        pass
+
+    def zenith_opacity(self, specval: Quantity, **kwargs) -> Union[float, np.ndarray]:
+        """
+        Compute the zenith opacity.
+
+        Parameters
+        ----------
+        specval : `~astro.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute the opacity
+        **kwargs : Any
+            Other possible parameters that affect the output opacity, e.g., MJD
+
+        Returns
+        -------
+        float or `~numpy.ndarray`
+            The values of the zenith opacity at the given frequency/wavelength.
+            The return value(s) are non-negative float(s).
         """
         pass
 
@@ -279,3 +299,61 @@ class GBTGainCorrection(BaseGainCorrection):
         a = (4.0 * np.pi * eps0 / _lambda) ** 2
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
+
+    def zenith_opacity(
+        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs=None, **kwargs
+    ) -> Union[float, np.ndarray]:
+        r"""
+        Compute the zenith opacity.  If multiple `specval` are given, an array is returned otherwise a float is returned.
+        If polynomial coefficients `coeffs` are given then, the zenith opacity `:math:`\tau_0 will be computed as a function of frequency:
+
+            `:math:` \tau_0 = \sum_{i=0}^{n} C_i*\nu_i
+
+        where `:math:`C_i are the coefficients and `:math:`\nu is the frequency **in GHz**.
+
+        Parameters
+        ----------
+        specval : `~astro.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute the opacity
+        mjd : `~astropy.time.Time` or float
+            The date at which to compute the opacity. If given as a float, it is interpreted as
+            Modified Julian Day.  Default: None, meaning ignore this parameter.
+        coeffs: `~np.ndarray`
+            Polynomial coefficients in order of increasing degree, including the constant term i.e.,
+            ``(1, 2, 3)`` give ``1 + 2*x + 3*x**2``.
+
+        Returns
+        -------
+            float or `~numpy.ndarray`
+            The zenith opacity at the given inputs
+
+        """
+        frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
+        if coeffs is not None:
+            p = Polynomial(coeffs)
+            return p(frequency)
+        else:
+            return self._default_gbtidl_opacity(frequency)
+
+    def _default_gbtidl_opacity(self, frequency: Quantity) -> float:
+        """Implementation of the GBTIDL method of computing zenith opacity.
+        This method is not recommended (even by GBTIDL!). It is implemented here for compatibility only.
+
+        Parameters
+        ----------
+        frequency : `~astro.units.quantity.Quantity`
+            The frequency at which to compute the opacity
+
+        Returns
+        -------
+            float
+            The zenith opacity at the input frequency
+        """
+        freq = frequency.to(u.GHz).value
+        if freq > 52.0:
+            return 0.2
+        if freq > 18.0 and freq < 26.0:
+            tau = 0.008 + np.exp(np.sqrt(freq)) / 8000.0 + np.exp(-((freq - 22.2) ** 2) / 2.0) / 40.0
+        else:
+            tau = 0.008 + np.exp(np.sqrt(freq)) / 8000.0
+        return tau
