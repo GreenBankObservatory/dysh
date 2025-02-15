@@ -6,6 +6,7 @@ Created on Wed Feb 12 13:13:33 2025
 @author: mpound
 """
 import ast
+import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
@@ -15,6 +16,7 @@ import numpy as np
 from astropy.coordinates import Angle
 from astropy.time import Time
 from astropy.units.quantity import Quantity
+from pandas import DataFrame
 
 from ..log import logger
 
@@ -197,20 +199,41 @@ class GBTWeatherForecast(BaseWeatherForecast):
 #
 
 
-class GBTForecastScriptInterFace:
+class GBTForecastScriptInterface:
     def __init__(self, path: Union[Path, str] = "/users/rmaddale/bin/getForecastValues"):
         self._path = Path(path)
-        if not self._path.exists() or not self._path.is_file():
-            raise ValueError(f"{self._path} does not exist or is not a file")
+        self._fit = None
+        # maximum number of fit polynomial coefficients as of 2/2025. Probably won't change
+        self._MAX_COEFFICIENTS = 7
+        # frequency ranges as of 2/2025.
+        self.fr = [2.0, 22.0, 22.0 + 1e-9, 50.0, 67.0, 116.0]  # GHz
+        ccols = [f"c{n}" for n in np.arange(self._MAX_COEFFICIENTS)]
+        self._fitcols = ["MJD", "freqLoGHz", "freqHiGHz"] + ccols
+        if False:
+            if not self._path.exists() or not self._path.is_file():
+                raise ValueError(f"{self._path} does not exist or is not a file")
 
-    def __call__(self, *args) -> np.ndarray:
-        # check inputs
-        pass
+    # For using the fit coefficients, we create a DataFrame that has columns
+    # MJD freqLoGHz  freqHiGHz, coeff1, coeff2, ... coeffN
+    # Where freqLo and freqHi are the frequency range over which the coefficients
+    # are valid.
+    # In order to have a regular grid, there will be as many coefficients as the ferquency
+    # range that has the most coefficiets (currently 100GHz range with 7 coefficients),
+    # and the high order coefficients for the other ranges will be set to zero.
+    def __call__(self, coeffs: bool = True, freq: list = None, mjd: list = None) -> np.ndarray:
+        if coeffs:
+            # call with -coeff
+            pass
+        else:
+            # call with other args and -type Opacity
+            pass
 
     def _parse_coefficients(self, script_output: str) -> np.ndarray:
         """Parse the coefficient list that comes out of `getForecastValues` script
         when `-coeff` is passed to it.
         """
+        self._fit = DataFrame(columns=self._fitcols)
+
         # a single line looks like this (including the # in front of Frequency)
         # # Frequency Bands: 2-22, 22-50, 67-116 GHz
         # Opacity(60719.88309) = {{a0 a1 a2 a3 a4} chisq_2-22} {{b0 b1 b2 b3 b4} 6.594244413740909e-6} {{c1 c2 c3 c4 c5 c6 c7} chisq_c}
@@ -219,13 +242,25 @@ class GBTForecastScriptInterFace:
         #
         # If a date is given that is outside the range the script errors out with a long
         # error message that start's with 'can't read "Coeffs'
+        lines = script_output.split("\n")
+        for line in lines:
+            if line.startswith("#"):
+                continue
+            mjd, coeffs = self._parse_coeff_line(line)
+            row = np.array(
+                [
+                    np.hstack([mjd, self.fr[0], self.fr[1], coeffs[0]]),
+                    np.hstack([mjd, self.fr[2], self.fr[3], coeffs[1]]),
+                    np.hstack([mjd, self.fr[4], self.fr[5], coeffs[2]]),
+                ]
+            )
+            print(row)
 
-    def _parse_one_line(self, line: str) -> tuple:
+    def _parse_coeff_line(self, line: str) -> tuple:
         """parse a single line of 'coefficient' script output
             Because the number of coefficients differs for the different
             frequency ranges (4 for low and mid frequency, 7 for high frequency range),
-            this function will return a list of np.ndarray
-            with lengths 4, 4, 7. An alternative would to return a 3x7 array with zeros
+            this function will return a 3x7  np.ndarray  with zeros
             for the undefined low/mid frequency coefficients, which maybe I'll think about.
 
         Parameters
@@ -238,10 +273,19 @@ class GBTForecastScriptInterFace:
         coeffs - tuple
             The tuple consists of (mjd,coeff_list) where coeff_list is as described above.
         """
+        # munge the string so it looks like a list of lists
+        line = re.sub(" +", " ", line)  # remove duplicate spaces
         x = line.split("=")
         mjd = float(x[0].replace("Opacity(", "").replace(")", "").strip())
         s = x[1].strip().replace("{", "[").replace("}", "]").replace(" ", ",")
         ary = ast.literal_eval(s)
+        # now drop the chisq values which happen to not be contained in lists,
+        # so easily found.
         n = [q for q in ary if isinstance(q, list)]
-        p = np.array([np.array(z) for z in n], dtype=object)
+        # pad all out to maximum array length
+        maxlen = np.max([len(z) for z in n])
+        # print(f"{maxlen=}")
+        for z in n:
+            z += [0] * (maxlen - len(z))
+        p = np.array(n)
         return (mjd, p)
