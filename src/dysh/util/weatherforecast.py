@@ -6,17 +6,19 @@ Created on Wed Feb 12 13:13:33 2025
 @author: mpound
 """
 import ast
+import os
 import re
+import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import Angle
 from astropy.time import Time
 from astropy.units.quantity import Quantity
-from pandas import DataFrame
+from numpy.polynomial.polynomial import Polynomial
+from pandas import DataFrame, concat
 
 from ..log import logger
 
@@ -35,10 +37,10 @@ class BaseWeatherForecast(ABC):
 
 class GBTWeatherForecast(BaseWeatherForecast):
     def __init__(self):
-        self._forecaster = GBTForecastScriptInterFace()
+        self._forecaster = GBTForecastScriptInterface()
 
     def fetch(
-        self, specval: Quantity, valueType: list = ["Opacity"], mjd: Union[Time, float] = None, coeffs=None
+        self, specval: Quantity, valueType: str = "Opacity", mjd: Union[Time, float] = None, coeffs=None
     ) -> np.ndarray:
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
         return self._forecaster(frequency, valueType, mjd, coeffs)
@@ -209,6 +211,7 @@ class GBTForecastScriptInterface:
         self.fr = [2.0, 22.0, 22.0 + 1e-9, 50.0, 67.0, 116.0]  # GHz
         ccols = [f"c{n}" for n in np.arange(self._MAX_COEFFICIENTS)]
         self._fitcols = ["MJD", "freqLoGHz", "freqHiGHz"] + ccols
+        self._df = DataFrame(columns=self._fitcols)
         if False:
             if not self._path.exists() or not self._path.is_file():
                 raise ValueError(f"{self._path} does not exist or is not a file")
@@ -220,13 +223,81 @@ class GBTForecastScriptInterface:
     # In order to have a regular grid, there will be as many coefficients as the ferquency
     # range that has the most coefficiets (currently 100GHz range with 7 coefficients),
     # and the high order coefficients for the other ranges will be set to zero.
-    def __call__(self, coeffs: bool = True, freq: list = None, mjd: list = None) -> np.ndarray:
+    def __call__(
+        self, coeffs: bool = True, vartype: str = "Opacity", freq: list = None, mjd: list = None
+    ) -> np.ndarray:
+        """set up and call the GBO weather script
+
+        If polynomial coefficients `coeffs` are given then, the return values will be computed as a function of frequency:
+
+            `:math:` \tau_0 = \sum_{i=0}^{n} C_i*\nu_i
+
+        where `:math:`C_i are the coefficients and `:math:`\nu is the frequency **in GHz**.
+
+        Parameters
+        ----------
+        coeffs : bool, optional
+            Fetch the polynomial coefficients by passing '-coeffs' to the script.  The default is True.
+        vartype : str optional
+            Which weather variable to fetch. The default is "Opacity".
+        freq : list, optional
+           An input frequency list in GHz at which to evaluate the weather data. If `coeffs=True`, the polynomial
+           is fetch first and then the `vartype` at each frequency is evaluated. The default is None.
+        mjd : list, optional
+           An input data list in MJD at which to evaluate the weather data. The default is None.
+
+        Returns
+        -------
+        weather_data : np.ndarray
+            The requested weather data evaluated at the input frequencies and MJDs.
+        """
+        #    Polynomial coefficients in order of increasing degree, including the constant term i.e.,
+        #     ``(1, 2, 3)`` give ``1 + 2*x + 3*x**2``
+        # if coeffs is not None:
+        #    p = Polynomial(coeffs)
         if coeffs:
             # call with -coeff
-            pass
+            _args = f"-coeff -type {vartype}"
+            if mjd is not None:
+                mjdformat = len(mjd) * "{:.2f} "
+                timearg = f" -timeList {mjdformat.format(*mjd)}"
+                _args += timearg
+
+            script_output = self._call_script(_args)
+            self._df = concat(
+                [self._df, DataFrame(data=self._parse_coefficients(script_output), columns=self._fitcols)],
+                ignore_index=True,
+            )
+            if freq is None:
+                raise ValueError(f"You must give a frequency list with {coeffs=}.")
+            return self._eval_polynomial(freq, mjd)
         else:
             # call with other args and -type Opacity
             pass
+
+    def _eval_polynomial(self, freq: list, mjd: list) -> np.ndarray:
+        # freq is in GHz
+        # returns array n_mjd x n_freq
+        final = None
+        for d in mjd:
+            df = self._df[self._sdf.mjd == d]
+            for f in freq:
+                z = []
+                df = df[(df.freqLoGHz <= f) & (df.freqHiGHz >= f)]
+                coefficients = df.loc[:, df.columns.str.contains("^c")].to_numpy()
+                p = Polynomial(coefficients)
+                z.append(p(freq))
+            ary = np.hstack([mjd, z])
+            if final:
+                final = np.vstack([final, ary])
+            else:
+                final = ary
+        return final
+
+    def _call_script(self, str_args: str) -> str:
+        """call the script via python `subprocess` and return the output as a str. Lines will be separated by \n"""
+        output = subprocess.run(str_args.split(), stdout=subprocess.pipe).stdout
+        return str(output)
 
     def _parse_coefficients(self, script_output: str) -> np.ndarray:
         """Parse the coefficient list that comes out of `getForecastValues` script
@@ -254,7 +325,7 @@ class GBTForecastScriptInterface:
                     np.hstack([mjd, self.fr[4], self.fr[5], coeffs[2]]),
                 ]
             )
-            print(row)
+            return row
 
     def _parse_coeff_line(self, line: str) -> tuple:
         """parse a single line of 'coefficient' script output

@@ -8,10 +8,10 @@ from astropy.coordinates import Angle
 from astropy.table import QTable
 from astropy.time import Time
 from astropy.units.quantity import Quantity
-from numpy.polynomial.polynomial import Polynomial
 
 from ..log import logger
 from ..util import get_project_configuration
+from .weatherforecast import GBTWeatherForecast
 
 __all__ = ["BaseGainCorrection", "GBTGainCorrection"]
 
@@ -301,15 +301,11 @@ class GBTGainCorrection(BaseGainCorrection):
         return eta_a.value
 
     def zenith_opacity(
-        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs=None, **kwargs
-    ) -> Union[float, np.ndarray]:
+        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs=True, use_script=True, **kwargs
+    ) -> np.ndarray:
         r"""
-        Compute the zenith opacity.  If multiple `specval` are given, an array is returned otherwise a float is returned.
-        If polynomial coefficients `coeffs` are given then, the zenith opacity `:math:`\tau_0 will be computed as a function of frequency:
+        Compute the zenith opacity, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
 
-            `:math:` \tau_0 = \sum_{i=0}^{n} C_i*\nu_i
-
-        where `:math:`C_i are the coefficients and `:math:`\nu is the frequency **in GHz**.
 
         Parameters
         ----------
@@ -317,21 +313,31 @@ class GBTGainCorrection(BaseGainCorrection):
             The spectral value -- frequency or wavelength -- at which to compute the opacity
         mjd : `~astropy.time.Time` or float
             The date at which to compute the opacity. If given as a float, it is interpreted as
-            Modified Julian Day.  Default: None, meaning ignore this parameter.
-        coeffs: `~np.ndarray`
-            Polynomial coefficients in order of increasing degree, including the constant term i.e.,
-            ``(1, 2, 3)`` give ``1 + 2*x + 3*x**2``.
+            Modified Julian Day.  Default: None, meaning ignore this parameter. If the user is not on the GBO network,
+            this argument is ignored and the opacity will only be a function of frequency.
+        coeffs: bool
+            If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
+            polynomial coefficients to fit opacity as a function of frequency for each MJD.
+        use_script: If at GBO, use the `getForecastValues` script to determine the opacity. This argument is
+                    ignore if the user is not on the GBO network.
 
         Returns
         -------
-            float or `~numpy.ndarray`
-            The zenith opacity at the given inputs
+            `~numpy.ndarray`
+            The zenith opacity at the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
 
         """
+        #    return p(frequency)
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
-        if coeffs is not None:
-            p = Polynomial(coeffs)
-            return p(frequency)
+
+        if use_script:
+            try:
+                g = GBTWeatherForecast()
+            except Exception as e:
+                raise Exception(
+                    f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
+                )
+            g.fetch(specval=specval, mjd=mjd, coeffs=coeffs)
         else:
             return self._default_gbtidl_opacity(frequency)
 
