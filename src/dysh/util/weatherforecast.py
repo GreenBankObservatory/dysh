@@ -30,7 +30,7 @@ class BaseWeatherForecast(ABC):
 
     @abstractmethod
     def fetch(
-        specval: Quantity, valueType: list = None, mjd: Union[Time, float] = None, coeffs=None, **kwargs
+        specval: Quantity, valueType: list = None, mjd: Union[Time, np.ndarray] = None, coeffs=None, **kwargs
     ) -> np.ndarray:
         pass
 
@@ -40,10 +40,10 @@ class GBTWeatherForecast(BaseWeatherForecast):
         self._forecaster = GBTForecastScriptInterface()
 
     def fetch(
-        self, specval: Quantity, valueType: str = "Opacity", mjd: Union[Time, float] = None, coeffs=None
+        self, specval: Quantity, vartype: str = "Opacity", mjd: Union[Time, float] = None, coeffs=None
     ) -> np.ndarray:
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
-        return self._forecaster(frequency, valueType, mjd, coeffs)
+        return self._forecaster(freq=frequency, vartype=vartype, mjd=mjd, coeffs=coeffs)
 
 
 # ------------------------------------------------------------------------------
@@ -212,9 +212,8 @@ class GBTForecastScriptInterface:
         ccols = [f"c{n}" for n in np.arange(self._MAX_COEFFICIENTS)]
         self._fitcols = ["MJD", "freqLoGHz", "freqHiGHz"] + ccols
         self._df = DataFrame(columns=self._fitcols)
-        if False:
-            if not self._path.exists() or not self._path.is_file():
-                raise ValueError(f"{self._path} does not exist or is not a file")
+        if not self._path.exists() or not self._path.is_file():
+            raise ValueError(f"{self._path} does not exist or is not a file")
 
     # For using the fit coefficients, we create a DataFrame that has columns
     # MJD freqLoGHz  freqHiGHz, coeff1, coeff2, ... coeffN
@@ -255,15 +254,18 @@ class GBTForecastScriptInterface:
         #     ``(1, 2, 3)`` give ``1 + 2*x + 3*x**2``
         # if coeffs is not None:
         #    p = Polynomial(coeffs)
+        print(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
+        _args = f"{self._path.as_posix()} "
         if coeffs:
             # call with -coeff
-            _args = f"-coeff -type {vartype}"
+            _args += f"-coeff -type {vartype} "
             if mjd is not None:
                 mjdformat = len(mjd) * "{:.2f} "
-                timearg = f" -timeList {mjdformat.format(*mjd)}"
+                timearg = f"-timeList {mjdformat.format(*mjd)}"
                 _args += timearg
 
             script_output = self._call_script(_args)
+            print(f"{script_output=}")
             self._df = concat(
                 [self._df, DataFrame(data=self._parse_coefficients(script_output), columns=self._fitcols)],
                 ignore_index=True,
@@ -296,15 +298,15 @@ class GBTForecastScriptInterface:
 
     def _call_script(self, str_args: str) -> str:
         """call the script via python `subprocess` and return the output as a str. Lines will be separated by \n"""
-        output = subprocess.run(str_args.split(), stdout=subprocess.pipe).stdout
-        return str(output)
+# thanks, Evan!
+        print(f"Calling {str_args}")
+        output = subprocess.run(str_args.split(), stdout=subprocess.PIPE).stdout
+        return str(output.decode("utf-8"))
 
     def _parse_coefficients(self, script_output: str) -> np.ndarray:
         """Parse the coefficient list that comes out of `getForecastValues` script
         when `-coeff` is passed to it.
         """
-        self._fit = DataFrame(columns=self._fitcols)
-
         # a single line looks like this (including the # in front of Frequency)
         # # Frequency Bands: 2-22, 22-50, 67-116 GHz
         # Opacity(60719.88309) = {{a0 a1 a2 a3 a4} chisq_2-22} {{b0 b1 b2 b3 b4} 6.594244413740909e-6} {{c1 c2 c3 c4 c5 c6 c7} chisq_c}
@@ -345,18 +347,23 @@ class GBTForecastScriptInterface:
             The tuple consists of (mjd,coeff_list) where coeff_list is as described above.
         """
         # munge the string so it looks like a list of lists
+        print(f"parsing {line=}")
         line = re.sub(" +", " ", line)  # remove duplicate spaces
         x = line.split("=")
         mjd = float(x[0].replace("Opacity(", "").replace(")", "").strip())
         s = x[1].strip().replace("{", "[").replace("}", "]").replace(" ", ",")
+        print(f"{s=}")
         ary = ast.literal_eval(s)
         # now drop the chisq values which happen to not be contained in lists,
         # so easily found.
-        n = [q for q in ary if isinstance(q, list)]
+        n = [q for q in ary[0] if isinstance(q, list)]
+        print(f"{n=}")
         # pad all out to maximum array length
         maxlen = np.max([len(z) for z in n])
-        # print(f"{maxlen=}")
+        print(f"{maxlen=}")
         for z in n:
             z += [0] * (maxlen - len(z))
+            print(f"{z=}")
+        print(f"modified {n=}")
         p = np.array(n)
         return (mjd, p)
