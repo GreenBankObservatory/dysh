@@ -36,8 +36,8 @@ class BaseWeatherForecast(ABC):
 
 
 class GBTWeatherForecast(BaseWeatherForecast):
-    def __init__(self):
-        self._forecaster = GBTForecastScriptInterface()
+    def __init__(self, **kwargs):
+        self._forecaster = GBTForecastScriptInterface(**kwargs)
 
     def fetch(
         self, specval: Quantity, vartype: str = "Opacity", mjd: Union[Time, float] = None, coeffs=None
@@ -108,7 +108,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
 #       # Frequency Bands: 6 - 22.2, 22.2 - 50, 67 - 116, in GHz
 #       Opacity(55088.6778935) = {{0.1253202697 -0.04723900904 0.006761806394
 #                 -0.0004079950568 9.012215005e-06} 6.053071176e-06
-#                 {3.519785243 -0.3868765402 0.01625918622 -0.0003067177559
+#                 {3.519785243 -0.3868765402 0.01625918622 -        debug = kwargs.get("debug", False)0.0003067177559
 #                 2.209766347e-06} 0.000106007689 {2109.17448 -141.386304
 #                 3.940260533 -0.05841611896 0.0004858081949 -2.14846586e-06
 #                 3.947017435e-09} 7.022269956e-05}
@@ -130,7 +130,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
 #       -h or -help
 #           Brings up this help page and all other options are ignored
 #       -coeff
-#           Whether coefficients, and not values, are to be returned.  The default
+#           Whether coefficients, and not values, are to be         debug = kwargs.get("debug", False)returned.  The default
 #           is to supply values.  Only available for -types of Opacity or Tatm
 #       -typeList list
 #           A list of the types of the values to be returned (Default: Opacity).
@@ -170,7 +170,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
 #                  effects.  That is, the predicted loss in gain due to all the
 #                  various weather factors.
 #              MinElev: Suggested minimum elevation for an object that rises to
-#                  the elevation given by the value of -elev.  Observing above
+#                  the elevation given by the value of -el        debug = kwargs.get("debug", False)ev.  Observing above
 #                  the suggested elevation should keep the loss in gain due to
 #                  atmospheric opacity to no more than 70% of the loss at transit
 #                  (i.e., < factor of ~2 increase in observing time).
@@ -202,7 +202,8 @@ class GBTWeatherForecast(BaseWeatherForecast):
 
 
 class GBTForecastScriptInterface:
-    def __init__(self, path: Union[Path, str] = "/users/rmaddale/bin/getForecastValues"):
+    def __init__(self, path: Union[Path, str] = "/users/rmaddale/bin/getForecastValues", **kwargs):
+        debug = kwargs.get("debug", False)
         self._path = Path(path)
         self._fit = None
         # maximum number of fit polynomial coefficients as of 2/2025. Probably won't change
@@ -212,8 +213,9 @@ class GBTForecastScriptInterface:
         ccols = [f"c{n}" for n in np.arange(self._MAX_COEFFICIENTS)]
         self._fitcols = ["MJD", "freqLoGHz", "freqHiGHz"] + ccols
         self._df = DataFrame(columns=self._fitcols)
-        if not self._path.exists() or not self._path.is_file():
-            raise ValueError(f"{self._path} does not exist or is not a file")
+        if not debug:
+            if not self._path.exists() or not self._path.is_file():
+                raise ValueError(f"{self._path} does not exist or is not a file")
 
     # For using the fit coefficients, we create a DataFrame that has columns
     # MJD freqLoGHz  freqHiGHz, coeff1, coeff2, ... coeffN
@@ -298,7 +300,7 @@ class GBTForecastScriptInterface:
 
     def _call_script(self, str_args: str) -> str:
         """call the script via python `subprocess` and return the output as a str. Lines will be separated by \n"""
-# thanks, Evan!
+        # thanks, Evan!
         print(f"Calling {str_args}")
         output = subprocess.run(str_args.split(), stdout=subprocess.PIPE).stdout
         return str(output.decode("utf-8"))
@@ -315,11 +317,13 @@ class GBTForecastScriptInterface:
         #
         # If a date is given that is outside the range the script errors out with a long
         # error message that start's with 'can't read "Coeffs'
+        # script_output.replace("{{", "\n{{")
         lines = script_output.split("\n")
         for line in lines:
-            if line.startswith("#"):
+            if line.startswith("#") or line == "":
                 continue
             mjd, coeffs = self._parse_coeff_line(line)
+            print(f"GOT {mjd=} {coeffs=}")
             row = np.array(
                 [
                     np.hstack([mjd, self.fr[0], self.fr[1], coeffs[0]]),
@@ -365,5 +369,5 @@ class GBTForecastScriptInterface:
             z += [0] * (maxlen - len(z))
             print(f"{z=}")
         print(f"modified {n=}")
-        p = np.array(n)
+        p = np.squeeze(np.array(n))
         return (mjd, p)
