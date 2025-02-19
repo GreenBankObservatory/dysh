@@ -6,7 +6,6 @@ Created on Wed Feb 12 13:13:33 2025
 @author: mpound
 """
 import ast
-import os
 import re
 import subprocess
 from abc import ABC, abstractmethod
@@ -18,11 +17,12 @@ import numpy as np
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from numpy.polynomial.polynomial import Polynomial
-from pandas import DataFrame, concat
+from pandas import DataFrame
 
 from ..log import logger
+from .core import to_mjd_list
 
-__all__ = ["BaseWeatherForecast", "GBTWeatherForecast"]
+__all__ = ["BaseWeatherForecast", "GBTWeatherForecast", "GBTForecastScriptInterface"]
 
 
 class BaseWeatherForecast(ABC):
@@ -35,16 +35,22 @@ class BaseWeatherForecast(ABC):
         pass
 
 
+# @todo (maybe) Formally specval = None is allowed then the script returns data al all frequencies 2-116 GHz
 class GBTWeatherForecast(BaseWeatherForecast):
     def __init__(self, **kwargs):
         self._forecaster = GBTForecastScriptInterface(**kwargs)
 
     # this could just as easily be __call__
     def fetch(
-        self, specval: Quantity, vartype: str = "Opacity", mjd: Union[Time, float] = None, coeffs=None
+        self,
+        specval: Quantity,
+        vartype: str = "Opacity",
+        mjd: Union[Time, float] = None,
+        coeffs=True,
     ) -> np.ndarray:
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
-        return self._forecaster(freq=frequency, vartype=vartype, mjd=mjd, coeffs=coeffs)
+        mjd_list = to_mjd_list(mjd)
+        return self._forecaster(freq=frequency, vartype=vartype, mjd=mjd_list, coeffs=coeffs)
 
 
 # ------------------------------------------------------------------------------
@@ -213,6 +219,32 @@ class GBTForecastScriptInterface:
         self.fr = [2.0, 22.0, 22.0 + 1e-9, 50.0, 67.0, 116.0]  # GHz
         ccols = [f"c{n}" for n in np.arange(self._MAX_COEFFICIENTS)]
         self._fitcols = ["MJD", "freqLoGHz", "freqHiGHz"] + ccols
+        self._valid_vartypes = [
+            "Opacity",
+            "Tatm",
+            "AtmTsys",
+            "TotalTsys",
+            "Est",
+            "Rest",
+            "Trcvr",
+            "Tau0",
+            "Tau10",
+            "Tau25",
+            "Tau50",
+            "Tau75",
+            "Tau90",
+            "Tatm0",
+            "Tatm10",
+            "Tatm25",
+            "Tatm50",
+            "Tatm75",
+            "Tatm90",
+            "Winds",
+            "WindEffect",
+            "SurfaceEffect",
+            "TotalEffect",
+            "MinElev",
+        ]
         if not debug:
             if not self._path.exists() or not self._path.is_file():
                 raise ValueError(f"{self._path} does not exist or is not a file")
@@ -224,12 +256,13 @@ class GBTForecastScriptInterface:
     # In order to have a regular grid, there will be as many coefficients as the ferquency
     # range that has the most coefficiets (currently 100GHz range with 7 coefficients),
     # and the high order coefficients for the other ranges will be set to zero.
+
     def __call__(
-        self, coeffs: bool = True, vartype: str = "Opacity", freq: list = None, mjd: list = None
+        self, vartype: str = "Opacity", freq: list = None, mjd: list = None, coeffs: bool = True
     ) -> np.ndarray:
         """set up and call the GBO weather script
 
-        If polynomial coefficients `coeffs` are given then, the return values will be computed as a function of frequency:
+        If polynomial coefficients are requested ( `coeffs=True` ), the return values will be computed as a function of frequency:
 
             `:math:` \tau_0 = \sum_{i=0}^{n} C_i*\nu_i
 
@@ -237,30 +270,79 @@ class GBTForecastScriptInterface:
 
         Parameters
         ----------
-        coeffs : bool, optional
-            Fetch the polynomial coefficients by passing '-coeffs' to the script.  The default is True.
-        vartype : str optional
-            Which weather variable to fetch. One the choices below. The default is "Opacity".
+        vartype : str, optional
+            Which weather variable to fetch. See Notes for a description of valid values. The default is "Opacity".
         freq : list, optional
            An input frequency list in GHz at which to evaluate the weather data. If `coeffs=True`, the polynomial
-           is fetch first and then the `vartype` at each frequency is evaluated. The default is None.
+           is fetched first and then the `vartype` at each frequency is evaluated. The default is None.
         mjd : list, optional
            An input data list in MJD at which to evaluate the weather data. The default is None.
-
+        coeffs : bool, optional
+            Fetch the polynomial coefficients by passing '-coeffs' to the script.  The default is True.
         Notes
-        ----
-        The types of values that can be returned are:       
-            [paste help here]
+        -----
+        The `vartype` name for values that can be returned are listed below. **These are case-sensitive.**
+            Opacity: the total zenith opacity
+
+            Tatm: the opacity-weighted (i.e., representative) temperature of
+                 the atmosphere and is the value that should be used when
+                 fitting traditional tipping curves.
+
+            AtmTsys:  the part of the system temperature due to just the
+                 atmosphere, doesn't include CMB, spillover, and electronics,
+                 and is calculated for the specified elevation.
+
+            TotalTsys: the above-described Tsys value, augmented by an
+                 estimate of the contributions from the receiver, spillover,
+                 and the CMB.
+
+            Est: the Effective System Temperature for the specified elevation.
+
+            Rest: the Relative Effective System Temperature, which includes
+                 the contributions from the CMB, spillover, and electronics,
+                 and is calculated for the specified elevation.  Essentially,
+                 the predicted loss in gain due to atmospheric opacity
+
+            Trcvr: An estimate of the receiver temperature for the given
+                 frequency and MJD
+
+            Tau0: The best possible opacity for the given frequency and MJD
+
+            Tau10, Tau25, Tau50, Tau75, Tau90: The opacity for various
+                 percentile weather conditions for the given frequency and MJD,
+                 based on multi-year statistical studies.
+
+            Tatm0: The Tatm for the given frequency and MJD at the time of the
+                 best possible opacity.
+
+            Tatm10, Tatm25, Tatm50, Tatm75, Tatm90: The Tatm for various
+                 percentile weather conditions for the given frequency and MJD,
+                 based on multi-year statistical studies.
+
+            Winds: The wind speed in MPH.  A specified freqList is ignored.
+
+            WindEffect: The predicted loss in point-surface efficiency due to
+                 winds
+
+            SurfaceEffect: The predicted loss in point-surface efficiency due
+                 to a deformed surface during PTCS daytime observing.
+
+            TotalEffect: The product of the Rest and the wind and surface
+                effects.  That is, the predicted loss in gain due to all the
+                various weather factors.
+
+            MinElev: Suggested minimum elevation for an object that rises to
+                the elevation given by the value of -elev.  Observing above
+                the suggested elevation should keep the loss in gain due to
+                atmospheric opacity to no more than 70% of the loss at transit
+                (i.e., < factor of ~2 increase in observing time).
 
         Returns
         -------
         weather_data : np.ndarray
             The requested weather data evaluated at the input frequencies and MJDs.
         """
-        #    Polynomial coefficients in order of increasing degree, including the constant term i.e.,
-        #     ``(1, 2, 3)`` give ``1 + 2*x + 3*x**2``
-        # if coeffs is not None:
-        #    p = Polynomial(coeffs)
+        self._check_vartype(vartype)
         print(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
         _args = f"{self._path.as_posix()} "
         if coeffs:
@@ -273,14 +355,25 @@ class GBTForecastScriptInterface:
 
             script_output = self._call_script(_args)
             print(f"{script_output=}")
-            self._df =  DataFrame(data=self._parse_coefficients(vartype, script_output), columns=self._fitcols)
+            self._df = DataFrame(data=self._parse_coefficients(vartype, script_output), columns=self._fitcols)
             if freq is None:
                 raise ValueError(f"You must give a frequency list with {coeffs=}.")
             return self._eval_polynomial(freq, mjd)
         else:
-            # call with other args and -type Opacity [-freqList -timeList]
+            # call with other args and -type vartype  [-freqList -timeList]
             script_output = self._call_script(_args)
-            return self._parse_list_values(script_output)
+            return self._parse_list_values(vartype, script_output)
+
+    @property
+    def valid_vartypes(self) -> list:
+        "List of the valid weather variable type names that can be retrieved."
+        return self._valid_vartypes
+
+    def _check_vartype(self, vartype: str) -> None:
+        if vartype not in self._valid_vartypes:
+            raise ValueError(
+                "Unrecognized vartype {vartype}.  Valid choices are: {self._valid_vartypes} (case-sensitive)."
+            )
 
     def _call_script(self, str_args: str) -> str:
         """call the script via python `subprocess` and return the output as a str. Lines will be separated by \n"""
@@ -289,17 +382,16 @@ class GBTForecastScriptInterface:
         output = subprocess.run(str_args.split(), stdout=subprocess.PIPE).stdout
         return str(output.decode("utf-8"))
 
-        
-    def _parse_list_values(self, vartype:str, script_output: str) -> np.ndarray:
-        """ parse script output when values are returned instead of coefficients"""
-        # 
+    def _parse_list_values(self, vartype: str, script_output: str) -> np.ndarray:
+        """parse script output when values are returned instead of coefficients"""
+        #
         lines = script_output.split("\n")
-        #tau = []
+        # tau = []
         out = None
         for line in lines:
             if line.startswith("#") or line == "":
                 continue
-            x = line.split('=')
+            x = line.split("=")
             tau = float(x[1])
             vals = [float(q) for q in x[0].replace(f"{vartype}(", "").replace(")", "").strip().split(",")]
             row = np.array([vals[1], vals[0], tau])
@@ -308,8 +400,6 @@ class GBTForecastScriptInterface:
             else:
                 out = np.vstack([out, row])
         return out
-
-
 
     def _parse_coefficients(self, vartype: str, script_output: str) -> np.ndarray:
         """Parse the coefficient list that comes out of `getForecastValues` script
@@ -336,7 +426,7 @@ class GBTForecastScriptInterface:
                 out = np.vstack([out, row])
         return out
 
-    def _parse_coeff_line(self, vartype:str, line: str) -> tuple:
+    def _parse_coeff_line(self, vartype: str, line: str) -> tuple:
         """parse a single line of 'coefficient' script output
             Because the number of coefficients differs for the different
             frequency ranges (4 for low and mid frequency, 7 for high frequency range),
@@ -350,8 +440,13 @@ class GBTForecastScriptInterface:
 
         Returns
         -------
-        coeffs - tuple
-            The tuple consists of (mjd,coeff_list) where coeff_list is as described above.
+        coeffs - np.ndarray
+            A array of coefficient values for each frequency range.  MJD is the same in each row.
+            [
+                [mjd, lowfreq_0, hifreq_0, coefficient_0...coefficient_n]
+                [mjd, lowfreq_1, hifreq_1, coefficient_0...coefficient_n]
+                [mjd, lowfreq_2, hifreq_2, coefficient_0...coefficient_n]
+             ]
         """
         # munge the string so it looks like a list of lists
         logger.debug(f"parsing ###{line=}###")
@@ -362,8 +457,6 @@ class GBTForecastScriptInterface:
         ary = ast.literal_eval(s)
         # now drop the chisq values which happen to not be contained in lists,
         # so easily found.
-        # print(f"##{ary=}##")
-        out = None
         p = []
         for a in ary:
             n = [q for q in a if isinstance(q, list)]
@@ -382,6 +475,7 @@ class GBTForecastScriptInterface:
         return row
 
     def _eval_polynomial(self, freq: list, mjd: list) -> np.ndarray:
+        """evaluate the polynomial at the given frequencies and MJDs"""
         # freq is in GHz
         # returns array n_mjd x n_freq
         # with values [mjd, freq, tau0]
@@ -402,5 +496,5 @@ class GBTForecastScriptInterface:
                     final = ary
                 else:
                     final = np.vstack([final, ary])
-        #print(f"{final=}")
+        # print(f"{final=}")
         return final
