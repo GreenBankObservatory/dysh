@@ -319,19 +319,16 @@ class GBTForecastScriptInterface:
         # error message that start's with 'can't read "Coeffs'
         # script_output.replace("{{", "\n{{")
         lines = script_output.split("\n")
+        out = None
         for line in lines:
             if line.startswith("#") or line == "":
                 continue
-            mjd, coeffs = self._parse_coeff_line(line)
-            print(f"GOT {mjd=} {coeffs=}")
-            row = np.array(
-                [
-                    np.hstack([mjd, self.fr[0], self.fr[1], coeffs[0]]),
-                    np.hstack([mjd, self.fr[2], self.fr[3], coeffs[1]]),
-                    np.hstack([mjd, self.fr[4], self.fr[5], coeffs[2]]),
-                ]
-            )
-            return row
+            row = self._parse_coeff_line(line)
+            if out is None:
+                out = row
+            else:
+                out = np.vstack([out, row])
+        return out
 
     def _parse_coeff_line(self, line: str) -> tuple:
         """parse a single line of 'coefficient' script output
@@ -351,23 +348,31 @@ class GBTForecastScriptInterface:
             The tuple consists of (mjd,coeff_list) where coeff_list is as described above.
         """
         # munge the string so it looks like a list of lists
-        print(f"parsing {line=}")
+        logger.debug(f"parsing ###{line=}###")
         line = re.sub(" +", " ", line)  # remove duplicate spaces
         x = line.split("=")
         mjd = float(x[0].replace("Opacity(", "").replace(")", "").strip())
         s = x[1].strip().replace("{", "[").replace("}", "]").replace(" ", ",")
-        print(f"{s=}")
         ary = ast.literal_eval(s)
         # now drop the chisq values which happen to not be contained in lists,
         # so easily found.
-        n = [q for q in ary[0] if isinstance(q, list)]
-        print(f"{n=}")
+        # print(f"##{ary=}##")
+        out = None
+        p = []
+        for a in ary:
+            n = [q for q in a if isinstance(q, list)]
+            p.append(n[0])  # get rid of double []
         # pad all out to maximum array length
-        maxlen = np.max([len(z) for z in n])
-        print(f"{maxlen=}")
-        for z in n:
+        maxlen = np.max([len(z) for z in p])
+        for z in p:
             z += [0] * (maxlen - len(z))
-            print(f"{z=}")
-        print(f"modified {n=}")
-        p = np.squeeze(np.array(n))
-        return (mjd, p)
+        # out = np.vstack([p])
+        row = np.array(
+            [
+                np.hstack([mjd, self.fr[0], self.fr[1], p[0]]),
+                np.hstack([mjd, self.fr[2], self.fr[3], p[1]]),
+                np.hstack([mjd, self.fr[4], self.fr[5], p[2]]),
+            ]
+        )
+        return row
+        # return (mjd, out)
