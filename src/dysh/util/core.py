@@ -3,15 +3,14 @@ Core utility definitions, classes, and functions
 """
 
 import hashlib
+import numbers
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Union
 
-# import astropy.units as u
 import numpy as np
-
-# import pandas as pd
 from astropy.time import Time
 
 ALL_CHANNELS = "all channels"
@@ -121,6 +120,36 @@ def gbt_timestamp_to_time(timestamp):
     else:
         t = [ts.replace("_", "-", 2).replace("_", "T") for ts in timestamp]
     return Time(t, scale="utc")
+
+
+def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
+    """Convert an astropy Time, list of MJD, or single MJD to a list of MJD
+    Parameters
+    -----------
+    time_val : `~astropy.time.Time` or float or list of float
+        The time value to convert.
+
+    Returns
+    -------
+    mjd : ~np.ndarray
+        The Modified Julian Day values in an array. (or None if `time_val` was None)
+
+    """
+    if time_val is None:
+        return None
+    # check for Time first since it is also a Sequence
+    if isinstance(time_val, Time):
+        if np.isscalar(time_val):
+            return np.ndarray(time_val.mjd)
+        else:
+            return time_val.mjd
+    if isinstance(time_val, (Sequence, np.ndarray)) and not isinstance(time_val, str):  # str is also a Sequence
+        return time_val
+    if isinstance(time_val, numbers.Number):
+        return np.ndarray([time_val])
+
+    else:
+        raise ValueError(f"Unrecognized type for time value: {type(time_val)}")
 
 
 def generate_tag(values, hashlen, add_time=True):
