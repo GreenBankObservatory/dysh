@@ -11,6 +11,7 @@ from astropy.units.quantity import Quantity
 
 from ..log import logger
 from ..util import get_project_configuration
+from .core import to_mjd_list
 from .weatherforecast import GBTWeatherForecast
 
 __all__ = ["BaseGainCorrection", "GBTGainCorrection"]
@@ -300,12 +301,97 @@ class GBTGainCorrection(BaseGainCorrection):
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
 
+    # @todo (maybe) Formally specval = None is allowed then the script returns data al all frequencies 2-116 GHz
+    def get_weather(
+        self, specval: Quantity, vartype: str, mjd: Union[Time, float] = None, coeffs=True, **kwargs
+    ) -> np.ndarray:
+        r"""
+        Call the GBO `getForecastValues` script with the given inputs.
+
+        Parameters
+        ----------
+        specval : `~astro.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute the opacity
+        vartype : str, optional
+            Which weather variable to fetch. See Notes for a description of valid values.
+        mjd : `~astropy.time.Time` or float
+            The date at which to compute the opacity. If given as a float, it is interpreted as
+            Modified Julian Day.  Default: None, meaning the data will be fetched at the most recent MJD available.
+            If the user is not on the GBO network, this argument is ignored and the opacity will only be a function of frequency.
+        coeffs: bool
+            If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
+            polynomial coefficients to fit opacity as a function of frequency for each MJD.
+        use_script: If at GBO, use the `getForecastValues` script to determine the opacity. This argument is
+                    ignore if the user is not on the GBO network.
+
+        Returns
+        -------
+            `~numpy.ndarray`
+            The requested value(s) the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
+        """
+        if self._forecast is None:
+            try:
+                self._forecast = GBTWeatherForecast()
+            except Exception as e:
+                raise Exception(
+                    f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
+                )
+            return self._forecast.fetch(specval=specval, vartype=vartype, mjd=mjd, coeffs=coeffs)
+
+    # Question: should use_script default to False?
     def zenith_opacity(
         self, specval: Quantity, mjd: Union[Time, float] = None, coeffs=True, use_script=True, **kwargs
     ) -> np.ndarray:
         r"""
         Compute the zenith opacity, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
 
+
+        Parameters
+        ----------
+        specval : `~astro.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute the opacity
+        mjd : `~astropy.time.Time` or float or list of float
+            The date(s) at which to compute the opacity. If given as a float, it is interpreted as
+            Modified Julian Day.  Default: None, meaning the data will be fetched at the most recent MJD available.
+            If the user is not on the GBO network, this argument is ignored and the opacity will only be a function of frequency.
+        coeffs: bool
+            If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
+            polynomial coefficients to fit opacity as a function of frequency for each MJD.
+        use_script: If at GBO, use the `getForecastValues` script to determine the opacity. This argument is
+                    ignore if the user is not on the GBO network.
+
+        Returns
+        -------
+            `~numpy.ndarray`
+            The zenith opacity at the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
+
+        """
+        # specval can but value*unit or [value...]*unit.  We want [value...]*unit
+        if len(specval.shape) == 0:
+            specval = [specval.value] * specval.unit
+        if mjd is None:
+            mjd = np.zeros(specval.shape)
+        mjd_list = to_mjd_list(mjd)
+        if use_script:
+            return self.get_weather(specval=specval, type="Opacity", mjd=mjd, coeffs=coeffs)
+        else:
+            frequency = specval.to(u.GHz, equivalencies=u.spectral())
+            out = None
+            for d in mjd_list:
+                for f in frequency:
+                    value = [d]  # MJD is irrelevant but need it so output signature is the same
+                    value.append(self._default_gbtidl_opacity(f))
+                    if out is None:
+                        out = np.array(value)
+                    else:
+                        out = np.vstack([out, value])
+        return out
+
+    def atm_temperature(
+        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs=True, use_script=True, **kwargs
+    ) -> np.ndarray:
+        r"""
+        Compute the atmospheric temperature `Tatm`, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
 
         Parameters
         ----------
@@ -324,22 +410,13 @@ class GBTGainCorrection(BaseGainCorrection):
         Returns
         -------
             `~numpy.ndarray`
-            The zenith opacity at the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
+            The atmostpheric temperature at the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
 
         """
-        #    return p(frequency)
-        frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
-
         if use_script:
-            try:
-                g = GBTWeatherForecast()
-            except Exception as e:
-                raise Exception(
-                    f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
-                )
-            return g.fetch(specval=specval, mjd=mjd, coeffs=coeffs)
+            return self.get_weather(specval=specval, type="Tatm", mjd=mjd, coeffs=coeffs)
         else:
-            return self._default_gbtidl_opacity(frequency)
+            raise NotImplementedError("Don't yet know how to get Tatm without the getForecasValues script")
 
     def _default_gbtidl_opacity(self, frequency: Quantity) -> float:
         """Implementation of the GBTIDL method of computing zenith opacity.
