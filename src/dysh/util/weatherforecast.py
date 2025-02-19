@@ -39,6 +39,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
     def __init__(self, **kwargs):
         self._forecaster = GBTForecastScriptInterface(**kwargs)
 
+    # this could just as easily be __call__
     def fetch(
         self, specval: Quantity, vartype: str = "Opacity", mjd: Union[Time, float] = None, coeffs=None
     ) -> np.ndarray:
@@ -212,7 +213,6 @@ class GBTForecastScriptInterface:
         self.fr = [2.0, 22.0, 22.0 + 1e-9, 50.0, 67.0, 116.0]  # GHz
         ccols = [f"c{n}" for n in np.arange(self._MAX_COEFFICIENTS)]
         self._fitcols = ["MJD", "freqLoGHz", "freqHiGHz"] + ccols
-        self._df = DataFrame(columns=self._fitcols)
         if not debug:
             if not self._path.exists() or not self._path.is_file():
                 raise ValueError(f"{self._path} does not exist or is not a file")
@@ -240,12 +240,17 @@ class GBTForecastScriptInterface:
         coeffs : bool, optional
             Fetch the polynomial coefficients by passing '-coeffs' to the script.  The default is True.
         vartype : str optional
-            Which weather variable to fetch. The default is "Opacity".
+            Which weather variable to fetch. One the choices below. The default is "Opacity".
         freq : list, optional
            An input frequency list in GHz at which to evaluate the weather data. If `coeffs=True`, the polynomial
            is fetch first and then the `vartype` at each frequency is evaluated. The default is None.
         mjd : list, optional
            An input data list in MJD at which to evaluate the weather data. The default is None.
+
+        Notes
+        ----
+        The types of values that can be returned are:       
+            [paste help here]
 
         Returns
         -------
@@ -268,35 +273,14 @@ class GBTForecastScriptInterface:
 
             script_output = self._call_script(_args)
             print(f"{script_output=}")
-            self._df = concat(
-                [self._df, DataFrame(data=self._parse_coefficients(script_output), columns=self._fitcols)],
-                ignore_index=True,
-            )
+            self._df =  DataFrame(data=self._parse_coefficients(vartype, script_output), columns=self._fitcols)
             if freq is None:
                 raise ValueError(f"You must give a frequency list with {coeffs=}.")
             return self._eval_polynomial(freq, mjd)
         else:
-            # call with other args and -type Opacity
-            pass
-
-    def _eval_polynomial(self, freq: list, mjd: list) -> np.ndarray:
-        # freq is in GHz
-        # returns array n_mjd x n_freq
-        final = None
-        for d in mjd:
-            df = self._df[self._sdf.mjd == d]
-            for f in freq:
-                z = []
-                df = df[(df.freqLoGHz <= f) & (df.freqHiGHz >= f)]
-                coefficients = df.loc[:, df.columns.str.contains("^c")].to_numpy()
-                p = Polynomial(coefficients)
-                z.append(p(freq))
-            ary = np.hstack([mjd, z])
-            if final:
-                final = np.vstack([final, ary])
-            else:
-                final = ary
-        return final
+            # call with other args and -type Opacity [-freqList -timeList]
+            script_output = self._call_script(_args)
+            return self._parse_list_values(script_output)
 
     def _call_script(self, str_args: str) -> str:
         """call the script via python `subprocess` and return the output as a str. Lines will be separated by \n"""
@@ -305,7 +289,29 @@ class GBTForecastScriptInterface:
         output = subprocess.run(str_args.split(), stdout=subprocess.PIPE).stdout
         return str(output.decode("utf-8"))
 
-    def _parse_coefficients(self, script_output: str) -> np.ndarray:
+        
+    def _parse_list_values(self, vartype:str, script_output: str) -> np.ndarray:
+        """ parse script output when values are returned instead of coefficients"""
+        # 
+        lines = script_output.split("\n")
+        #tau = []
+        out = None
+        for line in lines:
+            if line.startswith("#") or line == "":
+                continue
+            x = line.split('=')
+            tau = float(x[1])
+            vals = [float(q) for q in x[0].replace(f"{vartype}(", "").replace(")", "").strip().split(",")]
+            row = np.array([vals[1], vals[0], tau])
+            if out is None:
+                out = row
+            else:
+                out = np.vstack([out, row])
+        return out
+
+
+
+    def _parse_coefficients(self, vartype: str, script_output: str) -> np.ndarray:
         """Parse the coefficient list that comes out of `getForecastValues` script
         when `-coeff` is passed to it.
         """
@@ -323,14 +329,14 @@ class GBTForecastScriptInterface:
         for line in lines:
             if line.startswith("#") or line == "":
                 continue
-            row = self._parse_coeff_line(line)
+            row = self._parse_coeff_line(vartype, line)
             if out is None:
                 out = row
             else:
                 out = np.vstack([out, row])
         return out
 
-    def _parse_coeff_line(self, line: str) -> tuple:
+    def _parse_coeff_line(self, vartype:str, line: str) -> tuple:
         """parse a single line of 'coefficient' script output
             Because the number of coefficients differs for the different
             frequency ranges (4 for low and mid frequency, 7 for high frequency range),
@@ -340,7 +346,7 @@ class GBTForecastScriptInterface:
         Parameters
         ----------
         line : str
-            a single line with `Opacity(MJD) = {{a0..an} chi_a {{b0..bn} chi_b {c0..cn} chi_c}`
+            a single line with e.g., `Opacity(MJD) = {{a0..an} chi_a {{b0..bn} chi_b {c0..cn} chi_c}`
 
         Returns
         -------
@@ -351,7 +357,7 @@ class GBTForecastScriptInterface:
         logger.debug(f"parsing ###{line=}###")
         line = re.sub(" +", " ", line)  # remove duplicate spaces
         x = line.split("=")
-        mjd = float(x[0].replace("Opacity(", "").replace(")", "").strip())
+        mjd = float(x[0].replace(f"{vartype}(", "").replace(")", "").strip())
         s = x[1].strip().replace("{", "[").replace("}", "]").replace(" ", ",")
         ary = ast.literal_eval(s)
         # now drop the chisq values which happen to not be contained in lists,
@@ -366,7 +372,6 @@ class GBTForecastScriptInterface:
         maxlen = np.max([len(z) for z in p])
         for z in p:
             z += [0] * (maxlen - len(z))
-        # out = np.vstack([p])
         row = np.array(
             [
                 np.hstack([mjd, self.fr[0], self.fr[1], p[0]]),
@@ -375,4 +380,27 @@ class GBTForecastScriptInterface:
             ]
         )
         return row
-        # return (mjd, out)
+
+    def _eval_polynomial(self, freq: list, mjd: list) -> np.ndarray:
+        # freq is in GHz
+        # returns array n_mjd x n_freq
+        # with values [mjd, freq, tau0]
+        print(f"eval {freq=} {mjd=}")
+        final = None
+        for d in mjd:
+            df = self._df[self._df.MJD == d]
+            for f in freq:
+                z = []
+                df = df[(df.freqLoGHz <= f) & (df.freqHiGHz >= f)]
+                coefficients = df.loc[:, df.columns.str.contains("^c")].to_numpy()[0]
+                p = Polynomial(coefficients)
+                print(f"{coefficients=} p({freq})={p(f)}")
+                z.append(p(f))
+                ary = np.hstack([d, f, z])
+                print(f"{ary=}")
+                if final is None:
+                    final = ary
+                else:
+                    final = np.vstack([final, ary])
+        #print(f"{final=}")
+        return final

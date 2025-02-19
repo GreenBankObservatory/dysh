@@ -337,7 +337,7 @@ class GBTGainCorrection(BaseGainCorrection):
                 raise Exception(
                     f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
                 )
-            g.fetch(specval=specval, mjd=mjd, coeffs=coeffs)
+            return g.fetch(specval=specval, mjd=mjd, coeffs=coeffs)
         else:
             return self._default_gbtidl_opacity(frequency)
 
