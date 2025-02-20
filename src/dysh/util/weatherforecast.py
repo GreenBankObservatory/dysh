@@ -256,7 +256,7 @@ class GBTForecastScriptInterface:
     # In order to have a regular grid, there will be as many coefficients as the ferquency
     # range that has the most coefficiets (currently 100GHz range with 7 coefficients),
     # and the high order coefficients for the other ranges will be set to zero.
-
+    # Note: input MJDs are rounded to the nearest ~5 minutes.  Data are only taken every hour 
     def __call__(
         self, vartype: str = "Opacity", freq: list = None, mjd: list = None, coeffs: bool = True
     ) -> np.ndarray:
@@ -349,13 +349,15 @@ class GBTForecastScriptInterface:
             # call with -coeff
             _args += f"-coeff -type {vartype} "
             if mjd is not None:
-                mjdformat = len(mjd) * "{:.2f} "
+                # round MJD to nearest 5 minutes. This helps to shorten the argument list so we don't run afoul of bash
+                mjdformat = len(mjd) * "{:.4f} " 
                 timearg = f"-timeList {mjdformat.format(*mjd)}"
                 _args += timearg
 
             script_output = self._call_script(_args)
             print(f"{script_output=}")
-            self._df = DataFrame(data=self._parse_coefficients(vartype, script_output), columns=self._fitcols)
+            # mjd needs float64
+            self._df = DataFrame(data=self._parse_coefficients(vartype, script_output), columns=self._fitcols, dtype=float)
             if freq is None:
                 raise ValueError(f"You must give a frequency list with {coeffs=}.")
             return self._eval_polynomial(freq, mjd)
@@ -482,7 +484,9 @@ class GBTForecastScriptInterface:
         print(f"eval {freq=} {mjd=}")
         final = None
         for d in mjd:
-            df = self._df[self._df.MJD == d]
+            print(f"{self._df=}")
+            df = self._df[np.round(self._df.MJD,4) == np.round(d,4)]
+            print(f"{df=}")
             for f in freq:
                 z = []
                 df = df[(df.freqLoGHz <= f) & (df.freqHiGHz >= f)]
