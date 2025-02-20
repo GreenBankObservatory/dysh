@@ -210,6 +210,14 @@ class GBTWeatherForecast(BaseWeatherForecast):
 
 class GBTForecastScriptInterface:
     def __init__(self, path: Union[Path, str] = "/users/rmaddale/bin/getForecastValues", **kwargs):
+        """
+        Parameters
+        -----------
+        path : str or `pathlib.Path`
+            The script to run to get forecast values.
+        debug : bool
+            If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
+        """
         debug = kwargs.get("debug", False)
         self._path = Path(path)
         self._fit = None
@@ -256,11 +264,11 @@ class GBTForecastScriptInterface:
     # In order to have a regular grid, there will be as many coefficients as the ferquency
     # range that has the most coefficiets (currently 100GHz range with 7 coefficients),
     # and the high order coefficients for the other ranges will be set to zero.
-    # Note: input MJDs are rounded to the nearest ~5 minutes.  Data are only taken every hour 
+    # Note: input MJDs are rounded to the nearest ~5 minutes.  Data are only taken every hour
     def __call__(
         self, vartype: str = "Opacity", freq: list = None, mjd: list = None, coeffs: bool = True
     ) -> np.ndarray:
-        """set up and call the GBO weather script
+        """Set up and call the GBO weather script
 
         If polynomial coefficients are requested ( `coeffs=True` ), the return values will be computed as a function of frequency:
 
@@ -279,6 +287,7 @@ class GBTForecastScriptInterface:
            An input data list in MJD at which to evaluate the weather data. The default is None.
         coeffs : bool, optional
             Fetch the polynomial coefficients by passing '-coeffs' to the script.  The default is True.
+
         Notes
         -----
         The `vartype` name for values that can be returned are listed below. **These are case-sensitive.**
@@ -343,21 +352,23 @@ class GBTForecastScriptInterface:
             The requested weather data evaluated at the input frequencies and MJDs.
         """
         self._check_vartype(vartype)
-        print(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
+        logger.debug(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
         _args = f"{self._path.as_posix()} "
         if coeffs:
             # call with -coeff
             _args += f"-coeff -type {vartype} "
             if mjd is not None:
                 # round MJD to nearest 5 minutes. This helps to shorten the argument list so we don't run afoul of bash
-                mjdformat = len(mjd) * "{:.4f} " 
+                mjdformat = len(mjd) * "{:.4f} "
                 timearg = f"-timeList {mjdformat.format(*mjd)}"
                 _args += timearg
 
             script_output = self._call_script(_args)
-            print(f"{script_output=}")
+            logger.debug(f"{script_output=}")
             # mjd needs float64
-            self._df = DataFrame(data=self._parse_coefficients(vartype, script_output), columns=self._fitcols, dtype=float)
+            self._df = DataFrame(
+                data=self._parse_coefficients(vartype, script_output), columns=self._fitcols, dtype=float
+            )
             if freq is None:
                 raise ValueError(f"You must give a frequency list with {coeffs=}.")
             return self._eval_polynomial(freq, mjd)
@@ -380,7 +391,7 @@ class GBTForecastScriptInterface:
     def _call_script(self, str_args: str) -> str:
         """call the script via python `subprocess` and return the output as a str. Lines will be separated by \n"""
         # thanks, Evan!
-        print(f"Calling {str_args}")
+        logger.debug(f"Calling {str_args}")
         output = subprocess.run(str_args.split(), stdout=subprocess.PIPE).stdout
         return str(output.decode("utf-8"))
 
@@ -481,24 +492,19 @@ class GBTForecastScriptInterface:
         # freq is in GHz
         # returns array n_mjd x n_freq
         # with values [mjd, freq, tau0]
-        print(f"eval {freq=} {mjd=}")
+        logger.debug(f"eval {freq=} {mjd=}")
         final = None
         for d in mjd:
-            print(f"{self._df=}")
-            df = self._df[np.round(self._df.MJD,4) == np.round(d,4)]
-            print(f"{df=}")
+            df = self._df[np.round(self._df.MJD, 4) == np.round(d, 4)]
             for f in freq:
                 z = []
                 df = df[(df.freqLoGHz <= f) & (df.freqHiGHz >= f)]
                 coefficients = df.loc[:, df.columns.str.contains("^c")].to_numpy()[0]
                 p = Polynomial(coefficients)
-                print(f"{coefficients=} p({freq})={p(f)}")
                 z.append(p(f))
                 ary = np.hstack([d, f, z])
-                print(f"{ary=}")
                 if final is None:
                     final = ary
                 else:
                     final = np.vstack([final, ary])
-        # print(f"{final=}")
         return final
