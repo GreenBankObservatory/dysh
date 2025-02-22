@@ -409,12 +409,11 @@ class GBTForecastScriptInterface:
             if self._testmode:
                 from .core import get_project_testdata
 
-                script_file = get_project_testdata(f"calibration/getForecastValues{vartype}_coeffs.txt")
+                script_file = get_project_testdata() / f"calibration/getForecastValues{vartype}_coeff.txt"
+                logger.warn(f"Using testfile {script_file}")
                 script_output = script_file.open("r").read()
-                script_file.close()
             else:
                 script_output = self._call_script(_args)
-            logger.debug(f"{script_output=}")
             # mjd needs float64
             self._df = DataFrame(
                 data=self._parse_coefficients(vartype, script_output), columns=self._fitcols, dtype=float
@@ -427,11 +426,12 @@ class GBTForecastScriptInterface:
             if self._testmode:
                 from .core import get_project_testdata
 
-                script_file = get_project_testdata(f"calibration/getForecastValues{vartype}.txt")
+                script_file = get_project_testdata() / f"calibration/getForecastValues{vartype}.txt"
+                logger.warn(f"Using testfile {script_file}")
                 script_output = script_file.open("r").read()
-                script_file.close()
             else:
                 script_output = self._call_script(_args)
+            logger.debug(f"{script_output=}")
             return self._parse_list_values(vartype, script_output)
 
     @property

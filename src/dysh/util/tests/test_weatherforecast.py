@@ -13,19 +13,21 @@ from dysh.util.weatherforecast import GBTWeatherForecast
 
 print("TEST OPACITY COEFFS=TRUE")
 freq = [25] * u.GHz
-mjd = np.array([60722.0])
-g = GBTWeatherForecast()
-g.fetch(specval=freq, vartype="Opacity", mjd=mjd, coeffs=True)
+mjd = np.array([60722.0, 60723.0])
+g = GBTWeatherForecast(testmode=True)
+z = g.fetch(specval=freq, vartype="Opacity", mjd=mjd, coeffs=True)
+print(z)
 print("TEST TATM COEFFS=TRUE")
-g.fetch(specval=freq, vartype="Tatm", mjd=mjd, coeffs=True)
+z = g.fetch(specval=freq, vartype="Tatm", mjd=mjd, coeffs=True)
+print(z)
 
 print("TEST TAMT COEFFS= FALSE")
-g.fetch(specval=freq, vartype="Tatm", mjd=mjd, coeffs=True)
+g.fetch(specval=freq, vartype="Tatm", mjd=mjd, coeffs=False)
 print("TEST OPACITY COEFFS= FALSE")
-g.fetch(specval=freq, vartype="Opacity", coeffs=False)
-
-times = times = ["2024-11-11T00:00:00.123456789", "2025-01-02T10:00:00"]
-t = Time(times, format="isot", scale="utc")
+z = g.fetch(specval=freq, vartype="Opacity", coeffs=False)
+print(z)
+t = Time(mjd, format="mjd", scale="utc")
 
 print("test default is Opacity and astropy Time works")
-g.fetch(specval=freq, mjd=t, coeffs=True)
+z = g.fetch(specval=freq, mjd=t, coeffs=True)
+print(z)
