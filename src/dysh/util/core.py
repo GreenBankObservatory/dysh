@@ -124,8 +124,9 @@ def gbt_timestamp_to_time(timestamp):
 
 def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
     """Convert an astropy Time, list of MJD, or single MJD to a list of MJD
+
     Parameters
-    -----------
+    ----------
     time_val : `~astropy.time.Time` or float or list of float
         The time value to convert.
 
