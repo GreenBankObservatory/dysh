@@ -107,19 +107,19 @@ class BaseGainCorrection(ABC):
 
 
 class GBTGainCorrection(BaseGainCorrection):
-    """Gain correction class and functions specific to the Green Bank Telescope"""
+    """Gain correction class and functions specific to the Green Bank Telescope.
+
+    Parameters
+    -----------
+    gain_correction_table : str or `pathlib.Path`
+         File to read that contains the parameterized gain correction as a function
+         of zenith distance and time (see  `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
+         Must be in an `~astropy.table.QTable` readable format.
+         Default None will use dysh's internal GBT gain correction table.
+    """
 
     def __init__(self, gain_correction_table: Path = None):
-        """
-        Parameters
-        -----------
-        gain_correction_table : str or `pathlib.Path`
-             File to read that contains the parameterized gain correction as a function
-             of zenith distance and time
-            (see `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
-             Must be in an `~astropy.table.QTable` readable format.
-             Default None will usedysh's internal GBT gain correction table.
-        """
+
         if gain_correction_table is None:
             gain_correction_table = get_project_configuration() / "gaincorrection.tab"
         self._gct = QTable.read(gain_correction_table, format="ascii.ecsv")
@@ -321,8 +321,6 @@ class GBTGainCorrection(BaseGainCorrection):
         coeffs: bool
             If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
             polynomial coefficients to fit opacity as a function of frequency for each MJD.
-        use_script: If at GBO, use the `getForecastValues` script to determine the opacity. This argument is
-                    ignore if the user is not on the GBO network.
 
         Returns
         -------
