@@ -1117,7 +1117,7 @@ class Flag(SelectionBase):
         flagging. Single arrays/tuples will be treated as *channel lists;
         nested arrays will be treated as  *inclusive* ranges. For instance:
 
-        ``
+        ```
         # flag channel 24
         flag_channel(24)
         # flag channels 1 and 10
@@ -1128,7 +1128,7 @@ class Flag(SelectionBase):
         flag_channel([[1,10], [47,56], 75)])
         # tuples also work, though can be harder for a human to read
         flag_channel(((1,10), [47,56], 75))
-        ``
+        ```
 
         *Note* : channel numbers start at zero
 
