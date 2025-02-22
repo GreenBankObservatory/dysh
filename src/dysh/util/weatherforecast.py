@@ -38,6 +38,7 @@ class BaseWeatherForecast(ABC):
 # @todo (maybe) Formally specval = None is allowed then the script returns data al all frequencies 2-116 GHz
 class GBTWeatherForecast(BaseWeatherForecast):
     def __init__(self, **kwargs):
+        self._testmode = kwargs.get("testmode", False)
         self._forecaster = GBTForecastScriptInterface(**kwargs)
 
     # this could just as easily be __call__
@@ -115,7 +116,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
 #       # Frequency Bands: 6 - 22.2, 22.2 - 50, 67 - 116, in GHz
 #       Opacity(55088.6778935) = {{0.1253202697 -0.04723900904 0.006761806394
 #                 -0.0004079950568 9.012215005e-06} 6.053071176e-06
-#                 {3.519785243 -0.3868765402 0.01625918622 -        debug = kwargs.get("debug", False)0.0003067177559
+#                 {3.519785243 -0.3868765402 0.01625918622 -        debug = kwargs.get("testmode", False)0.0003067177559
 #                 2.209766347e-06} 0.000106007689 {2109.17448 -141.386304
 #                 3.940260533 -0.05841611896 0.0004858081949 -2.14846586e-06
 #                 3.947017435e-09} 7.022269956e-05}
@@ -137,7 +138,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
 #       -h or -help
 #           Brings up this help page and all other options are ignored
 #       -coeff
-#           Whether coefficients, and not values, are to be         debug = kwargs.get("debug", False)returned.  The default
+#           Whether coefficients, and not values, are to be         debug = kwargs.get("testmode", False)returned.  The default
 #           is to supply values.  Only available for -types of Opacity or Tatm
 #       -typeList list
 #           A list of the types of the values to be returned (Default: Opacity).
@@ -177,7 +178,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
 #                  effects.  That is, the predicted loss in gain due to all the
 #                  various weather factors.
 #              MinElev: Suggested minimum elevation for an object that rises to
-#                  the elevation given by the value of -el        debug = kwargs.get("debug", False)ev.  Observing above
+#                  the elevation given by the value of -el        debug = kwargs.get("testmode", False)ev.  Observing above
 #                  the suggested elevation should keep the loss in gain due to
 #                  atmospheric opacity to no more than 70% of the loss at transit
 #                  (i.e., < factor of ~2 increase in observing time).
@@ -209,16 +210,20 @@ class GBTWeatherForecast(BaseWeatherForecast):
 
 
 class GBTForecastScriptInterface:
+    """
+    An interface to call the GBO weather forecast script.  Generally, users will not use this class directly, but
+    rather use `~GBTWeatherForecast`.
+
+    Parameters
+    ----------
+    path : str or `pathlib.Path`
+        The script to run to get forecast values.
+    debug : bool
+        If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
+    """
+
     def __init__(self, path: Union[Path, str] = "/users/rmaddale/bin/getForecastValues", **kwargs):
-        """
-        Parameters
-        -----------
-        path : str or `pathlib.Path`
-            The script to run to get forecast values.
-        debug : bool
-            If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
-        """
-        debug = kwargs.get("debug", False)
+        self._testmode = kwargs.get("testmode", False)
         self._path = Path(path)
         self._fit = None
         # maximum number of fit polynomial coefficients as of 2/2025. Probably won't change
@@ -253,7 +258,7 @@ class GBTForecastScriptInterface:
             "TotalEffect",
             "MinElev",
         ]
-        if not debug:
+        if not self._testmode:
             if not self._path.exists() or not self._path.is_file():
                 raise ValueError(f"{self._path} does not exist or is not a file")
 
@@ -268,13 +273,7 @@ class GBTForecastScriptInterface:
     def __call__(
         self, vartype: str = "Opacity", freq: list = None, mjd: list = None, coeffs: bool = True
     ) -> np.ndarray:
-        """Set up and call the GBO weather script
-
-        If polynomial coefficients are requested ( `coeffs=True` ), the return values will be computed as a function of frequency:
-
-            `:math:` \tau_0 = \sum_{i=0}^{n} C_i*\nu_i
-
-        where `:math:`C_i are the coefficients and `:math:`\nu is the frequency **in GHz**.
+        r"""Call the GBO weather script and parse the results into numbers.
 
         Parameters
         ----------
@@ -286,75 +285,119 @@ class GBTForecastScriptInterface:
         mjd : list, optional
            An input data list in MJD at which to evaluate the weather data. The default is None.
         coeffs : bool, optional
-            Fetch the polynomial coefficients by passing '-coeffs' to the script.  The default is True.
+            Fetch the polynomial coefficients by passing '-coeffs' to the script. **This is only valid for `vartype` "Opacity" or "Tatm."
+            The default is True.
+            If polynomial coefficients are requested, the return values will be computed as a function of frequency:
+
+                :math:`value = \sum_{i=0}^{n} C_i \nu^i`
+
+            where :math:`C_i` are the coefficients and :math:`\nu` is the frequency **in GHz**.
 
         Notes
         -----
-        The `vartype` name for values that can be returned are listed below. **These are case-sensitive.**
-            Opacity: the total zenith opacity
+        The `vartype` name for values that can be returned are described below. **These are case-sensitive.**
+        This description comes from the help
+        text for `getForecastValues` and may not fully describe the data that are returned, e.g., when other arguments
+        are ignored.
 
-            Tatm: the opacity-weighted (i.e., representative) temperature of
-                 the atmosphere and is the value that should be used when
-                 fitting traditional tipping curves.
+        Opacity
+            the total zenith opacity
 
-            AtmTsys:  the part of the system temperature due to just the
-                 atmosphere, doesn't include CMB, spillover, and electronics,
-                 and is calculated for the specified elevation.
+        Tatm
+            the opacity-weighted (i.e., representative) temperature of
+            the atmosphere and is the value that should be used when
+            fitting traditional tipping curves.
 
-            TotalTsys: the above-described Tsys value, augmented by an
-                 estimate of the contributions from the receiver, spillover,
-                 and the CMB.
+        AtmTsys
+            the part of the system temperature due to just the
+            atmosphere, doesn't include CMB, spillover, and electronics,
+            and is calculated for the specified elevation.
 
-            Est: the Effective System Temperature for the specified elevation.
+        TotalTsys
+            the above-described Tsys value, augmented by an
+            estimate of the contributions from the receiver, spillover,
+            and the CMB.
 
-            Rest: the Relative Effective System Temperature, which includes
-                 the contributions from the CMB, spillover, and electronics,
-                 and is calculated for the specified elevation.  Essentially,
-                 the predicted loss in gain due to atmospheric opacity
+        Est
+            the Effective System Temperature for the specified elevation.
 
-            Trcvr: An estimate of the receiver temperature for the given
-                 frequency and MJD
+        Rest
+            the Relative Effective System Temperature, which includes
+            the contributions from the CMB, spillover, and electronics,
+            and is calculated for the specified elevation.  Essentially,
+            the predicted loss in gain due to atmospheric opacity
 
-            Tau0: The best possible opacity for the given frequency and MJD
+        Trcvr
+            An estimate of the receiver temperature for the given
+            frequency and MJD
 
-            Tau10, Tau25, Tau50, Tau75, Tau90: The opacity for various
-                 percentile weather conditions for the given frequency and MJD,
-                 based on multi-year statistical studies.
+        Tau0
+            The best possible opacity for the given frequency and MJD
 
-            Tatm0: The Tatm for the given frequency and MJD at the time of the
-                 best possible opacity.
+        Tau10, Tau25, Tau50, Tau75, Tau90
+            The opacity for various
+            percentile weather conditions for the given frequency and MJD,
+            based on multi-year statistical studies.
 
-            Tatm10, Tatm25, Tatm50, Tatm75, Tatm90: The Tatm for various
-                 percentile weather conditions for the given frequency and MJD,
-                 based on multi-year statistical studies.
+        Tatm0
+            The atmospheric temperature `Tatm` for the given frequency and MJD at the time of the
+            best possible opacity.
 
-            Winds: The wind speed in MPH.  A specified freqList is ignored.
+        Tatm10, Tatm25, Tatm50, Tatm75, Tatm90
+            The `Tatm` for various
+            percentile weather conditions for the given frequency and MJD,
+            based on multi-year statistical studies.
 
-            WindEffect: The predicted loss in point-surface efficiency due to
-                 winds
+        Winds
+            The wind speed in MPH.  A specified `freqList` is ignored.
 
-            SurfaceEffect: The predicted loss in point-surface efficiency due
-                 to a deformed surface during PTCS daytime observing.
+        WindEffect
+            The predicted loss in point-surface efficiency due to
+            winds
 
-            TotalEffect: The product of the Rest and the wind and surface
-                effects.  That is, the predicted loss in gain due to all the
-                various weather factors.
+        SurfaceEffect
+            The predicted loss in point-surface efficiency due
+            to a deformed surface during PTCS daytime observing.
 
-            MinElev: Suggested minimum elevation for an object that rises to
-                the elevation given by the value of -elev.  Observing above
-                the suggested elevation should keep the loss in gain due to
-                atmospheric opacity to no more than 70% of the loss at transit
-                (i.e., < factor of ~2 increase in observing time).
+        TotalEffect
+            The product of the Rest and the wind and surface
+            effects.  That is, the predicted loss in gain due to all the
+            various weather factors.
+
+        MinElev
+            Suggested minimum elevation for an object that rises to
+            the elevation given by the value of `-elev`.  Observing above
+            the suggested elevation should keep the loss in gain due to
+            atmospheric opacity to no more than 70% of the loss at transit
+            (i.e., < factor of ~2 increase in observing time).
+
+        Examples
+        --------
+
+        Fetch the wind data for a range of dates.
+
+        .. code:: python
+            from dysh.util.weatherforecast import GBTForecastScriptInterface
+            import numpy as np
+
+            g = GBTForecastScriptInterface()
+            trx = g(vartype="Winds", mjd=np.arange([60722,60732]), coeffs=False)
+
+
 
         Returns
         -------
-        weather_data : np.ndarray
+        weather_data : ~np.ndarray
             The requested weather data evaluated at the input frequencies and MJDs.
         """
+        if self._testmode:
+            logger.warn("In debug mode, using test data.")
         self._check_vartype(vartype)
         logger.debug(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
         _args = f"{self._path.as_posix()} "
         if coeffs:
+            if vartype != "Opacity" and vartype != "Tatm":
+                raise ValueError("You can only use coeff=True for vartype Opacity or Tatm")  # limitation of the script
             # call with -coeff
             _args += f"-coeff -type {vartype} "
             if mjd is not None:
@@ -363,7 +406,14 @@ class GBTForecastScriptInterface:
                 timearg = f"-timeList {mjdformat.format(*mjd)}"
                 _args += timearg
 
-            script_output = self._call_script(_args)
+            if self._testmode:
+                from .core import get_project_testdata
+
+                script_file = get_project_testdata(f"calibration/getForecastValues{vartype}_coeffs.txt")
+                script_output = script_file.open("r").read()
+                script_file.close()
+            else:
+                script_output = self._call_script(_args)
             logger.debug(f"{script_output=}")
             # mjd needs float64
             self._df = DataFrame(
@@ -374,7 +424,14 @@ class GBTForecastScriptInterface:
             return self._eval_polynomial(freq, mjd)
         else:
             # call with other args and -type vartype  [-freqList -timeList]
-            script_output = self._call_script(_args)
+            if self._testmode:
+                from .core import get_project_testdata
+
+                script_file = get_project_testdata(f"calibration/getForecastValues{vartype}.txt")
+                script_output = script_file.open("r").read()
+                script_file.close()
+            else:
+                script_output = self._call_script(_args)
             return self._parse_list_values(vartype, script_output)
 
     @property
