@@ -782,6 +782,9 @@ sdf3=GBTFITSLoad(f3, skipflags=True)
 sdf3.summary()
 # 11072 rows
 
+tsys3,g = calseq(sdf3, 130) 
+print(tsys3,g)                  # 100.13203834626455 9.115908926574802e-07
+
 mkdir("nod3cal")
 sdf3.write("nod3cal/file.fits", scan=130, ifnum=0, plnum=0, overwrite=True)
 
