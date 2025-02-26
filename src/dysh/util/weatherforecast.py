@@ -285,7 +285,7 @@ class GBTForecastScriptInterface:
         mjd : list, optional
            An input data list in MJD at which to evaluate the weather data. The default is None.
         coeffs : bool, optional
-            Fetch the polynomial coefficients by passing '-coeffs' to the script. **This is only valid for `vartype` "Opacity" or "Tatm."
+            Fetch the polynomial coefficients by passing '-coeffs' to the script. **This is only valid for `vartype` "Opacity" or "Tatm."**
             The default is True.
             If polynomial coefficients are requested, the return values will be computed as a function of frequency:
 
@@ -387,7 +387,7 @@ class GBTForecastScriptInterface:
 
         Returns
         -------
-        weather_data : ~np.ndarray
+        weather_data : `~numpy.ndarray`
             The requested weather data evaluated at the input frequencies and MJDs.
         """
         if self._testmode:
@@ -510,7 +510,7 @@ class GBTForecastScriptInterface:
 
         Returns
         -------
-        coeffs - np.ndarray
+        coeffs : `~numpy.ndarray`
             A array of coefficient values for each frequency range.  MJD is the same in each row.
             [
                 [mjd, lowfreq_0, hifreq_0, coefficient_0...coefficient_n]

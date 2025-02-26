@@ -422,7 +422,7 @@ class SelectionBase(DataFrame):
 
         Parameters
         ----------
-        df : ~pandas.DataFrame
+        df : `~pandas.DataFrame`
             The selection to check
 
 
@@ -452,7 +452,7 @@ class SelectionBase(DataFrame):
         ----------
         row : dict
             key, value pairs of the selection
-        dataframe : ~pandas.DataFrame
+        dataframe : `~pandas.DataFrame`
             The dataframe created by the selection.
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
@@ -889,7 +889,7 @@ class SelectionBase(DataFrame):
 
         Returns
         -------
-        ~pandas.DataFrame
+        `~pandas.DataFrame`
             The selection/flag rule
         """
         return self._selection_rules[key]

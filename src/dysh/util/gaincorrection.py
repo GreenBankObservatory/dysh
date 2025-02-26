@@ -58,7 +58,7 @@ class BaseGainCorrection(ABC):
 
         Returns
         -------
-            airmass - float or `~numpy.ndarray`
+            airmass : float or `~numpy.ndarray`
             The value(s) of the airmass at the given elevation(s)/zenith distance(s)
 
         """
@@ -79,7 +79,7 @@ class BaseGainCorrection(ABC):
 
         Returns
         -------
-            aperture_efficiency  - float or `~numpy.ndarray`
+            aperture_efficiency  : float or `~numpy.ndarray`
             The value(s) of the aperture efficiency at the given frequency/wavelength.
             The return value(s) are float(s) between zero and one.
 
@@ -110,7 +110,7 @@ class GBTGainCorrection(BaseGainCorrection):
     """Gain correction class and functions specific to the Green Bank Telescope.
 
     Parameters
-    -----------
+    ----------
     gain_correction_table : str or `pathlib.Path`
          File to read that contains the parameterized gain correction as a function
          of zenith distance and time (see  `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
@@ -152,7 +152,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Returns
         -------
-            airmass - float or `~numpy.ndarray`
+            airmass : float or `~numpy.ndarray`
             The value(s) of the airmass at the given elevation(s)/zenith distance(s)
 
         """
@@ -240,7 +240,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Returns
         -------
-            gain_correction - float or `~numpy.ndarray`
+            gain_correction : float or `~numpy.ndarray`
             The gain correction scale factor(s) at the given elevation(s)/zenith distance(s)
 
         """
@@ -361,7 +361,7 @@ class GBTGainCorrection(BaseGainCorrection):
         Returns
         -------
             `~numpy.ndarray`
-            The zenith opacity at the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
+            The zenith opacity at the given input(s) as a :math:`\ N_{mjd} \times N_{freq}\ ` array
 
         """
         # specval can but value*unit or [value...]*unit.  We want [value...]*unit
@@ -408,7 +408,7 @@ class GBTGainCorrection(BaseGainCorrection):
         Returns
         -------
             `~numpy.ndarray`
-            The atmostpheric temperature at the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
+            The atmospheric temperature at the given input(s) as a :math:`\ N_{mjd} \times N_{freq}\ ` array
 
         """
         if use_script:
