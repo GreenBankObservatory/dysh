@@ -20,15 +20,17 @@ class BaseGainCorrection(ABC):
     specific antennas. Subclasses will be used to calculate various gain corrections to go
     from antenna temperature to other scales like brightness temperature of flux density.
     Subclasses can implement the following attributes:
-        * `ap_eff_0`
-            long wavelength aperture efficiency (number between 0 and 1), i.e., in the absence of surface errors,
-            $\lambda >> \epsilon_0$.
 
-        * `epsilon_0`
-            default rms surface accuracy with units of length (`~astropy.units.quanitity.Quantity`)
+    * `ap_eff_0`
+        long wavelength aperture efficiency (number between 0 and 1), i.e., in the absence of surface errors,
+        $\lambda >> \epsilon_0$.
 
-        * `physical_aperture`
-            antenna physical aperture with units of length**2 (`~astropy.units.quanitity.Quantity`)
+    * `epsilon_0`
+        default rms surface accuracy with units of length (`~astropy.units.quanitity.Quantity`)
+
+    * `physical_aperture`
+        antenna physical aperture with units of length**2 (`~astropy.units.quanitity.Quantity`)
+
     """
 
     def __init__(self):
@@ -56,6 +58,7 @@ class BaseGainCorrection(ABC):
         -------
             airmass - float or `~numpy.ndarray`
             The value(s) of the airmass at the given elevation(s)/zenith distance(s)
+
         """
         pass
 
@@ -194,31 +197,31 @@ class GBTGainCorrection(BaseGainCorrection):
         zd: bool = True,
     ) -> Union[float, np.ndarray]:
         r"""
-                Compute the gain correction scale factor, to be used in the aperture efficiency
-                calculation. The factor is a float between zero and 1.
-                (See `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
-        The factor is
-                determined by:
+        Compute the gain correction scale factor, to be used in the aperture efficiency
+        calculation. The factor is a float between zero and 1.
+        (See `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
+        The factor is determined by:
 
-                :math:`G = A0 + A1*ZD + A2*ZD^2`
+        :math:`G = A0 + A1*ZD + A2*ZD^2`
 
-                where An are the time-dependent coefficients and ZD is the zenith distance angle in degrees.
+        where An are the time-dependent coefficients and ZD is the zenith distance angle in degrees.
 
-                Parameters
-                ----------
-                angle :  `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
-                    The elevation(s) or zenith distance(s) at which to compute the gain correction factor
+        Parameters
+        ----------
+        angle :  `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
+            The elevation(s) or zenith distance(s) at which to compute the gain correction factor
 
-                date  : `~astropy.time.Time`
-                    The date at which to cmopute the gain correction factor
+        date  : `~astropy.time.Time`
+            The date at which to cmopute the gain correction factor
 
-                zd: bool
-                    True if the input value is zenith distance, False if it is elevation. Default: False
+        zd: bool
+            True if the input value is zenith distance, False if it is elevation. Default: False
 
-                Returns
-                -------
-                    gain_correction - float or `~numpy.ndarray`
-                    The gain correction scale factor(s) at the given elevation(s)/zenith distance(s)
+        Returns
+        -------
+            gain_correction - float or `~numpy.ndarray`
+            The gain correction scale factor(s) at the given elevation(s)/zenith distance(s)
+
         """
         i = self._get_gct_index(date)
         a0 = self._gct[i]["A0"]

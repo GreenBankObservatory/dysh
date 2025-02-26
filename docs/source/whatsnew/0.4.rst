@@ -21,7 +21,7 @@ In this release, `dysh` has the following new or updated features:
 * Online and offline modes
 * Gain correction classes
 * Updates to the documentation
-* Drop support for `Python3.8`
+* Drop support for `Python3.8` and `Python3.9`
 * Bug fixes
 
 Full change log

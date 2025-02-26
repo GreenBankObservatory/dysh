@@ -558,13 +558,16 @@ class GB20M:
 
 def gbt_location():
     """
-    Create an astropy EarthLocation for the GBT using the same established by GBO.
+    Create an astropy `~astropy.coordinates.EarthLocation` for the GBT using the same established by GBO.
     See page 3 of https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf
-        latitude    = 38d 25m 59.265s N
-        longitude   = 79d 50m 23.419s W
-        height      = 854.83 m
 
-    Note these differ from astropy's "GBT" EarthLocation by several meters.
+    * latitude    = 38d 25m 59.265s N
+
+    * longitude   = 79d 50m 23.419s W
+
+    * height      = 854.83 m
+
+    Note these differ from astropy's "GBT" `~astropy.coordinates.EarthLocation` by several meters.
 
     Returns
     -------
