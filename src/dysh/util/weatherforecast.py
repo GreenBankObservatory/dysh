@@ -211,15 +211,17 @@ class GBTWeatherForecast(BaseWeatherForecast):
 
 class GBTForecastScriptInterface:
     """
-    An interface to call the GBO weather forecast script.  Generally, users will not use this class directly, but
-    rather use `~GBTWeatherForecast`.
+        An interface to call the GBO weather forecast script.  Generally, users will not use this class directly, but
+        rather use `~GBTWeatherForecast`.
 
-    Parameters
-    ----------
-    path : str or `pathlib.Path`
-        The script to run to get forecast values.
-    debug : bool
-        If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
+        Parameters
+        ----------from dysh.util.weatherforecast import GBTForecastScriptInterface
+    g = GBTForecastScriptInterface()
+    g(vartype="Opacity", mjd=60733.2916667, freq=50, coeffs=False)
+        path : str or `pathlib.Path`
+            The script to run to get forecast values.
+        debug : bool
+            If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
     """
 
     def __init__(self, path: Union[Path, str] = "/users/rmaddale/bin/getForecastValues", **kwargs):
@@ -395,16 +397,18 @@ class GBTForecastScriptInterface:
         self._check_vartype(vartype)
         logger.debug(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
         _args = f"{self._path.as_posix()} "
+
+        if mjd is not None:
+            # round MJD to nearest 5 minutes. This helps to shorten the argument list so we don't run afoul of bash
+            mjdformat = len(mjd) * "{:.4f} "
+            timearg = f"-timeList {mjdformat.format(*mjd)} "
+            _args += timearg
+
         if coeffs:
             if vartype != "Opacity" and vartype != "Tatm":
                 raise ValueError("You can only use coeff=True for vartype Opacity or Tatm")  # limitation of the script
             # call with -coeff
             _args += f"-coeff -type {vartype} "
-            if mjd is not None:
-                # round MJD to nearest 5 minutes. This helps to shorten the argument list so we don't run afoul of bash
-                mjdformat = len(mjd) * "{:.4f} "
-                timearg = f"-timeList {mjdformat.format(*mjd)}"
-                _args += timearg
 
             if self._testmode:
                 from .core import get_project_testdata
@@ -423,6 +427,12 @@ class GBTForecastScriptInterface:
             return self._eval_polynomial(freq, mjd)
         else:
             # call with other args and -type vartype  [-freqList -timeList]
+            if freq is not None:
+                # round freq to nearest 100 kHz
+                freqformat = len(freq) * "{:.2f} "
+                freqarg = f"-freqList {freqformat.format(*freq)} "
+                _args += freqarg
+
             if self._testmode:
                 from .core import get_project_testdata
 
