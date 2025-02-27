@@ -440,7 +440,7 @@ class GBTGainCorrection(BaseGainCorrection):
         tau : float
             The zenith opacity at the input frequency.
         """
-        logger.warning("Using default zenith opacity. This is not recommended.")
+        logger.warning("Using default time-independent zenith opacity. This is not recommended.")
         freq = frequency.to(u.GHz).value
         if freq > 52.0:
             return 0.2
