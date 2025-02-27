@@ -40,7 +40,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
     def __init__(self, **kwargs):
         self._testmode = kwargs.get("testmode", False)
         self._forecaster = GBTForecastScriptInterface(**kwargs)
-        self.LOWER_MJD_LIMIT = 53129
+        self.LOWER_MJD_LIMIT = 53130
 
     # this could just as easily be __call__
     def fetch(
@@ -51,11 +51,12 @@ class GBTWeatherForecast(BaseWeatherForecast):
         coeffs=True,
     ) -> np.ndarray:
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
-        # catch dates before May 4, 2004 below which the weather archive does not exist.
+        # catch dates before May 5, 2004, below which the weather archive does not exist.
         mjd_list = to_mjd_list(mjd)
-        bad_date = [x < self.LOWER_MJD_LIMIT for x in mjd_list]
-        if any(bad_date):
-            raise ValueError("There is no weather date before MJD 53129/2004-May-04.")
+        if mjd_list is not None:
+            bad_date = [x < self.LOWER_MJD_LIMIT for x in mjd_list]
+            if any(bad_date):
+                raise ValueError("There is no weather date before MJD 53129/2004-May-05.")
         return self._forecaster(freq=frequency, vartype=vartype, mjd=mjd_list, coeffs=coeffs)
 
 

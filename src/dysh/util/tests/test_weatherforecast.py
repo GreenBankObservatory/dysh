@@ -53,3 +53,7 @@ class TestWeatherForecast:
         t = Time(self.mjd, format="mjd", scale="utc")
         z = self.gbtwf.fetch(specval=self.freq, mjd=t, coeffs=True)
         assert self.tau0_interp == pytest.approx(z, abs=1e-4)
+
+        # test that catching dates before 05-may-2004 works
+        with pytest.raises(ValueError):
+            self.gbtwf.fetch(specval=self.freq, vartype="Opacity", mjd=53000)
