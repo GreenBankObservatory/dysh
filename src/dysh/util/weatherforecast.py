@@ -377,12 +377,12 @@ class GBTForecastScriptInterface:
         Fetch the wind data for a range of dates.
 
         .. code:: python
+
             from dysh.util.weatherforecast import GBTForecastScriptInterface
             import numpy as np
 
             g = GBTForecastScriptInterface()
             trx = g(vartype="Winds", mjd=np.arange([60722,60732]), coeffs=False)
-
 
 
         Returns
@@ -442,7 +442,7 @@ class GBTForecastScriptInterface:
     def _check_vartype(self, vartype: str) -> None:
         if vartype not in self._valid_vartypes:
             raise ValueError(
-                "Unrecognized vartype {vartype}.  Valid choices are: {self._valid_vartypes} (case-sensitive)."
+                f"Unrecognized vartype {vartype}.  Valid choices are: {self._valid_vartypes} (case-sensitive)."
             )
 
     def _call_script(self, str_args: str) -> str:
@@ -545,7 +545,20 @@ class GBTForecastScriptInterface:
         return row
 
     def _eval_polynomial(self, freq: list, mjd: list) -> np.ndarray:
-        """evaluate the polynomial at the given frequencies and MJDs"""
+        """Evaluate the polynomial at the given frequencies and MJDs
+
+        Parameters
+        ----------
+        freq : list
+            Frequencies in GHz.
+        mjd : list
+            Modified Julian Date.
+
+        Returns
+        -------
+        polynomial : `~numpy.ndarray`
+            Polynomial evaluated at `mjd` and `freq`.
+        """
         # freq is in GHz
         # returns array n_mjd x n_freq
         # with values [mjd, freq, tau0]
