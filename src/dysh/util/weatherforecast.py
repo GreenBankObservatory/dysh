@@ -442,7 +442,7 @@ class GBTForecastScriptInterface:
     def _check_vartype(self, vartype: str) -> None:
         if vartype not in self._valid_vartypes:
             raise ValueError(
-                "Unrecognized vartype {vartype}.  Valid choices are: {self._valid_vartypes} (case-sensitive)."
+                f"Unrecognized vartype {vartype}.  Valid choices are: {self._valid_vartypes} (case-sensitive)."
             )
 
     def _call_script(self, str_args: str) -> str:
