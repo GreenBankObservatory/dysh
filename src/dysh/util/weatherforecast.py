@@ -545,7 +545,20 @@ class GBTForecastScriptInterface:
         return row
 
     def _eval_polynomial(self, freq: list, mjd: list) -> np.ndarray:
-        """evaluate the polynomial at the given frequencies and MJDs"""
+        """Evaluate the polynomial at the given frequencies and MJDs
+
+        Parameters
+        ----------
+        freq : list
+            Frequencies in GHz.
+        mjd : list
+            Modified Julian Date.
+
+        Returns
+        -------
+        polynomial : `~numpy.ndarray`
+            Polynomial evaluated at `mjd` and `freq`.
+        """
         # freq is in GHz
         # returns array n_mjd x n_freq
         # with values [mjd, freq, tau0]
