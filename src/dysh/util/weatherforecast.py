@@ -377,12 +377,12 @@ class GBTForecastScriptInterface:
         Fetch the wind data for a range of dates.
 
         .. code:: python
+
             from dysh.util.weatherforecast import GBTForecastScriptInterface
             import numpy as np
 
             g = GBTForecastScriptInterface()
             trx = g(vartype="Winds", mjd=np.arange([60722,60732]), coeffs=False)
-
 
 
         Returns
