@@ -217,17 +217,15 @@ class GBTWeatherForecast(BaseWeatherForecast):
 
 class GBTForecastScriptInterface:
     """
-        An interface to call the GBO weather forecast script.  Generally, users will not use this class directly, but
-        rather use `~GBTWeatherForecast`.
+    An interface to call the GBO weather forecast script.  Generally, users will not use this class directly, but
+    rather use `~GBTWeatherForecast`.
 
-        Parameters
-        ----------from dysh.util.weatherforecast import GBTForecastScriptInterface
-    g = GBTForecastScriptInterface()
-    g(vartype="Opacity", mjd=60733.2916667, freq=50, coeffs=False)
-        path : str or `pathlib.Path`
-            The script to run to get forecast values.
-        debug : bool
-            If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
+    Parameters
+    ----------
+    path : str or `pathlib.Path`
+        The script to run to get forecast values.
+    debug : bool
+        If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
     """
 
     def __init__(self, path: Union[Path, str] = "/users/rmaddale/bin/getForecastValues", **kwargs):
