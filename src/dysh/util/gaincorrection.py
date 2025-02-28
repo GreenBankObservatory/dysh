@@ -127,6 +127,7 @@ class GBTGainCorrection(BaseGainCorrection):
         self.app_eff_0 = 0.71
         self.epsilon_0 = 230 * u.micron
         self.physical_aperture = 7853.9816 * u.m * u.m
+        self._forecast = None
 
     @property
     def gain_correction_table(self):
@@ -339,10 +340,11 @@ class GBTGainCorrection(BaseGainCorrection):
             try:
                 self._forecast = GBTWeatherForecast()
             except Exception as e:
+                self._forecast = None
                 raise Exception(
                     f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
                 )
-            return self._forecast.fetch(specval=specval, vartype=vartype, mjd=mjd, coeffs=coeffs)
+        return self._forecast.fetch(specval=specval, vartype=vartype, mjd=mjd, coeffs=coeffs)
 
     # Question: should use_script default to False?
     def zenith_opacity(
