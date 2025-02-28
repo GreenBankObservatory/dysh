@@ -1072,11 +1072,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self,
         calibrate=True,
         timeaverage=True,
-        polaverage=False,
         weights="tsys",
         bintable=None,
         smoothref=1,
         apply_flags=True,
+        scale="Ta",
+        zenith_opacity=None,
         **kwargs,
     ):
         """
@@ -1088,8 +1089,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Calibrate the scans. The default is True.
         timeaverage : boolean, optional
             Average the scans in time. The default is True.
-        polaverage : boolean, optional
-            Average the scans in polarization. The default is False.
         weights : str or None, optional
             How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
@@ -1237,6 +1236,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
+        scale="Ta",
         **kwargs,
     ):
         """
