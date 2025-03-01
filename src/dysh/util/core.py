@@ -140,8 +140,8 @@ def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
         return None
     # check for Time first since it is also a Sequence
     if isinstance(time_val, Time):
-        if np.isscalar(time_val):
-            return np.array(time_val.mjd)
+        if time_val.isscalar:
+            return np.array([time_val.mjd])
         else:
             return time_val.mjd
     if isinstance(time_val, (Sequence, np.ndarray)) and not isinstance(time_val, str):  # str is also a Sequence
