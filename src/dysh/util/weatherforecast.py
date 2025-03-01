@@ -16,6 +16,7 @@ import astropy.units as u
 import numpy as np
 from astropy.time import Time
 from astropy.units.quantity import Quantity
+from astropy.coordinates import SpectralCoord
 from numpy.polynomial.polynomial import Polynomial
 from pandas import DataFrame
 
@@ -51,6 +52,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
         coeffs=True,
     ) -> np.ndarray:
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
+        print(f"{frequency=}")
         # catch dates before May 5, 2004, below which the weather archive does not exist.
         mjd_list = to_mjd_list(mjd)
         if mjd_list is not None:
@@ -428,7 +430,7 @@ class GBTForecastScriptInterface:
             )
             if freq is None:
                 raise ValueError(f"You must give a frequency list with {coeffs=}.")
-            return self._eval_polynomial(freq, mjd)
+            values = self._eval_polynomial(freq, mjd)
         else:
             # call with other args and -type vartype  [-freqList -timeList]
             if freq is not None:
@@ -446,7 +448,13 @@ class GBTForecastScriptInterface:
             else:
                 script_output = self._call_script(_args)
             logger.debug(f"{script_output=}")
-            return self._parse_list_values(vartype, script_output)
+            values = self._parse_list_values(vartype, script_output)
+
+        # warn if any values returned are -9999 which
+        # is what the script gives if it can't determine a value.
+        if np.any(values == -9999.0):
+            logger.warn(f"In fetching {vartype} A value of -9999 was detected. Be careful.") 
+        return values
 
     @property
     def valid_vartypes(self) -> list:
@@ -578,11 +586,15 @@ class GBTForecastScriptInterface:
         # with values [mjd, freq, tau0]
         logger.debug(f"eval {freq=} {mjd=}")
         final = None
+        if freq is None or mjd is None:
+            raise ValueError("freq and mjd cannot be None")
         for d in mjd:
             df = self._df[np.round(self._df.MJD, 4) == np.round(d, 4)]
+            print(f"1 {df=}")
             for f in freq:
                 z = []
                 df = df[(df.freqLoGHz <= f) & (df.freqHiGHz >= f)]
+                print(f"2 {df=}")
                 coefficients = df.loc[:, df.columns.str.contains("^c")].to_numpy()[0]
                 p = Polynomial(coefficients)
                 z.append(p(f))
