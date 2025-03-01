@@ -344,6 +344,8 @@ class GBTGainCorrection(BaseGainCorrection):
                 raise Exception(
                     f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
                 )
+        if mjd is None:
+            mjd=Time.now()
         return self._forecast.fetch(specval=specval, vartype=vartype, mjd=mjd, coeffs=coeffs)
 
     # Question: should use_script default to False?
@@ -378,14 +380,14 @@ class GBTGainCorrection(BaseGainCorrection):
         # specval can but value*unit or [value...]*unit.  We want [value...]*unit
         if len(specval.shape) == 0:
             specval = [specval.value] * specval.unit
-        if mjd is None:
-            mjd = np.zeros(specval.shape)
-        mjd_list = to_mjd_list(mjd)
         if use_script:
-            return self.get_weather(specval=specval, type="Opacity", mjd=mjd, coeffs=coeffs)
+            return self.get_weather(specval=specval, vartype="Opacity", mjd=mjd, coeffs=coeffs)
         else:
             frequency = specval.to(u.GHz, equivalencies=u.spectral())
             out = None
+            if mjd is None:
+                mjd = Time.now()
+            mjd_list = to_mjd_list(mjd)
             for d in mjd_list:
                 for f in frequency:
                     value = [d]  # MJD is irrelevant but need it so output signature is the same
