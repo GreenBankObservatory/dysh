@@ -543,7 +543,7 @@ class GBTForecastScriptInterface:
                 # will compress the return result, i.e. if freqList is 2 2 2 2 5 7,
                 # the script will return only 3 values for 2,5,7.
                 # So we have to trick it by making them within a few thousands of 2.
-                # NB: This will fail with a broadcast array error if the person happens to input 
+                # NB: This will fail with a ValueError array broadcast exception if the person happens to input 
                 # any of these fudged frequencies.
                 a = np.round(np.random.rand(lenlo)*0.001,4)
                 doctored_freq[lo_freq_idx] = 2.001+a
@@ -582,7 +582,8 @@ class GBTForecastScriptInterface:
             # Now replace the original frequencies
             # We have the additional complication that if N MJDs were given,
             # the frequency array will be repeated N times. np.tile does this.
-            values[:,1] = np.tile(freq,n_mjd)
+            if not self._testmode:
+                values[:,1] = np.tile(freq,n_mjd)
         else:
             # call with other args and -type vartype  [-freqList -timeList]
             if doctored_freq is not None:
@@ -605,7 +606,8 @@ class GBTForecastScriptInterface:
             # Now replace the original frequencies
             # We have the additional complication that if N MJDs were given,
             # the frequency array will be repeated N times. np.tile does this.
-            values[:,1] = np.tile(freq,n_mjd)
+            if not self._testmode:
+                values[:,1] = np.tile(freq,n_mjd)
 
         # warn if any values returned are -9999 which
         # is what the script gives if it can't determine a value.
