@@ -351,7 +351,7 @@ class GBTGainCorrection(BaseGainCorrection):
                     f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
                 )
         if mjd is None:
-            mjd=Time.now()
+            mjd = Time.now()
         return self._forecast.fetch(specval=specval, vartype=vartype, mjd=mjd, coeffs=coeffs)
 
     # Question: should use_script default to False?
