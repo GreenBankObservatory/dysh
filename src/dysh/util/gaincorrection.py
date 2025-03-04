@@ -314,26 +314,32 @@ class GBTGainCorrection(BaseGainCorrection):
     ) -> np.ndarray:
         r"""
         Call the GBO `getForecastValues` script with the given inputs.
+        For frequencies below 2 GHz, the value at 2 GHz will be returned since the `getForecastValues` does not
+        cover < 2GHz.  Returned values will be sorted by frequency, low to high.
+
         See `GBTdocs <https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/calculate_opacity.html#calculate-sky-opacity-retrieving-more-granular-values-of-zenith-opacity>`_
         for more details.
+
 
         Parameters
         ----------
         specval : `~astropy.units.quantity.Quantity`
-            The spectral value -- frequency or wavelength -- at which to compute the opacity
+            The spectral value -- frequency or wavelength -- at which to compute `vartype`
         vartype : str, optional
             Which weather variable to fetch. See Notes for a description of valid values.
+            **If the user is not on the GBO network , the only variable available is Opacity.**
         mjd : `~astropy.time.Time` or float
             The date at which to compute the opacity. If given as a float, it is interpreted as
             Modified Julian Day.  Default: None, meaning the data will be fetched at the most recent MJD available.
             If the user is not on the GBO network, this argument is ignored and the opacity will only be a function of frequency.
         coeffs : bool
             If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
-            polynomial coefficients to fit opacity as a function of frequency for each MJD.
+            polynomial coefficients to fit `vartype` as a function of frequency for each MJD.
+            **This is only valid for `vartype` "Opacity" or "Tatm."**
 
         Returns
         -------
-        vartypeval : `~numpy.ndarray`
+        weather_data : `~numpy.ndarray`
             The requested value(s) at the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
         """
         if self._forecast is None:
@@ -355,6 +361,8 @@ class GBTGainCorrection(BaseGainCorrection):
         r"""
         Compute the zenith opacity, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
 
+        For frequencies below 2 GHz, the value at 2 GHz will be returned since the `getForecastValues` does not
+        cover < 2GHz.  Returned values will be sorted by frequency, low to high.
 
         Parameters
         ----------
@@ -403,6 +411,9 @@ class GBTGainCorrection(BaseGainCorrection):
     ) -> np.ndarray:
         r"""
         Compute the atmospheric temperature `Tatm`, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
+
+        For frequencies below 2 GHz, the value at 2 GHz will be returned since the `getForecastValues` does not
+        cover < 2GHz.  Returned values will be sorted by frequency, low to high.
 
         Parameters
         ----------

@@ -51,8 +51,127 @@ class GBTWeatherForecast(BaseWeatherForecast):
         mjd: Union[Time, float] = None,
         coeffs=True,
     ) -> np.ndarray:
+        r"""Call the GBO weather script and parse the results into numbers.
+        For frequencies below 2 GHz, the value at 2 GHz will be returned since the `getForecastValues` does not
+        cover < 2GHz.  Returned values will be sorted by frequency, low to high.
+
+        Parameters
+        ----------
+        specval : `~astropy.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute `vartype`
+        vartype : str, optional
+            Which weather variable to fetch. See Notes for a description of valid values.
+            **If the user is not on the GBO network , the only variable available is Opacity.**
+        mjd : `~astropy.time.Time` or float
+            The date at which to compute the opacity. If given as a float, it is interpreted as
+            Modified Julian Day.  Default: None, meaning the data will be fetched at the most recent MJD available.
+            If the user is not on the GBO network, this argument is ignored and the opacity will only be a function of frequency.
+        coeffs : bool
+            If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
+            polynomial coefficients to fit `vartype` as a function of frequency for each MJD.
+            **This is only valid for `vartype` "Opacity" or "Tatm."**
+            Because the polynomial is only defined from 2 GHz to 116 GHz, for values below 2 GHz the value for 2 GHz 
+            will be returned.
+
+        Notes
+        -----
+        The `vartype` name for values that can be returned are described below. **These are case-sensitive.**
+        This description comes from the help
+        text for `getForecastValues` and may not fully describe the data that are returned, e.g., when other arguments
+        are ignored.
+
+        Opacity
+            the total zenith opacity
+
+        Tatm
+            the opacity-weighted (i.e., representative) temperature of
+            the atmosphere and is the value that should be used when
+            fitting traditional tipping curves.
+
+        AtmTsys
+            the part of the system temperature due to just the
+            atmosphere, doesn't include CMB, spillover, and electronics,
+            and is calculated for the specified elevation.
+
+        TotalTsys
+            the above-described Tsys value, augmented by an
+            estimate of the contributions from the receiver, spillover,
+            and the CMB.
+
+        Est
+            the Effective System Temperature for the specified elevation.
+
+        Rest
+            the Relative Effective System Temperature, which includes
+            the contributions from the CMB, spillover, and electronics,
+            and is calculated for the specified elevation.  Essentially,
+            the predicted loss in gain due to atmospheric opacity
+
+        Trcvr
+            An estimate of the receiver temperature for the given
+            frequency and MJD
+
+        Tau0
+            The best possible opacity for the given frequency and MJD
+
+        Tau10, Tau25, Tau50, Tau75, Tau90
+            The opacity for various
+            percentile weather conditions for the given frequency and MJD,
+            based on multi-year statistical studies.
+
+        Tatm0
+            The atmospheric temperature `Tatm` for the given frequency and MJD at the time of the
+            best possible opacity.
+
+        Tatm10, Tatm25, Tatm50, Tatm75, Tatm90
+            The `Tatm` for various
+            percentile weather conditions for the given frequency and MJD,
+            based on multi-year statistical studies.
+
+        Winds
+            The wind speed in MPH.  A specified `freqList` is ignored.
+
+        WindEffect
+            The predicted loss in point-surface efficiency due to
+            winds
+
+        SurfaceEffect
+            The predicted loss in point-surface efficiency due
+            to a deformed surface during PTCS daytime observing.
+
+        TotalEffect
+            The product of the Rest and the wind and surface
+            effects.  That is, the predicted loss in gain due to all the
+            various weather factors.
+
+        MinElev
+            Suggested minimum elevation for an object that rises to
+            the elevation given by the value of `-elev`.  Observing above
+            the suggested elevation should keep the loss in gain due to
+            atmospheric opacity to no more than 70% of the loss at transit
+            (i.e., < factor of ~2 increase in observing time).
+
+        Examples
+        --------
+
+        Fetch the wind data for a range of dates.
+
+        .. code:: python
+
+            from dysh.util.weatherforecast import GBTForecastScriptInterface
+            import numpy as np
+
+            g = GBTForecastScriptInterface()
+            trx = g(vartype="Winds", mjd=np.arange([60722,60732]), coeffs=False)
+
+
+        Returns
+        -------
+        weather_data : `~numpy.ndarray`
+            The requested weather data evaluated at the input frequencies and MJDs.
+            ** These will be sorted by frequency low to high **
+        """
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
-        print(f"{frequency=}")
         # catch dates before May 5, 2004, below which the weather archive does not exist.
         mjd_list = to_mjd_list(mjd)
         if mjd_list is not None:
@@ -300,6 +419,8 @@ class GBTForecastScriptInterface:
                 :math:`value = \sum_{i=0}^{n} C_i \nu^i`
 
             where :math:`C_i` are the coefficients and :math:`\nu` is the frequency **in GHz**.
+            Because the polynomial is only defined from 2 GHz to 116 GHz, for values below 2 GHz the value for 2 GHz 
+            will be returned.
 
         Notes
         -----
@@ -397,24 +518,51 @@ class GBTForecastScriptInterface:
         -------
         weather_data : `~numpy.ndarray`
             The requested weather data evaluated at the input frequencies and MJDs.
+            ** These will be sorted by frequency low to high **
         """
         if self._testmode:
             logger.warn("In debug mode, using test data.")
         self._check_vartype(vartype)
         logger.debug(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
-        _args = f"{self._path.as_posix()} "
+        _args = f"{self._path.as_posix()} -type {vartype} "
+        if freq is not None:
+            # Ensure freq is a numpy array
+            freq=np.array(freq)
+            # sort the frequencies -- this is necessary because getForecastValues returns
+            # the data sorted by frequency. So if we have to substitute low frequency values
+            # the order must be guaranteed.
+            freq.sort()
+            doctored_freq = np.copy(freq)
+            # We have decided that if the frequecy is below 2 GHz, we will return the value at 2GHz.
+            # Therefore we must send in a substitute list of frequencies, replacing anything below 2GHz
+            # with 2GHz+epsilon, then replace that with the original list before returning the values.
+            lo_freq_idx = np.where(doctored_freq<2.0)
+            lenlo = len(doctored_freq[lo_freq_idx])
+            if lenlo != 0:
+                # We have to add a tiny bit onto the 2.0 GHz because the script
+                # will compress the return result, i.e. if freqList is 2 2 2 2 5 7,
+                # the script will return only 3 values for 2,5,7.
+                # So we have to trick it by making them within a few thousands of 2.
+                # NB: This will fail with a broadcast array error if the person happens to input 
+                # any of these fudged frequencies.
+                a = np.round(np.random.rand(lenlo)*0.001,4)
+                doctored_freq[lo_freq_idx] = 2.001+a
 
         if mjd is not None:
             # round MJD to nearest 5 minutes. This helps to shorten the argument list so we don't run afoul of bash
             mjdformat = len(mjd) * "{:.4f} "
             timearg = f"-timeList {mjdformat.format(*mjd)} "
             _args += timearg
+            n_mjd = len(mjd)
+        else:
+            n_mjd = 1
 
         if coeffs:
             if vartype != "Opacity" and vartype != "Tatm":
                 raise ValueError("You can only use coeff=True for vartype Opacity or Tatm")  # limitation of the script
             # call with -coeff
-            _args += f"-coeff -type {vartype} "
+            _args += "-coeff"
+            logger.debug(f"Calling getForecastValues with {_args}")
 
             if self._testmode:
                 from .core import get_project_testdata
@@ -430,14 +578,19 @@ class GBTForecastScriptInterface:
             )
             if freq is None:
                 raise ValueError(f"You must give a frequency list with {coeffs=}.")
-            values = self._eval_polynomial(freq, mjd)
+            values = self._eval_polynomial(doctored_freq, mjd)
+            # Now replace the original frequencies
+            # We have the additional complication that if N MJDs were given,
+            # the frequency array will be repeated N times. np.tile does this.
+            values[:,1] = np.tile(freq,n_mjd)
         else:
             # call with other args and -type vartype  [-freqList -timeList]
-            if freq is not None:
-                # round freq to nearest 100 kHz
-                freqformat = len(freq) * "{:.2f} "
-                freqarg = f"-freqList {freqformat.format(*freq)} "
+            if doctored_freq is not None:
+                # round freq to nearest 10 kHz (needed 4 digits for the low frequency fakeout)
+                freqformat = len(doctored_freq) * "{:.4f} "
+                freqarg = f"-freqList {freqformat.format(*doctored_freq)} "
                 _args += freqarg
+            logger.debug(f"Calling getForecastValues with {_args}")
 
             if self._testmode:
                 from .core import get_project_testdata
@@ -449,6 +602,10 @@ class GBTForecastScriptInterface:
                 script_output = self._call_script(_args)
             logger.debug(f"{script_output=}")
             values = self._parse_list_values(vartype, script_output)
+            # Now replace the original frequencies
+            # We have the additional complication that if N MJDs were given,
+            # the frequency array will be repeated N times. np.tile does this.
+            values[:,1] = np.tile(freq,n_mjd)
 
         # warn if any values returned are -9999 which
         # is what the script gives if it can't determine a value.
@@ -462,7 +619,7 @@ class GBTForecastScriptInterface:
         return self._valid_vartypes
 
     def _check_vartype(self, vartype: str) -> None:
-        if vartype not in self._valid_vartypes:
+        if vartype is None or vartype not in self._valid_vartypes:
             raise ValueError(
                 f"Unrecognized vartype {vartype}.  Valid choices are: {self._valid_vartypes} (case-sensitive)."
             )
@@ -590,11 +747,9 @@ class GBTForecastScriptInterface:
             raise ValueError("freq and mjd cannot be None")
         for d in mjd:
             df = self._df[np.round(self._df.MJD, 4) == np.round(d, 4)]
-            print(f"1 {df=}")
             for f in freq:
                 z = []
                 df = df[(df.freqLoGHz <= f) & (df.freqHiGHz >= f)]
-                print(f"2 {df=}")
                 coefficients = df.loc[:, df.columns.str.contains("^c")].to_numpy()[0]
                 p = Polynomial(coefficients)
                 z.append(p(f))
