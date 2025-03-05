@@ -12,8 +12,6 @@ from dysh.util.gaincorrection import GBTGainCorrection
 
 class TestWeatherForecastGBO:
     """Test the GBT Gain Correction functions on GBO Network"""
-    #def __init__(self):
-    #    self.setup_method()
 
     def setup_method(self):
         self.gbtwf = GBTWeatherForecast()
@@ -105,7 +103,7 @@ class TestWeatherForecastGBO:
         assert ans == pytest.approx(z, abs=1e-4)
 
         # check that bash can handle a ridiculous argument string
-        nchan=50
+        nchan=50000
         bigf = Spectrum.fake_spectrum(cdelt1=1E6,crval1=30E9,nchan=nchan)
         z= self.gbtwf.fetch(vartype="Opacity", mjd=bigf.obstime, specval=bigf.spectral_axis, coeffs=False)
         assert z.shape == (nchan,3)
