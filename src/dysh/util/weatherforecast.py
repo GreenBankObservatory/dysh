@@ -15,9 +15,9 @@ from typing import Union
 
 import astropy.units as u
 import numpy as np
+from astropy.coordinates import SpectralCoord
 from astropy.time import Time
 from astropy.units.quantity import Quantity
-from astropy.coordinates import SpectralCoord
 from numpy.polynomial.polynomial import Polynomial
 from pandas import DataFrame
 
@@ -71,7 +71,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
             If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
             polynomial coefficients to fit `vartype` as a function of frequency for each MJD.
             **This is only valid for `vartype` "Opacity" or "Tatm."**
-            Because the polynomial is only defined from 2 GHz to 116 GHz, for values below 2 GHz the value for 2 GHz 
+            Because the polynomial is only defined from 2 GHz to 116 GHz, for values below 2 GHz the value for 2 GHz
             will be returned.
 
         Notes
@@ -424,7 +424,7 @@ class GBTForecastScriptInterface:
                 :math:`value = \sum_{i=0}^{n} C_i \nu^i`
 
             where :math:`C_i` are the coefficients and :math:`\nu` is the frequency **in GHz**.
-            Because the polynomial is only defined from 2 GHz to 116 GHz, for values below 2 GHz the value for 2 GHz 
+            Because the polynomial is only defined from 2 GHz to 116 GHz, for values below 2 GHz the value for 2 GHz
             will be returned.
 
         Notes
@@ -536,7 +536,7 @@ class GBTForecastScriptInterface:
             raise TypeError(f"freq must be a list or numpy array, not {type(freq)}")
         if freq is not None:
             # Ensure freq is a numpy array
-            freq=np.array(freq)
+            freq = np.array(freq)
             # sort the frequencies -- this is necessary because getForecastValues returns
             # the data sorted by frequency. So if we have to substitute low frequency values
             # the order must be guaranteed.
@@ -545,17 +545,17 @@ class GBTForecastScriptInterface:
             # We have decided that if the frequecy is below 2 GHz, we will return the value at 2GHz.
             # Therefore we must send in a substitute list of frequencies, replacing anything below 2GHz
             # with 2GHz+epsilon, then replace that with the original list before returning the values.
-            lo_freq_idx = np.where(doctored_freq<2.0)
+            lo_freq_idx = np.where(doctored_freq < 2.0)
             lenlo = len(doctored_freq[lo_freq_idx])
             if lenlo != 0:
                 # We have to add a tiny bit onto the 2.0 GHz because the script
                 # will compress the return result, i.e. if freqList is 2 2 2 2 5 7,
                 # the script will return only 3 values for 2,5,7.
                 # So we have to trick it by making them within a few thousands of 2.
-                # NB: This will fail with a ValueError array broadcast exception if the person happens to input 
+                # NB: This will fail with a ValueError array broadcast exception if the person happens to input
                 # any of these fudged frequencies.
-                a = np.round(np.random.rand(lenlo)*0.001,4)
-                doctored_freq[lo_freq_idx] = 2.001+a
+                a = np.round(np.random.rand(lenlo) * 0.001, 4)
+                doctored_freq[lo_freq_idx] = 2.001 + a
 
         if mjd is not None:
             # round MJD to nearest 5 minutes. This helps to shorten the argument list so we don't run afoul of bash
@@ -591,7 +591,7 @@ class GBTForecastScriptInterface:
             # We have the additional complication that if N MJDs were given,
             # the frequency array will be repeated N times. np.tile does this.
             if not self._testmode:
-                values[:,1] = np.tile(freq,n_mjd)
+                values[:, 1] = np.tile(freq, n_mjd)
         else:
             self._check_deltafreq(freq)
             # call with other args and -type vartype  [-freqList -timeList]
@@ -615,7 +615,7 @@ class GBTForecastScriptInterface:
             # We have the additional complication that if N MJDs were given,
             # the frequency array will be repeated N times. np.tile does this.
             if not self._testmode:
-                values[:,1] = np.tile(freq,n_mjd)
+                values[:, 1] = np.tile(freq, n_mjd)
 
         # warn if any values returned are -9999 which
         # is what the script gives if it can't determine a value.
