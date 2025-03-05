@@ -9,6 +9,7 @@ import ast
 import re
 import subprocess
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Union
 
@@ -21,7 +22,7 @@ from numpy.polynomial.polynomial import Polynomial
 from pandas import DataFrame
 
 from ..log import logger
-from .core import to_mjd_list
+from .core import to_mjd_list, to_quantity_list
 
 __all__ = ["BaseWeatherForecast", "GBTWeatherForecast", "GBTForecastScriptInterface"]
 
@@ -171,9 +172,13 @@ class GBTWeatherForecast(BaseWeatherForecast):
             The requested weather data evaluated at the input frequencies and MJDs.
             ** These will be sorted by frequency low to high **
         """
+        specval=to_quantity_list(specval)
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
-        # catch dates before May 5, 2004, below which the weather archive does not exist.
+        # If MJD was None, then it means the current MJD
+        if mjd is None:
+            mjd = Time.now()
         mjd_list = to_mjd_list(mjd)
+        # catch dates before May 5, 2004, below which the weather archive does not exist.
         if mjd_list is not None:
             bad_date = [x < self.LOWER_MJD_LIMIT for x in mjd_list]
             if any(bad_date):
@@ -525,6 +530,10 @@ class GBTForecastScriptInterface:
         self._check_vartype(vartype)
         logger.debug(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
         _args = f"{self._path.as_posix()} -type {vartype} "
+        if not isinstance(mjd, (Sequence,np.ndarray)):
+            raise TypeError(f"mjd must be a list or numpy array, not {type(mjd)}")
+        if not isinstance(freq, (Sequence,np.ndarray)):
+            raise TypeError(f"freq must be a list or numpy array, not {type(freq)}")
         if freq is not None:
             # Ensure freq is a numpy array
             freq=np.array(freq)
@@ -562,7 +571,6 @@ class GBTForecastScriptInterface:
                 raise ValueError("You can only use coeff=True for vartype Opacity or Tatm")  # limitation of the script
             # call with -coeff
             _args += "-coeff"
-            logger.debug(f"Calling getForecastValues with {_args}")
 
             if self._testmode:
                 from .core import get_project_testdata
@@ -585,13 +593,13 @@ class GBTForecastScriptInterface:
             if not self._testmode:
                 values[:,1] = np.tile(freq,n_mjd)
         else:
+            self._check_deltafreq(freq)
             # call with other args and -type vartype  [-freqList -timeList]
             if doctored_freq is not None:
-                # round freq to nearest 10 kHz (needed 4 digits for the low frequency fakeout)
+                # round freq to nearest 100 kHz (needed 4 digits for the low frequency fakeout)
                 freqformat = len(doctored_freq) * "{:.4f} "
                 freqarg = f"-freqList {freqformat.format(*doctored_freq)} "
                 _args += freqarg
-            logger.debug(f"Calling getForecastValues with {_args}")
 
             if self._testmode:
                 from .core import get_project_testdata
@@ -613,7 +621,8 @@ class GBTForecastScriptInterface:
         # is what the script gives if it can't determine a value.
         if np.any(values == -9999.0):
             logger.warn(f"In fetching {vartype} A value of -9999 was detected. Be careful.") 
-        return values
+        # remove any extra zero length dimensions added in parsing.
+        return np.squeeze(values)
 
     @property
     def valid_vartypes(self) -> list:
@@ -626,10 +635,19 @@ class GBTForecastScriptInterface:
                 f"Unrecognized vartype {vartype}.  Valid choices are: {self._valid_vartypes} (case-sensitive)."
             )
 
+    def _check_deltafreq(self, freq: np.ndarray) -> None:
+        """When we pass a frequency list to script we round it to 100 kHz, so
+           raise an error if CDELT is less than 100 kHz
+        """
+        if len(freq)<2:
+            return
+        if np.abs(freq[0]-freq[1])*u.GHz < 100*u.kHz:
+            raise ValueError("Frequencies in input list are too close, must be separated by at least 100 kHz")
+
     def _call_script(self, str_args: str) -> str:
         """call the script via python `subprocess` and return the output as a str. Lines will be separated by \n"""
-        # thanks, Evan!
         logger.debug(f"Calling {str_args}")
+        # thanks, Evan!
         output = subprocess.run(str_args.split(), stdout=subprocess.PIPE).stdout
         return str(output.decode("utf-8"))
 
@@ -650,7 +668,8 @@ class GBTForecastScriptInterface:
                 out = row
             else:
                 out = np.vstack([out, row])
-        return out
+        # because we will be slicing, ensure that out is 2D even if one dimension is zero.
+        return np.atleast_2d(out)
 
     def _parse_coefficients(self, vartype: str, script_output: str) -> np.ndarray:
         """Parse the coefficient list that comes out of `getForecastValues` script
@@ -760,4 +779,5 @@ class GBTForecastScriptInterface:
                     final = ary
                 else:
                     final = np.vstack([final, ary])
-        return final
+        # because we will be slicing, ensure that out is 2D even if one dimension is zero.
+        return np.atleast_2d(final)
