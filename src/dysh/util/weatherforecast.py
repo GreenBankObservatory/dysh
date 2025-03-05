@@ -595,7 +595,7 @@ class GBTForecastScriptInterface:
             # We have the additional complication that if N MJDs were given,
             # the frequency array will be repeated N times. np.tile does this.
             if not self._testmode:
-                # NB: The slice will fail with a ValueError array broadcast exception if the 
+                # NB: The slice will fail with a ValueError array broadcast exception if the
                 # any of the frequencies the user input happens to match any of
                 # the doctored frequencies because the script removes duplicate frequencies.
                 values[:, 1] = np.tile(freq, n_mjd)

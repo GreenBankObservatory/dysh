@@ -323,7 +323,7 @@ class GBTGainCorrection(BaseGainCorrection):
         Parameters
         ----------
         specval : `~astropy.units.quantity.Quantity`, optional
-            The spectral value -- frequency or wavelength -- at which to compute `vartype`. 
+            The spectral value -- frequency or wavelength -- at which to compute `vartype`.
             For data such as 'Winds' that don't depend on frequency, `specval` can be None.
         vartype : str, optional
             Which weather variable to fetch. See Notes for a description of valid values.
