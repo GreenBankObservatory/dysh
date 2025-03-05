@@ -153,19 +153,21 @@ def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
     else:
         raise ValueError(f"Unrecognized type for time value: {type(time_val)}")
 
-def to_quantity_list(q:Union[Quantity,Sequence]) -> Quantity:
+
+def to_quantity_list(q: Union[Quantity, Sequence]) -> Quantity:
     # if given quanity or [quanity], return [quanity.value]*quantity.units
     # handle quantities first
-    if isinstance(q,Quantity):
-        if isinstance(q.value,np.ndarray):
+    if isinstance(q, Quantity):
+        if isinstance(q.value, np.ndarray):
             return q
         else:
-            return [q.value]*q.unit
+            return [q.value] * q.unit
     # now handle lists of quantities
-    if isinstance(q,Sequence):
+    if isinstance(q, Sequence):
         if len(set([x.unit for x in q])) != 1:
             raise ValueError("Units must all be the same in input list")
-        return [x.value for x in q]*q[0].unit
+        return [x.value for x in q] * q[0].unit
+
 
 def generate_tag(values, hashlen, add_time=True):
     """

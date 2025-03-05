@@ -172,7 +172,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
             The requested weather data evaluated at the input frequencies and MJDs.
             ** These will be sorted by frequency low to high **
         """
-        specval=to_quantity_list(specval)
+        specval = to_quantity_list(specval)
         frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
         # If MJD was None, then it means the current MJD
         if mjd is None:
@@ -530,9 +530,9 @@ class GBTForecastScriptInterface:
         self._check_vartype(vartype)
         logger.debug(f"{coeffs=}, {vartype=}, {freq=}, {mjd=}")
         _args = f"{self._path.as_posix()} -type {vartype} "
-        if not isinstance(mjd, (Sequence,np.ndarray)):
+        if not isinstance(mjd, (Sequence, np.ndarray)):
             raise TypeError(f"mjd must be a list or numpy array, not {type(mjd)}")
-        if not isinstance(freq, (Sequence,np.ndarray)):
+        if not isinstance(freq, (Sequence, np.ndarray)):
             raise TypeError(f"freq must be a list or numpy array, not {type(freq)}")
         if freq is not None:
             # Ensure freq is a numpy array
@@ -620,7 +620,7 @@ class GBTForecastScriptInterface:
         # warn if any values returned are -9999 which
         # is what the script gives if it can't determine a value.
         if np.any(values == -9999.0):
-            logger.warn(f"In fetching {vartype} A value of -9999 was detected. Be careful.") 
+            logger.warn(f"In fetching {vartype} A value of -9999 was detected. Be careful.")
         # remove any extra zero length dimensions added in parsing.
         return np.squeeze(values)
 
@@ -637,11 +637,11 @@ class GBTForecastScriptInterface:
 
     def _check_deltafreq(self, freq: np.ndarray) -> None:
         """When we pass a frequency list to script we round it to 100 kHz, so
-           raise an error if CDELT is less than 100 kHz
+        raise an error if CDELT is less than 100 kHz
         """
-        if len(freq)<2:
+        if len(freq) < 2:
             return
-        if np.abs(freq[0]-freq[1])*u.GHz < 100*u.kHz:
+        if np.abs(freq[0] - freq[1]) * u.GHz < 100 * u.kHz:
             raise ValueError("Frequencies in input list are too close, must be separated by at least 100 kHz")
 
     def _call_script(self, str_args: str) -> str:
