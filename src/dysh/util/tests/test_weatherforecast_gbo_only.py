@@ -55,6 +55,18 @@ class TestWeatherForecastGBO:
         z = self.gbtwf.fetch(specval=self.freq, vartype="Opacity", mjd=self.mjd[0], coeffs=True)
         print(f"opacity true 1D {z=}")
 
+        # get a variable that does not require frequency
+        z = self.gbtwf.fetch(vartype="Winds", mjd=self.mjd, coeffs=False)
+        ans = np.array([[6.0722e+04, 0.0000e+00, 2.6800e+00],
+                        [6.0723e+04, 0.0000e+00, 1.5120e+01]])
+        
+        assert ans == pytest.approx(z, abs=1e-3)
+    
+        # interpolation only allowed for Opacity and Tatm
+        with pytest.raises(ValueError):
+            self.gbtwf.fetch(vartype="Winds", mjd=self.mjd, coeffs=True)
+
+
     def test_pr_issues(self):
         # test the pull request 487 issues noted by pedro
         g = GBTForecastScriptInterface()

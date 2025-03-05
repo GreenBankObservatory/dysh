@@ -58,8 +58,9 @@ class GBTWeatherForecast(BaseWeatherForecast):
 
         Parameters
         ----------
-        specval : `~astropy.units.quantity.Quantity`
+        specval : `~astropy.units.quantity.Quantity`, optional
             The spectral value -- frequency or wavelength -- at which to compute `vartype`
+            For data such as 'Winds' that don't depend on frequency, `specval` can be None.
         vartype : str, optional
             Which weather variable to fetch. See Notes for a description of valid values.
             **If the user is not on the GBO network , the only variable available is Opacity.**
@@ -172,9 +173,9 @@ class GBTWeatherForecast(BaseWeatherForecast):
             The requested weather data evaluated at the input frequencies and MJDs.
             ** These will be sorted by frequency low to high **
         """
-        specval = to_quantity_list(specval)
         frequency = None
         if specval is not None:
+            specval = to_quantity_list(specval)
             frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
         # If MJD was None, then it means the current MJD
         if mjd is None:
@@ -549,6 +550,7 @@ class GBTForecastScriptInterface:
             # We have decided that if the frequecy is below 2 GHz, we will return the value at 2GHz.
             # Therefore we must send in a substitute list of frequencies, replacing anything below 2GHz
             # with 2GHz+epsilon, then replace that with the original list before returning the values.
+            # The epsilon is necessary because the script removes duplicate frequencies.
             lo_freq_idx = np.where(doctored_freq < 2.0)
             lenlo = len(doctored_freq[lo_freq_idx])
             if lenlo != 0:
@@ -556,8 +558,6 @@ class GBTForecastScriptInterface:
                 # will compress the return result, i.e. if freqList is 2 2 2 2 5 7,
                 # the script will return only 3 values for 2,5,7.
                 # So we have to trick it by making them within a few thousands of 2.
-                # NB: This will fail with a ValueError array broadcast exception if the person happens to input
-                # any of these fudged frequencies.
                 a = np.round(np.random.rand(lenlo) * 0.001, 4)
                 doctored_freq[lo_freq_idx] = 2.001 + a
 
@@ -595,6 +595,9 @@ class GBTForecastScriptInterface:
             # We have the additional complication that if N MJDs were given,
             # the frequency array will be repeated N times. np.tile does this.
             if not self._testmode:
+                # NB: The slice will fail with a ValueError array broadcast exception if the 
+                # any of the frequencies the user input happens to match any of
+                # the doctored frequencies because the script removes duplicate frequencies.
                 values[:, 1] = np.tile(freq, n_mjd)
         else:
             # call with other args and -type vartype  [-freqList -timeList]
@@ -618,6 +621,7 @@ class GBTForecastScriptInterface:
             # We have the additional complication that if N MJDs were given,
             # the frequency array will be repeated N times. np.tile does this.
             if not self._testmode and freq is not None:
+                # see caveat above
                 values[:, 1] = np.tile(freq, n_mjd)
 
         # warn if any values returned are -9999 which

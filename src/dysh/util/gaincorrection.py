@@ -308,7 +308,6 @@ class GBTGainCorrection(BaseGainCorrection):
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
 
-    # @todo (maybe) Formally specval = None is allowed then the script returns data al all frequencies 2-116 GHz
     def get_weather(
         self, specval: Quantity, vartype: str, mjd: Union[Time, float] = None, coeffs: bool = True, **kwargs
     ) -> np.ndarray:
@@ -323,8 +322,9 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Parameters
         ----------
-        specval : `~astropy.units.quantity.Quantity`
-            The spectral value -- frequency or wavelength -- at which to compute `vartype`
+        specval : `~astropy.units.quantity.Quantity`, optional
+            The spectral value -- frequency or wavelength -- at which to compute `vartype`. 
+            For data such as 'Winds' that don't depend on frequency, `specval` can be None.
         vartype : str, optional
             Which weather variable to fetch. See Notes for a description of valid values.
             **If the user is not on the GBO network , the only variable available is Opacity.**

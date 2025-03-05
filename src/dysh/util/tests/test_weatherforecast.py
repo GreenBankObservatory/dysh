@@ -57,3 +57,7 @@ class TestWeatherForecast:
         # test that catching dates before 05-may-2004 works
         with pytest.raises(ValueError):
             self.gbtwf.fetch(specval=self.freq, vartype="Opacity", mjd=53000)
+
+        # interpolation only allowed for Opacity and Tatm
+        with pytest.raises(ValueError):
+            self.gbtwf.fetch(vartype="Winds", mjd=self.mjd, coeffs=True)
