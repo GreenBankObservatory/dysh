@@ -47,7 +47,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
     # this could just as easily be __call__
     def fetch(
         self,
-        specval: Quantity,
+        specval: Quantity = None,
         vartype: str = "Opacity",
         mjd: Union[Time, float] = None,
         coeffs=True,
@@ -159,11 +159,11 @@ class GBTWeatherForecast(BaseWeatherForecast):
 
         .. code:: python
 
-            from dysh.util.weatherforecast import GBTForecastScriptInterface
+            from dysh.util.weatherforecast import GBTWeatherForecast
             import numpy as np
 
-            g = GBTForecastScriptInterface()
-            trx = g(vartype="Winds", mjd=np.arange([60722,60732]), coeffs=False)
+            g = GBTWeatherForecast()
+            wind = g.fetch(vartype="Winds", mjd=np.arange(60722,60732), coeffs=False)
 
 
         Returns
@@ -173,7 +173,9 @@ class GBTWeatherForecast(BaseWeatherForecast):
             ** These will be sorted by frequency low to high **
         """
         specval = to_quantity_list(specval)
-        frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
+        frequency = None
+        if specval is not None:
+            frequency = specval.to(u.GHz, equivalencies=u.spectral()).value
         # If MJD was None, then it means the current MJD
         if mjd is None:
             mjd = Time.now()
@@ -516,7 +518,7 @@ class GBTForecastScriptInterface:
             import numpy as np
 
             g = GBTForecastScriptInterface()
-            trx = g(vartype="Winds", mjd=np.arange([60722,60732]), coeffs=False)
+            winds = g(vartype="Winds", mjd=np.arange(60722,60732), coeffs=False)
 
 
         Returns
@@ -532,15 +534,17 @@ class GBTForecastScriptInterface:
         _args = f"{self._path.as_posix()} -type {vartype} "
         if not isinstance(mjd, (Sequence, np.ndarray)):
             raise TypeError(f"mjd must be a list or numpy array, not {type(mjd)}")
-        if not isinstance(freq, (Sequence, np.ndarray)):
-            raise TypeError(f"freq must be a list or numpy array, not {type(freq)}")
+        doctored_freq = None
         if freq is not None:
+            if not isinstance(freq, (Sequence, np.ndarray)):
+                raise TypeError(f"freq must be a list or numpy array, not {type(freq)}")
             # Ensure freq is a numpy array
             freq = np.array(freq)
             # sort the frequencies -- this is necessary because getForecastValues returns
             # the data sorted by frequency. So if we have to substitute low frequency values
             # the order must be guaranteed.
             freq.sort()
+            self._check_deltafreq(freq)
             doctored_freq = np.copy(freq)
             # We have decided that if the frequecy is below 2 GHz, we will return the value at 2GHz.
             # Therefore we must send in a substitute list of frequencies, replacing anything below 2GHz
@@ -593,7 +597,6 @@ class GBTForecastScriptInterface:
             if not self._testmode:
                 values[:, 1] = np.tile(freq, n_mjd)
         else:
-            self._check_deltafreq(freq)
             # call with other args and -type vartype  [-freqList -timeList]
             if doctored_freq is not None:
                 # round freq to nearest 100 kHz (needed 4 digits for the low frequency fakeout)
@@ -614,13 +617,13 @@ class GBTForecastScriptInterface:
             # Now replace the original frequencies
             # We have the additional complication that if N MJDs were given,
             # the frequency array will be repeated N times. np.tile does this.
-            if not self._testmode:
+            if not self._testmode and freq is not None:
                 values[:, 1] = np.tile(freq, n_mjd)
 
         # warn if any values returned are -9999 which
         # is what the script gives if it can't determine a value.
         if np.any(values == -9999.0):
-            logger.warn(f"In fetching {vartype} A value of -9999 was detected. Be careful.")
+            logger.warn(f"In fetching {vartype} a value of -9999 was detected. Be careful.")
         # remove any extra zero length dimensions added in parsing.
         return np.squeeze(values)
 
