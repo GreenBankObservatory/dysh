@@ -2,7 +2,7 @@
 name = "dysh"
 description = ''
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.13"
 license = {file = "LICENSE"}
 keywords = []
 dynamic = ["version"]
@@ -17,13 +17,12 @@ authors = [
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "astropy",
+  "astropy>=7",
   "ipython",
   "jplephem",
   "matplotlib",
@@ -97,7 +96,7 @@ cov = "pytest --cov-report=xml --cov-config=pyproject.toml --cov=src/dysh --cov=
 
 # Run tests across all supported version of Python
 [[tool.hatch.envs.test.matrix]]
-python = ["310", "311", "312"]
+python = ["311", "312"]
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/tests", "/bin"]
