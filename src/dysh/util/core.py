@@ -158,10 +158,10 @@ def to_quantity_list(q: Union[Quantity, Sequence]) -> Quantity:
     # if given quanity or [quanity], return [quanity.value]*quantity.units
     # handle quantities first
     if isinstance(q, Quantity):
-        if isinstance(q.value, np.ndarray):
-            return q
-        else:
+        if q.isscalar:
             return [q.value] * q.unit
+        else:
+            return q
     # now handle lists of quantities
     if isinstance(q, Sequence):
         if len(set([x.unit for x in q])) != 1:
