@@ -11,13 +11,14 @@ import numpy as np
 from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
+from astropy.time import Time
 from astropy.utils.masked import Masked
 
 from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
-from ..util import uniq
+from ..util import GBTGainCorrection, uniq
 from .core import (  # fft_shift,
     average,
     find_non_blanks,
@@ -61,6 +62,30 @@ class SpectralAverageMixin:
     def finalspectrum(self, weights=None):
         """Average all times and polarizations in this Scan"""
         pass
+
+    @log_call_to_history
+    def scale(self, scale: str, zenith_opacity: float) -> None:
+        """
+        Scale the data to the input temperature scale using given zenith opacity.
+
+        Parameters
+        ----------
+        scale : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+
+                If scale is 'ta' nothing is done, as the data in antenna temperature by default.
+
+        zenith_opacity : float
+            The zenith opacity
+
+        Returns
+        -------
+        None
+
+        """
 
     @property
     def exposure(self):
@@ -114,6 +139,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._pols = -1
         self._sdfits = sdfits
         # self._meta = {}
+        self._scale_factor = 1.0
+        self._scale_type = "ta"
 
     def _validate_defaults(self):
         _required = {
@@ -135,6 +162,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
         if type(self._scan) != int:
             raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
+
+    @property
+    def is_scaled(self):
+        return self._scale_factor != 1.0
 
     @property
     def scan(self):
@@ -210,11 +241,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @property
     def pols(self):
         """The polarization number(s)
-
-        Returns
-        -------
-        list
-            The list of integer polarization number(s)
+        gc.physical_aperture
+                Returns
+                -------
+                list
+                    The list of integer polarization number(s)
         """
         return self._pols
 
@@ -429,7 +460,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
         self._timeaveraged = []
-        i = 0
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
         s = average_spectra(self._timeaveraged, weights=weights)
@@ -930,6 +960,8 @@ class PSScan(ScanBase):
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
+    scale
+    zenith_opacity
     """
 
     def __init__(
@@ -943,6 +975,8 @@ class PSScan(ScanBase):
         smoothref=1,
         apply_flags=False,
         observer_location=Observatory["GBT"],
+        scale="ta",
+        zenith_opacity=0.0,
     ):
         ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
@@ -1003,19 +1037,9 @@ class PSScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
+        if scale.lower() != "ta":
+            self.scale(scale, zenith_opacity)
         self._validate_defaults()
-
-    # @property
-    # def scans(self):
-    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
-    #
-    #     Returns
-    #     -------
-    #     scans : dict
-    #         The scan number dictionary
-    #
-    #     """
-    #      return self._scans
 
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
@@ -1156,6 +1180,56 @@ class PSScan(ScanBase):
         self._timeaveraged._history = self._history
         self._timeaveraged._observer_location = self._observer_location
         return self._timeaveraged
+
+    @log_call_to_history
+    def scale(self, scale, zenith_opacity):
+        """
+        Scale the data to the given temperature scale and zenith opacity. If data are already
+        scaled, they will be unscaled first.
+
+        Parameters
+        ----------
+        scale : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+            This parameter is case-insensitive.
+
+        zenith_opacity : float
+            The zenith opacity
+
+        Returns
+        -------
+        None
+
+        """
+        if not GBTGainCorrection.is_valid_scale(scale):
+            raise ValueError(
+                f"Unrecognized temperature scale {scale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+            )
+        s = scale.lower()
+        if s == self._scale_type:
+            return
+
+        if s == "ta" and self.is_scaled:
+            self._calibrated /= self._scale_factor
+            self._scale_factor = 1.0
+            self._scale_type = scale
+            return
+
+        gc = GBTGainCorrection()
+        elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
+        freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
+        date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
+        factor = gc.scale_to(scale, freq, elev, date, zenith_opacity, zd=False)
+        # unscale the date if it was already scaled.
+        if self.is_scaled():
+            self._calibrated /= self._scale_factor
+
+        self._calibrated *= factor
+        self._scale_factor = factor
+        self._scale_type = scale
 
 
 class NodScan(ScanBase):

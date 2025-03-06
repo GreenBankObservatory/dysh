@@ -18,6 +18,9 @@ from ..coordinates import Observatory, decode_veldef
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import (
+    Flag,
+    GBTGainCorrection,
+    Selection,
     consecutive,
     convert_array_to_mask,
     eliminate_flagged_rows,
@@ -27,16 +30,7 @@ from ..util import (
     uniq,
 )
 from ..util.files import dysh_data
-from ..util.selection import Flag, Selection
 from .sdfitsload import SDFITSLoad
-
-calibration_kwargs = {
-    "calibrate": True,
-    "timeaverage": False,
-    "polaverage": False,
-    "tsys": None,
-    "weights": "tsys",
-}
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
@@ -1074,10 +1068,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         timeaverage=True,
         weights="tsys",
         bintable=None,
-        smoothref=1,
-        apply_flags=True,
-        scale="Ta",
-        zenith_opacity=None,
+        smoothref: int = 1,
+        apply_flags: str = True,
+        scale: str = "Ta",
+        zenith_opacity: float = None,
         **kwargs,
     ):
         """
@@ -1116,6 +1110,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~spectra.scan.PSScan`.
 
         """
+
+        if not GBTGainCorrection.is_valid_scale(scale):
+            raise ValueError(
+                f"Unrecognized temperature scale {scale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+            )
+        if scale.lower() != "ta" and zenith_opacity is None:
+            raise ValueError("Can't scale the data without a valid zenith opacity")
 
         if apply_flags:
             self.apply_flags()
@@ -1216,6 +1217,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         calibrate=calibrate,
                         smoothref=smoothref,
                         apply_flags=apply_flags,
+                        scale=scale,
+                        zenith_opacity=zenith_opacity,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
