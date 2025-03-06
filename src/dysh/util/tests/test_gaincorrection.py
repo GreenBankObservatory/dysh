@@ -140,6 +140,12 @@ class TestGainCorrection:
         answer = np.array([0.32, 0.32, 0.376, 0.402, 0.583, 0.583, 0.598, 0.598])
         ap = self.gbtgc.aperture_efficiency(specval=43 * u.GHz, angle=45 * u.degree, date=self.dates, zd=False)
         assert ap == pytest.approx(answer, 1e-3)
+
+        # aperture efficiency at low frequency should be ~app_eff_0 for recent dates
+        assert self.gbtgc.app_eff_0 == pytest.approx(
+            self.gbtgc.aperture_efficiency(specval=1.0 * u.GHz, angle=45 * u.degree, date=self.dates[-1]), 1e-2
+        )
+
         ## TEST EXCEPTIONS
         # for multiple dates, must be only one specval/angle or all lengths must be equal
         with pytest.raises(ValueError):
@@ -178,3 +184,8 @@ class TestGainCorrection:
             scale="jy", specval=freqs, angle=angles[2:], date=self.dates[3:], zenith_opacity=0.05, zd=False
         )
         assert len(x) == len(freqs)
+
+        # the scale to ta* at low freq and Airmass=1 with tau=0 should be equal to the reciprocal of the aperture efficiency
+        a = self.gbtgc.scale_ta_to("ta*", 1.0 * u.GHz, 90 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False)
+        b = 1.0 / self.gbtgc.aperture_efficiency(1 * u.GHz, 90 * u.degree, self.dates[-1])
+        assert a == pytest.approx(b, 1e-6)
