@@ -1,5 +1,6 @@
 import astropy.units as u
 import numpy as np
+import pytest
 from astropy.coordinates import Angle
 from astropy.time import Time
 from scipy.optimize import minimize_scalar
@@ -135,6 +136,20 @@ class TestGainCorrection:
             assert all(apr == answer[i])
             i += 1
 
+        # test multiple dates option
+        answer = np.array([0.32, 0.32, 0.376, 0.402, 0.583, 0.583, 0.598, 0.598])
+        ap = self.gbtgc.aperture_efficiency(specval=43 * u.GHz, angle=45 * u.degree, date=self.dates, zd=False)
+        assert ap == pytest.approx(answer, 1e-3)
+        ## TEST EXCEPTIONS
+        # for multiple dates, must be only one specval/angle or all lengths must be equal
+        with pytest.raises(ValueError):
+            self.gbtgc.aperture_efficiency(specval=[30, 43] * u.GHz, angle=45 * u.degree, date=self.dates, zd=False)
+        # for a single date, multiple specval/angles must have equal lengths
+        with pytest.raises(ValueError):
+            self.gbtgc.aperture_efficiency(
+                specval=[30, 43] * u.GHz, angle=[30, 45, 75] * u.degree, date=self.dates[6], zd=False
+            )
+
     def test_airmass(self):
         angles = Angle([0.0, 25.0, 40.0, 45.0, 50, 65.0, 90.0], unit=u.degree)
         answer = np.array([37.5541407, 2.35964333, 1.5501963, 1.40793864, 1.29840534, 1.09473653, 0.99060048])
@@ -147,3 +162,19 @@ class TestGainCorrection:
         answer = np.array([0.2, 0.04706087, 0.01095304])
         retval = self.gbtgc.zenith_opacity(freq, use_script=False)
         assert np.mean(retval[0:3, 1] - answer) < 3e-10
+
+    def test_scale_ta_to(self):
+        angles = Angle([0.0, 25.0, 40.0, 45.0, 50, 65.0, 90.0], unit=u.degree)
+        freqs = np.array([10.0, 30.0, 43.0, 80.0, 110.0]) * u.GHz
+        x = self.gbtgc.scale_ta_to(
+            scale="jy", specval=10 * u.GHz, angle=angles, date=self.dates[0], zenith_opacity=0.05, zd=False
+        )
+        assert len(x) == len(angles)
+        x = self.gbtgc.scale_ta_to(
+            scale="jy", specval=freqs, angle=angles[0], date=self.dates[0], zenith_opacity=0.05, zd=False
+        )
+        assert len(x) == len(freqs)
+        x = self.gbtgc.scale_ta_to(
+            scale="jy", specval=freqs, angle=angles[2:], date=self.dates[3:], zenith_opacity=0.05, zd=False
+        )
+        assert len(x) == len(freqs)

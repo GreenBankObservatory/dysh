@@ -273,7 +273,7 @@ class GBTGainCorrection(BaseGainCorrection):
             The elevation(s) or zenith distance(s) at which to compute the gain correction factor
 
         date  : `~astropy.time.Time`
-            The date at which to cmopute the gain correction factor
+            The date at which to compute the gain correction factor
 
         zd: bool
             True if the input value is zenith distance, False if it is elevation. Default: False
@@ -353,35 +353,44 @@ class GBTGainCorrection(BaseGainCorrection):
 
         """
 
+        # The code easier to read if we make them all Quantities with dimensioned values.
+        sp = to_quantity_list(specval)
+        ang = to_quantity_list(angle)
         if date.isscalar:
-            if not specval.isscalar and not angle.isscalar and len(specval) != len(angle):
-                raise ValueError(f"Lengths of specval {len(specval)} and angle {len(angle)} must be equal")
-
-            coeff = self.app_eff_0 * self.gain_correction(angle, date, zd)
-
-            if eps0 is None:
-                eps0 = self.surface_error(date)
-
+            if len(sp) == 1 or len(ang) == 1 or (len(sp) == len(ang)):
+                coeff = self.app_eff_0 * self.gain_correction(ang, date, zd)
+                if eps0 is None:
+                    eps0 = self.surface_error(date)
+            else:
+                raise ValueError(f"Number of specvals {len(sp)} and angles {len(ang)} must be equal")
         else:
-            if not specval.isscalar and not angle.isscalar and len(specval) != len(date) or len(angle) != len(date):
+            if all([len(sp) == 1, len(ang) == 1]):
+                coeff = []
+                for i in range(len(date)):
+                    coeff.append(self.app_eff_0 * self.gain_correction(angle, date[i], zd))
+                coeff = np.squeeze(np.array(coeff))
+            elif len(sp) == len(date) and len(ang) == len(date):
+                coeff = []
+                for i in range(len(date)):
+                    coeff.append(self.app_eff_0 * self.gain_correction(ang[i], date[i], zd))
+                coeff = np.squeeze(np.array(coeff))
+            else:
                 raise ValueError(
-                    f"Lengths of specval len(specval) and angle {len(angle)} must be equal to length of date {len(date)}"
+                    f"Number of specvals {len(sp)} and angles {len(ang)} must be equal to number of dates {len(date)}"
                 )
-            coeff = []
-            for i in range(len(date)):
-                coeff.append(self.app_eff_0 * self.gain_correction(angle[i], date[i], zd))
-            coeff = np.array(coeff)
 
             if eps0 is None:
                 eps0 = [self.surface_error(x) for x in date]
                 eps0 = to_quantity_list(eps0)
+        # print(f"{coeff=}")
+        _lambda = sp.to(eps0.unit, equivalencies=u.spectral())
 
-        _lambda = specval.to(eps0.unit, equivalencies=u.spectral())
         a = (4.0 * np.pi * eps0 / _lambda) ** 2
+        # print(f"{coeff.shape=} {eps0.shape=} {_lambda.shape=} {a.shape=}")
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
 
-    def scale_to(
+    def scale_ta_to(
         self,
         scale: str,
         specval: Quantity,
@@ -397,7 +406,7 @@ class GBTGainCorrection(BaseGainCorrection):
             )
         s = scale.lower()
         if s == "ta":
-            return
+            return 1.0
         am = self.airmass(angle, zd)
         eta = self.aperture_efficiency(specval, angle, date, zd, eps0)
         # Calculate Ta* because in both cases we need it
@@ -412,8 +421,10 @@ class GBTGainCorrection(BaseGainCorrection):
         # where
         # - k is Boltzmann's constant
         # - the physical aperture, A_p
-        factor *= ac.k_B / self.physical_aperture.to("m^2")
-        return factor
+        kA = ac.k_B / self.physical_aperture.to("m^2")
+        jyperk = (factor * kA).to("Jy/K")
+        # print(1.0 / jyperk)
+        return jyperk.value
 
     def get_weather(
         self, specval: Quantity, vartype: str, mjd: Union[Time, float] = None, coeffs: bool = True, **kwargs
