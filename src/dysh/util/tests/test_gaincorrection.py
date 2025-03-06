@@ -1,6 +1,7 @@
 import astropy.units as u
 import numpy as np
 import pytest
+from astropy.constants import k_B
 from astropy.coordinates import Angle
 from astropy.time import Time
 from scipy.optimize import minimize_scalar
@@ -189,3 +190,9 @@ class TestGainCorrection:
         a = self.gbtgc.scale_ta_to("ta*", 1.0 * u.GHz, 90 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False)
         b = 1.0 / self.gbtgc.aperture_efficiency(1 * u.GHz, 90 * u.degree, self.dates[-1])
         assert a == pytest.approx(b, 1e-6)
+
+        # for perfect aperture_efficiency the scale to jansky should be the Jy/K of the telescope = A_p/2K
+        jyk = (self.gbtgc.physical_aperture / 2 * k_B).to("K/Jy")
+        self.gbtgc.app_eff_0 = 1
+        a = self.gbtgc.scale_ta_to("jy", 1.0 * u.GHz, 45 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False)
+        assert jyk.value == pytest.approx(a, 1e-6)
