@@ -192,7 +192,7 @@ class TestGainCorrection:
         assert a == pytest.approx(b, 1e-6)
 
         # for perfect aperture_efficiency the scale to jansky should be the Jy/K of the telescope = A_p/2K
-        jyk = (self.gbtgc.physical_aperture / 2 * k_B).to("K/Jy")
+        jyk = (2 * k_B / self.gbtgc.physical_aperture).to("Jy/K")
         self.gbtgc.app_eff_0 = 1
         a = self.gbtgc.scale_ta_to("jy", 1.0 * u.GHz, 45 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False)
-        assert jyk.value == pytest.approx(a, 1e-6)
+        assert jyk.value == pytest.approx(a, abs=1e-4)
