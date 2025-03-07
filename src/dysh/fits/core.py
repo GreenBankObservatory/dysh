@@ -320,3 +320,28 @@ def plot_vegas(sdf, scans, title = None, tsys = False, inverse=False, edge=50, y
     else:
         print(f"Showing total power for scans={scans}")
               
+def getnod(sdf, scans, beams, ifnum=0, plnum=0, tsys=None):
+    """ fake getnod() based on alternating gettp() with averaging done internally
+        use the real sdf.getnod() for final analysis
+        sdf:   the sdfits handle
+        scans: list of two scans for the nodding
+        beams: list of two beams for the nodding
+        ifnum: the ifnum to use
+        plnum: the plnum to use
+        Returns the two nodding spectra, caller is responsible for averaging them, e.g.
+             sp1.average(sp2)
+        """
+    if tsys is None:
+        tsys = [1.0, 1.0]
+    ps1_on = sdf.gettp(scan=scans[0], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
+    ps1_off = sdf.gettp(scan=scans[1], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
+    sp1 = (ps1_on - ps1_off)/ps1_off * tsys[0]
+
+    ps2_on = sdf.gettp(scan=scans[1], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
+    ps2_off = sdf.gettp(scan=scans[0], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
+    sp2 = (ps2_on - ps2_off)/ps2_off * tsys[1]
+    
+    sp1.meta['TSYS'] = tsys[0]
+    sp2.meta['TSYS'] = tsys[1]
+    
+    return (sp1,sp2)
