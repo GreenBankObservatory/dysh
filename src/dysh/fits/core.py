@@ -2,6 +2,8 @@
 Core functions for FITS/SDFITS
 """
 
+__all__ = ["default_sdfits_columns"]
+
 
 def default_sdfits_columns():
     """The default column names for GBT SDFITS.
