@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 
+from dysh import config
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
