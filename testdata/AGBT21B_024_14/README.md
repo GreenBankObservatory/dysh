@@ -34,3 +34,8 @@ The small test dataset is just 1 integration, and retrieved as follows from the 
 5   334  NGC5908      0.0    Nod         2  114.03043  114.03043    1     1     1     16  332.519705  69.928914
 ```
 
+## Bugs
+
+1) The test data does not cleanly show a summary in gbtidl, instead shows each file.
+2) No index, it was created
+3) vanecal.pro runs into infinite loop
