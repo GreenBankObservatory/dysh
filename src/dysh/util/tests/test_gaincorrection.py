@@ -141,3 +141,9 @@ class TestGainCorrection:
         am = self.gbtgc.airmass(angles, zd=False)
         assert np.mean(am - answer) < 1e-10
         assert all(self.gbtgc.airmass(angles, zd=True) == am[::-1])
+
+    def test_zenith_opacity(self):
+        freq = [53.0, 33.0, 10.0] * u.GHz
+        answer = np.array([0.2, 0.04706087, 0.01095304])
+        retval = self.gbtgc.zenith_opacity(freq, use_script=False)
+        assert np.mean(retval[0:3, 1] - answer) < 3e-10

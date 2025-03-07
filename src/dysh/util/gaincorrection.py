@@ -11,6 +11,8 @@ from astropy.units.quantity import Quantity
 
 from ..log import logger
 from ..util import get_project_configuration
+from .core import to_mjd_list
+from .weatherforecast import GBTWeatherForecast
 
 __all__ = ["BaseGainCorrection", "GBTGainCorrection"]
 
@@ -22,14 +24,14 @@ class BaseGainCorrection(ABC):
     Subclasses can implement the following attributes:
 
     * `ap_eff_0`
-        long wavelength aperture efficiency (number between 0 and 1), i.e., in the absence of surface errors,
-        $\lambda >> \epsilon_0$.
+        Long wavelength aperture efficiency (number between 0 and 1), i.e., in the absence of surface errors,
+        :math:`\lambda >> \epsilon_0`.
 
     * `epsilon_0`
-        default rms surface accuracy with units of length (`~astropy.units.quanitity.Quantity`)
+        Default rms surface accuracy with units of length (`~astropy.units.quanitity.Quantity`)
 
     * `physical_aperture`
-        antenna physical aperture with units of length**2 (`~astropy.units.quanitity.Quantity`)
+        Antenna physical aperture with units of length**2 (`~astropy.units.quanitity.Quantity`)
 
     """
 
@@ -45,7 +47,7 @@ class BaseGainCorrection(ABC):
 
         Parameters
         ----------
-        angle : `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
+        angle : `~astropy.coordinates.Angle` or `~astropy.units.quantity.Quantity`
             The elevation(s) or zenith distance(s) at which to compute the airmass
 
         zd: bool
@@ -56,7 +58,7 @@ class BaseGainCorrection(ABC):
 
         Returns
         -------
-            airmass - float or `~numpy.ndarray`
+        airmass : float or `~numpy.ndarray`
             The value(s) of the airmass at the given elevation(s)/zenith distance(s)
 
         """
@@ -69,7 +71,7 @@ class BaseGainCorrection(ABC):
 
         Parameters
         ----------
-        specval : `~astro.units.quantity.Quantity`
+        specval : `~astropy.units.quantity.Quantity`
             The spectral value -- frequency or wavelength -- at which to compute the efficiency
 
         **kwargs : Any
@@ -77,28 +79,47 @@ class BaseGainCorrection(ABC):
 
         Returns
         -------
-            aperture_efficiency  - float or `~numpy.ndarray`
-            The value(s) of the aperture efficiency at the given frequency.
+        aperture_efficiency : float or `~numpy.ndarray`
+            The value(s) of the aperture efficiency at the given frequency/wavelength.
             The return value(s) are float(s) between zero and one.
 
         """
         pass
 
+    def zenith_opacity(self, specval: Quantity, **kwargs) -> Union[float, np.ndarray]:
+        """
+        Compute the zenith opacity.
+
+        Parameters
+        ----------
+        specval : `~astropy.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute the opacity
+        **kwargs : Any
+            Other possible parameters that affect the output opacity, e.g., MJD
+
+        Returns
+        -------
+        tau : float or `~numpy.ndarray`
+            The values of the zenith opacity at the given frequency/wavelength.
+            The return value(s) are non-negative float(s).
+        """
+        pass
+
 
 class GBTGainCorrection(BaseGainCorrection):
-    """Gain correction class and functions specific to the Green Bank Telescope"""
+    """Gain correction class and functions specific to the Green Bank Telescope.
+
+    Parameters
+    ----------
+    gain_correction_table : str or `pathlib.Path`
+         File to read that contains the parameterized gain correction as a function
+         of zenith distance and time (see  `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
+         Must be in an `~astropy.table.QTable` readable format.
+         Default None will use dysh's internal GBT gain correction table.
+    """
 
     def __init__(self, gain_correction_table: Path = None):
-        """
-        Parameters
-        -----------
-        gain_correction_table : str or `pathlib.Path`
-             File to read that contains the parameterized gain correction as a function
-             of zenith distance and time
-            (see `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
-             Must be in an `~astropy.table.QTable` readable format.
-             Default None will usedysh's internal GBT gain correction table.
-        """
+
         if gain_correction_table is None:
             gain_correction_table = get_project_configuration() / "gaincorrection.tab"
         self._gct = QTable.read(gain_correction_table, format="ascii.ecsv")
@@ -106,6 +127,7 @@ class GBTGainCorrection(BaseGainCorrection):
         self.app_eff_0 = 0.71
         self.epsilon_0 = 230 * u.micron
         self.physical_aperture = 7853.9816 * u.m * u.m
+        self._forecast = None
 
     @property
     def gain_correction_table(self):
@@ -123,7 +145,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Parameters
         ----------
-        angle :  `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
+        angle :  `~astropy.coordinates.Angle` or `~astropy.units.quantity.Quantity`
             The elevation(s) or zenith distance(s) at which to compute the airmass
 
         zd: bool
@@ -131,7 +153,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Returns
         -------
-            airmass - float or `~numpy.ndarray`
+        airmass : float or `~numpy.ndarray`
             The value(s) of the airmass at the given elevation(s)/zenith distance(s)
 
         """
@@ -149,7 +171,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
     def _get_gct_index(self, date: Time) -> int:
         """
-        locate the row in GC table that is applicable to the input date.
+        Locate the row in GC table that is applicable to the input date.
         Assumes table is sorted (happens in constructor)!
 
         Parameters
@@ -159,7 +181,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Returns
         -------
-        int
+        index : int
             Index to use from gain correction table
 
         """
@@ -208,7 +230,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Parameters
         ----------
-        angle :  `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
+        angle :  `~astropy.coordinates.Angle` or `~astropy.units.quantity.Quantity`
             The elevation(s) or zenith distance(s) at which to compute the gain correction factor
 
         date  : `~astropy.time.Time`
@@ -219,7 +241,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Returns
         -------
-            gain_correction - float or `~numpy.ndarray`
+        gain_correction : float or `~numpy.ndarray`
             The gain correction scale factor(s) at the given elevation(s)/zenith distance(s)
 
         """
@@ -237,7 +259,13 @@ class GBTGainCorrection(BaseGainCorrection):
         return a0 + a1 * z + a2 * z * z
 
     def aperture_efficiency(
-        self, specval: Quantity, angle: Union[Angle, Quantity], date: Time, zd=False, eps0=None, **kwargs
+        self,
+        specval: Quantity,
+        angle: Union[Angle, Quantity],
+        date: Time,
+        zd: bool = False,
+        eps0: Union[None, Quantity] = None,
+        **kwargs,
     ) -> Union[float, np.ndarray]:
         r"""
         Compute the aperture efficiency, as a float between zero and 1. The aperture
@@ -250,25 +278,25 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Parameters
         ----------
-        specval : `~astro.units.quantity.Quantity`
+        specval : `~astropy.units.quantity.Quantity`
             The spectral value -- frequency or wavelength -- at which to compute the efficiency
 
-        angle :  `~astropy.coordinates.Angle` or `~astro.units.quantity.Quantity`
+        angle :  `~astropy.coordinates.Angle` or `~astropy.units.quantity.Quantity`
             The elevation(s) or zenith distance(s) at which to compute the efficiency
 
-        date  : `~astropy.time.Time`
+        date : `~astropy.time.Time`
             The date at which to cmopute the efficieyncy
 
-        zd: bool
+        zd : bool
             True if the input value is zenith distance, False if it is elevation. Default: False
 
-        eps0 :  `~astro.units.quantity.Quantity` or None
-            The value of :math:`\epsilon_0` to use. If given, must have units of length (typically microns).
+        eps0 : `~astropy.units.quantity.Quantity` or None
+            The value of :math:`\epsilon_0` to use, the surface rms error. If given, must have units of length (typically microns).
             If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
 
         Returns
         -------
-            float or `~numpy.ndarray`
+        eta_a : float or `~numpy.ndarray`
             The aperture efficiency at the given inputs
 
         """
@@ -279,3 +307,160 @@ class GBTGainCorrection(BaseGainCorrection):
         a = (4.0 * np.pi * eps0 / _lambda) ** 2
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
+
+    def get_weather(
+        self, specval: Quantity, vartype: str, mjd: Union[Time, float] = None, coeffs: bool = True, **kwargs
+    ) -> np.ndarray:
+        r"""
+        Call the GBO `getForecastValues` script with the given inputs.
+        For frequencies below 2 GHz, the value at 2 GHz will be returned since the `getForecastValues` does not
+        cover < 2GHz.  Returned values will be sorted by frequency, low to high.
+
+        See `GBTdocs <https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/calculate_opacity.html#calculate-sky-opacity-retrieving-more-granular-values-of-zenith-opacity>`_
+        for more details.
+
+
+        Parameters
+        ----------
+        specval : `~astropy.units.quantity.Quantity`, optional
+            The spectral value -- frequency or wavelength -- at which to compute `vartype`.
+            For data such as 'Winds' that don't depend on frequency, `specval` can be None.
+        vartype : str, optional
+            Which weather variable to fetch. See Notes for a description of valid values.
+            **If the user is not on the GBO network , the only variable available is Opacity.**
+        mjd : `~astropy.time.Time` or float
+            The date at which to compute the opacity. If given as a float, it is interpreted as
+            Modified Julian Day.  Default: None, meaning the data will be fetched at the most recent MJD available.
+            If the user is not on the GBO network, this argument is ignored and the opacity will only be a function of frequency.
+        coeffs : bool
+            If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
+            polynomial coefficients to fit `vartype` as a function of frequency for each MJD.
+            **This is only valid for `vartype` "Opacity" or "Tatm."**
+
+        Returns
+        -------
+        weather_data : `~numpy.ndarray`
+            The requested value(s) at the given input(s) as a :math:`N_{mjd} \times N_{freq}` array
+        """
+        if self._forecast is None:
+            try:
+                self._forecast = GBTWeatherForecast()
+            except Exception as e:
+                self._forecast = None
+                raise Exception(
+                    f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
+                )
+        if mjd is None:
+            mjd = Time.now()
+        return self._forecast.fetch(specval=specval, vartype=vartype, mjd=mjd, coeffs=coeffs)
+
+    # Question: should use_script default to False?
+    def zenith_opacity(
+        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs: bool = True, use_script: bool = True, **kwargs
+    ) -> np.ndarray:
+        r"""
+        Compute the zenith opacity, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
+
+        For frequencies below 2 GHz, the value at 2 GHz will be returned since the `getForecastValues` does not
+        cover < 2GHz.  Returned values will be sorted by frequency, low to high.
+
+        Parameters
+        ----------
+        specval : `~astropy.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute the zenith opacity.
+        mjd : `~astropy.time.Time` or float or list of float
+            The date(s) at which to compute the opacity. If given as a float, it is interpreted as
+            Modified Julian Day.  Default: None, meaning the data will be fetched at the most recent MJD available.
+            If the user is not on the GBO network, this argument is ignored and the opacity will only be a function of frequency.
+        coeffs : bool
+            If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
+            polynomial coefficients to fit opacity as a function of frequency for each MJD.
+        use_script : bool
+            If at GBO, use the `getForecastValues` script to determine the opacity. This argument is
+            ignore if the user is not on the GBO network.
+
+        Returns
+        -------
+        tau : `~numpy.ndarray`
+            The zenith opacity at the given input(s) as a :math:`\ N_{mjd} \times N_{freq}\ ` array.
+
+        """
+        # specval can but value*unit or [value...]*unit.  We want [value...]*unit
+        if len(specval.shape) == 0:
+            specval = [specval.value] * specval.unit
+        if use_script:
+            return self.get_weather(specval=specval, vartype="Opacity", mjd=mjd, coeffs=coeffs)
+        else:
+            frequency = specval.to(u.GHz, equivalencies=u.spectral())
+            out = None
+            if mjd is None:
+                mjd = Time.now()
+            mjd_list = to_mjd_list(mjd)
+            for d in mjd_list:
+                for f in frequency:
+                    value = [d]  # MJD is irrelevant but need it so output signature is the same
+                    value.append(self._default_gbtidl_opacity(f))
+                    if out is None:
+                        out = np.array(value)
+                    else:
+                        out = np.vstack([out, value])
+        return out
+
+    def atm_temperature(
+        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs: bool = True, use_script: bool = True, **kwargs
+    ) -> np.ndarray:
+        r"""
+        Compute the atmospheric temperature `Tatm`, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
+
+        For frequencies below 2 GHz, the value at 2 GHz will be returned since the `getForecastValues` does not
+        cover < 2GHz.  Returned values will be sorted by frequency, low to high.
+
+        Parameters
+        ----------
+        specval : `~astropy.units.quantity.Quantity`
+            The spectral value -- frequency or wavelength -- at which to compute `Tatm`.
+        mjd : `~astropy.time.Time` or float
+            The date at which to compute `Tatm`. If given as a float, it is interpreted as
+            Modified Julian Day.  Default: None, meaning ignore this parameter. If the user is not on the GBO network,
+            this argument is ignored and the opacity will only be a function of frequency.
+        coeffs : bool
+            If True and at GBO, `getForecastValues` will be passed the `-coeffs` argument which returns
+            polynomial coefficients to fit `Tatm` as a function of frequency for each MJD.
+        use_script : bool
+            If at GBO, use the `getForecastValues` script to determine `Tatm`. This argument is
+            ignored if the user is not on the GBO network.
+
+        Returns
+        -------
+        tatm : `~numpy.ndarray`
+            The atmospheric temperature at the given input(s) as a :math:`\ N_{mjd} \times N_{freq}\ ` array
+
+        """
+        if use_script:
+            return self.get_weather(specval=specval, type="Tatm", mjd=mjd, coeffs=coeffs)
+        else:
+            raise NotImplementedError("Don't yet know how to get Tatm without the getForecasValues script")
+
+    def _default_gbtidl_opacity(self, frequency: Quantity) -> float:
+        """Implementation of the GBTIDL method of computing zenith opacity.
+        This method is not recommended (even by GBTIDL!). It is implemented here for compatibility only.
+
+        Parameters
+        ----------
+        frequency : `~astropy.units.quantity.Quantity`
+            The frequency at which to compute the zenith opacity.
+
+        Returns
+        -------
+        tau : float
+            The zenith opacity at the input frequency.
+        """
+        logger.warning("Using default time-independent zenith opacity. This is not recommended.")
+        freq = frequency.to(u.GHz).value
+        if freq > 52.0:
+            return 0.2
+        if freq > 18.0 and freq < 26.0:
+            tau = 0.008 + np.exp(np.sqrt(freq)) / 8000.0 + np.exp(-((freq - 22.2) ** 2) / 2.0) / 40.0
+        else:
+            tau = 0.008 + np.exp(np.sqrt(freq)) / 8000.0
+        return tau
