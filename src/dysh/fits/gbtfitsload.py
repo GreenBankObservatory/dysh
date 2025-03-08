@@ -1033,12 +1033,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     dfcalF = select_from("CAL", "F", _sifdf)
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
-                    print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
+                    #print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                     if len(calrows["ON"]) != len(calrows["OFF"]):
                         if len(calrows["ON"]) > 0:
                             raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
-                        else:
-                            print("Warning: hacking gettp with no calrows")
+                        # else: print("Warning: hacking gettp with no calrows")
                     # sig and cal are treated specially since
                     # they are not in kwargs and in SDFITS header
                     # they are not booleans but chars
@@ -1051,7 +1050,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"TPROWS len={len(tprows)}")
                     logger.debug(f"CALROWS on len={len(calrows['ON'])}")
                     logger.debug(f"fitsindex={i}")
-                    print("PJT TPROWS", tprows)
+                    #print("PJT TPROWS", tprows)
                     if len(tprows) == 0:
                         continue
                     g = TPScan(
