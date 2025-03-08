@@ -73,7 +73,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         path = Path(fileobj)
         self._sdf = []
         self._selection = None
-        self._tpnocal = None      # should become True or False once known
+        self._tpnocal = None  # should become True or False once known
         self._flag = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
@@ -1033,7 +1033,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     dfcalF = select_from("CAL", "F", _sifdf)
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
-                    #print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
+                    # print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                     if len(calrows["ON"]) != len(calrows["OFF"]):
                         if len(calrows["ON"]) > 0:
                             raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
@@ -1050,7 +1050,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"TPROWS len={len(tprows)}")
                     logger.debug(f"CALROWS on len={len(calrows['ON'])}")
                     logger.debug(f"fitsindex={i}")
-                    #print("PJT TPROWS", tprows)
+                    # print("PJT TPROWS", tprows)
                     if len(tprows) == 0:
                         continue
                     g = TPScan(
@@ -1146,13 +1146,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if True:
             som = uniq(_final["SUBOBSMODE"])
-            print("SUBOBSMODE:",som)
+            print("SUBOBSMODE:", som)
             if len(som) > 1:
                 raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
             if som[0] == "TPNOCAL":
                 self._tpnocal = True
                 raise Exception(f"Cannot deal with TPNOCAL yet")
-            
+
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
