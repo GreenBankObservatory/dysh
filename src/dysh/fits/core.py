@@ -332,7 +332,12 @@ def getnod(sdf, scans, beams, ifnum=0, plnum=0, tsys=None):
              sp1.average(sp2)
         """
     if tsys is None:
-        tsys = [1.0, 1.0]
+        tsys = np.array([1.0,1.0])
+    if np.isscalar(tsys):                
+        tsys = np.array([tsys, tsys])
+    if len(tsys) == 1:
+        tsys = np.array([tsys, tsys])  # because np.isscalar(np.array([1])) is False !
+        
     ps1_on = sdf.gettp(scan=scans[0], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
     ps1_off = sdf.gettp(scan=scans[1], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
     sp1 = (ps1_on - ps1_off)/ps1_off * tsys[0]
