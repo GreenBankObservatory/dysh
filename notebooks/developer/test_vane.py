@@ -48,6 +48,7 @@ from dysh.fits.core import getbeam
 from dysh.fits.core import calseq
 from dysh.fits.core import vanecal
 from dysh.fits.core import plot_vegas
+from dysh.fits.core import getnod
  
 #  useful keys for a mult-beam observation listing
 
@@ -68,8 +69,8 @@ pd.set_option('display.width', 1000)
 # ?? can one only do this once per kernel ??
 
 import dysh
-dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
-#dysh.log.init_logging(1)    # 0 didn't work
+#dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
+dysh.log.init_logging(1)    # 0 didn't work
 
 
 #%%  helper functions
@@ -84,28 +85,6 @@ def mkdir(name, clean=True):
         for fn in fns:
             print(f"Removing {fn} from {name}")
             os.unlink(os.path.join(name,fn))
-
-def getnod(sdf, scans, beams, ifnum=0, plnum=0, tsys=None):
-    """ fake getnod() based on alternating gettp() with averaging done internally
-        use the real sdf.getnod() for final analysis
-        new API:    scans[], feeds[], tsys[]
-        """
-    if tsys is None:
-        tsys = [1.0, 1.0]
-
-    ps1_on = sdf.gettp(scan=scans[0], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
-    ps1_off = sdf.gettp(scan=scans[1], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
-    sp1 = (ps1_on - ps1_off)/ps1_off * tsys[0]
-
-    ps2_on = sdf.gettp(scan=scans[1], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
-    ps2_off = sdf.gettp(scan=scans[0], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
-    sp2 = (ps2_on - ps2_off)/ps2_off * tsys[1]
-    
-
-    sp1.meta['TSYS'] = tsys[0]
-    sp2.meta['TSYS'] = tsys[1]
-
-    return (sp1,sp2)
 
 
 def calc_etamb(freq, Jupiter=False):
@@ -338,7 +317,7 @@ sdf1.write("edge1/file.fits", scan=scans, overwrite=True, flags=False)     # now
 
 edge1 = GBTFITSLoad("edge1")
 edge1.summary()
-edge1._index[ks]
+edge1._index[ks]  # 1344
 
 # in these data feed=2 is ok
 # but feed=8 changed a lot from 17 to 21
@@ -371,10 +350,10 @@ sp2 = sdf1.getnod(scan=19)
 
 # if getnod() is not converted, we can use the old trick of doing two gettp()
 scans = [19,20]
-sp1,sp2 = getnod(sdf1, scans, beams1)
+sp1,sp2 = getnod(sdf1, scans, beams1, tsys=tsys)
 
-sp3 = 0.5*(sp1+sp2)
-sp3 *= tsys.mean()
+sp3 = sp1.average(sp2)
+
 sp3 = sp3[100:900]
 object = sp3.meta['OBJECT']
 sp3.plot(title=f"Source: {object}",xaxis_unit="km/s")     # no obvious signal, pretty bad baseline
@@ -401,9 +380,10 @@ _help = """
 sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'), skipflags=True)
 sdf2.summary()
 
+
 mkdir("edge2")
 scans = [327,328,329,330,331,332,333,334]
-scans = [329,330,331,332,333,334]
+# scans = [329,330,331,332,333,334]
 sdf2.write("edge2/file.fits", scan=scans, overwrite=True)                # 4576 rows
 #  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
 
@@ -421,7 +401,7 @@ if True:
 
 edge2 = GBTFITSLoad("edge2")
 edge2.summary()
-edge2._index[kw] # 5248 rows
+edge2._index[kw] # 5248 rows    
 
 plot_vegas(edge2,[327,329],"edge2 TP at 112 and 114 GHz")
 # this shows 327 is generally better tsys, except feed=5 about the same (but high)
@@ -429,27 +409,20 @@ plot_vegas(edge2,[327,329],"edge2 Tsys at 112 and 114 GHz",tsys=True, ylim=[0.5,
 
 # this was at 112 GHz for NGC570
 tsys1 = vanecal(edge2, [327, 328], feeds=beam2, tcal=tcal)
-print(tsys1)
-# @112.3 GHz   [62.93311553 56.119602  ]
-# [0.70676998 0.62933116 0.59430538 0.68707773 0.58870158 0.88427164
-#  0.58151629 0.56933859 0.57527814 0.56119602 0.57773119 0.59914186
-#  0.55032223 0.59743774 0.56316352 0.54670035]
+print(tsys1)    # [174.9832188  154.71092071]
+
 
 # this was at 114 GHz for NGC5908
 tsys2 = vanecal(edge2, [329, 330], feeds=beam2, tcal=tcal)
 print(tsys2)    # [220.76194114 201.60180914]
-# @114.0 GHz[   79.76351041 73.37103122]
-# [0.90294513 0.7976351  0.78455571 0.66614836 0.71608555 0.87295378
-#  0.77542001 0.72878323 0.73203965 0.73371031 0.75607937 0.73815973
-#  0.7139721  0.79401993 0.67909461 0.7009243 ]
 
 
 # ratio:        1.24 +/- 0.11
 
 sp1,sp2 = getnod(edge2, [331, 332], beam2, tsys=tsys2)
 
+
 sp3a = sp1.average(sp2)
-sp3a *= tsys1.mean()     # @todo how to properly weigh these spectra    weight = delta-T * delta-F / Tsys
 object = sp3a.meta['OBJECT']
 sp3a.plot(title=f"Source: {object}",xaxis_unit="km/s")   # no obvious signal - huge amp wave 0.5
 sp3a.stats(qac=True)
@@ -459,7 +432,6 @@ sp3a.stats(roll=1, qac=True)   # -0.0007032170649519567 0.02473309930926793 -0.6
 sp1,sp2 = getnod(edge2, [333, 334], beam2, tsys=tsys2)
 
 sp3b = sp1.average(sp2)
-sp3b *= tsys2.mean()
 object = sp3b.meta['OBJECT']
 sp3b.plot(title=f"Source: {object}",xaxis_unit="km/s")  # some signal !!!   amp wave now 0.1
 sp3b.stats(qac=True)
@@ -526,12 +498,26 @@ if True:  # 14 MB
     
 if True:   # 26MB
     mkdir("AGBT15B_244_07_test")
-    sdf3.write("AGBT15B_244_07_test/file.fits", scan=[130,131,132], ifnum=1, plnum=0, overwrite=True)
+    intnums=[1,14,31]
+    sdf3.write("AGBT15B_244_07_test/file.fits", scan=[130,131,132], ifnum=1, plnum=0,  intnum=intnums, overwrite=True)
+    
     test3 = GBTFITSLoad("AGBT15B_244_07_test")    
     test3.summary()
+    test3._index[kw]  # 18 rows
     
-    tsys3,g = calseq(test3, 130, ifnum=1)
-    print(tsys3,g)
+    tsys3,g = calseq(test3, 130, ifnum=1, plnum=0)
+    print(tsys3,g)  # 103.0501604820638
+    
+    sp1,sp2 = getnod(test3, [131,132], [0,1], plnum=0, ifnum=1, tsys=tsys3)
+    sp3 = sp1.average(sp2)
+    sp3.meta["TSYS"]
+    sp3.meta["EXPOSURE"]
+    
+    sp3.stats()['rms'].value
+    sp3.stats(roll=1)['rms'].value
+    sp3.plot()
+    
+    
     
 if True:
     result = []
@@ -542,14 +528,20 @@ if True:
     print(result)
     
 mkdir("nod3cal")
-sdf3.write("nod3cal/file.fits", scan=130, ifnum=0, plnum=0, overwrite=True)
+intnums=[1,14,31]
+sdf3.write("nod3cal/file.fits", scan=130, ifnum=1, plnum=0, intnum=intnums, overwrite=True)
+#sdf3.write("nod3cal/file.fits", scan=130, intnum=intnums, overwrite=True)
+
+intnums=[1,14,31]
 
 
 nod3cal = GBTFITSLoad("nod3cal")
 nod3cal.summary()
 nod3cal._index[kw]   # 82 rows  (Observing, Cold1, Cold2 and a few Unknown in state transition)  -- TPNOCAL
 
-tsys3,g = calseq(nod3cal, 130)     # 100.27992034259859, 9.129371938341321e-07
+tsys3,g = calseq(nod3cal, 130, ifnum=1, plnum=0)     # 100.27992034259859, 9.129371938341321e-07
+# 103.06672137567278
+
 print(tsys3,g)
 # calseq(sdf3, 130)      # 100.13203834626455, 9.115908926574802e-07   - if/pol multivalued....
 #   -> RecursionError: maximum recursion depth exceeded
