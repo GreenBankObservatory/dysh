@@ -436,6 +436,19 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         s.merge_commentary(self)
         return s
 
+    def timevariance(self, weights="tsys"):
+        """
+        trying variance
+        """
+        logger.warning(f"PJT testing time variance, do not rely on this function")
+        
+        self._timevariance = []
+        for scan in self.data:
+            self._timeaveraged.append(scan.timeaverage(weights))
+        s = average_spectra(self._timeaveraged, weights=weights)
+        s.merge_commentary(self)
+        return s
+
     @log_call_to_history
     def polaverage(self, weights="tsys"):
         # @todo rewrite this to return a spectrum as timeaverage does now.
@@ -661,7 +674,7 @@ class TPScan(ScanBase):
         if False:
             self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
             self._nint = gbtfits.nintegrations(self._bintable_index)
-        print("PJT CALROWS:",calrows)
+        #print("PJT CALROWS:",calrows)
         self._calrows = calrows
         # all cal=T states where sig=sigstate
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
@@ -670,13 +683,13 @@ class TPScan(ScanBase):
 
         # <merged>
         
-        print("PJT refXrows:", self._refonrows, self._refoffrows )
+        #print("PJT refXrows:", self._refonrows, self._refoffrows )
         #self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
         #self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
         
-        print("PJT refcalX", self._refcalon, self._refcaloff)
+        #print("PJT refcalX", self._refcalon, self._refcaloff)
 
         # now remove blanked integrations
         # seems like this should be done for all Scan classes!
@@ -702,7 +715,7 @@ class TPScan(ScanBase):
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
         goodrows = np.intersect1d(nb1, nb2)
-        print("PJT nb", nb1, nb2, len(nb1), len(nb2), goodrows)
+        #print("PJT nb", nb1, nb2, len(nb1), len(nb2), goodrows)
         if len(self._refcalon) == 0:
             # special case for notpcal (when calrows["ON"] is 0)
             goodrows = np.intersect1d(nb2, nb2)
@@ -710,7 +723,7 @@ class TPScan(ScanBase):
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = []
             self._refoffrows = [self._refoffrows[i] for i in goodrows]
-            print("PJT refcaloff:",self._refcaloff)
+            #print("PJT refcaloff:",self._refcaloff)
             self._nchan = len(self._refcaloff[0]) # PJT
             self._calibrate = calibrate
             self._data = None
@@ -741,7 +754,7 @@ class TPScan(ScanBase):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
-        print("PJT CALSTATE:",self.calstate)
+        #print("PJT CALSTATE:",self.calstate)
         if self.calstate is None:
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
@@ -797,12 +810,12 @@ class TPScan(ScanBase):
             # to_nocal
             self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
             nspect = len(self._tcal)
-            print("PJT nspect",nspect)            
+            #print("PJT nspect",nspect)            
             self._tsys = np.ones(nspect, dtype=float)
             return
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])    # PJT
         nspect = len(self._tcal)
-        print("PJT nspect",nspect)
+        #print("PJT nspect",nspect)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
         # allcal = self._refonrows.copy()
         # allcal.extend(self._refoffrows)
