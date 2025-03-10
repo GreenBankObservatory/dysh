@@ -436,6 +436,19 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         s.merge_commentary(self)
         return s
 
+    def timevariance(self, weights="tsys"):
+        """
+        trying variance
+        """
+        logger.warning(f"PJT testing time variance, do not rely on this function")
+
+        self._timevariance = []
+        for scan in self.data:
+            self._timeaveraged.append(scan.timeaverage(weights))
+        s = average_spectra(self._timeaveraged, weights=weights)
+        s.merge_commentary(self)
+        return s
+
     @log_call_to_history
     def polaverage(self, weights="tsys"):
         # @todo rewrite this to return a spectrum as timeaverage does now.
@@ -588,7 +601,7 @@ class TPScan(ScanBase):
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
-        whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+        whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
@@ -661,22 +674,74 @@ class TPScan(ScanBase):
         if False:
             self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
             self._nint = gbtfits.nintegrations(self._bintable_index)
+        # print("PJT CALROWS:",calrows)
         self._calrows = calrows
         # all cal=T states where sig=sigstate
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
+
+        # <merged>
+
+        # print("PJT refXrows:", self._refonrows, self._refoffrows )
+        # self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+        # self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
 
-        # Catch blank integrations.
-        goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
+        # print("PJT refcalX", self._refcalon, self._refcaloff)
+
+        # now remove blanked integrations
+        # seems like this should be done for all Scan classes!
+        # PS: yes.
+        if False:
+            # Catch blank integrations.
+            goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._nrows = len(self._refonrows) + len(self._refoffrows)
+
+            self._nchan = len(self._refcalon[0])
+            self._calibrate = calibrate
+            self._data = None
+            if self._calibrate:
+                self.calibrate()
+            self.calc_tsys()
+            self._validate_defaults()
+            return
+
+        nb1 = find_non_blanks(self._refcalon)
+        nb2 = find_non_blanks(self._refcaloff)
+        goodrows = np.intersect1d(nb1, nb2)
+        # print("PJT nb", nb1, nb2, len(nb1), len(nb2), goodrows)
+        if len(self._refcalon) == 0:
+            # special case for notpcal (when calrows["ON"] is 0)
+            goodrows = np.intersect1d(nb2, nb2)
+            self._refcalon = None
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = []
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            # print("PJT refcaloff:",self._refcaloff)
+            self._nchan = len(self._refcaloff[0])  # PJT
+            self._calibrate = calibrate
+            self._data = None
+            if self._calibrate:
+                self.calibrate()
+            self._tsys = np.ones(len(nb2))
+            self.calc_tsys()
+            self._validate_defaults()
+            return
+        # Tell the user about blank integration(s) that will be ignored.
+        if len(goodrows) != len(self._refcalon):
+            nblanks = len(self._refcalon) - len(goodrows)
+            print(f"Ignoring {nblanks} blanked integration(s).")
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
         self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._nrows = len(self._refonrows) + len(self._refoffrows)
-
+        self._nrows = len(self._refonrows) + len(self._refoffrows)  # ??
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         self._data = None
@@ -689,6 +754,7 @@ class TPScan(ScanBase):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
+        # print("PJT CALSTATE:",self.calstate)
         if self.calstate is None:
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
@@ -740,7 +806,16 @@ class TPScan(ScanBase):
             elif self.calstate == False:
                 pass
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        if len(self._tcal) == 0:
+            # to_nocal
+            self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+            nspect = len(self._tcal)
+            # print("PJT nspect",nspect)
+            self._tsys = np.ones(nspect, dtype=float)
+            return
+        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])  # PJT
         nspect = len(self._tcal)
+        # print("PJT nspect",nspect)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
         # allcal = self._refonrows.copy()
         # allcal.extend(self._refoffrows)
@@ -902,6 +977,8 @@ class TPScan(ScanBase):
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
         return self._timeaveraged
+
+        # end-of-TPScan
 
 
 class PSScan(ScanBase):
