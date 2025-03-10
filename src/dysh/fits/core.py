@@ -155,7 +155,7 @@ def getbeam(sdf, debug=False):
     Parameters
     ----------
     sdf : `GBTFITSLoad`
-        data handle, containing one or more SDFITS files specific to GBT    
+        data handle, containing one or more SDFITS files specific to GBT
     debug : boolean, optional
         Add more debugging output. @todo use logger
         The default is False.
@@ -199,7 +199,7 @@ def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=Fa
     W-band receivers use a CALSEQ where during a scan three different
     observations are made: sky, cold1 and cold2, from which the
     system temperature is derived.
-    
+
 
     Parameters
     ----------
@@ -227,7 +227,7 @@ def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=Fa
     verbose : boolean, optional
         Add more information mimicking the GBTIDL outout of VANECAL.
         The default is False
-    
+
     Returns
     -------
     tsys : float
@@ -262,7 +262,7 @@ def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=Fa
         print(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
         print(f"Tsys = {tsys}")
         print(f"Gain [K/counts] = {g}")
-        
+
     return tsys, g
 
 
@@ -275,7 +275,7 @@ def vanecal(sdf, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=False):
     Parameters
     ----------
     sdf : `GBTFITSLoad`
-        data handle, containing one or more SDFITS files specific to GBT    
+        data handle, containing one or more SDFITS files specific to GBT
     vane_sky : list of two ints
         The first designates the VANE scan, the second the SKY scan.
         Normally the SKY scan is directly followed by the VANE scan.
@@ -350,7 +350,7 @@ def plot_vegas(sdf, scans, title=None, tsys=False, inverse=False, edge=50, ylim=
     Parameters
     ----------
     sdf : `GBTFITSLoad`
-        data handle, containing one or more SDFITS files specific to GBT    
+        data handle, containing one or more SDFITS files specific to GBT
     scans : list of ints
         DESCRIPTION.
     title : string, optional
@@ -369,7 +369,7 @@ def plot_vegas(sdf, scans, title=None, tsys=False, inverse=False, edge=50, ylim=
     None.
 
     """
-    
+
     fig, ax = plt.subplots(4, 4, sharex="col", sharey="row", gridspec_kw={"hspace": 0, "wspace": 0})
 
     for r in range(4):
@@ -424,7 +424,7 @@ def getnod(sdf, scans, beams, ifnum=0, plnum=0, tsys=None):
     Parameters
     ----------
     sdf : GBTFITSLoad`
-        data handle, containing one or more SDFITS files specific to GBT    
+        data handle, containing one or more SDFITS files specific to GBT
     scans : list of 2 ints
         DESCRIPTION.
     beams : list of 2 ints
@@ -444,7 +444,7 @@ def getnod(sdf, scans, beams, ifnum=0, plnum=0, tsys=None):
         DESCRIPTION.
 
     """
-    
+
     if tsys is None:
         tsys = np.array([1.0, 1.0])
     if np.isscalar(tsys):
