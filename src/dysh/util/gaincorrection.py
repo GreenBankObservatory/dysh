@@ -41,6 +41,13 @@ class BaseGainCorrection(ABC):
         self.epsilon_0 = 100 * u.micron
         self.physical_aperture = 1.0 * u.m * u.m
 
+    @property
+    def jyperk(self):
+        r"""The default Gain off the telescope in Jy/K, :math:`G = 2 k_B/A_p`, where `k_B` is Boltzmann's constant
+        and `A_p` is the area of the physical aperture of the telescope.
+        """
+        return (2.0 * ac.k_B / self.physical_aperture.to("m^2")).to("Jy/K")
+
     @abstractmethod
     def airmass(self, angle: Union[Angle, Quantity], zd: bool, **kwargs) -> Union[float, np.ndarray]:
         """Computes the airmass at given elevation(s) or zenith distance(s).
@@ -122,7 +129,6 @@ class GBTGainCorrection(BaseGainCorrection):
     _valid_scales = ["ta", "ta*", "jy"]
 
     def __init__(self, gain_correction_table: Path = None):
-
         if gain_correction_table is None:
             gain_correction_table = get_project_configuration() / "gaincorrection.tab"
         self._gct = QTable.read(gain_correction_table, format="ascii.ecsv")
@@ -421,8 +427,7 @@ class GBTGainCorrection(BaseGainCorrection):
         # where
         # - k is Boltzmann's constant
         # - the physical aperture, A_p
-        kA = ac.k_B / self.physical_aperture.to("m^2")
-        jyperk = (factor * kA).to("Jy/K")
+        jyperk = factor * self.jyperk
         # print(1.0 / jyperk)
         return jyperk.value
 
