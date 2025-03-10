@@ -1,30 +1,22 @@
-import copy
+"""Tests for specplot."""
 
-import astropy.units as u
-import matplotlib.pyplot as plt
-import numpy as np
-from astropy.io import fits
-from astropy.utils.data import get_pkg_data_filename, get_pkg_data_filenames
+from pathlib import Path
 
-import dysh
-from dysh.fits import gbtfitsload
-
-# PyInstallwe won't work if there's pathlib in the environment
-# Why? Idk. But removing the dependency and commenting this out doesn't seem to hurt.
-# dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
+from dysh.fits import GBTFITSLoad
+from dysh.util import get_project_testdata
 
 
-class test_specplot:
+class TestSpecplot:
     """ """
 
-    def test_default_plotter():
+    def test_savefig(self, tmp_path):
         """
-        Just plot a default plot of a spectrum and visually inspect
+        Test that plots are saved.
         """
-        return 0
-
-    def test_complicated_plotter():
-        """
-        Plot a more complicated spectrum and visually inspect
-        """
-        return 0
+        p = get_project_testdata()
+        sdf = GBTFITSLoad(p / "AGBT20B_014_03.raw.vegas/")
+        tp = sdf.gettp(scan=6, plnum=0).timeaverage()
+        tp.plot()
+        of = tmp_path / "test_savefig.png"
+        tp.savefig(of)
+        assert of.is_file()
