@@ -110,9 +110,32 @@ def default_sdfits_columns():
     return colnames
 
 
-# check w/ mean_tsys
 def mean_data(data, fedge=0.1, nedge=None, median=False):
-    """special mean to exclude the edges like mean_tsys() which is like dcmeantsys()"""
+    """
+    special mean of data to exclude the edges like mean_tsys(), with
+    an option to use the median instead of the mean.
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        The spectral data.
+    fedge : float, optional
+        Fraction of edge channels to exclude at each end, a number between 0 and 1.
+        If `nedge` is used, this parameter is not used.
+        Default: 0.1, meaning the central 80% bandwidth is used
+    nedge : int, optional
+        Number of edge channels to exclude. nedge cannot be 0.
+        Default: None, meaning use `fedge`
+    median : boolean, optional
+        Use the median instead of the mean.
+        The default is False.
+
+    Returns
+    -------
+    meandata : float
+
+    """
+
     nchan = len(data)
     if nedge is None:
         nedge = int(nchan * fedge)
@@ -125,16 +148,30 @@ def mean_data(data, fedge=0.1, nedge=None, median=False):
 
 
 def getbeam(sdf, debug=False):
-    """find the two nodding beams based on FDNUM, FEED
-    needs PROCSCAN='BEAM1' or 'BEAM2'
     """
-    kb = ["DATE-OBS", "SCAN", "IFNUM", "PLNUM", "FDNUM", "PROCSCAN", "FEED", "SRFEED", "FEEDXOFF", "FEEDEOFF"]
+    find the two nodding beams based on on a given FDNUM, FEED
+    needs PROCSCAN='BEAM1' or 'BEAM2'
+
+    Parameters
+    ----------
+    sdf : `GBTFITSLoad`
+        data handle, containing one or more SDFITS files specific to GBT    
+    debug : boolean, optional
+        Add more debugging output. @todo use logger
+        The default is False.
+
+    Returns
+    -------
+    beams : list of two ints representing the nodding beams (0 = first beam)
+
+    """
+    # list of columns needed to differentiate and find the nodding beams
     kb = ["FEEDXOFF", "FEEDEOFF", "PROCSCAN", "FDNUM", "FEED"]
-    a = sdf._index[kb]
-    b = a.loc[a["FEEDXOFF"] == 0.0]
-    c = b.loc[b["FEEDEOFF"] == 0.0]
-    d1 = c.loc[c["PROCSCAN"] == "BEAM1"]
-    d2 = c.loc[c["PROCSCAN"] == "BEAM2"]
+    a0 = sdf._index[kb]
+    b1 = a0.loc[a0["FEEDXOFF"] == 0.0]
+    b2 = b1.loc[b1["FEEDEOFF"] == 0.0]
+    d1 = b2.loc[b2["PROCSCAN"] == "BEAM1"]
+    d2 = b2.loc[b2["PROCSCAN"] == "BEAM2"]
     #
     if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
         beam1 = d1["FDNUM"].unique()[0]
@@ -146,20 +183,58 @@ def getbeam(sdf, debug=False):
         return [beam1, beam2]
     else:
         # try one other thing
-        if len(c["FEED"].unique()) == 2:
+        if len(b2["FEED"].unique()) == 2:
             print("getbeam rescued")
-            b = c["FEED"].unique() - 1
+            b = b2["FEED"].unique() - 1
             return list(b)
         print("too many in beam1:", d1["FDNUM"].unique())
         print("too many in beam2:", d2["FDNUM"].unique())
         return []
 
 
-def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None):
-    """W-band receivers use a CALSEQ
-    This routine returns the gain and Tsys for W-band channel
+def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):
+    """
+    This routine returns the Tsys and gain for the selected W-band channel.
 
-    Tcold = 54 - 0.6*(FREQ-77)      FREQ in GHz
+    W-band receivers use a CALSEQ where during a scan three different
+    observations are made: sky, cold1 and cold2, from which the
+    system temperature is derived.
+    
+
+    Parameters
+    ----------
+    sdf : `GBTFITSLoad`
+        data handle, containing one or more SDFITS files specific to GBT
+    scan : int or list of int
+        Scan number(s) where CALSEQ is expected. See sdf.summary() to find the scan number(s).
+        If multiple scans are used, an average Tsys is computed.
+    tcold : float, optional
+        Set the cold temperature. See also freq= for an alternative computation.
+        The default is 54.
+    fdnum : int, optional
+        Feed to be used, 0 being the first.
+        The default is 0.
+    ifnum : int, optional
+        IF to be used, 0 being the first.
+        The default is 0.
+    plnum : int, optional
+        Polarization to be used, 0 being the first.
+        The default is 0.
+    freq : float, optional
+        Observing frequency if Tcold to be set different from the default:
+        Tcold = 54 - 0.6*(FREQ-77)      FREQ in GHz
+        The default is None.
+    verbose : boolean, optional
+        Add more information mimicking the GBTIDL outout of VANECAL.
+        The default is False
+    
+    Returns
+    -------
+    tsys : float
+        DESCRIPTION.
+    g : float
+        DESCRIPTION.
+
     """
     if freq is not None:
         # see eq.(13) in GBT memo 302
@@ -182,65 +257,51 @@ def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None):
         return None
     tsys = mean_data(g * vsky.data)
 
-    print(f"Twarm={twarm} Tcold={tcold}")
-    print(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
-    print(f"Tsys = {tsys}")
-    print(f"Gain [K/counts] = {g}")
+    if verbose:
+        print(f"Twarm={twarm} Tcold={tcold}")
+        print(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
+        print(f"Tsys = {tsys}")
+        print(f"Gain [K/counts] = {g}")
+        
     return tsys, g
 
 
-# scan = auto calseq scan
-# tcold = effective temperature of cold load (e.g., 50K)
-# ifnum = IFnum of spectral window
-# plnum = pol-number
-# fdnum = beam-number
-
-"""
-;;Output:
-;;Prints Tsys and gain and returns OUTgain
-;;OUTgain= gain = (Twarm-Tcold)/(warm-cold) [K/counts]
-;;Tsys=median(gain*sky)
-
-if (n_elements(ifnum) eq 0) then ifnum = 0
-if (n_elements(fdnum) eq 0) then fdnum = 0
-if (n_elements(plnum) eq 0) then plnum = 0
-if (n_elements(tcold) eq 0) then tcold = 54.
-
-# CALPOSITION contains the wcalpos
-
-gettp,scan,plnum=plnum,fdnum=fdnum,ifnum=ifnum,quiet=1,wcalpos='Observing'
-vsky=getdata(0)
-twarm=!g.s[0].twarm
-gettp,scan,plnum=plnum,fdnum=fdnum,ifnum=ifnum,quiet=1,wcalpos='Cold1'
-vcold1=getdata(0)
-gettp,scan,plnum=plnum,fdnum=fdnum,ifnum=ifnum,quiet=1,wcalpos='Cold2'
-vcold2=getdata(0)
+def vanecal(sdf, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=False):
+    """
+    Return Tsys calibration values for all or selected beams of the ARGUS
+    VANE/SKY calibration cycle.
 
 
-;;Feed =1 or 2 for the two possible receiver beams
-feed=!g.s[0].feed
-gain=0.0
-if (feed eq 1) then gain=(twarm-tcold)/median(vcold2-vcold1)
-if (feed eq 2) then gain=(twarm-tcold)/median(vcold1-vcold2)
-tsys=median(gain*vsky)
+    Parameters
+    ----------
+    sdf : `GBTFITSLoad`
+        data handle, containing one or more SDFITS files specific to GBT    
+    vane_sky : list of two ints
+        The first designates the VANE scan, the second the SKY scan.
+        Normally the SKY scan is directly followed by the VANE scan.
+        @todo if one scan given, assume sky is vane+1
+    feeds : list of ints, optional
+        The default is range(16), i.e. using all ARGUS beams.
+    mode : int, optional
+        Mode of computing. See also `mean_tsys()`
+        mode=0  Do the mean before the division
+        mode=1  Do the mean after the division
+        mode=2  Take a median of the inverse division
+        The default is 2.
+    tcal : float, optional
+        Tcal value for normalization. Normally obtained from the
+        environment, but offsite cannot be done.
+        @todo fix this, but right now it is adviced to manually enter tcal
+        The default is None.
+    verbose : boolean, optional
+        Add more information mimicking the GBTIDL outout of VANECAL.
+        The default is False
 
-print,'Twarm, Tcold:',twarm,tcold
-print,'IFNUM, FDNUM, PLNUM:',ifnum,fdnum,plnum
-print,'Tsys =',tsys
-print,'Gain [K/counts]=',gain
-OUTgain=gain
+    Returns
+    -------
+    tsys : list of floats
+        Values of Tsys for each of the `feeds` given.
 
-"""
-
-
-def vanecal(sdf, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=True):
-    """loop over feeds to get tsys factor
-    for efficiency of large data, it's better to sdf.write() and use only the
-    vane and sky scans'
-    Example EDGE:  (1.3GB)
-         all 163 scans:     6m33s    3m6s
-         write small sdf:     25s
-         just vane/cal:       20s
     """
     vane = vane_sky[0]
     sky = vane_sky[1]
@@ -283,7 +344,32 @@ def vanecal(sdf, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=True):
 
 
 def plot_vegas(sdf, scans, title=None, tsys=False, inverse=False, edge=50, ylim=None):
-    """plot vegas 16 beams"""
+    """
+    plot vegas 16 beams
+
+    Parameters
+    ----------
+    sdf : `GBTFITSLoad`
+        data handle, containing one or more SDFITS files specific to GBT    
+    scans : list of ints
+        DESCRIPTION.
+    title : string, optional
+        DESCRIPTION. The default is None.
+    tsys : boolean, optional
+        DESCRIPTION. The default is False.
+    inverse : boolean, optional
+        DESCRIPTION. The default is False.
+    edge : int, optional
+        DESCRIPTION. The default is 50.
+    ylim : list of two floats, optional
+        DESCRIPTION. The default is None, which autoscales.
+
+    Returns
+    -------
+    None.
+
+    """
+    
     fig, ax = plt.subplots(4, 4, sharex="col", sharey="row", gridspec_kw={"hspace": 0, "wspace": 0})
 
     for r in range(4):
@@ -324,7 +410,8 @@ def plot_vegas(sdf, scans, title=None, tsys=False, inverse=False, edge=50, ylim=
 
 
 def getnod(sdf, scans, beams, ifnum=0, plnum=0, tsys=None):
-    """fake getnod() based on alternating gettp() with averaging done internally
+    """
+    fake getnod() based on alternating gettp() with averaging done internally
     use the real sdf.getnod() for final analysis
     sdf:   the sdfits handle
     scans: list of two scans for the nodding
@@ -333,7 +420,31 @@ def getnod(sdf, scans, beams, ifnum=0, plnum=0, tsys=None):
     plnum: the plnum to use
     Returns the two nodding spectra, caller is responsible for averaging them, e.g.
          sp1.average(sp2)
+
+    Parameters
+    ----------
+    sdf : GBTFITSLoad`
+        data handle, containing one or more SDFITS files specific to GBT    
+    scans : list of 2 ints
+        DESCRIPTION.
+    beams : list of 2 ints
+        DESCRIPTION.
+    ifnum : int, optional
+        DESCRIPTION. The default is 0.
+    plnum : int, optional
+        DESCRIPTION. The default is 0.
+    tsys : float or list of two floats, optional
+        DESCRIPTION. The default is None.
+
+    Returns
+    -------
+    sp1 : `Spectrum`
+        DESCRIPTION.
+    sp2 : `Spectrum`
+        DESCRIPTION.
+
     """
+    
     if tsys is None:
         tsys = np.array([1.0, 1.0])
     if np.isscalar(tsys):
