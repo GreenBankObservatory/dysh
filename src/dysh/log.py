@@ -15,7 +15,7 @@ from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
 
 from . import version
-from .util import ensure_ascii
+from .ascii import ensure_ascii
 
 LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")
