@@ -10,11 +10,25 @@
 
 Note: if you are on the GBO network, dysh will already be installed; you do not need to do anything further! Other uses cases are outlined below.
 
-### Global Installation via pipx
+### Global Installation
 
 Example use case: you want to quickly install and use dysh on a non-GBO computer
 
-If you want to avoid managing a virtual environment, the easiest way is via [pipx](https://github.com/pypa/pipx#install-pipx). After installing pipx, dysh can be installed via:
+#### Via uv
+
+This will install a persistent global version of dysh via uv:
+
+```sh
+# Install dysh
+$ uv tool install dysh[all]
+# Launch dysh notebook
+$ dysh-lab
+```
+
+#### Via pipx
+
+
+You can also use [pipx](https://github.com/pypa/pipx#install-pipx). After installing pipx, dysh can be installed via:
 
 ```sh
 # Install dysh
@@ -31,7 +45,7 @@ Example use case: you want to use dysh with a specific set of dependencies, or i
 dysh is most easily installed with *pip*, which will take care of any dependencies. The packaged code is hosted at the [Python Packaging Index](https://pypi.org/project/dysh).
 
 ```sh
-$ pip install dysh
+$ pip install dysh[all]
 ```
 
 #### Beta Version
@@ -39,7 +53,7 @@ $ pip install dysh
 Beta versions will also be published to PyPI, and can be installed via:
 
 ```sh
-$ pip install dysh --pre
+$ pip install dysh[all] --pre
 ```
 
 #### Development Version
@@ -47,7 +61,7 @@ $ pip install dysh --pre
 Development versions can be installed from GitHub branches via:
 
 ```sh
-$ pip install git+https://github.com/GreenBankObservatory/dysh
+$ pip install "dysh[all] @ git+https://github.com/GreenBankObservatory/dysh"
 ```
 For more options, see the [pip VCS Support documentation](https://pip.pypa.io/en/stable/topics/vcs-support/).
 
@@ -71,9 +85,23 @@ $ git clone git@github.com:GreenBankObservatory/dysh.git
 
 ### Set Up Dysh Environment
 
+#### Via uv
+
+The recommended development workflow is to use [uv](https://docs.astral.sh/uv/). After installing uv all you need to do is:
+
+```sh
+$ uv run ...
+```
+
+Or you can source the uv virtual environment just like any other:
+
+```sh
+$ source .venv/bin/activate
+```
+
 #### Via Hatch
 
-The recommended development workflow is to use [hatch](https://hatch.pypa.io/latest/tutorials/environment/basic-usage/). After installing hatch, this will look something like:
+Another workflow is to use [hatch](https://hatch.pypa.io/latest/tutorials/environment/basic-usage/). After installing hatch, this will look something like:
 
 ```sh
 $ hatch shell
