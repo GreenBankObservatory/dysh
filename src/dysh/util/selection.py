@@ -1264,13 +1264,16 @@ class Flag(SelectionBase):
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
         header = ["RECNUM", "SCAN", "INTNUM", "PLNUM", "IFNUM", "FDNUM", "BCHAN", "ECHAN", "IDSTRING"]
+        found_header = False
         for l in lines[lines.index("[flags]") + 1 :]:
             vdict = {}
             if l.startswith("#"):
-                # its the header
-                colnames = l[1:].split(",")
-                if colnames != header:
-                    raise Exception(f"Column names {colnames} do not match expectated {header}")
+                if not found_header:
+                    # its the header
+                    colnames = l[1:].split(",")
+                    if colnames != header:
+                        raise Exception(f"Column names {colnames} do not match expectated {header}")
+                    found_header = True
             else:
                 values = l.split("|")
                 for i, v in enumerate(values):
