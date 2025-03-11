@@ -115,9 +115,9 @@ class SpectrumPlot:
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
+        plt.ion()
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:
-
         self._set_xaxis_info()
         # plot arguments for this call of plot(). i.e. non-sticky plot attributes
         this_plot_kwargs = deepcopy(self._plot_kwargs)
