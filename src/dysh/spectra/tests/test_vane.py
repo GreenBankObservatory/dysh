@@ -12,7 +12,7 @@ from dysh.util.files import dysh_data
 class TestVaneScan:
     def test_vane1(self):
         """
-        test the vane/sky calibration of an ARGUS project
+        test the vane/sky calibration of an Argus project
         using the VANECAL procedure
         """
         rtol = 1e-4  # do tests on this relative tolerance
@@ -57,7 +57,7 @@ class TestVaneScan:
         assert beam3[0] == 0 and beam3[1] == 1
 
         tsys3, g = calseq(sdf3, 130, ifnum=1, plnum=0)  # 103.0501604820638
-        assert np.isclose(tsys3, 103.05, rtol=rtol)
+        assert np.isclose(tsys3, 104.33, rtol=rtol)
 
         sp1, sp2 = getnod(sdf3, [131, 132], beam3, ifnum=1, plnum=0, tsys=tsys3)
         sp3 = sp1.average(sp2)
@@ -66,4 +66,4 @@ class TestVaneScan:
         assert np.isclose(tint, 11.94, rtol=rtol)
 
         rms = sp3.stats()["rms"].value  # 0.2138536948704338
-        assert np.isclose(rms, 0.21385, rtol=rtol)
+        assert np.isclose(rms, 0.21651, rtol=rtol)

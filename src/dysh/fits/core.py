@@ -241,7 +241,7 @@ def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=Fa
         tcold = 54 - 0.6 * (freq - 77)
         print(f"Warning: calseq using freq={freq} GHz and setting tcold={tcold} K")
 
-    twarm = sdf._index["TAMBIENT"].mean()
+    twarm = sdf._index["TWARM"].mean()
 
     tp_args = {"scan": scan, "ifnum": ifnum, "plnum": plnum, "fdnum": fdnum, "calibrate": True, "cal": False}
     vsky = sdf.gettp(CALPOSITION="Observing", **tp_args).timeaverage()
@@ -268,7 +268,7 @@ def calseq(sdf, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=Fa
 
 def vanecal(sdf, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=False):
     """
-    Return Tsys calibration values for all or selected beams of the ARGUS
+    Return Tsys calibration values for all or selected beams of the Argus
     VANE/SKY calibration cycle.
 
 
@@ -281,7 +281,7 @@ def vanecal(sdf, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=False):
         Normally the SKY scan is directly followed by the VANE scan.
         @todo if one scan given, assume sky is vane+1
     feeds : list of ints, optional
-        The default is range(16), i.e. using all ARGUS beams.
+        The default is range(16), i.e. using all Argus beams.
     mode : int, optional
         Mode of computing. See also `mean_tsys()`
         mode=0  Do the mean before the division
@@ -315,7 +315,7 @@ def vanecal(sdf, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=False):
     if tcal is None:
         tcal = sdf._index["TCAL"].mean()
         if tcal == 1.0:
-            # until we figure this out via getatmos
+            # until we figure this out via getatmos  @todo warn here
             tcal = 100.0  # set to 100K for now
 
     i = 0
