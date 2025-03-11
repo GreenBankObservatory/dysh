@@ -37,7 +37,6 @@ from ..util import (
     uniq,
 )
 from ..util.files import dysh_data
-from ..util.gaincorrection import GBTGainCorrection
 from .sdfitsload import SDFITSLoad
 
 # from GBT IDL users guide Table 6.7
@@ -1078,7 +1077,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref: int = 1,
         apply_flags: str = True,
-        scale: str = "ta",
+        bunit: str = "ta",
         zenith_opacity: float = None,
         **kwargs,
     ):
@@ -1102,8 +1101,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        scale : str, optional
-            The scale type for the output scan, must be one of (case-insensitive)
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
                     - 'ta'  : Antenna Temperature
                     - 'ta*' : Antenna temperature corrected to above the atmosphere
                     - 'jy'  : flux density in Jansky
@@ -1127,8 +1126,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~spectra.scan.PSScan`.
 
         """
-        ScanBase._check_scale(scale)
-        if scale.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_bunit(bunit)
+        if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         if apply_flags:
@@ -1230,7 +1229,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         calibrate=calibrate,
                         smoothref=smoothref,
                         apply_flags=apply_flags,
-                        scale=scale,
+                        bunit=bunit,
                         zenith_opacity=zenith_opacity,
                     )
                     g.merge_commentary(self)
@@ -1252,7 +1251,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
-        scale="ta",
+        bunit="ta",
         zenith_opacity=None,
         **kwargs,
     ):
@@ -1453,7 +1452,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             calibrate=calibrate,
                             smoothref=smoothref,
                             apply_flags=apply_flags,
-                            scale=scale,
+                            bunit=bunit,
                             zenith_opacity=zenith_opacity,
                         )
                         g.merge_commentary(self)
@@ -1481,7 +1480,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
-        scale="ta",
+        bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
         **kwargs,
@@ -1519,8 +1518,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        scale : str, optional
-            The scale type for the output scan, must be one of (case-insensitive)
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
                     - 'ta'  : Antenna Temperature
                     - 'ta*' : Antenna temperature corrected to above the atmosphere
                     - 'jy'  : flux density in Jansky
@@ -1627,7 +1626,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         observer_location=observer_location,
                         smoothref=1,
                         apply_flags=apply_flags,
-                        scale=scale,
+                        bunit=bunit,
                         zenith_opacity=zenith_opacity,
                         debug=debug,
                     )
@@ -1653,7 +1652,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
-        scale="ta",
+        bunit="ta",
         zenith_opacity=None,
         **kwargs,
     ):
@@ -1681,8 +1680,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        scale : str, optional
-            The scale type for the output scan, must be one of (case-insensitive)
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
                     - 'ta'  : Antenna Temperature
                     - 'ta*' : Antenna temperature corrected to above the atmosphere
                     - 'jy'  : flux density in Jansky
@@ -1849,7 +1848,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             weights=weights,
                             smoothref=smoothref,
                             apply_flags=apply_flags,
-                            scale=scale,
+                            bunit=bunit,
                             zenith_opacity=zenith_opacity,
                         )
                         scanblock.append(sb)
@@ -1918,7 +1917,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             weights=weights,
                             smoothref=smoothref,
                             apply_flags=apply_flags,
-                            scale=scale,
+                            bunit=bunit,
                             zenith_opacity=zenith_opacity,
                         )
                         sb.merge_commentary(self)

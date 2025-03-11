@@ -115,8 +115,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._pols = -1
         self._sdfits = sdfits
         # self._meta = {}
-        self._scale_factor = 1.0
-        self._scale_type = "ta"
+        self._bscale = 1.0
+        self._bunit = "ta"
 
     def _validate_defaults(self):
         _required = {
@@ -140,13 +140,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
 
     @classmethod
-    def _check_scale(self, scale):
-        """check that the requested scale is valid.  This allows us to not import
+    def _check_bunit(self, bunit):
+        """check that the requested brightness unitis valid.  This allows us to not import
         GBTGainCorretion into GBTFITSLoad
 
         Parameters
         ----------
-        scale : str
+        bunit : str
             Strings representing valid options for scaling spectral data, specifically
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
@@ -157,9 +157,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         ------
         ValueError if the scale is unrecognized.
         """
-        if not GBTGainCorrection.is_valid_scale(scale):
+        if not GBTGainCorrection.is_valid_scale(bunit):
             raise ValueError(
-                f"Unrecognized temperature scale {scale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+                f"Unrecognized brighntess temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
     @property
@@ -171,12 +171,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         bool
             True if scale is e.g :math:`T_A^*` or Jy (:math:`S_\nu`)
         """
-        return self._scale_type != "ta"
+        return self._bunit != "ta"
 
     @property
-    def scale_type(self):
+    def bunit(self):
         """
-        The descriptive scale of the data. One of
+        The descriptive brighntess unit of the data. Analogous to FITS `BUNIT` keyword.  One of
 
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
@@ -185,16 +185,16 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         Returns
         -------
         str
-            scale descriptive string
+            brightness string
 
         """
-        return self._scale_type
+        return self._bunit
 
     @property
-    def scale_factor(self):
+    def bscale(self):
         """
         The factor(s) by which the data have been scale from antenna temperature to corrected antenna temperature
-        or flux density.
+        or flux density.  Analogous to FITS `BSCALE` keyword.
 
         Returns
         -------
@@ -202,7 +202,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             An array of floats, one per integration in the scan.
 
         """
-        return self._scale_factor
+        return self._bscale
 
     def _scaleby(self, factor):
         """Scale the calibrated data array by a factor. This is an NxM * N multiplication
@@ -222,14 +222,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._calibrated = self._calibrated * (np.array([factor]).T)
 
     @log_call_to_history
-    def scale(self, scale, zenith_opacity):
+    def scale(self, bunit, zenith_opacity):
         """
-        Scale the data to the given temperature scale and zenith opacity. If data are already
+        Scale the data to the given brightness temperature scale and zenith opacity. If data are already
         scaled, they will be unscaled first.
 
         Parameters
         ----------
-        scale : str
+        bunit : str
             Strings representing valid options for scaling spectral data, specifically
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
@@ -248,35 +248,35 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         TypeError
             if scaling to temperature is not applicable to the scan type, e.g., a total power scan.
         ValueError
-            if `scale` is unrecognized or `zenith_opacity` is negative.
+            if `bunit` is unrecognized or `zenith_opacity` is negative.
 
         """
         if self.__class__ == TPScan:
             raise TypeError("Total power data cannot be directly scaled to temperature.")
-        self._check_scale(scale)
+        self._check_bunit(bunit)
         if zenith_opacity < 0:
             raise ValueError("Zenith opacity cannot be negative.")
-        s = scale.lower()
-        if s == self._scale_type:
+        s = bunit.lower()
+        if s == self._bunit:
             return
 
         # unscale the date if it was already scaled.
         if self.is_scaled:
-            self._scaleby(1.0 / self._scale_factor)
+            self._scaleby(1.0 / self._bscale)
         # if scaling back to antenna temperature, reset the scale factor to one and return.
         if s == "ta":
-            self._scale_factor = np.ones_like(self._scale_factor)
-            self._scale_type = s
+            self._bscale = np.ones_like(self._bscale)
+            self._bunit = s
             return
 
         gc = GBTGainCorrection()
         elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
         freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
         date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
-        factor = gc.scale_ta_to(scale, freq, elev, date, zenith_opacity, zd=False)
+        factor = gc.scale_ta_to(bunit, freq, elev, date, zenith_opacity, zd=False)
         self._scaleby(factor)
-        self._scale_factor = factor
-        self._scale_type = s
+        self._bscale = factor
+        self._bunit = s
 
     @property
     def scan(self):
@@ -621,6 +621,58 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
+
+    def scale(self, scale, zenith_opacity):
+        """
+        Scale all the data in this `ScanBlock` to the given temperature scale and zenith opacity. If data are already
+        scaled, they will be unscaled first.
+
+        Parameters
+        ----------
+        scale : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+            This parameter is case-insensitive.
+
+        zenith_opacity : float
+            The zenith opacity
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        TypeError
+            if scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+        ValueError
+            if `scale` is unrecognized or `zenith_opacity` is negative.
+
+        """
+        for scan in self.data:
+            scan.scale(scale, zenith_opacity)
+
+    @property
+    def bunit(self):
+        """
+        The descriptive brighntess unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+
+        Returns
+        -------
+        str
+            brightness unit string
+        """
+        bunit = set([scan.bunit for scan in self.data])
+        if len(bunit) > 1:
+            logger.warn(f"The Scans in this ScanBlock have differing brightness units {bunit}")
+            return list(bunit)
+        return list(bunit)[0]
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
@@ -1071,8 +1123,8 @@ class PSScan(ScanBase):
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
-    scale : str, optional
-        The scale type for the output scan, must be one of (case-insensitive)
+    bunit : str, optional
+        The brightess unit scale for the output scan, must be one of (case-insensitive)
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -1092,7 +1144,7 @@ class PSScan(ScanBase):
         smoothref=1,
         apply_flags=False,
         observer_location=Observatory["GBT"],
-        scale="ta",
+        bunit="ta",
         zenith_opacity=0.0,
     ):
         ScanBase.__init__(self, gbtfits)
@@ -1154,8 +1206,8 @@ class PSScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
-        if scale.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(scale, zenith_opacity)
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
 
     # @todo something clever
@@ -1325,8 +1377,8 @@ class NodScan(ScanBase):
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration (if applicable)
     apply_flags : boolean, optional.  If True, apply flags before calibration.
-    scale : str, optional
-        The scale type for the output scan, must be one of (case-insensitive)
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -1351,7 +1403,7 @@ class NodScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
-        scale="ta",
+        bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
     ):
@@ -1420,8 +1472,8 @@ class NodScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
-        if scale.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(scale, zenith_opacity)
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
 
     # @property
@@ -1605,8 +1657,8 @@ class FSScan(ScanBase):
     smoothref: int
         The number of channels in the reference to boxcar smooth prior to calibration.
     apply_flags : boolean, optional.  If True, apply flags before calibration.
-    scale : str, optional
-        The scale type for the output scan, must be one of (case-insensitive)
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -1632,7 +1684,7 @@ class FSScan(ScanBase):
         use_sig=True,
         smoothref=1,
         apply_flags=False,
-        scale="ta",
+        bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
         debug=False,
@@ -1722,8 +1774,8 @@ class FSScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate(fold=fold, shift_method=shift_method)
-        if scale.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(scale, zenith_opacity)
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         if self._debug:
             logger.debug("---------------------------------------------------")
         self._validate_defaults()
@@ -1820,8 +1872,8 @@ class FSScan(ScanBase):
             # Apply units.
             try:
                 cunit1 = u.Unit(df["CUNIT1"])
-                if ndim == 2:
-                    cunit1 = cunit[0]  #  @todo undefined cunit[]
+                # if ndim == 2:
+                #   cunit1 = cunit[0]  #  @todo undefined cunit[]
             except KeyError:
                 cunit1 = u.Hz
 
@@ -2006,8 +2058,8 @@ class SubBeamNodScan(ScanBase):
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
-    scale : str, optional
-        The scale type for the output scan, must be one of (case-insensitive)
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -2035,7 +2087,7 @@ class SubBeamNodScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
-        scale="ta",
+        bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
         **kwargs,
@@ -2070,8 +2122,8 @@ class SubBeamNodScan(ScanBase):
         self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
-        if scale.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(scale, zenith_opacity)
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
 
     def calibrate(self, **kwargs):

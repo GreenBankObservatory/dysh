@@ -794,25 +794,25 @@ class TestGBTFITSLoad:
         # PSScan
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sba = sdf.getps(scan=152, scale="ta*", zenith_opacity=0.05)
-        sbb = sdf.getps(scan=152, scale="jy", zenith_opacity=0.05)
+        sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05)
+        sbb = sdf.getps(scan=152, bunit="jy", zenith_opacity=0.05)
         # The ratio of these scale factors should be the Jy/K of the telescope
-        jyperk = sbb[0].scale_factor / sba[0].scale_factor
+        jyperk = sbb[0].bscale / sba[0].bscale
         gc = util.gaincorrection.GBTGainCorrection()
         assert jyperk == pytest.approx(gc.jyperk.value, 1e-6)
-        assert sba[0].scale_type == "ta*"
-        assert sbb[0].scale_type == "jy"
+        assert sba[0].bunit == "ta*"
+        assert sbb[0].bunit == "jy"
         assert sba[0].is_scaled
         assert sbb[0].is_scaled
         # Now test scaling after the fact
         sbd = sdf.getps(scan=152)
         sbd[0].scale("jy", zenith_opacity=0.1)
-        assert sbd[0].scale_type == "jy"
+        assert sbd[0].bunit == "jy"
         assert sbd[0].is_scaled
 
         # try a bad scale type
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, scale="foobar", zenith_opacity=0.05)
+            sba = sdf.getps(scan=152, bunit="foobar", zenith_opacity=0.05)
         # try a bad tau
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, scale="jy", zenith_opacity=-1)
+            sba = sdf.getps(scan=152, bunit="jy", zenith_opacity=-1)
