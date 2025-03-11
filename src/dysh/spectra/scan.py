@@ -622,14 +622,14 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
 
-    def scale(self, scale, zenith_opacity):
+    def scale(self, bunit, zenith_opacity):
         """
-        Scale all the data in this `ScanBlock` to the given temperature scale and zenith opacity. If data are already
+        Scale all the data in this `ScanBlock` to the given brightness temperature scale and zenith opacity. If data are already
         scaled, they will be unscaled first.
 
         Parameters
         ----------
-        scale : str
+        bunit : str
             Strings representing valid options for scaling spectral data, specifically
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
@@ -652,7 +652,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         """
         for scan in self.data:
-            scan.scale(scale, zenith_opacity)
+            scan.scale(bunit, zenith_opacity)
 
     @property
     def bunit(self):

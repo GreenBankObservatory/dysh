@@ -816,3 +816,9 @@ class TestGBTFITSLoad:
         # try a bad tau
         with pytest.raises(ValueError):
             sba = sdf.getps(scan=152, bunit="jy", zenith_opacity=-1)
+
+        # test that scaling a ScanBlock works, also case insensitivity
+        sb = sdf.getps(scan=152, bunit="Ta*", zenith_opacity=0.05)
+        assert sb.bunit == "ta*"
+        with pytest.raises(ValueError):
+            sb.scale("not a valid bunit", zenith_opacity=0.2)
