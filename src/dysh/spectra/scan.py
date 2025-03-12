@@ -159,7 +159,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if not GBTGainCorrection.is_valid_scale(bunit):
             raise ValueError(
-                f"Unrecognized brighntess temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+                f"Unrecognized brightness temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
     @property
@@ -176,7 +176,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @property
     def bunit(self):
         """
-        The descriptive brighntess unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
 
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
@@ -657,7 +657,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @property
     def bunit(self):
         """
-        The descriptive brighntess unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
 
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
