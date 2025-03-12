@@ -648,7 +648,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         TypeError
             if scaling to temperature is not applicable to the scan type, e.g., a total power scan.
         ValueError
-            if `scale` is unrecognized or `zenith_opacity` is negative.
+            if `bunit` is unrecognized or `zenith_opacity` is negative.
 
         """
         for scan in self.data:
