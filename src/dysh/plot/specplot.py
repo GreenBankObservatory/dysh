@@ -8,6 +8,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.utils.masked import Masked
+from astropy.coordinates import SkyCoord
 
 from ..coordinates import decode_veldef, frame_to_label
 
@@ -127,7 +128,12 @@ class SpectrumPlot:
         # else:
         #    self._axis.cla()
 
+        #make space for header and interactive buttons
+        self._figure.subplots_adjust(top=0.7)
+        
         s = self._spectrum
+        self._set_header(s)
+
         sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
         xunit = this_plot_kwargs["xaxis_unit"]
@@ -263,6 +269,100 @@ class SpectrumPlot:
         elif self.spectrum.unit.is_equivalent(u.Jy):
             snu = r"$S_{\nu}$"
             self.axis.set_ylabel(f"{snu} ({yunit})")
+
+    def _set_header(self,s):
+        fsize_small = 9
+        fsize_large = 14
+        xyc = 'figure fraction'
+
+        hcoords = np.array([0.05,0.23,0.41,0.59,0.77])
+        vcoords = np.array([0.84,0.8,0.76])
+
+        def time_formatter(time_sec):
+            hh = int(time_sec // 3600)
+            mm = int((time_sec - 3600*hh) // 60)
+            ss = np.around((time_sec - 3600*hh - 60*mm), 1)
+            return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
+
+        def coord_formatter(ra_deg, dec_deg):
+            sc = SkyCoord(ra_deg,dec_deg, unit='deg')
+            out_str = sc.to_string('hmsdms',sep=' ',precision=2)[:-1]
+            out_ra = out_str[:11]
+            out_dec= out_str[12:]
+            #returning these as separated in case they are needed in this form for any future code
+            return out_ra, out_dec
+
+        def ra2ha(lst,ra):
+            """
+            Take LST (sec) and RA (deg) and output wrapped HA (hr).
+            Follows GBTIDL implementation (with the hour conversion included)
+            """
+            ha = np.around(15*(lst/3600)-ra, 2)
+            if ha > 180:
+                ha -= 360
+            elif ha < -180:
+                ha += 360
+            return np.around(ha/15,2)
+
+        crval4_to_pol = {
+            -1 : 'RR',
+            -2 : 'LL',
+            -3 : 'RL',
+            -4 : 'LR',
+            -5 : 'XX',
+            -6 : 'YY',
+            -7 : 'YX',
+            -8 : 'XY',
+            1  : 'I',
+            2  : 'Q',
+            3  : 'U',
+            4  : 'V',
+        }
+
+
+        #col 1
+        self._axis.annotate(f"Scan     {s.meta['SCAN']}",  (hcoords[0],vcoords[0]), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"{s.meta['DATE-OBS'][:10]}",  (hcoords[0],vcoords[1]), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"{s.meta['OBSERVER']}",       (hcoords[0],vcoords[2]), xycoords=xyc,size=fsize_small)
+
+        #col 2
+        velo = s.meta['VELOCITY']*1e-3*u.km/u.s
+        self._axis.annotate(f"V   : {velo} {s.meta['VELDEF']}",          (hcoords[1],vcoords[0]), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"Int : {time_formatter(s.meta['DURATION'])}",(hcoords[1],vcoords[1]), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"LST : {time_formatter(s.meta['LST'])}",(hcoords[1],vcoords[2]), xycoords=xyc,size=fsize_small)
+
+        #col 3
+        #TODO: need to understand frequencies to assign correct title
+        #instead of just forcing to GHz with 5 decimal points
+        f0 = np.around(s.meta['RESTFREQ']*1e-9,5)*u.GHz
+        self._axis.annotate(f"F0   :  {f0}",  (hcoords[2],vcoords[0]), xycoords=xyc,size=fsize_small)
+        fsky = np.around(s.meta['OBSFREQ']*1e-9,5)*u.GHz # or CRVAL1?
+        self._axis.annotate(f"Fsky :  {fsky}",(hcoords[2],vcoords[1]), xycoords=xyc,size=fsize_small)
+        bw = np.around(s.meta['BANDWID']*1e-6,4)*u.MHz
+        self._axis.annotate(f"BW   :  {bw}",  (hcoords[2],vcoords[2]), xycoords=xyc,size=fsize_small)
+
+        #col 4
+        self._axis.annotate(f"Pol  :   {crval4_to_pol[s.meta['CRVAL4']]}",   (hcoords[3],vcoords[0]), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"IF   :    {s.meta['IFNUM']}",   (hcoords[3],vcoords[1]), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"{s.meta['PROJID']}",            (hcoords[3],vcoords[2]), xycoords=xyc,size=fsize_small)
+
+        #col 5
+        self._axis.annotate(f"Tsys   :  {np.around(s.meta['MEANTSYS'],2)}",(hcoords[4],vcoords[0]), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"Tcal   :  {np.around(s.meta['TCAL'],2)}",    (hcoords[4],vcoords[1]), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"{s.meta['PROC']}",                           (hcoords[4],vcoords[2]), xycoords=xyc,size=fsize_small)
+
+        #row
+        ra,dec = coord_formatter(s.meta['CRVAL2'],s.meta['CRVAL3'])
+        self._axis.annotate(f"{ra}  {dec}",(hcoords[0],0.71), xycoords=xyc,size=fsize_small)
+        self._axis.annotate(f"{s.meta['OBJECT']}",(0.5,0.71), xycoords=xyc,size=fsize_large,horizontalalignment='center')
+        az = np.around(s.meta['AZIMUTH'],1)
+        el = np.around(s.meta['ELEVATIO'],1)
+        ha = ra2ha(s.meta['LST'],s.meta['CRVAL2'])
+        self._axis.annotate(f"Az: {az}  El: {el}  HA: {ha}",(0.99,0.71), xycoords=xyc,size=fsize_small,horizontalalignment='right')
+
+
+
+
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
