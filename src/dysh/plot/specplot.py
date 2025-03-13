@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.utils.masked import Masked
 from astropy.coordinates import SkyCoord
+import datetime as dt
 
 from ..coordinates import decode_veldef, frame_to_label
 
@@ -106,13 +107,15 @@ class SpectrumPlot:
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self, **kwargs):
+    def plot(self, show_header=True, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
 
         Parameters
         ----------
+        show_header : bool
+            Show informational header in the style of GBTIDL, default: True.
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
@@ -127,12 +130,14 @@ class SpectrumPlot:
             self._figure, self._axis = self._plt.subplots(figsize=this_plot_kwargs["figsize"])
         # else:
         #    self._axis.cla()
-
-        #make space for header and interactive buttons
-        self._figure.subplots_adjust(top=0.7)
         
+        #TODO: procedurally generate subplot params based on show header/buttons args.
+        #ideally place left/right params right here, then top gets determined below.
+
         s = self._spectrum
-        self._set_header(s)
+        if show_header:
+            self._figure.subplots_adjust(top=0.7,left=0.09,right=0.95)
+            self._set_header(s)
 
         sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
@@ -351,14 +356,18 @@ class SpectrumPlot:
         self._axis.annotate(f"Tcal   :  {np.around(s.meta['TCAL'],2)}",    (hcoords[4],vcoords[1]), xycoords=xyc,size=fsize_small)
         self._axis.annotate(f"{s.meta['PROC']}",                           (hcoords[4],vcoords[2]), xycoords=xyc,size=fsize_small)
 
-        #row
+        #bottom row
         ra,dec = coord_formatter(s.meta['CRVAL2'],s.meta['CRVAL3'])
         self._axis.annotate(f"{ra}  {dec}",(hcoords[0],0.71), xycoords=xyc,size=fsize_small)
         self._axis.annotate(f"{s.meta['OBJECT']}",(0.5,0.71), xycoords=xyc,size=fsize_large,horizontalalignment='center')
         az = np.around(s.meta['AZIMUTH'],1)
         el = np.around(s.meta['ELEVATIO'],1)
         ha = ra2ha(s.meta['LST'],s.meta['CRVAL2'])
-        self._axis.annotate(f"Az: {az}  El: {el}  HA: {ha}",(0.99,0.71), xycoords=xyc,size=fsize_small,horizontalalignment='right')
+        self._axis.annotate(f"Az: {az}  El: {el}  HA: {ha}",(0.95,0.71), xycoords=xyc,size=fsize_small,horizontalalignment='right')
+
+        #last corner
+        ts = str(dt.datetime.now())[:19]
+        self._axis.annotate(f"{ts}",(0.85,0.01), xycoords=xyc,size=fsize_small,horizontalalignment='right')
 
 
 
