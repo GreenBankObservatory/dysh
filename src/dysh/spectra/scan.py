@@ -141,8 +141,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     @classmethod
     def _check_bunit(self, bunit):
-        """check that the requested brightness unitis valid.  This allows us to not import
-        GBTGainCorretion into GBTFITSLoad
+        """
+        Check that the requested brightness unit is valid.
+        This allows us to not import `GBTGainCorretion` into `GBTFITSLoad`.
 
         Parameters
         ----------
@@ -155,7 +156,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Raises
         ------
-        ValueError if the scale is unrecognized.
+        ValueError
+            If the scale is unrecognized.
         """
         if not GBTGainCorrection.is_valid_scale(bunit):
             raise ValueError(
@@ -169,7 +171,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         Returns
         -------
         bool
-            True if scale is e.g :math:`T_A^*` or Jy (:math:`S_\nu`)
+            True if scale is e.g :math:`T_A^*` or Jy (:math:`S_\nu`).
         """
         return self._bunit != "ta"
 
@@ -178,14 +180,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
 
-                - 'ta'  : Antenna Temperature
-                - 'ta*' : Antenna temperature corrected to above the atmosphere
-                - 'jy'  : flux density in Jansky
+            - 'ta'  : Antenna Temperature
+            - 'ta*' : Antenna temperature corrected to above the atmosphere
+            - 'jy'  : flux density in Jansky
 
         Returns
         -------
         str
-            brightness string
+            Brightness string.
 
         """
         return self._bunit
@@ -222,7 +224,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._calibrated = self._calibrated * (np.array([factor]).T)
 
     @log_call_to_history
-    def scale(self, bunit, zenith_opacity):
+    def scale(self, bunit, zenith_opacity=None):
         """
         Scale the data to the given brightness temperature scale and zenith opacity. If data are already
         scaled, they will be unscaled first.
@@ -236,8 +238,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 - 'jy'  : flux density in Jansky
             This parameter is case-insensitive.
 
-        zenith_opacity : float
-            The zenith opacity
+        zenith_opacity : float, optional
+            The zenith opacity. Required if `bunit` is 'ta*' or 'jy'.
 
         Returns
         -------
@@ -246,9 +248,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         Raises
         ------
         TypeError
-            if scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+            If scaling to temperature is not applicable to the scan type, e.g., a total power scan.
         ValueError
-            if `bunit` is unrecognized or `zenith_opacity` is negative.
+            If `bunit` is unrecognized or `zenith_opacity` is negative.
 
         """
         if self.__class__ == TPScan:
@@ -259,8 +261,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         s = bunit.lower()
         if s == self._bunit:
             return
+        if bunit != "ta" and zenith_opacity is None:
+            raise ValueError("Zenith opacity must be provided when scaling to Ta* or Jy.")
 
-        # unscale the date if it was already scaled.
+        # unscale the data if it was already scaled.
         if self.is_scaled:
             self._scaleby(1.0 / self._bscale)
         # if scaling back to antenna temperature, reset the scale factor to one and return.
@@ -352,11 +356,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @property
     def pols(self):
         """The polarization number(s)
-        gc.physical_aperture
-                Returns
-                -------
-                list
-                    The list of integer polarization number(s)
+
+        Returns
+        -------
+        list
+            The list of integer polarization number(s)
         """
         return self._pols
 
