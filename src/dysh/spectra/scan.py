@@ -261,7 +261,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         s = bunit.lower()
         if s == self._bunit:
             return
-        if bunit != "ta" and zenith_opacity is None:
+        if s != "ta" and zenith_opacity is None:
             raise ValueError("Zenith opacity must be provided when scaling to Ta* or Jy.")
 
         # unscale the data if it was already scaled.
