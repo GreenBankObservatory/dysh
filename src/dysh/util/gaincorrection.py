@@ -343,7 +343,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
         Parameters
         ----------
-        specval : `~astro.units.quantity.Quantity`
+        specval : `~astropy.units.quantity.Quantity`
             The spectral value(s) -- frequency or wavelength -- at which to compute the efficiency
 
         angle :  `~astropy.coordinates.Angle` or `~astropy.units.quantity.Quantity`
@@ -395,11 +395,9 @@ class GBTGainCorrection(BaseGainCorrection):
             if eps0 is None:
                 eps0 = [self.surface_error(x) for x in date]
                 eps0 = to_quantity_list(eps0)
-        # print(f"{coeff=}")
         _lambda = sp.to(eps0.unit, equivalencies=u.spectral())
 
         a = (4.0 * np.pi * eps0 / _lambda) ** 2
-        # print(f"{coeff.shape=} {eps0.shape=} {_lambda.shape=} {a.shape=}")
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
 
@@ -423,7 +421,7 @@ class GBTGainCorrection(BaseGainCorrection):
                     - 'jy'  : flux density in Jansky
             If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
 
-        specval : `~astro.units.quantity.Quantity`
+        specval : `~astropy.units.quantity.Quantity`
             The spectral value(s) -- frequency or wavelength -- at which to compute the efficiency
 
         angle :  `~astropy.coordinates.Angle` or `~astropy.units.quantity.Quantity`
