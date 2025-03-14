@@ -5,7 +5,7 @@ from astropy.io import fits
 
 import dysh.util as util
 from dysh.fits import gbtfitsload, sdfitsload
-from dysh.fits.core import calseq, getbeam, getnod, mean_data, plot_vegas, vanecal
+#from dysh.fits.core import calseq, getbeam, getnod, mean_data, plot_vegas, vanecal
 from dysh.util.files import dysh_data
 
 
@@ -20,18 +20,18 @@ class TestVaneScan:
         sdf_file = dysh_data(test="AGBT21B_024_14/AGBT21B_024_14_test")
         sdf2 = gbtfitsload.GBTFITSLoad(sdf_file)
 
-        beam2 = getbeam(sdf2)
+        beam2 = sdf2.getbeam()
         assert len(beam2) == 2
         assert beam2[0] == 1 and beam2[1] == 9
 
         #  [1, 9]
 
         tcal = 272
-        tsys2 = vanecal(sdf2, [329, 330], feeds=beam2, tcal=tcal)
+        tsys2 = sdf2.vanecal([329, 330], feeds=beam2, tcal=tcal)
         #  221.79946241 201.2739606
 
-        sp1, sp2 = getnod(sdf2, [331, 332], beam2, tsys=tsys2)
-        sp3, sp4 = getnod(sdf2, [333, 334], beam2, tsys=tsys2)
+        sp1, sp2 = sdf2._getnod([331, 332], beam2, tsys=tsys2)
+        sp3, sp4 = sdf2._getnod([333, 334], beam2, tsys=tsys2)
         sp5 = sp1.average([sp2, sp3, sp4])
 
         tint = sp5.meta["EXPOSURE"]
@@ -52,14 +52,14 @@ class TestVaneScan:
         sdf_file = dysh_data(test="AGBT15B_244_07/AGBT15B_244_07_test")
         sdf3 = gbtfitsload.GBTFITSLoad(sdf_file)
 
-        beam3 = getbeam(sdf3)
+        beam3 = sdf3.getbeam()
         assert len(beam3) == 2
         assert beam3[0] == 0 and beam3[1] == 1
 
-        tsys3, g = calseq(sdf3, 130, ifnum=1, plnum=0)  # 103.0501604820638
+        tsys3, g = sdf3.calseq(130, ifnum=1, plnum=0)  # 103.0501604820638
         assert np.isclose(tsys3, 104.33, rtol=rtol)
 
-        sp1, sp2 = getnod(sdf3, [131, 132], beam3, ifnum=1, plnum=0, tsys=tsys3)
+        sp1, sp2 = sdf3._getnod([131, 132], beam3, ifnum=1, plnum=0, tsys=tsys3)
         sp3 = sp1.average(sp2)
 
         tint = sp3.meta["EXPOSURE"]  # 11.939691305160522
