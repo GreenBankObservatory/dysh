@@ -43,12 +43,12 @@ from dysh.util.files import dysh_data
 from dysh.util.selection import Selection
 from dysh.spectra.core import mean_tsys
 # new
-from dysh.fits.core import mean_data
-from dysh.fits.core import getbeam
-from dysh.fits.core import calseq
-from dysh.fits.core import vanecal
-from dysh.fits.core import plot_vegas
-from dysh.fits.core import getnod
+#from dysh.fits.core import mean_data
+#from dysh.fits.core import getbeam
+#from dysh.fits.core import calseq
+#from dysh.fits.core import vanecal
+from dysh.plot.vegasplot import plot_vegas
+#from dysh.fits.core import getnod
  
 #  useful keys for a mult-beam observation listing
 
@@ -210,14 +210,14 @@ sdf1.write('vane1/file.fits',scan=scans, overwrite=True)   # 64 rows
 
 
 # our EDGE notes claim that 1,9 are the nodding beams
-feeds1 = getbeam(sdf1)    # [10,1]
+feeds1 = sdf1.getbeam()   # [10,1]
 print("Nodding feeds",feeds1)
 
 # load smaller dataset
 vane1 = GBTFITSLoad('vane1')
 vane1.summary()
 vane1._index[kw]    # 64 rows  -- TPNOCAL
-getbeam(vane1)   # -> notice not defined here in just the vane/sky
+vane1.getbeam()   # -> notice not defined here in just the vane/sky
 
 #  in these, feed=2 is bad
 plot_vegas(vane1,[281,282])
@@ -258,11 +258,14 @@ plt.plot(t1)
 v1.plot(title='VANE')
 s1.plot(title='SKY')
 
-tsys=vanecal(vane1, [281, 282], feeds=feeds1)
-print(f"For feeds={feeds1} Tsys={tsys}")       #  [50.41218948 57.76417121]
+tcal = 100    # need to know this
+tcal = 272
+tsys=vane1.vanecal([281, 282], feeds=feeds1, tcal=tcal)
+print(f"For feeds={feeds1} Tsys={tsys}")       #  138.57587227 157.80540281  for tcal-272
 
 # now process the NOD assuming the just aqcuired Tsys
-sp1,sp2 = getnod(sdf1, [289, 290], feeds1, tsys)
+sp1,sp2 = sdf1._getnod( [289, 290], feeds1, tsys)
+# @todo not working now
 sp1.plot(title='Feed1')
 sp2.plot(title='Feed2')
 
@@ -506,7 +509,7 @@ if True:   # 26MB
     test3._index[kw]  # 18 rows
     
     tsys3,g = calseq(test3, 130, ifnum=1, plnum=0)
-    print(tsys3,g)  # 103.0501604820638
+    print(tsys3,g)  # 104.33234097093249
     
     sp1,sp2 = getnod(test3, [131,132], [0,1], plnum=0, ifnum=1, tsys=tsys3)
     sp3 = sp1.average(sp2)
