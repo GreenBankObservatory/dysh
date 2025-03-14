@@ -174,15 +174,15 @@ class TestGainCorrection:
         angles = Angle([0.0, 25.0, 40.0, 45.0, 50, 65.0, 90.0], unit=u.degree)
         freqs = np.array([10.0, 30.0, 43.0, 80.0, 110.0]) * u.GHz
         x = self.gbtgc.scale_ta_to(
-            scale="jy", specval=10 * u.GHz, angle=angles, date=self.dates[0], zenith_opacity=0.05, zd=False
+            bunit="jy", specval=10 * u.GHz, angle=angles, date=self.dates[0], zenith_opacity=0.05, zd=False
         )
         assert len(x) == len(angles)
         x = self.gbtgc.scale_ta_to(
-            scale="jy", specval=freqs, angle=angles[0], date=self.dates[0], zenith_opacity=0.05, zd=False
+            bunit="jy", specval=freqs, angle=angles[0], date=self.dates[0], zenith_opacity=0.05, zd=False
         )
         assert len(x) == len(freqs)
         x = self.gbtgc.scale_ta_to(
-            scale="jy", specval=freqs, angle=angles[2:], date=self.dates[3:], zenith_opacity=0.05, zd=False
+            bunit="jy", specval=freqs, angle=angles[2:], date=self.dates[3:], zenith_opacity=0.05, zd=False
         )
         assert len(x) == len(freqs)
 

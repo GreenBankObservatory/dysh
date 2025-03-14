@@ -405,7 +405,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
     def scale_ta_to(
         self,
-        scale: str,
+        bunit: str,
         specval: Quantity,
         angle: Union[Angle, Quantity],
         date: Time,
@@ -414,13 +414,38 @@ class GBTGainCorrection(BaseGainCorrection):
         eps0=None,
     ) -> Union[float, np.array]:
         """
-        Scale the antenna temperature to a different brightness temperature unit,
+        Scale the antenna temperature to a different brightness temperature unit.
+
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
+                    - 'ta'  : Antenna Temperature
+                    - 'ta*' : Antenna temperature corrected to above the atmosphere
+                    - 'jy'  : flux density in Jansky
+            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+
+        specval : `~astro.units.quantity.Quantity`
+            The spectral value(s) -- frequency or wavelength -- at which to compute the efficiency
+
+        angle :  `~astropy.coordinates.Angle` or `~astropy.units.quantity.Quantity`
+            The elevation(s) or zenith distance(s) at which to compute the efficiency
+
+        date  : `~astropy.time.Time`
+            The date(s) at which to compute the efficiency.
+
+        zenith_opacity: float
+            The zenith opacity to use in calculating the scale factors for the integrations.
+        zd : bool
+            True if the input value is zenith distance, False if it is elevation. Default: False
+
+        eps0 : `~astropy.units.quantity.Quantity` or None
+            The value of :math:`\epsilon_0` to use, the surface rms error. If given, must have units of length (typically microns).
+            If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
         """
-        if not GBTGainCorrection.is_valid_scale(scale):
+        if not GBTGainCorrection.is_valid_scale(bunit):
             raise ValueError(
-                f"Unrecognized temperature scale {scale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+                f"Unrecognized temperature scale {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
-        s = scale.lower()
+        s = bunit.lower()
         if s == "ta":
             return 1.0
         am = self.airmass(angle, zd)
