@@ -25,7 +25,7 @@ class BaseGainCorrection(ABC):
     Subclasses can implement the following attributes:
 
     * `ap_eff_0`
-        Long wavelength aperture efficiency (number between 0 and 1), i.e., in the absence of surface errors,
+        Long wavelength aperture efficiency (number between 0 and 1), :math:`\eta_{a}`, i.e., in the absence of surface errors,
         :math:`\lambda >> \epsilon_0`.
 
     * `epsilon_0`
@@ -34,12 +34,18 @@ class BaseGainCorrection(ABC):
     * `physical_aperture`
         Antenna physical aperture with units of length**2 (`~astropy.units.quanitity.Quantity`)
 
+    * `loss_eff_0`
+        The telescope efficiency combining radiation efficiency :math:`\eta_r` and rearward scattering and spillover efficiency, :math:`\eta_{rss}`.
+        :math:`\eta_{loss} = \eta_r\eta_{rss}`.  This is the term :math:`\eta_l` as defined by Kutner & Ulich (1981) equation 12.
+        See https://articles.adsabs.harvard.edu/pdf/1981ApJ...250..341K
+
     """
 
     def __init__(self):
         self.ap_eff_0 = 1.0
         self.epsilon_0 = 100 * u.micron
         self.physical_aperture = 1.0 * u.m * u.m
+        self.loss_eff_0 = 1.0
 
     @property
     def jyperk(self):
@@ -136,6 +142,7 @@ class GBTGainCorrection(BaseGainCorrection):
         self.app_eff_0 = 0.71
         self.epsilon_0 = 230 * u.micron
         self.physical_aperture = 7853.9816 * u.m * u.m
+        self.loss_eff_0 = 0.99
         self._forecast = None
 
     @classmethod
@@ -406,6 +413,9 @@ class GBTGainCorrection(BaseGainCorrection):
         zd=False,
         eps0=None,
     ) -> Union[float, np.array]:
+        """
+        Scale the antenna temperature to a different brightness temperature unit,
+        """
         if not GBTGainCorrection.is_valid_scale(scale):
             raise ValueError(
                 f"Unrecognized temperature scale {scale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
@@ -414,16 +424,17 @@ class GBTGainCorrection(BaseGainCorrection):
         if s == "ta":
             return 1.0
         am = self.airmass(angle, zd)
-        eta = self.aperture_efficiency(specval, angle, date, zd, eps0)
+        eta_a = self.aperture_efficiency(specval, angle, date, zd, eps0)
         # Calculate Ta* because in both cases we need it
-        # Ta* = T_a exp(tau*A)/(eta_a * A_p)
+        # Ta* = T_a exp(tau*A)/(eta_a * eta_loss )
         # - the airmass as a function of elevation, A
         # - the aperture efficiency as a function of frequency and date, eta_a
-        factor = np.exp(zenith_opacity * am) / eta
+        # - the loss efficiency, eta_loss
+        factor = np.exp(zenith_opacity * am) / (eta_a * self.loss_eff_0)
         if s == "ta*":
             return factor
-        # Snu = 2kT_a exp(tau*A)/(eta_a * A_p)
-        #     = 2kT_a*/A_p
+        # Snu = 2kT_a exp(tau*A)/(eta_a * eta_loss *  A_p )
+        #     = 2kTa*/(eta_loss * A_p)
         # where
         # - k is Boltzmann's constant
         # - the physical aperture, A_p

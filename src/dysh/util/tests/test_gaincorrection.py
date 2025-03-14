@@ -186,13 +186,14 @@ class TestGainCorrection:
         )
         assert len(x) == len(freqs)
 
-        # the scale to ta* at low freq and Airmass=1 with tau=0 should be equal to the reciprocal of the aperture efficiency
+        # the scale to ta* at low freq and Airmass=1 with tau=0 should be equal to the reciprocal of the aperture efficiency times the loss efficiency
         a = self.gbtgc.scale_ta_to("ta*", 1.0 * u.GHz, 90 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False)
-        b = 1.0 / self.gbtgc.aperture_efficiency(1 * u.GHz, 90 * u.degree, self.dates[-1])
+        b = 1.0 / (self.gbtgc.loss_eff_0 * self.gbtgc.aperture_efficiency(1 * u.GHz, 90 * u.degree, self.dates[-1]))
         assert a == pytest.approx(b, 1e-6)
 
-        # for perfect aperture_efficiency the scale to jansky should be the Jy/K of the telescope = A_p/2K
+        # for perfect aperture and loss efficiencies the scale to jansky should be the Jy/K of the telescope = A_p/2K
         jyk = (2 * k_B / self.gbtgc.physical_aperture).to("Jy/K")
         self.gbtgc.app_eff_0 = 1
+        self.gbtgc.loss_eff_0 = 1
         a = self.gbtgc.scale_ta_to("jy", 1.0 * u.GHz, 45 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False)
         assert jyk.value == pytest.approx(a, abs=1e-4)
