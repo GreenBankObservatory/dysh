@@ -1,6 +1,7 @@
 """Tests for specplot."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 from dysh.fits import GBTFITSLoad
 from dysh.util import get_project_testdata
@@ -9,7 +10,8 @@ from dysh.util import get_project_testdata
 class TestSpecplot:
     """ """
 
-    def test_savefig(self, tmp_path):
+    @patch("dysh.plot.specplot.plt.show")
+    def test_savefig(self, mock_show, tmp_path):
         """
         Test that plots are saved.
         """
