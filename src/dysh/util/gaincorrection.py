@@ -416,13 +416,13 @@ class GBTGainCorrection(BaseGainCorrection):
         am = self.airmass(angle, zd)
         eta = self.aperture_efficiency(specval, angle, date, zd, eps0)
         # Calculate Ta* because in both cases we need it
-        # Ta* = T_a exp(-tau*A)/(eta_a * A_p)
+        # Ta* = T_a exp(tau*A)/(eta_a * A_p)
         # - the airmass as a function of elevation, A
         # - the aperture efficiency as a function of frequency and date, eta_a
-        factor = np.exp(-zenith_opacity * am) / eta
+        factor = np.exp(zenith_opacity * am) / eta
         if s == "ta*":
             return factor
-        # Snu = 2kT_a exp(-tau*A)/(eta_a * A_p)
+        # Snu = 2kT_a exp(tau*A)/(eta_a * A_p)
         #     = 2kT_a*/A_p
         # where
         # - k is Boltzmann's constant
