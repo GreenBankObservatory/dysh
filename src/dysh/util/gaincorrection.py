@@ -416,7 +416,7 @@ class GBTGainCorrection(BaseGainCorrection):
         """
         Scale the antenna temperature to a different brightness temperature unit.
 
-        bunit : str, optional
+        bunit : str
             The brightness scale unit for the output scan, must be one of (case-insensitive)
                     - 'ta'  : Antenna Temperature
                     - 'ta*' : Antenna temperature corrected to above the atmosphere
