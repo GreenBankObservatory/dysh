@@ -13,8 +13,7 @@ from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table
 from astropy.utils.masked import Masked
 
-from dysh.log import logger
-
+from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 

@@ -16,8 +16,18 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
+from ..spectra.scan import (
+    FSScan,
+    NodScan,
+    PSScan,
+    ScanBase,
+    ScanBlock,
+    SubBeamNodScan,
+    TPScan,
+)
 from ..util import (
+    Flag,
+    Selection,
     consecutive,
     convert_array_to_mask,
     eliminate_flagged_rows,
@@ -27,16 +37,7 @@ from ..util import (
     uniq,
 )
 from ..util.files import dysh_data
-from ..util.selection import Flag, Selection
 from .sdfitsload import SDFITSLoad
-
-calibration_kwargs = {
-    "calibrate": True,
-    "timeaverage": False,
-    "polaverage": False,
-    "tsys": None,
-    "weights": "tsys",
-}
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
@@ -1072,11 +1073,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self,
         calibrate=True,
         timeaverage=True,
-        polaverage=False,
         weights="tsys",
         bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        smoothref: int = 1,
+        apply_flags: str = True,
+        bunit: str = "ta",
+        zenith_opacity: float = None,
         **kwargs,
     ):
         """
@@ -1088,8 +1090,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Calibrate the scans. The default is True.
         timeaverage : boolean, optional
             Average the scans in time. The default is True.
-        polaverage : boolean, optional
-            Average the scans in polarization. The default is False.
         weights : str or None, optional
             How to weight the spectral data when averaging.  'tsys' means use system
             temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
@@ -1101,6 +1101,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
+                    - 'ta'  : Antenna Temperature
+                    - 'ta*' : Antenna temperature corrected to above the atmosphere
+                    - 'jy'  : flux density in Jansky
+            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+        zenith_opacity: float, optional
+            The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1117,6 +1126,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~spectra.scan.PSScan`.
 
         """
+        ScanBase._check_bunit(bunit)
+        if bunit.lower() != "ta" and zenith_opacity is None:
+            raise ValueError("Can't scale the data without a valid zenith opacity")
 
         if apply_flags:
             self.apply_flags()
@@ -1217,6 +1229,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         calibrate=calibrate,
                         smoothref=smoothref,
                         apply_flags=apply_flags,
+                        bunit=bunit,
+                        zenith_opacity=zenith_opacity,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
@@ -1237,6 +1251,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
+        bunit="ta",
+        zenith_opacity=None,
         **kwargs,
     ):
         """
@@ -1436,6 +1452,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             calibrate=calibrate,
                             smoothref=smoothref,
                             apply_flags=apply_flags,
+                            bunit=bunit,
+                            zenith_opacity=zenith_opacity,
                         )
                         g.merge_commentary(self)
                         scanblock.append(g)
@@ -1462,6 +1480,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
+        bunit="ta",
+        zenith_opacity=None,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -1498,6 +1518,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
+                    - 'ta'  : Antenna Temperature
+                    - 'ta*' : Antenna temperature corrected to above the atmosphere
+                    - 'jy'  : flux density in Jansky
+            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+        zenith_opacity: float, optional
+                The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
         observer_location : `~astropy.coordinates.EarthLocation`
             Location of the observatory. See `~dysh.coordinates.Observatory`.
             This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1598,6 +1626,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         observer_location=observer_location,
                         smoothref=1,
                         apply_flags=apply_flags,
+                        bunit=bunit,
+                        zenith_opacity=zenith_opacity,
                         debug=debug,
                     )
                     g.merge_commentary(self)
@@ -1622,6 +1652,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
+        bunit="ta",
+        zenith_opacity=None,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -1648,6 +1680,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
+                    - 'ta'  : Antenna Temperature
+                    - 'ta*' : Antenna temperature corrected to above the atmosphere
+                    - 'jy'  : flux density in Jansky
+            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+        zenith_opacity: float, optional
+                The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1808,6 +1848,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             weights=weights,
                             smoothref=smoothref,
                             apply_flags=apply_flags,
+                            bunit=bunit,
+                            zenith_opacity=zenith_opacity,
                         )
                         scanblock.append(sb)
         elif method == "scan":
@@ -1875,6 +1917,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             weights=weights,
                             smoothref=smoothref,
                             apply_flags=apply_flags,
+                            bunit=bunit,
+                            zenith_opacity=zenith_opacity,
                         )
                         sb.merge_commentary(self)
                         scanblock.append(sb)
