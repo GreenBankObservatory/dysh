@@ -3,16 +3,16 @@ Core utility definitions, classes, and functions
 """
 
 import hashlib
+import numbers
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Union
 
-# import astropy.units as u
 import numpy as np
-
-# import pandas as pd
 from astropy.time import Time
+from astropy.units.quantity import Quantity
 
 ALL_CHANNELS = "all channels"
 
@@ -121,6 +121,52 @@ def gbt_timestamp_to_time(timestamp):
     else:
         t = [ts.replace("_", "-", 2).replace("_", "T") for ts in timestamp]
     return Time(t, scale="utc")
+
+
+def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
+    """Convert an astropy Time, list of MJD, or single MJD to a list of MJD
+
+    Parameters
+    ----------
+    time_val : `~astropy.time.Time` or float or list of float
+        The time value to convert.
+
+    Returns
+    -------
+    mjd : ~np.ndarray
+        The Modified Julian Day values in an array. (or None if `time_val` was None)
+
+    """
+    if time_val is None:
+        return None
+    # check for Time first since it is also a Sequence
+    if isinstance(time_val, Time):
+        if time_val.isscalar:
+            return np.array([time_val.mjd])
+        else:
+            return time_val.mjd
+    if isinstance(time_val, (Sequence, np.ndarray)) and not isinstance(time_val, str):  # str is also a Sequence
+        return time_val
+    if isinstance(time_val, numbers.Number):
+        return np.array([time_val])
+
+    else:
+        raise ValueError(f"Unrecognized type for time value: {type(time_val)}")
+
+
+def to_quantity_list(q: Union[Quantity, Sequence]) -> Quantity:
+    # if given quanity or [quanity], return [quanity.value]*quantity.units
+    # handle quantities first
+    if isinstance(q, Quantity):
+        if q.isscalar:
+            return [q.value] * q.unit
+        else:
+            return q
+    # now handle lists of quantities
+    if isinstance(q, Sequence):
+        if len(set([x.unit for x in q])) != 1:
+            raise ValueError("Units must all be the same in input list")
+        return [x.value for x in q] * q[0].unit
 
 
 def generate_tag(values, hashlen, add_time=True):
@@ -335,49 +381,6 @@ def powerof2(number):
     """
 
     return round(np.log10(number) / np.log10(2.0))
-
-
-# From astropy.io.fits.Card:
-# FSC commentary card string which must contain printable ASCII characters.
-# Note: \Z matches the end of the string without allowing newlines
-_ascii_text_re = re.compile(r"[ -~]*\Z")
-
-
-def _ensure_ascii_str(text: str, check: bool = False) -> str:
-    """does the actual cleaning of a text string"""
-    clean_text = text.encode("ascii", "ignore").decode("ascii")
-    clean_text = clean_text.replace("\n", " ")
-    if check and _ascii_text_re.match(clean_text) is None:
-        raise ValueError(f"Unable to fully clean string:{clean_text!r} of non-ASCII or non-printable characters.")
-
-    return clean_text
-
-
-def ensure_ascii(text: Union[str, list[str]], check: bool = False) -> Union[str, list[str]]:
-    """
-    Remove non-printable ASCII characters from a string or list of strings. This is to ensure that
-    FITS cards conform to the standard
-
-    Parameters
-    ----------
-    text : str
-        The text to clean
-
-    check: bool
-        Check if the clean value is truly clean according to astropy FITS, raise ValueError if not
-    Returns
-    -------
-    str or list[str]
-        The cleaned text
-
-    """
-    if isinstance(text, str):
-        return _ensure_ascii_str(text)
-    else:
-        clean_text = []
-        for c in text:
-            clean_text.append(_ensure_ascii_str(c))
-        return clean_text
 
 
 def convert_array_to_mask(a, length, value=True):

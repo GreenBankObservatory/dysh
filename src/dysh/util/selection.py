@@ -422,7 +422,7 @@ class SelectionBase(DataFrame):
 
         Parameters
         ----------
-        df : ~pandas.DataFrame
+        df : `~pandas.DataFrame`
             The selection to check
 
 
@@ -452,7 +452,7 @@ class SelectionBase(DataFrame):
         ----------
         row : dict
             key, value pairs of the selection
-        dataframe : ~pandas.DataFrame
+        dataframe : `~pandas.DataFrame`
             The dataframe created by the selection.
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
@@ -889,7 +889,7 @@ class SelectionBase(DataFrame):
 
         Returns
         -------
-        ~pandas.DataFrame
+        `~pandas.DataFrame`
             The selection/flag rule
         """
         return self._selection_rules[key]
@@ -1117,7 +1117,7 @@ class Flag(SelectionBase):
         flagging. Single arrays/tuples will be treated as *channel lists;
         nested arrays will be treated as  *inclusive* ranges. For instance:
 
-        ``
+        ```
         # flag channel 24
         flag_channel(24)
         # flag channels 1 and 10
@@ -1128,7 +1128,7 @@ class Flag(SelectionBase):
         flag_channel([[1,10], [47,56], 75)])
         # tuples also work, though can be harder for a human to read
         flag_channel(((1,10), [47,56], 75))
-        ``
+        ```
 
         *Note* : channel numbers start at zero
 
@@ -1264,13 +1264,16 @@ class Flag(SelectionBase):
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
         header = ["RECNUM", "SCAN", "INTNUM", "PLNUM", "IFNUM", "FDNUM", "BCHAN", "ECHAN", "IDSTRING"]
+        found_header = False
         for l in lines[lines.index("[flags]") + 1 :]:
             vdict = {}
             if l.startswith("#"):
-                # its the header
-                colnames = l[1:].split(",")
-                if colnames != header:
-                    raise Exception(f"Column names {colnames} do not match expectated {header}")
+                if not found_header:
+                    # its the header
+                    colnames = l[1:].split(",")
+                    if colnames != header:
+                        raise Exception(f"Column names {colnames} do not match expectated {header}")
+                    found_header = True
             else:
                 values = l.split("|")
                 for i, v in enumerate(values):

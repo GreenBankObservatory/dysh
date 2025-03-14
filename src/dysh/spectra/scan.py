@@ -11,6 +11,7 @@ import numpy as np
 from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
+from astropy.time import Time
 from astropy.utils.masked import Masked
 
 from dysh.spectra import core
@@ -18,8 +19,8 @@ from dysh.spectra import core
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..util import uniq
-from .core import (  # fft_shift,
-    average,
+from ..util.gaincorrection import GBTGainCorrection
+from .core import (  # fft_shift,; average,
     find_non_blanks,
     find_nonblank_ints,
     mean_tsys,
@@ -114,6 +115,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._pols = -1
         self._sdfits = sdfits
         # self._meta = {}
+        self._bscale = 1.0
+        self._bunit = "ta"
 
     def _validate_defaults(self):
         _required = {
@@ -135,6 +138,149 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
         if type(self._scan) != int:
             raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
+
+    @classmethod
+    def _check_bunit(self, bunit):
+        """
+        Check that the requested brightness unit is valid.
+        This allows us to not import `GBTGainCorretion` into `GBTFITSLoad`.
+
+        Parameters
+        ----------
+        bunit : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+            This parameter is case-insensitive.
+
+        Raises
+        ------
+        ValueError
+            If the scale is unrecognized.
+        """
+        if not GBTGainCorrection.is_valid_scale(bunit):
+            raise ValueError(
+                f"Unrecognized brightness temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+            )
+
+    @property
+    def is_scaled(self):
+        r"""Is this Scan scaled to something other than  antenna temperature :math:`T_A`.
+
+        Returns
+        -------
+        bool
+            True if scale is e.g :math:`T_A^*` or Jy (:math:`S_\nu`).
+        """
+        return self._bunit != "ta"
+
+    @property
+    def bunit(self):
+        """
+        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+
+            - 'ta'  : Antenna Temperature
+            - 'ta*' : Antenna temperature corrected to above the atmosphere
+            - 'jy'  : flux density in Jansky
+
+        Returns
+        -------
+        str
+            Brightness string.
+
+        """
+        return self._bunit
+
+    @property
+    def bscale(self):
+        """
+        The factor(s) by which the data have been scale from antenna temperature to corrected antenna temperature
+        or flux density.  Analogous to FITS `BSCALE` keyword.
+
+        Returns
+        -------
+        np.array
+            An array of floats, one per integration in the scan.
+
+        """
+        return self._bscale
+
+    def _scaleby(self, factor):
+        """Scale the calibrated data array by a factor. This is an NxM * N multiplication
+
+        Parameters
+        ----------
+            factor - np.array or float
+
+            The factor to scale the spectral data by
+
+        Returns
+        -------
+            None
+        """
+        # Array multiplication is slightly faster than a loop
+        # NB this will fail for TPScan since it has self._data instead of self._calibrated.  I need to change that in the refactor
+        self._calibrated = self._calibrated * (np.array([factor]).T)
+
+    @log_call_to_history
+    def scale(self, bunit, zenith_opacity=None):
+        """
+        Scale the data to the given brightness temperature scale and zenith opacity. If data are already
+        scaled, they will be unscaled first.
+
+        Parameters
+        ----------
+        bunit : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+            This parameter is case-insensitive.
+
+        zenith_opacity : float, optional
+            The zenith opacity. Required if `bunit` is 'ta*' or 'jy'.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        TypeError
+            If scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+        ValueError
+            If `bunit` is unrecognized or `zenith_opacity` is negative.
+
+        """
+        if self.__class__ == TPScan:
+            raise TypeError("Total power data cannot be directly scaled to temperature.")
+        self._check_bunit(bunit)
+        if zenith_opacity < 0:
+            raise ValueError("Zenith opacity cannot be negative.")
+        s = bunit.lower()
+        if s == self._bunit:
+            return
+        if s != "ta" and zenith_opacity is None:
+            raise ValueError("Zenith opacity must be provided when scaling to Ta* or Jy.")
+
+        # unscale the data if it was already scaled.
+        if self.is_scaled:
+            self._scaleby(1.0 / self._bscale)
+        # if scaling back to antenna temperature, reset the scale factor to one and return.
+        if s == "ta":
+            self._bscale = np.ones_like(self._bscale)
+            self._bunit = s
+            return
+
+        gc = GBTGainCorrection()
+        elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
+        freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
+        date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
+        factor = gc.scale_ta_to(bunit, freq, elev, date, zenith_opacity, zd=False)
+        self._scaleby(factor)
+        self._bscale = factor
+        self._bunit = s
 
     @property
     def scan(self):
@@ -429,7 +575,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
         self._timeaveraged = []
-        i = 0
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
         s = average_spectra(self._timeaveraged, weights=weights)
@@ -480,6 +625,58 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
+
+    def scale(self, bunit, zenith_opacity):
+        """
+        Scale all the data in this `ScanBlock` to the given brightness temperature scale and zenith opacity. If data are already
+        scaled, they will be unscaled first.
+
+        Parameters
+        ----------
+        bunit : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+            This parameter is case-insensitive.
+
+        zenith_opacity : float
+            The zenith opacity
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        TypeError
+            if scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+        ValueError
+            if `bunit` is unrecognized or `zenith_opacity` is negative.
+
+        """
+        for scan in self.data:
+            scan.scale(bunit, zenith_opacity)
+
+    @property
+    def bunit(self):
+        """
+        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+
+        Returns
+        -------
+        str
+            brightness unit string
+        """
+        bunit = set([scan.bunit for scan in self.data])
+        if len(bunit) > 1:
+            logger.warn(f"The Scans in this ScanBlock have differing brightness units {bunit}")
+            return list(bunit)
+        return list(bunit)[0]
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
@@ -930,6 +1127,14 @@ class PSScan(ScanBase):
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
+    bunit : str, optional
+        The brightess unit scale for the output scan, must be one of (case-insensitive)
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+    zenith_opacity: float, optional
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     """
 
     def __init__(
@@ -943,6 +1148,8 @@ class PSScan(ScanBase):
         smoothref=1,
         apply_flags=False,
         observer_location=Observatory["GBT"],
+        bunit="ta",
+        zenith_opacity=0.0,
     ):
         ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
@@ -1003,19 +1210,9 @@ class PSScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
-
-    # @property
-    # def scans(self):
-    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
-    #
-    #     Returns
-    #     -------
-    #     scans : dict
-    #         The scan number dictionary
-    #
-    #     """
-    #      return self._scans
 
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
@@ -1184,6 +1381,14 @@ class NodScan(ScanBase):
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration (if applicable)
     apply_flags : boolean, optional.  If True, apply flags before calibration.
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+    zenith_opacity: float, optional
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1202,6 +1407,8 @@ class NodScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
+        bunit="ta",
+        zenith_opacity=None,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits)
@@ -1269,6 +1476,8 @@ class NodScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
 
     # @property
@@ -1452,6 +1661,14 @@ class FSScan(ScanBase):
     smoothref: int
         The number of channels in the reference to boxcar smooth prior to calibration.
     apply_flags : boolean, optional.  If True, apply flags before calibration.
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+    zenith_opacity: float, optional
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1471,6 +1688,8 @@ class FSScan(ScanBase):
         use_sig=True,
         smoothref=1,
         apply_flags=False,
+        bunit="ta",
+        zenith_opacity=None,
         observer_location=Observatory["GBT"],
         debug=False,
     ):
@@ -1559,6 +1778,8 @@ class FSScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate(fold=fold, shift_method=shift_method)
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         if self._debug:
             logger.debug("---------------------------------------------------")
         self._validate_defaults()
@@ -1655,8 +1876,8 @@ class FSScan(ScanBase):
             # Apply units.
             try:
                 cunit1 = u.Unit(df["CUNIT1"])
-                if ndim == 2:
-                    cunit1 = cunit[0]  #  @todo undefined cunit[]
+                # if ndim == 2:
+                #   cunit1 = cunit[0]  #  @todo undefined cunit[]
             except KeyError:
                 cunit1 = u.Hz
 
@@ -1841,6 +2062,14 @@ class SubBeamNodScan(ScanBase):
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+    zenith_opacity: float, optional
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1862,6 +2091,8 @@ class SubBeamNodScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
+        bunit="ta",
+        zenith_opacity=None,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -1895,6 +2126,8 @@ class SubBeamNodScan(ScanBase):
         self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
 
     def calibrate(self, **kwargs):

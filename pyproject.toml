@@ -59,6 +59,7 @@ dev = [
 nb = [
   "jupyter",
   "jupyterlab",
+  "ipympl",
 ]
 all = ["dysh[dev,nb]"]
 
@@ -187,6 +188,9 @@ testpaths = ["tests", "src", "notebooks/examples"]
 filterwarnings = [
     "ignore::DeprecationWarning"
 ]
+# Ignore tests that should only be run on the GBO network
+# By convention these should be named "test_{something}_gbo_only.py"
+addopts = "--ignore-glob='*_gbo_only.py'"
 
 [tool.pip-tools]
 src_files = ["pyproject.toml"]
