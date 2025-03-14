@@ -16,8 +16,8 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..spectra.core import mean_data
+from ..spectra.scan import FSScan, NodScan, PSScan, ScanBlock, SubBeamNodScan, TPScan
 from ..util import (
     consecutive,
     convert_array_to_mask,
@@ -2645,7 +2645,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             print("too many in beam2:", d2["FDNUM"].unique())
             return []
 
-
     def calseq(self, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):
         """
         This routine returns the Tsys and gain for the selected W-band channel.
@@ -2719,7 +2718,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             print(f"Gain [K/counts] = {g}")
 
         return tsys, g
-
 
     def vanecal(self, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=False):
         """
@@ -2796,7 +2794,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return tsys
 
-
     def _getnod(self, scans, beams, ifnum=0, plnum=0, tsys=None):
         """
         fake getnod() based on alternating gettp() with averaging done internally
@@ -2841,13 +2838,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if len(tsys) == 1:
             tsys = np.array([tsys, tsys])  # because np.isscalar(np.array([1])) is False !
 
-        ps1_on = self.gettp(scan=scans[0], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
+        ps1_on = self.gettp(
+            scan=scans[0], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
+        ).timeaverage()
         ps1_off = self.gettp(
             scan=scans[1], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
         ).timeaverage()
         sp1 = (ps1_on - ps1_off) / ps1_off * tsys[0]
 
-        ps2_on = self.gettp(scan=scans[1], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
+        ps2_on = self.gettp(
+            scan=scans[1], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
+        ).timeaverage()
         ps2_off = self.gettp(
             scan=scans[0], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
         ).timeaverage()

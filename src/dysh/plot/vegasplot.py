@@ -1,6 +1,7 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.ma as ma
-import matplotlib.pyplot as plt
+
 
 def plot_vegas(sdf, scans, title=None, tsys=False, inverse=False, edge=50, ylim=None):
     """
@@ -67,5 +68,3 @@ def plot_vegas(sdf, scans, title=None, tsys=False, inverse=False, edge=50, ylim=
         print(f"Showing sky/(vane-sky) for scans={scans},scans+1")
     else:
         print(f"Showing total power for scans={scans}")
-
-

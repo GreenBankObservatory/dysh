@@ -700,6 +700,7 @@ def tsys_weight(exposure, delta_freq, tsys):
     else:
         return weight.astype(np.float64)
 
+
 def mean_data(data, fedge=0.1, nedge=None, median=False):
     """
     special mean of data to exclude the edges like mean_tsys(), with
@@ -735,7 +736,6 @@ def mean_data(data, fedge=0.1, nedge=None, median=False):
     else:
         meandata = np.nanmean(data[chrng])
     return meandata
-
 
 
 def get_spectral_equivalency(restfreq, velocity_convention):

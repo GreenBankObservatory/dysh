@@ -108,4 +108,3 @@ def default_sdfits_columns():
         "SUBOBSMODE",
     ]
     return colnames
-
