@@ -23,7 +23,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "astropy<7",
+  "astropy<7,>5",
   "ipython",
   "jplephem",
   "matplotlib",
