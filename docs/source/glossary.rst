@@ -3,7 +3,7 @@
 A dysh glossary
 ---------------
 
-Although GBT centric, some LMT terms are shown here as well.
+Commonly used terms.
 
 .. glossary::
 
@@ -39,6 +39,10 @@ Although GBT centric, some LMT terms are shown here as well.
 
     calon
       Signal with a calibration in the signal path.
+
+    CALSEQ
+      Specific W-band calibration procedure involving a sky, cold1 and cold2 measurement.
+      See GBT memo 305?
    
     ECSV
       (Enhanced Character Separated Values) a self-describing ascii table format popularized by astropy.
@@ -82,6 +86,9 @@ Although GBT centric, some LMT terms are shown here as well.
 
     masking vs. flagging blanking
 
+    noise diode
+      calibration gadgets at lower frequencies. See also VANE
+
     OTF Mapping
       On-The-Fly (OTF) mapping is where the telescope is continuesly scanned across the sky
       to sample the emission.
@@ -107,6 +114,10 @@ Although GBT centric, some LMT terms are shown here as well.
       alltogether.
 
     RRL - Radio Recombination Line
+
+    Ruze's equation
+      relating the gain of an antenna to its surface accuracy `eps`
+      G = G_0 exp(-(4.pi.eps/lambda)^2)
 
     Scan - GBT differentiates between different types of scans
      (FSScan, PSScan, TPScan, SubBeamNod Scan)
@@ -136,6 +147,12 @@ Although GBT centric, some LMT terms are shown here as well.
 
     SubBeamNod
       Another scan mode
+
+    VANE
+      That thing
+
+    VANECAL
+      Calibration procedure for ARGUS
 
     Waterfall Plot
       Tyically
@@ -368,6 +385,10 @@ Band Designations
 Nomenclature comes from the IEEE radar band names, but there is also
 a NATO nomenclature standard. See e.g. https://en.wikipedia.org/wiki/Radio_spectrum
 
+There is also a list of instruments at GBT clarifying this list
+on https://greenbankobservatory.org/portal/gbt/instruments/ or
+https://dss.gb.nrao.edu/receivers/summary
+
 * L: 1-2 GHz
 * S: 2-4 GHz
 * C: 4-8 GHz
@@ -378,3 +399,94 @@ a NATO nomenclature standard. See e.g. https://en.wikipedia.org/wiki/Radio_spect
 * V: 40-75
 * Q: 33-50 GHz or 6-9.1mm
 * W: 84-116 GHz (also: 75-110)
+
+
+Suggested Common Parameter Descriptions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*   apply_flags : boolean, optional.  If True, apply flags before calibration.
+
+
+*   bintable : int
+            the index for BINTABLE containing the scans
+
+*   channel : number, or array-like
+       The channels to operate on
+    
+
+
+*   gbtfits : `~fits.sdfitsload.SDFITSLoad`
+        input SDFITSLoad object
+
+*   fdnum : int
+            the feed index
+
+*   feeds : int list of two beams
+            the two nodding beams
+
+*   fitsindex : int
+            the index of the FITS file contained in this GBTFITSLoad.  Default:0
+
+*   ifnum: int
+            the IF index
+
+*   intnum
+
+
+*   plnum: int
+            the polarization index
+
+
+
+
+*   selection : `~pandas.DataFrame`
+            selection object
+
+
+*   observer_location
+
+
+
+*   scans : int or 2-tuple
+      The scan(s) to use. A 2-tuple represents (beginning, ending) scans.
+      Default: show all scans
+
+*   scans : array-like
+            list of one or more scans
+   
+   
+
+*   overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+*    scan: int        # TPScan(
+        scan number
+
+
+*   scans : dict        # PSScan
+        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference)
+        scan numbers NOTE: there should be one ON and one OFF, a pair
+
+*   scan : dict     # NodScan
+        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
+        NOTE: there should be one ON and one OFF, a pair. There should be at least two beams (the nodding beams)
+        which will be resp. on source in each scan.
+
+*   scan : int    # FSScan(ScanBase)
+        Scan number that contains integrations with a series of sig/ref and calon/caloff states.
+
+*   smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
+
+
+*   weights: str
+            'tsys' or None.
+    
+
+Finally
+~~~~~~~
+
+No more.
+
+   
