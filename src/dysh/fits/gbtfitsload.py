@@ -10,11 +10,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from astropy import units as u
 from astropy.io import fits
 
 from dysh.log import logger
 
-from ..coordinates import Observatory, decode_veldef
+from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..spectra.scan import (
     FSScan,
@@ -129,6 +130,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             self.add_history(f"Project ID: {self.projectID}", add_time=True)
         else:
             print("Reminder: No index created; many functions won't work.")
+
+        self._qd_corrected = False
 
     def __repr__(self):
         return str(self.files)
@@ -2626,6 +2629,145 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
+
+    @log_call_to_history
+    def qd_correct(self, ignore_jump: bool = False) -> None:
+        """
+        Apply quadrant detector (QD) corrections to antenna position.
+
+        Parameters
+        ----------
+        ignore_jump : bool
+            Whether to ignore the prescence of jumps in the QD data.
+            If set to `True` the corrections will be applied even if jumps are found.
+        """
+
+        if self._qd_corrected:
+            logger.debug("GBTFITSLoad already corrected.")
+            return
+
+        # Check for jumps.
+        if self._check_qd_jump() and not ignore_jump:
+            logger.warning(
+                "There is a jump in the quadrant detector data. We do not recommend applying these corrections in this case. If you wish to proceed call with `ignore_jump=True`."
+            )
+            return
+
+        # Check that there is only one frame type.
+        # This assumes that self._update_radesys has already been called
+        # so that "RADESYS" is populated.
+        frame = self["RADESYS"].apply(str.lower).to_numpy().astype(str)
+        if len(set(frame)) > 1:
+            raise TypeError("Only a single coordinate system per observation is supported for now.")
+        frame = frame[0]
+
+        lon = self["CRVAL2"].to_numpy()
+        lat = self["CRVAL3"].to_numpy()
+        time = self["DATE-OBS"].to_numpy().astype(str)
+        location = self.GBT
+
+        # Transform to AzEl.
+        # Only those that are not already in that frame.
+        altaz_mask = frame != "AltAz"
+        altaz = eq2hor(lon[altaz_mask], lat[altaz_mask], frame, time[altaz_mask], location=location)
+
+        # Update values.
+        az = copy.deepcopy(lon)
+        el = copy.deepcopy(lat)
+        az[altaz_mask] = altaz.az.deg
+        el[altaz_mask] = altaz.alt.deg
+        elfac = np.cos(np.deg2rad(el))
+
+        # Only apply if the QD data has not been flagged.
+        qd_good = self["QD_BAD"] == 0
+
+        if qd_good.sum() == 0:
+            logger.info("All quadrant detector data has been flagged. Will not apply corrections.")
+            return
+
+        # Apply corrections.
+        az[qd_good] -= (self["QD_XEL"] / elfac)[qd_good]
+        el[qd_good] -= self["QD_EL"][qd_good]
+
+        # Convert back to sky coordinates.
+        lonlat = hor2eq(az[altaz_mask], el[altaz_mask], frame, time[altaz_mask], location=location)
+        lon[altaz_mask] = lonlat.data.lon.to("deg").value
+        lat[altaz_mask] = lonlat.data.lat.to("deg").value
+
+        # Update the sky coordinates.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self["CRVAL2"] = lon
+            self["CRVAL3"] = lat
+
+        self._qd_corrected = True
+
+    def _check_qd_jump(self):
+        """
+        Check the quadrant detector data for jumps.
+        A jump is defined as a change by more than `threshold`
+        between consecutive samples. For now the `threshold`
+        is hardcoded to 10".
+        """
+
+        threshold = 10  # arcsec.
+        # TODO: set this as a configurable parameter.
+        return np.any(np.diff(self["QD_XEL"]) * 3600 > threshold) or np.any(np.diff(self["QD_EL"]) * 3600 > threshold)
+
+    def _qd_mask(self, threshold: float = 0.5) -> bool:
+        """
+        Generate a mask of rows where the pointing errors registered by the quadrant detector (QD)
+        are larger than `threshold` times the half power beam width.
+
+        Parameters
+        ----------
+        threshold : float
+            Fraction of the HPBW to mask as bad.
+        """
+
+        diam = 100 * u.m
+        lmbd = (self["CRVAL1"].to_numpy() * u.Hz).to("m", equivalencies=u.spectral())
+        hpbw = (1.2 * lmbd / diam * u.rad).to("deg").value
+        qdtot = np.sqrt(self["QD_XEL"] ** 2 + self["QD_EL"] ** 2).to_numpy()
+        qdbad = self["QD_BAD"].to_numpy() == 1
+
+        mask = abs(qdtot) > threshold * hpbw
+
+        mask[qdbad] = False
+
+        return mask
+
+    def qd_check(self, threshold: float = 0.5) -> None:
+        """
+        Check that the pointing errors registered by the quadrant detector (QD) are less than `threshold` times the beam width.
+
+        Parameters
+        ----------
+        threshold : float
+            Fraction of the beam width used to check.
+        """
+
+        mask = self._qd_mask(threshold)
+        bad_frac = mask.sum() / len(mask) * 100
+        logger.info(f"{bad_frac}% of the data has a pointing error of more than {threshold} times HPBW.")
+
+    def qd_flag(self, threshold: float = 0.5) -> None:
+        """
+        Flag rows where the pointing errors registered by the quadrant detector (QD)
+        are more than `threshold` times the half power beam width.
+
+        Parameters
+        ----------
+        threshold : float
+            Fraction of the beam width used to check.
+        """
+
+        mask = self._qd_mask(threshold)
+        if mask.sum() == 0.0:
+            # Nothing to flag.
+            return
+        flag_rows = np.where(mask == True)[0].tolist()
+        self.flag(row=flag_rows)
 
 
 class GBTOffline(GBTFITSLoad):
