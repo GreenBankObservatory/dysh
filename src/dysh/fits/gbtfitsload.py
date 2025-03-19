@@ -1237,6 +1237,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
+        t_sys=None,
+        nocal=False,
         **kwargs,
     ):
         """
@@ -1265,6 +1267,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this. Default: False
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1292,18 +1301,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             c = b.loc[b["FEEDEOFF"] == 0.0]
             d1 = c.loc[c["PROCSCAN"] == "BEAM1"]
             d2 = c.loc[c["PROCSCAN"] == "BEAM2"]
-            #
             if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
                 beam1 = d1["FDNUM"].unique()[0]
                 beam2 = d2["FDNUM"].unique()[0]
-                # fdnum1 = d1["FEED"].unique()[0]
-                # fdnum2 = d2["FEED"].unique()[0]
                 return [beam1, beam2]
             else:
                 # one more attempt (this can happen if PROCSCAN contains "Unknown")
                 # ugh, is it possible that BEAM1 and BEAM2 are switched here, given how we unique() ?
                 if len(c["FEED"].unique()) == 2:
-                    print("get_nod_beams rescued")
+                    logger.debug("get_nod_beams rescued")
                     b = c["FEED"].unique() - 1
                     return list(b)
                 return []
@@ -1322,9 +1328,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
         kwargs["fdnum"] = feeds
-        print(f"Using nodding beams {feeds}, use fdnum= to override these.")
+        logger.info(f"Using nodding beams {feeds}, use fdnum= to override these.")
 
-        # either the user gave scans on the command line (scans !=None) or pre-selected them
+        # Either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
         if len(self._selection._selection_rules) > 0:
@@ -1332,7 +1338,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             _final = self._index
         scans = kwargs.pop("scan", None)
-        # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
@@ -1344,23 +1349,23 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         missing = self._nod_scan_list_selection(scans, _final, feeds, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
-        # now remove any scans that have been pre-selected by the user.
+        # Now remove any scans that have been pre-selected by the user.
         # scans_to_add -= scans_preselected
         logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
         logger.debug(f"SCAN {scans}")
         logger.debug(f"TYPE {type(ps_selection)}")
         if len(scans_to_add) != 0:
-            # add a rule selecting the missing scans :-)
+            # Add a rule selecting the missing scans :-)
             logger.debug(f"adding rule scan={scans_to_add}")
             kwargs["SCAN"] = list(scans_to_add)
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
-        # now downselect with any additional kwargs
+        # Now downselect with any additional kwargs.
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
-        # now remove rows that have been entirely flagged
+        # Now remove rows that have been entirely flagged.
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
@@ -1399,30 +1404,32 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
                     logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
                     logger.debug(f"and PROC {set(_df['PROC'])}")
-                    # beam1_selected =  not beam1_selected
                     rows = {}
-                    # loop over scan pairs
+                    # Loop over scan pairs.
                     c = 0
                     for on, off in zip(scanlist["ON"], scanlist["OFF"]):
                         _ondf = select_from("SCAN", on, _df)
                         _offdf = select_from("SCAN", off, _df)
-                        # rows["ON"] = list(_ondf.index)
-                        # rows["OFF"] = list(_offdf.index)
                         rows["ON"] = list(_ondf["ROW"])
                         rows["OFF"] = list(_offdf["ROW"])
                         for key in rows:
                             if len(rows[key]) == 0:
                                 raise Exception(f"{key} scans not found in scan list {scans}")
-                        # do not pass scan list here. We need all the cal rows. They will
-                        # be intersected with scan rows in PSScan
+                        # Do not pass scan list here. We need all the cal rows. They will
+                        # be intersected with scan rows in NodScan.
                         calrows = {}
                         dfcalT = select_from("CAL", "T", _df)
                         dfcalF = select_from("CAL", "F", _df)
-                        # calrows["ON"] = list(dfcalT.index)
-                        # calrows["OFF"] = list(dfcalF.index)
                         calrows["ON"] = list(dfcalT["ROW"])
                         calrows["OFF"] = list(dfcalF["ROW"])
                         d = {"ON": on, "OFF": off}
+                        # Check if there is a noise diode.
+                        if len(calrows["ON"]) == 0 or nocal:
+                            nocal = True
+                            if t_sys is None:
+                                dfoncalF = select_from("CAL", "F", _ondf)
+                                t_sys = dfoncalF["TSYS"].to_numpy()
+                                logger.info("Using TSYS column")
                         logger.debug(f"{i, f, k, c} SCANROWS {rows}")
                         logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                         logger.debug(f"BEAM1 {beam1_selected}")
@@ -1436,6 +1443,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             calibrate=calibrate,
                             smoothref=smoothref,
                             apply_flags=apply_flags,
+                            nocal=nocal,
+                            tsys=t_sys,
                         )
                         g.merge_commentary(self)
                         scanblock.append(g)
