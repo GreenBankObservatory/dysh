@@ -2535,7 +2535,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Updates the 'RADESYS' column of the index for cases when it is empty.
         """
 
-        radesys = {"AzEl": "AltAz", "HADec": "hadec"}
+        radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
         warning_msg = (
             lambda scans, a, coord, limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
@@ -2548,24 +2548,66 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
 
         # Azimuth and elevation case.
-        azel_mask = (self["CTYPE2"] == "AZ") & (self["CTYPE3"] == "EL")
-        # Update self._index.
-        self._index.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
-        # Update SDFITSLoad.index.
-        sdf_idx = set(self["FITSINDEX"][azel_mask])
-        for i in sdf_idx:
-            sdfi = self._sdf[i].index()
-            azel_mask = (sdfi["CTYPE2"] == "AZ") & (sdfi["CTYPE3"] == "EL")
-            sdfi.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
+        self._update_radesys_frame(radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
 
         # Hour angle and declination case.
-        hadec_mask = self["CTYPE2"] == "HA"
-        self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
-        sdf_idx = set(self["FITSINDEX"][hadec_mask])
+        self._update_radesys_frame(radesys["HADec"], {"CTYPE2": "HA"})
+
+        # Galactic coordinates.
+        self._update_radesys_frame(radesys["Galactic"], {"CTYPE2": "GLON"})
+
+    #
+    #        azel_mask = (self["CTYPE2"] == "AZ") & (self["CTYPE3"] == "EL")
+    #        # Update self._index.
+    #        self._index.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
+    #        # Update SDFITSLoad.index.
+    #        sdf_idx = set(self["FITSINDEX"][azel_mask])
+    #        for i in sdf_idx:
+    #            sdfi = self._sdf[i].index()
+    #            azel_mask = (sdfi["CTYPE2"] == "AZ") & (sdfi["CTYPE3"] == "EL")
+    #            sdfi.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
+    #
+    #        # Hour angle and declination case.
+    #        hadec_mask = (self["CTYPE2"] == "HA")
+    #        self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
+    #        sdf_idx = set(self["FITSINDEX"][hadec_mask])
+    #        for i in sdf_idx:
+    #            sdfi = self._sdf[i].index()
+    #            hadec_mask = (sdfi["CTYPE2"] == "HA")
+    #            sdfi.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
+    #
+    #        # Galactic coordinates.
+    #        gal_mask = (self["CTYPE2"] == "GLON")
+    #        self._index.loc[gal_mask, "RADESYS"] = radesys["Galactic"]
+    #        sdf_idx = set(self["FITSINDEX"][gal_mask])
+    #        for i in sdf_idx:
+    #            sdfi = self._sdf[i].index()
+    #            gal_mask = (sdfi["CTYPE2"] == "GLON")
+    #            sdfi.loc[gal_mask, "RADESYS"] = radesys["Galactic"]
+
+    def _update_radesys_frame(self, frame, ctype_dict):
+        frame_mask = self._ctype_mask(ctype_dict)
+        if frame_mask.sum() == 0:
+            return
+        # Update self._index.
+        self._index.loc[frame_mask, "RADESYS"] = frame
+        # Update SDFITSLoad.index.
+        sdf_idx = set(self["FITSINDEX"][frame_mask])
         for i in sdf_idx:
             sdfi = self._sdf[i].index()
-            hadec_mask = sdfi["CTYPE2"] == "HA"
-            sdfi.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
+            frame_mask = self._sdf[i]._ctype_mask(ctype_dict)
+            sdfi.loc[frame_mask, "RADESYS"] = frame
+
+    def _ctype_mask(self, ctype_dict):
+        """ """
+
+        ctype_mask = np.zeros((len(ctype_dict), len(self[next(iter(ctype_dict.keys()))])), dtype=bool)
+        for i, (k, v) in enumerate(ctype_dict.items()):
+            ctype_mask[i, :] = self[k] == v
+        if ctype_mask.shape[0] > 1:
+            ctype_mask = np.logical_and(*ctype_mask)
+
+        return ctype_mask.ravel()
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
