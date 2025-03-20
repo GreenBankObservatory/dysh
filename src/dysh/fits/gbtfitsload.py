@@ -1222,7 +1222,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                     g = PSScan(
                         self._sdf[i],
-                        scans=d,
+                        scan=d,
                         scanrows=rows,
                         calrows=calrows,
                         bintable=bintable,
@@ -1654,6 +1654,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags=True,
         bunit="ta",
         zenith_opacity=None,
+        observer_location=Observatory["GBT"],
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -1688,6 +1689,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
         zenith_opacity: float, optional
                 The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of
+            observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is the location of the GBT.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.

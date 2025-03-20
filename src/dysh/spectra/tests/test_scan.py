@@ -442,7 +442,7 @@ class TestScanBlock:
     def test_scanblock_write_read(self, tmp_path):
         file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(file)
-        sb = g.getps(scan=6)
+        sb = g.getps(scan=6, plnum=0)
         o = tmp_path / "sub"
         o.mkdir()
         testfile = o / "test_scanblock_write.fits"

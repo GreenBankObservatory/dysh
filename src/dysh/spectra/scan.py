@@ -53,16 +53,6 @@ class SpectralAverageMixin:
         """
         pass
 
-    @log_call_to_history
-    def polaverage(self, weights=None):
-        """Average all polarizations in this Scan"""
-        pass
-
-    @log_call_to_history
-    def finalspectrum(self, weights=None):
-        """Average all times and polarizations in this Scan"""
-        pass
-
     @property
     def exposure(self):
         """The array of exposure (integration) times. How the exposure is calculated
@@ -101,30 +91,39 @@ class SpectralAverageMixin:
 
 class ScanBase(HistoricalBase, SpectralAverageMixin):
     """This class describes the common interface to all Scan classes.
-    A Scan represents one scan number, one IF, one feed, and one or more polarizations.
+    A Scan represents one scan number, one IF, one feed, and one polarization.
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits):
+    def __init__(self, sdfits, smoothref, apply_flags, observer_location):
         HistoricalBase.__init__(self)
         self._ifnum = -1
         self._fdnum = -1
         self._nchan = -1
-        self._npol = -1
+        self._plnum = -1
         self._scan = -1
-        self._pols = -1
+        self._nchan = -1
+        self._nrows = -1
+        self._bintable_index = -1
         self._sdfits = sdfits
-        # self._meta = {}
+        self._meta = {}
         self._bscale = 1.0
         self._bunit = "ta"
+        self._tsys = None
+        self._exposure = None
+        self._calibrated = None
+        self._smoothref = smoothref
+        self._apply_flags = apply_flags
+        self._observer_location = observer_location
 
     def _validate_defaults(self):
         _required = {
+            "BINTABLEINDEX": self._bintable_index,
             "IFNUM": self._ifnum,
             "FDNUM": self._fdnum,
             "NCHAN": self._nchan,
-            "NPOL": self._npol,
-            "POLS": self._pols,
+            "NROWS": self._nrows,
+            "PLNUM": self._plnum,
             "SCAN": self._scan,
         }
         unset = []
@@ -163,6 +162,19 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             raise ValueError(
                 f"Unrecognized brightness temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
+
+    def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity):
+
+        self._calibrate = calibrate
+        self._make_meta(meta_rows)
+        if self._calibrate:
+            if calibrate_kwargs is not None:
+                self.calibrate(**calibrate_kwargs)
+            else:
+                self.calibrate()
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
+        self._validate_defaults()
 
     @property
     def is_scaled(self):
@@ -319,19 +331,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._nrows
 
     @property
-    def npol(self):
-        """
-        The number of polarizations in this Scan
-
-        Returns
-        -------
-        int
-            The number of polarizations in this Scan
-
-        """
-        return self._npol
-
-    @property
     def ifnum(self):
         """The IF number
 
@@ -354,15 +353,27 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._fdnum
 
     @property
-    def pols(self):
-        """The polarization number(s)
+    def plnum(self):
+        """The polarization number
 
         Returns
         -------
-        list
-            The list of integer polarization number(s)
+        int
+            The polarization number
         """
-        return self._pols
+        return self._plnum
+
+    # @property
+    # @todo implement this using Evans crval4_to_pol
+    # def pols(self):
+    #     """The polarization description
+
+    #     Returns
+    #    -------
+    #      list
+    #         The list of integer polarization number(s)
+    #     """
+    #    return self._pols
 
     @property
     def is_calibrated(self):
@@ -447,8 +458,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
 
-    def _set_if_fd(self, df):
-        """Set the IF and FD numbers from the input dataframe and
+    def _set_if_fd_pl(self, df):
+        """Set the IF, FD, and PL numbers from the input dataframe and
         raise an error of there are more than one
 
         Parameters
@@ -458,12 +469,16 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         self._ifnum = uniq(df["IFNUM"])
         self._fdnum = uniq(df["FDNUM"])
+        self._plnum = uniq(df["PLNUM"])
         if len(self._ifnum) > 1:
             raise Exception(f"Only one IFNUM is allowed per Scan, found {self.ifnum}")
         if len(self._fdnum) > 1:
             raise Exception(f"Only one FDNUM is allowed per Scan, found {self.fdnum}")
+        if len(self._plnum) > 1:
+            raise Exception(f"Only one PLNUM is allowed per Scan, found {self.plnum}")
         self._ifnum = self._ifnum[0]
         self._fdnum = self._fdnum[0]
+        self._plnum = self._plnum[0]
 
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
@@ -540,10 +555,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         UserList.__init__(self, *args)
         HistoricalBase.__init__(self)
         self._nrows = 0
-        self._npol = 0
+        self._npol = 0  # always 1?
+        self._nfeed = 0  # always 1?
+        self._nif = 0  # always 1?
         self._timeaveraged = []
-        self._polaveraged = []
-        self._finalspectrum = []
 
     @log_call_to_history
     def calibrate(self, **kwargs):
@@ -580,51 +595,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
-
-    @log_call_to_history
-    def polaverage(self, weights="tsys"):
-        # @todo rewrite this to return a spectrum as timeaverage does now.
-        r"""Average all polarizations in all scans in this ScanBlock
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        polaverage: list of `~spectra.spectrum.Spectrum`
-            List of all the polarization-averaged spectra
-        """
-        self._polaveraged = []
-        for scan in self.data:
-            self._polaveraged.append(scan.polaverage(weights))
-        return self._polaveraged
-
-    @log_call_to_history
-    def finalspectrum(self, weights="tsys"):
-        r"""Average all times and polarizations in all scans this ScanBlock
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        finalspectra: list of `~spectra.spectrum.Spectrum`
-            List of all the time- and polarization-averaged spectra
-        """
-        self._finalspectrum = []
-        for scan in self.data:
-            self._finalspectrum.append(scan.finalspectrum(weights))
-        return self._finalspectrum
 
     def scale(self, bunit, zenith_opacity):
         """
@@ -827,37 +797,28 @@ class TPScan(ScanBase):
         apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
         self._calstate = calstate
         self._scanrows = scanrows
-        self._smoothref = smoothref
-        self._apply_flags = apply_flags
         if self._smoothref > 1:
-            warnings.warn(f"TP smoothref={self._smoothref} not implemented yet")
+            raise NotImplementedError(f"TP smoothref={self._smoothref} not implemented yet")
 
         # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
             self._bintable_index = bintable
-        self._observer_location = observer_location
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
-        self._set_if_fd(df)
-        self._pols = uniq(df["PLNUM"])
+        self._set_if_fd_pl(df)
         self._nint = 0
-        self._npol = len(self._pols)
         self._timeaveraged = None
-        self._polaveraged = None
         self._nrows = len(scanrows)
         self._tsys = None
-        if False:
-            self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
-            self._nint = gbtfits.nintegrations(self._bintable_index)
         self._calrows = calrows
         # all cal=T states where sig=sigstate
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
@@ -882,7 +843,7 @@ class TPScan(ScanBase):
         self.calc_tsys()
         self._validate_defaults()
 
-    def calibrate(self):
+    def calibrate(self, **kwargs):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
@@ -1084,8 +1045,6 @@ class TPScan(ScanBase):
         .. note::
            Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
-        if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations")
         self._timeaveraged = deepcopy(self.total_power(0))
         if weights == "tsys":
             w = self.tsys_weight
@@ -1103,13 +1062,13 @@ class TPScan(ScanBase):
 
 class PSScan(ScanBase):
     """GBT specific version of Position Switch Scan. A position switch scan object has
-    one IF, one feed, and one or more polarizations.
+    one IF, one feed, and one polarization
 
     Parameters
     ----------
     gbtfits : `~fits.sdfitsload.SDFITSLoad`
         input SDFITSLoad object
-    scans : dict
+    scan : dict
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers NOTE: there should be one ON and one OFF, a pair
     scanrows : dict
         dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
@@ -1140,7 +1099,7 @@ class PSScan(ScanBase):
     def __init__(
         self,
         gbtfits,
-        scans,
+        scan,
         scanrows,
         calrows,
         bintable,
@@ -1151,15 +1110,12 @@ class PSScan(ScanBase):
         bunit="ta",
         zenith_opacity=0.0,
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        # self._scans = scans
         # self._history = deepcopy(gbtfits._history)
-        self._scan = scans["ON"]
+        self._scan = scan["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        self._smoothref = smoothref
-        self._apply_flags = apply_flags
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -1170,14 +1126,8 @@ class PSScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        self._observer_location = observer_location
-        # df = selection.iloc[scanrows["ON"]]
         df = self._sdfits._index.iloc[scanrows["ON"]]
-        self._set_if_fd(df)
-        self._pols = uniq(df["PLNUM"])
-        self._npol = len(self._pols)
-        if False:
-            self._nint = gbtfits.nintegrations(self._bintable_index)
+        self._set_if_fd_pl(df)
         # so quick with slicing!
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
@@ -1203,16 +1153,20 @@ class PSScan(ScanBase):
         self._nrows = nsigrows
 
         self._nchan = gbtfits.nchan(self._bintable_index)
-        self._tsys = None
-        self._exposure = None
-        self._calibrated = None
-        self._calibrate = calibrate
-        self._make_meta(self._sigonrows)
-        if self._calibrate:
-            self.calibrate()
-        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(bunit, zenith_opacity)
-        self._validate_defaults()
+        self._finish_initialization(calibrate, None, self._sigonrows, bunit, zenith_opacity)
+        if False:
+            self._tsys = None
+            self._exposure = None
+            self._calibrated = None
+            self._calibrate = calibrate
+            self._make_meta(self._sigonrows)
+            if self._calibrate:
+                self.calibrate()
+            if (
+                bunit.lower() != "ta"
+            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+                self.scale(bunit, zenith_opacity)
+            self._validate_defaults()
 
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
@@ -1335,8 +1289,6 @@ class PSScan(ScanBase):
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations")
         self._timeaveraged = deepcopy(self.calibrated(0))  # ._copy()
         data = self._calibrated
         if weights == "tsys":
@@ -1357,7 +1309,7 @@ class PSScan(ScanBase):
 
 class NodScan(ScanBase):
     """GBT specific version of Nodding Scan. A nod scan object has
-    one IF, two feeds, and one or more polarizations.
+    one IF, two feeds, and one polarization.
 
     Parameters
     ----------
@@ -1411,12 +1363,10 @@ class NodScan(ScanBase):
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location)
         self._scan = scan["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        self._smoothref = smoothref
-        self._apply_flags = apply_flags
         self._beam1 = beam1
 
         # @todo   allow having no calrow where noise diode was not fired
@@ -1430,12 +1380,8 @@ class NodScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        self._observer_location = observer_location
-        # df = selection.iloc[scanrows["ON"]]
         df = self._sdfits._index.iloc[scanrows["ON"]]
-        self._set_if_fd(df)
-        self._pols = uniq(df["PLNUM"])
-        self._npol = len(self._pols)
+        self._set_if_fd_pl(df)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # so quick with slicing!
@@ -1469,28 +1415,20 @@ class NodScan(ScanBase):
         self._nrows = nsigrows
 
         self._nchan = len(self._sigcalon[0])
-        self._tsys = None
-        self._exposure = None
-        self._calibrated = None
-        self._calibrate = calibrate
-        self._make_meta(self._sigonrows)
-        if self._calibrate:
-            self.calibrate()
-        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(bunit, zenith_opacity)
-        self._validate_defaults()
-
-    # @property
-    # def scans(self):
-    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
-    #
-    #     Returns
-    #     -------
-    #     scans : dict
-    #         The scan number dictionary
-    #
-    #     """
-    #      return self._scans
+        self._finish_initialization(calibrate, None, self._sigonrows, bunit, zenith_opacity)
+        if False:
+            self._tsys = None
+            self._exposure = None
+            self._calibrated = None
+            self._calibrate = calibrate
+            self._make_meta(self._sigonrows)
+            if self._calibrate:
+                self.calibrate()
+            if (
+                bunit.lower() != "ta"
+            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+                self.scale(bunit, zenith_opacity)
+            self._validate_defaults()
 
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
@@ -1611,8 +1549,6 @@ class NodScan(ScanBase):
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
@@ -1693,7 +1629,7 @@ class FSScan(ScanBase):
         observer_location=Observatory["GBT"],
         debug=False,
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
@@ -1702,8 +1638,7 @@ class FSScan(ScanBase):
         self._use_sig = use_sig
         self._smoothref = smoothref
         if self._smoothref > 1:
-            print(f"FS smoothref={self._smoothref} not implemented yet")
-        self._apply_flags = apply_flags
+            raise NotImplementedError(f"FS smoothref={self._smoothref} not implemented yet")
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
@@ -1735,19 +1670,12 @@ class FSScan(ScanBase):
             self._bintable_index = bintable
         if self._debug:
             logger.debug(f"bintable index is {self._bintable_index}")
-        self._observer_location = observer_location
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
 
         df = self._sdfits._index.iloc[self._scanrows]
         if self._debug:
             logger.debug(f"{len(df) = }")
-        self._set_if_fd(df)
-        self._pols = uniq(df["PLNUM"])
-        if self._debug:
-            logger.debug(f"FSSCAN #pol = {self._pols}")
-        self._npol = len(self._pols)
-        if False:
-            self._nint = gbtfits.nintegrations(self._bintable_index)
+        self._set_if_fd_pl(df)
         # @todo use gbtfits.velocity_convention(veldef,velframe)
         # so quick with slicing!
 
@@ -1771,18 +1699,24 @@ class FSScan(ScanBase):
         self._nrows = nsigrows
 
         self._nchan = len(self._sigcalon[0])
-        self._tsys = None
-        self._exposure = None
-        self._calibrated = None
-        self._calibrate = calibrate
-        self._make_meta(self._sigonrows)
-        if self._calibrate:
-            self.calibrate(fold=fold, shift_method=shift_method)
-        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(bunit, zenith_opacity)
+        self._finish_initialization(
+            calibrate, {"fold": fold, "shift_method": shift_method}, self._sigonrows, bunit, zenith_opacity
+        )
+        if False:
+            self._tsys = None
+            self._exposure = None
+            self._calibrated = None
+            self._calibrate = calibrate
+            self._make_meta(self._sigonrows)
+            if self._calibrate:
+                self.calibrate(fold=fold, shift_method=shift_method)
+            if (
+                bunit.lower() != "ta"
+            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+                self.scale(bunit, zenith_opacity)
+            self._validate_defaults()
         if self._debug:
             logger.debug("---------------------------------------------------")
-        self._validate_defaults()
 
     @property
     def folded(self):
@@ -2031,8 +1965,6 @@ class FSScan(ScanBase):
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations %d" % self._npol)
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":
@@ -2096,9 +2028,8 @@ class SubBeamNodScan(ScanBase):
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
-        ScanBase.__init__(self, sigtp[0]._sdfits)
+        ScanBase.__init__(self, sigtp[0]._sdfits, smoothref, apply_flags, observer_location)
         kwargs_opts = {
-            "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
             "debug": False,
         }
@@ -2108,27 +2039,33 @@ class SubBeamNodScan(ScanBase):
             raise ValueError(
                 f"Reference and signal total power arrays are different lengths: {len(reftp)} != {len(sigtp)}"
             )
+        self._bintable_index = sigtp[0]._bintable_index
         self._scan = sigtp[0]._scan
         self._sigtp = sigtp
         self._reftp = reftp
         self._ifnum = self._sigtp[0].ifnum
         self._fdnum = self._sigtp[0].fdnum
-        self._npol = self._sigtp[0].npol
-        self._pols = self._sigtp[0]._pols
+        self._plnum = self._sigtp[0].plnum
         self._nchan = len(reftp[0]._data[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
-        self._nint = 0
-        self._smoothref = smoothref
+        self._nint = self._nrows
         if self._smoothref > 1:
-            print(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
-        self._apply_flags = apply_flags
-        self._observer_location = observer_location
-        self._calibrated = None
-        if calibrate:
-            self.calibrate(weights=w)
-        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(bunit, zenith_opacity)
-        self._validate_defaults()
+            raise NotImplementedError(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
+        rows = []
+        for r in self._sigtp:
+            rows = rows + r._refonrows
+        rows = list(set(rows))
+
+        self._finish_initialization(calibrate, {"weights": w}, rows, bunit, zenith_opacity)
+        if False:
+            self._calibrated = None
+            if calibrate:
+                self.calibrate(weights=w)
+            if (
+                bunit.lower() != "ta"
+            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+                self.scale(bunit, zenith_opacity)
+            self._validate_defaults()
 
     def calibrate(self, **kwargs):
         """Calibrate the SubBeamNodScan data"""
@@ -2199,8 +2136,6 @@ class SubBeamNodScan(ScanBase):
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        if self._npol > 1:
-            raise Exception(f"Can't yet time average multiple polarizations {self._npol}")
         self._timeaveraged = deepcopy(self.calibrated(0))
         data = self._calibrated
         if weights == "tsys":

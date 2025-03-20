@@ -342,7 +342,7 @@ class TestGBTFITSLoad:
         sdf = gbtfitsload.GBTFITSLoad(fits_dir)
 
         # Check one IF.
-        ps_scans = sdf.getps(6, ifnum=2)
+        ps_scans = sdf.getps(6, ifnum=2, plnum=0)
         ps_spec = ps_scans[0].calibrated(0).flux.to("K").value
 
         gbtidl_dir = f"{proj_dir}/gbtidl_outputs"
