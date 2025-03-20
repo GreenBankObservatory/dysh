@@ -2556,35 +2556,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Galactic coordinates.
         self._update_radesys_frame(radesys["Galactic"], {"CTYPE2": "GLON"})
 
-    #
-    #        azel_mask = (self["CTYPE2"] == "AZ") & (self["CTYPE3"] == "EL")
-    #        # Update self._index.
-    #        self._index.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
-    #        # Update SDFITSLoad.index.
-    #        sdf_idx = set(self["FITSINDEX"][azel_mask])
-    #        for i in sdf_idx:
-    #            sdfi = self._sdf[i].index()
-    #            azel_mask = (sdfi["CTYPE2"] == "AZ") & (sdfi["CTYPE3"] == "EL")
-    #            sdfi.loc[azel_mask, "RADESYS"] = radesys["AzEl"]
-    #
-    #        # Hour angle and declination case.
-    #        hadec_mask = (self["CTYPE2"] == "HA")
-    #        self._index.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
-    #        sdf_idx = set(self["FITSINDEX"][hadec_mask])
-    #        for i in sdf_idx:
-    #            sdfi = self._sdf[i].index()
-    #            hadec_mask = (sdfi["CTYPE2"] == "HA")
-    #            sdfi.loc[hadec_mask, "RADESYS"] = radesys["HADec"]
-    #
-    #        # Galactic coordinates.
-    #        gal_mask = (self["CTYPE2"] == "GLON")
-    #        self._index.loc[gal_mask, "RADESYS"] = radesys["Galactic"]
-    #        sdf_idx = set(self["FITSINDEX"][gal_mask])
-    #        for i in sdf_idx:
-    #            sdfi = self._sdf[i].index()
-    #            gal_mask = (sdfi["CTYPE2"] == "GLON")
-    #            sdfi.loc[gal_mask, "RADESYS"] = radesys["Galactic"]
-
     def _update_radesys_frame(self, frame, ctype_dict):
         frame_mask = self._ctype_mask(ctype_dict)
         if frame_mask.sum() == 0:
@@ -2599,8 +2570,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sdfi.loc[frame_mask, "RADESYS"] = frame
 
     def _ctype_mask(self, ctype_dict):
-        """ """
-
         ctype_mask = np.zeros((len(ctype_dict), len(self[next(iter(ctype_dict.keys()))])), dtype=bool)
         for i, (k, v) in enumerate(ctype_dict.items()):
             ctype_mask[i, :] = self[k] == v
