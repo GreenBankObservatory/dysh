@@ -90,7 +90,13 @@ $ git clone git@github.com:GreenBankObservatory/dysh.git
 The recommended development workflow is to use [uv](https://docs.astral.sh/uv/). After installing uv all you need to do is:
 
 ```sh
-$ uv run ...
+$ uv sync
+```
+You also have access to "dysh shell" and "dysh lab":
+
+```sh
+$ uv run dysh
+$ uv run dysh-lab
 ```
 
 Or you can source the uv virtual environment just like any other:
