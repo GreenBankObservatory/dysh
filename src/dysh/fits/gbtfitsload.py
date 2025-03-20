@@ -1149,6 +1149,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             preselected[kw] = uniq(_final[kw])
         if scans is None:
             scans = preselected["SCAN"]
+        if len(_final[_final["SCAN"].isin(scans)]) == 0:
+            raise ValueError(f"Scans {scans} not found in selected data")
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
@@ -1187,7 +1189,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # @todo Calling this method every loop may be expensive. If so, think of
                 # a way to tighten it up.
                 scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
-
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     logger.debug(f"scans {scans} not found, continuing")
                     continue

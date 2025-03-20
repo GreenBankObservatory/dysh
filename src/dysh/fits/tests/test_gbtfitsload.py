@@ -99,6 +99,10 @@ class TestGBTFITSLoad:
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
 
+        # add a test to ensure that a bad scan number raises an ValueError (issue 462)
+        with pytest.raises(ValueError):
+            sdf.getps(scan=99999)
+
     def test_getps_acs(self):
         """
         Compare `GBTIDL` result to `dysh` with ACS data.
