@@ -1151,9 +1151,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scans = preselected["SCAN"]
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
-        print(f"{scans=}, {preselected=}")
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
-        print(f"{missing=}")
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
         # now remove any scans that have been pre-selected by the user.
