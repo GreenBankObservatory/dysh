@@ -1191,10 +1191,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # @todo Calling this method every loop may be expensive. If so, think of
                 # a way to tighten it up.
                 scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
-                print(f"{scanlist=}")
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     logger.debug(f"scans {scans} not found, continuing")
-                    print(f"scans {scans} not found, continuing")
                     continue
                 logger.debug(f"SCANLIST {scanlist}")
                 logger.debug(f"POLS {set(df['PLNUM'])}")
@@ -1206,7 +1204,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 for on, off in zip(scanlist["ON"], scanlist["OFF"]):
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
-                    print(f"{len(_ondf)=} len(_offdf)=")
                     # rows["ON"] = list(_ondf.index)
                     # rows["OFF"] = list(_offdf.index)
                     rows["ON"] = list(_ondf["ROW"])
