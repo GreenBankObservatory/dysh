@@ -41,7 +41,7 @@ def get_config_dir_path(rootname: str = "dysh") -> Path:
         The absolute path to the configuration directory.
     """
 
-    return ac.get_config_dir_path(rootname)
+    return Path(ac.get_config_dir(rootname))
 
 
 def recursive_subclasses(klass):
