@@ -42,13 +42,9 @@ from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.util.files import dysh_data
 from dysh.util.selection import Selection
 from dysh.spectra.core import mean_tsys
-# new
-#from dysh.fits.core import mean_data
-#from dysh.fits.core import getbeam
-#from dysh.fits.core import calseq
-#from dysh.fits.core import vanecal
+
 from dysh.plot.vegasplot import plot_vegas
-#from dysh.fits.core import getnod
+
  
 #  useful keys for a mult-beam observation listing
 
@@ -328,10 +324,10 @@ plot_vegas(edge1,[17,21])      # super fast now
 # looking at the spectral Tsys, feed 8 didn't change like their TP did
 plot_vegas(edge1,[17,21],tsys=True)
 
-beams1=getbeam(sdf1)   # 4,7
+beams1=sdf1.getbeam()   # 4,7
 print(beams1)
 
-tsys = vanecal(sdf1, [17, 18], feeds=beams1)    # 12 sec
+tsys = sdf1.vanecal([17, 18], feeds=beams1)    # 12 sec
 print(tsys)
 # [61.12006835 63.01095552]
 
@@ -489,7 +485,7 @@ sdf3=GBTFITSLoad(f3, skipflags=True)
 sdf3.summary()
 # 11072 rows
 
-tsys3,g = calseq(sdf3, 130) 
+tsys3,g = sdf3.calseq(130) 
 print(tsys3,g)                  # 100.13203834626455 9.115908926574802e-07
 
 if True:  # 14 MB
@@ -508,10 +504,10 @@ if True:   # 26MB
     test3.summary()
     test3._index[kw]  # 18 rows
     
-    tsys3,g = calseq(test3, 130, ifnum=1, plnum=0)
+    tsys3,g = test3.calseq(130, ifnum=1, plnum=0)
     print(tsys3,g)  # 104.33234097093249
     
-    sp1,sp2 = getnod(test3, [131,132], [0,1], plnum=0, ifnum=1, tsys=tsys3)
+    sp1,sp2 = test3._getnod([131,132], [0,1], plnum=0, ifnum=1, tsys=tsys3)
     sp3 = sp1.average(sp2)
     sp3.meta["TSYS"]
     sp3.meta["EXPOSURE"]
@@ -526,7 +522,7 @@ if True:
     result = []
     for ifnum in range(4):
         for plnum in range(2):
-            tsys3,g = calseq(sdf3, 130, ifnum=ifnum, plnum=plnum)
+            tsys3,g = sdf3.calseq(130, ifnum=ifnum, plnum=plnum)
             result.append([ifnum,plnum,tsys3])
     print(result)
     
@@ -542,7 +538,7 @@ nod3cal = GBTFITSLoad("nod3cal")
 nod3cal.summary()
 nod3cal._index[kw]   # 82 rows  (Observing, Cold1, Cold2 and a few Unknown in state transition)  -- TPNOCAL
 
-tsys3,g = calseq(nod3cal, 130, ifnum=1, plnum=0)     # 100.27992034259859, 9.129371938341321e-07
+tsys3,g = nod3cal.calseq( 130, ifnum=1, plnum=0)     # 100.27992034259859, 9.129371938341321e-07
 # 103.06672137567278
 
 print(tsys3,g)
@@ -564,10 +560,10 @@ nod3 = GBTFITSLoad('nod3')
 nod3.summary()
 nod3._index[k]    # 244 rows
 
-beams3 = getbeam(nod3)     # [0,1]
+beams3 = nod3.getbeam()    # [0,1]
 print(beams3)
 
-sp1,sp2 = getnod(nod3, [s,s+1],beams3)
+sp1,sp2 = nod3._getnod( [s,s+1],beams3)
 sp3 = sp1.average(sp2)
 sp3 *= tsys3
 
@@ -593,8 +589,8 @@ nod3.gettp(scan=131,fdnum=1,calibrate=True, cal=False).timeaverage().plot()
 sp = []
 for s in range(131,140,2):
     print(s)
-    sp1,sp2 = getnod(sdf3, [s,s+1], [0,1], plnum=0, ifnum=1)
-    sp3,sp4 = getnod(sdf3, [s,s+1], [0,1], plnum=1, ifnum=1)
+    sp1,sp2 = sdf3._getnod( [s,s+1], [0,1], plnum=0, ifnum=1)
+    sp3,sp4 = sdf3._getnod( [s,s+1], [0,1], plnum=1, ifnum=1)
     sp.append(sp1)
     sp.append(sp2)
     sp.append(sp3)
@@ -723,7 +719,7 @@ sdf6 = GBTFITSLoad(f6, skipflags=True)
 sdf6.summary()
 sdf6._index[kw]    # 1728
 
-beams6 = getbeam(sdf6)    # 0,1
+beams6 = sdf6.getbeam()    # 0,1
 print(beams6)
 
 mkdir("vane6")
@@ -738,12 +734,12 @@ vane6 = GBTFITSLoad("vane6")
 vane6.summary()
 vane6._index[kw]    # 92 in just scan 32      368 if all 4 CALSEQ  --  TPNOCAL
 
-calseq(vane6, 23, plnum=0, ifnum=0, fdnum=1)
+vane6.calseq( 23, plnum=0, ifnum=0, fdnum=1)
 # syntaxError: too many nested parentheses    <--- only if all plnum's selected to into vane6
-calseq(vane6, 26, fdnum=1)
-calseq(vane6, 29, fdnum=1)
-calseq(vane6, 32, fdnum=0)
-calseq(vane6, 32, fdnum=1)
+vane6.calseq( 26, fdnum=1)
+vane6.calseq( 29, fdnum=1)
+vane6.calseq( 32, fdnum=0)
+vane6.calseq( 32, fdnum=1)
 #    fdnum=0    608K    (612 when adding the Nod)
 #          1    179K    (189 when adding the Nod)
 #    something odd:   when doing [32,33,34] i get different answers from using just [32]
@@ -752,7 +748,7 @@ calseq(vane6, 32, fdnum=1)
 vane6.gettp(scan=32,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
 vane6.gettp(scan=32,fdnum=1,calibrate=True, cal=False).timeaverage().plot()
 
-sp1,sp2 = getnod(vane6, [33, 34], beams6)
+sp1,sp2 = vane6._getnod( [33, 34], beams6)
 
 sp3 = 0.5*(sp1+sp2)
 sp3 = sp3[50:-50]
