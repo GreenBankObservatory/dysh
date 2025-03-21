@@ -179,7 +179,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         self._validate_defaults()
 
-    def calibrated(self, i):
+    def calibrated(self, i):  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
 
         Parameters
@@ -1029,23 +1029,9 @@ class TPScan(ScanBase):
         """
         return self._delta_freq
 
-    def calibrated(self, i):
-        """Return the i-th total power spectrum in this Scan (same as :meth:`total_power`).
-
-        Parameters
-        ----------
-        i : int
-            The index into the data array
-
-        Returns
-        -------
-        spectrum : `~spectra.spectrum.Spectrum`
-        """
-
-        return self.total_power(i)
-
     def total_power(self, i):
         """Return the i-th total power spectrum in this Scan.
+        This is a synonym for :meth:`calibrated`
 
         Parameters
         ----------
@@ -1056,29 +1042,7 @@ class TPScan(ScanBase):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        if not self._calibrate:
-            raise Exception("You must calibrate first to get a total power spectrum")
-        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows[i]]
-        meta = ser.dropna().to_dict()
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self.exposure[i]
-        meta["NAXIS1"] = len(self._calibrated[i])
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-
-        s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
-            meta=meta,
-            observer_location=self._observer_location,
-        )
-        s.merge_commentary(self)
-        return s
+        return self.calibrated(i)
 
     @log_call_to_history
     def timeaverage(self, weights="tsys"):
