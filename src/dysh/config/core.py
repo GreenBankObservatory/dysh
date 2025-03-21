@@ -18,30 +18,6 @@ from astropy.utils.exceptions import AstropyDeprecationWarning
 __all__ = ["create_config_file", "get_config_dir_path"]
 
 
-# def create_config_file(package: str = "dysh", rootname: str = "dysh", overwrite: bool = False) -> bool:
-#    """
-#    Create the default configuration file for the specified `package`.
-#    If the file already exists, it is updated only if it has not been modified.
-#    Otherwise the `overwrite` flag is needed to overwrite it.
-#
-#    Parameters
-#    ----------
-#    package : str
-#        The package.
-#    rootname : str
-#        Name of the root configuration directory.
-#    overwrite : bool
-#        Force updating the file if it already exists.
-#
-#    Returns
-#    -------
-#    updated : bool
-#        If the profile was updated, `True`, otherwise `False`.
-#    """
-#
-#    return ac.create_config_file(package, rootname=rootname, overwrite=overwrite)
-
-
 def get_config_dir_path(rootname: str = "dysh") -> Path:
     """
     Determines the package configuration directory name and creates the
