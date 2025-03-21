@@ -115,6 +115,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._smoothref = smoothref
         self._apply_flags = apply_flags
         self._observer_location = observer_location
+        self._bunit_to_unit = {"ta": u.K, "ta*": u.K, "jy": u.Jy, "counts": u.ct}
 
     def _validate_defaults(self):
         _required = {
@@ -175,6 +176,26 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
             self.scale(bunit, zenith_opacity)
         self._validate_defaults()
+
+    def calibrated(self, i):
+        """Return the calibrated Spectrum.
+
+        Parameters
+        ----------
+        i : int
+            The index into the calibrated array
+
+        Returns
+        -------
+        spectrum : `~spectra.spectrum.Spectrum`
+        """
+        s = Spectrum.make_spectrum(
+            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
+            meta=self.meta[i],
+            observer_location=self._observer_location,
+        )
+        s.merge_commentary(self)
+        return s
 
     @property
     def is_scaled(self):
@@ -483,6 +504,43 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
         pass
+
+    @log_call_to_history
+    def timeaverage(self, weights="tsys"):
+        r"""Compute the time-averaged spectrum for this set of FSscans.
+
+        Parameters
+        ----------
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        Returns
+        -------
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
+        """
+        if self._calibrated is None or len(self._calibrated) == 0:
+            raise Exception("You can't time average before calibration.")
+        self._timeaveraged = deepcopy(self.calibrated(0))
+        data = self._calibrated
+        if weights == "tsys":
+            w = self.tsys_weight
+        else:
+            w = np.ones_like(self.tsys_weight)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
+        non_blanks = find_non_blanks(data)
+        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
+        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
+        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        return self._timeaveraged
 
     def make_bintable(self):
         """
@@ -842,6 +900,7 @@ class TPScan(ScanBase):
             self.calibrate()
         self.calc_tsys()
         self._validate_defaults()
+        self._calibrated = self._data
 
     def calibrate(self, **kwargs):
         """Calibrate the data according to the CAL/SIG table above"""
@@ -991,6 +1050,9 @@ class TPScan(ScanBase):
         meta["RESTFRQ"] = restfreq  # WCS wants no E
         return meta
 
+    def calibrated(self, i):
+        return self.total_power(i)
+
     def total_power(self, i):
         """Return the total power spectrum
 
@@ -1045,7 +1107,7 @@ class TPScan(ScanBase):
         .. note::
            Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
-        self._timeaveraged = deepcopy(self.total_power(0))
+        self._timeaveraged = deepcopy(self.calibrated(0))
         if weights == "tsys":
             w = self.tsys_weight
         else:
@@ -1168,29 +1230,6 @@ class PSScan(ScanBase):
                 self.scale(bunit, zenith_opacity)
             self._validate_defaults()
 
-    # @todo something clever
-    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
-    def calibrated(self, i):
-        """Return the calibrated Spectrum.
-
-        Parameters
-        ----------
-        i : int
-            The index into the calibrated array
-
-        Returns
-        -------
-        spectrum : `~spectra.spectrum.Spectrum`
-        """
-        # @todo suppress astropy INFO message "overwriting Masked Quantity's current mask with specified mask."
-        s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
-            meta=self.meta[i],
-            observer_location=self._observer_location,
-        )
-        s.merge_commentary(self)
-        return s
-
     def calibrate(self, **kwargs):
         """
         Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
@@ -1265,46 +1304,6 @@ class PSScan(ScanBase):
         df_sig = 0.5 * (df_sig_on + df_sig_off)
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
-
-    @log_call_to_history
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of scans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._calibrated is None or len(self._calibrated) == 0:
-            raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.calibrated(0))  # ._copy()
-        data = self._calibrated
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        non_blanks = find_non_blanks(data)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged._history = self._history
-        self._timeaveraged._observer_location = self._observer_location
-        return self._timeaveraged
 
 
 class NodScan(ScanBase):
@@ -1430,28 +1429,6 @@ class NodScan(ScanBase):
                 self.scale(bunit, zenith_opacity)
             self._validate_defaults()
 
-    # @todo something clever
-    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
-    def calibrated(self, i):
-        """Return the calibrated Spectrum.
-
-        Parameters
-        ----------
-        i : int
-            The index into the calibrated array
-
-        Returns
-        -------
-        spectrum : `~spectra.spectrum.Spectrum`
-        """
-        s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
-            meta=self.meta[i],
-            observer_location=self._observer_location,
-        )
-        s.merge_commentary(self)
-        return s
-
     def calibrate(self, **kwargs):
         """
         Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
@@ -1526,44 +1503,6 @@ class NodScan(ScanBase):
         df_sig = 0.5 * (df_sig_on + df_sig_off)
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
-
-    @log_call_to_history
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of scans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._calibrated is None or len(self._calibrated) == 0:
-            raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.calibrated(0))
-        data = self._calibrated
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        non_blanks = find_non_blanks(data)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged._history = self._history
-        return self._timeaveraged
 
 
 class FSScan(ScanBase):
@@ -1729,26 +1668,6 @@ class FSScan(ScanBase):
             True if the signal and reference integrations have been folded. False if not.
         """
         return self._folded
-
-    def calibrated(self, i):
-        """Return the calibrated Spectrum of this FSscan
-
-        Parameters
-        ----------
-        i : int
-            The index into the calibrated array
-
-        Returns
-        -------
-        spectrum : `~spectra.spectrum.Spectrum`
-        """
-        s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
-            meta=self.meta[i],
-            observer_location=self._observer_location,
-        )
-        s.merge_commentary(self)
-        return s
 
     def calibrate(self, **kwargs):
         """
@@ -1944,42 +1863,6 @@ class FSScan(ScanBase):
         self._delta_freq = 0.5 * (df_ref + df_sig)
         return self._delta_freq
 
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of FSscans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._calibrated is None or len(self._calibrated) == 0:
-            raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.calibrated(0))
-        data = self._calibrated
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        non_blanks = find_non_blanks(data)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        return self._timeaveraged
-
 
 class SubBeamNodScan(ScanBase):
     r"""
@@ -2100,20 +1983,12 @@ class SubBeamNodScan(ScanBase):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
         s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
             meta=meta,
             observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
-
-    @property
-    def exposure(self):
-        return self._exposure
-
-    @property
-    def delta_freq(self):
-        return self._delta_freq
 
     def timeaverage(self, weights="tsys"):
         r"""Compute the time-averaged spectrum for this scan.
