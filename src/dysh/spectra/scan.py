@@ -2,7 +2,7 @@
 The classes that define various types of Scan and their calibration methods.
 """
 
-import warnings
+from abc import abstractmethod
 from collections import UserList
 from copy import deepcopy
 
@@ -175,10 +175,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 self.calibrate()
         if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
             self.scale(bunit, zenith_opacity)
+        self._add_calibration_meta()
         self._validate_defaults()
 
     def calibrated(self, i):
-        """Return the calibrated Spectrum.
+        """Return the i-th calibrated Spectrum from this Scan.
 
         Parameters
         ----------
@@ -253,7 +254,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             None
         """
         # Array multiplication is slightly faster than a loop
-        # NB this will fail for TPScan since it has self._data instead of self._calibrated.  I need to change that in the refactor
         self._calibrated = self._calibrated * (np.array([factor]).T)
 
     @log_call_to_history
@@ -467,6 +467,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             rfq = restfrq * u.Unit(self._meta[i]["CUNIT1"])
             restfreq = rfq.to("Hz").value
             self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
+            self._meta[i]["BUNIT"] = self._bunit_to_unit[self.bunit.lower()].to_string()
 
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
@@ -501,6 +502,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._fdnum = self._fdnum[0]
         self._plnum = self._plnum[0]
 
+    @abstractmethod
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
         pass
@@ -542,7 +544,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         return self._timeaveraged
 
-    def make_bintable(self):
+    def _make_bintable(self):
         """
         Create a :class:`~astropy.io.fits.BinaryTableHDU` from the calibrated data of this Scan.
 
@@ -601,7 +603,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         None.
 
         """
-        self.make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+        self._make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def __len__(self):
         return self._nrows
@@ -817,6 +819,11 @@ class TPScan(ScanBase):
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
+    observer_location : `~astropy.coordinates.EarthLocation`
+        Location of the observatory. See `~dysh.coordinates.Observatory`.
+        This will be transformed to `~astropy.coordinates.ITRS` using the time of
+        observation DATE-OBS or MJD-OBS in
+        the SDFITS header.  The default is the location of the GBT.
 
     Notes
     -----
@@ -861,6 +868,7 @@ class TPScan(ScanBase):
         self._sigstate = sigstate
         self._calstate = calstate
         self._scanrows = scanrows
+        self._bunit = "counts"
         if self._smoothref > 1:
             raise NotImplementedError(f"TP smoothref={self._smoothref} not implemented yet")
 
@@ -894,24 +902,20 @@ class TPScan(ScanBase):
         self._nrows = len(self._refonrows) + len(self._refoffrows)
 
         self._nchan = len(self._refcalon[0])
-        self._calibrate = calibrate
-        self._data = None
-        if self._calibrate:
-            self.calibrate()
-        self.calc_tsys()
-        self._validate_defaults()
-        self._calibrated = self._data
+        # us 'ta' as bunit in this call so that scaling is not attempted.
+        self._finish_initialization(calibrate, None, self._refonrows, "ta", None)
+        self._calc_tsys()
 
     def calibrate(self, **kwargs):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
         if self.calstate is None:
-            self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
+            self._calibrated = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
-            self._data = self._refcalon.astype(float)
+            self._calibrated = self._refcalon.astype(float)
         elif self.calstate == False:
-            self._data = self._refcaloff.astype(float)
+            self._calibrated = self._refcaloff.astype(float)
         else:
             raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
 
@@ -937,7 +941,7 @@ class TPScan(ScanBase):
         """
         return self._calstate
 
-    def calc_tsys(self, **kwargs):
+    def _calc_tsys(self, **kwargs):
         """
         Calculate the system temperature array, according to table above.
         """
@@ -959,10 +963,6 @@ class TPScan(ScanBase):
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         nspect = len(self._tcal)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
-        # allcal = self._refonrows.copy()
-        # allcal.extend(self._refoffrows)
-        # tcal = list(self._sdfits.index(self._bintable_index).iloc[sorted(allcal)]["TCAL"])
-        # @todo this loop could be replaced with clever numpy
         if len(self._tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
@@ -1034,27 +1034,23 @@ class TPScan(ScanBase):
         self._delta_freq = delta_freq
         return self._delta_freq
 
-    def tpmeta(self, i):
-        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
-        meta = ser.dropna().to_dict()
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self.exposure[i]
-        meta["NAXIS1"] = len(self._data[i])
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return meta
-
     def calibrated(self, i):
+        """Return the i-th total power spectrum in this Scan (same as :meth:`total_power`).
+
+        Parameters
+        ----------
+        i : int
+            The index into the data array
+
+        Returns
+        -------
+        spectrum : `~spectra.spectrum.Spectrum`
+        """
+
         return self.total_power(i)
 
     def total_power(self, i):
-        """Return the total power spectrum
+        """Return the i-th total power spectrum in this Scan.
 
         Parameters
         ----------
@@ -1067,11 +1063,11 @@ class TPScan(ScanBase):
         """
         if not self._calibrate:
             raise Exception("You must calibrate first to get a total power spectrum")
-        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
+        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows[i]]
         meta = ser.dropna().to_dict()
         meta["TSYS"] = self._tsys[i]
         meta["EXPOSURE"] = self.exposure[i]
-        meta["NAXIS1"] = len(self._data[i])
+        meta["NAXIS1"] = len(self._calibrated[i])
         if "CUNIT1" not in meta:
             meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
         meta["CUNIT2"] = "deg"  # is this always true?
@@ -1082,7 +1078,9 @@ class TPScan(ScanBase):
         meta["RESTFRQ"] = restfreq  # WCS wants no E
 
         s = Spectrum.make_spectrum(
-            Masked(self._data[i] * u.ct, self._data[i].mask), meta=meta, observer_location=self._observer_location
+            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
+            meta=meta,
+            observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
@@ -1112,8 +1110,8 @@ class TPScan(ScanBase):
             w = self.tsys_weight
         else:
             w = np.ones_like(self.tsys_weight)
-        non_blanks = find_non_blanks(self._data)[0]
-        self._timeaveraged._data = np.ma.average(self._data, axis=0, weights=w)
+        non_blanks = find_non_blanks(self._calibrated)[0]
+        self._timeaveraged._data = np.ma.average(self._calibrated, axis=0, weights=w)
         self._timeaveraged._data.set_fill_value(np.nan)
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
@@ -1258,7 +1256,7 @@ class PSScan(ScanBase):
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
-        self._add_calibration_meta()
+        # self._add_calibration_meta()
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
@@ -1457,9 +1455,7 @@ class NodScan(ScanBase):
             self._tsys[i] = tsys
             self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
-        self._add_calibration_meta()
 
-    # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
         """The array of exposure (integration) times
@@ -1814,8 +1810,6 @@ class FSScan(ScanBase):
                     self._calibrated[i] = cal_ref
                     self._tsys[i] = tsys_sig
                 self._exposure[i] = self.exposure[i]
-
-        self._add_calibration_meta()
         logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
