@@ -81,6 +81,13 @@ def mkdir(name, clean=True):
         for fn in fns:
             print(f"Removing {fn} from {name}")
             os.unlink(os.path.join(name,fn))
+            
+def regress(data_string, accuracy = 1e-9):
+    """ what qac_stats does
+    """
+    s = data_string.split()
+    ns = len(s)
+    
 
 
 def calc_etamb(freq, Jupiter=False):
@@ -199,15 +206,16 @@ sdf1=GBTFITSLoad(f1)   # skipflags=True)
 sdf1.summary()    # 256 rows
 sdf1.flags.show() # 64 rows
 
-# extract 290 and 289 (note order is odd in sdfits:   290 came before 289 (odd))
-mkdir("vane1")
-scans=[281,282]
-sdf1.write('vane1/file.fits',scan=scans, overwrite=True)   # 64 rows
+if False:
+    # extract 290 and 289 (note order is odd in sdfits:   290 came before 289 (odd))
+    mkdir("vane1")
+    scans=[281,282]
+    sdf1.write('vane1/file.fits',scan=scans, overwrite=True)   # 64 rows
 
 
 # our EDGE notes claim that 1,9 are the nodding beams
 feeds1 = sdf1.getbeam()   # [10,1]
-print("Nodding feeds",feeds1)
+print("Nodding beams",feeds1)
 
 # load smaller dataset
 vane1 = GBTFITSLoad('vane1')
@@ -229,7 +237,7 @@ np.nanmean(t1)  # 0.52613854
 np.nanstd(t1)   # 0.016047847
 plt.plot(t1)
 
-# mean_tsys adds tcal/2
+# mean_tsys adds tcal/2, but tcal = 1
 tsys1 = mean_tsys(v1, s1, 1, mode=1) - 0.5
 tsys0 = mean_tsys(v1, s1, 1, mode=0) - 0.5
 print("mean_tsys mode0,1=",tsys0,tsys1)
@@ -254,19 +262,19 @@ plt.plot(t1)
 v1.plot(title='VANE')
 s1.plot(title='SKY')
 
-tcal = 100    # need to know this
-tcal = 272
+tcal = 272    # need to know this, we used the value from VANECAL.pro
 tsys=vane1.vanecal([281, 282], feeds=feeds1, tcal=tcal)
-print(f"For feeds={feeds1} Tsys={tsys}")       #  138.57587227 157.80540281  for tcal-272
+print(f"For feeds={feeds1} Tsys={tsys}")       #  138.57587227 157.80540281  
 
 # now process the NOD assuming the just aqcuired Tsys
 sp1,sp2 = sdf1._getnod( [289, 290], feeds1, tsys)
 # @todo not working now
+# Exception: Didn't find any unflagged scans matching the input selection criteria.
 sp1.plot(title='Feed1')
 sp2.plot(title='Feed2')
 
-sp3 = 0.5*(sp1+sp2)
-sp3 *= tsys.mean()
+sp3 = sp1.average(sp2)
+
 object = sp3.meta['OBJECT']
 sp3.plot(title='Averaged Feeds')
 sp3.plot(title=f"Source: {object}",xaxis_unit="km/s")               # no obvious signal - still inherits the title (bug??)
@@ -276,9 +284,10 @@ sp3.stats(qac=True, roll=1)
 
 
 
-sdf1.getnod(scan=[289,290],fdnum=[10,1])
-# ISSUE#484: IndexError: index 0 is out of bounds for axis 0 with size 0
-
+sb1=sdf1.getnod(scan=[289,290],fdnum=[10,1], t_sys=tsys.mean())    # @todo   fix for allowing t_sys = tsys
+# ISSUE#484: IndexError: index 0 is out of bounds for axis 0 with size 0  -> fixed 
+sp4 = sb1.timeaverage()
+sp4.plot()
 
 #%%   EDGE1 data  (1363MB)
 
@@ -293,7 +302,7 @@ _help = """
 6      23   NGC0001      0.0  DecLatMap         1  113.571858  113.571858    1     1    68     16  177.410654  78.233486
 """
 
-sdf1 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'), skipflags=True)
+%time sdf1 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'), skipflags=True)    # 10s
 #  ISSUE: CPU=9s with skipflags,  but 9min 5 sec with skipflags
 a = sdf1.summary()  # 208 scans   1363MB
 print(a)
@@ -303,16 +312,17 @@ print(b)   # there are 13 vane's in here (17,21,58,65,102,111,115,152,196,198,21
 # comparing the SKY tp at two different times
 plot_vegas(sdf1,[17,21])    # this is SLOOOW, see using it frome edge1 below
 
-# make a smaller dataset for testing with just the sky/vane's
-mkdir("edge1")
-scans = [17,18,21,22]
-# sdf1.write("edge1/file.fits", fdnum=8, scan=scans, intnum=[0,1], overwrite=True)
-# sdf1.write("edge1/file.fits", fdnum=8, scan=scans, overwrite=True)
-# sdf1.write("edge1/file.fits", scan=scans, overwrite=True)                # 4576 rows  -  also fails if skipflags=True
-#   ISSUE:    TypeError: object of type 'Column' has no len()
-#  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
-sdf1.write("edge1/file.fits", scan=scans, overwrite=True, flags=False)     # now ok
-#    temp fix
+if False:
+    # make a smaller dataset for testing with just the sky/vane's
+    kdir("edge1")
+    scans = [17,18,21,22]
+    # sdf1.write("edge1/file.fits", fdnum=8, scan=scans, intnum=[0,1], overwrite=True)
+    # sdf1.write("edge1/file.fits", fdnum=8, scan=scans, overwrite=True)
+    # sdf1.write("edge1/file.fits", scan=scans, overwrite=True)                # 4576 rows  -  also fails if skipflags=True
+    #   ISSUE:    TypeError: object of type 'Column' has no len()
+    #  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
+    sdf1.write("edge1/file.fits", scan=scans, overwrite=True, flags=False)     # now ok
+    #    temp fix
 
 edge1 = GBTFITSLoad("edge1")
 edge1.summary()
@@ -330,27 +340,26 @@ print(beams1)
 tsys = sdf1.vanecal([17, 18], feeds=beams1)    # 12 sec
 print(tsys)
 # [61.12006835 63.01095552]
+# [61.38545824 63.09793277]
 
-
-tsys = vanecal(edge1, [17, 18], feeds=beams1)   #  0.8 sec
+tsys = edge1.vanecal( [17, 18], feeds=beams1)   #  0.8 sec
 print(tsys)
 # [61.12006835 63.01095552].
-
+# [61.38545824 63.09793277]
 
 # plotting a TP spectrum
 sdf1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
 edge1.gettp(scan=17, fdnum=8, calibrate=True, cal=False).timeaverage().plot()
 # ok !!
 
-# not working yet, since it wants ON/OFF, needs the GETTP hack
-sp2 = sdf1.getnod(scan=19)
-# IndexError: index 0 is out of bounds for axis 0 with size 0
-
+sb2 = sdf1.getnod(scan=19, t_sys=tsys.mean())   # @todo fix for t_sys = tsys
+# IndexError: index 0 is out of bounds for axis 0 with size 0 -> now good
+sp2 = sb2.timeaverage()
+sp2.plot()
 
 # if getnod() is not converted, we can use the old trick of doing two gettp()
 scans = [19,20]
-sp1,sp2 = getnod(sdf1, scans, beams1, tsys=tsys)
-
+sp1,sp2 = sdf1._getnod(scans, beams1, tsys=tsys)
 sp3 = sp1.average(sp2)
 
 sp3 = sp3[100:900]
@@ -376,23 +385,24 @@ _help = """
 """
 
 
-sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'), skipflags=True)
+%time sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'), skipflags=True)    #   13sec
+%time sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'))                    #   ...
 sdf2.summary()
 
+if False:
+    mkdir("edge2")
+    scans = [327,328,329,330,331,332,333,334]
+    # scans = [329,330,331,332,333,334]
+    sdf2.write("edge2/file.fits", scan=scans, overwrite=True)                # 4576 rows
+    #  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
 
-mkdir("edge2")
-scans = [327,328,329,330,331,332,333,334]
-# scans = [329,330,331,332,333,334]
-sdf2.write("edge2/file.fits", scan=scans, overwrite=True)                # 4576 rows
-#  CPU times: user 23.5 s, sys: 3.02 s, total: 26.5 s   Wall time: 25.2 s
-
-beam2 = getbeam(sdf2)   # 1,9
+beam2 = sdf2.getbeam()   # 1,9
 print("feeds",beam2)
 
 tcal = 272   # from  vanecal.pro
 
 if True:
-    # make the test dataset
+    # make the test dataset for pytest
     mkdir("AGBT21B_024_14_test")
     sdf2.write("AGBT21B_024_14_test/file.fits", scan=range(329,335), intnum=0, overwrite=True)
     test2 = GBTFITSLoad("AGBT21B_024_14_test")
@@ -407,18 +417,18 @@ plot_vegas(edge2,[327,329],"edge2 TP at 112 and 114 GHz")
 plot_vegas(edge2,[327,329],"edge2 Tsys at 112 and 114 GHz",tsys=True, ylim=[0.5,1.1])
 
 # this was at 112 GHz for NGC570
-tsys1 = vanecal(edge2, [327, 328], feeds=beam2, tcal=tcal)
+tsys1 = edge2.vanecal( [327, 328], feeds=beam2, tcal=tcal)
 print(tsys1)    # [174.9832188  154.71092071]
 
 
 # this was at 114 GHz for NGC5908
-tsys2 = vanecal(edge2, [329, 330], feeds=beam2, tcal=tcal)
+tsys2 = edge2.vanecal([329, 330], feeds=beam2, tcal=tcal)
 print(tsys2)    # [220.76194114 201.60180914]
 
 
 # ratio:        1.24 +/- 0.11
 
-sp1,sp2 = getnod(edge2, [331, 332], beam2, tsys=tsys2)
+sp1,sp2 = edge2._getnod( [331, 332], beam2, tsys=tsys2)
 
 
 sp3a = sp1.average(sp2)
@@ -428,7 +438,7 @@ sp3a.stats(qac=True)
 sp3a.stats(roll=1, qac=True)   # -0.0007032170649519567 0.02473309930926793 -0.6811288707087332 0.038270612438221545
 
 
-sp1,sp2 = getnod(edge2, [333, 334], beam2, tsys=tsys2)
+sp1,sp2 = edge2._getnod( [333, 334], beam2, tsys=tsys2)
 
 sp3b = sp1.average(sp2)
 object = sp3b.meta['OBJECT']
@@ -438,8 +448,8 @@ sp3b.stats(roll=1,qac=True)   # 1.159984571846731e-05 0.016863803397811985 -0.05
 
 
 if True:
-    sp1,sp2 = getnod(edge2, [331, 332], beam2, tsys=tsys2)
-    sp3,sp4 = getnod(edge2, [333, 334], beam2, tsys=tsys2)
+    sp1,sp2 = edge2._getnod([331, 332], beam2, tsys=tsys2)
+    sp3,sp4 = edge2._getnod([333, 334], beam2, tsys=tsys2)
     sp5 = sp1.average([sp2,sp3,sp4])
 else:    
     sp5 = sp3a.average(sp3b)
@@ -457,6 +467,12 @@ sp6.plot(title=f"Source: {object}",xaxis_unit="km/s")
 
 sp7 = sp6.smooth('box', 3)
 sp7.plot(title=f"Source: {object}",xaxis_unit="km/s")
+
+
+
+edge2.getnod([331, 332])
+# Exception: Found more than one PROCTYPE in the requested scans: {'Track', 'Nod'}
+# do i need to make a new "sdf" with only Nod in it ?
 
 #%% NOD EXAMPLE-3 tp_nocal   NOD_BEAMS 0,1       729 MB
 
@@ -480,7 +496,8 @@ _help = """
 #16384 channels
 
 f3 = dysh_data(accept='AGBT15B_244_07/AGBT15B_244_07.raw.vegas')
-sdf3=GBTFITSLoad(f3, skipflags=True)
+%time sdf3=GBTFITSLoad(f3, skipflags=True)     # 0.7s
+%time sdf3=GBTFITSLoad(f3)                     # 2.8s
 # 8 fits files,   2 for beams, 4 for IF  - 12 scans (2 CALSEQ - W-band receiver at 87 GHz)
 sdf3.summary()
 # 11072 rows
@@ -489,7 +506,7 @@ tsys3,g = sdf3.calseq(130)
 print(tsys3,g)                  # 100.13203834626455 9.115908926574802e-07
 
 if True:  # 14 MB
-    # make the test dataset
+    # make the test dataset for pytest
     mkdir("AGBT15B_244_07_test")
     sdf3.write("AGBT15B_244_07_test/file.fits", scan=range(130,141), intnum=0, overwrite=True)
     test3 = GBTFITSLoad("AGBT15B_244_07_test")
@@ -526,10 +543,11 @@ if True:
             result.append([ifnum,plnum,tsys3])
     print(result)
     
-mkdir("nod3cal")
-intnums=[1,14,31]
-sdf3.write("nod3cal/file.fits", scan=130, ifnum=1, plnum=0, intnum=intnums, overwrite=True)
-#sdf3.write("nod3cal/file.fits", scan=130, intnum=intnums, overwrite=True)
+if False:
+    mkdir("nod3cal")
+    intnums=[1,14,31]
+    sdf3.write("nod3cal/file.fits", scan=130, ifnum=1, plnum=0, intnum=intnums, overwrite=True)
+    #sdf3.write("nod3cal/file.fits", scan=130, intnum=intnums, overwrite=True)
 
 intnums=[1,14,31]
 
@@ -547,14 +565,11 @@ print(tsys3,g)
 #   now ok
 
 
-#   131, 133, 135, 137, 139
-s = 131
-s = 133
-s = 135
-s = 137
-s = 139
-mkdir("nod3")
-sdf3.write('nod3/file.fits', scan=[s,s+1], ifnum=0, plnum=0, overwrite=True)  #244
+if False:
+    #   pick from 131, 133, 135, 137, 139
+    s = 131
+    mkdir("nod3")
+    sdf3.write('nod3/file.fits', scan=[s,s+1], ifnum=0, plnum=0, overwrite=True)  #244
 
 nod3 = GBTFITSLoad('nod3')
 nod3.summary()
@@ -563,9 +578,10 @@ nod3._index[k]    # 244 rows
 beams3 = nod3.getbeam()    # [0,1]
 print(beams3)
 
-sp1,sp2 = nod3._getnod( [s,s+1],beams3)
+s = 131
+sp1,sp2 = nod3._getnod( [s,s+1],beams3, tsys=tsys3)
 sp3 = sp1.average(sp2)
-sp3 *= tsys3
+
 
 object = sp3.meta['OBJECT']
 sp3.plot()
@@ -577,10 +593,11 @@ sp3.stats(roll=1,qac=True)
 sp3.smooth('box',32).plot(title=f"Source: {object}",xaxis_unit="km/s")
 
 
-sp0 = nod3.getnod(scan=[s,s+1],ifnum=0,plnum=0)
-#   IndexError: index 0 is out of bounds for axis 0 with size 0
-# .timeaverage()
+sb0 = nod3.getnod(scan=[s,s+1],ifnum=0,plnum=0, t_sys=tsys3)
+sp0 = sb0.timeaverage()
+sp0.plot(xaxis_unit="km/s")
 
+# plot some TP's :  make sure you have the right s
 nod3.gettp(scan=131,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
 nod3.gettp(scan=132,fdnum=0,calibrate=True, cal=False).timeaverage().plot()
 nod3.gettp(scan=131,fdnum=1,calibrate=True, cal=False).timeaverage().plot()
