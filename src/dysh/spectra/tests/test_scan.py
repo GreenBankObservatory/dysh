@@ -184,6 +184,8 @@ class TestSubBeamNod:
         # kluge for now since there is a small wavy pattern in
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
+        # make sure call to timeaverage functions
+        xx = sbn.timeaverage()
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
@@ -349,7 +351,7 @@ class TestTPScan:
         assert np.all(abs(table["TSYS"][:-1] - tp[0].tsys) < 1e-9)
         assert abs(tpavg.meta["TSYS"] - table["TSYS"][-1]) < 1e-10
         # Data, which uses float -- 32 bits.
-        assert np.sum(tp[0]._data - data[:-1]) == 0.0
+        assert np.sum(tp[0]._calibrated - data[:-1]) == 0.0
         assert np.nanmean((tpavg.flux.value - data[-1]) / data[-1].mean()) < 2**-32
 
     def test_compare_with_GBTIDL_equal_weights(self, data_dir):
@@ -442,7 +444,7 @@ class TestScanBlock:
     def test_scanblock_write_read(self, tmp_path):
         file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(file)
-        sb = g.getps(scan=6)
+        sb = g.getps(scan=6, plnum=0)
         o = tmp_path / "sub"
         o.mkdir()
         testfile = o / "test_scanblock_write.fits"
