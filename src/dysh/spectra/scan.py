@@ -1989,38 +1989,3 @@ class SubBeamNodScan(ScanBase):
         )
         s.merge_commentary(self)
         return s
-
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this scan.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._calibrated is None or len(self._calibrated) == 0:
-            raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.calibrated(0))
-        data = self._calibrated
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = None
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
-        return self._timeaveraged

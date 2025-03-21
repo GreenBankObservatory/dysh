@@ -184,6 +184,8 @@ class TestSubBeamNod:
         # kluge for now since there is a small wavy pattern in
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
+        # make sure call to timeaverage functions
+        xx = sbn.timeaverage()
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
