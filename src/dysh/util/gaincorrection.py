@@ -411,7 +411,7 @@ class GBTGainCorrection(BaseGainCorrection):
         zd=False,
         eps0=None,
     ) -> Union[float, np.array]:
-        """
+        r"""
         Scale the antenna temperature to a different brightness temperature unit.
 
         bunit : str
@@ -599,7 +599,7 @@ class GBTGainCorrection(BaseGainCorrection):
             raise NotImplementedError("Don't yet know how to get Tatm without the getForecasValues script")
 
     def _default_gbtidl_opacity(self, frequency: Quantity) -> float:
-        """Implementation of the GBTIDL method of computing zenith opacity.
+        r"""Implementation of the GBTIDL method of computing zenith opacity.
         This method is not recommended (even by GBTIDL!). It is implemented here for compatibility only.
 
         Parameters
