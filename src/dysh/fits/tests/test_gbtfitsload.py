@@ -99,6 +99,10 @@ class TestGBTFITSLoad:
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
 
+        # add a test to ensure that a bad scan number raises an ValueError (issue 462)
+        with pytest.raises(ValueError):
+            sdf.getps(scan=99999)
+
     def test_getps_acs(self):
         """
         Compare `GBTIDL` result to `dysh` with ACS data.
@@ -667,6 +671,32 @@ class TestGBTFITSLoad:
         sdf = gbtfitsload.GBTFITSLoad(new_path)
         # Not this part of the test, but just to make sure.
         assert np.all(sdf["RADESYS"] == "hadec")
+        # Test that we can create a `Spectrum` object.
+        tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
+
+    def test_galactic_coords(self, tmp_path):
+        """
+        Test that observations using Galactic coordinates can produce a valid `Spectrum`.
+        """
+
+        # Reuse an existing file in testdata.
+        fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        new_path = tmp_path / "o"
+        new_path.mkdir(parents=True)
+        sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf_org["RADESYS"] = ""
+        sdf_org["CTYPE2"] = "GLON"
+        sdf_org["CTYPE3"] = "GLAT"
+
+        # Create a temporary directory and write the modified SDFITS.
+        new_path = tmp_path / "o"
+        new_path.mkdir(parents=True, exist_ok=True)
+        sdf_org.write(new_path / "test_galactic.fits", overwrite=True)
+
+        # Now the actual test.
+        sdf = gbtfitsload.GBTFITSLoad(new_path)
+        # Not this part of the test, but just to make sure.
+        assert np.all(sdf["RADESYS"] == "galactic")
         # Test that we can create a `Spectrum` object.
         tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
 
