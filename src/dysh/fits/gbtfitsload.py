@@ -2569,15 +2569,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             frame_mask = self._sdf[i]._ctype_mask(ctype_dict)
             sdfi.loc[frame_mask, "RADESYS"] = frame
 
-    def _ctype_mask(self, ctype_dict):
-        ctype_mask = np.zeros((len(ctype_dict), len(self[next(iter(ctype_dict.keys()))])), dtype=bool)
-        for i, (k, v) in enumerate(ctype_dict.items()):
-            ctype_mask[i, :] = self[k] == v
-        if ctype_mask.shape[0] > 1:
-            ctype_mask = np.logical_and(*ctype_mask)
-
-        return ctype_mask.ravel()
-
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
         # Want case insensitivity
