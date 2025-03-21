@@ -16,7 +16,7 @@ from dysh.log import init_logging
 BANNER = f"""--------------------------------------------------------------------------
                          Welcome to Dysh v{__version__}
 
-    Example usage: https://dysh.readthedocs.io/en/latest/example.html
+    Example usage: https://dysh.readthedocs.io/
     Bug reports:    https://github.com/GreenBankObservatory/dysh/issues
 
     For help with a Dysh routine from the command line,
@@ -65,9 +65,17 @@ def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] =
     from astropy.io import fits
     from astropy.table import Table
 
-    from dysh.fits.gbtfitsload import GBTFITSLoad
+    from dysh.fits.gbtfitsload import GBTFITSLoad, GBTOffline, GBTOnline
 
-    user_ns = {"pd": pd, "np": np, "GBTFITSLoad": GBTFITSLoad, "Table": Table, "fits": fits}
+    user_ns = {
+        "pd": pd,
+        "np": np,
+        "GBTFITSLoad": GBTFITSLoad,
+        "GBTOnline": GBTOnline,
+        "GBTOffline": GBTOffline,
+        "Table": Table,
+        "fits": fits,
+    }
 
     c.BaseIPythonApplication.profile = profile
     c.InteractiveShell.colors = colors
