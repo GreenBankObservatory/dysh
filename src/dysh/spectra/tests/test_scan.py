@@ -351,7 +351,7 @@ class TestTPScan:
         assert np.all(abs(table["TSYS"][:-1] - tp[0].tsys) < 1e-9)
         assert abs(tpavg.meta["TSYS"] - table["TSYS"][-1]) < 1e-10
         # Data, which uses float -- 32 bits.
-        assert np.sum(tp[0]._data - data[:-1]) == 0.0
+        assert np.sum(tp[0]._calibrated - data[:-1]) == 0.0
         assert np.nanmean((tpavg.flux.value - data[-1]) / data[-1].mean()) < 2**-32
 
     def test_compare_with_GBTIDL_equal_weights(self, data_dir):
