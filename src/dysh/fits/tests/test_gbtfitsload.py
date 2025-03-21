@@ -88,8 +88,7 @@ class TestGBTFITSLoad:
 
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        # psscan is a ScanList
-        psscan = sdf.getps(152)
+        psscan = sdf.getps(scan=152)
         assert len(psscan) == 1
         psscan.calibrate()
         dysh_getps = psscan[0].calibrated(0).flux.to("K").value
@@ -777,3 +776,103 @@ class TestGBTFITSLoad:
         spec2 = psscan2.timeaverage()
         exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
         assert exp2 < exp1
+
+    def test_getnod_wcal(self):
+        """
+        Test for getnod using data with noise diode.
+        """
+
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        nodsp0 = nodsb[0].timeaverage()
+        nodsp1 = nodsb[1].timeaverage()
+
+        # Load GBTIDL reduction.
+        # row 0 is `fdnum=2`.
+        # row 1 is `fdnum=6`.
+        hdu = fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits")
+        table = hdu[1].data
+
+        # Compare.
+        assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
+        assert nodsp1.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][1])
+        # These assert internally.
+        np.testing.assert_allclose(nodsp0.data, table["DATA"][0], rtol=2e-7, equal_nan=False)
+        np.testing.assert_allclose(nodsp1.data, table["DATA"][1], rtol=2e-7, equal_nan=False)
+        assert table["TSYS"][0] == pytest.approx(nodsp0.meta["TSYS"])
+        assert table["TSYS"][1] == pytest.approx(nodsp1.meta["TSYS"])
+
+    def test_getnod_nocal(self):
+        """
+        Test for getnod using data without noise diode.
+        """
+
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(scan=24, ifnum=0, plnum=0)
+        nodsp0 = nodsb[0].timeaverage()
+        nodsp1 = nodsb[1].timeaverage()
+
+        # Load GBTIDL reduction.
+        # row 0 is `fdnum=0`.
+        # row 1 is `fdnum=1`.
+        hdu = fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits")
+        table = hdu[1].data
+
+        # Compare.
+        assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
+        assert nodsp1.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][1])
+        # These assert internally.
+        np.testing.assert_allclose(nodsp0.data, table["DATA"][0], rtol=2e-7, equal_nan=False)
+        np.testing.assert_allclose(nodsp1.data, table["DATA"][1], rtol=2e-7, equal_nan=False)
+        assert table["TSYS"][0] == pytest.approx(nodsp0.meta["TSYS"])
+        assert table["TSYS"][1] == pytest.approx(nodsp1.meta["TSYS"])
+
+    def test_subbeamnod(self):
+        """simple check of subbeamnod for two different cases.  this mimics the notebook example"""
+        sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        # don't scale
+        sb = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="cycle")
+        sb2 = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="scan")
+        s = sb.timeaverage() - sb2.timeaverage()
+        assert np.nanmean(s.data) == pytest.approx(0.0022912487, abs=1e-8)
+
+    def test_scale(self):
+        # Check that scaling to Ta* or Jy works.
+        # The code that computes the scale factors is tested in test_gaincorrection.py, so
+        # we don't need to recheck that here.
+        # PSScan
+        sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05)
+        sbb = sdf.getps(scan=152, bunit="jy", zenith_opacity=0.05)
+        # The ratio of these scale factors should be the Jy/K of the telescope
+        jyperk = sbb[0].bscale / sba[0].bscale
+        gc = util.gaincorrection.GBTGainCorrection()
+        assert jyperk == pytest.approx(gc.jyperk.value, 1e-6)
+        assert sba[0].bunit == "ta*"
+        assert sbb[0].bunit == "jy"
+        assert sba[0].is_scaled
+        assert sbb[0].is_scaled
+        # Now test scaling after the fact
+        sbd = sdf.getps(scan=152)
+        sbd[0].scale("jy", zenith_opacity=0.1)
+        assert sbd[0].bunit == "jy"
+        assert sbd[0].is_scaled
+
+        # try a bad scale type
+        with pytest.raises(ValueError):
+            sba = sdf.getps(scan=152, bunit="foobar", zenith_opacity=0.05)
+        # try a bad tau
+        with pytest.raises(ValueError):
+            sba = sdf.getps(scan=152, bunit="jy", zenith_opacity=-1)
+
+        # test that scaling a ScanBlock works, also case insensitivity
+        sb = sdf.getps(scan=152, bunit="Ta*", zenith_opacity=0.05)
+        assert sb.bunit == "ta*"
+        with pytest.raises(ValueError):
+            sb.scale("not a valid bunit", zenith_opacity=0.2)
