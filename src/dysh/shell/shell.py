@@ -9,6 +9,7 @@ from traitlets.config import Config
 
 import dysh.fits
 from dysh import __version__
+from dysh.config import create_config_file
 from dysh.fits.sdfitsload import SDFITSLoad
 from dysh.log import init_logging
 
@@ -55,10 +56,17 @@ def parse_args():
     parser.add_argument("--log", help="Specify log path", type=Path)
     parser.add_argument("-q", "--quiet", help="Silence DEBUG- and INFO-level logs to stderr", action="store_true")
     parser.add_argument("--version", help="Print version and exit", action="store_true")
+    parser.add_argument("--skip-config", help="Skip creating a configuration file", action="store_true")
     return parser.parse_known_args()
 
 
-def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] = "DEFAULT_PROFILE", sdfits_files=None):
+def init_shell(
+    *ipython_args,
+    colors=DEFAULT_COLORS,
+    profile: Union[str, Path] = "DEFAULT_PROFILE",
+    sdfits_files=None,
+    skip_config=False,
+):
     c = Config()
     import numpy as np
     import pandas as pd
@@ -84,6 +92,8 @@ def init_shell(*ipython_args, colors=DEFAULT_COLORS, profile: Union[str, Path] =
     )
     if sdfits_files:
         user_ns["sdfits_files"] = sdfits_files
+    if not skip_config:
+        create_config_file("dysh", rootname="dysh")
     IPython.start_ipython(ipython_args, config=c, user_ns=user_ns)
 
 
@@ -106,7 +116,13 @@ def main():
         sys.exit(0)
     init_logging(verbosity=args.verbosity, path=args.log, quiet=args.quiet)
     sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
-    init_shell(*remaining_args, colors=args.colors, profile=args.profile, sdfits_files=sdfits_files)
+    init_shell(
+        *remaining_args,
+        colors=args.colors,
+        profile=args.profile,
+        sdfits_files=sdfits_files,
+        skip_config=args.skip_config,
+    )
 
 
 if __name__ == "__main__":
