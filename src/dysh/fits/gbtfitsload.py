@@ -37,11 +37,15 @@ from ..util import (
     uniq,
 )
 from ..util.files import dysh_data
+from ..util.selection import Flag, Selection
+from . import conf
 from .sdfitsload import SDFITSLoad
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
+
+pd.set_option("display.max_rows", conf.summary_max_rows)
 
 
 class GBTFITSLoad(SDFITSLoad, HistoricalBase):
