@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
+#
 
-"""
-This script was developed in spyder during the vane calibration work. 
-
-Argus and the W (3mm) band use a vane to determine Tsys
-Q (7mm) band has a vane as well as noise diodes.   Cross check?
-
-
-
-The following examples are covered here:
-
-From nodding we have two cases:
-getps - review the standard test='getps'
-nod1  - VANE/SKY     fdnum=[10,1]           tp nocal;  TBD
-edge1 - VANE/SKY
-edge2 - VANE/SKY   at 112,114 GHz                                               some weak signal!
-nod3  - CALSEQ         fdnum=[0,1]          tp nocal;  TBD
-vane4 - "ISSUE 257"
-vane5 - VANE/SKY
-vane6 - CALSEQ    at 4 freqs
-
-Related issues:
-
-https://github.com/GreenBankObservatory/dysh/issues/257  
-https://github.com/GreenBankObservatory/dysh/issues/457     flagging problem
-https://github.com/GreenBankObservatory/dysh/issues/484     tp_nocal
-
-for Peter:    cd ~/GBT/dysh_data/nodding
-"""
+# 
+# This script was developed in spyder during the vane calibration work. 
+# 
+# Argus and the W (3mm) band use a vane to determine Tsys
+# Q (7mm) band has a vane as well as noise diodes.   Cross check?
+# 
+# 
+# The following examples are covered here:
+# 
+# From nodding we have two cases:
+# getps - review the standard test='getps'
+# nod1  - VANE/SKY     fdnum=[10,1]           tp nocal;  TBD
+# edge1 - VANE/SKY
+# edge2 - VANE/SKY   at 112,114 GHz                                               some weak signal!
+# nod3  - CALSEQ         fdnum=[0,1]          tp nocal;  TBD
+# vane4 - "ISSUE 257"
+# vane5 - VANE/SKY
+# vane6 - CALSEQ    at 4 freqs
+# 
+# Related issues:
+# 
+# https://github.com/GreenBankObservatory/dysh/issues/257  
+# https://github.com/GreenBankObservatory/dysh/issues/457     flagging problem
+# https://github.com/GreenBankObservatory/dysh/issues/484     tp_nocal
+# 
+# for Peter:    cd ~/GBT/dysh_data/nodding
+#
 
 import os
 import numpy as np
@@ -302,7 +302,7 @@ _help = """
 6      23   NGC0001      0.0  DecLatMap         1  113.571858  113.571858    1     1    68     16  177.410654  78.233486
 """
 
-%time sdf1 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'), skipflags=True)    # 10s
+sdf1 = GBTFITSLoad(dysh_data('AGBT21B_024_01/AGBT21B_024_01.raw.vegas'), skipflags=True)    # 10s
 #  ISSUE: CPU=9s with skipflags,  but 9min 5 sec with skipflags
 a = sdf1.summary()  # 208 scans   1363MB
 print(a)
@@ -385,8 +385,8 @@ _help = """
 """
 
 
-%time sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'), skipflags=True)    #   13sec
-%time sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'))                    #   ...
+sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'), skipflags=True)    #   13sec
+#sdf2=GBTFITSLoad(dysh_data('AGBT21B_024_14/AGBT21B_024_14.raw.vegas'))                    #   ...
 sdf2.summary()
 
 if False:
@@ -496,8 +496,8 @@ _help = """
 #16384 channels
 
 f3 = dysh_data(accept='AGBT15B_244_07/AGBT15B_244_07.raw.vegas')
-%time sdf3=GBTFITSLoad(f3, skipflags=True)     # 0.7s
-%time sdf3=GBTFITSLoad(f3)                     # 2.8s
+sdf3=GBTFITSLoad(f3, skipflags=True)     # 0.7s
+# sdf3=GBTFITSLoad(f3)                     # 2.8s
 # 8 fits files,   2 for beams, 4 for IF  - 12 scans (2 CALSEQ - W-band receiver at 87 GHz)
 sdf3.summary()
 # 11072 rows
