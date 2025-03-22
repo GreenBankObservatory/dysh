@@ -411,7 +411,7 @@ class GBTGainCorrection(BaseGainCorrection):
         zd=False,
         eps0=None,
     ) -> Union[float, np.array]:
-        """
+        r"""
         Scale the antenna temperature to a different brightness temperature unit.
 
         bunit : str
