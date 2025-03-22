@@ -16,6 +16,7 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
+from ..spectra.core import mean_data
 from ..spectra.scan import (
     FSScan,
     NodScan,
@@ -74,6 +75,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         path = Path(fileobj)
         self._sdf = []
         self._selection = None
+        self._tpnocal = None  # should become True or False once known
         self._flag = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
@@ -962,7 +964,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             True to use only integrations where calibration (diode) is on, False if off. None to use all integrations regardless calibration state.
             The system temperature will be calculated from both states regardless of the value of this variable.
         calibrate: bool
-            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+            whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data.
+            Default:True
         timeaverage : boolean, optional
             Average the scans in time. The default is True.
         polaverage : boolean, optional
@@ -1032,8 +1035,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     dfcalF = select_from("CAL", "F", _sifdf)
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
+                    # print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                     if len(calrows["ON"]) != len(calrows["OFF"]):
-                        raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                        if len(calrows["ON"]) > 0:
+                            raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                        # else: print("Warning: hacking gettp with no calrows")
                     # sig and cal are treated specially since
                     # they are not in kwargs and in SDFITS header
                     # they are not booleans but chars
@@ -1046,6 +1052,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"TPROWS len={len(tprows)}")
                     logger.debug(f"CALROWS on len={len(calrows['ON'])}")
                     logger.debug(f"fitsindex={i}")
+                    # print("PJT TPROWS", tprows)
                     if len(tprows) == 0:
                         continue
                     g = TPScan(
@@ -1149,8 +1156,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             preselected[kw] = uniq(_final[kw])
         if scans is None:
             scans = preselected["SCAN"]
+        # @todo pjt  two additions in this merge ?
+        if True:
+            som = uniq(_final["SUBOBSMODE"])
+            print("SUBOBSMODE:", som)
+            if len(som) > 1:
+                raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
+            if som[0] == "TPNOCAL":
+                self._tpnocal = True
+                raise Exception(f"Cannot deal with TPNOCAL yet")
+
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
+
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
@@ -1174,7 +1192,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now remove rows that have been entirely flagged
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
-        logger.debug(f"{_sf = }")
+        logger.debug(f"sf = {_sf}")
+
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         ifnum = uniq(_sf["IFNUM"])
@@ -1252,6 +1271,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable=None,
         smoothref=1,
         apply_flags=True,
+        t_sys=None,
+        nocal=False,
         bunit="ta",
         zenith_opacity=None,
         **kwargs,
@@ -1282,6 +1303,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this. Default: False
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1309,18 +1337,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             c = b.loc[b["FEEDEOFF"] == 0.0]
             d1 = c.loc[c["PROCSCAN"] == "BEAM1"]
             d2 = c.loc[c["PROCSCAN"] == "BEAM2"]
-            #
             if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
                 beam1 = d1["FDNUM"].unique()[0]
                 beam2 = d2["FDNUM"].unique()[0]
-                # fdnum1 = d1["FEED"].unique()[0]
-                # fdnum2 = d2["FEED"].unique()[0]
                 return [beam1, beam2]
             else:
                 # one more attempt (this can happen if PROCSCAN contains "Unknown")
                 # ugh, is it possible that BEAM1 and BEAM2 are switched here, given how we unique() ?
                 if len(c["FEED"].unique()) == 2:
-                    print("get_nod_beams rescued")
+                    logger.debug("get_nod_beams rescued")
                     b = c["FEED"].unique() - 1
                     return list(b)
                 return []
@@ -1339,9 +1364,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
         kwargs["fdnum"] = feeds
-        print(f"Using nodding beams {feeds}, use fdnum= to override these.")
+        logger.info(f"Using nodding beams {feeds}, use fdnum= to override these.")
 
-        # either the user gave scans on the command line (scans !=None) or pre-selected them
+        # Either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
         if len(self._selection._selection_rules) > 0:
@@ -1349,7 +1374,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             _final = self._index
         scans = kwargs.pop("scan", None)
-        # debug = kwargs.pop("debug", False)
         kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
@@ -1361,23 +1385,23 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         missing = self._nod_scan_list_selection(scans, _final, feeds, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
-        # now remove any scans that have been pre-selected by the user.
+        # Now remove any scans that have been pre-selected by the user.
         # scans_to_add -= scans_preselected
         logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
         logger.debug(f"SCAN {scans}")
         logger.debug(f"TYPE {type(ps_selection)}")
         if len(scans_to_add) != 0:
-            # add a rule selecting the missing scans :-)
+            # Add a rule selecting the missing scans :-)
             logger.debug(f"adding rule scan={scans_to_add}")
             kwargs["SCAN"] = list(scans_to_add)
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
-        # now downselect with any additional kwargs
+        # Now downselect with any additional kwargs.
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
-        # now remove rows that have been entirely flagged
+        # Now remove rows that have been entirely flagged.
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
@@ -1416,30 +1440,32 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
                     logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
                     logger.debug(f"and PROC {set(_df['PROC'])}")
-                    # beam1_selected =  not beam1_selected
                     rows = {}
-                    # loop over scan pairs
+                    # Loop over scan pairs.
                     c = 0
                     for on, off in zip(scanlist["ON"], scanlist["OFF"]):
                         _ondf = select_from("SCAN", on, _df)
                         _offdf = select_from("SCAN", off, _df)
-                        # rows["ON"] = list(_ondf.index)
-                        # rows["OFF"] = list(_offdf.index)
                         rows["ON"] = list(_ondf["ROW"])
                         rows["OFF"] = list(_offdf["ROW"])
                         for key in rows:
                             if len(rows[key]) == 0:
                                 raise Exception(f"{key} scans not found in scan list {scans}")
-                        # do not pass scan list here. We need all the cal rows. They will
-                        # be intersected with scan rows in PSScan
+                        # Do not pass scan list here. We need all the cal rows. They will
+                        # be intersected with scan rows in NodScan.
                         calrows = {}
                         dfcalT = select_from("CAL", "T", _df)
                         dfcalF = select_from("CAL", "F", _df)
-                        # calrows["ON"] = list(dfcalT.index)
-                        # calrows["OFF"] = list(dfcalF.index)
                         calrows["ON"] = list(dfcalT["ROW"])
                         calrows["OFF"] = list(dfcalF["ROW"])
                         d = {"ON": on, "OFF": off}
+                        # Check if there is a noise diode.
+                        if len(calrows["ON"]) == 0 or nocal:
+                            nocal = True
+                            if t_sys is None:
+                                dfoncalF = select_from("CAL", "F", _ondf)
+                                t_sys = dfoncalF["TSYS"].to_numpy()
+                                logger.info("Using TSYS column")
                         logger.debug(f"{i, f, k, c} SCANROWS {rows}")
                         logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                         logger.debug(f"BEAM1 {beam1_selected}")
@@ -1453,6 +1479,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             calibrate=calibrate,
                             smoothref=smoothref,
                             apply_flags=apply_flags,
+                            nocal=nocal,
+                            tsys=t_sys,
                             bunit=bunit,
                             zenith_opacity=zenith_opacity,
                         )
@@ -2629,6 +2657,264 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
+
+    def getbeam(self, debug=False):
+        """
+        find the two nodding beams based on on a given FDNUM, FEED
+        needs PROCSCAN='BEAM1' or 'BEAM2'
+
+        Parameters
+        ----------
+        sdf : `GBTFITSLoad`
+            data handle, containing one or more SDFITS files specific to GBT
+        debug : boolean, optional
+            Add more debugging output. @todo use logger
+            The default is False.
+
+        Returns
+        -------
+        beams : list of two ints representing the nodding beams (0 = first beam)
+
+        """
+        # list of columns needed to differentiate and find the nodding beams
+        kb = ["FEEDXOFF", "FEEDEOFF", "PROCSCAN", "FDNUM", "FEED"]
+        a0 = self._index[kb]
+        b1 = a0.loc[a0["FEEDXOFF"] == 0.0]
+        b2 = b1.loc[b1["FEEDEOFF"] == 0.0]
+        d1 = b2.loc[b2["PROCSCAN"] == "BEAM1"]
+        d2 = b2.loc[b2["PROCSCAN"] == "BEAM2"]
+        #
+        if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
+            beam1 = d1["FDNUM"].unique()[0]
+            beam2 = d2["FDNUM"].unique()[0]
+            fdnum1 = d1["FEED"].unique()[0]
+            fdnum2 = d2["FEED"].unique()[0]
+            if debug:
+                print("beams: ", beam1, beam2, fdnum1, fdnum2)
+            return [beam1, beam2]
+        else:
+            # try one other thing
+            if len(b2["FEED"].unique()) == 2:
+                print("getbeam rescued")
+                b = b2["FEED"].unique() - 1
+                return list(b)
+            print("too many in beam1:", d1["FDNUM"].unique())
+            print("too many in beam2:", d2["FDNUM"].unique())
+            return []
+
+    def calseq(self, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):
+        """
+        This routine returns the Tsys and gain for the selected W-band channel.
+
+        W-band receivers use a CALSEQ where during a scan three different
+        observations are made: sky, cold1 and cold2, from which the
+        system temperature is derived.
+
+
+        Parameters
+        ----------
+        sdf : `GBTFITSLoad`
+            data handle, containing one or more SDFITS files specific to GBT
+        scan : int or list of int
+            Scan number(s) where CALSEQ is expected. See sdf.summary() to find the scan number(s).
+            If multiple scans are used, an average Tsys is computed.
+        tcold : float, optional
+            Set the cold temperature. See also freq= for an alternative computation.
+            The default is 54.
+        fdnum : int, optional
+            Feed to be used, 0 being the first.
+            The default is 0.
+        ifnum : int, optional
+            IF to be used, 0 being the first.
+            The default is 0.
+        plnum : int, optional
+            Polarization to be used, 0 being the first.
+            The default is 0.
+        freq : float, optional
+            Observing frequency if Tcold to be set different from the default:
+            Tcold = 54 - 0.6*(FREQ-77)      FREQ in GHz
+            The default is None.
+        verbose : boolean, optional
+            Add more information mimicking the GBTIDL outout of VANECAL.
+            The default is False
+
+        Returns
+        -------
+        tsys : float
+            DESCRIPTION.
+        g : float
+            DESCRIPTION.
+
+        """
+        if freq is not None:
+            # see eq.(13) in GBT memo 302
+            tcold = 54 - 0.6 * (freq - 77)
+            print(f"Warning: calseq using freq={freq} GHz and setting tcold={tcold} K")
+
+        twarm = self._index["TWARM"].mean()
+        # @todo ? there was a period when TWARM was recorded wrongly as 99C, wwhere TAMBIENT (in K) would be better
+
+        tp_args = {"scan": scan, "ifnum": ifnum, "plnum": plnum, "fdnum": fdnum, "calibrate": True, "cal": False}
+        vsky = self.gettp(CALPOSITION="Observing", **tp_args).timeaverage()
+        vcold1 = self.gettp(CALPOSITION="Cold1", **tp_args).timeaverage()
+        vcold2 = self.gettp(CALPOSITION="Cold2", **tp_args).timeaverage()
+
+        if fdnum == 0:
+            g = (twarm - tcold) / mean_data(vcold2.data - vcold1.data)
+        elif fdnum == 1:
+            g = (twarm - tcold) / mean_data(vcold1.data - vcold2.data)
+        else:
+            print(f"Illegal fdnum={fdnum} for a CALSEQ")
+            return None
+        tsys = mean_data(g * vsky.data)
+
+        if verbose:
+            print(f"Twarm={twarm} Tcold={tcold}")
+            print(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
+            print(f"Tsys = {tsys}")
+            print(f"Gain [K/counts] = {g}")
+
+        return tsys, g
+
+    def vanecal(self, vane_sky, feeds=range(16), mode=2, tcal=None, verbose=False):
+        """
+        Return Tsys calibration values for all or selected beams of the Argus
+        VANE/SKY calibration cycle.
+
+
+        Parameters
+        ----------
+        sdf : `GBTFITSLoad`
+            data handle, containing one or more SDFITS files specific to GBT
+        vane_sky : list of two ints
+            The first designates the VANE scan, the second the SKY scan.
+            Normally the SKY scan is directly followed by the VANE scan.
+            @todo if one scan given, assume sky is vane+1
+        feeds : list of ints, optional
+            The default is range(16), i.e. using all Argus beams.
+        mode : int, optional
+            Mode of computing. See also `mean_tsys()`
+            mode=0  Do the mean before the division
+            mode=1  Do the mean after the division
+            mode=2  Take a median of the inverse division
+            The default is 2.
+        tcal : float, optional
+            Tcal value for normalization. Normally obtained from the
+            environment, but offsite cannot be done.
+            @todo fix this, but right now it is adviced to manually enter tcal
+            The default is None.
+        verbose : boolean, optional
+            Add more information mimicking the GBTIDL outout of VANECAL.
+            The default is False
+
+        Returns
+        -------
+        tsys : list of floats
+            Values of Tsys for each of the `feeds` given.
+
+        """
+        vane = vane_sky[0]
+        sky = vane_sky[1]
+        if len(feeds) == 0:
+            print("Warning, no feeds= given")
+            return None
+        tsys = np.zeros(len(feeds), dtype=float)
+
+        #  for VANE/CAL data usually tcal=1
+        if tcal is None:
+            tcal = self._index["TCAL"].mean()
+            if tcal == 1.0:
+                # until we figure this out via getatmos  @todo warn here
+                tcal = 100.0  # set to 100K for now
+
+        i = 0
+        for f in feeds:
+            v = self.gettp(scan=vane, fdnum=f, calibrate=True, cal=False).timeaverage()
+            s = self.gettp(scan=sky, fdnum=f, calibrate=True, cal=False).timeaverage()
+            if mode == 0:
+                mean_off = mean_data(s.data)
+                mean_dif = mean_data(v.data - s.data)
+                tsys[i] = tcal * mean_off / mean_dif
+            elif mode == 1:
+                tsys[i] = tcal / mean_data((v.data - s.data) / s.data)
+            elif mode == 2:
+                tsys[i] = tcal / np.nanmedian((v.data - s.data) / s.data)
+            #  vanecal.pro seems to do    tcal / median( (v-s)/s)
+            #  as well as not take off the edges
+            i = i + 1
+        if verbose:
+            for i in range(len(feeds)):
+                print(f"fdnum,Tsys   {feeds[i]:2d}  {tsys[i]:10.5f}")
+            print(f"<Tsys>  {np.nanmean(tsys):.5f} +/- {np.nanstd(tsys):.5f}")
+            print(f"mode={mode}")
+            print("TCAL=", tcal)
+
+        return tsys
+
+    def _getnod(self, scans, beams, ifnum=0, plnum=0, tsys=None):
+        """
+        fake getnod() based on alternating gettp() with averaging done internally
+        use the real sdf.getnod() for final analysis.
+        @todo   this should be replaced by an improved proper getnod()
+        sdf:   the sdfits handle
+        scans: list of two scans for the nodding
+        beams: list of two beams for the nodding
+        ifnum: the ifnum to use
+        plnum: the plnum to use
+        Returns the two nodding spectra, caller is responsible for averaging them, e.g.
+             sp1.average(sp2)
+
+        Parameters
+        ----------
+        sdf : GBTFITSLoad`
+            data handle, containing one or more SDFITS files specific to GBT
+        scans : list of 2 ints
+            DESCRIPTION.
+        beams : list of 2 ints
+            DESCRIPTION.
+        ifnum : int, optional
+            DESCRIPTION. The default is 0.
+        plnum : int, optional
+            DESCRIPTION. The default is 0.
+        tsys : float or list of two floats, optional
+            DESCRIPTION. The default is None.
+
+        Returns
+        -------
+        sp1 : `Spectrum`
+            DESCRIPTION.
+        sp2 : `Spectrum`
+            DESCRIPTION.
+
+        """
+
+        if tsys is None:
+            tsys = np.array([1.0, 1.0])
+        if np.isscalar(tsys):
+            tsys = np.array([tsys, tsys])
+        if len(tsys) == 1:
+            tsys = np.array([tsys, tsys])  # because np.isscalar(np.array([1])) is False !
+
+        ps1_on = self.gettp(
+            scan=scans[0], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
+        ).timeaverage()
+        ps1_off = self.gettp(
+            scan=scans[1], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
+        ).timeaverage()
+        sp1 = (ps1_on - ps1_off) / ps1_off * tsys[0]
+
+        ps2_on = self.gettp(
+            scan=scans[1], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
+        ).timeaverage()
+        ps2_off = self.gettp(
+            scan=scans[0], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
+        ).timeaverage()
+        sp2 = (ps2_on - ps2_off) / ps2_off * tsys[1]
+
+        sp1.meta["TSYS"] = tsys[0]
+        sp2.meta["TSYS"] = tsys[1]
+
+        return (sp1, sp2)
 
 
 class GBTOffline(GBTFITSLoad):
