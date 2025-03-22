@@ -782,7 +782,7 @@ sdf8.summary()
 sdf8=GBTFITSLoad(dysh_data('AGBT21B_024_21/AGBT21B_024_21.raw.vegas'), skipflags=True)
 sdf8.summary()
 
-"""
+_help="""
    207             VANE      0.0   Track   1  114.030   1   21  16  346.4  72.4
    208              SKY      0.0   Track   1  114.030   1   21  16  346.4  72.4
    209          NGC5908      0.0     Nod   1  114.030   1   61  16  345.5  72.4
