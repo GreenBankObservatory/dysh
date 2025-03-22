@@ -1,6 +1,22 @@
 #!/usr/bin/env python3
 #
 
+import os
+import numpy as np
+import numpy.ma as ma
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+from astropy.io import fits
+import astropy.units as u
+
+from dysh.fits.sdfitsload import SDFITSLoad
+from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.util.files import dysh_data
+from dysh.util.selection import Selection
+from dysh.spectra.core import mean_tsys
+
+from dysh.plot.vegasplot import plot_vegas
+
 # 
 # This script was developed in spyder during the vane calibration work. 
 # 
@@ -29,23 +45,7 @@
 # for Peter:    cd ~/GBT/dysh_data/nodding
 #
 
-import os
-import numpy as np
-import numpy.ma as ma
-import matplotlib.pyplot as plt
-from scipy.stats import norm
-from astropy.io import fits
-import astropy.units as u
 
-from dysh.fits.sdfitsload import SDFITSLoad
-from dysh.fits.gbtfitsload import GBTFITSLoad
-from dysh.util.files import dysh_data
-from dysh.util.selection import Selection
-from dysh.spectra.core import mean_tsys
-
-from dysh.plot.vegasplot import plot_vegas
-
- 
 #  useful keys for a mult-beam observation listing
 
 k=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'PROCSCAN','FEED', 'SRFEED', 'FEEDXOFF', 'FEEDEOFF', 'SIG', 'CAL', 'PROCSEQN', 'PROCSIZE']
