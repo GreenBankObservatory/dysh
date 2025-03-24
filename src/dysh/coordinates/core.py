@@ -54,7 +54,9 @@ astropy_frame_dict = {
     "galactocentric": coord.Galactocentric,
     "topocentric": coord.ITRS,  # but need to add observatory position
     "topo": coord.ITRS,  # but need to add observatory position
-    "itrs": coord.ITRS,  # but need to add observatory positionsc.sp
+    "itrs": coord.ITRS,  # but need to add observatory position
+    "fk5": coord.FK5,
+    "gal": coord.Galactic,
 }
 
 astropy_convenience_frame_names = {
@@ -669,3 +671,63 @@ class Observatory:
         See :meth:`~astropy.coordinates.EarthLocation.from_geodetic`
         """
         return coord.EarthLocation.from_geodetic(longitude, latitude, height, ellipsoid)
+
+
+def eq2hor(lon, lat, frame, date_obs, unit="deg", location=GBT()):
+    """
+    Equatorial to horizontal coordinate conversion.
+
+    Parameters
+    ----------
+    lon : float
+        Longitude coordinate. E.g., RA or Galactic longitude.
+    lat : float
+        Latitude coordinate. E.g., Dec or Galactic latitude.
+    frame : str
+        Input coordinate frame. Must be recognized by `~astropy.coordinates`
+    date_obs : str
+        Date of observations. Must be a format compatible with `~astropy.time.Time`.
+    unit : str
+        Units of `lon` and `lat`.
+    location : `~astropy.coordinates.EarthLocation`
+        Observer location.
+
+    Returns
+    -------
+    altaz : `~astropy.coordinates.AltAz`
+        Horizontal coordinates.
+
+    """
+
+    lonlat = coord.SkyCoord(lon, lat, unit=unit, frame=frame, obstime=Time(date_obs))
+    return lonlat.transform_to(coord.AltAz(location=location))
+
+
+def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):
+    """
+    Horizontal to Equatorial coordinate conversion.
+
+    Parameters
+    ----------
+    az : float
+        Azimuth coordinate.
+    alt : float
+        Altitude or elevation coordinate.
+    frame : str
+        Output coordinate frame. Must be recognized by `~astropy.coordinates`
+    date_obs : str
+        Date of observations. Must be a format compatible with `~astropy.time.Time`.
+    unit : str
+        Units of `lon` and `lat`.
+    location : `~astropy.coordinates.EarthLocation`
+        Observer location.
+
+    Returns
+    -------
+    eq : `~astropy.coordinates.SkyCoord`
+        Celestial coordinates in `frame`.
+
+    """
+
+    altaz = coord.SkyCoord(az=az, alt=alt, unit=unit, frame="altaz", obstime=Time(date_obs), location=location)
+    return altaz.transform_to(astropy_frame_dict[frame])
