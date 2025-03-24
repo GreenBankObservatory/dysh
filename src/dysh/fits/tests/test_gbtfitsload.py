@@ -906,3 +906,26 @@ class TestGBTFITSLoad:
         assert sb.bunit == "ta*"
         with pytest.raises(ValueError):
             sb.scale("not a valid bunit", zenith_opacity=0.2)
+
+    def test_getps_nocal(self):
+        """
+        Test for `getps` without noise diodes.
+        """
+
+        sdf_file = f"{self.data_dir}/TGBT24B_613_15/TGBT24B_613_15.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ps = sdf.getps(scan=23, fdnum=10, plnum=0).timeaverage()
+
+        # Load GBTIDL reduction.
+        hdu = fits.open(util.get_project_testdata() / "TGBT24B_613_15/TGBT24B_613_15.cal.vegas.fits")
+        table = hdu[1].data
+
+        # Compare.
+        assert ps.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
+        assert table["TSYS"][0] == pytest.approx(ps.meta["TSYS"])
+        np.testing.assert_allclose(
+            ps.data[~np.isnan(table["DATA"][0])],
+            table["DATA"][0][~np.isnan(table["DATA"][0])],
+            rtol=2e-7,
+            equal_nan=False,
+        )

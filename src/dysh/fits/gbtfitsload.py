@@ -1086,6 +1086,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags: str = True,
         bunit: str = "ta",
         zenith_opacity: float = None,
+        t_sys=None,
+        nocal: bool = False,
         **kwargs,
     ):
         """
@@ -1116,6 +1118,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
         zenith_opacity: float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this. Default: False
 
         **kwargs : dict
             Optional additional selection keyword arguments, typically
@@ -1133,6 +1142,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~spectra.scan.PSScan`.
 
         """
+        _nocal = nocal  # Internal variable.
+        _tsys = None
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
@@ -1156,15 +1167,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             preselected[kw] = uniq(_final[kw])
         if scans is None:
             scans = preselected["SCAN"]
-        # @todo pjt  two additions in this merge ?
-        if True:
-            som = uniq(_final["SUBOBSMODE"])
-            print("SUBOBSMODE:", som)
-            if len(som) > 1:
-                raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
-            if som[0] == "TPNOCAL":
-                self._tpnocal = True
-                raise Exception(f"Cannot deal with TPNOCAL yet")
+        #        # @todo pjt  two additions in this merge ?
+        #        if True:
+        #            som = uniq(_final["SUBOBSMODE"])
+        #            print("SUBOBSMODE:", som)
+        #            if len(som) > 1:
+        #                raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
+        #            if som[0] == "TPNOCAL":
+        #                self._tpnocal = True
+        #                raise Exception(f"Cannot deal with TPNOCAL yet")
 
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
@@ -1221,8 +1232,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 for on, off in zip(scanlist["ON"], scanlist["OFF"]):
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
-                    # rows["ON"] = list(_ondf.index)
-                    # rows["OFF"] = list(_offdf.index)
                     rows["ON"] = list(_ondf["ROW"])
                     rows["OFF"] = list(_offdf["ROW"])
                     for key in rows:
@@ -1233,11 +1242,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calrows = {}
                     dfcalT = select_from("CAL", "T", _df)
                     dfcalF = select_from("CAL", "F", _df)
-                    # calrows["ON"] = list(dfcalT.index)
-                    # calrows["OFF"] = list(dfcalF.index)
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
+                    # Check if there is a noise diode.
+                    if len(calrows["ON"]) == 0 or nocal:
+                        _nocal = True
+                        if t_sys is None:
+                            dfoncalF = select_from("CAL", "F", _ondf)
+                            _tsys = dfoncalF["TSYS"].to_numpy()
+                            logger.info("Using TSYS column")
+                        else:
+                            _tsys = t_sys
                     logger.debug(f"{i, k, c} SCANROWS {rows}")
                     logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
                     g = PSScan(
@@ -1251,10 +1267,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         apply_flags=apply_flags,
                         bunit=bunit,
                         zenith_opacity=zenith_opacity,
+                        tsys=_tsys,
+                        nocal=_nocal,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
                     c = c + 1
+                    _nocal = False  # Reset, in case there is a mix.
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
