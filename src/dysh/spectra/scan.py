@@ -1498,7 +1498,6 @@ class NodScan(ScanBase):
                 self.scale(bunit, zenith_opacity)
             self._validate_defaults()
 
-
     def calibrate(self, **kwargs):
         """
         Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
