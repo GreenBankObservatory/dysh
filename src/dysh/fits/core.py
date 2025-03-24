@@ -2,6 +2,9 @@
 Core functions for FITS/SDFITS
 """
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 def default_sdfits_columns():
     """The default column names for GBT SDFITS.

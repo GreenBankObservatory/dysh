@@ -101,6 +101,10 @@ class TestGBTFITSLoad:
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
 
+        # add a test to ensure that a bad scan number raises an ValueError (issue 462)
+        with pytest.raises(ValueError):
+            sdf.getps(scan=99999)
+
     def test_getps_acs(self):
         """
         Compare `GBTIDL` result to `dysh` with ACS data.
@@ -672,6 +676,32 @@ class TestGBTFITSLoad:
         # Test that we can create a `Spectrum` object.
         tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
 
+    def test_galactic_coords(self, tmp_path):
+        """
+        Test that observations using Galactic coordinates can produce a valid `Spectrum`.
+        """
+
+        # Reuse an existing file in testdata.
+        fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        new_path = tmp_path / "o"
+        new_path.mkdir(parents=True)
+        sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf_org["RADESYS"] = ""
+        sdf_org["CTYPE2"] = "GLON"
+        sdf_org["CTYPE3"] = "GLAT"
+
+        # Create a temporary directory and write the modified SDFITS.
+        new_path = tmp_path / "o"
+        new_path.mkdir(parents=True, exist_ok=True)
+        sdf_org.write(new_path / "test_galactic.fits", overwrite=True)
+
+        # Now the actual test.
+        sdf = gbtfitsload.GBTFITSLoad(new_path)
+        # Not this part of the test, but just to make sure.
+        assert np.all(sdf["RADESYS"] == "galactic")
+        # Test that we can create a `Spectrum` object.
+        tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
+
     def test_add_history_comments(self):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
@@ -778,6 +808,60 @@ class TestGBTFITSLoad:
         spec2 = psscan2.timeaverage()
         exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
         assert exp2 < exp1
+
+    def test_getnod_wcal(self):
+        """
+        Test for getnod using data with noise diode.
+        """
+
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        nodsp0 = nodsb[0].timeaverage()
+        nodsp1 = nodsb[1].timeaverage()
+
+        # Load GBTIDL reduction.
+        # row 0 is `fdnum=2`.
+        # row 1 is `fdnum=6`.
+        hdu = fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits")
+        table = hdu[1].data
+
+        # Compare.
+        assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
+        assert nodsp1.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][1])
+        # These assert internally.
+        np.testing.assert_allclose(nodsp0.data, table["DATA"][0], rtol=2e-7, equal_nan=False)
+        np.testing.assert_allclose(nodsp1.data, table["DATA"][1], rtol=2e-7, equal_nan=False)
+        assert table["TSYS"][0] == pytest.approx(nodsp0.meta["TSYS"])
+        assert table["TSYS"][1] == pytest.approx(nodsp1.meta["TSYS"])
+
+    def test_getnod_nocal(self):
+        """
+        Test for getnod using data without noise diode.
+        """
+
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(scan=24, ifnum=0, plnum=0)
+        nodsp0 = nodsb[0].timeaverage()
+        nodsp1 = nodsb[1].timeaverage()
+
+        # Load GBTIDL reduction.
+        # row 0 is `fdnum=0`.
+        # row 1 is `fdnum=1`.
+        hdu = fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits")
+        table = hdu[1].data
+
+        # Compare.
+        assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
+        assert nodsp1.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][1])
+        # These assert internally.
+        np.testing.assert_allclose(nodsp0.data, table["DATA"][0], rtol=2e-7, equal_nan=False)
+        np.testing.assert_allclose(nodsp1.data, table["DATA"][1], rtol=2e-7, equal_nan=False)
+        assert table["TSYS"][0] == pytest.approx(nodsp0.meta["TSYS"])
+        assert table["TSYS"][1] == pytest.approx(nodsp1.meta["TSYS"])
 
     def test_subbeamnod(self):
         """simple check of subbeamnod for two different cases.  this mimics the notebook example"""
