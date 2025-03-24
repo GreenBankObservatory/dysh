@@ -1,8 +1,10 @@
 import glob
+import logging
 import os
 import pathlib
 import platform
 import shutil
+import warnings
 from copy import deepcopy
 from pathlib import Path
 
@@ -906,3 +908,80 @@ class TestGBTFITSLoad:
         assert sb.bunit == "ta*"
         with pytest.raises(ValueError):
             sb.scale("not a valid bunit", zenith_opacity=0.2)
+
+    def test_qd_check(self, caplog):
+        """
+        Test for `qd_check`.
+        Check that it identifies the correct amount of data with pointing errors.
+        """
+
+        fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        caplog.set_level(logging.INFO)
+        sdf.qd_check()
+        assert "0.0%" in caplog.text
+        caplog.clear()  # Reset the log capture.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sdf["QD_EL"] += 100
+        sdf.qd_check()
+        assert "100.0%" in caplog.text
+
+    def test_qd_correct(self, caplog):
+        """
+        Test for `qd_correct`.
+        Check that it does not modify the sky pointing if the quadrant detector data is flagged as bad.
+        Check that it modifies the sky pointing.
+        """
+
+        fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        crval2_org = deepcopy(sdf["CRVAL2"].to_numpy())
+        crval3_org = deepcopy(sdf["CRVAL3"].to_numpy())
+
+        # Set QD_BAD to 1.
+        # This should not change the pointing information.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sdf["QD_BAD"] = 1
+        with caplog.at_level(logging.INFO):
+            sdf.qd_correct()
+        assert "All quadrant detector data has been flagged. Will not apply corrections." in caplog.text
+        np.testing.assert_array_equal(crval2_org, sdf["CRVAL2"].to_numpy())
+        np.testing.assert_array_equal(crval3_org, sdf["CRVAL3"].to_numpy())
+        assert np.sum(crval2_org - sdf["CRVAL2"].to_numpy()) == 0.0
+        assert np.sum(crval3_org - sdf["CRVAL3"].to_numpy()) == 0.0
+
+        # Back to 0.
+        # This should change the pointing data.
+        sdf._qd_corrected = False
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sdf["QD_BAD"] = 0
+        sdf.qd_correct()
+        assert np.sum(crval2_org - sdf["CRVAL2"].to_numpy()) != 0.0
+        assert np.sum(crval3_org - sdf["CRVAL3"].to_numpy()) != 0.0
+
+    def test_qd_flag(self):
+        """
+        Tests for `qd_flag`.
+        Test that it flags data.
+        """
+
+        fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+
+        # Nothing to flag.
+        sdf.qd_flag()
+        assert len(sdf.flags.final.index.values) == 0
+
+        # Add a pointing error so it gets flagged.
+        qd_el = sdf["QD_EL"].to_numpy()
+        qd_el[10] += 100
+        sdf.qd_flag()
+        assert np.all(sdf.flags.final.index.values == 10)
+        sdf.flags.clear()
+
+        qd_el[11:15] += 100
+        sdf.qd_flag()
+        np.testing.assert_array_equal(sdf.flags.final.index.values, [10, 11, 12, 13, 14])
