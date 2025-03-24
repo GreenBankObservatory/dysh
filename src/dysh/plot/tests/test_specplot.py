@@ -22,3 +22,8 @@ class TestSpecplot:
         of = tmp_path / "test_savefig.png"
         tp.savefig(of)
         assert of.is_file()
+
+        tp.plot(header=False)
+        of = tmp_path / "test_savefig_noheader.png"
+        tp.savefig(of)
+        assert of.is_file()
