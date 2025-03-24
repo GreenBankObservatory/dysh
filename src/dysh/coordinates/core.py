@@ -684,7 +684,7 @@ def eq2hor(lon, lat, frame, date_obs, unit="deg", location=GBT()):
     lat : float
         Latitude coordinate. E.g., Dec or Galactic latitude.
     frame : str
-        Input coordinate frame. Must be recongized by `~astropy.coordinates`
+        Input coordinate frame. Must be recognized by `~astropy.coordinates`
     date_obs : str
         Date of observations. Must be a format compatible with `~astropy.time.Time`.
     unit : str
@@ -714,7 +714,7 @@ def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):
     alt : float
         Altitude or elevation coordinate.
     frame : str
-        Output coordinate frame. Must be recongized by `~astropy.coordinates`
+        Output coordinate frame. Must be recognized by `~astropy.coordinates`
     date_obs : str
         Date of observations. Must be a format compatible with `~astropy.time.Time`.
     unit : str

@@ -2633,13 +2633,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_history
     def qd_correct(self, ignore_jump: bool = False) -> None:
         """
-        Apply quadrant detector (QD) corrections to antenna position.
+        Apply quadrant detector (QD) corrections to sky coordinates.
+        During an observation the QD records the motion of the GBT feed arm in
+        the elevation and cross elevation directions. This movement results in
+        pointing errors which are not automatically corrected for. This method
+        allows users to correct for this movement, when possible.
+        More details about the QD and its use can be found in this reference:
+        `<https://ui.adsabs.harvard.edu/abs/2011PASP..123..682R/abstract>`_
 
         Parameters
         ----------
         ignore_jump : bool
             Whether to ignore the prescence of jumps in the QD data.
             If set to `True` the corrections will be applied even if jumps are found.
+            These jumps are also referred to as hysteresis events.
         """
 
         if self._qd_corrected:
