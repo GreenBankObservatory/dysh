@@ -113,7 +113,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._npol = -1
         self._scan = -1
         self._pols = -1
+        self._nint = -1
         self._sdfits = sdfits
+        self._nocal = False
         # self._meta = {}
         self._bscale = 1.0
         self._bunit = "ta"
@@ -533,6 +535,20 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def __len__(self):
         return self._nrows
 
+    def _init_tsys(self, tsys=None):
+        """
+        Initialize the array of system temperature values.
+        This assumes that the input system temperature is either
+        a scalar or a (N,) array with N equal to the number of integrations.
+        """
+
+        # Noise diode firing and no user provided tsys.
+        if not self._nocal and tsys is None:
+            self._tsys = np.empty(self._nint, dtype=float)
+        # User provided tsys.
+        elif tsys is not None:
+            self._tsys = np.ones(self._nint, dtype=float) * tsys
+
 
 class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @log_call_to_history
@@ -575,6 +591,19 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
         self._timeaveraged = []
+        for scan in self.data:
+            self._timeaveraged.append(scan.timeaverage(weights))
+        s = average_spectra(self._timeaveraged, weights=weights)
+        s.merge_commentary(self)
+        return s
+
+    def timevariance(self, weights="tsys"):
+        """
+        trying variance
+        """
+        logger.warning(f"PJT testing time variance, do not rely on this function")
+
+        self._timevariance = []
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
         s = average_spectra(self._timeaveraged, weights=weights)
@@ -785,7 +814,7 @@ class TPScan(ScanBase):
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
-        whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+        whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
@@ -858,22 +887,74 @@ class TPScan(ScanBase):
         if False:
             self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
             self._nint = gbtfits.nintegrations(self._bintable_index)
+        # print("PJT CALROWS:",calrows)
         self._calrows = calrows
         # all cal=T states where sig=sigstate
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
+
+        # <merged>
+
+        # print("PJT refXrows:", self._refonrows, self._refoffrows )
+        # self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+        # self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
 
-        # Catch blank integrations.
-        goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
+        # print("PJT refcalX", self._refcalon, self._refcaloff)
+
+        # now remove blanked integrations
+        # seems like this should be done for all Scan classes!
+        # PS: yes.
+        if False:
+            # Catch blank integrations.
+            goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._nrows = len(self._refonrows) + len(self._refoffrows)
+
+            self._nchan = len(self._refcalon[0])
+            self._calibrate = calibrate
+            self._data = None
+            if self._calibrate:
+                self.calibrate()
+            self.calc_tsys()
+            self._validate_defaults()
+            return
+
+        nb1 = find_non_blanks(self._refcalon)
+        nb2 = find_non_blanks(self._refcaloff)
+        goodrows = np.intersect1d(nb1, nb2)
+        # print("PJT nb", nb1, nb2, len(nb1), len(nb2), goodrows)
+        if len(self._refcalon) == 0:
+            # special case for notpcal (when calrows["ON"] is 0)
+            goodrows = np.intersect1d(nb2, nb2)
+            self._refcalon = None
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = []
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            # print("PJT refcaloff:",self._refcaloff)
+            self._nchan = len(self._refcaloff[0])  # PJT
+            self._calibrate = calibrate
+            self._data = None
+            if self._calibrate:
+                self.calibrate()
+            self._tsys = np.ones(len(nb2))
+            self.calc_tsys()
+            self._validate_defaults()
+            return
+        # Tell the user about blank integration(s) that will be ignored.
+        if len(goodrows) != len(self._refcalon):
+            nblanks = len(self._refcalon) - len(goodrows)
+            print(f"Ignoring {nblanks} blanked integration(s).")
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
         self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._nrows = len(self._refonrows) + len(self._refoffrows)
-
+        self._nrows = len(self._refonrows) + len(self._refoffrows)  # ??
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         self._data = None
@@ -886,6 +967,7 @@ class TPScan(ScanBase):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
+        # print("PJT CALSTATE:",self.calstate)
         if self.calstate is None:
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
@@ -937,7 +1019,16 @@ class TPScan(ScanBase):
             elif self.calstate == False:
                 pass
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        if len(self._tcal) == 0:
+            # to_nocal
+            self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+            nspect = len(self._tcal)
+            # print("PJT nspect",nspect)
+            self._tsys = np.ones(nspect, dtype=float)
+            return
+        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])  # PJT
         nspect = len(self._tcal)
+        # print("PJT nspect",nspect)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
         # allcal = self._refonrows.copy()
         # allcal.extend(self._refoffrows)
@@ -1099,6 +1190,8 @@ class TPScan(ScanBase):
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
         return self._timeaveraged
+
+        # end-of-TPScan
 
 
 class PSScan(ScanBase):
@@ -1374,13 +1467,18 @@ class NodScan(ScanBase):
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
-        the index for BINTABLE in `sdfits` containing the scans
+        The index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
-        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
+        Whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
         Default: True
     smoothref: int
-        the number of channels in the reference to boxcar smooth prior to calibration (if applicable)
-    apply_flags : boolean, optional.  If True, apply flags before calibration.
+        The number of channels in the reference to boxcar smooth prior to calibration (if applicable)
+    apply_flags : boolean
+        If True, apply flags before calibration.
+    tsys : float
+        User provided value for the system temperature.
+    nocal : bool
+        True if the noise diode was not fired. False if it was fired.
     bunit : str, optional
         The brightness scale unit for the output scan, must be one of (case-insensitive)
                 - 'ta'  : Antenna Temperature
@@ -1407,6 +1505,8 @@ class NodScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
+        tsys=None,
+        nocal=False,
         bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
@@ -1418,6 +1518,7 @@ class NodScan(ScanBase):
         self._smoothref = smoothref
         self._apply_flags = apply_flags
         self._beam1 = beam1
+        self._nocal = nocal
 
         # @todo   allow having no calrow where noise diode was not fired
 
@@ -1455,45 +1556,43 @@ class NodScan(ScanBase):
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
 
         # Catch blank integrations.
-        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
-        self._refcalon = self._refcalon[goodrows]
-        self._refcaloff = self._refcaloff[goodrows]
-        self._refonrows = [self._refonrows[i] for i in goodrows]
-        self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._sigcalon = self._sigcalon[goodrows]
-        self._sigcaloff = self._sigcaloff[goodrows]
-        self._sigonrows = [self._sigonrows[i] for i in goodrows]
-        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
-        # Update number of rows after removing blanks.
-        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
-        self._nrows = nsigrows
+        if not self._nocal:
+            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._sigcalon = self._sigcalon[goodrows]
+            self._sigcaloff = self._sigcaloff[goodrows]
+            self._sigonrows = [self._sigonrows[i] for i in goodrows]
+            self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            # Update number of rows after removing blanks.
+            nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+            self._nrows = nsigrows
+            self._nint = nsigrows // 2
+        else:
+            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff)
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._sigcaloff = self._sigcaloff[goodrows]
+            self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            # Update number of rows after removing blanks.
+            nsigrows = len(self._sigoffrows)
+            self._nrows = nsigrows
+            self._nint = nsigrows
 
-        self._nchan = len(self._sigcalon[0])
-        self._tsys = None
+        self._nchan = len(self._sigcaloff[0])
         self._exposure = None
         self._calibrated = None
         self._calibrate = calibrate
-        self._make_meta(self._sigonrows)
+        self._init_tsys(tsys)
+        self._make_meta(self._sigoffrows)
         if self._calibrate:
             self.calibrate()
         if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
             self.scale(bunit, zenith_opacity)
         self._validate_defaults()
 
-    # @property
-    # def scans(self):
-    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
-    #
-    #     Returns
-    #     -------
-    #     scans : dict
-    #         The scan number dictionary
-    #
-    #     """
-    #      return self._scans
-
-    # @todo something clever
-    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self, i):
         """Return the calibrated Spectrum.
 
@@ -1524,23 +1623,32 @@ class NodScan(ScanBase):
             print(f"PS smoothref={self._smoothref}")
 
         self._status = 1
-        nspect = self.nrows // 2
+        nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-        self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
-        for i in range(nspect):
-            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-            sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
-            ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
-            if self._smoothref > 1:
-                ref = core.smooth(ref, "boxcar", self._smoothref)
-            self._calibrated[i] = tsys * (sig - ref) / ref
-            self._tsys[i] = tsys
-            self._exposure[i] = self.exposure[i]
+        if not self._nocal:
+            for i in range(nspect):
+                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+                if self._smoothref > 1:
+                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                self._calibrated[i] = tsys * (sig - ref) / ref
+                self._tsys[i] = tsys
+                self._exposure[i] = self.exposure[i]
+        else:
+            for i in range(nspect):
+                tsys = self._tsys[i]
+                sig = self._sigcaloff[i]
+                ref = self._refcaloff[i]
+                if self._smoothref > 1:
+                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                self._calibrated[i] = tsys * (sig - ref) / ref
+                self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
         self._add_calibration_meta()
 
@@ -1560,8 +1668,12 @@ class NodScan(ScanBase):
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        exp_ref = exp_ref_on + exp_ref_off
-        exp_sig = exp_sig_on + exp_sig_off
+        if not self._nocal:
+            exp_ref = exp_ref_on + exp_ref_off
+            exp_sig = exp_sig_on + exp_sig_off
+        else:
+            exp_ref = exp_ref_off
+            exp_sig = exp_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
@@ -1584,8 +1696,12 @@ class NodScan(ScanBase):
         df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
         df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
-        df_ref = 0.5 * (df_ref_on + df_ref_off)
-        df_sig = 0.5 * (df_sig_on + df_sig_off)
+        if not self._nocal:
+            df_ref = 0.5 * (df_ref_on + df_ref_off)
+            df_sig = 0.5 * (df_sig_on + df_sig_off)
+        else:
+            df_ref = df_ref_off
+            df_sig = df_sig_off
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
