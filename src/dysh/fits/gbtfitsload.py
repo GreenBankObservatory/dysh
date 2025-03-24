@@ -2668,7 +2668,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         During an observation the QD records the motion of the GBT feed arm in
         the elevation and cross elevation directions. This movement results in
         pointing errors which are not automatically corrected for. This method
-        allows users to correct for this movement, when possible.
+        allows users to correct for this movement, when possible. Typically,
+        these corrections are of the order of a few arcseconds.
         More details about the QD and its use can be found in this reference:
         `<https://ui.adsabs.harvard.edu/abs/2011PASP..123..682R/abstract>`_
 
