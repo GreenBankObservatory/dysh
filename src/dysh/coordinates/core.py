@@ -146,7 +146,7 @@ velocity_convention_dict = {
 # reverse of above
 reverse_velocity_convention_dict = {"optical": "OPTI", "radio": "RADI", "relativistic": "VELO"}
 
-#dictionary to convert CRVAL4 to a polarization ID for plotting purposes
+# dictionary to convert CRVAL4 to a polarization ID for plotting purposes
 crval4_to_pol = {
     -1: "RR",
     -2: "LL",
@@ -161,6 +161,7 @@ crval4_to_pol = {
     3: "U",
     4: "V",
 }
+
 
 def replace_convention(veldef, doppler_convention):
     return reverse_velocity_convention_dict[doppler_convention] + veldef[4:]

@@ -2,17 +2,17 @@
 Plot a spectrum using matplotlib
 """
 
+import datetime as dt
 from copy import deepcopy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.coordinates import SkyCoord
-from astropy.utils.masked import Masked
-import datetime as dt
 from astropy.time import Time
+from astropy.utils.masked import Masked
 
-from ..coordinates import decode_veldef, frame_to_label, Observatory, crval4_to_pol
+from ..coordinates import Observatory, crval4_to_pol, decode_veldef, frame_to_label
 
 _KMS = u.km / u.s
 
@@ -291,15 +291,17 @@ class SpectrumPlot:
             return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
 
         def coord_formatter(s):
-            sc = SkyCoord(s.meta['CRVAL2'],s.meta['CRVAL3'], 
-                unit='deg',
-                frame=s.meta['RADESYS'].lower(),
-                obstime=Time(s.meta['DATE-OBS']),
-                location=Observatory.get_earth_location(s.meta['SITELONG'],s.meta['SITELAT'],s.meta['SITEELEV'])
-                )
-            out_str = sc.transform_to('fk5').to_string('hmsdms',sep=' ',precision=2)[:-1]
+            sc = SkyCoord(
+                s.meta["CRVAL2"],
+                s.meta["CRVAL3"],
+                unit="deg",
+                frame=s.meta["RADESYS"].lower(),
+                obstime=Time(s.meta["DATE-OBS"]),
+                location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
+            )
+            out_str = sc.transform_to("fk5").to_string("hmsdms", sep=" ", precision=2)[:-1]
             out_ra = out_str[:11]
-            out_dec= out_str[12:]
+            out_dec = out_str[12:]
             return out_ra, out_dec
 
         def ra2ha(lst, ra):
@@ -370,16 +372,20 @@ class SpectrumPlot:
             f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
         )
 
-        #bottom row
-        ra,dec = coord_formatter(s)
-        self._axis.annotate(f"{ra}  {dec}",(hcoords[0],0.71), xycoords=xyc,size=fsize_small)
-        self._axis.annotate(f"{s.meta['OBJECT']}",(0.5,0.71), xycoords=xyc,size=fsize_large,horizontalalignment='center')
-        az = np.around(s.meta['AZIMUTH'],1)
-        el = np.around(s.meta['ELEVATIO'],1)
-        ha = ra2ha(s.meta['LST'],s.meta['CRVAL2'])
-        self._axis.annotate(f"Az: {az}  El: {el}  HA: {ha}",(0.95,0.71), xycoords=xyc,size=fsize_small,horizontalalignment='right')
+        # bottom row
+        ra, dec = coord_formatter(s)
+        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(
+            f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
+        )
+        az = np.around(s.meta["AZIMUTH"], 1)
+        el = np.around(s.meta["ELEVATIO"], 1)
+        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
+        self._axis.annotate(
+            f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+        )
 
-        #last corner
+        # last corner
         ts = str(dt.datetime.now())[:19]
         self._axis.annotate(f"{ts}", (0.85, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right")
 
