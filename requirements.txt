@@ -47,7 +47,7 @@ asdf-unit-schemas==0.1.0
     #   asdf-wcs-schemas
 asdf-wcs-schemas==0.2.0
     # via gwcs
-astropy==7.0.1
+astropy==6.1.7
     # via
     #   asdf-astropy
     #   dysh (pyproject.toml)
