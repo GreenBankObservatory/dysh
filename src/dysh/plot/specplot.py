@@ -12,7 +12,7 @@ from astropy.utils.masked import Masked
 import datetime as dt
 from astropy.time import Time
 
-from ..coordinates import decode_veldef, frame_to_label, Observatory
+from ..coordinates import decode_veldef, frame_to_label, Observatory, crval4_to_pol
 
 _KMS = u.km / u.s
 
@@ -313,21 +313,6 @@ class SpectrumPlot:
             elif ha < -180:
                 ha += 360
             return np.around(ha / 15, 2)
-
-        crval4_to_pol = {
-            -1: "RR",
-            -2: "LL",
-            -3: "RL",
-            -4: "LR",
-            -5: "XX",
-            -6: "YY",
-            -7: "YX",
-            -8: "XY",
-            1: "I",
-            2: "Q",
-            3: "U",
-            4: "V",
-        }
 
         # col 1
         self._axis.annotate(f"Scan     {s.meta['SCAN']}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
