@@ -23,7 +23,7 @@ from specutils.fitting.fitmodels import _strip_units_from_model
 from specutils.utils import QuantityModel
 
 from ..coordinates import veltofreq
-from ..log import log_function_call, logger
+from ..log import logger
 from ..util import minimum_string_match, powerof2
 
 
@@ -451,7 +451,6 @@ def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
     return region_list
 
 
-@log_function_call()
 def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
     """Fit a baseline to `spectrum`.
     The code uses `~astropy.modeling.fitting.Fitter` and `~astropy.modeling.polynomial` to compute the baseline.
@@ -879,7 +878,6 @@ def fft_shift(
     return new_y
 
 
-@log_function_call()
 def smooth(data, method="hanning", width=1, kernel=None, show=False):
     """
     Smooth or Convolve a spectrum, optionally decimating it.
