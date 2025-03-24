@@ -921,37 +921,8 @@ class TPScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
-
-        # <merged>
-
-        # print("PJT refXrows:", self._refonrows, self._refoffrows )
-        # self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        # self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
-
-        # print("PJT refcalX", self._refcalon, self._refcaloff)
-
-        # now remove blanked integrations
-        # seems like this should be done for all Scan classes!
-        # PS: yes.
-        if False:
-            # Catch blank integrations.
-            goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
-            self._refcalon = self._refcalon[goodrows]
-            self._refcaloff = self._refcaloff[goodrows]
-            self._refonrows = [self._refonrows[i] for i in goodrows]
-            self._refoffrows = [self._refoffrows[i] for i in goodrows]
-            self._nrows = len(self._refonrows) + len(self._refoffrows)
-
-            self._nchan = len(self._refcalon[0])
-            self._calibrate = calibrate
-            self._data = None
-            if self._calibrate:
-                self.calibrate()
-            self.calc_tsys()
-            self._validate_defaults()
-            return
 
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
@@ -959,35 +930,30 @@ class TPScan(ScanBase):
         # print("PJT nb", nb1, nb2, len(nb1), len(nb2), goodrows)
         if len(self._refcalon) == 0:
             # special case for notpcal (when calrows["ON"] is 0)
-            goodrows = np.intersect1d(nb2, nb2)
             self._refcalon = None
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = []
             self._refoffrows = [self._refoffrows[i] for i in goodrows]
-            # print("PJT refcaloff:",self._refcaloff)
             self._nchan = len(self._refcaloff[0])  # PJT
-            self._calibrate = calibrate
-            self._data = None
-            if self._calibrate:
-                self.calibrate()
-            self._tsys = np.ones(len(nb2))
-            self.calc_tsys()
+            self._calc_exposure()
+            self._calc_delta_freq()
             self._validate_defaults()
-            return
-        # Tell the user about blank integration(s) that will be ignored.
-        if len(goodrows) != len(self._refcalon):
-            nblanks = len(self._refcalon) - len(goodrows)
-            print(f"Ignoring {nblanks} blanked integration(s).")
-        self._refcalon = self._refcalon[goodrows]
-        self._refcaloff = self._refcaloff[goodrows]
-        self._refonrows = [self._refonrows[i] for i in goodrows]
-        self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._nrows = len(self._refonrows) + len(self._refoffrows)  # ??
-        self._nchan = len(self._refcalon[0])
-        self._calc_exposure()
-        self._calc_delta_freq()
-        # us 'ta' as bunit in this call so that scaling is not attempted.
-        self._finish_initialization(calibrate, None, self._refonrows, "ta", None)
+            self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
+        else:
+            # Tell the user about blank integration(s) that will be ignored.
+            if len(goodrows) != len(self._refcalon):
+                nblanks = len(self._refcalon) - len(goodrows)
+                logger.info(f"Ignoring {nblanks} blanked integration(s).")
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._nrows = len(self._refonrows) + len(self._refoffrows)  # ??
+            self._nchan = len(self._refcalon[0])
+            self._calc_exposure()
+            self._calc_delta_freq()
+            # use 'ta' as bunit in this call so that scaling is not attempted.
+            self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
 
     def calibrate(self, **kwargs):
         """Calibrate the data according to the CAL/SIG table above"""
