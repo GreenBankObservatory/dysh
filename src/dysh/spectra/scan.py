@@ -1483,6 +1483,7 @@ class NodScan(ScanBase):
             self._nint = nsigrows
 
         self._nchan = len(self._sigcaloff[0])
+        self._init_tsys(tsys)
         self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity)
         if False:
             self._tsys = None
@@ -1497,7 +1498,6 @@ class NodScan(ScanBase):
             ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
                 self.scale(bunit, zenith_opacity)
             self._validate_defaults()
-
 
     def calibrate(self, **kwargs):
         """

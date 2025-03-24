@@ -1081,9 +1081,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getps(
         self,
+        # fdnum,
+        # ifnum,
+        # plnum,
         calibrate=True,
-        timeaverage=True,
-        weights="tsys",
         bintable=None,
         smoothref: int = 1,
         apply_flags: str = True,
@@ -1096,14 +1097,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
+        fdnum: int
+            The feed number
+        ifnum : int
+            The IF number
+        plnum : int
+            The polarization number
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
-        timeaverage : boolean, optional
-            Average the scans in time. The default is True.
-        weights : str or None, optional
-            How to weight the spectral data when averaging.  'tsys' means use system
-            temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
-            None means uniform weighting. The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
@@ -1123,7 +1124,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
-            e.g., `ifnum=1, plnum=[2,3]` etc.
+            e.g., `scan=[27,30], source='NGC123', ` etc.
 
         Raises
         ------
@@ -1143,7 +1144,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if apply_flags:
             self.apply_flags()
         # either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
+        # with selection.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
@@ -1155,7 +1156,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if type(scans) is int:
             scans = [scans]
         preselected = {}
-        for kw in ["SCAN", "IFNUM", "PLNUM"]:
+        for kw in ["SCAN", "IFNUM", "PLNUM", "FDNUM"]:
             preselected[kw] = uniq(_final[kw])
         if scans is None:
             scans = preselected["SCAN"]
