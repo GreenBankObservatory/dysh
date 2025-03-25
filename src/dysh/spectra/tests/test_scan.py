@@ -17,7 +17,7 @@ class TestPSScan:
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         print("SDF ", type(sdf))
-        tps = sdf.getps(scan=152, ifnum=0)
+        tps = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
         tsys = tps[0].tsys
 
         hdu = fits.open(gbtidl_file)
@@ -36,7 +36,7 @@ class TestPSScan:
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         # psscan is a ScanList.
-        psscan = sdf.getps(scan=152, plnum=0, ifnum=0)
+        psscan = sdf.getps(scan=152, plnum=0, ifnum=0, fdnum=0)
         assert len(psscan) == 1
         psscan.calibrate()
         # psscan_tavg is a spectrum.
@@ -65,7 +65,7 @@ class TestPSScan:
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
+        ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
         print(np.shape(ps_scans[0]._calibrated), np.shape(ps_scans[1]._calibrated))
         ta = ps_scans.timeaverage()
 
@@ -81,13 +81,13 @@ class TestPSScan:
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_scans1 = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
+        ps_scans1 = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
         # because selection ANDs the selection rules, if the user selects [156,158]
         # and then we select [157,159] under the hood the AND will be exlusive and
         # the getps will fail. There is no easy way around this without a lot
         # of klugy code.  See issue #230
-        sdf.select(scan=[156, 157, 158, 159], ifnum=0, plnum=0)
-        ps_scans2 = sdf.getps()
+        sdf.select(scan=[156, 157, 158, 159])
+        ps_scans2 = sdf.getps(ifnum=0, plnum=0, fdnum=0)
         assert len(ps_scans1) == 2
         assert len(ps_scans2) == 2
         assert np.all(ps_scans1[0]._calibrated == ps_scans2[0]._calibrated)
@@ -132,7 +132,7 @@ class TestPSScan:
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_sb = sdf.getps(scan=[156], plnum=0, ifnum=0)
+        ps_sb = sdf.getps(scan=[156], fdnum=0, plnum=0, ifnum=0)
         ta1 = ps_sb.timeaverage()
         if False:
             # This should not raise any errors.
@@ -153,7 +153,7 @@ class TestPSScan:
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_sb = sdf.getps(scan=[156], plnum=0, ifnum=0)
+        ps_sb = sdf.getps(scan=[156], fdnum=0, plnum=0, ifnum=0)
         o = tmp_path / "scan_write"
         o.mkdir()
         testfile = o / "test_scan_write.fits"
@@ -280,7 +280,7 @@ class TestTPScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps = sdf.gettp(scan=153, ifnum=0, plnum=0)
+        tps = sdf.gettp(scan=153, ifnum=0, plnum=0, fdnum=0)
         tsys = tps[0].tsys
 
         hdu = fits.open(gbtidl_file)
@@ -444,7 +444,7 @@ class TestScanBlock:
     def test_scanblock_write_read(self, tmp_path):
         file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(file)
-        sb = g.getps(scan=6, plnum=0)
+        sb = g.getps(scan=6, plnum=0, fdnum=0, ifnum=0)
         o = tmp_path / "sub"
         o.mkdir()
         testfile = o / "test_scanblock_write.fits"
