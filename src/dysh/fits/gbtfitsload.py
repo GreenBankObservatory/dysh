@@ -3060,7 +3060,7 @@ class GBTOnline(GBTFITSLoad):
 
         else:
             self._online_mode = 2  #  monitor all files?
-            logger.debug(f"Testing online mode, finding most recent file")
+            logger.debug("Testing online mode, finding most recent file")
             if "SDFITS_DATA" in os.environ:
                 logger.debug("warning: using SDITS_DATA")
                 sdfits_root = os.environ["SDFITS_DATA"]
