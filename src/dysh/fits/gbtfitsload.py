@@ -1462,13 +1462,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getfs(
         self,
+        fdnum,
+        ifnum,
+        plnum,
         calibrate=True,
         fold=True,
         shift_method="fft",
         use_sig=True,
-        timeaverage=True,
-        polaverage=False,
-        weights="tsys",
         bintable=None,
         smoothref=1,
         apply_flags=True,
@@ -1482,6 +1482,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
+        fdnum: int
+            The feed number
+        ifnum : int
+            The IF number
+        plnum : int
+            The polarization number
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
         fold : boolean, optional
@@ -1493,17 +1499,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Return the sig or ref based spectrum. This applies to both the folded
             and unfolded option.  The default is True.
             NOT IMPLEMENTED YET
-        timeaverage : boolean, optional
-            Average the scans in time.
-            The default is True.
-        polaverage : boolean, optional
-            Average the scans in polarization.
-            The default is False.
-        weights : str or None, optional
-            How to weight the spectral data when averaging.  'tsys' means use system
-            temperature weighting (see e.g., :meth:`~spectra.scan.FSScan.timeaverage`);
-            None means uniform weighting.
-            The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
         smooth_ref: int, optional
@@ -1555,8 +1550,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if type(scans) is int:
             scans = [scans]
         preselected = {}
-        for kw in ["SCAN", "IFNUM", "PLNUM", "FDNUM"]:
-            preselected[kw] = uniq(_final[kw])
+        preselected["SCAN"] = uniq(_final["SCAN"])
+        preselected["FDNUM"] = fdnum
+        preselected["IFNUM"] = ifnum
+        preselected["PLNUM"] = plnum
         if scans is None:
             scans = preselected["SCAN"]
         for k, v in preselected.items():
@@ -1574,56 +1571,46 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
-        # _sf = fs_selection.merge(how='inner')   ## ??? PJT
-        ifnum = set(_sf["IFNUM"])
-        plnum = set(_sf["PLNUM"])
-        scans = set(_sf["SCAN"])
-        logger.debug(f"using SCANS {scans} IF {ifnum} PL {plnum}")
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
             logger.debug(f"Processing file {i}: {self._sdf[i].filename}")
 
             df = select_from("FITSINDEX", i, _sf)
-            for k in ifnum:
-                _ifdf = select_from("IFNUM", k, df)  # one FSScan per ifnum
-                logger.debug(f"POLS {set(df['PLNUM'])}")
-                logger.debug(f"Sending dataframe with scans {set(_ifdf['SCAN'])}")
-                logger.debug(f"and PROC {set(_ifdf['PROC'])}")
-                # loop over scans:
-                for scan in scans:
-                    logger.debug(f"doing scan {scan}")
-                    calrows = {}
-                    _df = select_from("SCAN", scan, _ifdf)
-                    dfcalT = select_from("CAL", "T", _df)
-                    dfcalF = select_from("CAL", "F", _df)
-                    sigrows = {}
-                    dfsigT = select_from("SIG", "T", _df)
-                    dfsigF = select_from("SIG", "F", _df)
-                    #
-                    calrows["ON"] = list(dfcalT["ROW"])
-                    calrows["OFF"] = list(dfcalF["ROW"])
-                    sigrows["ON"] = list(dfsigT["ROW"])
-                    sigrows["OFF"] = list(dfsigF["ROW"])
-                    g = FSScan(
-                        self._sdf[i],
-                        scan=scan,
-                        sigrows=sigrows,
-                        calrows=calrows,
-                        bintable=bintable,
-                        calibrate=calibrate,
-                        fold=fold,
-                        shift_method=shift_method,
-                        use_sig=use_sig,
-                        observer_location=observer_location,
-                        smoothref=1,
-                        apply_flags=apply_flags,
-                        bunit=bunit,
-                        zenith_opacity=zenith_opacity,
-                        debug=debug,
-                    )
-                    g.merge_commentary(self)
-                    scanblock.append(g)
+            # loop over scans:
+            for scan in scans:
+                logger.debug(f"doing scan {scan}")
+                calrows = {}
+                _df = select_from("SCAN", scan, df)
+                dfcalT = select_from("CAL", "T", _df)
+                dfcalF = select_from("CAL", "F", _df)
+                sigrows = {}
+                dfsigT = select_from("SIG", "T", _df)
+                dfsigF = select_from("SIG", "F", _df)
+                #
+                calrows["ON"] = list(dfcalT["ROW"])
+                calrows["OFF"] = list(dfcalF["ROW"])
+                sigrows["ON"] = list(dfsigT["ROW"])
+                sigrows["OFF"] = list(dfsigF["ROW"])
+                g = FSScan(
+                    self._sdf[i],
+                    scan=scan,
+                    sigrows=sigrows,
+                    calrows=calrows,
+                    bintable=bintable,
+                    calibrate=calibrate,
+                    fold=fold,
+                    shift_method=shift_method,
+                    use_sig=use_sig,
+                    observer_location=observer_location,
+                    smoothref=1,
+                    apply_flags=apply_flags,
+                    bunit=bunit,
+                    zenith_opacity=zenith_opacity,
+                    debug=debug,
+                )
+                g.merge_commentary(self)
+                scanblock.append(g)
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
