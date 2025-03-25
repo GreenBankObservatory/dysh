@@ -430,7 +430,7 @@ class TestGBTFITSLoad:
         index_file = p / "AGBT20B_014_03.raw.vegas.A6.index"
         data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
         g = gbtfitsload.GBTFITSLoad(data_file)
-        gbtidl_index = pd.read_csv(index_file, skiprows=10, sep="\s+")
+        gbtidl_index = pd.read_csv(index_file, skiprows=10, sep=r"\s+")
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
 
     def test_getps_smoothref(self):
