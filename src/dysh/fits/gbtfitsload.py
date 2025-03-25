@@ -1141,7 +1141,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # @todo pjt  two additions in this merge ?
         if True:
             som = uniq(_final["SUBOBSMODE"])
-            print("SUBOBSMODE:", som)
             if len(som) > 1:
                 raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
             if som[0] == "TPNOCAL":
@@ -1311,13 +1310,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if apply_flags:
             self.apply_flags()
         nod_beams = get_nod_beams(self)
+        feeds = fdnum
         if fdnum is None:
             logger.info(f"Found nodding beams {nod_beams}")
             feeds = nod_beams
         else:
-            if nod_beams != feeds:
+            if nod_beams != fdnum:
                 # This really should raise a ValueError
-                raise ValueError(f"Found nodding beams {nod_beams} in the data, but you provided {feeds}.")
+                raise ValueError(f"Found nodding beams {nod_beams} in the data, but you provided {fdnum}.")
         if type(feeds) is int or len(feeds) != 2:
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
