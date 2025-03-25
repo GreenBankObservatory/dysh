@@ -961,7 +961,7 @@ class TPScan(ScanBase):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
-        # print("PJT CALSTATE:",self.calstate)
+        # print("PJT CALSTATE:", self.calstate)
         if self.calstate is None:
             self._calibrated = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:

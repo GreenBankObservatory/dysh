@@ -925,6 +925,39 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for s in self._sdf:
             s.info()
 
+    def _common(self, **kwargs):
+        kwargs = keycase(kwargs)
+        apply_flags = kwargs.get("APPLY_FLAGS", True)
+        if apply_flags:
+            self.apply_flags()
+        if len(self._selection._selection_rules) > 0:
+            _final = self._selection.final
+        else:
+            _final = self._index
+        scans = kwargs.get("scan", None)
+        if type(scans) is int:
+            scans = [scans]
+        preselected = {}
+        preselected["SCAN"] = uniq(_final["SCAN"])
+        preselected["FDNUM"] = kwargs["FDNUM"]
+        preselected["IFNUM"] = kwargs["IFNUM"]
+        preselected["PLNUM"] = kwargs["PLNUM"]
+        if scans is None:
+            scans = preselected["SCAN"]
+        ps_selection = copy.deepcopy(self._selection)
+        for k, v in preselected.items():
+            if k not in kwargs:
+                kwargs[k] = v
+        # now downselect with any additional kwargs
+        ps_selection._select_from_mixed_kwargs(**kwargs)
+        _sf = ps_selection.final
+        # now remove rows that have been entirely flagged
+        if apply_flags:
+            _sf = eliminate_flagged_rows(_sf, self.flags.final)
+        if len(_sf) == 0:
+            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+        return (scans, _sf)
+
     @log_call_to_result
     def gettp(
         self,
@@ -973,37 +1006,40 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             A ScanBlock containing one or more `~spectra.scan.TPScan`
 
         """
-        TF = {True: "T", False: "F"}
-        if apply_flags:
-            self.apply_flags()
-        if len(self._selection._selection_rules) > 0:
-            _final = self._selection.final
+        if True:
+            (scans, _sf) = self._common(fdnum=fdnum, ifnum=ifnum, plnum=plnum, **kwargs)
         else:
-            _final = self._index
-        scans = kwargs.get("scan", None)
-        # debug = kwargs.pop("debug", False)
-        kwargs = keycase(kwargs)
-        if type(scans) is int:
-            scans = [scans]
-        preselected = {}
-        preselected["SCAN"] = uniq(_final["SCAN"])
-        preselected["FDNUM"] = fdnum
-        preselected["IFNUM"] = ifnum
-        preselected["PLNUM"] = plnum
-        if scans is None:
-            scans = preselected["SCAN"]
-        ps_selection = copy.deepcopy(self._selection)
-        for k, v in preselected.items():
-            if k not in kwargs:
-                kwargs[k] = v
-        # now downselect with any additional kwargs
-        ps_selection._select_from_mixed_kwargs(**kwargs)
-        _sf = ps_selection.final
-        # now remove rows that have been entirely flagged
-        if apply_flags:
-            _sf = eliminate_flagged_rows(_sf, self.flags.final)
-        if len(_sf) == 0:
-            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+            if apply_flags:
+                self.apply_flags()
+            if len(self._selection._selection_rules) > 0:
+                _final = self._selection.final
+            else:
+                _final = self._index
+            scans = kwargs.get("scan", None)
+            # debug = kwargs.pop("debug", False)
+            kwargs = keycase(kwargs)
+            if type(scans) is int:
+                scans = [scans]
+            preselected = {}
+            preselected["SCAN"] = uniq(_final["SCAN"])
+            preselected["FDNUM"] = fdnum
+            preselected["IFNUM"] = ifnum
+            preselected["PLNUM"] = plnum
+            if scans is None:
+                scans = preselected["SCAN"]
+            ps_selection = copy.deepcopy(self._selection)
+            for k, v in preselected.items():
+                if k not in kwargs:
+                    kwargs[k] = v
+            # now downselect with any additional kwargs
+            ps_selection._select_from_mixed_kwargs(**kwargs)
+            _sf = ps_selection.final
+            # now remove rows that have been entirely flagged
+            if apply_flags:
+                _sf = eliminate_flagged_rows(_sf, self.flags.final)
+            if len(_sf) == 0:
+                raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+        TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
         for i in range(len(self._sdf)):
@@ -1116,6 +1152,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
+        # if True:
+        #    (scans, _sf) = self._common(fdnum=fdnum, ifnum=ifnum, plnum=plnum, **kwargs)
 
         if apply_flags:
             self.apply_flags()
@@ -1139,13 +1177,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if scans is None:
             scans = preselected["SCAN"]
         # @todo pjt  two additions in this merge ?
-        if True:
-            som = uniq(_final["SUBOBSMODE"])
-            if len(som) > 1:
-                raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
-            if som[0] == "TPNOCAL":
-                self._tpnocal = True
-                raise Exception("Cannot deal with TPNOCAL yet")
 
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
@@ -1169,9 +1200,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now remove rows that have been entirely flagged
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
-
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        if True:
+            som = uniq(_sf["SUBOBSMODE"])
+            if len(som) > 1:
+                raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
+            if som[0] == "TPNOCAL":
+                self._tpnocal = True
+                raise Exception("Cannot deal with TPNOCAL yet")
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
@@ -1524,40 +1561,43 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         debug = kwargs.pop("debug", False)
         logger.debug(kwargs)
 
-        if apply_flags:
-            self.apply_flags()
-        # either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with self.selection.selectXX()
-        if len(self._selection._selection_rules) > 0:
-            _final = self._selection.final
+        if True:
+            (scans, _sf) = self._common(ifnum=ifnum, plnum=plnum, fdnum=fdnum, **kwargs)
         else:
-            _final = self._index
-        scans = kwargs.get("scan", None)
-        kwargs = keycase(kwargs)
-        if type(scans) is int:
-            scans = [scans]
-        preselected = {}
-        preselected["SCAN"] = uniq(_final["SCAN"])
-        preselected["FDNUM"] = fdnum
-        preselected["IFNUM"] = ifnum
-        preselected["PLNUM"] = plnum
-        if scans is None:
-            scans = preselected["SCAN"]
-        for k, v in preselected.items():
-            if k not in kwargs:
-                kwargs[k] = v
-        logger.debug(f"scans/w sel: {scans} {self._selection}")
-        fs_selection = copy.deepcopy(self._selection)
-        # now downselect with any additional kwargs
-        logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
-        fs_selection._select_from_mixed_kwargs(**kwargs)
-        logger.debug(fs_selection.show())
-        _sf = fs_selection.final
-        # now remove rows that have been entirely flagged
-        if apply_flags:
-            _sf = eliminate_flagged_rows(_sf, self.flags.final)
-        if len(_sf) == 0:
-            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+            if apply_flags:
+                self.apply_flags()
+            # either the user gave scans on the command line (scans !=None) or pre-selected them
+            # with self.selection.selectXX()
+            if len(self._selection._selection_rules) > 0:
+                _final = self._selection.final
+            else:
+                _final = self._index
+            scans = kwargs.get("scan", None)
+            kwargs = keycase(kwargs)
+            if type(scans) is int:
+                scans = [scans]
+            preselected = {}
+            preselected["SCAN"] = uniq(_final["SCAN"])
+            preselected["FDNUM"] = fdnum
+            preselected["IFNUM"] = ifnum
+            preselected["PLNUM"] = plnum
+            if scans is None:
+                scans = preselected["SCAN"]
+            for k, v in preselected.items():
+                if k not in kwargs:
+                    kwargs[k] = v
+            logger.debug(f"scans/w sel: {scans} {self._selection}")
+            fs_selection = copy.deepcopy(self._selection)
+            # now downselect with any additional kwargs
+            logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
+            fs_selection._select_from_mixed_kwargs(**kwargs)
+            logger.debug(fs_selection.show())
+            _sf = fs_selection.final
+            # now remove rows that have been entirely flagged
+            if apply_flags:
+                _sf = eliminate_flagged_rows(_sf, self.flags.final)
+            if len(_sf) == 0:
+                raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
