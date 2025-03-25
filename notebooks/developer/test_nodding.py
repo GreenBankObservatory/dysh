@@ -286,7 +286,7 @@ np.where(np.isnan(d))
 
 sdf0.write('nod0-scan60.fits',scan=[60,61],ifnum=0,plnum=0,fdnum=0,overwrite=True,multifile=False)
 
-sdf0.write('nod0-scan60b.fits',scan=[62,63],ifnum=0,plnum=0,fdnum=[2,6],overwrite=True,multifile=False)
+sdf0.write('nod0-scan60c.fits',scan=[62,63],ifnum=0,plnum=0,fdnum=[2,6],intnum=1,overwrite=True,multifile=False)
 # IndexError: list index out of range
 sdf0.write('nod0-scan60b.fits',scan=[62,63],ifnum=0,plnum=0,fdnum=[2,6],overwrite=True)
 
