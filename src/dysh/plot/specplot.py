@@ -121,6 +121,7 @@ class SpectrumPlot:
             keyword=value arguments (need to describe these in a central place)
         """
         plt.ion()
+        plt.rcParams["font.family"] = "monospace"
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:
         self._set_xaxis_info()
@@ -128,7 +129,7 @@ class SpectrumPlot:
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
         if True:  # @todo deal with plot reuse (notebook vs script)
-            self._figure, self._axis = self._plt.subplots(figsize=this_plot_kwargs["figsize"])
+            self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
         # else:
         #    self._axis.cla()
 
@@ -281,7 +282,7 @@ class SpectrumPlot:
         fsize_large = 14
         xyc = "figure fraction"
 
-        hcoords = np.array([0.05, 0.23, 0.41, 0.59, 0.77])
+        hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
         vcoords = np.array([0.84, 0.8, 0.76])
 
         def time_formatter(time_sec):
@@ -322,7 +323,7 @@ class SpectrumPlot:
         self._axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # col 2
-        velo = s.meta["VELOCITY"] * 1e-3 * u.km / u.s
+        velo = s.meta["VELOCITY"] * 1e-3  # * u.km / u.s # GBTIDL doesn't say km/s so neither will I (saves space)
         self._axis.annotate(
             f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
         )
