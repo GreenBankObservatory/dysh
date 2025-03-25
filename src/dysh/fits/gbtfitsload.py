@@ -3156,3 +3156,7 @@ class GBTOnline(GBTFITSLoad):
     def subbeamnod(self, **kwargs):
         self._reload()
         return super().subbeamnod(**kwargs)
+
+    def vanecal(self, **kwargs):
+        self._reload()
+        return super().vanecal(**kwargs)
