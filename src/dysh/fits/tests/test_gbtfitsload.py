@@ -169,7 +169,7 @@ class TestGBTFITSLoad:
         # Get the answer from dysh.
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=True, ifnum=0, plnum=0)
+        tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=True, ifnum=0, plnum=0, fdnum=0)
         assert len(tps_on) == 1
 
         # Compare.
@@ -180,7 +180,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now with the noise diode Off.
-        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0)
+        tps_off = sdf.gettp(scan=152, sig=True, cal=False, calibrate=True, ifnum=0, plnum=0, fdnum=0)
         assert len(tps_off) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_0.fits"
         hdu = fits.open(gbtidl_file)
@@ -195,7 +195,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
         # Now, both on and off.
-        tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0)
+        tps = sdf.gettp(scan=152, sig=None, cal=None, calibrate=True, ifnum=0, plnum=0, fdnum=0)
         assert len(tps) == 1
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0.fits"
         hdu = fits.open(gbtidl_file)
@@ -212,7 +212,7 @@ class TestGBTFITSLoad:
         # Now do some sig=F data.
         sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=True)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=True)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits"
         )
@@ -227,7 +227,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=False)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=False)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_0.fits"
         )
@@ -242,7 +242,7 @@ class TestGBTFITSLoad:
         assert tp0.meta["TSYS"] == pytest.approx(gbtidl_tsys)
         assert tp0.meta["EXPOSURE"] == pytest.approx(gbtidl_exp)
 
-        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, sig=False, cal=None)
+        tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=None)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_all.fits"
         )
@@ -275,9 +275,11 @@ class TestGBTFITSLoad:
         for k, v in tests.items():
             if v["SIG"] == False:
                 with pytest.raises(Exception):
-                    tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], cal=v["CAL"], sig=v["SIG"])
+                    tps = sdf.gettp(
+                        scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], fdnum=0, cal=v["CAL"], sig=v["SIG"]
+                    )
                 continue
-            tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], cal=v["CAL"], sig=v["SIG"])
+            tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], fdnum=0, cal=v["CAL"], sig=v["SIG"])
             if v["CAL"]:
                 assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
             tp = tps.timeaverage(weights=None)
@@ -292,20 +294,28 @@ class TestGBTFITSLoad:
             # diff = tp.flux.value - np.nanmean(cal, axis=0)
             assert np.all(tp.flux.value - np.nanmean(cal, axis=0) == 0)
         # Check that selection is being applied properly.
-        tp_scans = sdf.gettp(scan=[6, 7], plnum=0)
+        tp_scans = sdf.gettp(scan=[6, 7], plnum=0, ifnum=2, fdnum=0)
         # Weird that the results are different for a bunch of channels.
         # This has to do with slight differences in Tsys weighting in ScanBlock.timeaverage() vs. Scan.timeaverage()
-        assert np.all((sdf.gettp(scan=6, plnum=0).timeaverage().flux - tp_scans[0].timeaverage().flux).value < 2e-6)
-        assert np.all((sdf.gettp(scan=7, plnum=0).timeaverage().flux - tp_scans[1].timeaverage().flux).value < 2e-6)
+        assert np.all(
+            (sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage().flux - tp_scans[0].timeaverage().flux).value
+            < 2e-6
+        )
+        assert np.all(
+            (sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0).timeaverage().flux - tp_scans[1].timeaverage().flux).value
+            < 2e-6
+        )
         assert np.all(
             (
-                sdf.gettp(scan=6, plnum=0).timeaverage(weights=None).flux - tp_scans[0].timeaverage(weights=None).flux
+                sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage(weights=None).flux
+                - tp_scans[0].timeaverage(weights=None).flux
             ).value
             == 0
         )
         assert np.all(
             (
-                sdf.gettp(scan=7, plnum=0).timeaverage(weights=None).flux - tp_scans[1].timeaverage(weights=None).flux
+                sdf.gettp(scan=7, plnum=0, ifnum=2, fdnum=0).timeaverage(weights=None).flux
+                - tp_scans[1].timeaverage(weights=None).flux
             ).value
             == 0
         )
