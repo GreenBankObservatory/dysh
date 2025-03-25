@@ -133,17 +133,16 @@ def init_logging(verbosity: int, level: Union[int, None] = None, path: Union[Pat
         )
 
     LOGGING_INITIALIZED = True
-    if verbosity:
-        if verbosity == 0:
-            level = logging.ERROR
-        elif verbosity == 1:
-            level = logging.WARNING
-        elif verbosity == 2:
-            level = logging.INFO
-        elif verbosity == 3:
-            level = logging.DEBUG
-        else:
-            raise ValueError(f"Invalid verbosity: {verbosity}")
+    if verbosity == 0:
+        level = logging.ERROR
+    elif verbosity == 1:
+        level = logging.WARNING
+    elif verbosity == 2:
+        level = logging.INFO
+    elif verbosity == 3:
+        level = logging.DEBUG
+    else:
+        raise ValueError(f"Invalid verbosity: {verbosity}")
 
     if level is None:
         raise ValueError("One of verbosity or level must be given!")
