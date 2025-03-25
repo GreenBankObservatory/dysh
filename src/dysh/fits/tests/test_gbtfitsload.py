@@ -714,12 +714,12 @@ class TestGBTFITSLoad:
         # Not this part of the test, but just to make sure.
         assert np.all(sdf["RADESYS"] == "galactic")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
 
     def test_add_history_comments(self):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
-        sb = sdf.gettp(scan=6, plnum=0)
+        sb = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)
         sdf.add_comment("My dear Aunt Sally")
         sdf.add_history("ran the test for history and comments")
         assert "My dear Aunt Sally" in sdf.comments
