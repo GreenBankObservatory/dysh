@@ -1227,10 +1227,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getnod(
         self,
+        ifnum,
+        plnum,
+        fdnum=None,
         calibrate=True,
-        timeaverage=True,
-        polaverage=False,
-        weights="tsys",
         bintable=None,
         smoothref=1,
         apply_flags=True,
@@ -1245,20 +1245,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
+        ifnum : int
+            The IF number
+        plnum : int
+            The polarization number
+        fdnum:  2-tuple, optional
+            The feed numbers. If there are more than one feeds in the data, you must specify `fdnum`. Default: None which means use the feeds foudn in the data.
         calibrate : boolean, optional
             Calibrate the scans.
             The default is True.
-        timeaverage : boolean, optional
-            Average the scans in time.
-            The default is True.
-        polaverage : boolean, optional
-            Average the scans in polarization.
-            The default is False.
-        weights : str or None, optional
-            How to weight the spectral data when averaging.  'tsys' means use system
-            temperature weighting (see e.g., :meth:`~spectra.scan.PSScan.timeaverage`);
-            None means uniform weighting.
-            The default is 'tsys'.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
@@ -1276,7 +1271,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
-            e.g., `ifnum=1, plnum=[2,3]` etc.
+            e.g., `ifnum=1, plnum=2` etc.
             For multi-beam with more than 2 beams, fdnum=[BEAM1,BEAM2] must be selected,
             unless the data have been properly taggeed using PROCSCAN which BEAM1 and BEAM2 are.
 
@@ -1293,7 +1288,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
 
         def get_nod_beams(sdf):
-            """find the two nodding beams"""
+            """find the two nodding beams if user did not specify them"""
             kb = ["DATE-OBS", "SCAN", "IFNUM", "PLNUM", "FDNUM", "PROCSCAN", "FEED", "SRFEED", "FEEDXOFF", "FEEDEOFF"]
             a = sdf._index[kb]
             b = a.loc[a["FEEDXOFF"] == 0.0]
@@ -1316,17 +1311,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if apply_flags:
             self.apply_flags()
         nod_beams = get_nod_beams(self)
-        feeds = kwargs.pop("fdnum", None)
-        if feeds is None:
+        if fdnum is None:
             logger.info(f"Found nodding beams {nod_beams}")
             feeds = nod_beams
         else:
             if nod_beams != feeds:
+                # This really should raise a ValueError
                 logger.warning(f"Found nodding beams {nod_beams}, but you provided {feeds}. Good luck")
         if type(feeds) is int or len(feeds) != 2:
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
-        kwargs["fdnum"] = feeds
         logger.info(f"Using nodding beams {feeds}, use fdnum= to override these.")
 
         # Either the user gave scans on the command line (scans !=None) or pre-selected them
@@ -1341,8 +1335,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if type(scans) is int:
             scans = [scans]
         preselected = {}
-        for kw in ["SCAN", "IFNUM", "PLNUM"]:  # @todo no FDNUM ?
-            preselected[kw] = uniq(_final[kw])
+        preselected = {}
+        preselected["SCAN"] = uniq(_final["SCAN"])
+        preselected["FDNUM"] = feeds
+        preselected["IFNUM"] = ifnum
+        preselected["PLNUM"] = plnum
         if scans is None:
             scans = preselected["SCAN"]
         missing = self._nod_scan_list_selection(scans, _final, feeds, check=True)
@@ -1352,8 +1349,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # scans_to_add -= scans_preselected
         logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
-        logger.debug(f"SCAN {scans}")
-        logger.debug(f"TYPE {type(ps_selection)}")
         if len(scans_to_add) != 0:
             # Add a rule selecting the missing scans :-)
             logger.debug(f"adding rule scan={scans_to_add}")
@@ -1373,83 +1368,75 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             logger.debug(f"{_sf = }")
         else:
             logger.debug("Current selection has %d entries" % len(_sf))
-        ifnum = uniq(_sf["IFNUM"])
-        plnum = uniq(_sf["PLNUM"])
-        fdnum = uniq(_sf["FDNUM"])
         scans = uniq(_sf["SCAN"])
-        prosq = uniq(_sf["PROCSEQN"])
-        logger.debug(f"FINAL i {ifnum} p {plnum} f {fdnum} psq {prosq} s {scans}")
+        #       prosq = uniq(_sf["PROCSEQN"])
         beam1_selected = True
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             df0 = select_from("FITSINDEX", i, _sf)
-            for f in fdnum:
-                df1 = select_from("FDNUM", f, df0)
-                for k in ifnum:
-                    _df = select_from("IFNUM", k, df1)
-                    # @todo Calling this method every loop may be expensive. If so, think of
-                    # a way to tighten it up.
-                    if len(_df) == 0:  # skip IF's and beams not part of the nodding pair
-                        continue
-                    scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
-                    if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
-                        logger.debug(f"Some of scans {scans} not found, continuing")
-                        continue
+            for f in feeds:
+                _df = select_from("FDNUM", f, df0)
+                if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
+                    continue
+                scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
+                if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                    logger.debug(f"Some of scans {scans} not found, continuing")
+                    continue
 
-                    beam1_selected = f == feeds[0]
-                    logger.debug(f"SCANLIST {scanlist}")
-                    logger.debug(f"POLS {set(_df['PLNUM'])}")
-                    logger.debug(f"FEED {f} {beam1_selected} {feeds[0]}")
-                    logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
-                    logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                    logger.debug(f"and PROC {set(_df['PROC'])}")
-                    rows = {}
-                    # Loop over scan pairs.
-                    c = 0
-                    for on, off in zip(scanlist["ON"], scanlist["OFF"]):
-                        _ondf = select_from("SCAN", on, _df)
-                        _offdf = select_from("SCAN", off, _df)
-                        rows["ON"] = list(_ondf["ROW"])
-                        rows["OFF"] = list(_offdf["ROW"])
-                        for key in rows:
-                            if len(rows[key]) == 0:
-                                raise Exception(f"{key} scans not found in scan list {scans}")
-                        # Do not pass scan list here. We need all the cal rows. They will
-                        # be intersected with scan rows in NodScan.
-                        calrows = {}
-                        dfcalT = select_from("CAL", "T", _df)
-                        dfcalF = select_from("CAL", "F", _df)
-                        calrows["ON"] = list(dfcalT["ROW"])
-                        calrows["OFF"] = list(dfcalF["ROW"])
-                        d = {"ON": on, "OFF": off}
-                        # Check if there is a noise diode.
-                        if len(calrows["ON"]) == 0 or nocal:
-                            nocal = True
-                            if t_sys is None:
-                                dfoncalF = select_from("CAL", "F", _ondf)
-                                t_sys = dfoncalF["TSYS"].to_numpy()
-                                logger.info("Using TSYS column")
-                        logger.debug(f"{i, f, k, c} SCANROWS {rows}")
-                        logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
-                        logger.debug(f"BEAM1 {beam1_selected}")
-                        g = NodScan(
-                            self._sdf[i],
-                            scan=d,
-                            beam1=beam1_selected,
-                            scanrows=rows,
-                            calrows=calrows,
-                            bintable=bintable,
-                            calibrate=calibrate,
-                            smoothref=smoothref,
-                            apply_flags=apply_flags,
-                            nocal=nocal,
-                            tsys=t_sys,
-                            bunit=bunit,
-                            zenith_opacity=zenith_opacity,
-                        )
-                        g.merge_commentary(self)
-                        scanblock.append(g)
-                        c = c + 1
+                beam1_selected = f == feeds[0]
+                logger.debug(f"SCANLIST {scanlist}")
+                logger.debug(f"POLS {set(_df['PLNUM'])}")
+                logger.debug(f"FEED {f} {beam1_selected} {feeds[0]}")
+                logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
+                logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
+                logger.debug(f"and PROC {set(_df['PROC'])}")
+                rows = {}
+                # Loop over scan pairs.
+                c = 0
+                for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+                    _ondf = select_from("SCAN", on, _df)
+                    _offdf = select_from("SCAN", off, _df)
+                    rows["ON"] = list(_ondf["ROW"])
+                    rows["OFF"] = list(_offdf["ROW"])
+                    for key in rows:
+                        if len(rows[key]) == 0:
+                            raise Exception(f"{key} scans not found in scan list {scans}")
+                    # Do not pass scan list here. We need all the cal rows. They will
+                    # be intersected with scan rows in NodScan.
+                    calrows = {}
+                    dfcalT = select_from("CAL", "T", _df)
+                    dfcalF = select_from("CAL", "F", _df)
+                    calrows["ON"] = list(dfcalT["ROW"])
+                    calrows["OFF"] = list(dfcalF["ROW"])
+                    d = {"ON": on, "OFF": off}
+                    # Check if there is a noise diode.
+                    if len(calrows["ON"]) == 0 or nocal:
+                        nocal = True
+                        if t_sys is None:
+                            dfoncalF = select_from("CAL", "F", _ondf)
+                            t_sys = dfoncalF["TSYS"].to_numpy()
+                            logger.info("Using TSYS column")
+                    logger.debug(f"{i, f, k, c} SCANROWS {rows}")
+                    logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
+                    logger.debug(f"BEAM1 {beam1_selected}")
+                    g = NodScan(
+                        self._sdf[i],
+                        scan=d,
+                        beam1=beam1_selected,
+                        scanrows=rows,
+                        calrows=calrows,
+                        bintable=bintable,
+                        calibrate=calibrate,
+                        smoothref=smoothref,
+                        apply_flags=apply_flags,
+                        nocal=nocal,
+                        tsys=t_sys,
+                        bunit=bunit,
+                        zenith_opacity=zenith_opacity,
+                    )
+                    g.merge_commentary(self)
+                    scanblock.append(g)
+                    c = c + 1
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
