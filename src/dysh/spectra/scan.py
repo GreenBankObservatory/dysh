@@ -899,6 +899,10 @@ class TPScan(ScanBase):
         self._sigstate = sigstate
         self._calstate = calstate
         self._scanrows = scanrows
+        print(f"GETTP {scan=} {sigstate=} {calstate=} {scanrows=} {calrows=}")
+        self._smoothref = smoothref
+        self._apply_flags = apply_flags
+        self._observer_location = observer_location
         self._bunit = "counts"
         if self._smoothref > 1:
             raise NotImplementedError(f"TP smoothref={self._smoothref} not implemented yet")
@@ -923,13 +927,16 @@ class TPScan(ScanBase):
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
-
+        print(f"GETTP  {self._refonrows=}  {self._refoffrows=} {len(self._refcaloff)=} {len(self._refcalon)=} ")
+        print(self._refcaloff[0])
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
         goodrows = np.intersect1d(nb1, nb2)
+        print(f"{goodrows=}")
         # print("PJT nb", nb1, nb2, len(nb1), len(nb2), goodrows)
         if len(self._refcalon) == 0:
             # special case for notpcal (when calrows["ON"] is 0)
+            goodrows = np.intersect1d(nb2, nb2)  # isn't this just nb2.flatten()?
             self._refcalon = None
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = []
