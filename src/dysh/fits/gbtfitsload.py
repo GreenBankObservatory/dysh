@@ -1081,9 +1081,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getps(
         self,
-        # fdnum,
-        # ifnum,
-        # plnum,
+        fdnum,
+        ifnum,
+        plnum,
         calibrate=True,
         bintable=None,
         smoothref: int = 1,
@@ -1156,8 +1156,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if type(scans) is int:
             scans = [scans]
         preselected = {}
-        for kw in ["SCAN", "IFNUM", "PLNUM", "FDNUM"]:
-            preselected[kw] = uniq(_final[kw])
+        preselected["SCAN"] = uniq(_final["SCAN"])
+        preselected["FDNUM"] = fdnum
+        preselected["IFNUM"] = ifnum
+        preselected["PLNUM"] = plnum
         if scans is None:
             scans = preselected["SCAN"]
         # @todo pjt  two additions in this merge ?
@@ -1168,7 +1170,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
             if som[0] == "TPNOCAL":
                 self._tpnocal = True
-                raise Exception(f"Cannot deal with TPNOCAL yet")
+                raise Exception("Cannot deal with TPNOCAL yet")
 
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
@@ -1176,8 +1178,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         missing = self._onoff_scan_list_selection(scans, _final, check=True)
         scans_to_add = set(missing["ON"]).union(missing["OFF"])
         logger.debug(f"after check scans_to_add={scans_to_add}")
-        # now remove any scans that have been pre-selected by the user.
-        # scans_to_add -= scans_preselected
         logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
         logger.debug(f"SCAN {scans}")
@@ -1190,75 +1190,62 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if k not in kwargs:
                 kwargs[k] = v
 
-        # now downselect with any additional kwargs
+        # now downselect with fd/if/plnum and any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
         # now remove rows that have been entirely flagged
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
-        logger.debug(f"sf = {_sf}")
 
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
-        ifnum = uniq(_sf["IFNUM"])
-        plnum = uniq(_sf["PLNUM"])
-        scans = uniq(_sf["SCAN"])
-        logger.debug(f"FINAL i {ifnum} p {plnum} s {scans}")
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
-            df = select_from("FITSINDEX", i, _sf)
-            for k in ifnum:
-                _df = select_from("IFNUM", k, df)
-                # @todo Calling this method every loop may be expensive. If so, think of
-                # a way to tighten it up.
-                scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
-                if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
-                    logger.debug(f"scans {scans} not found, continuing")
-                    continue
-                logger.debug(f"SCANLIST {scanlist}")
-                logger.debug(f"POLS {set(df['PLNUM'])}")
-                logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                logger.debug(f"and PROC {set(_df['PROC'])}")
-                rows = {}
-                # loop over scan pairs
-                c = 0
-                for on, off in zip(scanlist["ON"], scanlist["OFF"]):
-                    _ondf = select_from("SCAN", on, _df)
-                    _offdf = select_from("SCAN", off, _df)
-                    # rows["ON"] = list(_ondf.index)
-                    # rows["OFF"] = list(_offdf.index)
-                    rows["ON"] = list(_ondf["ROW"])
-                    rows["OFF"] = list(_offdf["ROW"])
-                    for key in rows:
-                        if len(rows[key]) == 0:
-                            raise Exception(f"{key} scans not found in scan list {scans}")
-                    # do not pass scan list here. We need all the cal rows. They will
-                    # be intersected with scan rows in PSScan
-                    calrows = {}
-                    dfcalT = select_from("CAL", "T", _df)
-                    dfcalF = select_from("CAL", "F", _df)
-                    # calrows["ON"] = list(dfcalT.index)
-                    # calrows["OFF"] = list(dfcalF.index)
-                    calrows["ON"] = list(dfcalT["ROW"])
-                    calrows["OFF"] = list(dfcalF["ROW"])
-                    d = {"ON": on, "OFF": off}
-                    logger.debug(f"{i, k, c} SCANROWS {rows}")
-                    logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
-                    g = PSScan(
-                        self._sdf[i],
-                        scan=d,
-                        scanrows=rows,
-                        calrows=calrows,
-                        bintable=bintable,
-                        calibrate=calibrate,
-                        smoothref=smoothref,
-                        apply_flags=apply_flags,
-                        bunit=bunit,
-                        zenith_opacity=zenith_opacity,
-                    )
-                    g.merge_commentary(self)
-                    scanblock.append(g)
-                    c = c + 1
+            _df = select_from("FITSINDEX", i, _sf)
+            # @todo Calling this method every loop may be expensive. If so, think of
+            # a way to tighten it up.
+            scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
+            if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                logger.debug(f"scans {scans} not found, continuing")
+                continue
+            rows = {}
+            # loop over scan pairs
+            c = 0
+            for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+                _ondf = select_from("SCAN", on, _df)
+                _offdf = select_from("SCAN", off, _df)
+                # rows["ON"] = list(_ondf.index)
+                # rows["OFF"] = list(_offdf.index)
+                rows["ON"] = list(_ondf["ROW"])
+                rows["OFF"] = list(_offdf["ROW"])
+                for key in rows:
+                    if len(rows[key]) == 0:
+                        raise Exception(f"{key} scans not found in scan list {scans}")
+                # do not pass scan list here. We need all the cal rows. They will
+                # be intersected with scan rows in PSScan
+                calrows = {}
+                dfcalT = select_from("CAL", "T", _df)
+                dfcalF = select_from("CAL", "F", _df)
+                # calrows["ON"] = list(dfcalT.index)
+                # calrows["OFF"] = list(dfcalF.index)
+                calrows["ON"] = list(dfcalT["ROW"])
+                calrows["OFF"] = list(dfcalF["ROW"])
+                d = {"ON": on, "OFF": off}
+                g = PSScan(
+                    self._sdf[i],
+                    scan=d,
+                    scanrows=rows,
+                    calrows=calrows,
+                    bintable=bintable,
+                    calibrate=calibrate,
+                    smoothref=smoothref,
+                    apply_flags=apply_flags,
+                    bunit=bunit,
+                    zenith_opacity=zenith_opacity,
+                )
+                g.merge_commentary(self)
+                scanblock.append(g)
+                c = c + 1
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)

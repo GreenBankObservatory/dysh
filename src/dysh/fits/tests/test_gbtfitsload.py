@@ -90,7 +90,11 @@ class TestGBTFITSLoad:
 
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        psscan = sdf.getps(scan=152)
+        psscan = sdf.getps(
+            fdnum=0,
+            ifnum=0,
+            plnum=0,
+        )
         assert len(psscan) == 1
         psscan.calibrate()
         dysh_getps = psscan[0].calibrated(0).flux.to("K").value
@@ -103,7 +107,7 @@ class TestGBTFITSLoad:
 
         # add a test to ensure that a bad scan number raises an ValueError (issue 462)
         with pytest.raises(ValueError):
-            sdf.getps(scan=99999)
+            sdf.getps(scan=99999, ifnum=0, plnum=0, fdnum=0)
 
     def test_getps_acs(self):
         """
@@ -115,7 +119,7 @@ class TestGBTFITSLoad:
         idl_file = data_dir / "gbtidl" / "AGBT05B_047_01.getps.acs.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        getps = sdf.getps(scan=51, ifnum=0, plnum=0)
+        getps = sdf.getps(scan=51, ifnum=0, plnum=0, fdnum=0)
         ps = getps.timeaverage()
         ps_vals = ps.flux.value
 
@@ -348,7 +352,7 @@ class TestGBTFITSLoad:
         sdf = gbtfitsload.GBTFITSLoad(fits_dir)
 
         # Check one IF.
-        ps_scans = sdf.getps(6, ifnum=2, plnum=0)
+        ps_scans = sdf.getps(scan=6, ifnum=2, plnum=0, fdnum=0)
         ps_spec = ps_scans[0].calibrated(0).flux.to("K").value
 
         gbtidl_dir = f"{proj_dir}/gbtidl_outputs"
@@ -429,7 +433,7 @@ class TestGBTFITSLoad:
         gbtidl_file = path / "TGBT21A_501_11_getps_scan_152_ifnum_0_plnum_0_smthoff_15.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(data_file)
-        sb = sdf.getps(scan=152, ifnum=0, plnum=0, smoothref=15)
+        sb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, smoothref=15)
         ta = sb.timeaverage()
 
         hdu = fits.open(gbtidl_file)
@@ -454,7 +458,7 @@ class TestGBTFITSLoad:
         data_file = path / "TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(data_file)
         sdf.flag_channel([[10, 20], [30, 41]])
-        sb = sdf.getps(scan=152, ifnum=0, plnum=0, apply_flags=True)
+        sb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, apply_flags=True)
         ta = sb.timeaverage()
         # average_spectra masks out the NaN in channel 3072
         expected_mask = np.hstack([np.arange(10, 21), np.arange(30, 42), np.array([3072])])
@@ -789,10 +793,12 @@ class TestGBTFITSLoad:
         fits_path = util.get_project_testdata() / "AGBT17A_404_01/AGBT17A_404_01.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
         # The data should not be flagged, as the flags are only for intnum=arange(43,52)
-        ps = sdf.getps(scan=19, plnum=0, apply_flags=True).timeaverage()
+        ps = sdf.getps(scan=19, plnum=0, ifnum=0, fdnum=0, apply_flags=True).timeaverage()
         assert np.all(ps.mask == False)
         # The data should be flagged for these integrations.
-        ps = sdf.getps(scan=19, plnum=0, apply_flags=True, intnum=[i for i in range(43, 52)]).timeaverage()
+        ps = sdf.getps(
+            scan=19, plnum=0, ifnum=0, fdnum=0, apply_flags=True, intnum=[i for i in range(43, 52)]
+        ).timeaverage()
         assert np.all(ps.mask[2299:] == True)
         assert np.all(ps.mask[:2299] == False)
 
@@ -800,11 +806,11 @@ class TestGBTFITSLoad:
         """regression test for issue 442"""
         fits_path = util.get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
-        psscan = sdf.getps(plnum=0)
+        psscan = sdf.getps(plnum=0, ifnum=0, fdnum=0)  # all scans
         spec = psscan.timeaverage()
         exp1 = spec.meta["EXPOSURE"]  # 214.86978780485427
         sdf.flag_range(elevation=((None, 18.4)))
-        psscan2 = sdf.getps(plnum=0)
+        psscan2 = sdf.getps(plnum=0, ifnum=0, fdnum=0)
         spec2 = psscan2.timeaverage()
         exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
         assert exp2 < exp1
@@ -880,8 +886,8 @@ class TestGBTFITSLoad:
         # PSScan
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05)
-        sbb = sdf.getps(scan=152, bunit="jy", zenith_opacity=0.05)
+        sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        sbb = sdf.getps(scan=152, bunit="jy", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         # The ratio of these scale factors should be the Jy/K of the telescope
         jyperk = sbb[0].bscale / sba[0].bscale
         gc = util.gaincorrection.GBTGainCorrection()
@@ -891,20 +897,20 @@ class TestGBTFITSLoad:
         assert sba[0].is_scaled
         assert sbb[0].is_scaled
         # Now test scaling after the fact
-        sbd = sdf.getps(scan=152)
+        sbd = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
         sbd[0].scale("jy", zenith_opacity=0.1)
         assert sbd[0].bunit == "jy"
         assert sbd[0].is_scaled
 
         # try a bad scale type
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="foobar", zenith_opacity=0.05)
+            sba = sdf.getps(scan=152, bunit="foobar", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         # try a bad tau
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="jy", zenith_opacity=-1)
+            sba = sdf.getps(scan=152, bunit="jy", zenith_opacity=-1, ifnum=0, plnum=0, fdnum=0)
 
         # test that scaling a ScanBlock works, also case insensitivity
-        sb = sdf.getps(scan=152, bunit="Ta*", zenith_opacity=0.05)
+        sb = sdf.getps(scan=152, bunit="Ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         assert sb.bunit == "ta*"
         with pytest.raises(ValueError):
             sb.scale("not a valid bunit", zenith_opacity=0.2)
