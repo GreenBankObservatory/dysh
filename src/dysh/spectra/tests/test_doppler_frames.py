@@ -1,12 +1,9 @@
 import astropy.units as u
 import numpy as np
-import pytest
 
 from dysh.fits import gbtfitsload
 
 
-# @TODO consolidate methods with test_doppler_conventions,
-# possibly in util module
 class TestVelocityFrames:
     def read_ascii(self, filename):
         values = np.loadtxt(filename, skiprows=3, unpack=True)
@@ -32,7 +29,7 @@ class TestVelocityFrames:
         sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.156.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sp = sdf.gettp(scan=156, plnum=0, ifnum=0)[0].total_power(0)
+        sp = sdf.gettp(scan=156, fdnum=0, plnum=0, ifnum=0)[0].total_power(0)
 
         # dict of veldef frame type to astropy frame type string
         framedict = {
