@@ -663,7 +663,7 @@ class TestGBTFITSLoad:
         # Not this part of the test, but just to make sure.
         assert np.all(sdf["RADESYS"] == "AltAz")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
 
     def test_hadec_coords(self, tmp_path):
         """
@@ -688,7 +688,7 @@ class TestGBTFITSLoad:
         # Not this part of the test, but just to make sure.
         assert np.all(sdf["RADESYS"] == "hadec")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0)[0].total_power(0)
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
 
     def test_galactic_coords(self, tmp_path):
         """
