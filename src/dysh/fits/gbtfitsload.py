@@ -33,7 +33,6 @@ from ..util import (
     consecutive,
     convert_array_to_mask,
     eliminate_flagged_rows,
-    indices_where_value_changes,
     keycase,
     select_from,
     uniq,
@@ -921,22 +920,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._index["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
 
-        if False:
-            # Here need to add it as a new column in the BinTableHDU,
-            # but we have to sort out FITSINDEX.
-            # s.add_col("INTNUM",intnumarray)
-            fits_index_changes = indices_where_value_changes("FITSINDEX", self._index)
-            lf = len(fits_index_changes)
-            for i in range(lf):
-                fic = fits_index_changes[i]
-                if i + 1 < lf:
-                    fici = fits_index_changes[i + 1]
-                else:
-                    fici = -1
-                fi = self["FITSINDEX"][fic]
-                # @todo fix this MWP
-                # self._sdf[fi].add_col("INTNUM", intnumarray[fic:fici])  # bintable index???
-
     def info(self):
         """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
         for s in self._sdf:
@@ -1180,8 +1163,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         logger.debug(f"after check scans_to_add={scans_to_add}")
         logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
         ps_selection = copy.deepcopy(self._selection)
-        logger.debug(f"SCAN {scans}")
-        logger.debug(f"TYPE {type(ps_selection)}")
         if len(scans_to_add) != 0:
             # add a rule selecting the missing scans :-)
             logger.debug(f"adding rule scan={scans_to_add}")
@@ -1202,8 +1183,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
-            # @todo Calling this method every loop may be expensive. If so, think of
-            # a way to tighten it up.
             scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
             if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                 logger.debug(f"scans {scans} not found, continuing")
