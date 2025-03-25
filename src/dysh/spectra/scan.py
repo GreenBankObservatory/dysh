@@ -11,6 +11,7 @@ import numpy as np
 from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
+from astropy.time import Time
 from astropy.utils.masked import Masked
 
 from dysh.spectra import core
@@ -18,8 +19,8 @@ from dysh.spectra import core
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..util import uniq
-from .core import (  # fft_shift,
-    average,
+from ..util.gaincorrection import GBTGainCorrection
+from .core import (  # fft_shift,; average,
     find_non_blanks,
     find_nonblank_ints,
     mean_tsys,
@@ -112,8 +113,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._npol = -1
         self._scan = -1
         self._pols = -1
+        self._nint = -1
         self._sdfits = sdfits
+        self._nocal = False
         # self._meta = {}
+        self._bscale = 1.0
+        self._bunit = "ta"
 
     def _validate_defaults(self):
         _required = {
@@ -135,6 +140,149 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
         if type(self._scan) != int:
             raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
+
+    @classmethod
+    def _check_bunit(self, bunit):
+        """
+        Check that the requested brightness unit is valid.
+        This allows us to not import `GBTGainCorretion` into `GBTFITSLoad`.
+
+        Parameters
+        ----------
+        bunit : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+            This parameter is case-insensitive.
+
+        Raises
+        ------
+        ValueError
+            If the scale is unrecognized.
+        """
+        if not GBTGainCorrection.is_valid_scale(bunit):
+            raise ValueError(
+                f"Unrecognized brightness temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+            )
+
+    @property
+    def is_scaled(self):
+        r"""Is this Scan scaled to something other than  antenna temperature :math:`T_A`.
+
+        Returns
+        -------
+        bool
+            True if scale is e.g :math:`T_A^*` or Jy (:math:`S_\nu`).
+        """
+        return self._bunit != "ta"
+
+    @property
+    def bunit(self):
+        """
+        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+
+            - 'ta'  : Antenna Temperature
+            - 'ta*' : Antenna temperature corrected to above the atmosphere
+            - 'jy'  : flux density in Jansky
+
+        Returns
+        -------
+        str
+            Brightness string.
+
+        """
+        return self._bunit
+
+    @property
+    def bscale(self):
+        """
+        The factor(s) by which the data have been scale from antenna temperature to corrected antenna temperature
+        or flux density.  Analogous to FITS `BSCALE` keyword.
+
+        Returns
+        -------
+        np.array
+            An array of floats, one per integration in the scan.
+
+        """
+        return self._bscale
+
+    def _scaleby(self, factor):
+        """Scale the calibrated data array by a factor. This is an NxM * N multiplication
+
+        Parameters
+        ----------
+            factor - np.array or float
+
+            The factor to scale the spectral data by
+
+        Returns
+        -------
+            None
+        """
+        # Array multiplication is slightly faster than a loop
+        # NB this will fail for TPScan since it has self._data instead of self._calibrated.  I need to change that in the refactor
+        self._calibrated = self._calibrated * (np.array([factor]).T)
+
+    @log_call_to_history
+    def scale(self, bunit, zenith_opacity=None):
+        """
+        Scale the data to the given brightness temperature scale and zenith opacity. If data are already
+        scaled, they will be unscaled first.
+
+        Parameters
+        ----------
+        bunit : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+            This parameter is case-insensitive.
+
+        zenith_opacity : float, optional
+            The zenith opacity. Required if `bunit` is 'ta*' or 'jy'.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        TypeError
+            If scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+        ValueError
+            If `bunit` is unrecognized or `zenith_opacity` is negative.
+
+        """
+        if self.__class__ == TPScan:
+            raise TypeError("Total power data cannot be directly scaled to temperature.")
+        self._check_bunit(bunit)
+        if zenith_opacity < 0:
+            raise ValueError("Zenith opacity cannot be negative.")
+        s = bunit.lower()
+        if s == self._bunit:
+            return
+        if s != "ta" and zenith_opacity is None:
+            raise ValueError("Zenith opacity must be provided when scaling to Ta* or Jy.")
+
+        # unscale the data if it was already scaled.
+        if self.is_scaled:
+            self._scaleby(1.0 / self._bscale)
+        # if scaling back to antenna temperature, reset the scale factor to one and return.
+        if s == "ta":
+            self._bscale = np.ones_like(self._bscale)
+            self._bunit = s
+            return
+
+        gc = GBTGainCorrection()
+        elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
+        freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
+        date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
+        factor = gc.scale_ta_to(bunit, freq, elev, date, zenith_opacity, zd=False)
+        self._scaleby(factor)
+        self._bscale = factor
+        self._bunit = s
 
     @property
     def scan(self):
@@ -387,6 +535,20 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def __len__(self):
         return self._nrows
 
+    def _init_tsys(self, tsys=None):
+        """
+        Initialize the array of system temperature values.
+        This assumes that the input system temperature is either
+        a scalar or a (N,) array with N equal to the number of integrations.
+        """
+
+        # Noise diode firing and no user provided tsys.
+        if not self._nocal and tsys is None:
+            self._tsys = np.empty(self._nint, dtype=float)
+        # User provided tsys.
+        elif tsys is not None:
+            self._tsys = np.ones(self._nint, dtype=float) * tsys
+
 
 class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @log_call_to_history
@@ -429,7 +591,19 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
         self._timeaveraged = []
-        i = 0
+        for scan in self.data:
+            self._timeaveraged.append(scan.timeaverage(weights))
+        s = average_spectra(self._timeaveraged, weights=weights)
+        s.merge_commentary(self)
+        return s
+
+    def timevariance(self, weights="tsys"):
+        """
+        trying variance
+        """
+        logger.warning(f"PJT testing time variance, do not rely on this function")
+
+        self._timevariance = []
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights))
         s = average_spectra(self._timeaveraged, weights=weights)
@@ -480,6 +654,58 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:
             self._finalspectrum.append(scan.finalspectrum(weights))
         return self._finalspectrum
+
+    def scale(self, bunit, zenith_opacity):
+        """
+        Scale all the data in this `ScanBlock` to the given brightness temperature scale and zenith opacity. If data are already
+        scaled, they will be unscaled first.
+
+        Parameters
+        ----------
+        bunit : str
+            Strings representing valid options for scaling spectral data, specifically
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+            This parameter is case-insensitive.
+
+        zenith_opacity : float
+            The zenith opacity
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        TypeError
+            if scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+        ValueError
+            if `bunit` is unrecognized or `zenith_opacity` is negative.
+
+        """
+        for scan in self.data:
+            scan.scale(bunit, zenith_opacity)
+
+    @property
+    def bunit(self):
+        """
+        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+
+        Returns
+        -------
+        str
+            brightness unit string
+        """
+        bunit = set([scan.bunit for scan in self.data])
+        if len(bunit) > 1:
+            logger.warn(f"The Scans in this ScanBlock have differing brightness units {bunit}")
+            return list(bunit)
+        return list(bunit)[0]
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
@@ -588,7 +814,7 @@ class TPScan(ScanBase):
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
-        whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+        whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
@@ -661,22 +887,74 @@ class TPScan(ScanBase):
         if False:
             self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
             self._nint = gbtfits.nintegrations(self._bintable_index)
+        # print("PJT CALROWS:",calrows)
         self._calrows = calrows
         # all cal=T states where sig=sigstate
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
+
+        # <merged>
+
+        # print("PJT refXrows:", self._refonrows, self._refoffrows )
+        # self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
+        # self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
 
-        # Catch blank integrations.
-        goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
+        # print("PJT refcalX", self._refcalon, self._refcaloff)
+
+        # now remove blanked integrations
+        # seems like this should be done for all Scan classes!
+        # PS: yes.
+        if False:
+            # Catch blank integrations.
+            goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._nrows = len(self._refonrows) + len(self._refoffrows)
+
+            self._nchan = len(self._refcalon[0])
+            self._calibrate = calibrate
+            self._data = None
+            if self._calibrate:
+                self.calibrate()
+            self.calc_tsys()
+            self._validate_defaults()
+            return
+
+        nb1 = find_non_blanks(self._refcalon)
+        nb2 = find_non_blanks(self._refcaloff)
+        goodrows = np.intersect1d(nb1, nb2)
+        # print("PJT nb", nb1, nb2, len(nb1), len(nb2), goodrows)
+        if len(self._refcalon) == 0:
+            # special case for notpcal (when calrows["ON"] is 0)
+            goodrows = np.intersect1d(nb2, nb2)
+            self._refcalon = None
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = []
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            # print("PJT refcaloff:",self._refcaloff)
+            self._nchan = len(self._refcaloff[0])  # PJT
+            self._calibrate = calibrate
+            self._data = None
+            if self._calibrate:
+                self.calibrate()
+            self._tsys = np.ones(len(nb2))
+            self.calc_tsys()
+            self._validate_defaults()
+            return
+        # Tell the user about blank integration(s) that will be ignored.
+        if len(goodrows) != len(self._refcalon):
+            nblanks = len(self._refcalon) - len(goodrows)
+            print(f"Ignoring {nblanks} blanked integration(s).")
         self._refcalon = self._refcalon[goodrows]
         self._refcaloff = self._refcaloff[goodrows]
         self._refonrows = [self._refonrows[i] for i in goodrows]
         self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._nrows = len(self._refonrows) + len(self._refoffrows)
-
+        self._nrows = len(self._refonrows) + len(self._refoffrows)  # ??
         self._nchan = len(self._refcalon[0])
         self._calibrate = calibrate
         self._data = None
@@ -689,6 +967,7 @@ class TPScan(ScanBase):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
+        # print("PJT CALSTATE:",self.calstate)
         if self.calstate is None:
             self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
@@ -740,7 +1019,16 @@ class TPScan(ScanBase):
             elif self.calstate == False:
                 pass
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
+        if len(self._tcal) == 0:
+            # to_nocal
+            self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+            nspect = len(self._tcal)
+            # print("PJT nspect",nspect)
+            self._tsys = np.ones(nspect, dtype=float)
+            return
+        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])  # PJT
         nspect = len(self._tcal)
+        # print("PJT nspect",nspect)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
         # allcal = self._refonrows.copy()
         # allcal.extend(self._refoffrows)
@@ -903,6 +1191,8 @@ class TPScan(ScanBase):
         self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
         return self._timeaveraged
 
+        # end-of-TPScan
+
 
 class PSScan(ScanBase):
     """GBT specific version of Position Switch Scan. A position switch scan object has
@@ -930,6 +1220,14 @@ class PSScan(ScanBase):
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
+    bunit : str, optional
+        The brightess unit scale for the output scan, must be one of (case-insensitive)
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+    zenith_opacity: float, optional
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     """
 
     def __init__(
@@ -943,6 +1241,8 @@ class PSScan(ScanBase):
         smoothref=1,
         apply_flags=False,
         observer_location=Observatory["GBT"],
+        bunit="ta",
+        zenith_opacity=0.0,
     ):
         ScanBase.__init__(self, gbtfits)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
@@ -1003,19 +1303,9 @@ class PSScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate()
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
-
-    # @property
-    # def scans(self):
-    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
-    #
-    #     Returns
-    #     -------
-    #     scans : dict
-    #         The scan number dictionary
-    #
-    #     """
-    #      return self._scans
 
     # @todo something clever
     # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
@@ -1177,13 +1467,26 @@ class NodScan(ScanBase):
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
     bintable : int
-        the index for BINTABLE in `sdfits` containing the scans
+        The index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
-        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
+        Whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF.
         Default: True
     smoothref: int
-        the number of channels in the reference to boxcar smooth prior to calibration (if applicable)
-    apply_flags : boolean, optional.  If True, apply flags before calibration.
+        The number of channels in the reference to boxcar smooth prior to calibration (if applicable)
+    apply_flags : boolean
+        If True, apply flags before calibration.
+    tsys : float
+        User provided value for the system temperature.
+    nocal : bool
+        True if the noise diode was not fired. False if it was fired.
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+    zenith_opacity: float, optional
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1202,6 +1505,10 @@ class NodScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
+        tsys=None,
+        nocal=False,
+        bunit="ta",
+        zenith_opacity=None,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits)
@@ -1211,6 +1518,7 @@ class NodScan(ScanBase):
         self._smoothref = smoothref
         self._apply_flags = apply_flags
         self._beam1 = beam1
+        self._nocal = nocal
 
         # @todo   allow having no calrow where noise diode was not fired
 
@@ -1248,43 +1556,43 @@ class NodScan(ScanBase):
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
 
         # Catch blank integrations.
-        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
-        self._refcalon = self._refcalon[goodrows]
-        self._refcaloff = self._refcaloff[goodrows]
-        self._refonrows = [self._refonrows[i] for i in goodrows]
-        self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._sigcalon = self._sigcalon[goodrows]
-        self._sigcaloff = self._sigcaloff[goodrows]
-        self._sigonrows = [self._sigonrows[i] for i in goodrows]
-        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
-        # Update number of rows after removing blanks.
-        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
-        self._nrows = nsigrows
+        if not self._nocal:
+            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._sigcalon = self._sigcalon[goodrows]
+            self._sigcaloff = self._sigcaloff[goodrows]
+            self._sigonrows = [self._sigonrows[i] for i in goodrows]
+            self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            # Update number of rows after removing blanks.
+            nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+            self._nrows = nsigrows
+            self._nint = nsigrows // 2
+        else:
+            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff)
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._sigcaloff = self._sigcaloff[goodrows]
+            self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            # Update number of rows after removing blanks.
+            nsigrows = len(self._sigoffrows)
+            self._nrows = nsigrows
+            self._nint = nsigrows
 
-        self._nchan = len(self._sigcalon[0])
-        self._tsys = None
+        self._nchan = len(self._sigcaloff[0])
         self._exposure = None
         self._calibrated = None
         self._calibrate = calibrate
-        self._make_meta(self._sigonrows)
+        self._init_tsys(tsys)
+        self._make_meta(self._sigoffrows)
         if self._calibrate:
             self.calibrate()
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
 
-    # @property
-    # def scans(self):
-    #     """The dictionary of the ON and OFF scan numbers in the PSScan.
-    #
-    #     Returns
-    #     -------
-    #     scans : dict
-    #         The scan number dictionary
-    #
-    #     """
-    #      return self._scans
-
-    # @todo something clever
-    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
     def calibrated(self, i):
         """Return the calibrated Spectrum.
 
@@ -1315,23 +1623,32 @@ class NodScan(ScanBase):
             print(f"PS smoothref={self._smoothref}")
 
         self._status = 1
-        nspect = self.nrows // 2
+        nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-        self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
         # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
-        for i in range(nspect):
-            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-            sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
-            ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
-            if self._smoothref > 1:
-                ref = core.smooth(ref, "boxcar", self._smoothref)
-            self._calibrated[i] = tsys * (sig - ref) / ref
-            self._tsys[i] = tsys
-            self._exposure[i] = self.exposure[i]
+        if not self._nocal:
+            for i in range(nspect):
+                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+                if self._smoothref > 1:
+                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                self._calibrated[i] = tsys * (sig - ref) / ref
+                self._tsys[i] = tsys
+                self._exposure[i] = self.exposure[i]
+        else:
+            for i in range(nspect):
+                tsys = self._tsys[i]
+                sig = self._sigcaloff[i]
+                ref = self._refcaloff[i]
+                if self._smoothref > 1:
+                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                self._calibrated[i] = tsys * (sig - ref) / ref
+                self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
         self._add_calibration_meta()
 
@@ -1351,8 +1668,12 @@ class NodScan(ScanBase):
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        exp_ref = exp_ref_on + exp_ref_off
-        exp_sig = exp_sig_on + exp_sig_off
+        if not self._nocal:
+            exp_ref = exp_ref_on + exp_ref_off
+            exp_sig = exp_sig_on + exp_sig_off
+        else:
+            exp_ref = exp_ref_off
+            exp_sig = exp_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
@@ -1375,8 +1696,12 @@ class NodScan(ScanBase):
         df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
         df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
-        df_ref = 0.5 * (df_ref_on + df_ref_off)
-        df_sig = 0.5 * (df_sig_on + df_sig_off)
+        if not self._nocal:
+            df_ref = 0.5 * (df_ref_on + df_ref_off)
+            df_sig = 0.5 * (df_sig_on + df_sig_off)
+        else:
+            df_ref = df_ref_off
+            df_sig = df_sig_off
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
@@ -1452,6 +1777,14 @@ class FSScan(ScanBase):
     smoothref: int
         The number of channels in the reference to boxcar smooth prior to calibration.
     apply_flags : boolean, optional.  If True, apply flags before calibration.
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+    zenith_opacity: float, optional
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1471,6 +1804,8 @@ class FSScan(ScanBase):
         use_sig=True,
         smoothref=1,
         apply_flags=False,
+        bunit="ta",
+        zenith_opacity=None,
         observer_location=Observatory["GBT"],
         debug=False,
     ):
@@ -1559,6 +1894,8 @@ class FSScan(ScanBase):
         self._make_meta(self._sigonrows)
         if self._calibrate:
             self.calibrate(fold=fold, shift_method=shift_method)
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         if self._debug:
             logger.debug("---------------------------------------------------")
         self._validate_defaults()
@@ -1655,8 +1992,8 @@ class FSScan(ScanBase):
             # Apply units.
             try:
                 cunit1 = u.Unit(df["CUNIT1"])
-                if ndim == 2:
-                    cunit1 = cunit[0]  #  @todo undefined cunit[]
+                # if ndim == 2:
+                #   cunit1 = cunit[0]  #  @todo undefined cunit[]
             except KeyError:
                 cunit1 = u.Hz
 
@@ -1841,6 +2178,14 @@ class SubBeamNodScan(ScanBase):
     smoothref: int
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
+    bunit : str, optional
+        The brightness scale unit for the output scan, must be one of (case-insensitive)
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+    zenith_opacity: float, optional
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1862,6 +2207,8 @@ class SubBeamNodScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
+        bunit="ta",
+        zenith_opacity=None,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
@@ -1895,6 +2242,8 @@ class SubBeamNodScan(ScanBase):
         self._calibrated = None
         if calibrate:
             self.calibrate(weights=w)
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
         self._validate_defaults()
 
     def calibrate(self, **kwargs):

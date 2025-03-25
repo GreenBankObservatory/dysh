@@ -13,8 +13,7 @@ from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table
 from astropy.utils.masked import Masked
 
-from dysh.log import logger
-
+from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 
@@ -633,6 +632,14 @@ class SDFITSLoad(object):
 
     # def __len__(self):  # this has no meaning for multiple bintables
     #    return self._nrows
+
+    def _ctype_mask(self, ctype_dict):
+        ctype_mask = np.zeros((len(ctype_dict), len(self[next(iter(ctype_dict.keys()))])), dtype=bool)
+        for i, (k, v) in enumerate(ctype_dict.items()):
+            ctype_mask[i, :] = self[k] == v
+        if ctype_mask.shape[0] > 1:
+            ctype_mask = np.logical_and(*ctype_mask)
+        return ctype_mask.ravel()
 
     def __repr__(self):
         return str(self._filename)
