@@ -1317,7 +1317,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             if nod_beams != feeds:
                 # This really should raise a ValueError
-                logger.warning(f"Found nodding beams {nod_beams}, but you provided {feeds}. Good luck")
+                raise ValueError(f"Found nodding beams {nod_beams} in the data, but you provided {feeds}.")
         if type(feeds) is int or len(feeds) != 2:
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
