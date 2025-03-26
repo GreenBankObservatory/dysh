@@ -2,7 +2,7 @@
 
 ## Making the test data
 
-Used GBTIDL to generate the input and output files.
+Used GBTIDL to generate the test file.
 
 To generate the input file:
 
