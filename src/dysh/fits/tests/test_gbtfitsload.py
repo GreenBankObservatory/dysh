@@ -985,3 +985,44 @@ class TestGBTFITSLoad:
         qd_el[11:15] += 100
         sdf.qd_flag()
         np.testing.assert_array_equal(sdf.flags.final.index.values, [10, 11, 12, 13, 14])
+
+    def test_write_multiple_bintables(self, tmp_path):
+        """ """
+
+        fits_path = util.get_project_testdata() / "AGBT21B_024_01/AGBT21B_024_01.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+
+        # Write without any flags.
+        sdf.write(tmp_path / "test0.fits")
+        # Check that the column is there and is empty.
+        with fits.open(tmp_path / "test0.fits") as hdu:
+            for b in hdu[1:]:  # Skip the primary HDU.
+                assert "FLAGS" in b.columns.names
+                assert b.data["FLAGS"].sum() == 0
+
+        # Flag something and repeat.
+        channels = {0: 20, 1: 0}
+        c0 = 100
+        sdf.flag(scan=19, channel=[[c0, c0 + channels[0] - 1]])
+        sdf.apply_flags()
+        sdf.write(tmp_path / "test1.fits")
+        with fits.open(tmp_path / "test1.fits") as hdu:
+            for i, b in enumerate(hdu[1:]):  # Skip the primary HDU.
+                assert "FLAGS" in b.columns.names
+                assert b.data["FLAGS"].sum() == channels[i]
+
+        # Reset flags.
+        sdf.clear_flags()
+        for b in sdf._sdf[0]._bintable:
+            b.data["FLAGS"][:] = 0
+
+        # Flag some more.
+        channels = {0: 40, 1: 50}
+        sdf.flag(scan=19, channel=[[c0, c0 + channels[0] - 1]])
+        sdf.flag(scan=104, channel=[[c0, c0 + channels[1] - 1]])
+        sdf.apply_flags()
+        sdf.write(tmp_path / "test2.fits")
+        with fits.open(tmp_path / "test2.fits") as hdu:
+            for i, b in enumerate(hdu[1:]):  # Skip the primary HDU.
+                assert "FLAGS" in b.columns.names
+                assert b.data["FLAGS"].sum() == channels[i]
