@@ -925,29 +925,47 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for s in self._sdf:
             s.info()
 
-    def _common(self, **kwargs):
+    def _common_selection(self, ifnum, plnum, fdnum, **kwargs):
+        """Do selection and flag application common to all calibration methods.
+        Flags are not applied unless selection results in non-zero length data selection.
+
+        Parameters
+        ----------
+        fdnum: int
+            The feed number
+        ifnum : int
+            The IF number
+        plnum : int
+            The polarization number
+
+        Returns
+        -------
+            scan_df : tuple
+                A tuple consisting of a list of scan numbers selected and a `~pandas.DataFrame` of the selection.
+        """
+
         kwargs = keycase(kwargs)
-        apply_flags = kwargs.get("APPLY_FLAGS", True)
-        if apply_flags:
-            self.apply_flags()
+        apply_flags = kwargs.pop("APPLY_FLAGS", True)
+        debug = kwargs.pop("DEBUG", False)
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
             _final = self._index
-        scans = kwargs.get("scan", None)
-        if type(scans) is int:
-            scans = [scans]
-        preselected = {}
-        preselected["SCAN"] = uniq(_final["SCAN"])
-        preselected["FDNUM"] = kwargs["FDNUM"]
-        preselected["IFNUM"] = kwargs["IFNUM"]
-        preselected["PLNUM"] = kwargs["PLNUM"]
+        scans = kwargs.get("SCAN", None)
         if scans is None:
-            scans = preselected["SCAN"]
+            scans = uniq(_final["SCAN"])
+        elif type(scans) == int:
+            scans = list([scans])
+        preselected = {}
+        preselected["SCAN"] = scans
+        preselected["FDNUM"] = fdnum
+        preselected["IFNUM"] = ifnum
+        preselected["PLNUM"] = plnum
         ps_selection = copy.deepcopy(self._selection)
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
+        print(f"2 {scans=} {kwargs['SCAN']=}")
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
@@ -956,6 +974,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+        # Don't apply flags until we are sure that selection succeeded
+        if apply_flags:
+            self.apply_flags()
         return (scans, _sf)
 
     @log_call_to_result
@@ -995,6 +1016,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Limit to the input binary table index. The default is None which means use all binary tables.
         smooth_ref: int, optional
             the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1007,7 +1030,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         if True:
-            (scans, _sf) = self._common(fdnum=fdnum, ifnum=ifnum, plnum=plnum, **kwargs)
+            (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, **kwargs)
         else:
             if apply_flags:
                 self.apply_flags()
@@ -1042,6 +1065,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
+        print(f"TP {scans=}")
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
             for scan in scans:
@@ -1153,7 +1177,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
         # if True:
-        #    (scans, _sf) = self._common(fdnum=fdnum, ifnum=ifnum, plnum=plnum, **kwargs)
+        #    (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, **kwargs)
 
         if apply_flags:
             self.apply_flags()
@@ -1286,7 +1310,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         plnum : int
             The polarization number
         fdnum:  2-tuple, optional
-            The feed numbers. If there are more than one feeds in the data, you must specify `fdnum`. Default: None which means use the feeds foudn in the data.
+            The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
         calibrate : boolean, optional
             Calibrate the scans.
             The default is True.
@@ -1351,12 +1375,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             feeds = nod_beams
         else:
             if nod_beams != fdnum:
-                # This really should raise a ValueError
-                raise ValueError(f"Found nodding beams {nod_beams} in the data, but you provided {fdnum}.")
+                logger.info(f"Using beams {fdnum} instead of nodding beams {nod_beams} found in the data")
         if type(feeds) is int or len(feeds) != 2:
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
-        logger.info(f"Using nodding beams {feeds}, use fdnum= to override these.")
 
         if apply_flags:
             self.apply_flags()
@@ -1557,7 +1579,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         logger.debug(kwargs)
 
         if True:
-            (scans, _sf) = self._common(ifnum=ifnum, plnum=plnum, fdnum=fdnum, **kwargs)
+            (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, **kwargs)
+            print(f"{scans=}")
         else:
             if apply_flags:
                 self.apply_flags()
@@ -1614,6 +1637,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows["OFF"] = list(dfcalF["ROW"])
                 sigrows["ON"] = list(dfsigT["ROW"])
                 sigrows["OFF"] = list(dfsigF["ROW"])
+                print(f"{scan=} {sigrows=} {calrows=}")
                 g = FSScan(
                     self._sdf[i],
                     scan=scan,
