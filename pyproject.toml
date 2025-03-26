@@ -21,8 +21,8 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "astropy",
   "httpx",
+  "astropy>=6.1",
   "ipython",
   "jplephem",
   "matplotlib",
