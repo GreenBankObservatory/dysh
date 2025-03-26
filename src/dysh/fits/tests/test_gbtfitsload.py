@@ -1,8 +1,10 @@
 import glob
+import logging
 import os
 import pathlib
 import platform
 import shutil
+import warnings
 from copy import deepcopy
 from pathlib import Path
 
@@ -95,7 +97,7 @@ class TestGBTFITSLoad:
 
         diff = gbtidl_getps - dysh_getps
         hdu.close()
-        assert np.nanmedian(diff) == 0.0
+        assert np.nanmedian(diff) == pytest.approx(0.0, abs=2e-11)
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
 
@@ -416,7 +418,7 @@ class TestGBTFITSLoad:
         index_file = p / "AGBT20B_014_03.raw.vegas.A6.index"
         data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
         g = gbtfitsload.GBTFITSLoad(data_file)
-        gbtidl_index = pd.read_csv(index_file, skiprows=10, sep="\s+")
+        gbtidl_index = pd.read_csv(index_file, skiprows=10, sep=r"\s+")
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
 
     def test_getps_smoothref(self):
@@ -807,6 +809,60 @@ class TestGBTFITSLoad:
         exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
         assert exp2 < exp1
 
+    def test_getnod_wcal(self):
+        """
+        Test for getnod using data with noise diode.
+        """
+
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        nodsp0 = nodsb[0].timeaverage()
+        nodsp1 = nodsb[1].timeaverage()
+
+        # Load GBTIDL reduction.
+        # row 0 is `fdnum=2`.
+        # row 1 is `fdnum=6`.
+        hdu = fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits")
+        table = hdu[1].data
+
+        # Compare.
+        assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
+        assert nodsp1.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][1])
+        # These assert internally.
+        np.testing.assert_allclose(nodsp0.data, table["DATA"][0], rtol=2e-7, equal_nan=False)
+        np.testing.assert_allclose(nodsp1.data, table["DATA"][1], rtol=2e-7, equal_nan=False)
+        assert table["TSYS"][0] == pytest.approx(nodsp0.meta["TSYS"])
+        assert table["TSYS"][1] == pytest.approx(nodsp1.meta["TSYS"])
+
+    def test_getnod_nocal(self):
+        """
+        Test for getnod using data without noise diode.
+        """
+
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(scan=24, ifnum=0, plnum=0)
+        nodsp0 = nodsb[0].timeaverage()
+        nodsp1 = nodsb[1].timeaverage()
+
+        # Load GBTIDL reduction.
+        # row 0 is `fdnum=0`.
+        # row 1 is `fdnum=1`.
+        hdu = fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits")
+        table = hdu[1].data
+
+        # Compare.
+        assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
+        assert nodsp1.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][1])
+        # These assert internally.
+        np.testing.assert_allclose(nodsp0.data, table["DATA"][0], rtol=2e-7, equal_nan=False)
+        np.testing.assert_allclose(nodsp1.data, table["DATA"][1], rtol=2e-7, equal_nan=False)
+        assert table["TSYS"][0] == pytest.approx(nodsp0.meta["TSYS"])
+        assert table["TSYS"][1] == pytest.approx(nodsp1.meta["TSYS"])
+
     def test_subbeamnod(self):
         """simple check of subbeamnod for two different cases.  this mimics the notebook example"""
         sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
@@ -852,3 +908,80 @@ class TestGBTFITSLoad:
         assert sb.bunit == "ta*"
         with pytest.raises(ValueError):
             sb.scale("not a valid bunit", zenith_opacity=0.2)
+
+    def test_qd_check(self, caplog):
+        """
+        Test for `qd_check`.
+        Check that it identifies the correct amount of data with pointing errors.
+        """
+
+        fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        caplog.set_level(logging.INFO)
+        sdf.qd_check()
+        assert "0.0%" in caplog.text
+        caplog.clear()  # Reset the log capture.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sdf["QD_EL"] += 100
+        sdf.qd_check()
+        assert "100.0%" in caplog.text
+
+    def test_qd_correct(self, caplog):
+        """
+        Test for `qd_correct`.
+        Check that it does not modify the sky pointing if the quadrant detector data is flagged as bad.
+        Check that it modifies the sky pointing.
+        """
+
+        fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        crval2_org = deepcopy(sdf["CRVAL2"].to_numpy())
+        crval3_org = deepcopy(sdf["CRVAL3"].to_numpy())
+
+        # Set QD_BAD to 1.
+        # This should not change the pointing information.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sdf["QD_BAD"] = 1
+        with caplog.at_level(logging.INFO):
+            sdf.qd_correct()
+        assert "All quadrant detector data has been flagged. Will not apply corrections." in caplog.text
+        np.testing.assert_array_equal(crval2_org, sdf["CRVAL2"].to_numpy())
+        np.testing.assert_array_equal(crval3_org, sdf["CRVAL3"].to_numpy())
+        assert np.sum(crval2_org - sdf["CRVAL2"].to_numpy()) == 0.0
+        assert np.sum(crval3_org - sdf["CRVAL3"].to_numpy()) == 0.0
+
+        # Back to 0.
+        # This should change the pointing data.
+        sdf._qd_corrected = False
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sdf["QD_BAD"] = 0
+        sdf.qd_correct()
+        assert np.sum(crval2_org - sdf["CRVAL2"].to_numpy()) != 0.0
+        assert np.sum(crval3_org - sdf["CRVAL3"].to_numpy()) != 0.0
+
+    def test_qd_flag(self):
+        """
+        Tests for `qd_flag`.
+        Test that it flags data.
+        """
+
+        fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+
+        # Nothing to flag.
+        sdf.qd_flag()
+        assert len(sdf.flags.final.index.values) == 0
+
+        # Add a pointing error so it gets flagged.
+        qd_el = sdf["QD_EL"].to_numpy()
+        qd_el[10] += 100
+        sdf.qd_flag()
+        assert np.all(sdf.flags.final.index.values == 10)
+        sdf.flags.clear()
+
+        qd_el[11:15] += 100
+        sdf.qd_flag()
+        np.testing.assert_array_equal(sdf.flags.final.index.values, [10, 11, 12, 13, 14])

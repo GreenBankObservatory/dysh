@@ -23,7 +23,7 @@ from specutils.fitting.fitmodels import _strip_units_from_model
 from specutils.utils import QuantityModel
 
 from ..coordinates import veltofreq
-from ..log import log_function_call, logger
+from ..log import logger
 from ..util import minimum_string_match, powerof2
 
 
@@ -451,7 +451,6 @@ def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
     return region_list
 
 
-@log_function_call()
 def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
     """Fit a baseline to `spectrum`.
     The code uses `~astropy.modeling.fitting.Fitter` and `~astropy.modeling.polynomial` to compute the baseline.
@@ -701,6 +700,43 @@ def tsys_weight(exposure, delta_freq, tsys):
         return weight.astype(np.float64)
 
 
+def mean_data(data, fedge=0.1, nedge=None, median=False):
+    """
+    special mean of data to exclude the edges like mean_tsys(), with
+    an option to use the median instead of the mean.
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray`
+        The spectral data.
+    fedge : float, optional
+        Fraction of edge channels to exclude at each end, a number between 0 and 1.
+        If `nedge` is used, this parameter is not used.
+        Default: 0.1, meaning the central 80% bandwidth is used
+    nedge : int, optional
+        Number of edge channels to exclude. nedge cannot be 0.
+        Default: None, meaning use `fedge`
+    median : boolean, optional
+        Use the median instead of the mean.
+        The default is False.
+
+    Returns
+    -------
+    meandata : float
+
+    """
+
+    nchan = len(data)
+    if nedge is None:
+        nedge = int(nchan * fedge)
+    chrng = slice(nedge, -(nedge - 1), 1)
+    if median:
+        meandata = np.nanmedian(data[chrng])
+    else:
+        meandata = np.nanmean(data[chrng])
+    return meandata
+
+
 def get_spectral_equivalency(restfreq, velocity_convention):
     # Yeesh, the doppler_convention parameter for SpectralAxis.to does not match the doppler_convention list for Spectrum1D!
     # This is actually bug in Spectrum1D documentation https://github.com/astropy/specutils/issues/1067
@@ -842,7 +878,6 @@ def fft_shift(
     return new_y
 
 
-@log_function_call()
 def smooth(data, method="hanning", width=1, kernel=None, show=False):
     """
     Smooth or Convolve a spectrum, optionally decimating it.
