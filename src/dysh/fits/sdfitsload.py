@@ -209,7 +209,7 @@ class SDFITSLoad(object):
         for k, v in cols.items():
             if k not in self._index.columns:
                 self._index[k] = v
-            elif self._index[k][0] != v:
+            elif self._index[k].iloc[0] != v:
                 warnings.warn(
                     f"Column {k} is defined in the primary header and in the binary table index, but their values do"
                     " not match. Will not update this column in the index.",
