@@ -1176,7 +1176,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         preselected["PLNUM"] = plnum
         if scans is None:
             scans = preselected["SCAN"]
-        # @todo pjt  two additions in this merge ?
 
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
@@ -1202,6 +1201,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
+        # @todo pjt  two additions in this merge ?
         if True:
             som = uniq(_sf["SUBOBSMODE"])
             if len(som) > 1:
@@ -1344,8 +1344,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     return list(b)
                 return []
 
-        if apply_flags:
-            self.apply_flags()
         nod_beams = get_nod_beams(self)
         feeds = fdnum
         if fdnum is None:
@@ -1360,6 +1358,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         logger.debug(f"getnod: using fdnum={feeds}")
         logger.info(f"Using nodding beams {feeds}, use fdnum= to override these.")
 
+        if apply_flags:
+            self.apply_flags()
         # Either the user gave scans on the command line (scans !=None) or pre-selected them
         # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
         # is in the starting selection.
@@ -1371,7 +1371,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         kwargs = keycase(kwargs)
         if type(scans) is int:
             scans = [scans]
-        preselected = {}
         preselected = {}
         preselected["SCAN"] = uniq(_final["SCAN"])
         preselected["FDNUM"] = feeds
@@ -1401,10 +1400,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
-        elif len(_sf) < 100:
-            logger.debug(f"{_sf = }")
-        else:
-            logger.debug("Current selection has %d entries" % len(_sf))
         scans = uniq(_sf["SCAN"])
         #       prosq = uniq(_sf["PROCSEQN"])
         beam1_selected = True
@@ -1938,6 +1933,83 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock.merge_commentary(self)
         return scanblock
 
+    def _common_scan_list_selection(self, scans, selection, prockey, procvals, feeds=None, check=False):
+        s = {"ON": [], "OFF": []}
+        df2 = selection[selection["SCAN"].isin(scans)]
+        procset = set(df2["PROC"])
+        lenprocset = len(procset)
+        if lenprocset == 0:
+            # This is ok since not all files in a set have all the polarizations, feeds, or IFs
+            return s
+        if lenprocset > 1:
+            raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
+        proc = list(procset)[0]
+        dfon = select_from(prockey, procvals["ON"], selection)
+        dfoff = select_from(prockey, procvals["OFF"], selection)
+        onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
+        offscans = uniq(list(dfoff["SCAN"]))
+        # pol1 = set(dfon["PLNUM"])
+        # pol2 = set(dfoff["PLNUM"])
+        # scans = list(selection["SCAN"])
+        # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF).
+        # First check the requested scan number(s) are in the ONs or OFFs of this bintable.
+        seton = set(onscans)
+        setoff = set(offscans)
+        onrequested = seton.intersection(scans)
+        offrequested = setoff.intersection(scans)
+        if len(onrequested) == 0 and len(offrequested) == 0:
+            raise ValueError(f"Scans {scans} not found in ONs or OFFs")
+        # Then check that for each requested ON/OFF there is a matching OFF/ON
+        # and build the final matched list of ONs and OFfs.
+        sons = list(onrequested.copy())
+        soffs = list(offrequested.copy())
+        missingoff = []
+        missingon = []
+        # Special case position switch calibration
+        if procvals["ON"] == "PSWITCHON":
+            # Figure out the companion scan
+            if proc == "OnOff":
+                offdelta = 1
+                ondelta = -1
+            elif proc == "OffOn":
+                offdelta = -1
+                ondelta = 1
+            else:
+                raise Exception(f"I don't know how to handle PROCTYPE {proc} for the requested scan operation")
+        else:
+            # Nod data
+            offdelta = 1
+            ondelta = -1
+        for i in onrequested:
+            expectedoff = i + offdelta
+            if len(setoff.intersection([expectedoff])) == 0:
+                missingoff.append(expectedoff)
+            else:
+                soffs.append(expectedoff)
+        for i in offrequested:
+            expectedon = i + ondelta
+            if len(seton.intersection([expectedon])) == 0:
+                missingon.append(expectedon)
+            else:
+                sons.append(expectedon)
+        if check:
+            s["OFF"] = sorted(set(soffs).union(missingoff))
+            s["ON"] = sorted(set(sons).union(missingon))
+        else:
+            if len(missingoff) > 0:
+                raise ValueError(
+                    f"For the requested ON scans {onrequested}, the OFF scans {missingoff} were not present"
+                )
+            if len(missingon) > 0:
+                raise ValueError(
+                    f"For the requested OFF scans {offrequested}, the ON scans {missingon} were not present"
+                )
+            s["ON"] = sorted(set(sons))
+            s["OFF"] = sorted(set(soffs))
+            if len(s["ON"]) != len(s["OFF"]):
+                raise Exception(f'ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"])}')
+        return s
+
     def _nod_scan_list_selection(self, scans, selection, feeds, check=False):
         """
         Get the scans for nodding data sorted
@@ -1963,6 +2035,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         rows : dict
             A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
         """
+        if True:
+            return self._common_scan_list_selection(scans, selection, "PROCSEQN", {"ON": 1, "OFF": 2}, check=check)
         s = {"ON": [], "OFF": []}
         df2 = selection[selection["SCAN"].isin(scans)]
         procset = set(df2["PROC"])  # this needs to be "Nod"
@@ -2054,6 +2128,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         rows : dict
             A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
         """
+        if True:
+            return self._common_scan_list_selection(
+                scans, selection, "OBSTYPE", {"ON": "PSWITCHON", "OFF": "PSWITCHOFF"}, check=check
+            )
         s = {"ON": [], "OFF": []}
         df2 = selection[selection["SCAN"].isin(scans)]
         procset = set(df2["PROC"])
