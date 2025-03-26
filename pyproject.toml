@@ -17,51 +17,52 @@ authors = [
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "astropy",
+  "httpx",
+  "astropy>=6.1",
   "ipython",
   "jplephem",
   "matplotlib",
   "numpy",
   "pandas",
+  "rich",
   "scipy",
   "specutils>1.16",
-  "httpx",
-  "rich",
   "tenacity",
  ]
 
 [project.optional-dependencies]
-dev = [
-  "coverage[toml]",
-  "pip-tools",
-  "pre-commit",
-  "ipdb",
-  "numpydoc",
-  "pytest",
-  "pytest-cov",
-  "myst_nb",
-  "sphinx",
-  "sphinx-autobuild",
-  "sphinx-inline-tabs",
-  "sphinx-book-theme",
-  "sphinx-design",
-  "sphinx-copybutton",
-  "sphinxcontrib-mermaid",
-  "nbformat",
-  "nbclient",
-]
 nb = [
   "jupyter",
   "jupyterlab",
   "ipympl",
 ]
-all = ["dysh[dev,nb]"]
+all = ["dysh[nb]"]
+
+[dependency-groups]
+dev = [
+  "coverage[toml]",
+  "ipdb",
+  "myst_nb",
+  "nbclient",
+  "nbformat",
+  "numpydoc",
+  "pip-tools",
+  "pre-commit",
+  "pytest",
+  "pytest-cov",
+  "pytest-xdist>=3.6.1",
+  "sphinx",
+  "sphinx-autobuild",
+  "sphinx-book-theme",
+  "sphinx-copybutton",
+  "sphinx-design",
+  "sphinx-inline-tabs",
+  "sphinxcontrib-mermaid",
+]
 
 [project.urls]
 Documentation = "https://github.com/GreenBankObservatory/dysh#readme"
