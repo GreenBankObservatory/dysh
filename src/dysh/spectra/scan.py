@@ -511,7 +511,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         pass
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):
+    def timeaverage(self, weights="tsys"):  # SCANBASE
         r"""Compute the time-averaged spectrum for this set of FSscans.
 
         Parameters
@@ -644,7 +644,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):
+    def timeaverage(self, weights="tsys"):  # SCANBLOCK
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
@@ -1101,42 +1101,6 @@ class TPScan(ScanBase):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         return self.calibrated(i)
-
-    @log_call_to_history
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of scans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        self._timeaveraged = deepcopy(self.calibrated(0))
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = np.ones_like(self.tsys_weight)
-        non_blanks = find_non_blanks(self._calibrated)[0]
-        self._timeaveraged._data = np.ma.average(self._calibrated, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
-        return self._timeaveraged
-
-        # end-of-TPScan
 
 
 class PSScan(ScanBase):
