@@ -674,7 +674,7 @@ class SDFITSLoad(object):
         rows.sort()
         outbintable = self._bintable[bintable].copy()
         outbintable.data = outbintable.data[rows]
-        outbintable.update()
+        outbintable.update_header()
         return outbintable
 
     def write(
@@ -885,8 +885,6 @@ class SDFITSLoad(object):
                 t1 = Table(names=[name], data=[value])
                 t = BinTableHDU(t1)
                 self._bintable[bintable].columns.add_col(t.columns[name])
-            # self._update_column_added(bintable, self._bintable[bintable].columns)
-            # self._bintable[bintable].update()
         else:
             if lenv != self.total_rows:
                 raise ValueError(
@@ -905,8 +903,6 @@ class SDFITSLoad(object):
                 else:
                     t = BinTableHDU(Table(names=[name], data=[value[start : start + n]]))
                     self._bintable[i].columns.add_col(t.columns[name])
-                # self._update_column_added(i, self._bintable[i].columns)
-                # self._bintable[bintable].update()
                 start = start + n
 
     def _update_column_added(self, bintable, coldefs):
@@ -958,7 +954,7 @@ class SDFITSLoad(object):
                 # otherwise we need to add rather than replace/update
                 else:
                     self._add_binary_table_column(k, value, 0)
-            self._bintable[0].update()
+            self._bintable[0].update_header()
         else:
             start = 0
             for k, v in column_dict.items():
@@ -1002,7 +998,7 @@ class SDFITSLoad(object):
                             v1 = np.array(value[start : start + n])
                         start = start + n
                         self._add_binary_table_column(k, v1, j)
-                    self._bintable[j].update()
+                    self._bintable[j].update_header()
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.
