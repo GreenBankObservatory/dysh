@@ -947,7 +947,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         kwargs = keycase(kwargs)
         print(f"{kwargs=}")
         apply_flags = kwargs.pop("APPLY_FLAGS", True)
-        debug = kwargs.pop("DEBUG", False)
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
@@ -957,6 +956,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scans = uniq(_final["SCAN"])
         elif type(scans) == int:
             scans = list([scans])
+        plnum = self._fix_ka_rx_if_needed(_final, fdnum, plnum)
         preselected = {}
         preselected["SCAN"] = scans
         preselected["FDNUM"] = fdnum
@@ -1161,6 +1161,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
+
         prockey = "OBSTYPE"
         procvals = {"ON": "PSWITCHON", "OFF": "PSWITCHOFF"}
         if True:
@@ -1364,6 +1365,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     b = c["FEED"].unique() - 1
                     return list(b)
                 return []
+
+        ScanBase._check_bunit(bunit)
+        if bunit.lower() != "ta" and zenith_opacity is None:
+            raise ValueError("Can't scale the data without a valid zenith opacity")
 
         nod_beams = get_nod_beams(self)
         feeds = fdnum
@@ -1587,6 +1592,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         debug = kwargs.pop("debug", False)
         logger.debug(kwargs)
 
+        ScanBase._check_bunit(bunit)
+        if bunit.lower() != "ta" and zenith_opacity is None:
+            raise ValueError("Can't scale the data without a valid zenith opacity")
+
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
 
         scanblock = ScanBlock()
@@ -1635,6 +1644,54 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock.merge_commentary(self)
         return scanblock
         # end of getfs()
+
+    def _fix_ka_rx_if_needed(self, df, fdnum, plnum):
+        """The Ka band receiver had mislabeled PLNUM for a period of time.
+        This code returns the correct PLNUM for the given feed number
+
+        **Note**:   I don't know what date range this was effective, so this
+        method may do the wrong thing for some data!
+
+        See issue #160 https://github.com/GreenBankObservatory/dysh/issues/160
+
+        Parameters
+        ----------
+            df : `~pandas.DataFrame`
+                The index of the down-selected data.
+            fdnum: int
+                The feed number selected.
+            plnum: int
+                The original polarization number
+
+        Returns
+        -------
+            corrected_plnum : int
+                The corrected polarization number
+        """
+        # Check if we are dealing with Ka data before the beam switch.
+        rx = np.unique(df["FRONTEND"])
+        corrected_plnum = plnum
+        if len(rx) > 1:
+            # Does this ever actually happen?
+            raise TypeError(f"More than one receiver {rx} for the selected scan.")
+        elif rx[0] == "Rcvr26_40":  # and df["DATE-OBS"][-1] < xxxx
+            # Switch the polarizations to match the beams,
+            # for this receiver only because it has had its feeds
+            # mislabelled since $DATE.
+            # For the rest of the receivers the method should use
+            # the same polarization for the selected feeds.
+            # See also issue #160
+            if fdnum == 0:
+                corrected_plnum = 1
+                logger.info(
+                    f"Fixing PLNUM mislabel {plnum} for Rcvr26_40 feed {fdnum}, PLNUM changed to {corrected_plnum}"
+                )
+            elif fdnum == 1:
+                corrected_plnum = 0
+                logger.info(
+                    f"Fixing PLNUM mislabel {plnum} for Rcvr26_40 feed {fdnum}, PLNUM changed to {corrected_plnum}"
+                )
+        return corrected_plnum
 
     # @todo sig/cal no longer needed?
     @log_call_to_result
@@ -1712,56 +1769,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             A ScanBlock containing one or more `~spectra.scan.SubBeamNodScan`
         """
 
-        if apply_flags:
-            self.apply_flags()
-        if len(self._selection._selection_rules) > 0:
-            _final = self._selection.final
-        else:
-            _final = self._index
-        scans = kwargs.get("scan", None)
-        # debug = kwargs.pop("debug", False)
-        kwargs = keycase(kwargs)
-        logger.debug(kwargs)
+        ScanBase._check_bunit(bunit)
+        if bunit.lower() != "ta" and zenith_opacity is None:
+            raise ValueError("Can't scale the data without a valid zenith opacity")
 
-        if type(scans) is int:
-            scans = [scans]
-        preselected = {}
-        preselected["SCAN"] = uniq(_final["SCAN"])
-        preselected["FDNUM"] = fdnum
-        preselected["IFNUM"] = ifnum
-        preselected["PLNUM"] = plnum
-        if scans is None:
-            scans = preselected["SCAN"]
-        for k, v in preselected.items():
-            if k not in kwargs:
-                kwargs[k] = v
-        # Check if we are dealing with Ka data before the beam switch.
-        rx = np.unique(_final["FRONTEND"])
-        if len(rx) > 1:
-            raise TypeError("More than one receiver for the selected scan.")
-        elif rx[0] == "Rcvr26_40":  # and df["DATE-OBS"][-1] < xxxx
-            # Switch the polarizations to match the beams,
-            # for this receiver only because it has had its feeds
-            # mislabelled since $DATE.
-            # For the rest of the receivers the method should use
-            # the same polarization for the selected feeds.
-            # See also issue #160
-            if fdnum == 0:
-                logger.info("Fixing PLNUM mislabel for Rcvr26_40")
-                plnum = 1
-            elif fdnum == 1:
-                logger.info("Fixing PLNUM mislabel for Rcvr26_40")
-                plnum = 0
-        # now downselect with any additional kwargs
-        ps_selection = copy.deepcopy(self._selection)
-        ps_selection._select_from_mixed_kwargs(**kwargs)
-        _sf = ps_selection.final
-        # now remove rows that have been entirely flagged
-        if apply_flags:
-            _sf = eliminate_flagged_rows(_sf, self.flags.final)
-        if len(_sf) == 0:
-            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
-        scans = uniq(_sf["SCAN"])
+        (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         scanblock = ScanBlock()
 
         if method == "cycle":
