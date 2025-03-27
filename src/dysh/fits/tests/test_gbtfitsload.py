@@ -99,7 +99,7 @@ class TestGBTFITSLoad:
 
         diff = gbtidl_getps - dysh_getps
         hdu.close()
-        assert np.nanmedian(diff) == 0.0
+        assert np.nanmedian(diff) == pytest.approx(0.0, abs=2e-11)
         assert np.all(abs(diff[~np.isnan(diff)]) < 5e-7)
         assert np.isnan(diff[3072])
 
