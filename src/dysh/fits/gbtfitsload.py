@@ -1164,64 +1164,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         prockey = "OBSTYPE"
         procvals = {"ON": "PSWITCHON", "OFF": "PSWITCHOFF"}
-        if True:
-            (scans, _sf) = self._common_selection(
-                fdnum=fdnum,
-                ifnum=ifnum,
-                plnum=plnum,
-                apply_flags=apply_flags,
-                prockey=prockey,
-                procvals=procvals,
-                **kwargs,
-            )
-        else:
-            if apply_flags:
-                self.apply_flags()
-            # either the user gave scans on the command line (scans !=None) or pre-selected them
-            # with selection.selectXX(). In either case make sure the matching ON or OFF
-            # is in the starting selection.
-            if len(self._selection._selection_rules) > 0:
-                _final = self._selection.final
-            else:
-                _final = self._index
-            scans = kwargs.pop("scan", None)
-            # debug = kwargs.pop("debug", False)
-            kwargs = keycase(kwargs)
-            if type(scans) is int:
-                scans = [scans]
-            preselected = {}
-            preselected["SCAN"] = uniq(_final["SCAN"])
-            preselected["FDNUM"] = fdnum
-            preselected["IFNUM"] = ifnum
-            preselected["PLNUM"] = plnum
-            if scans is None:
-                scans = preselected["SCAN"]
-
-            if len(_final[_final["SCAN"].isin(scans)]) == 0:
-                raise ValueError(f"Scans {scans} not found in selected data")
-            missing = self._common_scan_list_selection(
-                scans, _final, "OBSTYPE", {"ON": "PSWITCHON", "OFF": "PSWITCHOFF"}, check=True
-            )
-            scans_to_add = set(missing["ON"]).union(missing["OFF"])
-            logger.debug(f"after check scans_to_add={scans_to_add}")
-            logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
-            ps_selection = copy.deepcopy(self._selection)
-            if len(scans_to_add) != 0:
-                # add a rule selecting the missing scans :-)
-                logger.debug(f"adding rule scan={scans_to_add}")
-                kwargs["SCAN"] = list(scans_to_add)
-            for k, v in preselected.items():
-                if k not in kwargs:
-                    kwargs[k] = v
-
-            # now downselect with fd/if/plnum and any additional kwargs
-            ps_selection._select_from_mixed_kwargs(**kwargs)
-            _sf = ps_selection.final
-            # now remove rows that have been entirely flagged
-            if apply_flags:
-                _sf = eliminate_flagged_rows(_sf, self.flags.final)
-            if len(_sf) == 0:
-                raise Exception("Didn't find any scans matching the input selection criteria.")
+        (scans, _sf) = self._common_selection(
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            apply_flags=apply_flags,
+            prockey=prockey,
+            procvals=procvals,
+            **kwargs,
+        )
         # @todo pjt  two additions in this merge ?
         if True:
             som = uniq(_sf["SUBOBSMODE"])
@@ -1233,7 +1184,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
-            scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
             scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
             if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                 logger.debug(f"scans {scans} not found, continuing")
@@ -1299,49 +1249,49 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs,
     ):
         """
-                Retrieve and calibrate nodding data.
+        Retrieve and calibrate nodding data.
 
-                Parameters
-                ----------
-                ifnum : int
-                    The IF number
-                plnum : int
-                    The polarization number
-                fdnum:  2-tuple, optional
-                    The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
-                calibrate : boolean, optional
-                    Calibrate the scans.
-                    The default is True.
-                bintable : int, optional
-                    Limit to the input binary table index. The default is None which means use all binary tables.
-                    (This keyword should eventually go away)
-                smooth_ref: int, optional
-                    the number of channels in the reference to boxcar smooth prior to calibration
-                apply_flags : boolean, optional.  If True, apply flags before calibration.
-                    See :meth:`apply_flags`. Default: True
-                t_sys : float, optional
-                    System temperature. If provided, it overrides the value computed using the noise diode.
-                    If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
-                nocal : bool, optional
-                    Is the noise diode being fired? False means the noise diode was firing.
-                    By default it will figure this out by looking at the "CAL" column.
-                    It can be set to True to override this. Default: False
-                **kwargs : dict
-                    Optional additional selection keyword arguments, typically
-                    given as key=value, though a dictionary works too.
-                    e.g., `ifnum=1, plnum=2` etc.
-                    For multi-beam with more than 2 beams, fdnum=[BEAM1,BEAM2] must be selected,
-                    unless the data have been properly taggeed using PROCSCAN which BEAM1 and BEAM2 are.
-        f
-                Raises
-                ------
-                Exception
-                    If scans matching the selection criteria are not found.
+        Parameters
+        ----------
+        ifnum : int
+            The IF number
+        plnum : int
+            The polarization number
+        fdnum:  2-tuple, optional
+            The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
+        calibrate : boolean, optional
+            Calibrate the scans.
+            The default is True.
+        bintable : int, optional
+            Limit to the input binary table index. The default is None which means use all binary tables.
+            (This keyword should eventually go away)
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this. Default: False
+        **kwargs : dict
+            Optional additional selection keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `ifnum=1, plnum=2` etc.
+            For multi-beam with more than 2 beams, fdnum=[BEAM1,BEAM2] must be selected,
+            unless the data have been properly taggeed using PROCSCAN which BEAM1 and BEAM2 are.
 
-                Returns
-                -------
-                scanblock : `~spectra.scan.ScanBlock`
-                    ScanBlock containing one or more `~spectra.scan.NodScan`.
+        Raises
+        ------
+        Exception
+            If scans matching the selection criteria are not found.
+
+        Returns
+        -------
+        scanblock : `~spectra.scan.ScanBlock`
+            ScanBlock containing one or more `~spectra.scan.NodScan`.
 
         """
 
@@ -1383,60 +1333,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         logger.debug(f"getnod: using fdnum={feeds}")
         prockey = "PROCSEQN"
         procvals = {"ON": 1, "OFF": 2}
-        if True:
-            (scans, _sf) = self._common_selection(
-                fdnum=feeds,
-                ifnum=ifnum,
-                plnum=plnum,
-                apply_flags=apply_flags,
-                prockey=prockey,
-                procvals=procvals,
-                **kwargs,
-            )
-        else:
-            if apply_flags:
-                self.apply_flags()
-            # Either the user gave scans on the command line (scans !=None) or pre-selected them
-            # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
-            # is in the starting selection.
-            if len(self._selection._selection_rules) > 0:
-                _final = self._selection.final
-            else:
-                _final = self._index
-            scans = kwargs.pop("scan", None)
-            kwargs = keycase(kwargs)
-            if type(scans) is int:
-                scans = [scans]
-            preselected = {}
-            preselected["SCAN"] = uniq(_final["SCAN"])
-            preselected["FDNUM"] = feeds
-            preselected["IFNUM"] = ifnum
-            preselected["PLNUM"] = plnum
-            if scans is None:
-                scans = preselected["SCAN"]
-            missing = self._nod_scan_list_selection(scans, _final, feeds, check=True)
-            scans_to_add = set(missing["ON"]).union(missing["OFF"])
-            logger.debug(f"after check scans_to_add={scans_to_add}")
-            # Now remove any scans that have been pre-selected by the user.
-            # scans_to_add -= scans_preselected
-            logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
-            ps_selection = copy.deepcopy(self._selection)
-            if len(scans_to_add) != 0:
-                # Add a rule selecting the missing scans :-)
-                logger.debug(f"adding rule scan={scans_to_add}")
-                kwargs["SCAN"] = list(scans_to_add)
-            for k, v in preselected.items():
-                if k not in kwargs:
-                    kwargs[k] = v
-            # Now downselect with any additional kwargs.
-            ps_selection._select_from_mixed_kwargs(**kwargs)
-            _sf = ps_selection.final
-            # Now remove rows that have been entirely flagged.
-            if apply_flags:
-                _sf = eliminate_flagged_rows(_sf, self.flags.final)
-            if len(_sf) == 0:
-                raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
-            scans = uniq(_sf["SCAN"])
+        (scans, _sf) = self._common_selection(
+            fdnum=feeds,
+            ifnum=ifnum,
+            plnum=plnum,
+            apply_flags=apply_flags,
+            prockey=prockey,
+            procvals=procvals,
+            **kwargs,
+        )
 
         beam1_selected = True
         scanblock = ScanBlock()
@@ -2018,453 +1923,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if len(s["ON"]) != len(s["OFF"]):
                 raise Exception(f'ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"])}')
         return s
-
-    def _nod_scan_list_selection(self, scans, selection, feeds, check=False):
-        """
-        Get the scans for nodding data sorted
-        by ON and OFF state using the current selection
-
-        Parameters
-        ----------
-        scans : array-like
-            list of one or more scans
-
-        selection : `~pandas.DataFrame`
-            selection object
-
-        feeds : int list of two beams
-            the two nodding beams
-
-        check : boolean
-            If True, when scans are mising, return the missing scans in the ON, OFF dict.
-            If False, return the normal scanlist and except if scans are missing
-
-        Returns
-        -------
-        rows : dict
-            A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
-        """
-        if True:
-            return self._common_scan_list_selection(scans, selection, "PROCSEQN", {"ON": 1, "OFF": 2}, check=check)
-        s = {"ON": [], "OFF": []}
-        df2 = selection[selection["SCAN"].isin(scans)]
-        procset = set(df2["PROC"])  # this needs to be "Nod"
-        lenprocset = len(procset)
-        if lenprocset == 0:
-            # This is ok since not all files in a set have all the polarizations, feeds, or IFs
-            return s
-        if lenprocset > 1:
-            raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
-        proc = list(procset)[0]
-        if proc != "Nod":
-            raise Exception(f"Procedure is not Nod, found {proc}")
-        dfon = select_from("PROCSEQN", 1, selection)
-        dfoff = select_from("PROCSEQN", 2, selection)
-        onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
-        offscans = uniq(list(dfoff["SCAN"]))
-        # print("PJT",onscans,offscans)
-        # pol1 = set(dfon["PLNUM"])
-        # pol2 = set(dfoff["PLNUM"])
-        # scans = list(selection["SCAN"])
-        # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF).
-        # First check the requested scan number(s) are in the ONs or OFFs of this bintable.
-        seton = set(onscans)
-        setoff = set(offscans)
-        onrequested = seton.intersection(scans)
-        offrequested = setoff.intersection(scans)
-        if len(onrequested) == 0 and len(offrequested) == 0:
-            raise ValueError(f"Scans {scans} not found in ONs or OFFs")
-        # Then check that for each requested ON/OFF there is a matching OFF/ON
-        # and build the final matched list of ONs and OFfs.
-        sons = list(onrequested.copy())
-        soffs = list(offrequested.copy())
-
-        # @todo this was code from getps() - for now just give all the scan= in the list since we don't have OnOff or OffOn
-        missingoff = []
-        missingon = []
-        #   code taken from getps(); here we don't distinguish between OnOff and OffOn
-        offdelta = 1
-        ondelta = -1
-        for i in onrequested:
-            expectedoff = i + offdelta
-            if len(setoff.intersection([expectedoff])) == 0:
-                missingoff.append(expectedoff)
-            else:
-                soffs.append(expectedoff)
-        for i in offrequested:
-            expectedon = i + ondelta
-            if len(seton.intersection([expectedon])) == 0:
-                missingon.append(expectedon)
-            else:
-                sons.append(expectedon)
-        if check:
-            s["OFF"] = sorted(set(soffs).union(missingoff))
-            s["ON"] = sorted(set(sons).union(missingon))
-        else:
-            if len(missingoff) > 0:
-                raise ValueError(
-                    f"For the requested ON scans {onrequested}, the OFF scans {missingoff} were not present"
-                )
-            if len(missingon) > 0:
-                raise ValueError(
-                    f"For the requested OFF scans {offrequested}, the ON scans {missingon} were not present"
-                )
-            s["ON"] = sorted(set(sons))
-            s["OFF"] = sorted(set(soffs))
-            if len(s["ON"]) != len(s["OFF"]):
-                raise Exception('ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"]}')
-        return s
-
-    def _onoff_scan_list_selection(self, scans, selection, check=False):
-        """
-        Get the scans for position-switch data sorted
-        by ON and OFF state using the current selection
-
-        Parameters
-        ----------
-        scans : array-like
-            list of one or more scans
-
-        selection : `~pandas.DataFrame`
-            selection object
-
-        check : boolean
-            If True, when scans are mising, return the missing scans in the ON, OFF dict.
-            If False, return the normal scanlist and except if scans are missing
-
-        Returns
-        -------
-        rows : dict
-            A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
-        """
-        if True:
-            return self._common_scan_list_selection(
-                scans, selection, "OBSTYPE", {"ON": "PSWITCHON", "OFF": "PSWITCHOFF"}, check=check
-            )
-        s = {"ON": [], "OFF": []}
-        df2 = selection[selection["SCAN"].isin(scans)]
-        procset = set(df2["PROC"])
-        lenprocset = len(procset)
-        if lenprocset == 0:
-            # This is ok since not all files in a set have all the polarizations, feeds, or IFs
-            return s
-        if lenprocset > 1:
-            raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
-        proc = list(procset)[0]
-        dfon = select_from("OBSTYPE", "PSWITCHON", selection)
-        dfoff = select_from("OBSTYPE", "PSWITCHOFF", selection)
-        onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
-        offscans = uniq(list(dfoff["SCAN"]))
-        # pol1 = set(dfon["PLNUM"])
-        # pol2 = set(dfoff["PLNUM"])
-        # scans = list(selection["SCAN"])
-        # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF).
-        # First check the requested scan number(s) are in the ONs or OFFs of this bintable.
-        seton = set(onscans)
-        setoff = set(offscans)
-        onrequested = seton.intersection(scans)
-        offrequested = setoff.intersection(scans)
-        if len(onrequested) == 0 and len(offrequested) == 0:
-            raise ValueError(f"Scans {scans} not found in ONs or OFFs")
-        # Then check that for each requested ON/OFF there is a matching OFF/ON
-        # and build the final matched list of ONs and OFfs.
-        sons = list(onrequested.copy())
-        soffs = list(offrequested.copy())
-        missingoff = []
-        missingon = []
-        # Figure out the companion scan
-        if proc == "OnOff":
-            offdelta = 1
-            ondelta = -1
-        elif proc == "OffOn":
-            offdelta = -1
-            ondelta = 1
-        else:
-            raise Exception(
-                f"I don't know how to handle PROCTYPE {self._selection.final['PROC']} for the requested scan operation"
-            )
-        for i in onrequested:
-            expectedoff = i + offdelta
-            if len(setoff.intersection([expectedoff])) == 0:
-                missingoff.append(expectedoff)
-            else:
-                soffs.append(expectedoff)
-        for i in offrequested:
-            expectedon = i + ondelta
-            if len(seton.intersection([expectedon])) == 0:
-                missingon.append(expectedon)
-            else:
-                sons.append(expectedon)
-        if check:
-            s["OFF"] = sorted(set(soffs).union(missingoff))
-            s["ON"] = sorted(set(sons).union(missingon))
-        else:
-            if len(missingoff) > 0:
-                raise ValueError(
-                    f"For the requested ON scans {onrequested}, the OFF scans {missingoff} were not present"
-                )
-            if len(missingon) > 0:
-                raise ValueError(
-                    f"For the requested OFF scans {offrequested}, the ON scans {missingon} were not present"
-                )
-            s["ON"] = sorted(set(sons))
-            s["OFF"] = sorted(set(soffs))
-            if len(s["ON"]) != len(s["OFF"]):
-                raise Exception(f'ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"])}')
-        return s
-
-    def onoff_scan_list(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
-        # need to change to selection kwargs, allow fdnum etc and allow these values to be None
-        """Get the scans for position-switch data sorted
-           by ON and OFF state
-
-        Parameters
-        ----------
-        scans : int or list-like
-            The scan numbers to find the rows of
-        ifnum : int
-            the IF index
-        plnum : int
-            the polarization index
-
-
-        Returns
-        -------
-        rows : dict
-            A dictionary with keys 'ON' and 'OFF' giving the scan numbers of ON and OFF data for the input scan(s)
-        """
-        self._create_index_if_needed()
-        s = {"ON": [], "OFF": []}
-        if type(scans) == int:
-            scans = [scans]
-        df = self.index(bintable=bintable, fitsindex=fitsindex)
-        if plnum is not None:
-            df = df[df["PLNUM"] == plnum]
-        if ifnum is not None:
-            df = df[df["IFNUM"] == ifnum]
-        # don't want to limit scans yet since only on or off scan scan numbers may have been
-        # passed in, but do need to ensure that a single PROCTYPE is in the given scans
-        # Alterative is to this check at the end (which is probably better)
-        df2 = df[df["SCAN"].isin(scans)]
-        procset = set(uniq(df2["PROC"]))
-        lenprocset = len(procset)
-        if lenprocset == 0:
-            # This is ok since not all files in a set have all the polarizations, feeds, or IFs
-            return s
-        if lenprocset > 1:
-            raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
-        proc = list(procset)[0]
-        dfon = select_from("OBSTYPE", "PSWITCHON", df)
-        dfoff = select_from("OBSTYPE", "PSWITCHOFF", df)
-        onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
-        offscans = uniq(list(dfoff["SCAN"]))
-        if scans is not None:
-            # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF).
-            # First check the requested scan number(s) are in the ONs or OFFs of this bintable.
-            seton = set(onscans)
-            setoff = set(offscans)
-            onrequested = seton.intersection(scans)
-            offrequested = setoff.intersection(scans)
-            if len(onrequested) == 0 and len(offrequested) == 0:
-                raise ValueError(f"Scans {scans} not found in ONs or OFFs of bintable {bintable}")
-            # Then check that for each requested ON/OFF there is a matching OFF/ON
-            # and build the final matched list of ONs and OFfs.
-            sons = list(onrequested.copy())
-            soffs = list(offrequested.copy())
-            missingoff = []
-            missingon = []
-            # Figure out the companion scan
-            if proc == "OnOff":
-                offdelta = 1
-                ondelta = -1
-            elif proc == "OffOn":
-                offdelta = -1
-                ondelta = 1
-            else:
-                raise Exception(f"I don't know how to handle PROCTYPE {df['PROC']} for the requested scan operation")
-            for i in onrequested:
-                expectedoff = i + offdelta
-                if len(setoff.intersection([expectedoff])) == 0:
-                    missingoff.append(expectedoff)
-                else:
-                    soffs.append(expectedoff)
-            for i in offrequested:
-                expectedon = i + ondelta
-                if len(seton.intersection([expectedon])) == 0:
-                    missingon.append(expectedon)
-                else:
-                    sons.append(expectedon)
-            if len(missingoff) > 0:
-                raise ValueError(
-                    f"For the requested ON scans {onrequested}, the OFF scans {missingoff} were not present in bintable"
-                    f" {bintable}"
-                )
-            if len(missingon) > 0:
-                raise ValueError(
-                    f"For the requested OFF scans {offrequested}, the ON scans {missingon} were not present in bintable"
-                    f" {bintable}"
-                )
-            s["ON"] = sorted(set(sons))
-            s["OFF"] = sorted(set(soffs))
-        else:
-            s["ON"] = uniq(list(dfon["SCAN"]))
-            s["OFF"] = uniq(list(dfoff["SCAN"]))
-
-        return s
-
-    def calonoff_rows(self, scans=None, bintable=None, fitsindex=0, **kwargs):
-        """
-        Get individual scan row numbers  sorted by whether the calibration (diode) was on or off, and selected by ifnum,plnum, fdnum,subref,bintable.
-
-        Parameters
-        ----------
-        scans : int or list-like
-            The scan numbers to find the rows of
-        ifnum : int
-            the IF index
-        plnum : int
-            the polarization index
-        fdnum : int
-            the feed index
-        subref : int
-            the subreflector state (-1,0,1)
-        bintable : int
-            the index for BINTABLE containing the scans
-        fitsindex: int
-            the index of the FITS file contained in this GBTFITSLoad.  Default:0
-
-        Returns
-        -------
-        rows : dict
-            A dictionary with keys 'ON' and 'OFF' giving the row indices of CALON and CALOFF data for the input scan(s)
-
-        """
-        self._create_index_if_needed()
-        s = {"ON": [], "OFF": []}
-        ifnum = kwargs.get("ifnum", None)
-        plnum = kwargs.get("plnum", None)
-        fdnum = kwargs.get("fdnum", None)
-        subref = kwargs.get("subref", None)
-        if type(scans) == int:
-            scans = [scans]
-        df = self.index(bintable=bintable, fitsindex=fitsindex)
-        if scans is not None:
-            df = df[df["SCAN"].isin(scans)]
-        dfon = select_from("CAL", "T", df)
-        dfoff = select_from("CAL", "F", df)
-        if ifnum is not None:
-            dfon = select_from("IFNUM", ifnum, dfon)
-            dfoff = select_from("IFNUM", ifnum, dfoff)
-        if plnum is not None:
-            dfon = select_from("PLNUM", plnum, dfon)
-            dfoff = select_from("PLNUM", plnum, dfoff)
-        if fdnum is not None:
-            dfon = select_from("FDNUM", fdnum, dfon)
-            dfoff = select_from("FDNUM", fdnum, dfoff)
-        if subref is not None:
-            dfon = select_from("SUBREF_STATE", subref, dfon)
-            dfoff = select_from("SUBREF_STATE", subref, dfoff)
-        s["ON"] = list(dfon.index)
-        s["OFF"] = list(dfoff.index)
-        return s
-
-    def onoff_rows(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
-        """
-        Get individual ON/OFF (position switch) scan row numbers selected by ifnum,plnum, bintable.
-
-        Parameters
-        ----------
-        scans : int or list-like
-            The scan numbers to find the rows of
-        ifnum : int
-            the IF index
-        plnum : int
-            the polarization index
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
-        fitsindex: int
-            the index of the FITS file contained in this GBTFITSLoad.  Default:0
-
-        Returns
-        -------
-        rows : dict
-            A dictionary with keys 'ON' and 'OFF' giving the row indices of the ON and OFF data for the input scan(s)
-
-        """
-        # @TODO deal with mulitple bintables
-        # @TODO rename this sigref_rows?
-        # keep the bintable keyword and allow iteration over bintables if requested (bintable=None)
-        rows = {"ON": [], "OFF": []}
-        if type(scans) is int:
-            scans = [scans]
-        _scans = self.onoff_scan_list(scans, ifnum, plnum, bintable, fitsindex=fitsindex)
-        # scans is now a dict of "ON" "OFF
-        for key in _scans:
-            rows[key] = self.scan_rows(_scans[key], ifnum, plnum, bintable, fitsindex=fitsindex)
-        return rows
-
-    def scan_rows(self, scans, ifnum=0, plnum=0, bintable=None, fitsindex=0):
-        """
-        Get scan rows selected by ifnum,plnum, bintable.
-
-        Parameters
-        ----------
-        scans : int or list-like
-            The scan numbers to find the rows of
-        ifnum : int
-            the IF index
-        plnum : int
-            the polarization index
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans. Default:None
-        fitsindex: int
-            the index of the FITS file contained in this GBTFITSLoad.  Default:0
-
-        Returns
-        -------
-        rows : list
-            Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
-
-        """
-        # scans is a list
-        self._create_index_if_needed()
-        if scans is None:
-            raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
-        df = self.index(bintable=bintable, fitsindex=fitsindex)
-        df = df[df["SCAN"].isin(scans)]
-        if plnum is not None:
-            df = df[df["PLNUM"] == plnum]
-        if ifnum is not None:
-            df = df[df["IFNUM"] == ifnum]
-        rows = list(df["ROW"])
-        if len(rows) == 0:
-            raise Exception(f"Scans {scans} not found in bintable {bintable}")
-        return rows
-
-    def _scan_rows_all(self, scans):
-        """
-        Get scan rows regardless of ifnum,plnum, bintable.
-
-        Parameters
-        ----------
-        scans : int or list-like
-            The scan numbers to find the rows of
-
-        Returns
-        -------
-        rows : list
-            Lists of the rows in each bintable that contain the scans. Index of `rows` is the bintable index number
-
-        """
-        if scans is None:
-            raise ValueError("Parameter 'scans' cannot be None. It must be int or list of int")
-        rows = []
-        scanidx = self[self["SCAN"].isin(scans)]
-        bt = self.udata("BINTABLE")
-        for j in bt:
-            df = scanidx[scanidx["BINTABLE"] == j]
-            rows.append(list(df.index))
-        return rows
 
     def write(
         self,
