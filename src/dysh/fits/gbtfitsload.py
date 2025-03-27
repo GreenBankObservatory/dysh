@@ -945,6 +945,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
 
         kwargs = keycase(kwargs)
+        print(f"{kwargs=}")
         apply_flags = kwargs.pop("APPLY_FLAGS", True)
         debug = kwargs.pop("DEBUG", False)
         if len(self._selection._selection_rules) > 0:
@@ -961,11 +962,27 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         preselected["FDNUM"] = fdnum
         preselected["IFNUM"] = ifnum
         preselected["PLNUM"] = plnum
-        ps_selection = copy.deepcopy(self._selection)
         for k, v in preselected.items():
             if k not in kwargs:
                 kwargs[k] = v
-        print(f"2 {scans=} {kwargs['SCAN']=}")
+        # For PS and Nod scans we must find the full pairs of ON/OFF scans since the
+        # user may have input only the ONs or OFFs.
+        # _common_scan_list_selection returns a dict of scan numbers that contain all the ON/OFF pairs
+        # This will replace the input list of scans.
+        scans_to_add = []
+        if "PROCKEY" in kwargs:
+            missing = self._common_scan_list_selection(scans, _final, kwargs["PROCKEY"], kwargs["PROCVALS"], check=True)
+            scans_to_add = set(missing["ON"]).union(missing["OFF"])
+            logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
+            kwargs.pop("PROCKEY")
+            kwargs.pop("PROCVALS")
+        if len(scans_to_add) != 0:
+            # add a rule selecting the missing scans :-)
+            logger.debug(f"adding rule scan={scans_to_add}")
+            kwargs["SCAN"] = list(scans_to_add)
+        if len(_final[_final["SCAN"].isin(scans)]) == 0:
+            raise ValueError(f"Scans {scans} not found in selected data")
+        ps_selection = copy.deepcopy(self._selection)
         # now downselect with any additional kwargs
         ps_selection._select_from_mixed_kwargs(**kwargs)
         _sf = ps_selection.final
@@ -1021,7 +1038,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
-            e.g., `ifnum=1, plnum=[2,3]` etc.
+            e.g., `source="NGC132", intnum=range(20)` etc.
 
         Returns
         -------
@@ -1029,39 +1046,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             A ScanBlock containing one or more `~spectra.scan.TPScan`
 
         """
-        if True:
-            (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, **kwargs)
-        else:
-            if apply_flags:
-                self.apply_flags()
-            if len(self._selection._selection_rules) > 0:
-                _final = self._selection.final
-            else:
-                _final = self._index
-            scans = kwargs.get("scan", None)
-            # debug = kwargs.pop("debug", False)
-            kwargs = keycase(kwargs)
-            if type(scans) is int:
-                scans = [scans]
-            preselected = {}
-            preselected["SCAN"] = uniq(_final["SCAN"])
-            preselected["FDNUM"] = fdnum
-            preselected["IFNUM"] = ifnum
-            preselected["PLNUM"] = plnum
-            if scans is None:
-                scans = preselected["SCAN"]
-            ps_selection = copy.deepcopy(self._selection)
-            for k, v in preselected.items():
-                if k not in kwargs:
-                    kwargs[k] = v
-            # now downselect with any additional kwargs
-            ps_selection._select_from_mixed_kwargs(**kwargs)
-            _sf = ps_selection.final
-            # now remove rows that have been entirely flagged
-            if apply_flags:
-                _sf = eliminate_flagged_rows(_sf, self.flags.final)
-            if len(_sf) == 0:
-                raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+        (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
@@ -1176,55 +1161,66 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
-        # if True:
-        #    (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, **kwargs)
-
-        if apply_flags:
-            self.apply_flags()
-        # either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with selection.selectXX(). In either case make sure the matching ON or OFF
-        # is in the starting selection.
-        if len(self._selection._selection_rules) > 0:
-            _final = self._selection.final
+        prockey = "OBSTYPE"
+        procvals = {"ON": "PSWITCHON", "OFF": "PSWITCHOFF"}
+        if True:
+            (scans, _sf) = self._common_selection(
+                fdnum=fdnum,
+                ifnum=ifnum,
+                plnum=plnum,
+                apply_flags=apply_flags,
+                prockey=prockey,
+                procvals=procvals,
+                **kwargs,
+            )
         else:
-            _final = self._index
-        scans = kwargs.pop("scan", None)
-        # debug = kwargs.pop("debug", False)
-        kwargs = keycase(kwargs)
-        if type(scans) is int:
-            scans = [scans]
-        preselected = {}
-        preselected["SCAN"] = uniq(_final["SCAN"])
-        preselected["FDNUM"] = fdnum
-        preselected["IFNUM"] = ifnum
-        preselected["PLNUM"] = plnum
-        if scans is None:
-            scans = preselected["SCAN"]
+            if apply_flags:
+                self.apply_flags()
+            # either the user gave scans on the command line (scans !=None) or pre-selected them
+            # with selection.selectXX(). In either case make sure the matching ON or OFF
+            # is in the starting selection.
+            if len(self._selection._selection_rules) > 0:
+                _final = self._selection.final
+            else:
+                _final = self._index
+            scans = kwargs.pop("scan", None)
+            # debug = kwargs.pop("debug", False)
+            kwargs = keycase(kwargs)
+            if type(scans) is int:
+                scans = [scans]
+            preselected = {}
+            preselected["SCAN"] = uniq(_final["SCAN"])
+            preselected["FDNUM"] = fdnum
+            preselected["IFNUM"] = ifnum
+            preselected["PLNUM"] = plnum
+            if scans is None:
+                scans = preselected["SCAN"]
 
-        if len(_final[_final["SCAN"].isin(scans)]) == 0:
-            raise ValueError(f"Scans {scans} not found in selected data")
+            if len(_final[_final["SCAN"].isin(scans)]) == 0:
+                raise ValueError(f"Scans {scans} not found in selected data")
+            missing = self._common_scan_list_selection(
+                scans, _final, "OBSTYPE", {"ON": "PSWITCHON", "OFF": "PSWITCHOFF"}, check=True
+            )
+            scans_to_add = set(missing["ON"]).union(missing["OFF"])
+            logger.debug(f"after check scans_to_add={scans_to_add}")
+            logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
+            ps_selection = copy.deepcopy(self._selection)
+            if len(scans_to_add) != 0:
+                # add a rule selecting the missing scans :-)
+                logger.debug(f"adding rule scan={scans_to_add}")
+                kwargs["SCAN"] = list(scans_to_add)
+            for k, v in preselected.items():
+                if k not in kwargs:
+                    kwargs[k] = v
 
-        missing = self._onoff_scan_list_selection(scans, _final, check=True)
-        scans_to_add = set(missing["ON"]).union(missing["OFF"])
-        logger.debug(f"after check scans_to_add={scans_to_add}")
-        logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
-        ps_selection = copy.deepcopy(self._selection)
-        if len(scans_to_add) != 0:
-            # add a rule selecting the missing scans :-)
-            logger.debug(f"adding rule scan={scans_to_add}")
-            kwargs["SCAN"] = list(scans_to_add)
-        for k, v in preselected.items():
-            if k not in kwargs:
-                kwargs[k] = v
-
-        # now downselect with fd/if/plnum and any additional kwargs
-        ps_selection._select_from_mixed_kwargs(**kwargs)
-        _sf = ps_selection.final
-        # now remove rows that have been entirely flagged
-        if apply_flags:
-            _sf = eliminate_flagged_rows(_sf, self.flags.final)
-        if len(_sf) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            # now downselect with fd/if/plnum and any additional kwargs
+            ps_selection._select_from_mixed_kwargs(**kwargs)
+            _sf = ps_selection.final
+            # now remove rows that have been entirely flagged
+            if apply_flags:
+                _sf = eliminate_flagged_rows(_sf, self.flags.final)
+            if len(_sf) == 0:
+                raise Exception("Didn't find any scans matching the input selection criteria.")
         # @todo pjt  two additions in this merge ?
         if True:
             som = uniq(_sf["SUBOBSMODE"])
@@ -1237,6 +1233,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
             scanlist = self._onoff_scan_list_selection(scans, _df, check=False)
+            scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
             if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                 logger.debug(f"scans {scans} not found, continuing")
                 continue
@@ -1301,49 +1298,49 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs,
     ):
         """
-        Retrieve and calibrate nodding data.
+                Retrieve and calibrate nodding data.
 
-        Parameters
-        ----------
-        ifnum : int
-            The IF number
-        plnum : int
-            The polarization number
-        fdnum:  2-tuple, optional
-            The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
-        calibrate : boolean, optional
-            Calibrate the scans.
-            The default is True.
-        bintable : int, optional
-            Limit to the input binary table index. The default is None which means use all binary tables.
-            (This keyword should eventually go away)
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
-        apply_flags : boolean, optional.  If True, apply flags before calibration.
-            See :meth:`apply_flags`. Default: True
-        t_sys : float, optional
-            System temperature. If provided, it overrides the value computed using the noise diode.
-            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
-        nocal : bool, optional
-            Is the noise diode being fired? False means the noise diode was firing.
-            By default it will figure this out by looking at the "CAL" column.
-            It can be set to True to override this. Default: False
-        **kwargs : dict
-            Optional additional selection keyword arguments, typically
-            given as key=value, though a dictionary works too.
-            e.g., `ifnum=1, plnum=2` etc.
-            For multi-beam with more than 2 beams, fdnum=[BEAM1,BEAM2] must be selected,
-            unless the data have been properly taggeed using PROCSCAN which BEAM1 and BEAM2 are.
+                Parameters
+                ----------
+                ifnum : int
+                    The IF number
+                plnum : int
+                    The polarization number
+                fdnum:  2-tuple, optional
+                    The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
+                calibrate : boolean, optional
+                    Calibrate the scans.
+                    The default is True.
+                bintable : int, optional
+                    Limit to the input binary table index. The default is None which means use all binary tables.
+                    (This keyword should eventually go away)
+                smooth_ref: int, optional
+                    the number of channels in the reference to boxcar smooth prior to calibration
+                apply_flags : boolean, optional.  If True, apply flags before calibration.
+                    See :meth:`apply_flags`. Default: True
+                t_sys : float, optional
+                    System temperature. If provided, it overrides the value computed using the noise diode.
+                    If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+                nocal : bool, optional
+                    Is the noise diode being fired? False means the noise diode was firing.
+                    By default it will figure this out by looking at the "CAL" column.
+                    It can be set to True to override this. Default: False
+                **kwargs : dict
+                    Optional additional selection keyword arguments, typically
+                    given as key=value, though a dictionary works too.
+                    e.g., `ifnum=1, plnum=2` etc.
+                    For multi-beam with more than 2 beams, fdnum=[BEAM1,BEAM2] must be selected,
+                    unless the data have been properly taggeed using PROCSCAN which BEAM1 and BEAM2 are.
+        f
+                Raises
+                ------
+                Exception
+                    If scans matching the selection criteria are not found.
 
-        Raises
-        ------
-        Exception
-            If scans matching the selection criteria are not found.
-
-        Returns
-        -------
-        scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing one or more `~spectra.scan.NodScan`.
+                Returns
+                -------
+                scanblock : `~spectra.scan.ScanBlock`
+                    ScanBlock containing one or more `~spectra.scan.NodScan`.
 
         """
 
@@ -1379,67 +1376,80 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if type(feeds) is int or len(feeds) != 2:
             raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
         logger.debug(f"getnod: using fdnum={feeds}")
-
-        if apply_flags:
-            self.apply_flags()
-        # Either the user gave scans on the command line (scans !=None) or pre-selected them
-        # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
-        # is in the starting selection.
-        if len(self._selection._selection_rules) > 0:
-            _final = self._selection.final
+        prockey = "PROCSEQN"
+        procvals = {"ON": 1, "OFF": 2}
+        if True:
+            (scans, _sf) = self._common_selection(
+                fdnum=feeds,
+                ifnum=ifnum,
+                plnum=plnum,
+                apply_flags=apply_flags,
+                prockey=prockey,
+                procvals=procvals,
+                **kwargs,
+            )
         else:
-            _final = self._index
-        scans = kwargs.pop("scan", None)
-        kwargs = keycase(kwargs)
-        if type(scans) is int:
-            scans = [scans]
-        preselected = {}
-        preselected["SCAN"] = uniq(_final["SCAN"])
-        preselected["FDNUM"] = feeds
-        preselected["IFNUM"] = ifnum
-        preselected["PLNUM"] = plnum
-        if scans is None:
-            scans = preselected["SCAN"]
-        missing = self._nod_scan_list_selection(scans, _final, feeds, check=True)
-        scans_to_add = set(missing["ON"]).union(missing["OFF"])
-        logger.debug(f"after check scans_to_add={scans_to_add}")
-        # Now remove any scans that have been pre-selected by the user.
-        # scans_to_add -= scans_preselected
-        logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
-        ps_selection = copy.deepcopy(self._selection)
-        if len(scans_to_add) != 0:
-            # Add a rule selecting the missing scans :-)
-            logger.debug(f"adding rule scan={scans_to_add}")
-            kwargs["SCAN"] = list(scans_to_add)
-        for k, v in preselected.items():
-            if k not in kwargs:
-                kwargs[k] = v
-        # Now downselect with any additional kwargs.
-        ps_selection._select_from_mixed_kwargs(**kwargs)
-        _sf = ps_selection.final
-        # Now remove rows that have been entirely flagged.
-        if apply_flags:
-            _sf = eliminate_flagged_rows(_sf, self.flags.final)
-        if len(_sf) == 0:
-            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
-        scans = uniq(_sf["SCAN"])
-        #       prosq = uniq(_sf["PROCSEQN"])
+            if apply_flags:
+                self.apply_flags()
+            # Either the user gave scans on the command line (scans !=None) or pre-selected them
+            # with select_fromion.selectXX(). In either case make sure the matching ON or OFF
+            # is in the starting selection.
+            if len(self._selection._selection_rules) > 0:
+                _final = self._selection.final
+            else:
+                _final = self._index
+            scans = kwargs.pop("scan", None)
+            kwargs = keycase(kwargs)
+            if type(scans) is int:
+                scans = [scans]
+            preselected = {}
+            preselected["SCAN"] = uniq(_final["SCAN"])
+            preselected["FDNUM"] = feeds
+            preselected["IFNUM"] = ifnum
+            preselected["PLNUM"] = plnum
+            if scans is None:
+                scans = preselected["SCAN"]
+            missing = self._nod_scan_list_selection(scans, _final, feeds, check=True)
+            scans_to_add = set(missing["ON"]).union(missing["OFF"])
+            logger.debug(f"after check scans_to_add={scans_to_add}")
+            # Now remove any scans that have been pre-selected by the user.
+            # scans_to_add -= scans_preselected
+            logger.debug(f"after removing preselected {preselected['SCAN']}, scans_to_add={scans_to_add}")
+            ps_selection = copy.deepcopy(self._selection)
+            if len(scans_to_add) != 0:
+                # Add a rule selecting the missing scans :-)
+                logger.debug(f"adding rule scan={scans_to_add}")
+                kwargs["SCAN"] = list(scans_to_add)
+            for k, v in preselected.items():
+                if k not in kwargs:
+                    kwargs[k] = v
+            # Now downselect with any additional kwargs.
+            ps_selection._select_from_mixed_kwargs(**kwargs)
+            _sf = ps_selection.final
+            # Now remove rows that have been entirely flagged.
+            if apply_flags:
+                _sf = eliminate_flagged_rows(_sf, self.flags.final)
+            if len(_sf) == 0:
+                raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+            scans = uniq(_sf["SCAN"])
+
         beam1_selected = True
         scanblock = ScanBlock()
+
         for i in range(len(self._sdf)):
             df0 = select_from("FITSINDEX", i, _sf)
             for f in feeds:
                 _df = select_from("FDNUM", f, df0)
                 if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
                     continue
-                scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
+                # scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
+                scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     logger.debug(f"Some of scans {scans} not found, continuing")
                     continue
 
                 beam1_selected = f == feeds[0]
                 logger.debug(f"SCANLIST {scanlist}")
-                logger.debug(f"POLS {set(_df['PLNUM'])}")
                 logger.debug(f"FEED {f} {beam1_selected} {feeds[0]}")
                 logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
                 logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
@@ -1470,8 +1480,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             dfoncalF = select_from("CAL", "F", _ondf)
                             t_sys = dfoncalF["TSYS"].to_numpy()
                             logger.info("Using TSYS column")
-                    logger.debug(f"{i, f, k, c} SCANROWS {rows}")
-                    logger.debug(f"POL ON {set(_ondf['PLNUM'])} POL OFF {set(_offdf['PLNUM'])}")
+                    logger.debug(f"{i, f, c} SCANROWS {rows}")
                     logger.debug(f"BEAM1 {beam1_selected}")
                     g = NodScan(
                         self._sdf[i],
@@ -1494,7 +1503,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
-            raise Exception("Odd number of scans for getnod, check your feeds if they are valid")
+            raise Exception("Odd number of scans for getnod, check that your feeds are valid")
         # note the two nods are not merged, but added to the pool as two "independant" PS scans
         scanblock.merge_commentary(self)
         return scanblock
@@ -1578,44 +1587,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         debug = kwargs.pop("debug", False)
         logger.debug(kwargs)
 
-        if True:
-            (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, **kwargs)
-            print(f"{scans=}")
-        else:
-            if apply_flags:
-                self.apply_flags()
-            # either the user gave scans on the command line (scans !=None) or pre-selected them
-            # with self.selection.selectXX()
-            if len(self._selection._selection_rules) > 0:
-                _final = self._selection.final
-            else:
-                _final = self._index
-            scans = kwargs.get("scan", None)
-            kwargs = keycase(kwargs)
-            if type(scans) is int:
-                scans = [scans]
-            preselected = {}
-            preselected["SCAN"] = uniq(_final["SCAN"])
-            preselected["FDNUM"] = fdnum
-            preselected["IFNUM"] = ifnum
-            preselected["PLNUM"] = plnum
-            if scans is None:
-                scans = preselected["SCAN"]
-            for k, v in preselected.items():
-                if k not in kwargs:
-                    kwargs[k] = v
-            logger.debug(f"scans/w sel: {scans} {self._selection}")
-            fs_selection = copy.deepcopy(self._selection)
-            # now downselect with any additional kwargs
-            logger.debug(f"SELECTION FROM MIXED KWARGS {kwargs}")
-            fs_selection._select_from_mixed_kwargs(**kwargs)
-            logger.debug(fs_selection.show())
-            _sf = fs_selection.final
-            # now remove rows that have been entirely flagged
-            if apply_flags:
-                _sf = eliminate_flagged_rows(_sf, self.flags.final)
-            if len(_sf) == 0:
-                raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+        (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
@@ -1957,7 +1930,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock.merge_commentary(self)
         return scanblock
 
-    def _common_scan_list_selection(self, scans, selection, prockey, procvals, feeds=None, check=False):
+    def _common_scan_list_selection(self, scans, selection, prockey, procvals, check=False):
         s = {"ON": [], "OFF": []}
         df2 = selection[selection["SCAN"].isin(scans)]
         procset = set(df2["PROC"])
@@ -2382,30 +2355,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         s["ON"] = list(dfon.index)
         s["OFF"] = list(dfoff.index)
         return s
-
-    # def _onoff_rows_selection(self, scanlist):
-    #    """
-    #    Get individual ON/OFF (position switch) scan row numbers selected by ifnum,plnum, bintable.
-    #
-    #   Parameters
-    #    scanlist : dict
-    #        dictionary of ON and OFF scans
-    #    bintable : int
-    #        the index for BINTABLE in `sdfits` containing the scans. Default:None
-    #    fitsindex: int
-    #         the index of the FITS file contained in this GBTFITSLoad.  Default:0
-    #
-    #     Returns
-    #     -------
-    #     rows : dict
-    #         A dictionary with keys 'ON' and 'OFF' giving the row indices of the ON and OFF data for the input scan(s)
-
-    #    """
-    #      rows = {"ON": [], "OFF": []}
-    #     # scans is now a dict of "ON" "OFF
-    #     for key in scanlist:
-    #         rows[key] = self.scan_rows(scanlist[key], ifnum, plnum, bintable, fitsindex=fitsindex)
-    #     return rows
 
     def onoff_rows(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
         """
@@ -3007,7 +2956,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return tsys, g
 
-    def vanecal(self, vane_sky, ifnum, plnum, feeds=range(16), mode=2, tcal=None, verbose=False):
+    # @todo PJT feeds->fdnum and add other standard args
+    def vanecal(self, vane_sky, ifnum, plnum, feeds=range(16), mode=2, tcal=None, verbose=False, **kwargs):
         """
         Return Tsys calibration values for all or selected beams of the Argus
         VANE/SKY calibration cycle.
