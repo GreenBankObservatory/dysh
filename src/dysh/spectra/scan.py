@@ -223,7 +223,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         Returns
         -------
         str
-            Brightness string.
+            Brightness unit string.
 
         """
         return self._bunit
@@ -728,7 +728,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     def bunit(self):
         """
         The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
-
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -1873,9 +1872,9 @@ class SubBeamNodScan(ScanBase):
     r"""
     Parameters
     ----------
-    sigtp:  list of ~spectra.scan.TPScan
+    sigtp:  list of `~dysh.spectra.scan.TPScan`
         Signal total power scans
-    reftp:  list ~spectra.scan.TPScan
+    reftp:  list of `~dysh.spectra.scan.TPScan`
         Reference total power scans
     calibrate: bool
         Whether or not to calibrate the data.
