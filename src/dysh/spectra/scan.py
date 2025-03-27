@@ -677,7 +677,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         trying variance
         """
-        logger.warning(f"PJT testing time variance, do not rely on this function")
+        logger.warning("PJT testing time variance, do not rely on this function")
 
         self._timevariance = []
         for scan in self.data:
@@ -735,7 +735,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         bunit = set([scan.bunit for scan in self.data])
         if len(bunit) > 1:
-            logger.warn(f"The Scans in this ScanBlock have differing brightness units {bunit}")
+            logger.warning(f"The Scans in this ScanBlock have differing brightness units {bunit}")
             return list(bunit)
         return list(bunit)[0]
 
@@ -962,6 +962,8 @@ class TPScan(ScanBase):
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
         # print("PJT CALSTATE:", self.calstate)
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         if self.calstate is None:
             self._calibrated = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
@@ -1218,15 +1220,14 @@ class PSScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
-            print(f"PS smoothref={self._smoothref}")
-
-        self._status = 1
+            print(f"PSScan smoothref={self._smoothref}")
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self.nrows // 2
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
         tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
-        # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
@@ -1425,9 +1426,9 @@ class NodScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
-            print(f"PS smoothref={self._smoothref}")
-
-        self._status = 1
+            print(f"NodScan smoothref={self._smoothref}")
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
@@ -1678,6 +1679,8 @@ class FSScan(ScanBase):
         if self._debug:
             logger.debug(f'FOLD={kwargs["fold"]}')
             logger.debug(f'METHOD={kwargs["shift_method"]}')
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -1951,6 +1954,8 @@ class SubBeamNodScan(ScanBase):
 
     def calibrate(self, **kwargs):
         """Calibrate the SubBeamNodScan data"""
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = len(self._reftp)
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
