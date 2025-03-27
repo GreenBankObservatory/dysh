@@ -835,8 +835,8 @@ class TPScan(ScanBase):
 
     Parameters
     ----------
-    gbtfits : `~fits.sdfitsload.SDFITSLoad`
-        input SDFITSLoad object
+    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+        input GBTFITSLoad object
     scan: int
         scan number
     sigstate : bool
@@ -1117,8 +1117,8 @@ class PSScan(ScanBase):
 
     Parameters
     ----------
-    gbtfits : `~fits.sdfitsload.SDFITSLoad`
-        input SDFITSLoad object
+    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+        input GBTFITSLoad object
     scan : dict
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers NOTE: there should be one ON and one OFF, a pair
     scanrows : dict
@@ -1133,7 +1133,7 @@ class PSScan(ScanBase):
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
-        Location of the observatory. See `~dysh.coordinates.Observatory`.
+        Location of the observatory. See `~Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
@@ -1299,8 +1299,8 @@ class NodScan(ScanBase):
 
     Parameters
     ----------
-    gbtfits : `~fits.sdfitsload.SDFITSLoad`
-        input SDFITSLoad object
+    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+        input GBTFITSLoad object
     scan : dict
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
         NOTE: there should be one ON and one OFF, a pair. There should be at least two beams (the nodding beams)
@@ -1520,9 +1520,8 @@ class FSScan(ScanBase):
 
     Parameters
     ----------
-
-    gbtfits : `~fits.sdfitsload.SDFITSLoad`
-        input SDFITSLoad object
+    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+        input GBTFITSLoad object
     scan : int
         Scan number that contains integrations with a series of sig/ref and calon/caloff states.
     sigrows :dict
