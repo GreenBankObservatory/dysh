@@ -2457,7 +2457,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tcal : float, optional
             Tcal value for normalization. Normally obtained from the
             environment, but offsite cannot be done.
-            @todo fix this, but right now it is adviced to manually enter tcal
+            @todo fix this, but right now it is advised to manually enter tcal.
             The default is None.
         verbose : boolean, optional
             Add more information mimicking the GBTIDL outout of VANECAL.
