@@ -945,7 +945,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
 
         kwargs = keycase(kwargs)
-        print(f"{kwargs=}")
         apply_flags = kwargs.pop("APPLY_FLAGS", True)
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
@@ -1050,7 +1049,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
-        print(f"TP {scans=}")
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
             for scan in scans:
