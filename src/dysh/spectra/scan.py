@@ -216,7 +216,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def bunit(self):
         """
         The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
-
             - 'ta'  : Antenna Temperature
             - 'ta*' : Antenna temperature corrected to above the atmosphere
             - 'jy'  : flux density in Jansky
