@@ -169,7 +169,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        ~pandas.Index
+        `~pandas.Index`
             The column names as a DataFrame Index
         """
         # return a list instead?
@@ -182,7 +182,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        ~dysh.util.Selection
+        `~dysh.util.Selection`
             The Selection object
 
         """
@@ -196,7 +196,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        ~pandas.DataFrame
+        `~pandas.DataFrame`
             The final merged selection
 
         """
@@ -225,7 +225,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        ~dysh.util.Flag
+        `~dysh.util.Flag`
             The Flag object
 
         """
@@ -240,7 +240,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        ~pandas.DataFrame
+        `~pandas.DataFrame`
             The final merged flags
 
         """
@@ -275,7 +275,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        index : ~pandas.DataFrame
+        index : `~pandas.DataFrame`
             The index of this GBTFITSLoad
 
         """
@@ -308,7 +308,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        rawspectra : ~numpy.ndarray
+        rawspectra : `~numpy.ndarray`
             The DATA column of the input bintable, masked according to `setmask`
 
         """
@@ -331,7 +331,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Note: if :meth:`apply_flags` has not been called, flags will not yet be set.
         Returns
         -------
-        rawspectrum : ~numpy.ma.MaskedArray
+        rawspectrum : `~numpy.ma.MaskedArray`
             The i-th row of DATA column of the input bintable, masked according to `setmask`
 
         """
@@ -390,7 +390,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        summary - `~pandas.DataFrame`
+        summary : `~pandas.DataFrame`
             Summary of the data as a DataFrame.
 
         """
@@ -630,16 +630,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         flagging. Single arrays/tuples will be treated as channel lists;
         nested arrays will be treated as ranges, for instance
 
-        ``
-        # selects channels 1 and 10
-        select_channel([1,10])
-        # selects channels 1 thru 10 inclusive
-        select_channel([[1,10]])
-        # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
-        select_channel([[1,10], [47,56], 75)])
-        # tuples also work, though can be harder for a human to read
-        select_channel(((1,10), [47,56], 75))
-        ``
+        .. code::
+
+            # selects channels 1 and 10
+            select_channel([1,10])
+            # selects channels 1 thru 10 inclusive
+            select_channel([[1,10]])
+            # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
+            select_channel([[1,10], [47,56], 75)])
+            # tuples also work, though can be harder for a human to read
+            select_channel(((1,10), [47,56], 75))
+
 
         See `~dysh.util.selection.Selection`.
 
@@ -671,13 +672,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-            tag : str
-                An identifying tag by which the rule may be referred to later.
-                If None, a  randomly generated tag will be created.
-            key : str
-                The key  (SDFITS column name or other supported key)
-            value : any
-                The value to select
+        tag : str
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        key : str
+            The key  (SDFITS column name or other supported key)
+        value : any
+            The value to select
 
         """
         self._flag.flag(tag=tag, **kwargs)
@@ -687,7 +688,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         Flag a range of inclusive values for a given key(s).
         e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
-        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
+        will select data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ...`
+
         Upper and lower limits may be given by setting one of the tuple values
         to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
         `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
@@ -747,18 +749,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         flagging. Single arrays/tuples will be treated as channel lists;
         nested arrays will be treated as ranges, for instance
 
-        ``
-        # flag channel 128
-        flag_channel(128)
-        # flags channels 1 and 10
-        flag_channel([1,10])
-        # flags channels 1 thru 10 inclusive
-        flag_channel([[1,10]])
-        # flags channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
-        flag_channel([[1,10], [47,56], 75)])
-        # tuples also work, though can be harder for a human to read
-        flag_channel(((1,10), [47,56], 75))
-        ``
+        .. code::
+
+            # flag channel 128
+            flag_channel(128)
+            # flags channels 1 and 10
+            flag_channel([1,10])
+            # flags channels 1 thru 10 inclusive
+            flag_channel([[1,10]])
+            # flags channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
+            flag_channel([[1,10], [47,56], 75)])
+            # tuples also work, though can be harder for a human to read
+            flag_channel(((1,10), [47,56], 75))
+
 
         See `~dysh.util.selection.Flag`.
 
@@ -940,8 +943,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-            scan_df : tuple
-                A tuple consisting of a list of scan numbers selected and a `~pandas.DataFrame` of the selection.
+        scan_df : tuple
+            A tuple consisting of a list of scan numbers selected and a `~pandas.DataFrame` of the selection.
         """
 
         kwargs = keycase(kwargs)
@@ -1559,17 +1562,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-            df : `~pandas.DataFrame`
-                The index of the down-selected data.
-            fdnum: int
-                The feed number selected.
-            plnum: int
-                The original polarization number
+        df : `~pandas.DataFrame`
+            The index of the down-selected data.
+        fdnum: int
+            The feed number selected.
+        plnum: int
+            The original polarization number
 
         Returns
         -------
-            corrected_plnum : int
-                The corrected polarization number
+        corrected_plnum : int
+            The corrected polarization number
         """
         # Check if we are dealing with Ka data before the beam switch.
         rx = np.unique(df["FRONTEND"])
@@ -2308,7 +2311,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     def getbeam(self, debug=False):
         """
-        find the two nodding beams based on on a given FDNUM, FEED
+        Find the two nodding beams based on on a given FDNUM, FEED
         needs PROCSCAN='BEAM1' or 'BEAM2'
 
         Parameters
@@ -2389,9 +2392,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Returns
         -------
         tsys : float
-            DESCRIPTION.
+            The system temperature, in K
         g : float
-            DESCRIPTION.
+            The gain in K/counts
 
         """
         if freq is not None:
@@ -2522,23 +2525,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         sdf : GBTFITSLoad`
             data handle, containing one or more SDFITS files specific to GBT
         scans : list of 2 ints
-            DESCRIPTION.
+            list of two scans for the nodding
         beams : list of 2 ints
-            DESCRIPTION.
+            list of two beams for the nodding
         ifnum : int, optional
-            DESCRIPTION. The default is 0.
+            IF number. The default is 0.
         plnum : int, optional
-            DESCRIPTION. The default is 0.
+            Polarization number. The default is 0.
         tsys : float or list of two floats, optional
-            DESCRIPTION. The default is None.
+            Sytem temperature in K. The default is None.
 
         Returns
         -------
-        sp1 : `Spectrum`
-            DESCRIPTION.
-        sp2 : `Spectrum`
-            DESCRIPTION.
-
+        (sp1, sp2) : tuple of `~spectra.spectrum.Spectrum`
+            the two nodding spectra, caller is responsible for averaging them, e.g. `sp1.average(sp2)`
         """
 
         if tsys is None:
