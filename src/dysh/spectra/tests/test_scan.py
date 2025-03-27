@@ -159,6 +159,18 @@ class TestPSScan:
         testfile = o / "test_scan_write.fits"
         ps_sb[0].write(testfile, overwrite=True)
 
+    def test_scale_units(self, data_dir):
+        data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
+        sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, bunit="jy", zenith_opacity=0.08)
+        ps_jy = ps_sb.timeaverage()
+        assert ps_jy.meta["BUNIT"] == "Jy"
+        assert ps_jy.flux.unit.to_string() == "Jy"
+        ps_jy_i = ps_sb[0].calibrated(0)
+        assert ps_jy_i.meta["BUNIT"] == "Jy"
+        assert ps_jy_i.flux.unit.to_string() == "Jy"
+
 
 class TestSubBeamNod:
     def test_compare_with_GBTIDL(self, data_dir):

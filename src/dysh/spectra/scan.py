@@ -104,7 +104,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._scan = -1
         self._nrows = -1
         self._bintable_index = -1
-        self._pols = -1
+        self._pols = ""  # currently unused. Will contain polarization stokes string.
         self._nint = -1
         self._sdfits = sdfits
         self._nocal = False
@@ -299,7 +299,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             return
         if s != "ta" and zenith_opacity is None:
             raise ValueError("Zenith opacity must be provided when scaling to Ta* or Jy.")
-
+        nbunit = self._bunit_to_unit[s].to_string()
         # unscale the data if it was already scaled.
         if self.is_scaled:
             self._scaleby(1.0 / self._bscale)
@@ -307,6 +307,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if s == "ta":
             self._bscale = np.ones_like(self._bscale)
             self._bunit = s
+            self._set_all_meta("BUNIT", nbunit)
             return
 
         gc = GBTGainCorrection()
@@ -317,6 +318,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._scaleby(factor)
         self._bscale = factor
         self._bunit = s
+        self._set_all_meta("BUNIT", nbunit)
+
+    def _set_all_meta(self, key, value):
+        for i in range(len(self._meta)):
+            self._meta[i][key] = value
 
     @property
     def scan(self):
