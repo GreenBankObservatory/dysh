@@ -12,12 +12,22 @@ class TestConfig:
         assert path.exists()
 
     def test_create_config_file(self, tmp_path):
-        # configuration._override_config_file =
         with set_temp_config(tmp_path):
             assert dc.create_config_file("dysh", rootname="dysh-test")
             path = dc.get_config_dir_path(rootname="dysh-test")
-        print(tmp_path)
         assert (tmp_path / "dysh-test/dysh.cfg").is_file()
-        # Clean up.
-        # (path / "dysh.cfg").unlink()
-        # path.rmdir()
+
+    def test_create_config_file_overwrite(self, tmp_path):
+        conf_str = """[fits]\n## Maximum number of rows to be displayed by summary\nsummary_max_rows = 2"""
+        with set_temp_config(tmp_path):
+            assert dc.create_config_file("dysh", rootname="dysh-test")
+            path = dc.get_config_dir_path(rootname="dysh-test")
+            with open(tmp_path / "dysh-test/dysh.cfg", "w") as log:
+                log.write(conf_str)
+            with open(tmp_path / "dysh-test/dysh.cfg", "r") as log:
+                lines = log.read()
+                assert lines == conf_str
+            dc.create_config_file("dysh", rootname="dysh-test")
+            with open(tmp_path / "dysh-test/dysh.cfg", "r") as log:
+                lines = log.read()
+                assert lines == conf_str
