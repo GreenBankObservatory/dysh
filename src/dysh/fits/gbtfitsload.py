@@ -47,8 +47,6 @@ from .sdfitsload import SDFITSLoad
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
 
-pd.set_option("display.max_rows", conf.summary_max_rows)
-
 
 class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     """
@@ -378,7 +376,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         #
         # @todo perhaps return as a astropy.Table then we can have units
         """
-        Create a summary list of the input dataset.
+        Create a summary of the input dataset.
         If `verbose=False` (default), some numeric data
         (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
         averaged over the records with the same scan number.
@@ -387,15 +385,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ----------
         scans : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
-
         verbose: bool
-            If True, list every record, otherwise return a compact summary
+            If True, list every record, otherwise return a compact summary.
         show_index: bool
-            If True, show the DataFrame index column.  Default: False
+            If True, show the DataFrame index column. Default: False
 
         Returns
         -------
-        summary - `~pandas.DataFrame`
+        summary : `~pandas.DataFrame`
             Summary of the data as a DataFrame.
 
         """
@@ -403,6 +400,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # @todo set individual format options on output by
         # changing these to dicts(?)
         #
+        pd.set_option("display.max_rows", conf.summary_max_rows)
         # 'show' is fragile because anything we might need to query in 'uf' below in
         # order to do a calculation,  whether we want to show it, or not must be in 'show.'
         # (e.g. PROCSIZE is needed to calculate n_integrations).

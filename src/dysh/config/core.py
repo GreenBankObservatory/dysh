@@ -58,11 +58,9 @@ def recursive_subclasses(klass):
                 yield subsubclass
 
 
-def generate_config(pkgname="astropy", filename=None, verbose=False):
+def generate_config(pkgname="dysh", filename=None, verbose=False):
     """Generates a configuration file, from the list of `ConfigItem`
     objects for each subpackage.
-
-    .. versionadded:: 4.1
 
     Parameters
     ----------
