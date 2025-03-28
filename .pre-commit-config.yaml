@@ -24,13 +24,9 @@ repos:
           - '--fix=lf'
       - id: check-docstring-first
       - id: check-case-conflict # Check for files with names that would conflict on a case-insensitive filesystem
-  - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.2
     hooks:
-      - id: isort
-        exclude: '(notebooks|attic|benchmark|testdata)/.*'
-  - repo: 'https://github.com/psf/black'
-    rev: 25.1.0
-    hooks:
-      - id: black
-        exclude: '(notebooks|attic|benchmark|testdata)/.*'
+    - id: ruff-format
+    # - id: ruff
+    #   args: ['--fix', '--exit-non-zero-on-fix']
