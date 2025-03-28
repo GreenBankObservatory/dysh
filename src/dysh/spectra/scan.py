@@ -95,12 +95,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits, smoothref, apply_flags, observer_location):
+    def __init__(self, sdfits, smoothref, apply_flags, observer_location, fdnum=-1, ifnum=-1, plnum=-1):
         HistoricalBase.__init__(self)
-        self._ifnum = -1
-        self._fdnum = -1
+        self._fdnum = fdnum
+        self._ifnum = ifnum
+        self._plnum = plnum
         self._nchan = -1
-        self._plnum = -1
         self._scan = -1
         self._nrows = -1
         self._bintable_index = -1
@@ -490,28 +490,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
 
-    def _set_if_fd_pl(self, df):
-        """Set the IF, FD, and PL numbers from the input dataframe and
-        raise an error of there are more than one
-
-        Parameters
-        ----------
-        df : ~pandas.DataFrame
-            The DataFrame describing the selected data
-        """
-        self._ifnum = uniq(df["IFNUM"])
-        self._fdnum = uniq(df["FDNUM"])
-        self._plnum = uniq(df["PLNUM"])
-        if len(self._ifnum) > 1:
-            raise Exception(f"Only one IFNUM is allowed per Scan, found {self.ifnum}")
-        if len(self._fdnum) > 1:
-            raise Exception(f"Only one FDNUM is allowed per Scan, found {self.fdnum}")
-        if len(self._plnum) > 1:
-            raise Exception(f"Only one PLNUM is allowed per Scan, found {self.plnum}")
-        self._ifnum = self._ifnum[0]
-        self._fdnum = self._fdnum[0]
-        self._plnum = self._plnum[0]
-
     @abstractmethod
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
@@ -833,55 +811,62 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 class TPScan(ScanBase):
     """GBT specific version of Total Power Scan
 
-    Parameters
-    ----------
-    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
-        input GBTFITSLoad object
-    scan: int
-        scan number
-    sigstate : bool
-        Select the signal state used to form the data.  True means select sig='T', False to select sig='F'.
-        None means select both.  See table below for explanation.
-    calstate : bool
-        Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
-        None means select both. See table below for explanation.
-    scanrows : list-like
-        the list of rows in `sdfits` corresponding to sigstate integrations
-    calrows : dict
-        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
-    bintable : int
-        the index for BINTABLE in `sdfits` containing the scans
-    calibrate: bool
-        whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-    smoothref: int
-        the number of channels in the reference to boxcar smooth prior to calibration
-    apply_flags : boolean, optional.  If True, apply flags before calibration.
-    observer_location : `~astropy.coordinates.EarthLocation`
-        Location of the observatory. See `~dysh.coordinates.Observatory`.
-        This will be transformed to `~astropy.coordinates.ITRS` using the time of
-        observation DATE-OBS or MJD-OBS in
-        the SDFITS header.  The default is the location of the GBT.
+        Parameters
+        ----------
+        gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+            input GBTFITSLoad object
+        scan: int
+            scan number
+        sigstate : bool
+            Select the signal state used to form the data.  True means select sig='T', False to select sig='F'.
+            None means select both.  See table below for explanation.
+        calstate : bool
+            Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
+            None means select both. See table below for explanation.
+        scanrows : list-like
+            the list of rows in `sdfits` corresponding to sigstate integrations
+        calrows : dict
+            dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
+        fdnum: int
+            The feed number
+        ifnum : int
+            The IF number
+        plnum : int
+            The polarization number
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans
+        calibrate: bool
+            whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+        smoothref: int
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of
+            observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is the location of the GBT.
+    r
 
-    Notes
-    -----
-    How the total power and system temperature are calculated, depending on signal and reference state parameters:
+        Notes
+        -----
+        How the total power and system temperature are calculated, depending on signal and reference state parameters:
 
 
-     ======   =====   ===================================================================       ==================================
-     CAL      SIG     RESULT                                                                    TSYS
-     ======   =====   ===================================================================       ==================================
-     None     None    data = 0.5* (REFCALON + REFCALOFF), regardless of sig state               use all CAL states, all SIG states
-     None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'                       use all CAL states, SIG='T'
-     None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'                       use all CAL states, SIG='F'
-     True     None    data = REFCALON, regardless of sig state                                  use all CAL states, all SIG states
-     False    None    data = REFCALOFF, regardless of sig state                                 use all CAL states, all SIG states
-     True     True    data = REFCALON, where sig='T'                                            use all CAL states, SIG='T'
-     True     False   data = REFCALON, where sig='F'                                            use all CAL states, SIG='F'
-     False    True    data = REFCALOFF  where sig='T'                                           use all CAL states, SIG='T'
-     False    False   data = REFCALOFF, where sig='F'                                           use all CAL states, SIG='F'
-     ======   =====   ===================================================================       ==================================
+         ======   =====   ===================================================================       ==================================
+         CAL      SIG     RESULT                                                                    TSYS
+         ======   =====   ===================================================================       ==================================
+         None     None    data = 0.5* (REFCALON + REFCALOFF), regardless of sig state               use all CAL states, all SIG states
+         None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'                       use all CAL states, SIG='T'
+         None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'                       use all CAL states, SIG='F'
+         True     None    data = REFCALON, regardless of sig state                                  use all CAL states, all SIG states
+         False    None    data = REFCALOFF, regardless of sig state                                 use all CAL states, all SIG states
+         True     True    data = REFCALON, where sig='T'                                            use all CAL states, SIG='T'
+         True     False   data = REFCALON, where sig='F'                                            use all CAL states, SIG='F'
+         False    True    data = REFCALOFF  where sig='T'                                           use all CAL states, SIG='T'
+         False    False   data = REFCALOFF, where sig='F'                                           use all CAL states, SIG='F'
+         ======   =====   ===================================================================       ==================================
 
-    where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
+        where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
 
     """
 
@@ -893,13 +878,16 @@ class TPScan(ScanBase):
         calstate,
         scanrows,
         calrows,
+        fdnum,
+        ifnum,
+        plnum,
         bintable,
         calibrate=True,
         smoothref=1,
         apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -920,7 +908,6 @@ class TPScan(ScanBase):
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
-        self._set_if_fd_pl(df)
         self._nint = 0
         self._timeaveraged = None
         self._nrows = len(scanrows)
@@ -1125,6 +1112,12 @@ class PSScan(ScanBase):
         dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
@@ -1153,6 +1146,9 @@ class PSScan(ScanBase):
         scan,
         scanrows,
         calrows,
+        fdnum,
+        ifnum,
+        plnum,
         bintable,
         calibrate=True,
         smoothref=1,
@@ -1161,7 +1157,7 @@ class PSScan(ScanBase):
         bunit="ta",
         zenith_opacity=0.0,
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         # self._history = deepcopy(gbtfits._history)
         self._scan = scan["ON"]
@@ -1177,9 +1173,6 @@ class PSScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        df = self._sdfits._index.iloc[scanrows["ON"]]
-        self._set_if_fd_pl(df)
-        # so quick with slicing!
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
@@ -1311,6 +1304,12 @@ class NodScan(ScanBase):
         dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
     bintable : int
         The index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
@@ -1346,6 +1345,9 @@ class NodScan(ScanBase):
         beam1,
         scanrows,
         calrows,
+        fdnum,
+        ifnum,
+        plnum,
         bintable,
         calibrate=True,
         smoothref=1,
@@ -1356,7 +1358,7 @@ class NodScan(ScanBase):
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         self._scan = scan["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
@@ -1374,8 +1376,6 @@ class NodScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        df = self._sdfits._index.iloc[scanrows["ON"]]
-        self._set_if_fd_pl(df)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # so quick with slicing!
@@ -1530,6 +1530,12 @@ class FSScan(ScanBase):
     calrows : dict
         Dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
         corresponding to cal=T (ON) and cal=F (OFF) integrations.
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
     bintable : int
         The index for BINTABLE in `sdfits` containing the scans.
     calibrate : bool
@@ -1565,6 +1571,9 @@ class FSScan(ScanBase):
         scan,
         sigrows,
         calrows,
+        fdnum,
+        ifnum,
+        plnum,
         bintable,
         calibrate=True,
         fold=True,
@@ -1577,7 +1586,7 @@ class FSScan(ScanBase):
         observer_location=Observatory["GBT"],
         debug=False,
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
@@ -1619,12 +1628,6 @@ class FSScan(ScanBase):
         if self._debug:
             logger.debug(f"bintable index is {self._bintable_index}")
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
-
-        df = self._sdfits._index.iloc[self._scanrows]
-        if self._debug:
-            logger.debug(f"{len(df) = }")
-        self._set_if_fd_pl(df)
-
         self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
@@ -1878,6 +1881,12 @@ class SubBeamNodScan(ScanBase):
         Signal total power scans
     reftp:  list of `~dysh.spectra.scan.TPScan`
         Reference total power scans
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
     calibrate: bool
         Whether or not to calibrate the data.
     smoothref: int
@@ -1909,6 +1918,9 @@ class SubBeamNodScan(ScanBase):
         self,
         sigtp,
         reftp,
+        fdnum,
+        ifnum,
+        plnum,
         calibrate=True,
         smoothref=1,
         apply_flags=False,
@@ -1917,7 +1929,7 @@ class SubBeamNodScan(ScanBase):
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
-        ScanBase.__init__(self, sigtp[0]._sdfits, smoothref, apply_flags, observer_location)
+        ScanBase.__init__(self, sigtp[0]._sdfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         kwargs_opts = {
             "weights": "tsys",  # or None or ndarray
             "debug": False,
@@ -1932,9 +1944,9 @@ class SubBeamNodScan(ScanBase):
         self._scan = sigtp[0]._scan
         self._sigtp = sigtp
         self._reftp = reftp
-        self._ifnum = self._sigtp[0].ifnum
-        self._fdnum = self._sigtp[0].fdnum
-        self._plnum = self._sigtp[0].plnum
+        # self._ifnum = self._sigtp[0].ifnum
+        # self._fdnum = self._sigtp[0].fdnum
+        # self._plnum = self._sigtp[0].plnum
         self._nchan = len(reftp[0]._calibrated[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
         self._nint = self._nrows
