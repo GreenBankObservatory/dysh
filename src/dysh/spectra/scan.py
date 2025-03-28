@@ -307,6 +307,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._bscale = np.ones_like(self._bscale)
             self._bunit = s
             self._set_all_meta("BUNIT", nbunit)
+            self._set_all_meta("TUNIT7", nbunit)
             return
 
         gc = GBTGainCorrection()
@@ -318,6 +319,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._bscale = factor
         self._bunit = s
         self._set_all_meta("BUNIT", nbunit)
+        self._set_all_meta("TUNIT7", nbunit)
 
     def _set_all_meta(self, key, value):
         for i in range(len(self._meta)):

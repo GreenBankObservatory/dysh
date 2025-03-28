@@ -166,9 +166,11 @@ class TestPSScan:
         ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, bunit="jy", zenith_opacity=0.08)
         ps_jy = ps_sb.timeaverage()
         assert ps_jy.meta["BUNIT"] == "Jy"
+        assert ps_jy.meta["TUNIT7"] == "Jy"
         assert ps_jy.flux.unit.to_string() == "Jy"
         ps_jy_i = ps_sb[0].calibrated(0)
         assert ps_jy_i.meta["BUNIT"] == "Jy"
+        assert ps_jy_i.meta["TUNIT7"] == "Jy"
         assert ps_jy_i.flux.unit.to_string() == "Jy"
 
 
