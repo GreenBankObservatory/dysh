@@ -38,6 +38,8 @@ from ..util import (
     uniq,
 )
 from ..util.files import dysh_data
+from ..util.selection import Flag, Selection
+from . import conf
 from .sdfitsload import SDFITSLoad
 
 # from GBT IDL users guide Table 6.7
@@ -373,7 +375,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         #
         # @todo perhaps return as a astropy.Table then we can have units
         """
-        Create a summary list of the input dataset.
+        Create a summary of the input dataset.
         If `verbose=False` (default), some numeric data
         (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
         averaged over the records with the same scan number.
@@ -382,11 +384,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ----------
         scans : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
-
         verbose: bool
-            If True, list every record, otherwise return a compact summary
+            If True, list every record, otherwise return a compact summary.
         show_index: bool
-            If True, show the DataFrame index column.  Default: False
+            If True, show the DataFrame index column. Default: False
 
         Returns
         -------
@@ -398,6 +399,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # @todo set individual format options on output by
         # changing these to dicts(?)
         #
+        pd.set_option("display.max_rows", conf.summary_max_rows)
         # 'show' is fragile because anything we might need to query in 'uf' below in
         # order to do a calculation,  whether we want to show it, or not must be in 'show.'
         # (e.g. PROCSIZE is needed to calculate n_integrations).
