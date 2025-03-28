@@ -121,13 +121,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     def _validate_defaults(self):
         _required = {
-            "BINTABLEINDEX": self._bintable_index,
-            "IFNUM": self._ifnum,
-            "FDNUM": self._fdnum,
-            "NCHAN": self._nchan,
-            "NROWS": self._nrows,
-            "PLNUM": self._plnum,
-            "SCAN": self._scan,
+            "bintable_index": self._bintable_index,
+            "ifnum": self._ifnum,
+            "fdnum": self._fdnum,
+            "nchan": self._nchan,
+            "nrows": self._nrows,
+            "plnum": self._plnum,
+            "scan": self._scan,
         }
         unset = []
         for k, v in _required.items():
@@ -138,8 +138,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 f"The following required Scan attributes were not set by the derived class {self.__class__.__name__}:"
                 f" {unset}"
             )
-        if type(self._scan) != int:
-            raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
+        for k in ["ifnum", "plnum", "fdnum"]:
+            v = _required[k]
+            if not isinstance(v, int):
+                raise ValueError(f"{self.__class__.__name__}: {k} must be an integer.")
 
     @classmethod
     def _check_bunit(self, bunit):
