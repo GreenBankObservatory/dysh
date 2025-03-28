@@ -1,6 +1,5 @@
 import astropy.units as u
 import numpy as np
-import pytest
 
 from dysh.fits import gbtfitsload
 

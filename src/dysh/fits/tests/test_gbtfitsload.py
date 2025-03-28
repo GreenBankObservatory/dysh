@@ -1,8 +1,6 @@
 import glob
 import logging
 import os
-import pathlib
-import platform
 import shutil
 import warnings
 from copy import deepcopy

@@ -1169,7 +1169,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
             if som[0] == "TPNOCAL":
                 self._tpnocal = True
-                raise Exception(f"Cannot deal with TPNOCAL yet")
+                raise Exception("Cannot deal with TPNOCAL yet")
 
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
@@ -3122,7 +3122,7 @@ class GBTOnline(GBTFITSLoad):
 
         else:
             self._online_mode = 2  #  monitor all files?
-            logger.debug(f"Testing online mode, finding most recent file")
+            logger.debug("Testing online mode, finding most recent file")
             if "SDFITS_DATA" in os.environ:
                 logger.debug("warning: using SDITS_DATA")
                 sdfits_root = os.environ["SDFITS_DATA"]

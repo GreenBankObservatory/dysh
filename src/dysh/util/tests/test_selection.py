@@ -8,7 +8,6 @@ import dysh
 from dysh import util
 from dysh.fits import gbtfitsload
 from dysh.util.files import dysh_data
-from dysh.util.selection import Flag
 
 dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 

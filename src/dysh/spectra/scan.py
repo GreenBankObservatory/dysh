@@ -601,7 +601,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         trying variance
         """
-        logger.warning(f"PJT testing time variance, do not rely on this function")
+        logger.warning("PJT testing time variance, do not rely on this function")
 
         self._timevariance = []
         for scan in self.data:
