@@ -999,3 +999,14 @@ class TestGBTFITSLoad:
         qd_el[11:15] += 100
         sdf.qd_flag()
         np.testing.assert_array_equal(sdf.flags.final.index.values, [10, 11, 12, 13, 14])
+
+    def test_nums_are_ints(self):
+
+        sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        with pytest.raises(ValueError):
+            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=[0, 1], plnum=0, fdnum=0)
+        with pytest.raises(ValueError):
+            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
+        with pytest.raises(ValueError):
+            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)
