@@ -59,9 +59,9 @@ class TestSpectrum:
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
-        self.getps0 = sdf.getps(scan=51, plnum=0)
+        self.getps0 = sdf.getps(scan=51, plnum=0, fdnum=0, ifnum=0)
         self.ps0 = self.getps0.timeaverage()
-        self.getps1 = sdf.getps(scan=51, plnum=1)
+        self.getps1 = sdf.getps(scan=51, plnum=1, fdnum=0, ifnum=0)
         self.ps1 = self.getps1.timeaverage()
         self.ss = self.ps0._copy()  # Synthetic one.
         x = np.arange(0, len(self.ss.data))

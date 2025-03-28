@@ -31,7 +31,7 @@ class TestDopplerConvention:
         sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sp = sdf.getps(152)[0].calibrated(0)
+        sp = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0)[0].calibrated(0)
         sp.set_frame("hcrs")  # data were tracked in heliocentric. change in place.
 
         conventions = {"OPTI-HEL": "optical", "RADI-HEL": "radio", "TRUE-HEL": "relativistic"}

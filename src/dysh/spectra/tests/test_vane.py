@@ -28,11 +28,13 @@ class TestVaneScan:
         #  [1, 9]
 
         tcal = 272
-        tsys2 = sdf2.vanecal([329, 330], feeds=beam2, tcal=tcal)
+        ifnum = 0
+        plnum = 0
+        tsys2 = sdf2.vanecal([329, 330], feeds=beam2, tcal=tcal, ifnum=ifnum, plnum=plnum)
         #  221.79946241 201.2739606
 
-        sp1, sp2 = sdf2._getnod([331, 332], beam2, tsys=tsys2)
-        sp3, sp4 = sdf2._getnod([333, 334], beam2, tsys=tsys2)
+        sp1, sp2 = sdf2._getnod([331, 332], beam2, tsys=tsys2, ifnum=ifnum, plnum=plnum)
+        sp3, sp4 = sdf2._getnod([333, 334], beam2, tsys=tsys2, ifnum=ifnum, plnum=plnum)
         sp5 = sp1.average([sp2, sp3, sp4])
 
         tint = sp5.meta["EXPOSURE"]
