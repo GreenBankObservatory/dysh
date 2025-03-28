@@ -1043,7 +1043,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     # print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                     if len(calrows["ON"]) != len(calrows["OFF"]):
                         if len(calrows["ON"]) > 0:
-                            raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                            raise Exception(f"unbalanced calrows {len(calrows['ON'])} != {len(calrows['OFF'])}")
                         # else: print("Warning: hacking gettp with no calrows")
                     # sig and cal are treated specially since
                     # they are not in kwargs and in SDFITS header
@@ -1169,7 +1169,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
             if som[0] == "TPNOCAL":
                 self._tpnocal = True
-                raise Exception(f"Cannot deal with TPNOCAL yet")
+                raise Exception("Cannot deal with TPNOCAL yet")
 
         if len(_final[_final["SCAN"].isin(scans)]) == 0:
             raise ValueError(f"Scans {scans} not found in selected data")
@@ -2146,7 +2146,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             s["ON"] = sorted(set(sons))
             s["OFF"] = sorted(set(soffs))
             if len(s["ON"]) != len(s["OFF"]):
-                raise Exception(f'ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"])}')
+                raise Exception(f"ON and OFF scan list lengths differ {len(s['ON'])} != {len(s['OFF'])}")
         return s
 
     def onoff_scan_list(self, scans=None, ifnum=0, plnum=0, bintable=None, fitsindex=0):
@@ -2572,7 +2572,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
         warning_msg = (
-            lambda scans, a, coord, limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            lambda scans,
+            a,
+            coord,
+            limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.
@@ -3119,7 +3122,7 @@ class GBTOnline(GBTFITSLoad):
 
         else:
             self._online_mode = 2  #  monitor all files?
-            logger.debug(f"Testing online mode, finding most recent file")
+            logger.debug("Testing online mode, finding most recent file")
             if "SDFITS_DATA" in os.environ:
                 logger.debug("warning: using SDITS_DATA")
                 sdfits_root = os.environ["SDFITS_DATA"]

@@ -1,6 +1,5 @@
 """Tests for specplot."""
 
-from pathlib import Path
 from unittest.mock import patch
 
 from dysh.fits import GBTFITSLoad

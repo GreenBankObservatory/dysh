@@ -463,7 +463,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # Now decimate if needed.
         if decimate >= 0:
-
             if decimate == 0:
                 # Take the default decimation by `width`.
                 decimate = int(abs(width))
@@ -1081,7 +1080,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # RADECSYS is also a valid column name. See issue #287
         # https://github.com/GreenBankObservatory/dysh/issues/287
-        if "RADECSYS" in _meta.keys() and not "RADESYS" in _meta.keys():
+        if "RADECSYS" in _meta.keys() and "RADESYS" not in _meta.keys():
             _meta["RADESYS"] = deepcopy(_meta["RADECSYS"])
             del _meta["RADECSYS"]
 
@@ -1265,7 +1264,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return deepcopy(operand)
 
     def __getitem__(self, item):
-
         def q2idx(q, wcs, spectral_axis, coo, sto):
             """Quantity to index."""
             if "velocity" in u.get_physical_type(q):

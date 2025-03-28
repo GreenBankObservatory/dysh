@@ -140,7 +140,7 @@ def generate_config(pkgname="dysh", filename=None, verbose=False):
                     elif len(item.defaultvalue) == 1:
                         fp.write(f"# {item.name} = {item.defaultvalue[0]},\n\n")
                     else:
-                        fp.write(f"# {item.name} =" f' {",".join(map(str, item.defaultvalue))}\n\n')
+                        fp.write(f"# {item.name} = {','.join(map(str, item.defaultvalue))}\n\n")
                 else:
                     fp.write(f"# {item.name} = {item.defaultvalue}\n\n")
 
