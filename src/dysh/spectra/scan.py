@@ -140,8 +140,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
         for k in ["ifnum", "plnum", "fdnum"]:
             v = _required[k]
-            if not isinstance(v, int):
-                raise ValueError(f"{self.__class__.__name__}: {k} must be an integer.")
+            if not isinstance(v, (int, np.integer)):
+                raise ValueError(f"{self.__class__.__name__}: {k} must be an integer but got {type(v)}")
 
     @classmethod
     def _check_bunit(self, bunit):

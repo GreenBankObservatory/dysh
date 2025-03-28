@@ -1405,7 +1405,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         beam1=beam1_selected,
                         scanrows=rows,
                         calrows=calrows,
-                        fdnum=fdnum,
+                        fdnum=f,
                         ifnum=ifnum,
                         plnum=plnum,
                         bintable=bintable,
