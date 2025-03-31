@@ -2,8 +2,7 @@
 Core functions for FITS/SDFITS
 """
 
-import matplotlib.pyplot as plt
-import numpy as np
+__all__ = ["default_sdfits_columns"]
 
 
 def default_sdfits_columns():
