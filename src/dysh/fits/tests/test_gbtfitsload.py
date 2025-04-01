@@ -925,6 +925,9 @@ class TestGBTFITSLoad:
         # Compare.
         assert ps.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
         assert table["TSYS"][0] == pytest.approx(ps.meta["TSYS"])
+        assert ps.meta["TSYS"] == 1.0
+        assert np.nanstd(table["DATA"][0]) == pytest.approx(np.nanstd(ps.data), abs=1e-5)
+        assert np.nanmean(table["DATA"][0]) == pytest.approx(np.nanmean(ps.data), abs=1e-5)
         np.testing.assert_allclose(
             ps.data[~np.isnan(table["DATA"][0])],
             table["DATA"][0][~np.isnan(table["DATA"][0])],
