@@ -17,7 +17,7 @@ class TestPSScan:
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         print("SDF ", type(sdf))
-        tps = sdf.getps(scan=152, ifnum=0)
+        tps = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
         tsys = tps[0].tsys
 
         hdu = fits.open(gbtidl_file)
@@ -36,7 +36,7 @@ class TestPSScan:
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         # psscan is a ScanList.
-        psscan = sdf.getps(scan=152, plnum=0, ifnum=0)
+        psscan = sdf.getps(scan=152, plnum=0, ifnum=0, fdnum=0)
         assert len(psscan) == 1
         psscan.calibrate()
         # psscan_tavg is a spectrum.
@@ -65,7 +65,7 @@ class TestPSScan:
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
+        ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
         print(np.shape(ps_scans[0]._calibrated), np.shape(ps_scans[1]._calibrated))
         ta = ps_scans.timeaverage()
 
@@ -81,13 +81,13 @@ class TestPSScan:
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_scans1 = sdf.getps(scan=[156, 158], ifnum=0, plnum=0)
+        ps_scans1 = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
         # because selection ANDs the selection rules, if the user selects [156,158]
         # and then we select [157,159] under the hood the AND will be exlusive and
         # the getps will fail. There is no easy way around this without a lot
         # of klugy code.  See issue #230
-        sdf.select(scan=[156, 157, 158, 159], ifnum=0, plnum=0)
-        ps_scans2 = sdf.getps()
+        sdf.select(scan=[156, 157, 158, 159])
+        ps_scans2 = sdf.getps(ifnum=0, plnum=0, fdnum=0)
         assert len(ps_scans1) == 2
         assert len(ps_scans2) == 2
         assert np.all(ps_scans1[0]._calibrated == ps_scans2[0]._calibrated)
@@ -132,7 +132,7 @@ class TestPSScan:
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_sb = sdf.getps(scan=[156], plnum=0, ifnum=0)
+        ps_sb = sdf.getps(scan=[156], fdnum=0, plnum=0, ifnum=0)
         ta1 = ps_sb.timeaverage()
         if False:
             # This should not raise any errors.
@@ -153,11 +153,25 @@ class TestPSScan:
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_sb = sdf.getps(scan=[156], plnum=0, ifnum=0)
+        ps_sb = sdf.getps(scan=[156], fdnum=0, plnum=0, ifnum=0)
         o = tmp_path / "scan_write"
         o.mkdir()
         testfile = o / "test_scan_write.fits"
         ps_sb[0].write(testfile, overwrite=True)
+
+    def test_scale_units(self, data_dir):
+        data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
+        sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, bunit="jy", zenith_opacity=0.08)
+        ps_jy = ps_sb.timeaverage()
+        assert ps_jy.meta["BUNIT"] == "Jy"
+        assert ps_jy.meta["TUNIT7"] == "Jy"
+        assert ps_jy.flux.unit.to_string() == "Jy"
+        ps_jy_i = ps_sb[0].calibrated(0)
+        assert ps_jy_i.meta["BUNIT"] == "Jy"
+        assert ps_jy_i.meta["TUNIT7"] == "Jy"
+        assert ps_jy_i.flux.unit.to_string() == "Jy"
 
 
 class TestSubBeamNod:
@@ -184,6 +198,8 @@ class TestSubBeamNod:
         # kluge for now since there is a small wavy pattern in
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
+        # make sure call to timeaverage functions
+        xx = sbn.timeaverage()
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
@@ -237,8 +253,8 @@ class TestSubBeamNod:
             sdf["TCAL"] = tcal
 
         # Calibrate.
-        sbn_cycle = sdf.subbeamnod(scan=43, fdnum=0, plnum=0, ifnum=0).timeaverage()
-        sbn_scan = sdf.subbeamnod(scan=43, fdnum=0, plnum=0, method="scan").timeaverage()
+        sbn_cycle = sdf.subbeamnod(scan=43, fdnum=0, plnum=1, ifnum=0).timeaverage()
+        sbn_scan = sdf.subbeamnod(scan=43, fdnum=0, plnum=1, ifnum=0, method="scan").timeaverage()
 
         # Check data over a frequency interval.
         s_sbn = slice(30.0 * u.GHz, 30.5 * u.GHz)
@@ -261,7 +277,7 @@ class TestSubBeamNod:
         assert pytest.approx(rms_cycle.value, abs=1e-2) == rms_scan.value
 
         # Number of rows.
-        assert sdf.subbeamnod(scan=43, fdnum=0, plnum=0, method="scan")[0].nrows == 96
+        assert sdf.subbeamnod(scan=43, fdnum=0, plnum=1, ifnum=0, method="scan")[0].nrows == 96
 
         # Line amplitude.
         assert pytest.approx(sbn_cycle.data.max() - tcont, rms_cycle.value) == a
@@ -278,7 +294,7 @@ class TestTPScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tps = sdf.gettp(scan=153, ifnum=0, plnum=0)
+        tps = sdf.gettp(scan=153, ifnum=0, plnum=0, fdnum=0)
         tsys = tps[0].tsys
 
         hdu = fits.open(gbtidl_file)
@@ -297,7 +313,7 @@ class TestTPScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_keepints.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tp = sdf.gettp(scan=152, ifnum=0, plnum=0)
+        tp = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
 
         hdu = fits.open(gbtidl_file)
         table = hdu[1].data
@@ -324,7 +340,7 @@ class TestTPScan:
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         # tp is a ScanList
-        tp = sdf.gettp(scan=152, ifnum=0, plnum=0)
+        tp = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
         assert len(tp) == 1
         # tpavg is a  Spectrum
         tpavg = tp.timeaverage()
@@ -349,7 +365,7 @@ class TestTPScan:
         assert np.all(abs(table["TSYS"][:-1] - tp[0].tsys) < 1e-9)
         assert abs(tpavg.meta["TSYS"] - table["TSYS"][-1]) < 1e-10
         # Data, which uses float -- 32 bits.
-        assert np.sum(tp[0]._data - data[:-1]) == 0.0
+        assert np.sum(tp[0]._calibrated - data[:-1]) == 0.0
         assert np.nanmean((tpavg.flux.value - data[-1]) / data[-1].mean()) < 2**-32
 
     def test_compare_with_GBTIDL_equal_weights(self, data_dir):
@@ -366,7 +382,7 @@ class TestTPScan:
 
         # Generate the dysh result.
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        tp = sdf.gettp(scan=152, ifnum=0, plnum=0)
+        tp = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
         assert len(tp) == 1
         # tpavg is a Spectrum
         tpavg = tp.timeaverage(weights=None)
@@ -442,7 +458,7 @@ class TestScanBlock:
     def test_scanblock_write_read(self, tmp_path):
         file = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(file)
-        sb = g.getps(scan=6)
+        sb = g.getps(scan=6, plnum=0, fdnum=0, ifnum=0)
         o = tmp_path / "sub"
         o.mkdir()
         testfile = o / "test_scanblock_write.fits"
