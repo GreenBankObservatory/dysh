@@ -930,7 +930,7 @@ class TestGBTFITSLoad:
 
         sdf_file = f"{self.data_dir}/TGBT24B_613_15/TGBT24B_613_15.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps = sdf.getps(scan=23, fdnum=10, plnum=0).timeaverage()
+        ps = sdf.getps(scan=23, fdnum=10, plnum=0, ifnum=0).timeaverage()
 
         # Load GBTIDL reduction.
         hdu = fits.open(util.get_project_testdata() / "TGBT24B_613_15/TGBT24B_613_15.cal.vegas.fits")
