@@ -2042,7 +2042,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             dim1 = np.shape(flagval)[1]
                             form = f"{dim1}B"
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
-                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
+                            self._sdf[k]._update_column({"FLAGS": c}, b)
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
@@ -2083,7 +2083,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             form = f"{dim1}B"
                             # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
-                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
+                            self._sdf[k]._update_column({"FLAGS": c}, b)
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
