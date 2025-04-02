@@ -1219,12 +1219,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # Check if there is a noise diode.
                 if len(calrows["ON"]) == 0 or nocal:
                     _nocal = True
-                    logger.info("scans {on} {off} will not use a noise diode.")
+                    logger.info("scans {on} {off} will not use a noise diode to compute the system temperature.")
                     if t_sys is None:
                         dfoncalF = select_from("CAL", "F", _ondf)
                         _tsys = dfoncalF["TSYS"].to_numpy()
-                        logger.info("Using TSYS column")
+                        logger.info("Using TSYS column for the system temperature.")
                     else:
+                        logger.info("Using user provided values for the system temperature.")
                         _tsys = t_sys
                 g = PSScan(
                     self._sdf[i],
