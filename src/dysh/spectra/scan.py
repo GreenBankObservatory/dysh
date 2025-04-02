@@ -2,18 +2,18 @@
 The classes that define various types of Scan and their calibration methods.
 """
 
-import warnings
+from abc import abstractmethod
 from collections import UserList
 from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
-from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.utils.masked import Masked
 
+from astropy import constants as ac
 from dysh.spectra import core
 
 from ..coordinates import Observatory
@@ -51,16 +51,6 @@ class SpectralAverageMixin:
         .. note::
            Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
-        pass
-
-    @log_call_to_history
-    def polaverage(self, weights=None):
-        """Average all polarizations in this Scan"""
-        pass
-
-    @log_call_to_history
-    def finalspectrum(self, weights=None):
-        """Average all times and polarizations in this Scan"""
         pass
 
     @property
@@ -101,33 +91,43 @@ class SpectralAverageMixin:
 
 class ScanBase(HistoricalBase, SpectralAverageMixin):
     """This class describes the common interface to all Scan classes.
-    A Scan represents one scan number, one IF, one feed, and one or more polarizations.
+    A Scan represents one scan number, one IF, one feed, and one polarization.
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits):
+    def __init__(self, sdfits, smoothref, apply_flags, observer_location, fdnum=-1, ifnum=-1, plnum=-1):
         HistoricalBase.__init__(self)
-        self._ifnum = -1
-        self._fdnum = -1
+        self._fdnum = fdnum
+        self._ifnum = ifnum
+        self._plnum = plnum
         self._nchan = -1
-        self._npol = -1
         self._scan = -1
-        self._pols = -1
+        self._nrows = -1
+        self._bintable_index = -1
+        self._pols = ""  # currently unused. Will contain polarization stokes string.
         self._nint = -1
         self._sdfits = sdfits
         self._nocal = False
-        # self._meta = {}
+        self._meta = {}
         self._bscale = 1.0
         self._bunit = "ta"
+        self._tsys = None
+        self._exposure = None
+        self._calibrated = None
+        self._smoothref = smoothref
+        self._apply_flags = apply_flags
+        self._observer_location = observer_location
+        self._bunit_to_unit = {"ta": u.K, "ta*": u.K, "jy": u.Jy, "counts": u.ct}
 
     def _validate_defaults(self):
         _required = {
-            "IFNUM": self._ifnum,
-            "FDNUM": self._fdnum,
-            "NCHAN": self._nchan,
-            "NPOL": self._npol,
-            "POLS": self._pols,
-            "SCAN": self._scan,
+            "bintable_index": self._bintable_index,
+            "ifnum": self._ifnum,
+            "fdnum": self._fdnum,
+            "nchan": self._nchan,
+            "nrows": self._nrows,
+            "plnum": self._plnum,
+            "scan": self._scan,
         }
         unset = []
         for k, v in _required.items():
@@ -138,8 +138,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 f"The following required Scan attributes were not set by the derived class {self.__class__.__name__}:"
                 f" {unset}"
             )
-        if type(self._scan) != int:
-            raise (f"{self.__class__.__name__}._scan is not an int: {type(self._scan)}")
+        for k in ["ifnum", "plnum", "fdnum"]:
+            v = _required[k]
+            if not isinstance(v, (int, np.integer)):
+                raise ValueError(f"{self.__class__.__name__}: {k} must be an integer but got {type(v)}")
 
     @classmethod
     def _check_bunit(self, bunit):
@@ -166,6 +168,41 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 f"Unrecognized brightness temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
+    def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity):
+
+        self._calibrate = calibrate
+        self._make_meta(meta_rows)
+        if self._calibrate:
+            if calibrate_kwargs is not None:
+                self.calibrate(**calibrate_kwargs)
+            else:
+                self.calibrate()
+            self._add_calibration_meta()
+        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+            self.scale(bunit, zenith_opacity)
+
+        self._validate_defaults()
+
+    def calibrated(self, i):  ##SCANBASE
+        """Return the i-th calibrated Spectrum from this Scan.
+
+        Parameters
+        ----------
+        i : int
+            The index into the calibrated array
+
+        Returns
+        -------
+        spectrum : `~spectra.spectrum.Spectrum`
+        """
+        s = Spectrum.make_spectrum(
+            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
+            meta=self.meta[i],
+            observer_location=self._observer_location,
+        )
+        s.merge_commentary(self)
+        return s
+
     @property
     def is_scaled(self):
         r"""Is this Scan scaled to something other than  antenna temperature :math:`T_A`.
@@ -181,7 +218,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def bunit(self):
         """
         The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
-
             - 'ta'  : Antenna Temperature
             - 'ta*' : Antenna temperature corrected to above the atmosphere
             - 'jy'  : flux density in Jansky
@@ -189,7 +225,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         Returns
         -------
         str
-            Brightness string.
+            Brightness unit string.
 
         """
         return self._bunit
@@ -222,7 +258,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             None
         """
         # Array multiplication is slightly faster than a loop
-        # NB this will fail for TPScan since it has self._data instead of self._calibrated.  I need to change that in the refactor
         self._calibrated = self._calibrated * (np.array([factor]).T)
 
     @log_call_to_history
@@ -265,7 +300,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             return
         if s != "ta" and zenith_opacity is None:
             raise ValueError("Zenith opacity must be provided when scaling to Ta* or Jy.")
-
+        nbunit = self._bunit_to_unit[s].to_string()
         # unscale the data if it was already scaled.
         if self.is_scaled:
             self._scaleby(1.0 / self._bscale)
@@ -273,6 +308,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if s == "ta":
             self._bscale = np.ones_like(self._bscale)
             self._bunit = s
+            self._set_all_meta("BUNIT", nbunit)
+            self._set_all_meta("TUNIT7", nbunit)
             return
 
         gc = GBTGainCorrection()
@@ -283,6 +320,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._scaleby(factor)
         self._bscale = factor
         self._bunit = s
+        self._set_all_meta("BUNIT", nbunit)
+        self._set_all_meta("TUNIT7", nbunit)
+
+    def _set_all_meta(self, key, value):
+        for i in range(len(self._meta)):
+            self._meta[i][key] = value
 
     @property
     def scan(self):
@@ -321,19 +364,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._nrows
 
     @property
-    def npol(self):
-        """
-        The number of polarizations in this Scan
-
-        Returns
-        -------
-        int
-            The number of polarizations in this Scan
-
-        """
-        return self._npol
-
-    @property
     def ifnum(self):
         """The IF number
 
@@ -356,15 +386,27 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._fdnum
 
     @property
-    def pols(self):
-        """The polarization number(s)
+    def plnum(self):
+        """The polarization number
 
         Returns
         -------
-        list
-            The list of integer polarization number(s)
+        int
+            The polarization number
         """
-        return self._pols
+        return self._plnum
+
+    # @property
+    # @todo implement this using Evans crval4_to_pol
+    # def pols(self):
+    #     """The polarization description
+
+    #     Returns
+    #    -------
+    #      list
+    #         The list of integer polarization number(s)
+    #     """
+    #    return self._pols
 
     @property
     def is_calibrated(self):
@@ -437,6 +479,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             rfq = restfrq * u.Unit(self._meta[i]["CUNIT1"])
             restfreq = rfq.to("Hz").value
             self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
+            self._meta[i]["BUNIT"] = self._bunit_to_unit[self.bunit.lower()].to_string()
 
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
@@ -449,29 +492,49 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
 
-    def _set_if_fd(self, df):
-        """Set the IF and FD numbers from the input dataframe and
-        raise an error of there are more than one
-
-        Parameters
-        ----------
-        df : ~pandas.DataFrame
-            The DataFrame describing the selected data
-        """
-        self._ifnum = uniq(df["IFNUM"])
-        self._fdnum = uniq(df["FDNUM"])
-        if len(self._ifnum) > 1:
-            raise Exception(f"Only one IFNUM is allowed per Scan, found {self.ifnum}")
-        if len(self._fdnum) > 1:
-            raise Exception(f"Only one FDNUM is allowed per Scan, found {self.fdnum}")
-        self._ifnum = self._ifnum[0]
-        self._fdnum = self._fdnum[0]
-
+    @abstractmethod
     def calibrate(self, **kwargs):
         """Calibrate the Scan data"""
         pass
 
-    def make_bintable(self):
+    @log_call_to_history
+    def timeaverage(self, weights="tsys"):  # SCANBASE
+        r"""Compute the time-averaged spectrum for this set of FSscans.
+
+        Parameters
+        ----------
+        weights: str
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        Returns
+        -------
+        spectrum : :class:`~spectra.spectrum.Spectrum`
+            The time-averaged spectrum
+
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
+        """
+        if self._calibrated is None or len(self._calibrated) == 0:
+            raise Exception("You can't time average before calibration.")
+        self._timeaveraged = deepcopy(self.calibrated(0))
+        data = self._calibrated
+        if weights == "tsys":
+            w = self.tsys_weight
+        else:
+            w = np.ones_like(self.tsys_weight)
+        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        self._timeaveraged._data.set_fill_value(np.nan)
+        non_blanks = find_non_blanks(data)
+        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
+        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
+        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        return self._timeaveraged
+
+    def _make_bintable(self):
         """
         Create a :class:`~astropy.io.fits.BinaryTableHDU` from the calibrated data of this Scan.
 
@@ -530,7 +593,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         None.
 
         """
-        self.make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+        self._make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def __len__(self):
         return self._nrows
@@ -556,10 +619,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         UserList.__init__(self, *args)
         HistoricalBase.__init__(self)
         self._nrows = 0
-        self._npol = 0
+        self._npol = 0  # always 1?
+        self._nfeed = 0  # always 1?
+        self._nif = 0  # always 1?
         self._timeaveraged = []
-        self._polaveraged = []
-        self._finalspectrum = []
 
     @log_call_to_history
     def calibrate(self, **kwargs):
@@ -568,7 +631,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):
+    def timeaverage(self, weights="tsys"):  # SCANBLOCK
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
@@ -601,7 +664,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         trying variance
         """
-        logger.warning(f"PJT testing time variance, do not rely on this function")
+        logger.warning("PJT testing time variance, do not rely on this function")
 
         self._timevariance = []
         for scan in self.data:
@@ -611,50 +674,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         return s
 
     @log_call_to_history
-    def polaverage(self, weights="tsys"):
-        # @todo rewrite this to return a spectrum as timeaverage does now.
-        r"""Average all polarizations in all scans in this ScanBlock
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        polaverage: list of `~spectra.spectrum.Spectrum`
-            List of all the polarization-averaged spectra
-        """
-        self._polaveraged = []
-        for scan in self.data:
-            self._polaveraged.append(scan.polaverage(weights))
-        return self._polaveraged
-
-    @log_call_to_history
-    def finalspectrum(self, weights="tsys"):
-        r"""Average all times and polarizations in all scans this ScanBlock
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        finalspectra: list of `~spectra.spectrum.Spectrum`
-            List of all the time- and polarization-averaged spectra
-        """
-        self._finalspectrum = []
-        for scan in self.data:
-            self._finalspectrum.append(scan.finalspectrum(weights))
-        return self._finalspectrum
-
     def scale(self, bunit, zenith_opacity):
         """
         Scale all the data in this `ScanBlock` to the given brightness temperature scale and zenith opacity. If data are already
@@ -691,7 +710,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     def bunit(self):
         """
         The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
-
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -703,7 +721,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         bunit = set([scan.bunit for scan in self.data])
         if len(bunit) > 1:
-            logger.warn(f"The Scans in this ScanBlock have differing brightness units {bunit}")
+            logger.warning(f"The Scans in this ScanBlock have differing brightness units {bunit}")
             return list(bunit)
         return list(bunit)[0]
 
@@ -795,50 +813,62 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 class TPScan(ScanBase):
     """GBT specific version of Total Power Scan
 
-    Parameters
-    ----------
-    gbtfits : `~fits.sdfitsload.SDFITSLoad`
-        input SDFITSLoad object
-    scan: int
-        scan number
-    sigstate : bool
-        Select the signal state used to form the data.  True means select sig='T', False to select sig='F'.
-        None means select both.  See table below for explanation.
-    calstate : bool
-        Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
-        None means select both. See table below for explanation.
-    scanrows : list-like
-        the list of rows in `sdfits` corresponding to sigstate integrations
-    calrows : dict
-        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
-    bintable : int
-        the index for BINTABLE in `sdfits` containing the scans
-    calibrate: bool
-        whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-    smoothref: int
-        the number of channels in the reference to boxcar smooth prior to calibration
-    apply_flags : boolean, optional.  If True, apply flags before calibration.
+        Parameters
+        ----------
+        gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+            input GBTFITSLoad object
+        scan: int
+            scan number
+        sigstate : bool
+            Select the signal state used to form the data.  True means select sig='T', False to select sig='F'.
+            None means select both.  See table below for explanation.
+        calstate : bool
+            Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
+            None means select both. See table below for explanation.
+        scanrows : list-like
+            the list of rows in `sdfits` corresponding to sigstate integrations
+        calrows : dict
+            dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
+        fdnum: int
+            The feed number
+        ifnum : int
+            The IF number
+        plnum : int
+            The polarization number
+        bintable : int
+            the index for BINTABLE in `sdfits` containing the scans
+        calibrate: bool
+            whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+        smoothref: int
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+        observer_location : `~astropy.coordinates.EarthLocation`
+            Location of the observatory. See `~dysh.coordinates.Observatory`.
+            This will be transformed to `~astropy.coordinates.ITRS` using the time of
+            observation DATE-OBS or MJD-OBS in
+            the SDFITS header.  The default is the location of the GBT.
+    r
 
-    Notes
-    -----
-    How the total power and system temperature are calculated, depending on signal and reference state parameters:
+        Notes
+        -----
+        How the total power and system temperature are calculated, depending on signal and reference state parameters:
 
 
-     ======   =====   ===================================================================       ==================================
-     CAL      SIG     RESULT                                                                    TSYS
-     ======   =====   ===================================================================       ==================================
-     None     None    data = 0.5* (REFCALON + REFCALOFF), regardless of sig state               use all CAL states, all SIG states
-     None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'                       use all CAL states, SIG='T'
-     None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'                       use all CAL states, SIG='F'
-     True     None    data = REFCALON, regardless of sig state                                  use all CAL states, all SIG states
-     False    None    data = REFCALOFF, regardless of sig state                                 use all CAL states, all SIG states
-     True     True    data = REFCALON, where sig='T'                                            use all CAL states, SIG='T'
-     True     False   data = REFCALON, where sig='F'                                            use all CAL states, SIG='F'
-     False    True    data = REFCALOFF  where sig='T'                                           use all CAL states, SIG='T'
-     False    False   data = REFCALOFF, where sig='F'                                           use all CAL states, SIG='F'
-     ======   =====   ===================================================================       ==================================
+         ======   =====   ===================================================================       ==================================
+         CAL      SIG     RESULT                                                                    TSYS
+         ======   =====   ===================================================================       ==================================
+         None     None    data = 0.5* (REFCALON + REFCALOFF), regardless of sig state               use all CAL states, all SIG states
+         None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'                       use all CAL states, SIG='T'
+         None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'                       use all CAL states, SIG='F'
+         True     None    data = REFCALON, regardless of sig state                                  use all CAL states, all SIG states
+         False    None    data = REFCALOFF, regardless of sig state                                 use all CAL states, all SIG states
+         True     True    data = REFCALON, where sig='T'                                            use all CAL states, SIG='T'
+         True     False   data = REFCALON, where sig='F'                                            use all CAL states, SIG='F'
+         False    True    data = REFCALOFF  where sig='T'                                           use all CAL states, SIG='T'
+         False    False   data = REFCALOFF, where sig='F'                                           use all CAL states, SIG='F'
+         ======   =====   ===================================================================       ==================================
 
-    where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
+        where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
 
     """
 
@@ -850,13 +880,16 @@ class TPScan(ScanBase):
         calstate,
         scanrows,
         calrows,
+        fdnum,
+        ifnum,
+        plnum,
         bintable,
         calibrate=True,
         smoothref=1,
         apply_flags=False,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -864,118 +897,77 @@ class TPScan(ScanBase):
         self._scanrows = scanrows
         self._smoothref = smoothref
         self._apply_flags = apply_flags
+        self._observer_location = observer_location
+        self._bunit = "counts"
         if self._smoothref > 1:
-            warnings.warn(f"TP smoothref={self._smoothref} not implemented yet")
+            raise NotImplementedError(f"TP smoothref={self._smoothref} not implemented yet")
 
         # @todo deal with data that crosses bintables
         if bintable is None:
             self._bintable_index = self._sdfits._find_bintable_and_row(self._scanrows[0])[0]
         else:
             self._bintable_index = bintable
-        self._observer_location = observer_location
         df = self._sdfits._index
         df = df.iloc[scanrows]
         self._index = df
-        self._set_if_fd(df)
-        self._pols = uniq(df["PLNUM"])
         self._nint = 0
-        self._npol = len(self._pols)
         self._timeaveraged = None
-        self._polaveraged = None
         self._nrows = len(scanrows)
         self._tsys = None
-        if False:
-            self._npol = gbtfits.npol(self._bintable_index)  # @todo deal with bintable
-            self._nint = gbtfits.nintegrations(self._bintable_index)
-        # print("PJT CALROWS:",calrows)
         self._calrows = calrows
         # all cal=T states where sig=sigstate
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
-
-        # <merged>
-
-        # print("PJT refXrows:", self._refonrows, self._refoffrows )
-        # self._refcalon = gbtfits.rawspectra(self._bintable_index)[self._refonrows]
-        # self._refcaloff = gbtfits.rawspectra(self._bintable_index)[self._refoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
-
-        # print("PJT refcalX", self._refcalon, self._refcaloff)
-
-        # now remove blanked integrations
-        # seems like this should be done for all Scan classes!
-        # PS: yes.
-        if False:
-            # Catch blank integrations.
-            goodrows = find_nonblank_ints(self._refcalon, self._refcaloff)
-            self._refcalon = self._refcalon[goodrows]
-            self._refcaloff = self._refcaloff[goodrows]
-            self._refonrows = [self._refonrows[i] for i in goodrows]
-            self._refoffrows = [self._refoffrows[i] for i in goodrows]
-            self._nrows = len(self._refonrows) + len(self._refoffrows)
-
-            self._nchan = len(self._refcalon[0])
-            self._calibrate = calibrate
-            self._data = None
-            if self._calibrate:
-                self.calibrate()
-            self.calc_tsys()
-            self._validate_defaults()
-            return
-
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
         goodrows = np.intersect1d(nb1, nb2)
-        # print("PJT nb", nb1, nb2, len(nb1), len(nb2), goodrows)
         if len(self._refcalon) == 0:
             # special case for notpcal (when calrows["ON"] is 0)
-            goodrows = np.intersect1d(nb2, nb2)
+            goodrows = np.intersect1d(nb2, nb2)  # isn't this just nb2.flatten()?
             self._refcalon = None
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = []
             self._refoffrows = [self._refoffrows[i] for i in goodrows]
-            # print("PJT refcaloff:",self._refcaloff)
             self._nchan = len(self._refcaloff[0])  # PJT
-            self._calibrate = calibrate
-            self._data = None
-            if self._calibrate:
-                self.calibrate()
-            self._tsys = np.ones(len(nb2))
-            self.calc_tsys()
+            self._calc_exposure()
+            self._calc_delta_freq()
             self._validate_defaults()
-            return
-        # Tell the user about blank integration(s) that will be ignored.
-        if len(goodrows) != len(self._refcalon):
-            nblanks = len(self._refcalon) - len(goodrows)
-            print(f"Ignoring {nblanks} blanked integration(s).")
-        self._refcalon = self._refcalon[goodrows]
-        self._refcaloff = self._refcaloff[goodrows]
-        self._refonrows = [self._refonrows[i] for i in goodrows]
-        self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._nrows = len(self._refonrows) + len(self._refoffrows)  # ??
-        self._nchan = len(self._refcalon[0])
-        self._calibrate = calibrate
-        self._data = None
-        if self._calibrate:
-            self.calibrate()
-        self.calc_tsys()
-        self._validate_defaults()
+            self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
+        else:
+            # Tell the user about blank integration(s) that will be ignored.
+            if len(goodrows) != len(self._refcalon):
+                nblanks = len(self._refcalon) - len(goodrows)
+                logger.info(f"Ignoring {nblanks} blanked integration(s).")
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._nrows = len(self._refonrows) + len(self._refoffrows)  # ??
+            self._nchan = len(self._refcalon[0])
+            self._calc_exposure()
+            self._calc_delta_freq()
+            # use 'ta' as bunit in this call so that scaling is not attempted.
+            self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
 
-    def calibrate(self):
+    def calibrate(self, **kwargs):
         """Calibrate the data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
-        # print("PJT CALSTATE:",self.calstate)
+        # print("PJT CALSTATE:", self.calstate)
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         if self.calstate is None:
-            self._data = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
+            self._calibrated = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
-            self._data = self._refcalon.astype(float)
+            self._calibrated = self._refcalon.astype(float)
         elif self.calstate == False:
-            self._data = self._refcaloff.astype(float)
+            self._calibrated = self._refcaloff.astype(float)
         else:
             raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
+        self._calc_tsys()
 
     @property
     def sigstate(self):
@@ -999,25 +991,10 @@ class TPScan(ScanBase):
         """
         return self._calstate
 
-    def calc_tsys(self, **kwargs):
+    def _calc_tsys(self, **kwargs):
         """
         Calculate the system temperature array, according to table above.
         """
-        kwargs_opts = {"verbose": False}
-        kwargs_opts.update(kwargs)
-
-        if False:
-            if self.calstate is None:
-                tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
-                nspect = len(tcal)
-                # calon = self._refcalcon
-                # caloff = self._refcaloff
-            elif self.calstate:
-                tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
-                nspect = len(tcal)
-                # calon = self._refcalon
-            elif self.calstate == False:
-                pass
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
         if len(self._tcal) == 0:
             # to_nocal
@@ -1030,16 +1007,42 @@ class TPScan(ScanBase):
         nspect = len(self._tcal)
         # print("PJT nspect",nspect)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
-        # allcal = self._refonrows.copy()
-        # allcal.extend(self._refoffrows)
-        # tcal = list(self._sdfits.index(self._bintable_index).iloc[sorted(allcal)]["TCAL"])
-        # @todo this loop could be replaced with clever numpy
         if len(self._tcal) != nspect:
-            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+            raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
         for i in range(nspect):
             # tsys = mean_tsys(calon=calon[i], caloff=caloff[i], tcal=tcal[i])
             tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
             self._tsys[i] = tsys
+
+    def _calc_exposure(self):
+        """Calculate the exposure time. See :meth:`exposure`"""
+        if self.calstate is None:
+            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            )
+        elif self.calstate:
+            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = 0
+        elif self.calstate == False:
+            exp_ref_on = 0
+            exp_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            )
+
+        self._exposure = exp_ref_on + exp_ref_off
+
+    def _calc_delta_freq(self):
+        """Calculate the channel width.  See :meth:`delta_freq`"""
+        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+        if self.calstate is None:
+            delta_freq = 0.5 * (df_ref_on + df_ref_off)
+        elif self.calstate:
+            delta_freq = df_ref_on
+        elif self.calstate == False:
+            delta_freq = df_ref_off
+        self._delta_freq = delta_freq
 
     @property
     def exposure(self):
@@ -1058,21 +1061,6 @@ class TPScan(ScanBase):
         exposure : `~numpy.ndarray`
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
-        if self.calstate is None:
-            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-            exp_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            )
-        elif self.calstate:
-            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-            exp_ref_off = 0
-        elif self.calstate == False:
-            exp_ref_on = 0
-            exp_ref_off = (
-                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
-            )
-
-        self._exposure = exp_ref_on + exp_ref_off
         return self._exposure
 
     @property
@@ -1094,35 +1082,11 @@ class TPScan(ScanBase):
         delta_freq: `~numpy.ndarray`
             The channel frequency width in units of the CDELT1 keyword in the SDFITS header
         """
-        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        if self.calstate is None:
-            delta_freq = 0.5 * (df_ref_on + df_ref_off)
-        elif self.calstate:
-            delta_freq = df_ref_on
-        elif self.calstate == False:
-            delta_freq = df_ref_off
-        self._delta_freq = delta_freq
         return self._delta_freq
 
-    def tpmeta(self, i):
-        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
-        meta = ser.dropna().to_dict()
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self.exposure[i]
-        meta["NAXIS1"] = len(self._data[i])
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-        return meta
-
     def total_power(self, i):
-        """Return the total power spectrum
+        """Return the i-th total power spectrum in this Scan.
+        This is a synonym for :meth:`calibrated`
 
         Parameters
         ----------
@@ -1133,81 +1097,29 @@ class TPScan(ScanBase):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        if not self._calibrate:
-            raise Exception("You must calibrate first to get a total power spectrum")
-        ser = self._sdfits.index(bintable=self._bintable_index).iloc[self._scanrows[i]]
-        meta = ser.dropna().to_dict()
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self.exposure[i]
-        meta["NAXIS1"] = len(self._data[i])
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-
-        s = Spectrum.make_spectrum(
-            Masked(self._data[i] * u.ct, self._data[i].mask), meta=meta, observer_location=self._observer_location
-        )
-        s.merge_commentary(self)
-        return s
-
-    @log_call_to_history
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of scans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations")
-        self._timeaveraged = deepcopy(self.total_power(0))
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = np.ones_like(self.tsys_weight)
-        non_blanks = find_non_blanks(self._data)[0]
-        self._timeaveraged._data = np.ma.average(self._data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged.meta["EXPOSURE"] = self.exposure[non_blanks].sum()
-        return self._timeaveraged
-
-        # end-of-TPScan
+        return self.calibrated(i)
 
 
 class PSScan(ScanBase):
     """GBT specific version of Position Switch Scan. A position switch scan object has
-    one IF, one feed, and one or more polarizations.
+    one IF, one feed, and one polarization
 
     Parameters
     ----------
-    gbtfits : `~fits.sdfitsload.SDFITSLoad`
-        input SDFITSLoad object
-    scans : dict
+    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+        input GBTFITSLoad object
+    scan : dict
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers NOTE: there should be one ON and one OFF, a pair
     scanrows : dict
         dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
     bintable : int
         the index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
@@ -1216,7 +1128,7 @@ class PSScan(ScanBase):
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
-        Location of the observatory. See `~dysh.coordinates.Observatory`.
+        Location of the observatory. See `~Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
@@ -1237,9 +1149,12 @@ class PSScan(ScanBase):
     def __init__(
         self,
         gbtfits,
-        scans,
+        scan,
         scanrows,
         calrows,
+        fdnum,
+        ifnum,
+        plnum,
         bintable,
         calibrate=True,
         smoothref=1,
@@ -1250,15 +1165,12 @@ class PSScan(ScanBase):
         tsys=None,
         nocal=False,
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
-        # self._scans = scans
         # self._history = deepcopy(gbtfits._history)
-        self._scan = scans["ON"]
+        self._scan = scan["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        self._smoothref = smoothref
-        self._apply_flags = apply_flags
         self._nocal = nocal
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
@@ -1270,15 +1182,6 @@ class PSScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        self._observer_location = observer_location
-        # df = selection.iloc[scanrows["ON"]]
-        df = self._sdfits._index.iloc[scanrows["ON"]]
-        self._set_if_fd(df)
-        self._pols = uniq(df["PLNUM"])
-        self._npol = len(self._pols)
-        if False:
-            self._nint = gbtfits.nintegrations(self._bintable_index)
-        # so quick with slicing!
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
@@ -1315,40 +1218,8 @@ class PSScan(ScanBase):
             self._nint = nsigrows
 
         self._nchan = gbtfits.nchan(self._bintable_index)
-        self._tsys = None
-        self._exposure = None
-        self._calibrated = None
-        self._calibrate = calibrate
         self._init_tsys(tsys)
-        self._make_meta(self._sigoffrows)
-        if self._calibrate:
-            self.calibrate()
-        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(bunit, zenith_opacity)
-        self._validate_defaults()
-
-    # @todo something clever
-    # self._calibrated_spectrum = Spectrum(self._calibrated,...) [assuming same spectral axis]
-    def calibrated(self, i):
-        """Return the calibrated Spectrum.
-
-        Parameters
-        ----------
-        i : int
-            The index into the calibrated array
-
-        Returns
-        -------
-        spectrum : `~spectra.spectrum.Spectrum`
-        """
-        # @todo suppress astropy INFO message "overwriting Masked Quantity's current mask with specified mask."
-        s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
-            meta=self.meta[i],
-            observer_location=self._observer_location,
-        )
-        s.merge_commentary(self)
-        return s
+        self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity)
 
     def calibrate(self, **kwargs):
         """
@@ -1357,10 +1228,10 @@ class PSScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
-            print(f"PS smoothref={self._smoothref}")
-
-        self._status = 1
+            print(f"PSScan smoothref={self._smoothref}")
         nspect = self._nint
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
         tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
@@ -1387,7 +1258,6 @@ class PSScan(ScanBase):
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
-        self._add_calibration_meta()
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
@@ -1442,57 +1312,15 @@ class PSScan(ScanBase):
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
-    @log_call_to_history
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of scans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._calibrated is None or len(self._calibrated) == 0:
-            raise Exception("You can't time average before calibration.")
-        if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations")
-        self._timeaveraged = deepcopy(self.calibrated(0))  # ._copy()
-        data = self._calibrated
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        non_blanks = find_non_blanks(data)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged._history = self._history
-        self._timeaveraged._observer_location = self._observer_location
-        return self._timeaveraged
-
 
 class NodScan(ScanBase):
     """GBT specific version of Nodding Scan. A nod scan object has
-    one IF, two feeds, and one or more polarizations.
+    one IF, two feeds, and one polarization.
 
     Parameters
     ----------
-    gbtfits : `~fits.sdfitsload.SDFITSLoad`
-        input SDFITSLoad object
+    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+        input GBTFITSLoad object
     scan : dict
         dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers
         NOTE: there should be one ON and one OFF, a pair. There should be at least two beams (the nodding beams)
@@ -1503,6 +1331,12 @@ class NodScan(ScanBase):
         dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
     bintable : int
         The index for BINTABLE in `sdfits` containing the scans
     calibrate: bool
@@ -1538,6 +1372,9 @@ class NodScan(ScanBase):
         beam1,
         scanrows,
         calrows,
+        fdnum,
+        ifnum,
+        plnum,
         bintable,
         calibrate=True,
         smoothref=1,
@@ -1548,12 +1385,10 @@ class NodScan(ScanBase):
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         self._scan = scan["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
-        self._smoothref = smoothref
-        self._apply_flags = apply_flags
         self._beam1 = beam1
         self._nocal = nocal
 
@@ -1568,12 +1403,6 @@ class NodScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
-        self._observer_location = observer_location
-        # df = selection.iloc[scanrows["ON"]]
-        df = self._sdfits._index.iloc[scanrows["ON"]]
-        self._set_if_fd(df)
-        self._pols = uniq(df["PLNUM"])
-        self._npol = len(self._pols)
         if False:
             self._nint = gbtfits.nintegrations(self._bintable_index)
         # so quick with slicing!
@@ -1593,6 +1422,7 @@ class NodScan(ScanBase):
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
 
         # Catch blank integrations.
+
         if not self._nocal:
             goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
             self._refcalon = self._refcalon[goodrows]
@@ -1619,36 +1449,8 @@ class NodScan(ScanBase):
             self._nint = nsigrows
 
         self._nchan = len(self._sigcaloff[0])
-        self._exposure = None
-        self._calibrated = None
-        self._calibrate = calibrate
         self._init_tsys(tsys)
-        self._make_meta(self._sigoffrows)
-        if self._calibrate:
-            self.calibrate()
-        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(bunit, zenith_opacity)
-        self._validate_defaults()
-
-    def calibrated(self, i):
-        """Return the calibrated Spectrum.
-
-        Parameters
-        ----------
-        i : int
-            The index into the calibrated array
-
-        Returns
-        -------
-        spectrum : `~spectra.spectrum.Spectrum`
-        """
-        s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
-            meta=self.meta[i],
-            observer_location=self._observer_location,
-        )
-        s.merge_commentary(self)
-        return s
+        self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity)
 
     def calibrate(self, **kwargs):
         """
@@ -1657,14 +1459,13 @@ class NodScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
-            print(f"PS smoothref={self._smoothref}")
-
-        self._status = 1
+            print(f"NodScan smoothref={self._smoothref}")
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
         tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
-        # @todo  this loop could be replaced with clever numpy
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         if not self._nocal:
@@ -1687,9 +1488,7 @@ class NodScan(ScanBase):
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
-        self._add_calibration_meta()
 
-    # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
         """The array of exposure (integration) times
@@ -1742,55 +1541,14 @@ class NodScan(ScanBase):
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
-    @log_call_to_history
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of scans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._calibrated is None or len(self._calibrated) == 0:
-            raise Exception("You can't time average before calibration.")
-        if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations")
-        self._timeaveraged = deepcopy(self.calibrated(0))
-        data = self._calibrated
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        non_blanks = find_non_blanks(data)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged._history = self._history
-        return self._timeaveraged
-
 
 class FSScan(ScanBase):
     """GBT specific version of Frequency Switch Scan
 
     Parameters
     ----------
-
-    gbtfits : `~fits.sdfitsload.SDFITSLoad`
-        input SDFITSLoad object
+    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+        input GBTFITSLoad object
     scan : int
         Scan number that contains integrations with a series of sig/ref and calon/caloff states.
     sigrows :dict
@@ -1799,6 +1557,12 @@ class FSScan(ScanBase):
     calrows : dict
         Dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits`
         corresponding to cal=T (ON) and cal=F (OFF) integrations.
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
     bintable : int
         The index for BINTABLE in `sdfits` containing the scans.
     calibrate : bool
@@ -1834,6 +1598,9 @@ class FSScan(ScanBase):
         scan,
         sigrows,
         calrows,
+        fdnum,
+        ifnum,
+        plnum,
         bintable,
         calibrate=True,
         fold=True,
@@ -1846,7 +1613,7 @@ class FSScan(ScanBase):
         observer_location=Observatory["GBT"],
         debug=False,
     ):
-        ScanBase.__init__(self, gbtfits)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
@@ -1855,8 +1622,7 @@ class FSScan(ScanBase):
         self._use_sig = use_sig
         self._smoothref = smoothref
         if self._smoothref > 1:
-            print(f"FS smoothref={self._smoothref} not implemented yet")
-        self._apply_flags = apply_flags
+            raise NotImplementedError(f"FS smoothref={self._smoothref} not implemented yet")
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
@@ -1888,22 +1654,7 @@ class FSScan(ScanBase):
             self._bintable_index = bintable
         if self._debug:
             logger.debug(f"bintable index is {self._bintable_index}")
-        self._observer_location = observer_location
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
-
-        df = self._sdfits._index.iloc[self._scanrows]
-        if self._debug:
-            logger.debug(f"{len(df) = }")
-        self._set_if_fd(df)
-        self._pols = uniq(df["PLNUM"])
-        if self._debug:
-            logger.debug(f"FSSCAN #pol = {self._pols}")
-        self._npol = len(self._pols)
-        if False:
-            self._nint = gbtfits.nintegrations(self._bintable_index)
-        # @todo use gbtfits.velocity_convention(veldef,velframe)
-        # so quick with slicing!
-
         self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
         self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
@@ -1924,18 +1675,24 @@ class FSScan(ScanBase):
         self._nrows = nsigrows
 
         self._nchan = len(self._sigcalon[0])
-        self._tsys = None
-        self._exposure = None
-        self._calibrated = None
-        self._calibrate = calibrate
-        self._make_meta(self._sigonrows)
-        if self._calibrate:
-            self.calibrate(fold=fold, shift_method=shift_method)
-        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(bunit, zenith_opacity)
+        self._finish_initialization(
+            calibrate, {"fold": fold, "shift_method": shift_method}, self._sigoffrows, bunit, zenith_opacity
+        )
+        if False:
+            self._tsys = None
+            self._exposure = None
+            self._calibrated = None
+            self._calibrate = calibrate
+            self._make_meta(self._sigonrows)
+            if self._calibrate:
+                self.calibrate(fold=fold, shift_method=shift_method)
+            if (
+                bunit.lower() != "ta"
+            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+                self.scale(bunit, zenith_opacity)
+            self._validate_defaults()
         if self._debug:
             logger.debug("---------------------------------------------------")
-        self._validate_defaults()
 
     @property
     def folded(self):
@@ -1949,26 +1706,6 @@ class FSScan(ScanBase):
         """
         return self._folded
 
-    def calibrated(self, i):
-        """Return the calibrated Spectrum of this FSscan
-
-        Parameters
-        ----------
-        i : int
-            The index into the calibrated array
-
-        Returns
-        -------
-        spectrum : `~spectra.spectrum.Spectrum`
-        """
-        s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
-            meta=self.meta[i],
-            observer_location=self._observer_location,
-        )
-        s.merge_commentary(self)
-        return s
-
     def calibrate(self, **kwargs):
         """
         Frequency switch calibration, following equations ...
@@ -1977,6 +1714,8 @@ class FSScan(ScanBase):
         if self._debug:
             logger.debug(f'FOLD={kwargs["fold"]}')
             logger.debug(f'METHOD={kwargs["shift_method"]}')
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -2063,7 +1802,7 @@ class FSScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         _fold = kwargs.get("fold", False)
-        _mode = 1  # 1: keep the sig    else: keep the ref     (not externally supported)
+        # _mode = 1  # 1: keep the sig    else: keep the ref     (not externally supported)
         nspect = self.nrows // 2
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
@@ -2114,11 +1853,8 @@ class FSScan(ScanBase):
                     self._calibrated[i] = cal_ref
                     self._tsys[i] = tsys_sig
                 self._exposure[i] = self.exposure[i]
-
-        self._add_calibration_meta()
         logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
-    # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
         """The array of exposure (integration) times for FSscan
@@ -2163,53 +1899,21 @@ class FSScan(ScanBase):
         self._delta_freq = 0.5 * (df_ref + df_sig)
         return self._delta_freq
 
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this set of FSscans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._calibrated is None or len(self._calibrated) == 0:
-            raise Exception("You can't time average before calibration.")
-        if self._npol > 1:
-            raise Exception("Can't yet time average multiple polarizations %d" % self._npol)
-        self._timeaveraged = deepcopy(self.calibrated(0))
-        data = self._calibrated
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        non_blanks = find_non_blanks(data)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        return self._timeaveraged
-
 
 class SubBeamNodScan(ScanBase):
     r"""
     Parameters
     ----------
-    sigtp:  list of ~spectra.scan.TPScan
+    sigtp:  list of `~dysh.spectra.scan.TPScan`
         Signal total power scans
-    reftp:  list ~spectra.scan.TPScan
+    reftp:  list of `~dysh.spectra.scan.TPScan`
         Reference total power scans
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
     calibrate: bool
         Whether or not to calibrate the data.
     smoothref: int
@@ -2241,6 +1945,9 @@ class SubBeamNodScan(ScanBase):
         self,
         sigtp,
         reftp,
+        fdnum,
+        ifnum,
+        plnum,
         calibrate=True,
         smoothref=1,
         apply_flags=False,
@@ -2249,9 +1956,8 @@ class SubBeamNodScan(ScanBase):
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
-        ScanBase.__init__(self, sigtp[0]._sdfits)
+        ScanBase.__init__(self, sigtp[0]._sdfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         kwargs_opts = {
-            "timeaverage": False,
             "weights": "tsys",  # or None or ndarray
             "debug": False,
         }
@@ -2261,30 +1967,39 @@ class SubBeamNodScan(ScanBase):
             raise ValueError(
                 f"Reference and signal total power arrays are different lengths: {len(reftp)} != {len(sigtp)}"
             )
+        self._bintable_index = sigtp[0]._bintable_index
         self._scan = sigtp[0]._scan
         self._sigtp = sigtp
         self._reftp = reftp
-        self._ifnum = self._sigtp[0].ifnum
-        self._fdnum = self._sigtp[0].fdnum
-        self._npol = self._sigtp[0].npol
-        self._pols = self._sigtp[0]._pols
-        self._nchan = len(reftp[0]._data[0])
+        # self._ifnum = self._sigtp[0].ifnum
+        # self._fdnum = self._sigtp[0].fdnum
+        # self._plnum = self._sigtp[0].plnum
+        self._nchan = len(reftp[0]._calibrated[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
-        self._nint = 0
-        self._smoothref = smoothref
+        self._nint = self._nrows
         if self._smoothref > 1:
-            print(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
-        self._apply_flags = apply_flags
-        self._observer_location = observer_location
-        self._calibrated = None
-        if calibrate:
-            self.calibrate(weights=w)
-        if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-            self.scale(bunit, zenith_opacity)
-        self._validate_defaults()
+            raise NotImplementedError(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
+        # take the first reference scan for each sigtp as the row to use for creating metadata.
+        meta_rows = []
+        for r in self._sigtp:
+            meta_rows.append(r._refoffrows[0])
+        meta_rows = list(set(meta_rows))
+
+        self._finish_initialization(calibrate, {"weights": w}, meta_rows, bunit, zenith_opacity)
+        if False:
+            self._calibrated = None
+            if calibrate:
+                self.calibrate(weights=w)
+            if (
+                bunit.lower() != "ta"
+            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+                self.scale(bunit, zenith_opacity)
+            self._validate_defaults()
 
     def calibrate(self, **kwargs):
         """Calibrate the SubBeamNodScan data"""
+        if self._calibrated is not None:
+            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = len(self._reftp)
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
@@ -2316,54 +2031,9 @@ class SubBeamNodScan(ScanBase):
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
         s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * u.K, self._calibrated[i].mask),
+            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
             meta=meta,
             observer_location=self._observer_location,
         )
         s.merge_commentary(self)
         return s
-
-    @property
-    def exposure(self):
-        return self._exposure
-
-    @property
-    def delta_freq(self):
-        return self._delta_freq
-
-    def timeaverage(self, weights="tsys"):
-        r"""Compute the time-averaged spectrum for this scan.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        Returns
-        -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
-
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        if self._calibrated is None or len(self._calibrated) == 0:
-            raise Exception("You can't time average before calibration.")
-        if self._npol > 1:
-            raise Exception(f"Can't yet time average multiple polarizations {self._npol}")
-        self._timeaveraged = deepcopy(self.calibrated(0))
-        data = self._calibrated
-        if weights == "tsys":
-            w = self.tsys_weight
-        else:
-            w = None
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
-        self._timeaveraged._data.set_fill_value(np.nan)
-        self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys)
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys, axis=0, weights=w)
-        self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged.meta["EXPOSURE"] = np.sum(self.exposure)
-        return self._timeaveraged
