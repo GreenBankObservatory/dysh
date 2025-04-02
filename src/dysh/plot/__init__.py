@@ -2,3 +2,4 @@
 
 __all__ = ["specplot"]
 from .specplot import *
+from .vegasplot import *

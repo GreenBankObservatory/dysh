@@ -1,3 +1,4 @@
+import warnings
 from unittest.mock import patch
 
 import astropy.units as u
@@ -5,6 +6,7 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
+from dysh.coordinates import Observatory
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.spectra.spectrum import IGNORE_ON_COPY, Spectrum, average_spectra
 from dysh.util import get_project_testdata
@@ -57,9 +59,9 @@ class TestSpectrum:
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
         sdf = GBTFITSLoad(sdf_file)
-        self.getps0 = sdf.getps(scan=51, plnum=0)
+        self.getps0 = sdf.getps(scan=51, plnum=0, fdnum=0, ifnum=0)
         self.ps0 = self.getps0.timeaverage()
-        self.getps1 = sdf.getps(scan=51, plnum=1)
+        self.getps1 = sdf.getps(scan=51, plnum=1, fdnum=0, ifnum=0)
         self.ps1 = self.getps1.timeaverage()
         self.ss = self.ps0._copy()  # Synthetic one.
         x = np.arange(0, len(self.ss.data))
@@ -259,7 +261,7 @@ class TestSpectrum:
         For units we only consider frequencies for now.
         """
         meta_ignore = ["CRPIX1", "CRVAL1"]
-        spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime", "_observer_location"]
+        spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
         s = slice(1000, 1100, 1)
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
@@ -277,7 +279,7 @@ class TestSpectrum:
         for k in spec_pars:
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
-        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK")
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs")
         # Check that we can write.
         o = tmp_path / "sub"
         o.mkdir()
@@ -328,6 +330,22 @@ class TestSpectrum:
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(1)
+        assert ss.velocity_frame == self.ps0.velocity_frame
+        assert ss.doppler_convention == self.ps0.doppler_convention
+        assert ss.observer.frame_attributes == self.ps0.observer.frame_attributes
+
+        # Now, change the reference frame and see if it still works.
+        from dysh.coordinates import astropy_frame_dict
+
+        s = Spectrum.fake_spectrum()
+        for frame in astropy_frame_dict.keys():
+            try:
+                s.set_frame(frame)
+            except Exception:
+                print(f"set_frame fails for: {frame}")
+                continue
+            print(f"frame set to: {frame}")
+            s.smooth("box", 3)
 
     def test_smooth_decimate(self):
         """Test for smooth with `decimate!=width`."""
@@ -352,6 +370,9 @@ class TestSpectrum:
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
             abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
         )
+        assert ss.velocity_frame == self.ps0.velocity_frame
+        assert ss.doppler_convention == self.ps0.doppler_convention
+        assert ss.observer.frame_attributes == self.ps0.observer.frame_attributes
 
     def test_smooth_nodecimate(self):
         """Test for smooth without decimation."""
@@ -521,10 +542,65 @@ class TestSpectrum:
         ps1_org = self.ps1._copy()
 
         avg = average_spectra((self.ps0, self.ps1))
+        avg2 = self.ps0.average((self.ps1))
+        compare_spectrum(avg, avg2, ignore_history=True, ignore_comments=True)
 
         avg = average_spectra((self.ps0, self.ps1), align=True)
         compare_spectrum(ps0_org, self.ps0, ignore_history=True, ignore_comments=True)
         compare_spectrum(ps1_org, self.ps1, ignore_history=True, ignore_comments=True)
+
+    def test_spectrum_with_frame(self):
+        """Regression test for issue #401 to ensure Spectrum.with_frame functions as advertised.
+        https://github.com/GreenBankObservatory/dysh/issues/401
+        """
+        spec = Spectrum.fake_spectrum()
+        # Ensure that repeated changes of frame to the same frame do note
+        # change after the first transform
+        s1 = spec.with_frame("lsrk")
+        s2 = s1.with_frame("lsrk")
+        assert all(s1.spectral_axis == s2.spectral_axis)
+        assert s2.velocity_frame == "lsrk"
+        assert s2.meta["VELDEF"][4:] == "-LSR"
+
+        # Test that topographic results in an Exception because
+        # users must provide an ITRS coordinate instance in that case.
+        # First change the spectrum frame to somthing else because
+        # if it is already topo/itrs, then the error is circumvented
+        spec2 = Spectrum.fake_spectrum()
+        spec2.set_frame("gcrs")
+        with pytest.raises(ValueError):
+            spec2.set_frame("topo")
+
+        # Setting a new frame to the old frame does NOT result in an
+        # identical observer attribute on the resultant SpectralAxis.
+        # See https://github.com/astropy/astropy/issues/17506
+        # This test ensures that the difference remains small.
+
+        location_diff = np.sqrt(
+            (s1.observer.x - s2.observer.x) ** 2
+            + (s1.observer.y - s2.observer.y) ** 2
+            + (s1.observer.z - s2.observer.z) ** 2
+        )
+        velocity_diff = np.sqrt(
+            (s1.observer.v_x - s2.observer.v_x) ** 2
+            + (s1.observer.v_y - s2.observer.v_y) ** 2
+            + (s1.observer.v_z - s2.observer.v_z) ** 2
+        )
+        assert location_diff < 1.0e-5 * u.m
+        assert velocity_diff < 2e-8 * u.km / u.s
+
+    def test_velocity_axis_to(self):
+        """Regression test for issue 372 https://github.com/GreenBankObservatory/dysh/issues/372
+        Calling velocity_axis_to should not change the object spectral axis.
+        """
+        spec = Spectrum.fake_spectrum()
+        id1 = id(spec.spectral_axis)
+        sa = spec.velocity_axis_to(toframe="lsrk")
+        assert id(spec.spectral_axis) == id1
+        assert id(sa) != id1
+        # converting to identical frame should not change the values in the spectral axis
+        sa = spec.velocity_axis_to(toframe="topo")
+        assert all(sa == spec.spectral_axis)
 
     def test_baseline(self):
         """Test for comparing GBTIDL baseline to Dysh baselines"""
@@ -552,8 +628,111 @@ class TestSpectrum:
         test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_two_reg)
         test_single_baseline(sdf, ex_reg, order, "legendre", gbtidl_two_reg)
         test_single_baseline(sdf, ex_reg, order, "hermite", gbtidl_two_reg)
-        # TODO: polynomial fit test fails until issues 174, 252 are fixed
-        # test_single_baseline(sdf,ex_reg,order,'polynomial',gbtidl_two_reg)
+        test_single_baseline(sdf, ex_reg, order, "polynomial", gbtidl_two_reg)
 
         ex_reg = None
         test_single_baseline(sdf, ex_reg, order, "chebyshev", gbtidl_no_reg)
+
+        # Test that no warnings are issued.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self.ps0.baseline(model="poly", degree=2)
+
+        # Test baseline removal with velocity units and known anwser.
+        s = Spectrum.fake_spectrum()
+        s.spectral_axis.to("km/s")
+        s._spectral_axis = s.spectral_axis.to("km/s")
+        # Add a polynomial.
+        pcoef = np.array([1, 5, 10])
+        s += np.poly1d(pcoef)(np.linspace(1, -1, len(s.spectral_axis)))
+        s.baseline(degree=2, model="poly", remove=True)
+        for pn in s._baseline_model.unitless_model.param_names:
+            fit_val = getattr(s._baseline_model.unitless_model, pn).value
+            in_val = pcoef[::-1][int(pn[-1])]
+            assert (in_val - fit_val) / in_val < 0.1
+
+        # Test with units. Nothing to compare to though.
+        dysh_spec = sdf.getspec(0)
+        kms = u.km / u.s
+        ex_reg = [(0 * kms, 4200 * kms), (6000 * kms, 7000 * kms), (8800 * kms, 90000 * kms)]
+        dysh_spec.baseline(order, ex_reg, model="chebyshev")
+        ex_reg = [(1 * u.GHz, 1.38 * u.GHz), (1.388 * u.GHz, 1.392 * u.GHz), (1.4 * u.GHz, 2 * u.GHz)]
+        dysh_spec.baseline(order, ex_reg, model="chebyshev")
+        ex_reg = [21 * u.cm, 21.5 * u.cm]
+        dysh_spec.baseline(order, ex_reg, model="chebyshev")
+
+    def test_baseline_include(self):
+        """
+        Test for comparing GBTIDL baseline to dysh baselines
+        using inclusion regions.
+        """
+
+        def test_single_baseline(sdf, in_reg, order, model, gbtidl_bmodel, exclude_region_upper_bounds=True):
+            """For use with TestSpectrum.test_baseline()"""
+            dysh_spec = sdf.getspec(0)
+            temp_bmodel = np.copy(dysh_spec.data)
+            dysh_spec.baseline(
+                order, include=in_reg, remove=True, model=model, exclude_region_upper_bounds=exclude_region_upper_bounds
+            )
+            dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
+            diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
+            assert diff < 1.5e-6
+
+        data_dir = get_project_testdata() / "AGBT17A_404_01"
+        sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
+        sdf = GBTFITSLoad(sdf_file)
+        gbtidl_two_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_bmodel.fits")
+        gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")
+
+        order = 3
+        in_reg = [(99, 381), (449, 721)]
+
+        test_single_baseline(sdf, in_reg, order, "chebyshev", gbtidl_two_reg)
+        test_single_baseline(sdf, in_reg, order, "legendre", gbtidl_two_reg)
+        test_single_baseline(sdf, in_reg, order, "hermite", gbtidl_two_reg)
+
+        # Test with units. Nothing to compare to though.
+        dysh_spec = sdf.getspec(0)
+        kms = u.km / u.s
+        in_reg = [(4200 * kms, 6000 * kms), (7000 * kms, 8800 * kms)]
+        dysh_spec.baseline(order, include=in_reg, model="chebyshev")
+        in_reg = [(1.38 * u.GHz, 1.388 * u.GHz), (1.392 * u.GHz, 1.4 * u.GHz)]
+        dysh_spec.baseline(order, include=in_reg, model="chebyshev")
+        in_reg = [21 * u.cm, 21.5 * u.cm]
+        dysh_spec.baseline(order, include=in_reg, model="chebyshev")
+
+    def test_make_spectrum(self):
+        """
+        * Test that make_spectrum raises ValueError
+        """
+
+        meta = {
+            "CTYPE3": "DEC",
+            "CTYPE2": "RA",
+            "CTYPE1": "FREQ-OBS",
+            "EQUINOX": 2000.0,
+            "VELOCITY": 0.0,
+            "CUNIT1": "Hz",
+            "CUNIT2": "deg",
+            "CUNIT3": "deg",
+            "CRVAL1": 1e9,
+            "CDELT1": 0.1e9,
+            "CRVAL2": 121.0,
+            "CRVAL3": 15.0,
+            "RADECSYS": "FK5",
+            "VELDEF": "OPTI-HEL",
+            "DATE-OBS": "2021-02-10T07:38:37.50",
+            #'RESTFRQ': 1e9,
+        }
+        with pytest.raises(ValueError) as excinfo:
+            s = Spectrum.make_spectrum(
+                data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+            )
+        assert excinfo.type is ValueError
+        assert excinfo.value.args == ("Header (meta) is missing one or more required keywords: {'RESTFRQ'}",)
+
+        meta["RESTFRQ"] = 1e9
+        s = Spectrum.make_spectrum(
+            data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+        )
+        assert s.meta["RADESYS"] == meta["RADECSYS"]

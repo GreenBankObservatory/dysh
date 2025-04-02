@@ -3,16 +3,16 @@ Core utility definitions, classes, and functions
 """
 
 import hashlib
+import numbers
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Union
 
-# import astropy.units as u
 import numpy as np
-
-# import pandas as pd
 from astropy.time import Time
+from astropy.units.quantity import Quantity
 
 ALL_CHANNELS = "all channels"
 
@@ -36,7 +36,37 @@ def select_from(key, value, df):
         The subselected DataFrame
 
     """
+    # nb this fails if value is None
     return df[(df[key] == value)]
+
+
+def eliminate_flagged_rows(df, flag):
+    """
+    Remove rows from an index (selection) where all channels have been flagged.
+
+    Parameters
+    ----------
+    df : `~pandas.DataFrame`
+        The input dataframe from which flagged rows will be removed.
+    flag : `~pandas.DataFrame`
+        The flag dataframe.  Should be the result of e.g. `~util.Flag.final`
+
+    Returns
+    -------
+        A data frame which is the input data frame with flagged rows removed.
+    """
+    if len(flag) > 0:
+        # in the final flagging selection any rows that have CHAN=ALL_CHANNELS
+        # indicate that the entire row is flagged
+        ff = flag[flag["CHAN"].isin([ALL_CHANNELS])]
+        flagged_rows = set(ff["ROW"])
+        if len(flagged_rows) > 0:
+            userows = list(set(df["ROW"]) - flagged_rows)
+            if len(userows) > 0:
+                return df[df["ROW"].isin(userows)]
+            else:
+                return df.iloc[0:0]  # all rows removed
+    return df
 
 
 def indices_where_value_changes(colname, df):
@@ -76,8 +106,9 @@ def gbt_timestamp_to_time(timestamp):
 
     Parameters
     ----------
-    timestamp : str
-        The GBT format timestamp as described above.
+    timestamp : str or list-like
+        The GBT format timestamp as described above. If str, a Time object containing a single time is returned.
+        If list-like, a Time object containing  multiple UTC times is returned.
 
     Returns
     -------
@@ -85,11 +116,60 @@ def gbt_timestamp_to_time(timestamp):
         The time object
     """
     # convert to ISO FITS format  YYYY-MM-DDTHH:MM:SS(.SSS)
-    t = timestamp.replace("_", "-", 2).replace("_", "T")
+    if isinstance(timestamp, str):
+        t = timestamp.replace("_", "-", 2).replace("_", "T")
+    else:
+        t = [ts.replace("_", "-", 2).replace("_", "T") for ts in timestamp]
     return Time(t, scale="utc")
 
 
-def generate_tag(values, hashlen):
+def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
+    """Convert an astropy Time, list of MJD, or single MJD to a list of MJD
+
+    Parameters
+    ----------
+    time_val : `~astropy.time.Time` or float or list of float
+        The time value to convert.
+
+    Returns
+    -------
+    mjd : ~np.ndarray
+        The Modified Julian Day values in an array. (or None if `time_val` was None)
+
+    """
+    if time_val is None:
+        return None
+    # check for Time first since it is also a Sequence
+    if isinstance(time_val, Time):
+        if time_val.isscalar:
+            return np.array([time_val.mjd])
+        else:
+            return time_val.mjd
+    if isinstance(time_val, (Sequence, np.ndarray)) and not isinstance(time_val, str):  # str is also a Sequence
+        return time_val
+    if isinstance(time_val, numbers.Number):
+        return np.array([time_val])
+
+    else:
+        raise ValueError(f"Unrecognized type for time value: {type(time_val)}")
+
+
+def to_quantity_list(q: Union[Quantity, Sequence]) -> Quantity:
+    # if given quanity or [quanity], return [quanity.value]*quantity.units
+    # handle quantities first
+    if isinstance(q, Quantity):
+        if q.isscalar:
+            return [q.value] * q.unit
+        else:
+            return q
+    # now handle lists of quantities
+    if isinstance(q, Sequence):
+        if len(set([x.unit for x in q])) != 1:
+            raise ValueError("Units must all be the same in input list")
+        return [x.value for x in q] * q[0].unit
+
+
+def generate_tag(values, hashlen, add_time=True):
     """
     Generate a unique tag based on input values.  A hash object is
     created from the input values using SHA256, and a hex representation is created.
@@ -101,6 +181,8 @@ def generate_tag(values, hashlen):
         The values to use in creating the hash object
     hashlen : int, optional
         The length of the returned hash string.
+    add_time: bool
+        Add the time of the call to the values for hash generation.
 
     Returns
     -------
@@ -108,6 +190,8 @@ def generate_tag(values, hashlen):
         The hash string
 
     """
+    if add_time:
+        values.append(Time.now().value)
     data = "".join(map(str, values))
     hash_object = hashlib.sha256(data.encode())
     unique_id = hash_object.hexdigest()
@@ -177,6 +261,19 @@ def get_project_testdata() -> Path:
     Returns the project testdata directory
     """
     return get_project_root() / "testdata"
+
+
+def get_project_configuration() -> Path:
+    """
+    Returns the directory where dysh configuration files are kept.
+
+    Returns
+    -------
+    Path
+        The project configuration directory.
+
+    """
+    return get_project_root() / "conf"
 
 
 def get_size(obj, seen=None):
@@ -286,49 +383,6 @@ def powerof2(number):
     return round(np.log10(number) / np.log10(2.0))
 
 
-# From astropy.io.fits.Card:
-# FSC commentary card string which must contain printable ASCII characters.
-# Note: \Z matches the end of the string without allowing newlines
-_ascii_text_re = re.compile(r"[ -~]*\Z")
-
-
-def _ensure_ascii_str(text: str, check: bool = False) -> str:
-    """does the actual cleaning of a text string"""
-    clean_text = text.encode("ascii", "ignore").decode("ascii")
-    clean_text = clean_text.replace("\n", " ")
-    if check and _ascii_text_re.match(clean_text) is None:
-        raise ValueError(f"Unable to fully clean string:{clean_text!r} of non-ASCII or non-printable characters.")
-
-    return clean_text
-
-
-def ensure_ascii(text: Union[str, list[str]], check: bool = False) -> Union[str, list[str]]:
-    """
-    Remove non-printable ASCII characters from a string or list of strings. This is to ensure that
-    FITS cards conform to the standard
-
-    Parameters
-    ----------
-    text : str
-        The text to clean
-
-    check: bool
-        Check if the clean value is truly clean according to astropy FITS, raise ValueError if not
-    Returns
-    -------
-    str or list[str]
-        The cleaned text
-
-    """
-    if isinstance(text, str):
-        return _ensure_ascii_str(text)
-    else:
-        clean_text = []
-        for c in text:
-            clean_text.append(_ensure_ascii_str(c))
-        return clean_text
-
-
 def convert_array_to_mask(a, length, value=True):
     """
     This method interprets a simple or compound array and returns a numpy mask
@@ -375,3 +429,34 @@ def convert_array_to_mask(a, length, value=True):
         else:
             mask[v] = value
     return mask
+
+
+def abbreviate_to(length, value, squeeze=True):
+    """
+    Abbreviate a value for display in limited space. The abbreviated
+    value will have initial characters, ellipsis, and final characters, e.g.
+    '[(a,b),(c,d)...(w,x),(y,z)]'.
+
+    Parameters
+    ----------
+    length : int
+        Maximum string length.
+    value : any
+        The value to be abbreviated.
+    squeeze : bool, optional
+        Squeeze blanks. If True, replace ", " (comma space) with "," (comma). The default is True.
+
+    Returns
+    -------
+    strv : str
+        Abbreviated string representation of the input value
+
+    """
+    strv = str(value)
+    if squeeze:
+        strv = strv.replace(", ", ",")
+    if len(strv) > length:
+        bc = int(length / 2) - 1
+        ec = bc - 1
+        strv = strv[0:bc] + "..." + strv[-ec:]
+    return strv

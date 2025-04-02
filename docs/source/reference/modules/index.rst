@@ -69,6 +69,19 @@ Modules and APIs
 
             Go to dysh.util
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **log**
+
+        .. button-link:: dysh.log.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Go to dysh.log
+
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -78,3 +91,4 @@ Modules and APIs
    dysh.plot
    dysh.coordinates
    dysh.util
+   dysh.log

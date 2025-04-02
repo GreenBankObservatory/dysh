@@ -2,14 +2,17 @@
 Plot a spectrum using matplotlib
 """
 
+import datetime as dt
 from copy import deepcopy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
 from astropy.utils.masked import Masked
 
-from ..coordinates import frame_to_label
+from ..coordinates import Observatory, crval4_to_pol, decode_veldef, frame_to_label
 
 _KMS = u.km / u.s
 
@@ -105,37 +108,53 @@ class SpectrumPlot:
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self, **kwargs):
+    def plot(self, show_header=True, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
 
         Parameters
         ----------
+        show_header : bool
+            Show informational header in the style of GBTIDL, default: True.
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
+        plt.ion()
+        plt.rcParams["font.family"] = "monospace"
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:
-
         self._set_xaxis_info()
         # plot arguments for this call of plot(). i.e. non-sticky plot attributes
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
         if True:  # @todo deal with plot reuse (notebook vs script)
-            self._figure, self._axis = self._plt.subplots(figsize=this_plot_kwargs["figsize"])
+            self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
         # else:
         #    self._axis.cla()
 
+        # TODO: procedurally generate subplot params based on show header/buttons args.
+        # ideally place left/right params right here, then top gets determined below.
+
         s = self._spectrum
+        if show_header:
+            self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
+            self._set_header(s)
+
         sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
         xunit = this_plot_kwargs["xaxis_unit"]
         yunit = this_plot_kwargs["yaxis_unit"]
-        if "vel_frame" not in this_plot_kwargs:
-            this_plot_kwargs["vel_frame"] = s.velocity_frame
         if xunit is None:
             xunit = str(sa.unit)
+        if "vel_frame" not in this_plot_kwargs:
+            if u.Unit(xunit).is_equivalent("km/s") and "VELDEF" in s.meta:
+                # If the user specified velocity units, default to
+                # the velframe the data were taken in.  This we can
+                # get from VELDEF keyword.  See issue #303
+                this_plot_kwargs["vel_frame"] = decode_veldef(s.meta["VELDEF"])[1].lower()
+            else:
+                this_plot_kwargs["vel_frame"] = s.velocity_frame
         if "chan" in str(xunit).lower():
             sa = np.arange(len(sa))
             this_plot_kwargs["xlabel"] = "Channel"
@@ -257,6 +276,119 @@ class SpectrumPlot:
         elif self.spectrum.unit.is_equivalent(u.Jy):
             snu = r"$S_{\nu}$"
             self.axis.set_ylabel(f"{snu} ({yunit})")
+
+    def _set_header(self, s):
+        fsize_small = 9
+        fsize_large = 14
+        xyc = "figure fraction"
+
+        hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
+        vcoords = np.array([0.84, 0.8, 0.76])
+
+        def time_formatter(time_sec):
+            hh = int(time_sec // 3600)
+            mm = int((time_sec - 3600 * hh) // 60)
+            ss = np.around((time_sec - 3600 * hh - 60 * mm), 1)
+            return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
+
+        def coord_formatter(s):
+            sc = SkyCoord(
+                s.meta["CRVAL2"],
+                s.meta["CRVAL3"],
+                unit="deg",
+                frame=s.meta["RADESYS"].lower(),
+                obstime=Time(s.meta["DATE-OBS"]),
+                location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
+            )
+            out_str = sc.transform_to("fk5").to_string("hmsdms", sep=" ", precision=2)[:-1]
+            out_ra = out_str[:11]
+            out_dec = out_str[12:]
+            return out_ra, out_dec
+
+        def ra2ha(lst, ra):
+            """
+            Take LST (sec) and RA (deg) and output wrapped HA (hr).
+            Follows GBTIDL implementation (with the hour conversion included)
+            """
+            ha = np.around(15 * (lst / 3600) - ra, 2)
+            if ha > 180:
+                ha -= 360
+            elif ha < -180:
+                ha += 360
+            return np.around(ha / 15, 2)
+
+        # col 1
+        self._axis.annotate(f"Scan     {s.meta['SCAN']}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{s.meta['DATE-OBS'][:10]}", (hcoords[0], vcoords[1]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
+
+        # col 2
+        velo = s.meta["VELOCITY"] * 1e-3  # * u.km / u.s # GBTIDL doesn't say km/s so neither will I (saves space)
+        self._axis.annotate(
+            f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(
+            f"Int : {time_formatter(s.meta['DURATION'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(
+            f"LST : {time_formatter(s.meta['LST'])}", (hcoords[1], vcoords[2]), xycoords=xyc, size=fsize_small
+        )
+
+        # col 3
+        # TODO: need to understand frequencies to assign correct title
+        # instead of just forcing to GHz with 5 decimal points
+        f0 = np.around(s.meta["RESTFREQ"] * 1e-9, 5) * u.GHz
+        self._axis.annotate(f"F0   :  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
+        fsky = np.around(s.meta["OBSFREQ"] * 1e-9, 5) * u.GHz  # or CRVAL1?
+        self._axis.annotate(f"Fsky :  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)
+        bw = np.around(s.meta["BANDWID"] * 1e-6, 4) * u.MHz
+        self._axis.annotate(f"BW   :  {bw}", (hcoords[2], vcoords[2]), xycoords=xyc, size=fsize_small)
+
+        # col 4
+        self._axis.annotate(
+            f"Pol  :   {crval4_to_pol[s.meta['CRVAL4']]}", (hcoords[3], vcoords[0]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(f"IF   :    {s.meta['IFNUM']}", (hcoords[3], vcoords[1]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{s.meta['PROJID']}", (hcoords[3], vcoords[2]), xycoords=xyc, size=fsize_small)
+
+        # col 5
+        self._axis.annotate(
+            f"Tsys   :  {np.around(s.meta['MEANTSYS'],2)}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(
+            f"Tcal   :  {np.around(s.meta['TCAL'],2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
+
+        # bottom row
+        ra, dec = coord_formatter(s)
+        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(
+            f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
+        )
+        az = np.around(s.meta["AZIMUTH"], 1)
+        el = np.around(s.meta["ELEVATIO"], 1)
+        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
+        self._axis.annotate(
+            f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+        )
+
+        # bottom row
+        ra, dec = coord_formatter(s)
+        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(
+            f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
+        )
+        az = np.around(s.meta["AZIMUTH"], 1)
+        el = np.around(s.meta["ELEVATIO"], 1)
+        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
+        self._axis.annotate(
+            f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+        )
+
+        # last corner
+        ts = str(dt.datetime.now())[:19]
+        self._axis.annotate(f"{ts}", (0.85, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right")
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
