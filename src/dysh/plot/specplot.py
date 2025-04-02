@@ -7,6 +7,7 @@ from copy import deepcopy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
@@ -133,6 +134,7 @@ class SpectrumPlot:
         # else:
         #    self._axis.cla()
 
+
         # TODO: procedurally generate subplot params based on show header/buttons args.
         # ideally place left/right params right here, then top gets determined below.
 
@@ -140,6 +142,13 @@ class SpectrumPlot:
         if show_header:
             self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
             self._set_header(s)
+
+
+            #callback = Index()
+            axtest = self._figure.add_axes([0.1, 0.9, 0.1, 0.075])
+            self._btest = Button(axtest, 'Test')
+            self._btest.on_clicked(self.next)
+        
 
         sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
@@ -419,3 +428,17 @@ class SpectrumPlot:
 
         """
         self.figure.savefig(file, *kwargs)
+
+
+    def next(self, event):
+        "test button. puts a funny note on the plot when pressed."
+        fsize_small = 9
+        fsize_large = 14
+        xyc = "figure fraction"
+        print(event)
+        print('test')
+        self._axis.annotate("oh hi there", (0.5, 0.5), xycoords=xyc, size=fsize_small)
+        self.refresh()
+
+
+
