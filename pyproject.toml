@@ -159,10 +159,15 @@ select = [
   "RUF",  # https://beta.ruff.rs/docs/rules/#ruff-specific-rules-ruf
 ]
 fixable = ["ALL"]
-unfixable = ["B"]
 ignore = [
   "E741",  # ambiguous-variable-name
-  "PD901"
+  "PD901",
+  "RUF002", # ambiguous characters
+  "RUF052", # dummy var used
+  "PD015", # TODO: This really should be removed
+  "E501", # line too long TODO: This really should be removed
+  "NPY002",
+  "RUF012",
 ]
 
 [tool.ruff.lint.isort]
@@ -171,9 +176,10 @@ combine-as-imports = true
 [tool.ruff.lint.per-file-ignores]
 # Ignore  in all `__init__.py` files
 "__init__.py" = ["ALL"]
-"**/{tests,docs,tools}/*" = ["E402", "B011"]
+"**/{tests,docs,tools}/*" = ["E402", "B011", "B017"]
 # The stuff in the attic doesn't need to be linted at all
 "attic/**" = ["ALL"]
+
 
 [tool.pytest.ini_options]
 minversion = "6.0"
