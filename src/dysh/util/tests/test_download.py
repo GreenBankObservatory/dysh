@@ -5,7 +5,6 @@ from dysh.util.download import from_url
 
 
 class TestDownload:
-
     def setup_method(self):
         self.url = "https://github.com/GreenBankObservatory/dysh/raw/main/testdata/AGBT05B_047_01/gbtidl/AGBT05B_047_01.getps.acs.fits"
 
