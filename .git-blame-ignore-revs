@@ -1,0 +1,4 @@
+# $ ruff format
+fb7844c080a2a0a340835ce6b021f71f474d108e
+# $ ruff check --fix
+aea0f275b0d2909e1a5ec1c06997c9a8cfef0bbc
