@@ -22,7 +22,6 @@ from specutils.fitting import fit_continuum
 from specutils.fitting.fitmodels import _strip_units_from_model
 from specutils.utils import QuantityModel
 
-from ..coordinates import veltofreq
 from ..log import logger
 from ..util import minimum_string_match, powerof2
 

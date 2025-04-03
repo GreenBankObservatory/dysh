@@ -4,10 +4,8 @@ Core functions/classes for spatial and velocity coordinates and reference frames
 
 import warnings
 
-import astropy.constants as const
 import astropy.coordinates as coord
 import astropy.units as u
-import numpy as np
 from astropy.coordinates.spectral_coordinate import (
     DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
 )

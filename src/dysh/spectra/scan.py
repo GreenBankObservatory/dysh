@@ -18,7 +18,6 @@ from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
-from ..util import uniq
 from ..util.gaincorrection import GBTGainCorrection
 from .core import (  # fft_shift,; average,
     find_non_blanks,
