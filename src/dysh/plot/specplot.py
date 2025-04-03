@@ -7,7 +7,7 @@ from copy import deepcopy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, SpanSelector
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
@@ -109,7 +109,7 @@ class SpectrumPlot:
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self, show_header=True, **kwargs):
+    def plot(self, show_header=True, select=True, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
@@ -133,6 +133,10 @@ class SpectrumPlot:
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
         # else:
         #    self._axis.cla()
+        def apply_region_selection(x,y):#or list of start/stop values?
+            """Apply region selected using Selection"""
+            #sdf.Select(blah blah blah)
+            print(x,y)
 
 
         # TODO: procedurally generate subplot params based on show header/buttons args.
@@ -148,7 +152,25 @@ class SpectrumPlot:
             axtest = self._figure.add_axes([0.1, 0.9, 0.1, 0.075])
             self._btest = Button(axtest, 'Test')
             self._btest.on_clicked(self.next)
-        
+
+        if select:
+            span1 = SpanSelector(
+                self._axis,
+                apply_region_selection,
+                'horizontal',
+                useblit=True,
+                props=dict(alpha=0.5,facecolor='tab:blue'),
+                interactive=True,
+                drag_from_anywhere=True,
+                button = 1,
+                ignore_event_outside = True,
+            )
+            #print('where are you spanselector?')
+            #setregion
+            #ax_setr = self._figure.add_axes([0.25, 0.9, 0.1, 0.075])
+            #self._b_setr = Button(ax_setr, 'Setregion')
+            #self._b_setr.on_clicked(self.setregion)
+            #self.setregion()
 
         sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
@@ -181,7 +203,10 @@ class SpectrumPlot:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
         self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
-        self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
+        if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
+            self._axis.set_xlim(sa[0].value, sa[-1].value)      
+        else:
+            self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
         if this_plot_kwargs["grid"]:
@@ -427,6 +452,8 @@ class SpectrumPlot:
             Other arguments to pass to `~matplotlib.pyplot.savefig`
 
         """
+        #TODO: add clause about cutting off the top of the figure where the interactive buttons are
+        #bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
         self.figure.savefig(file, *kwargs)
 
 
@@ -439,6 +466,35 @@ class SpectrumPlot:
         print('test')
         self._axis.annotate("oh hi there", (0.5, 0.5), xycoords=xyc, size=fsize_small)
         self.refresh()
+
+
+
+
+    def setregion(self):
+        """Set region callback function"""
+        print("hi span selector")
+
+        def apply_region_selection(x,y):#or list of start/stop values?
+            """Apply region selected using Selection"""
+            #sdf.Select(blah blah blah)
+            print(x,y)
+
+
+        span1 = SpanSelector(
+            self._axis,
+            apply_region_selection,
+            'horizontal',
+            useblit=True,
+            props=dict(alpha=0.5,facecolor='tab:blue'),
+            interactive=True,
+            drag_from_anywhere=True,
+            button = 1,
+            ignore_event_outside = True,
+        )
+        #plt.show()
+        #self.refresh()
+        print("bye span selector")
+
 
 
 
