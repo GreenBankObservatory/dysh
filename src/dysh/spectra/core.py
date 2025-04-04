@@ -177,7 +177,7 @@ def sort_spectral_region(spectral_region):
     unit = spectral_region.lower.unit
     bound_list = np.sort([srb.value for sr in spectral_region.subregions for srb in sr]) * unit
     it = iter(bound_list)
-    sorted_spectral_region = SpectralRegion(list(zip(it, it)))
+    sorted_spectral_region = SpectralRegion(list(zip(it, it, strict=False)))
 
     return sorted_spectral_region
 
@@ -295,7 +295,7 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
             # took a list argument, we wouldn't have to do this.
             if type(exclude[0]) is not tuple:
                 it = iter(exclude)
-                exclude = list(zip(it, it))
+                exclude = list(zip(it, it, strict=False))
             try:
                 sr = SpectralRegion(exclude)
                 # The above will error if the elements are not quantities.
@@ -344,7 +344,7 @@ def spectral_region_to_unit(spectral_region, refspec, unit=None):
     lb = qt["lower_bound"].to(unit, equivalencies=refspec.equivalencies)
     ub = qt["upper_bound"].to(unit, equivalencies=refspec.equivalencies)
 
-    return SpectralRegion(list(zip(lb, ub)))
+    return SpectralRegion(list(zip(lb, ub, strict=False)))
 
 
 def spectral_region_to_list(spectral_region):

@@ -1197,7 +1197,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             rows = {}
             # loop over scan pairs
             c = 0
-            for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+            for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
                 _ondf = select_from("SCAN", on, _df)
                 _offdf = select_from("SCAN", off, _df)
                 # rows["ON"] = list(_ondf.index)
@@ -1376,7 +1376,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = {}
                 # Loop over scan pairs.
                 c = 0
-                for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+                for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
                     rows["ON"] = list(_ondf["ROW"])
@@ -1745,7 +1745,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 Try using method='scan'."""
                         raise ValueError(e)
                     # Loop over cycles, calibrating each independently.
-                    groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
+                    groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups, strict=False)
 
                     for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):
                         # Do it the dysh way.
