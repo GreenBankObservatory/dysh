@@ -22,7 +22,6 @@ from specutils.fitting import fit_continuum
 from specutils.fitting.fitmodels import _strip_units_from_model
 from specutils.utils import QuantityModel
 
-from ..coordinates import veltofreq
 from ..log import logger
 from ..util import minimum_string_match, powerof2
 
@@ -178,7 +177,7 @@ def sort_spectral_region(spectral_region):
     unit = spectral_region.lower.unit
     bound_list = np.sort([srb.value for sr in spectral_region.subregions for srb in sr]) * unit
     it = iter(bound_list)
-    sorted_spectral_region = SpectralRegion(list(zip(it, it)))
+    sorted_spectral_region = SpectralRegion(list(zip(it, it, strict=False)))
 
     return sorted_spectral_region
 
@@ -296,7 +295,7 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
             # took a list argument, we wouldn't have to do this.
             if type(exclude[0]) is not tuple:
                 it = iter(exclude)
-                exclude = list(zip(it, it))
+                exclude = list(zip(it, it, strict=False))
             try:
                 sr = SpectralRegion(exclude)
                 # The above will error if the elements are not quantities.
@@ -345,7 +344,7 @@ def spectral_region_to_unit(spectral_region, refspec, unit=None):
     lb = qt["lower_bound"].to(unit, equivalencies=refspec.equivalencies)
     ub = qt["upper_bound"].to(unit, equivalencies=refspec.equivalencies)
 
-    return SpectralRegion(list(zip(lb, ub)))
+    return SpectralRegion(list(zip(lb, ub, strict=False)))
 
 
 def spectral_region_to_list(spectral_region):
@@ -516,7 +515,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     }
     model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
     if model == None:
-        raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {list(available_models.keys())}')
+        raise ValueError(f"Unrecognized input model {kwargs['model']}. Must be one of {list(available_models.keys())}")
     sa_min = spectrum.spectral_axis.min().value
     sa_max = spectrum.spectral_axis.max().value
     selected_model = available_models[model](degree=order, domain=(sa_max, sa_min))
@@ -524,7 +523,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     _valid_exclude_actions = ["replace", "append", None]
     if kwargs_opts["exclude_action"] not in _valid_exclude_actions:
         raise ValueError(
-            f'Unrecognized exclude region action {kwargs["exclude_region"]}. Must be one of {_valid_exclude_actions}'
+            f"Unrecognized exclude region action {kwargs['exclude_region']}. Must be one of {_valid_exclude_actions}"
         )
     fitter = kwargs_opts["fitter"]
     # print(f"MODEL {model} FITTER {fitter}")

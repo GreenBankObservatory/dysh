@@ -6,7 +6,6 @@ import dysh.config as dc
 
 
 class TestConfig:
-
     def test_get_config_dir_path(self):
         path = dc.get_config_dir_path(rootname="dysh-test")
         assert path.exists()

@@ -1065,7 +1065,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                 if len(calrows["ON"]) != len(calrows["OFF"]):
                     if len(calrows["ON"]) > 0:
-                        raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                        raise Exception(f"unbalanced calrows {len(calrows['ON'])} != {len(calrows['OFF'])}")
                     # else: print("Warning: hacking gettp with no calrows")
                 # sig and cal are treated specially since
                 # they are not in kwargs and in SDFITS header
@@ -1197,7 +1197,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             rows = {}
             # loop over scan pairs
             c = 0
-            for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+            for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
                 _ondf = select_from("SCAN", on, _df)
                 _offdf = select_from("SCAN", off, _df)
                 # rows["ON"] = list(_ondf.index)
@@ -1376,7 +1376,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = {}
                 # Loop over scan pairs.
                 c = 0
-                for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+                for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
                     rows["ON"] = list(_ondf["ROW"])
@@ -1745,7 +1745,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 Try using method='scan'."""
                         raise ValueError(e)
                     # Loop over cycles, calibrating each independently.
-                    groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
+                    groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups, strict=False)
 
                     for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):
                         # Do it the dysh way.
@@ -1948,7 +1948,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             s["ON"] = sorted(set(sons))
             s["OFF"] = sorted(set(soffs))
             if len(s["ON"]) != len(s["OFF"]):
-                raise Exception(f'ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"])}')
+                raise Exception(f"ON and OFF scan list lengths differ {len(s['ON'])} != {len(s['OFF'])}")
         return s
 
     def write(
@@ -2097,7 +2097,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
         warning_msg = (
-            lambda scans, a, coord, limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            lambda scans,
+            a,
+            coord,
+            limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.

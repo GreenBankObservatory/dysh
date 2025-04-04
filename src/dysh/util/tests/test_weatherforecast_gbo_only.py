@@ -4,7 +4,6 @@
 import astropy.units as u
 import numpy as np
 import pytest
-from astropy.time import Time
 
 from dysh.spectra import Spectrum
 from dysh.util.gaincorrection import GBTGainCorrection

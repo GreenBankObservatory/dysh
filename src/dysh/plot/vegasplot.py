@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.ma as ma
 
 
 def plot_vegas(sdf, scans, title=None, tsys=False, inverse=False, edge=50, ylim=None):

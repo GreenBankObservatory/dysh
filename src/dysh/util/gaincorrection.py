@@ -505,7 +505,7 @@ class GBTGainCorrection(BaseGainCorrection):
             except Exception as e:
                 self._forecast = None
                 raise Exception(
-                    f"Could not create GBTWeatherForecast object because {str(e)} . Are you on the GBO network?"
+                    f"Could not create GBTWeatherForecast object because {e!s} . Are you on the GBO network?"
                 )
         if mjd is None:
             mjd = Time.now()
