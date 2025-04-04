@@ -7,11 +7,11 @@ from copy import deepcopy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, SpanSelector
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astropy.utils.masked import Masked
+from matplotlib.widgets import Button, SpanSelector
 
 from ..coordinates import Observatory, crval4_to_pol, decode_veldef, frame_to_label
 
@@ -154,23 +154,7 @@ class SpectrumPlot:
             self._btest.on_clicked(self.next)
 
         if select:
-            span1 = SpanSelector(
-                self._axis,
-                apply_region_selection,
-                'horizontal',
-                useblit=True,
-                props=dict(alpha=0.5,facecolor='tab:blue'),
-                interactive=True,
-                drag_from_anywhere=True,
-                button = 1,
-                ignore_event_outside = True,
-            )
-            #print('where are you spanselector?')
-            #setregion
-            #ax_setr = self._figure.add_axes([0.25, 0.9, 0.1, 0.075])
-            #self._b_setr = Button(ax_setr, 'Setregion')
-            #self._b_setr.on_clicked(self.setregion)
-            #self.setregion()
+            self.setregion()
 
         sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
@@ -192,7 +176,8 @@ class SpectrumPlot:
         else:
             # convert the x axis to the requested
             # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
-            # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
+            # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"],
+            #   equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
             sa = s.velocity_axis_to(
                 unit=xunit,
                 toframe=this_plot_kwargs["vel_frame"],
@@ -204,7 +189,7 @@ class SpectrumPlot:
         sf = Masked(sf, s.mask)
         self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
-            self._axis.set_xlim(sa[0].value, sa[-1].value)      
+            self._axis.set_xlim(sa[0].value, sa[-1].value)
         else:
             self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
@@ -460,7 +445,6 @@ class SpectrumPlot:
     def next(self, event):
         "test button. puts a funny note on the plot when pressed."
         fsize_small = 9
-        fsize_large = 14
         xyc = "figure fraction"
         print(event)
         print('test')
@@ -474,24 +458,86 @@ class SpectrumPlot:
         """Set region callback function"""
         print("hi span selector")
 
-        def apply_region_selection(x,y):#or list of start/stop values?
-            """Apply region selected using Selection"""
-            #sdf.Select(blah blah blah)
-            print(x,y)
+        class RegionSelector:
+            def __init__(self,ax):
+                self.ax = ax
+                self.spans = [] # store drawn spans
+                self.selected_span = None
+                # dont know if I need the next two yet (SpanSelector should handle these uses)
+                self.dragging = False # flag for dragging
+                self.resize_mode = None #track if resizing
+                self.selection = []
+                print("Instructions:")
+
+                self.spanselector = SpanSelector(
+                    self.ax,
+                    self.on_select,
+                    'horizontal',
+                    useblit=True,
+                    props=dict(alpha=0.5,facecolor='tab:blue'),
+                    interactive=True,
+                    drag_from_anywhere=True,
+                    button = 1,
+                    ignore_event_outside = True,
+                )
+                # dont know if I need all these yet (SpanSelector should handle these uses)
+                self.cid_key = plt.gcf().canvas.mpl_connect("key_press_event",self.on_key_press)
+                self.cid_click = plt.gcf().canvas.mpl_connected("button_press_event",self.on_click)
+                self.cid_motion = plt.gcf().canvas.mpl_connect("motion_notify_event", self.on_motion)
+                self.cid_release = plt.gcf().canvas.mpl_connect("button_release_event", self.on_release)
 
 
-        span1 = SpanSelector(
-            self._axis,
-            apply_region_selection,
-            'horizontal',
-            useblit=True,
-            props=dict(alpha=0.5,facecolor='tab:blue'),
-            interactive=True,
-            drag_from_anywhere=True,
-            button = 1,
-            ignore_event_outside = True,
-        )
-        #plt.show()
+            def on_select(self,eclick,erelease):
+                #draw a rectangle based on mouse hold and release x,y's
+                # don't know if I need this, SpanSelector should handle
+                print('on_select')
+                span = 
+                self.spans.append(span)
+                pass
+
+            def on_click(self,event):
+                self.selected_span = None
+                for span in self.spans:
+                    contains, _ = span.contains(event)
+                    if contains:
+                        self.selected_span = span
+                        self.dragging = True
+                        #self.resize_mode = self.get_resize_mode(event,span)
+                        self.start_x, start_y = event.xdata, event.ydata
+                        self.selector.set_active(False)
+                self._axis.draw()
+
+            def on_motion(self,event):
+                print('on motion')
+                pass
+
+            def on_release(self,event):
+                self.dragging = False
+                self.resize_mode = None
+                self.selector.set_active(True)
+
+
+            def on_key_press(self,event):
+                #press 'e' to fill in current selections
+                if event.key == 'e':
+                    self.selection = []
+                    for span in self.spans:
+                        start,end = span.extents()
+                        print(start,end)
+                        self.selection.append([start,end])
+
+            def get_selection():
+                return self.selection
+
+
+
+            def apply_region_selection(x,y):#or list of start/stop values?
+                """Apply region selected using Selection"""
+                #sdf.Select(blah blah blah)
+                print(x,y)
+
+        span_selection = RegionSelector(self._axis)
+
         #self.refresh()
         print("bye span selector")
 
