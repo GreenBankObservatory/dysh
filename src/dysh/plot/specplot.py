@@ -12,6 +12,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astropy.utils.masked import Masked
 from matplotlib.widgets import Button, SpanSelector
+from matplotlib.patches import Rectangle
 
 from ..coordinates import Observatory, crval4_to_pol, decode_veldef, frame_to_label
 
@@ -487,11 +488,11 @@ class SpectrumPlot:
                 self.cid_release = plt.gcf().canvas.mpl_connect("button_release_event", self.on_release)
 
 
-            def on_select(self,eclick,erelease):
+            def on_select(self,x0,x1):
                 #draw a rectangle based on mouse hold and release x,y's
                 # don't know if I need this, SpanSelector should handle
                 print('on_select')
-                span = 
+                span = Rectangle()
                 self.spans.append(span)
                 pass
 
