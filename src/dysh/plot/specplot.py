@@ -457,90 +457,54 @@ class SpectrumPlot:
 
     def setregion(self):
         """Set region callback function"""
-        print("hi span selector")
 
         class RegionSelector:
             def __init__(self,ax):
                 self.ax = ax
                 self.spans = [] # store drawn spans
-                self.selected_span = None
-                # dont know if I need the next two yet (SpanSelector should handle these uses)
-                self.dragging = False # flag for dragging
-                self.resize_mode = None #track if resizing
-                self.selection = []
+                self.selection = [] #store span extents
                 print("Instructions:")
+                print('Press "a" to add a selection region')
+                print('Press "e" to end selection and print a Selection rule')
 
-                self.spanselector = SpanSelector(
-                    self.ax,
-                    self.on_select,
-                    'horizontal',
-                    useblit=True,
-                    props=dict(alpha=0.5,facecolor='tab:blue'),
-                    interactive=True,
-                    drag_from_anywhere=True,
-                    button = 1,
-                    ignore_event_outside = True,
-                )
-                # dont know if I need all these yet (SpanSelector should handle these uses)
                 self.cid_key = plt.gcf().canvas.mpl_connect("key_press_event",self.on_key_press)
-                self.cid_click = plt.gcf().canvas.mpl_connected("button_press_event",self.on_click)
-                self.cid_motion = plt.gcf().canvas.mpl_connect("motion_notify_event", self.on_motion)
-                self.cid_release = plt.gcf().canvas.mpl_connect("button_release_event", self.on_release)
 
-
-            def on_select(self,x0,x1):
-                #draw a rectangle based on mouse hold and release x,y's
-                # don't know if I need this, SpanSelector should handle
-                print('on_select')
-                span = Rectangle()
-                self.spans.append(span)
-                pass
-
-            def on_click(self,event):
-                self.selected_span = None
-                for span in self.spans:
-                    contains, _ = span.contains(event)
-                    if contains:
-                        self.selected_span = span
-                        self.dragging = True
-                        #self.resize_mode = self.get_resize_mode(event,span)
-                        self.start_x, start_y = event.xdata, event.ydata
-                        self.selector.set_active(False)
-                self._axis.draw()
-
-            def on_motion(self,event):
-                print('on motion')
-                pass
-
-            def on_release(self,event):
-                self.dragging = False
-                self.resize_mode = None
-                self.selector.set_active(True)
-
+            def on_select(self,xmin,xmax):
+                print(f'{xmin:.2f} | {xmax:.2f}')
 
             def on_key_press(self,event):
-                #press 'e' to fill in current selections
+                if event.key == 'a':
+                    print('a')
+                    self.spans.append(SpanSelector(
+                        self.ax,
+                        self.on_select,
+                        'horizontal',
+                        useblit=True,
+                        props=dict(alpha=0.5,facecolor='tab:gray'),
+                        interactive=True,
+                        drag_from_anywhere=True,
+                        button = 1,
+                        ignore_event_outside = True,
+                        grab_range=1
+                    ))
                 if event.key == 'e':
-                    self.selection = []
                     for span in self.spans:
-                        start,end = span.extents()
-                        print(start,end)
-                        self.selection.append([start,end])
+                        x0,x1 = span.extents
+                        self.ax.axhline(0,x0,x1,c='k',linewidth=2)
+                        self.selection.append(span.extents)
+                        span.active = False
+                        self.ax.show()
+                    print(self.selection)
+                    self.spans = []
+                    self.selection = []
 
             def get_selection():
                 return self.selection
 
+        self.span_selection = RegionSelector(self._axis)
 
+        self.refresh()
 
-            def apply_region_selection(x,y):#or list of start/stop values?
-                """Apply region selected using Selection"""
-                #sdf.Select(blah blah blah)
-                print(x,y)
-
-        span_selection = RegionSelector(self._axis)
-
-        #self.refresh()
-        print("bye span selector")
 
 
 
