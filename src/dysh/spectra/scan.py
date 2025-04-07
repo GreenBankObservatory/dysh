@@ -5,6 +5,7 @@ The classes that define various types of Scan and their calibration methods.
 from abc import abstractmethod
 from collections import UserList
 from copy import deepcopy
+from typing import Union
 
 import astropy.units as u
 import numpy as np
@@ -1140,6 +1141,9 @@ class PSScan(ScanBase):
         If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+    refspec : int or `~spectra.spectrum.Spectrum`, optional
+        If given, the Spectrum will be used as the reference rather than using scan data.
+
     """
 
     def __init__(
@@ -1158,13 +1162,18 @@ class PSScan(ScanBase):
         observer_location=Observatory["GBT"],
         bunit="ta",
         zenith_opacity=0.0,
+        refspec=None,
     ):
         ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         # self._history = deepcopy(gbtfits._history)
         self._scan = scan["ON"]
+        self._sigscan = scan["ON"]
+        self._refscan = scan["OFF"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
+        self._refspec = refspec
+        self._sigspec = None
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -1177,19 +1186,28 @@ class PSScan(ScanBase):
             self._bintable_index = bintable
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
-        self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
-        self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
 
-        # Catch blank integrations.
-        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
-        self._refcalon = self._refcalon[goodrows]
-        self._refcaloff = self._refcaloff[goodrows]
-        self._refonrows = [self._refonrows[i] for i in goodrows]
-        self._refoffrows = [self._refoffrows[i] for i in goodrows]
+        if isinstance(self.refspec, Spectrum):
+            self._refoffrows = None
+            self._refoffrows = None
+            self._refcalon = None
+            self._refcaloff = None
+            # Catch blank integrations.
+            goodrows = find_nonblank_ints(self._sigcaloff, self._sigcalon)
+        else:
+            self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
+            self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+            # Catch blank integrations.
+            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+
         self._sigcalon = self._sigcalon[goodrows]
         self._sigcaloff = self._sigcaloff[goodrows]
         self._sigonrows = [self._sigonrows[i] for i in goodrows]
@@ -1200,19 +1218,44 @@ class PSScan(ScanBase):
 
         self._nchan = gbtfits.nchan(self._bintable_index)
         self._finish_initialization(calibrate, None, self._sigonrows, bunit, zenith_opacity)
-        if False:
-            self._tsys = None
-            self._exposure = None
-            self._calibrated = None
-            self._calibrate = calibrate
-            self._make_meta(self._sigonrows)
-            if self._calibrate:
-                self.calibrate()
-            if (
-                bunit.lower() != "ta"
-            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-                self.scale(bunit, zenith_opacity)
-            self._validate_defaults()
+
+    @property
+    def sigscan(self) -> int:
+        """The scan number associated with the signal"""
+        return self._sigscan
+
+    @property
+    def refscan(self) -> Union[int | None]:
+        """The scan number associated with the reference.
+
+        Returns
+        -------
+         int or None;
+             Integer scan number or None if the reference was a Spectrum object
+        """
+        return self._refscan
+
+    @property
+    def sigspec(self) -> Union[Spectrum | None]:
+        """The signal Spectrum if one was given at construction.
+
+        Returns
+        -------
+         Spectrum or None;
+             Spectrum object if given as signal or None.
+        """
+        return self._sigspec
+
+    @property
+    def refspec(self) -> Union[Spectrum | None]:
+        """The reference Spectrum if one was given at construction.
+
+        Returns
+        -------
+         Spectrum or None;
+             Spectrum object if given as reference or None.
+        """
+        return self._refspec
 
     def calibrate(self, **kwargs):
         """
@@ -1653,21 +1696,6 @@ class FSScan(ScanBase):
         self._finish_initialization(
             calibrate, {"fold": fold, "shift_method": shift_method}, self._sigonrows, bunit, zenith_opacity
         )
-        if False:
-            self._tsys = None
-            self._exposure = None
-            self._calibrated = None
-            self._calibrate = calibrate
-            self._make_meta(self._sigonrows)
-            if self._calibrate:
-                self.calibrate(fold=fold, shift_method=shift_method)
-            if (
-                bunit.lower() != "ta"
-            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-                self.scale(bunit, zenith_opacity)
-            self._validate_defaults()
-        if self._debug:
-            logger.debug("---------------------------------------------------")
 
     @property
     def folded(self):
@@ -1961,15 +1989,6 @@ class SubBeamNodScan(ScanBase):
         meta_rows = list(set(meta_rows))
 
         self._finish_initialization(calibrate, {"weights": w}, meta_rows, bunit, zenith_opacity)
-        if False:
-            self._calibrated = None
-            if calibrate:
-                self.calibrate(weights=w)
-            if (
-                bunit.lower() != "ta"
-            ):  # at instantiation we will (normally) already be in T_A so no need to scale to that.
-                self.scale(bunit, zenith_opacity)
-            self._validate_defaults()
 
     def calibrate(self, **kwargs):
         """Calibrate the SubBeamNodScan data"""
@@ -1991,6 +2010,7 @@ class SubBeamNodScan(ScanBase):
             self._delta_freq[i] = sig.meta["CDELT1"]
             self._calibrated[i] = ta
 
+    # @todo this should be deleted? The base class can handle it.
     def calibrated(self, i):
         meta = deepcopy(self._sigtp[i].timeaverage().meta)  # use self._sigtp.meta? instead?
         meta["TSYS"] = self._tsys[i]

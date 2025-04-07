@@ -1051,3 +1051,35 @@ class TestGBTFITSLoad:
             sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
         with pytest.raises(ValueError):
             sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)
+
+    def test_getsigref(self):
+        """test of various getsigref modes"""
+        # 1. Ensure that getsigref(sig=int,ref=int) returns the same as getps(sig=int [ref implied])
+        sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        # scan=152, ref=153
+        psscan = sdf.getps(
+            scan=152,
+            fdnum=0,
+            ifnum=0,
+            plnum=0,
+        )
+        sigref = sdf.getsigref(sig=152, ref=153, fdnum=0, ifnum=0, plnum=0)
+        assert np.all(psscan[0]._calibrated == sigref[0]._calibrated)
+        assert psscan[0].meta == sigref[0].meta
+        assert psscan[0].refscan == sigref[0].refscan
+        assert psscan[0].sigscan == sigref[0].sigscan
+        assert psscan[0].refscan == 153
+        assert psscan[0].sigscan == 152
+
+        # 2. Scan is a list, ref is an int
+        if False:
+            sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+            sigref = sdf.getsigref(sig=[51, 53], ref=52, fdnum=0, ifnum=0, plnum=0)
+            psscan = sdf.getps(scan=51, fdnum=0, ifnum=0, plnum=0)
+            assert np.all(psscan[0]._calibrated == sigref[0]._calibrated)
+            assert psscan[0].meta == sigref[0].meta
+            assert psscan[0].refscan == sigref[0].refscan
+            assert psscan[0].sigscan == sigref[0].sigscan
+            assert psscan[0].refscan == 52
+            assert psscan[0].sigscan == 51
