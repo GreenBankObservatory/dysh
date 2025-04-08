@@ -26,7 +26,9 @@ from dysh.util import get_project_testdata
 #%%  debugging
 
 import dysh
-dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
+#dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
+dysh.log.init_logging(0)
+
 
 #%%  classic getps
 
