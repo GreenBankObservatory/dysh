@@ -97,3 +97,62 @@ sdf
 
 
 sdf = GBTOnline('online.fits')
+
+
+#%%  issue 550
+
+sdf1 = GBTOffline("TRFI_122024_U1")
+print(sdf1.filename) # successfully returns file path
+/home/sdfits/TRFI_122024_U1/TRFI_122024_U1.raw.vegas
+
+sdf2 = GBTFITSLoad("/home/sdfits/TRFI_122024_U1/TRFI_122024_U1.raw.vegas")
+print(sdf2.filename) # fails to return file path
+AttributeError: 'GBTSDFITSLoad' object has no attribute '_filename'
+
+# however printing the object works in both cases
+print(sdf1)
+print(sdf2)
+
+#%% issue 550 my laptop
+from dysh.fits.gbtfitsload import GBTFITSLoad
+    
+f1='AGBT15B_287_33'
+sdf1 = GBTOffline(f1)    # ok
+print(sdf1.filename) 
+# /home/teuben/GBT/dysh_data/sdfits/AGBT15B_287_33/AGBT15B_287_33.raw.vegas
+
+sdf2 = GBTFITSLoad(sdf1.filename)
+print(sdf2.filename) 
+# AttributeError: 'GBTFITSLoad' object has no attribute '_filename'
+print(sdf2.filenames())
+
+sdf3 = GBTFITSLoad(dysh_data(f1))
+print(sdf3.filename)
+
+
+
+#%% issue 550 with only one file kin the top level
+
+f1 = 'test123'
+sdf1 = GBTOffline(f1)    # ok
+print(sdf1.filename) 
+
+sdf2 = GBTFITSLoad(sdf1.filename)
+print(sdf2.filename) 
+
+sdf3 = GBTFITSLoad('/home/teuben/GBT/dysh_data/sdfits/test123/online168.fits')
+print(sdf3.filename) 
+
+sdf4 = SDFITSLoad('/home/teuben/GBT/dysh_data/sdfits/test123/online168.fits')
+print(sdf4.filename)
+
+
+#%%  354
+
+
+file1 = dysh_data(test='TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits')
+sdf1 = SDFITSLoad(file1)
+print(sdf1)     # fails
+
+sdf2= GBTFITSLoad(file1)
+print(sdf2)      # work
