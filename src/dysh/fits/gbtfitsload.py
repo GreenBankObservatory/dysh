@@ -83,6 +83,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
             self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
+            if not hasattr(self, "_filename"):
+                self._filename = self._sdf[0].filename
         elif path.is_dir():
             logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
@@ -94,6 +96,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
             if len(self._sdf) == 0:  # fixes issue 381
                 raise Exception(f"No FITS files found in {fileobj}.")
+            if not hasattr(self, "_filename"):
+                self._filename = self._sdf[0].filename.parent
             self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}", add_time=True)
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
