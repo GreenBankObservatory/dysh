@@ -117,13 +117,11 @@ print(sdf2)
 from dysh.fits.gbtfitsload import GBTFITSLoad
     
 f1='AGBT15B_287_33'
-sdf1 = GBTOffline(f1)    # ok
+sdf1 = GBTOffline(f1)  
 print(sdf1.filename) 
-# /home/teuben/GBT/dysh_data/sdfits/AGBT15B_287_33/AGBT15B_287_33.raw.vegas
 
 sdf2 = GBTFITSLoad(sdf1.filename)
 print(sdf2.filename) 
-# AttributeError: 'GBTFITSLoad' object has no attribute '_filename'
 print(sdf2.filenames())
 
 sdf3 = GBTFITSLoad(dysh_data(f1))
@@ -131,7 +129,7 @@ print(sdf3.filename)
 
 
 
-#%% issue 550 with only one file kin the top level
+#%% issue 550 with only one file in the top level
 
 f1 = 'test123'
 sdf1 = GBTOffline(f1)    # ok
@@ -152,10 +150,10 @@ print(sdf4.filename)
 
 file1 = dysh_data(test='TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits')
 sdf1 = SDFITSLoad(file1)
-print(sdf1)     # fails
+print(sdf1)   
 
 sdf2= GBTFITSLoad(file1)
-print(sdf2)      # works
+print(sdf2)    
 
 #%%  20m data
 from dysh.fits import gb20mfitsload
