@@ -155,4 +155,14 @@ sdf1 = SDFITSLoad(file1)
 print(sdf1)     # fails
 
 sdf2= GBTFITSLoad(file1)
-print(sdf2)      # work
+print(sdf2)      # works
+
+#%%  20m data
+from dysh.fits import gb20mfitsload
+
+f1 = dysh_data(test="20m/Skynet_60476_DR21_118886_68343.cyb.fits")
+sdf1 = gb20mfitsload.GB20MFITSLoad(f1)
+
+sdf1.filename
+
+
