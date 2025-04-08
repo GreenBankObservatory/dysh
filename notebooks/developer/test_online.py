@@ -162,5 +162,3 @@ f1 = dysh_data(test="20m/Skynet_60476_DR21_118886_68343.cyb.fits")
 sdf1 = gb20mfitsload.GB20MFITSLoad(f1)
 
 sdf1.filename
-
-
