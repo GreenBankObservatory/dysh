@@ -11,8 +11,8 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astropy.utils.masked import Masked
-from matplotlib.widgets import Button, SpanSelector
 from matplotlib.patches import Rectangle
+from matplotlib.widgets import Button, SpanSelector
 
 from ..coordinates import Observatory, crval4_to_pol, decode_veldef, frame_to_label
 
@@ -154,8 +154,8 @@ class SpectrumPlot:
             self._btest = Button(axtest, 'Test')
             self._btest.on_clicked(self.next)
 
-        if select:
-            self.setregion()
+        # if select:
+        #     self.setregion(sa)
 
         sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
@@ -184,6 +184,8 @@ class SpectrumPlot:
                 toframe=this_plot_kwargs["vel_frame"],
                 doppler_convention=this_plot_kwargs["doppler_convention"],
             )
+        if select:
+            self.setregion(sa)
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
@@ -455,14 +457,17 @@ class SpectrumPlot:
 
 
 
-    def setregion(self):
+    def setregion(self,sa):
         """Set region callback function"""
 
         class RegionSelector:
-            def __init__(self,ax):
+            def __init__(self,ax,plt,sa):
                 self.ax = ax
+                self.sa = sa
+                self._plt = plt
                 self.spans = [] # store drawn spans
                 self.selection = [] #store span extents
+                self.hlines = [] # store drawn axhlines
                 print("Instructions:")
                 print('Press "a" to add a selection region')
                 print('Press "e" to end selection and print a Selection rule')
@@ -488,20 +493,32 @@ class SpectrumPlot:
                         grab_range=1
                     ))
                 if event.key == 'e':
+                    for hline in self.hlines:
+                        hline.remove()
+                    self.hlines = []
                     for span in self.spans:
                         x0,x1 = span.extents
-                        self.ax.axhline(0,x0,x1,c='k',linewidth=2)
+                        f0,f1 = self.ax.get_xlim()
+                        #f0,f1 = self.sa[0].value,self.sa[-1].value
+                        r0,r1 = (x0-f0)/(f1-f0) , (x1-f0)/(f1-f0)
+                        y0,y1 = self.ax.get_ylim()
+                        hline_yval = 0.05 * (y1-y0) + y0
+                        self.hlines.append(self.ax.axhline(hline_yval,r0,r1,c='k',linewidth=2))
                         self.selection.append(span.extents)
                         span.active = False
-                        self.ax.show()
+                        span = None
+                        #self.ax.draw()
                     print(self.selection)
                     self.spans = []
                     self.selection = []
+                    self.ax.figure.canvas.draw()
+                    self._plt.show()
 
-            def get_selection():
+            def get_selection(self):
+                #for span in self.spans:
                 return self.selection
 
-        self.span_selection = RegionSelector(self._axis)
+        self.span_selection = RegionSelector(self._axis,self._plt,sa)
 
         self.refresh()
 
