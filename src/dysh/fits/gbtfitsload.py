@@ -1118,7 +1118,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getsigref(
         self,
-        sig: Union[int | list | Spectrum],
+        scan: Union[int | list],
         ref: Union[int | Spectrum],
         fdnum: int,
         ifnum: int,
@@ -1138,16 +1138,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise ValueError("Can't scale the data without a valid zenith opacity")
         if type(ref) != int and not isinstance(ref, Spectrum):
             raise ValueError("Ref must be either an integer or a Spectrum object")
+        if isinstance(scan, Spectrum):
+            raise TypeError(
+                "Spectrum object not allowed for 'scan'.  You can use Spectrum arithmetic if both 'scan' and 'ref' are Spectrum object."
+            )
 
         scanlist = {}
-        if type(sig) == int:
-            sig = [sig]
-        # if isinstance(sig, Spectrum):
-        #    sig_is_spectrum = True
-        # else:
-        #    sig_is_spectrum = Fals#e
+        if type(scan) == int:
+            scan = [scan]
+
         if type(ref) == int:
-            kwargs["scan"] = sig + [ref]
+            kwargs["scan"] = scan + [ref]
             (scans, _sf) = self._common_selection(
                 fdnum=fdnum,
                 ifnum=ifnum,

@@ -1054,7 +1054,7 @@ class TestGBTFITSLoad:
 
     def test_getsigref(self):
         """test of various getsigref modes"""
-        # 1. Ensure that getsigref(sig=int,ref=int) returns the same as getps(sig=int [ref implied])
+        # 1. Ensure that getsigref(scan=int,ref=int) returns the same as getps(scan=int [ref implied])
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         # scan=152, ref=153
@@ -1064,7 +1064,7 @@ class TestGBTFITSLoad:
             ifnum=0,
             plnum=0,
         )
-        sigref = sdf.getsigref(sig=152, ref=153, fdnum=0, ifnum=0, plnum=0)
+        sigref = sdf.getsigref(scan=152, ref=153, fdnum=0, ifnum=0, plnum=0)
         assert np.all(psscan[0]._calibrated == sigref[0]._calibrated)
         assert psscan[0].meta == sigref[0].meta
         assert psscan[0].refscan == sigref[0].refscan
@@ -1075,7 +1075,7 @@ class TestGBTFITSLoad:
         # 2. Scan is a list, ref is an int
         sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sigref = sdf.getsigref(sig=[51, 53], ref=52, fdnum=0, ifnum=0, plnum=0)
+        sigref = sdf.getsigref(scan=[51, 53], ref=52, fdnum=0, ifnum=0, plnum=0)
         psscan = sdf.getps(scan=51, fdnum=0, ifnum=0, plnum=0)
         assert np.all(psscan[0]._calibrated == sigref[0]._calibrated)
         assert psscan[0].meta == sigref[0].meta
@@ -1085,7 +1085,7 @@ class TestGBTFITSLoad:
         assert psscan[0].sigscan == 51
 
         # 2. Compare with GBTIDL output
-        sigref = sdf.getsigref(sig=53, ref=52, fdnum=0, ifnum=0, plnum=0)
+        sigref = sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0)
         y = sigref[0].timeaverage(weights=None)
         gbtidl_file = util.get_project_testdata() / "AGBT05B_047_01/gbtidl/getsigref_53_52_eqweight.fits"
         gdf = gbtfitsload.GBTFITSLoad(gbtidl_file)
@@ -1099,3 +1099,6 @@ class TestGBTFITSLoad:
         x = gdf.getspec(0)
         x.meta["MEANTSYS"] = x.meta["TSYS"]
         assert np.all(np.abs(y.data - x.data) < 1e-7)
+
+        with pytest.raises(TypeError):
+            sb = sdf.getsigref(scan=x, ref=52, fdnum=0, ifnum=0, plnum=0)
