@@ -1073,13 +1073,29 @@ class TestGBTFITSLoad:
         assert psscan[0].sigscan == 152
 
         # 2. Scan is a list, ref is an int
-        if False:
-            sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
-            sigref = sdf.getsigref(sig=[51, 53], ref=52, fdnum=0, ifnum=0, plnum=0)
-            psscan = sdf.getps(scan=51, fdnum=0, ifnum=0, plnum=0)
-            assert np.all(psscan[0]._calibrated == sigref[0]._calibrated)
-            assert psscan[0].meta == sigref[0].meta
-            assert psscan[0].refscan == sigref[0].refscan
-            assert psscan[0].sigscan == sigref[0].sigscan
-            assert psscan[0].refscan == 52
-            assert psscan[0].sigscan == 51
+        sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sigref = sdf.getsigref(sig=[51, 53], ref=52, fdnum=0, ifnum=0, plnum=0)
+        psscan = sdf.getps(scan=51, fdnum=0, ifnum=0, plnum=0)
+        assert np.all(psscan[0]._calibrated == sigref[0]._calibrated)
+        assert psscan[0].meta == sigref[0].meta
+        assert psscan[0].refscan == sigref[0].refscan
+        assert psscan[0].sigscan == sigref[0].sigscan
+        assert psscan[0].refscan == 52
+        assert psscan[0].sigscan == 51
+
+        # 2. Compare with GBTIDL output
+        sigref = sdf.getsigref(sig=53, ref=52, fdnum=0, ifnum=0, plnum=0)
+        y = sigref[0].timeaverage(weights=None)
+        gbtidl_file = util.get_project_testdata() / "AGBT05B_047_01/gbtidl/getsigref_53_52_eqweight.fits"
+        gdf = gbtfitsload.GBTFITSLoad(gbtidl_file)
+        x = gdf.getspec(0)
+        x.meta["MEANTSYS"] = x.meta["TSYS"]
+        assert np.all(np.abs(y.data - x.data) < 2e-7)
+
+        y = sigref[0].timeaverage(weights="tsys")
+        gbtidl_file = util.get_project_testdata() / "AGBT05B_047_01/gbtidl/getsigref_53_52_tsysweight.fits"
+        gdf = gbtfitsload.GBTFITSLoad(gbtidl_file)
+        x = gdf.getspec(0)
+        x.meta["MEANTSYS"] = x.meta["TSYS"]
+        assert np.all(np.abs(y.data - x.data) < 1e-7)

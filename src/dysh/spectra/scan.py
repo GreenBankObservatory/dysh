@@ -19,7 +19,6 @@ from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
-from ..util import uniq
 from ..util.gaincorrection import GBTGainCorrection
 from .core import (  # fft_shift,; average,
     find_non_blanks,
@@ -2009,26 +2008,3 @@ class SubBeamNodScan(ScanBase):
             self._exposure[i] = sig.meta["EXPOSURE"]
             self._delta_freq[i] = sig.meta["CDELT1"]
             self._calibrated[i] = ta
-
-    # @todo this should be deleted? The base class can handle it.
-    def calibrated(self, i):
-        meta = deepcopy(self._sigtp[i].timeaverage().meta)  # use self._sigtp.meta? instead?
-        meta["TSYS"] = self._tsys[i]
-        meta["EXPOSURE"] = self._exposure[i]
-        naxis1 = len(self._calibrated[i])
-        meta["NAXIS1"] = naxis1
-        if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
-        meta["CUNIT2"] = "deg"  # is this always true?
-        meta["CUNIT3"] = "deg"  # is this always true?
-        restfrq = meta["RESTFREQ"]
-        rfq = restfrq * u.Unit(meta["CUNIT1"])
-        restfreq = rfq.to("Hz").value
-        meta["RESTFRQ"] = restfreq  # WCS wants no E
-        s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
-            meta=meta,
-            observer_location=self._observer_location,
-        )
-        s.merge_commentary(self)
-        return s
