@@ -1102,3 +1102,5 @@ class TestGBTFITSLoad:
 
         with pytest.raises(TypeError):
             sb = sdf.getsigref(scan=x, ref=52, fdnum=0, ifnum=0, plnum=0)
+        with pytest.raises(TypeError):
+            sb = sdf.getsigref(scan=51, ref=x.data, fdnum=0, ifnum=0, plnum=0)

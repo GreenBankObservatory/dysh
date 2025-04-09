@@ -1137,7 +1137,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
         if type(ref) != int and not isinstance(ref, Spectrum):
-            raise ValueError("Ref must be either an integer or a Spectrum object")
+            raise TypeError("Reference scan ('ref') must be either an integer scan number or a Spectrum object")
         if isinstance(scan, Spectrum):
             raise TypeError(
                 "Spectrum object not allowed for 'scan'.  You can use Spectrum arithmetic if both 'scan' and 'ref' are Spectrum object."
