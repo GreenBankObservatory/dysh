@@ -125,10 +125,10 @@ from dysh.fits import GBTFITSLoad
 from dysh.util import get_project_testdata
 filename = get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
 sdfits = GBTFITSLoad(filename)
-# TypeError: GBTFITSLoad._create_index_if_needed() takes 1 positional argument but 2 were given
 sdfits.summary()
 sdfits.flag_channel([[170,200],[2880,2980],[31000,32768]])
-scan_block = sdfits.getps(ifnum=0, plnum=0)
+# TypeError: Flag.flag_channel() missing 1 required positional argument: 'chan'
+scan_block = sdfits.getps(ifnum=0, plnum=0, fdnum=0)
 ta = scan_block.timeaverage()
 ta.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
 ta.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)], remove=True)
