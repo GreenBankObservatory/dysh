@@ -13,4 +13,5 @@ functionality highlighted in these pages.
 .. toctree::
    :maxdepth: 1
 
+* `What's new in dysh 0.4?  <https://dysh.readthedocs.io/en/release-0.4.0/whatsnew/0.4.html>`_
 * `What's new in dysh 0.3?  <https://dysh.readthedocs.io/en/release-0.3.0/whatsnew/0.3.html>`_

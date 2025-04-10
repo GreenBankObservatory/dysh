@@ -59,6 +59,7 @@ extensions = [
     "numpydoc",
     "sphinx_inline_tabs",
     "sphinx_design",
+    "sphinx_copybutton",
 ]
 
 numpydoc_show_class_members = True
@@ -145,6 +146,7 @@ html_theme_options = {
             "icon": "fa-brands fa-github",
         },
     ],
+    "path_to_docs": "docs/source/",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -263,6 +265,9 @@ html_css_files = [
 
 # Cache notebooks to only re-run when cells change
 nb_execution_mode = "cache"
+# Use this mode if working on the documentation with sphinx-autobuild.
+# nb_execution_mode = "auto"
+
 
 # Where to store the notebook cache
 nb_execution_cache_path = "jupyter_cache"
@@ -273,3 +278,7 @@ myst_enable_extensions = [
     "dollarmath",
 ]
 myst_dmath_double_inline = True
+
+
+# -- sphinx-copybutton config -------------------------------------
+copybutton_exclude = ".linenos, .gp"

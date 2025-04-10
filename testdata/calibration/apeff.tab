@@ -1,0 +1,31 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: Date, datatype: string}
+# - {name: Surface Error, unit: micron, datatype: float64}
+# - {name: 10GHz, datatype: float64}
+# - {name: 30GHz, datatype: float64}
+# - {name: 43GHz, datatype: float64}
+# - {name: 80GHz, datatype: float64}
+# - {name: 110GHz, datatype: float64}
+# meta: !!omap
+# - {Source: 'Table 2 from GBT Memo 301. https://library.nrao.edu/public/memos/gbt/GBT_301.pdf'}
+# - __serialized_columns__:
+#     Date:
+#       __class__: astropy.time.core.Time
+#       format: iso
+#       in_subfmt: '*'
+#       out_subfmt: '*'
+#       precision: 3
+#       scale: utc
+#       value: !astropy.table.SerializedColumn {name: Date}
+#     Surface Error:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: micron}
+#       value: !astropy.table.SerializedColumn {name: Surface Error}
+# schema: astropy-2.0
+Date "Surface Error" 10GHz 30GHz 43GHz 80GHz 110GHz
+"2003-01-01 00:00:00.000" 390.0 0.69 0.56 0.43 0.13 0.03
+"2009-01-01 00:00:00.000" 390.0 0.69 0.56 0.43 0.13 0.03
+"2009-11-01 00:00:00.000" 240.0 0.7 0.65 0.59 0.37 0.21
+"2014-06-01 00:00:00.000" 230.0 0.7 0.65 0.6 0.39 0.23

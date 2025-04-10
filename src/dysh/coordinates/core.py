@@ -54,7 +54,23 @@ astropy_frame_dict = {
     "galactocentric": coord.Galactocentric,
     "topocentric": coord.ITRS,  # but need to add observatory position
     "topo": coord.ITRS,  # but need to add observatory position
+    "itrs": coord.ITRS,  # but need to add observatory position
+    "fk5": coord.FK5,
+    "gal": coord.Galactic,
 }
+
+astropy_convenience_frame_names = {
+    "bary": "icrs",
+    "barycentric": "icrs",
+    "heliocentric": "icrs",
+    "helio": "icrs",
+    "geo": "icrs",
+    "geocentric": "icrs",
+    "topocentric": "itrs",
+    "topo": "itrs",
+    "vlsr": "lsrk",
+}
+
 
 # astropy-sanctioned coordinate frame string to label
 frame_to_label = {
@@ -131,6 +147,22 @@ velocity_convention_dict = {
 
 # reverse of above
 reverse_velocity_convention_dict = {"optical": "OPTI", "radio": "RADI", "relativistic": "VELO"}
+
+# dictionary to convert CRVAL4 to a polarization ID for plotting purposes
+crval4_to_pol = {
+    -1: "RR",
+    -2: "LL",
+    -3: "RL",
+    -4: "LR",
+    -5: "XX",
+    -6: "YY",
+    -7: "YX",
+    -8: "XY",
+    1: "I",
+    2: "Q",
+    3: "U",
+    4: "V",
+}
 
 
 def replace_convention(veldef, doppler_convention):
@@ -450,7 +482,6 @@ def veltofreq(velocity, restfreq, veldef):
     vdef = veldef_to_convention(veldef)
     if vdef is None:
         raise ValueError(f"Unrecognized VELDEF: {veldef}")
-    vc = velocity / const.c
     if vdef == "radio":
         radio = u.doppler_radio(restfreq)
         frequency = velocity.to(u.Hz, equivalencies=radio)
@@ -469,7 +500,6 @@ def veltofreq(velocity, restfreq, veldef):
 def change_ctype(ctype, toframe):
     # when changing frame, we should also change CTYPE1. Pretty sure GBTIDL does not do this
     prefix = ctype[0:4]
-    postfix = ctype[4:]
     newpostfix = reverse_frame_dict[toframe]
     newctype = prefix + newpostfix
     # print(f"changing {ctype} to {newctype}")
@@ -546,13 +576,16 @@ class GB20M:
 
 def gbt_location():
     """
-    Create an astropy EarthLocation for the GBT using the same established by GBO.
+    Create an astropy `~astropy.coordinates.EarthLocation` for the GBT using the same established by GBO.
     See page 3 of https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf
-        latitude    = 38d 25m 59.265s N
-        longitude   = 79d 50m 23.419s W
-        height      = 854.83 m
 
-    Note these differ from astropy's "GBT" EarthLocation by several meters.
+    * latitude    = 38d 25m 59.265s N
+
+    * longitude   = 79d 50m 23.419s W
+
+    * height      = 854.83 m
+
+    Note these differ from astropy's "GBT" `~astropy.coordinates.EarthLocation` by several meters.
 
     Returns
     -------
@@ -654,3 +687,63 @@ class Observatory:
         See :meth:`~astropy.coordinates.EarthLocation.from_geodetic`
         """
         return coord.EarthLocation.from_geodetic(longitude, latitude, height, ellipsoid)
+
+
+def eq2hor(lon, lat, frame, date_obs, unit="deg", location=GBT()):
+    """
+    Equatorial to horizontal coordinate conversion.
+
+    Parameters
+    ----------
+    lon : float
+        Longitude coordinate. E.g., RA or Galactic longitude.
+    lat : float
+        Latitude coordinate. E.g., Dec or Galactic latitude.
+    frame : str
+        Input coordinate frame. Must be recognized by `~astropy.coordinates`
+    date_obs : str
+        Date of observations. Must be a format compatible with `~astropy.time.Time`.
+    unit : str
+        Units of `lon` and `lat`.
+    location : `~astropy.coordinates.EarthLocation`
+        Observer location.
+
+    Returns
+    -------
+    altaz : `~astropy.coordinates.AltAz`
+        Horizontal coordinates.
+
+    """
+
+    lonlat = coord.SkyCoord(lon, lat, unit=unit, frame=frame, obstime=Time(date_obs))
+    return lonlat.transform_to(coord.AltAz(location=location))
+
+
+def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):
+    """
+    Horizontal to Equatorial coordinate conversion.
+
+    Parameters
+    ----------
+    az : float
+        Azimuth coordinate.
+    alt : float
+        Altitude or elevation coordinate.
+    frame : str
+        Output coordinate frame. Must be recognized by `~astropy.coordinates`
+    date_obs : str
+        Date of observations. Must be a format compatible with `~astropy.time.Time`.
+    unit : str
+        Units of `lon` and `lat`.
+    location : `~astropy.coordinates.EarthLocation`
+        Observer location.
+
+    Returns
+    -------
+    eq : `~astropy.coordinates.SkyCoord`
+        Celestial coordinates in `frame`.
+
+    """
+
+    altaz = coord.SkyCoord(az=az, alt=alt, unit=unit, frame="altaz", obstime=Time(date_obs), location=location)
+    return altaz.transform_to(astropy_frame_dict[frame])
