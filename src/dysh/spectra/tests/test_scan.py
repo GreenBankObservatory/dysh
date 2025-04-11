@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
+from astropy import units as u
 from astropy.io import fits
 
 import dysh.util as util
-from astropy import units as u
 from dysh.fits import gbtfitsload, sdfitsload
 
 
