@@ -1066,3 +1066,46 @@ class TestGBTFITSLoad:
         assert sdf2[cols].all(axis=1).sum() == sdf2._sdf[0].nintegrations(
             0
         )  # Only FDNUM=1 will be True, so this returns half the total number of rows, which is equal to the number of integrations.
+
+    def test_getps_ka(self):
+        """
+        Check that the line brightness is higher in FDNUM 1.
+        This checks the Ka beam mislabeling fix.
+        The test file also contains observations with X-Band, so
+        it also checks that there are no issues if two receivers are
+        present in the same SDFITS (see Issue #553).
+        """
+
+        sdf_file = f"{self.data_dir}/AGBT18A_333_21/AGBT18A_333_21.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        ps1 = sdf.getps(scan=11, fdnum=0, plnum=0, ifnum=0).timeaverage()
+        ps2 = sdf.getps(scan=11, fdnum=1, plnum=1, ifnum=0).timeaverage()
+
+        # Get stats and check.
+        s1 = ps1.stats()
+        s2 = ps2.stats()
+
+        expected1 = {
+            "mean": -0.20809913,
+            "median": -0.21268716,
+            "rms": 0.32515864,
+            "min": -1.5866431,
+            "max": 6.48147535,
+        }
+
+        expected2 = {
+            "mean": -0.27350813,
+            "median": -0.27524167,
+            "rms": 0.33285654,
+            "min": -1.75938678,
+            "max": 2.47693372,
+        }
+
+        # Line is brighter in beam 1.
+        assert s1["max"] > s2["max"]
+        # Self consistency checks.
+        for k, v in expected1.items():
+            assert s1[k].value == pytest.approx(v)
+        for k, v in expected2.items():
+            assert s2[k].value == pytest.approx(v)
