@@ -103,8 +103,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if kwargs_opts["index"]:
             self._create_index_if_needed(skipflags)
             self._update_radesys()
-        if kwargs_opts["fix_ka"]:
-            self._fix_ka_rx_if_needed()
+            # This only works if the index was created.
+            if kwargs_opts["fix_ka"]:
+                self._fix_ka_rx_if_needed()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # cds.enable()  # to get mmHg
