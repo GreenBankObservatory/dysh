@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
-from astropy import units as u
 from astropy.io import fits
 
 import dysh.util as util
+from astropy import units as u
 from dysh.fits import gbtfitsload, sdfitsload
 
 
@@ -185,7 +185,7 @@ class TestSubBeamNod:
         # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sbn = sdf.subbeamnod(
-            scan=43, sig=None, cal=None, ifnum=0, fdnum=1, plnum=0, calibrate=True, weights="tsys", method="scan"
+            scan=43, sig=None, cal=None, ifnum=0, fdnum=1, plnum=1, calibrate=True, weights="tsys", method="scan"
         )
 
         # Load the GBTIDL result.
@@ -253,8 +253,8 @@ class TestSubBeamNod:
             sdf["TCAL"] = tcal
 
         # Calibrate.
-        sbn_cycle = sdf.subbeamnod(scan=43, fdnum=0, plnum=1, ifnum=0).timeaverage()
-        sbn_scan = sdf.subbeamnod(scan=43, fdnum=0, plnum=1, ifnum=0, method="scan").timeaverage()
+        sbn_cycle = sdf.subbeamnod(scan=43, fdnum=1, plnum=1, ifnum=0).timeaverage()
+        sbn_scan = sdf.subbeamnod(scan=43, fdnum=1, plnum=1, ifnum=0, method="scan").timeaverage()
 
         # Check data over a frequency interval.
         s_sbn = slice(30.0 * u.GHz, 30.5 * u.GHz)
@@ -277,7 +277,7 @@ class TestSubBeamNod:
         assert pytest.approx(rms_cycle.value, abs=1e-2) == rms_scan.value
 
         # Number of rows.
-        assert sdf.subbeamnod(scan=43, fdnum=0, plnum=1, ifnum=0, method="scan")[0].nrows == 96
+        assert sdf.subbeamnod(scan=43, fdnum=1, plnum=1, ifnum=0, method="scan")[0].nrows == 96
 
         # Line amplitude.
         assert pytest.approx(sbn_cycle.data.max() - tcont, rms_cycle.value) == a

@@ -838,8 +838,8 @@ class TestGBTFITSLoad:
         # Load GBTIDL reduction.
         # row 0 is `fdnum=2`.
         # row 1 is `fdnum=6`.
-        hdu = fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits")
-        table = hdu[1].data
+        with fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits") as hdu:
+            table = hdu[1].data
 
         # Compare.
         assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
@@ -865,8 +865,8 @@ class TestGBTFITSLoad:
         # Load GBTIDL reduction.
         # row 0 is `fdnum=0`.
         # row 1 is `fdnum=1`.
-        hdu = fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits")
-        table = hdu[1].data
+        with fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits") as hdu:
+            table = hdu[1].data
 
         # Compare.
         assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
@@ -1051,3 +1051,18 @@ class TestGBTFITSLoad:
             sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
         with pytest.raises(ValueError):
             sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)
+
+    def test_fix_ka(self):
+        """
+        Check that the Ka SDFITS files have the beams properly labeled.
+        """
+
+        sdf_file = f"{self.data_dir}/TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf1 = gbtfitsload.GBTFITSLoad(sdf_file, fix_ka=False)
+        sdf2 = gbtfitsload.GBTFITSLoad(sdf_file, fix_ka=True)
+
+        cols = ["PLNUM", "FDNUM"]
+        assert sdf1[cols].all(axis=1).sum() == 0  # PLNUM=0 corresponds to FDNUM=1, so this should be zero.
+        assert sdf2[cols].all(axis=1).sum() == sdf2._sdf[0].nintegrations(
+            0
+        )  # Only FDNUM=1 will be True, so this returns half the total number of rows, which is equal to the number of integrations.
