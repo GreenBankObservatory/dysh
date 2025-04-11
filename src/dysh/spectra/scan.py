@@ -493,12 +493,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["EXPOSURE"] = self.exposure[i]
 
     @abstractmethod
-    def calibrate(self, **kwargs):
+    def calibrate(self, **kwargs):  ## SCANBASE
         """Calibrate the Scan data"""
         pass
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):  # SCANBASE
+    def timeaverage(self, weights="tsys"):  ## SCANBASE
         r"""Compute the time-averaged spectrum for this set of FSscans.
 
         Parameters
@@ -631,7 +631,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):  # SCANBLOCK
+    def timeaverage(self, weights="tsys"):  ## SCANBLOCK
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
@@ -952,8 +952,8 @@ class TPScan(ScanBase):
             # use 'ta' as bunit in this call so that scaling is not attempted.
             self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
 
-    def calibrate(self, **kwargs):
-        """Calibrate the data according to the CAL/SIG table above"""
+    def calibrate(self, **kwargs):  ## TPSCAN
+        """Calibrate the total power data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
         # print("PJT CALSTATE:", self.calstate)
@@ -1256,7 +1256,7 @@ class PSScan(ScanBase):
         """
         return self._refspec
 
-    def calibrate(self, **kwargs):
+    def calibrate(self, **kwargs):  ##PSSCAN
         """
         Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
         """
@@ -1266,22 +1266,50 @@ class PSScan(ScanBase):
             print(f"PSScan smoothref={self._smoothref}")
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
+
         nspect = self.nrows // 2
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
-        if len(tcal) != nspect:
-            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
-        for i in range(nspect):
-            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-            sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
-            ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+        if isinstance(self.refspec, Spectrum):
+            # tcal = self.refspec.meta.get("TCAL", None)  # @todo allow user to input tcal in kwargs?
+            # if tcal is None:
+            #   raise ValueError(
+            #        "Reference spectrum has no calibration temperature in its metadata.  Solve with refspec.meta['TCAL']=value."
+            #   )
+            # The possible system temperature keywords in the refspec header, in order of preference.
+            tsyskw = ["TSYS", "MEANTSYS", "WTTSYS"]
+            for kw in tsyskw:
+                tsys = self._refspec.get(kw, None)
+                if tsys is None:
+                    continue
+            if tsys is None:
+                raise ValueError(
+                    "Reference spectrum has no system temperature in its metadata.  Solve with refspec.meta['TSYS']=value."
+                )
+
             if self._smoothref > 1:
-                ref = core.smooth(ref, "boxcar", self._smoothref)
-            self._calibrated[i] = tsys * (sig - ref) / ref
-            self._tsys[i] = tsys
-            self._exposure[i] = self.exposure[i]
+                ref = core.smooth(self.refspec.data, "boxcar", self._smoothref)
+            else:
+                ref = self.refspec.data
+            for i in range(nspect):
+                sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                self._calibrated[i] = tsys * (sig - ref) / ref
+                self._tsys[i] = tsys
+
+        else:
+            tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
+            if len(tcal) != nspect:
+                raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+            for i in range(nspect):
+                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+                if self._smoothref > 1:
+                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                self._calibrated[i] = tsys * (sig - ref) / ref
+                self._tsys[i] = tsys
+                self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
 
     # tip o' the hat to Pedro S. for exposure and delta_freq
@@ -1296,11 +1324,21 @@ class PSScan(ScanBase):
         exposure : ~numpy.ndarray
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
-        exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
-        exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        exp_ref = exp_ref_on + exp_ref_off
+        if isinstance(self.refspec, Spectrum):
+            exp_ref = self.refspec.meta.get("EXPOSURE", None)
+            if exp_ref is None:
+                logger.warning(
+                    "Can't set EXPOSURE for PSCAN integrations because reference spectrum no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
+                )
+            return np.full_like(exp_sig_on, None)
+        else:
+            exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
+            exp_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
+            )
+            exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
@@ -1469,9 +1507,9 @@ class NodScan(ScanBase):
         self._init_tsys(tsys)
         self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity)
 
-    def calibrate(self, **kwargs):
+    def calibrate(self, **kwargs):  ##NODSCAN
         """
-        Position switch calibration, following equations 1 and 2 in the GBTIDL calibration manual
+        NodScan calibration
         """
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
@@ -1708,11 +1746,17 @@ class FSScan(ScanBase):
         """
         return self._folded
 
-    def calibrate(self, **kwargs):
+    def calibrate(self, **kwargs):  # FSSCAN
         """
-        Frequency switch calibration, following equations ...
-        fold=True or fold=False is required
+        Frequency switch calibration.
+
+        Parameters
+        ----------
+
+        fold : bool
+            Fold the spectrum or not. Required keyword.
         """
+        # @todo upgrade fold from kwarg to arg
         if self._debug:
             logger.debug(f'FOLD={kwargs["fold"]}')
             logger.debug(f'METHOD={kwargs["shift_method"]}')
@@ -1989,7 +2033,7 @@ class SubBeamNodScan(ScanBase):
 
         self._finish_initialization(calibrate, {"weights": w}, meta_rows, bunit, zenith_opacity)
 
-    def calibrate(self, **kwargs):
+    def calibrate(self, **kwargs):  ##SUBBEAMNOD
         """Calibrate the SubBeamNodScan data"""
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")

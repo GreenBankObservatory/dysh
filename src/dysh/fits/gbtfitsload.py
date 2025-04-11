@@ -1190,7 +1190,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows["ON"] = list(_ondf["ROW"])
                 rows["OFF"] = list(_offdf["ROW"])
                 for key in rows:
-                    if len(rows[key]) == 0:
+                    if len(rows[key]) == 0 and not isinstance(ref, Spectrum):
                         raise Exception(f"{key} scans not found in scan list {scans}")
                 # do not pass scan list here. We need all the cal rows. They will
                 # be intersected with scan rows in PSScan
