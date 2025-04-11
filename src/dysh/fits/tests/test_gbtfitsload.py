@@ -1042,7 +1042,6 @@ class TestGBTFITSLoad:
                 assert b.data["FLAGS"].sum() == channels[i]
 
     def test_nums_are_ints(self):
-
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         with pytest.raises(ValueError):

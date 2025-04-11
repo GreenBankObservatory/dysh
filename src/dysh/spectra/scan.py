@@ -18,7 +18,6 @@ from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
-from ..util import uniq
 from ..util.gaincorrection import GBTGainCorrection
 from .core import (  # fft_shift,; average,
     find_non_blanks,
@@ -169,7 +168,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
 
     def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity):
-
         self._calibrate = calibrate
         self._make_meta(meta_rows)
         if self._calibrate:
@@ -470,9 +468,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
         for i in range(len(self._meta)):
             if "CUNIT1" not in self._meta[i]:
-                self._meta[i][
-                    "CUNIT1"
-                ] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+                self._meta[i]["CUNIT1"] = (
+                    "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+                )
             self._meta[i]["CUNIT2"] = "deg"  # is this always true?
             self._meta[i]["CUNIT3"] = "deg"  # is this always true?
             restfrq = self._meta[i]["RESTFREQ"]
@@ -1687,8 +1685,8 @@ class FSScan(ScanBase):
         fold=True or fold=False is required
         """
         if self._debug:
-            logger.debug(f'FOLD={kwargs["fold"]}')
-            logger.debug(f'METHOD={kwargs["shift_method"]}')
+            logger.debug(f"FOLD={kwargs['fold']}")
+            logger.debug(f"METHOD={kwargs['shift_method']}")
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
 
