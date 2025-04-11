@@ -10,9 +10,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from astropy import units as u
 from astropy.io import fits
 
+from astropy import units as u
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
@@ -960,7 +960,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scans = uniq(_final["SCAN"])
         elif type(scans) == int:
             scans = list([scans])
-        plnum = self._fix_ka_rx_if_needed(_final, fdnum, plnum)
         preselected = {}
         preselected["SCAN"] = scans
         preselected["FDNUM"] = fdnum
@@ -1590,6 +1589,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         # Check if we are dealing with Ka data before the beam switch.
         rx = np.unique(df["FRONTEND"])
+        if "Rcvr26_40" not in rx:
+            return
+
         corrected_plnum = plnum
         if len(rx) > 1:
             # Does this ever actually happen?
@@ -2107,26 +2109,26 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
 
         # Azimuth and elevation case.
-        self._update_radesys_frame(radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
+        self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
 
         # Hour angle and declination case.
-        self._update_radesys_frame(radesys["HADec"], {"CTYPE2": "HA"})
+        self._fix_column("RADESYS", radesys["HADec"], {"CTYPE2": "HA"})
 
         # Galactic coordinates.
-        self._update_radesys_frame(radesys["Galactic"], {"CTYPE2": "GLON"})
+        self._fix_column("RADESYS", radesys["Galactic"], {"CTYPE2": "GLON"})
 
-    def _update_radesys_frame(self, frame, ctype_dict):
-        frame_mask = self._ctype_mask(ctype_dict)
-        if frame_mask.sum() == 0:
+    def _fix_column(self, column, new_val, mask_dict):
+        _mask = self._column_mask(mask_dict)
+        if _mask.sum() == 0:
             return
         # Update self._index.
-        self._index.loc[frame_mask, "RADESYS"] = frame
+        self._index.loc[_mask, column] = new_val
         # Update SDFITSLoad.index.
-        sdf_idx = set(self["FITSINDEX"][frame_mask])
+        sdf_idx = set(self["FITSINDEX"][_mask])
         for i in sdf_idx:
             sdfi = self._sdf[i].index()
-            frame_mask = self._sdf[i]._ctype_mask(ctype_dict)
-            sdfi.loc[frame_mask, "RADESYS"] = frame
+            _mask = self._sdf[i]._column_mask(mask_dict)
+            sdfi.loc[_mask, column] = new_val
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.

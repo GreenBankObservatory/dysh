@@ -633,13 +633,28 @@ class SDFITSLoad(object):
     # def __len__(self):  # this has no meaning for multiple bintables
     #    return self._nrows
 
-    def _ctype_mask(self, ctype_dict):
-        ctype_mask = np.zeros((len(ctype_dict), len(self[next(iter(ctype_dict.keys()))])), dtype=bool)
-        for i, (k, v) in enumerate(ctype_dict.items()):
-            ctype_mask[i, :] = self[k] == v
-        if ctype_mask.shape[0] > 1:
-            ctype_mask = np.logical_and(*ctype_mask)
-        return ctype_mask.ravel()
+    def _column_mask(self, column_dict):
+        """
+        Generate a boolean array given a dictionary.
+        The keys in the dictionary are the column names and the values the column values.
+        It will combine multiple dictionary items using `numpy.logical_and`.
+
+        Parameters
+        ----------
+        column_dict : dict
+            Dictionary with column names and column values as keys and values.
+
+        Returns
+        -------
+        _mask : `numpy.array`
+            Array of booleans with True where the column equals column value.
+        """
+        _mask = np.zeros((len(column_dict), len(self[next(iter(column_dict.keys()))])), dtype=bool)
+        for i, (k, v) in enumerate(column_dict.items()):
+            _mask[i, :] = self[k] == v
+        if _mask.shape[0] > 1:
+            _mask = np.logical_and(*_mask)
+        return _mask.ravel()
 
     def __repr__(self):
         return str(self._filename)
