@@ -838,8 +838,8 @@ class TestGBTFITSLoad:
         # Load GBTIDL reduction.
         # row 0 is `fdnum=2`.
         # row 1 is `fdnum=6`.
-        hdu = fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits")
-        table = hdu[1].data
+        with fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits") as hdu:
+            table = hdu[1].data
 
         # Compare.
         assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
@@ -865,8 +865,8 @@ class TestGBTFITSLoad:
         # Load GBTIDL reduction.
         # row 0 is `fdnum=0`.
         # row 1 is `fdnum=1`.
-        hdu = fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits")
-        table = hdu[1].data
+        with fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits") as hdu:
+            table = hdu[1].data
 
         # Compare.
         assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
@@ -1052,6 +1052,64 @@ class TestGBTFITSLoad:
         with pytest.raises(ValueError):
             sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)
 
+    def test_fix_ka(self):
+        """
+        Check that the Ka SDFITS files have the beams properly labeled.
+        """
+
+        sdf_file = f"{self.data_dir}/TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf1 = gbtfitsload.GBTFITSLoad(sdf_file, fix_ka=False)
+        sdf2 = gbtfitsload.GBTFITSLoad(sdf_file, fix_ka=True)
+
+        cols = ["PLNUM", "FDNUM"]
+        assert sdf1[cols].all(axis=1).sum() == 0  # PLNUM=0 corresponds to FDNUM=1, so this should be zero.
+        assert sdf2[cols].all(axis=1).sum() == sdf2._sdf[0].nintegrations(
+            0
+        )  # Only FDNUM=1 will be True, so this returns half the total number of rows, which is equal to the number of integrations.
+
+    def test_getps_ka(self):
+        """
+        Check that the line brightness is higher in FDNUM 1.
+        This checks the Ka beam mislabeling fix.
+        The test file also contains observations with X-Band, so
+        it also checks that there are no issues if two receivers are
+        present in the same SDFITS (see Issue #553).
+        """
+
+        sdf_file = f"{self.data_dir}/AGBT18A_333_21/AGBT18A_333_21.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        ps1 = sdf.getps(scan=11, fdnum=0, plnum=0, ifnum=0).timeaverage()
+        ps2 = sdf.getps(scan=11, fdnum=1, plnum=1, ifnum=0).timeaverage()
+
+        # Get stats and check.
+        s1 = ps1.stats()
+        s2 = ps2.stats()
+
+        expected1 = {
+            "mean": -0.20809913,
+            "median": -0.21268716,
+            "rms": 0.32515864,
+            "min": -1.5866431,
+            "max": 6.48147535,
+        }
+
+        expected2 = {
+            "mean": -0.27350813,
+            "median": -0.27524167,
+            "rms": 0.33285654,
+            "min": -1.75938678,
+            "max": 2.47693372,
+        }
+
+        # Line is brighter in beam 1.
+        assert s1["max"] > s2["max"]
+        # Self consistency checks.
+        for k, v in expected1.items():
+            assert s1[k].value == pytest.approx(v)
+        for k, v in expected2.items():
+            assert s2[k].value == pytest.approx(v)
+
     def test_getsigref(self):
         """test of various getsigref modes"""
         # 1. Ensure that getsigref(scan=int,ref=int) returns the same as getps(scan=int [ref implied])
@@ -1084,7 +1142,7 @@ class TestGBTFITSLoad:
         assert psscan[0].refscan == 52
         assert psscan[0].sigscan == 51
 
-        # 2. Compare with GBTIDL output
+        # 3. Compare with GBTIDL output
         sigref = sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0)
         y = sigref[0].timeaverage(weights=None)
         gbtidl_file = util.get_project_testdata() / "AGBT05B_047_01/gbtidl/getsigref_53_52_eqweight.fits"
@@ -1100,6 +1158,9 @@ class TestGBTFITSLoad:
         x.meta["MEANTSYS"] = x.meta["TSYS"]
         assert np.all(np.abs(y.data - x.data) < 1e-7)
 
+        # 4. Scan is an int, ref is a Spectrum
+
+        # Check that expected errors are raised for wrong or incomplete inputs
         with pytest.raises(TypeError):
             sb = sdf.getsigref(scan=x, ref=52, fdnum=0, ifnum=0, plnum=0)
         with pytest.raises(TypeError):
