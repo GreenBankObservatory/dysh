@@ -10,9 +10,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from astropy import units as u
 from astropy.io import fits
 
+from astropy import units as u
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
@@ -2086,6 +2086,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._fix_column("RADESYS", radesys["Galactic"], {"CTYPE2": "GLON"})
 
     def _fix_column(self, column, new_val, mask_dict):
+        """
+        Update the values of an existing SDFITS `column` with `new_val` where `mask_dict` is true.
+        This updates `GBTFITSLoad._index` and `GBTFITSLoad._sdf.index`.
+        This is mainly used to "fix" values.
+
+        Parameters
+        ----------
+        column : str
+            SDFITS column to update.
+        new_val : str or float
+            New value for `column`.
+        mask_dict : dict
+            Dictionary with column names and column values as keys and values.
+            This will be used to determine where `GBTFITSLoad[key] == value`.
+            Multiple keys and values will be combined using `numpy.logical_and`.
+        """
         _mask = self._column_mask(mask_dict)
         if _mask.sum() == 0:
             return
