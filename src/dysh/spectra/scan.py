@@ -95,11 +95,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits, smoothref, apply_flags, observer_location, fdnum=-1, ifnum=-1, plnum=-1):
+    def __init__(self, sdfits, smoothref, apply_flags, observer_location, fdnum=-1, ifnum=-1, plnum=-1, tsys=None):
         HistoricalBase.__init__(self)
         self._fdnum = fdnum
         self._ifnum = ifnum
         self._plnum = plnum
+        self._input_tsys = tsys
         self._nchan = -1
         self._scan = -1
         self._nrows = -1
@@ -1142,6 +1143,7 @@ class PSScan(ScanBase):
         The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     refspec : int or `~spectra.spectrum.Spectrum`, optional
         If given, the Spectrum will be used as the reference rather than using scan data.
+    tsys: float or `~np.ndarray`
 
     """
 
@@ -1162,8 +1164,9 @@ class PSScan(ScanBase):
         bunit="ta",
         zenith_opacity=0.0,
         refspec=None,
+        tsys=None,
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         # self._history = deepcopy(gbtfits._history)
         self._scan = scan["ON"]
@@ -1172,6 +1175,10 @@ class PSScan(ScanBase):
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
         self._refspec = refspec
+        if isinstance(self.refspec, Spectrum):
+            self._has_refspec = True
+        else:
+            self._has_refspec = False
         self._sigspec = None
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
@@ -1188,7 +1195,7 @@ class PSScan(ScanBase):
         self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
 
-        if isinstance(self.refspec, Spectrum):
+        if self._has_refspec:
             self._refoffrows = None
             self._refoffrows = None
             self._refcalon = None
@@ -1269,23 +1276,27 @@ class PSScan(ScanBase):
 
         nspect = self.nrows // 2
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
+
         self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        if isinstance(self.refspec, Spectrum):
+        if self._has_refspec:
             # tcal = self.refspec.meta.get("TCAL", None)  # @todo allow user to input tcal in kwargs?
             # if tcal is None:
-            #   raise ValueError(
+            #   r1292aise ValueError(
             #        "Reference spectrum has no calibration temperature in its metadata.  Solve with refspec.meta['TCAL']=value."
             #   )
             # The possible system temperature keywords in the refspec header, in order of preference.
-            tsyskw = ["TSYS", "MEANTSYS", "WTTSYS"]
-            for kw in tsyskw:
-                tsys = self._refspec.get(kw, None)
-                if tsys is None:
-                    continue
+            if self._input_tsys is None:
+                tsyskw = ["TSYS", "MEANTSYS", "WTTSYS"]
+                for kw in tsyskw:
+                    tsys = self._refspec.meta.get(kw, None)
+                    if tsys is None:
+                        continue
+            else:
+                tsys = self._input_tsys
             if tsys is None:
                 raise ValueError(
-                    "Reference spectrum has no system temperature in its metadata.  Solve with refspec.meta['TSYS']=value."
+                    "Reference spectrum has no system temperature in its metadata.  Solve with refspec.meta['TSYS']=value or add parameter 'tsys' to getps/getsigref."
                 )
 
             if self._smoothref > 1:
@@ -1296,13 +1307,15 @@ class PSScan(ScanBase):
                 sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._tsys[i] = tsys
-
         else:
             tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
             if len(tcal) != nspect:
                 raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
             for i in range(nspect):
-                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                if self._input_tsys is None:
+                    tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                else:
+                    tsys = self._input_tsys
                 sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                 ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
                 if self._smoothref > 1:
@@ -1312,7 +1325,6 @@ class PSScan(ScanBase):
                 self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
 
-    # tip o' the hat to Pedro S. for exposure and delta_freq
     @property
     def exposure(self):
         """The array of exposure (integration) times
@@ -1326,11 +1338,11 @@ class PSScan(ScanBase):
         """
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        if isinstance(self.refspec, Spectrum):
+        if self._has_refspec:
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
             if exp_ref is None:
-                logger.warning(
-                    "Can't set EXPOSURE for PSCAN integrations because reference spectrum no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
+                raise ValueError(
+                    "Can't set exposure time for PSScan integrations because reference spectrum no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
                 )
             return np.full_like(exp_sig_on, None)
         else:
@@ -1358,10 +1370,14 @@ class PSScan(ScanBase):
              delta_freq: ~numpy.ndarray
                  The channel frequency width in units of the CDELT1 keyword in the SDFITS header
         """
-        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+
         df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
+        if self._has_refspec:
+            df_ref_on = df_ref_off = np.full_like(self._sigonrows, refspec.meta["CDELT1"])
+        else:
+            df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+            df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
         df_ref = 0.5 * (df_ref_on + df_ref_off)
         df_sig = 0.5 * (df_sig_on + df_sig_off)
         delta_freq = 0.5 * (df_ref + df_sig)

@@ -964,6 +964,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         elif type(scans) == int:
             scans = list([scans])
         if "REF" in kwargs:
+            print(f"REF={kwargs['REF']}")
             scans.append(kwargs.pop("REF"))
             scans = uniq(scans)
         preselected = {}
@@ -1128,7 +1129,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags: str = True,
         bunit: str = "ta",
         zenith_opacity: float = None,
-        weights: str = "tsys",
+        tsys=None,
         **kwargs,
     ) -> ScanBlock:
 
@@ -1145,9 +1146,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanlist = {}
         if type(scan) == int:
             scan = [scan]
+        print(f"{scan=}")
 
         if type(ref) == int:
-            kwargs["scan"] = scan + [ref]
+            kwargs["SCAN"] = scan + [ref]
             (scans, _sf) = self._common_selection(
                 fdnum=fdnum,
                 ifnum=ifnum,
@@ -1163,6 +1165,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scanlist["OFF"] = [ref] * len(sc)  # lengths of these arrays must match
             print(f"{scanlist=}")
         else:
+            kwargs["SCAN"] = scan
             (scans, _sf) = self._common_selection(
                 fdnum=fdnum,
                 ifnum=ifnum,
@@ -1171,7 +1174,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 **kwargs,
             )
             scanlist["ON"] = scans
-            scanlist["OFF"] = []
+            scanlist["OFF"] = [None] * len(scans)
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
@@ -1189,7 +1192,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows["ON"] = list(_ondf["ROW"])
                 rows["OFF"] = list(_offdf["ROW"])
                 for key in rows:
-                    if len(rows[key]) == 0 and not isinstance(ref, Spectrum):
+                    if len(rows[key]) == 0 and off is not None:
                         raise Exception(f"{key} scans not found in scan list {scans}")
                 # do not pass scan list here. We need all the cal rows. They will
                 # be intersected with scan rows in PSScan
@@ -1214,6 +1217,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
                     refspec=ref,
+                    tsys=tsys,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
