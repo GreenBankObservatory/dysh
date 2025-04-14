@@ -112,6 +112,8 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     1) if $DYSH_DATA exist (and this is a new proposal), it will prepend
        that to the argument of get_dysh_data() and check for existence
+       if $DYSH_DATA does not exist, but $SDFITS_DATA exists (a GBTIDL feature)
+       it will use that
     2) if /home/dysh exists, it will prepend this and check for existence
        this will keep GBO people happy.  Offsite a symlink should also work.
     3) if none of those gave a valid name, it will fall back to making a URL

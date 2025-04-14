@@ -50,6 +50,15 @@ class TestSDFITSLoad:
             sdf = SDFITSLoad(fnm)
             assert len(sdf._index) == expected[filename]
 
+    def test_names(self):
+        """
+        Test basic filename
+        """
+        filename = "TGBT21A_501_11.raw.vegas.fits"
+        fnm = self._file_list[0]  # note fnm is a string
+        sdf = SDFITSLoad(fnm)
+        assert fnm == sdf.filename
+
     def test_getspec(self):
         """
         Test that a SDFITSLoad object can use the `getspec` function.
