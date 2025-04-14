@@ -7,6 +7,7 @@ import time
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -24,6 +25,7 @@ from ..spectra.scan import (
     PSScan,
     ScanBase,
     ScanBlock,
+    Spectrum,
     SubBeamNodScan,
     TPScan,
 )
@@ -265,7 +267,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return [p.as_posix() for p in self.files]
 
-    def index(self, hdu=None, bintable=None, fitsindex=None):
+    def index(self, hdu=None, bintable: int = None, fitsindex=None):
         """
         Return The index table
 
@@ -943,7 +945,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
 
@@ -964,6 +966,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scans = uniq(_final["SCAN"])
         elif type(scans) == int:
             scans = list([scans])
+        if "REF" in kwargs:
+            scans.append(kwargs.pop("REF"))
+            scans = uniq(scans)
         preselected = {}
         preselected["SCAN"] = scans
         preselected["FDNUM"] = fdnum
@@ -1006,15 +1011,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def gettp(
         self,
-        fdnum,
-        ifnum,
-        plnum,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
         sig=None,
         cal=None,
-        calibrate=True,
-        bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        calibrate: bool = True,
+        bintable: int = None,
+        smoothref: int = 1,
+        apply_flags: bool = True,
         **kwargs,
     ):
         """
@@ -1025,7 +1030,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         sig : bool or None
@@ -1049,8 +1054,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        data : `~spectra.scan.ScanBlock`
-            A ScanBlock containing one or more `~spectra.scan.TPScan`
+        data : `~dysh.spectra.scan.ScanBlock`
+            A ScanBlock containing one or more `~dysh.spectra.scan.TPScan`
 
         """
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
@@ -1065,7 +1070,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 dfcalF = select_from("CAL", "F", _sifdf)
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
-                # print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                 if len(calrows["ON"]) != len(calrows["OFF"]):
                     if len(calrows["ON"]) > 0:
                         raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
@@ -1082,7 +1086,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"TPROWS len={len(tprows)}")
                 logger.debug(f"CALROWS on len={len(calrows['ON'])}")
                 logger.debug(f"fitsindex={i}")
-                # print("PJT TPROWS", tprows)
                 if len(tprows) == 0:
                     continue
                 g = TPScan(
@@ -1109,19 +1112,177 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # end of gettp()
 
     @log_call_to_result
+    def getsigref(
+        self,
+        scan: Union[int | list],
+        ref: Union[int | Spectrum],
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
+        calibrate: bool = True,
+        bintable: int = None,
+        smoothref: int = 1,
+        apply_flags: str = True,
+        bunit: str = "ta",
+        zenith_opacity: float = None,
+        tsys=None,
+        **kwargs,
+    ) -> ScanBlock:
+        """
+        Retrieve and calibrate position-switched data using a custom reference scan.  Also known as "Flexible Off."
+
+        Parameters
+        ----------
+        scan: int or list
+            The signal scan numbers to calibrate
+        ref: int or Spectrum
+            The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object
+        fdnum: int
+            The feed number
+        ifnum : int
+            The intermediate frequency (IF) number
+        plnum : int
+            The polarization number
+        calibrate : boolean, optional
+            Calibrate the scans. The default is True.
+        bintable : int, optional
+            Limit to the input binary table index. The default is None which means use all binary tables.
+            (This keyword should eventually go away)
+        smooth_ref: int, optional
+            the number of channels in the reference to boxcar smooth prior to calibration
+        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
+                    - 'ta'  : Antenna Temperature
+                    - 'ta*' : Antenna temperature corrected to above the atmosphere
+                    - 'jy'  : flux density in Jansky
+            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+        zenith_opacity: float, optional
+            The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+        tsys: float, optional
+            If given, this is the system temperature in Kelvin.  If signal and reference are scan numbers, the
+            system temperature will be calculated from the signal and reference scans.  If the reference
+            is a `Spectrum` the reference system temperature as given in the metadata header  will be used/d
+        **kwargs : dict
+            Optional additional selection keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `source='NGC123', ` etc.
+
+        Raises
+        ------
+        Exception
+            If scans matching the selection criteria are not found.
+
+        Returns
+        -------
+        scanblock : `~dysh.spectra.scan.ScanBlock`
+            ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
+
+        """
+        ScanBase._check_bunit(bunit)
+        if bunit.lower() != "ta" and zenith_opacity is None:
+            raise ValueError("Can't scale the data without a valid zenith opacity")
+        if type(ref) != int and not isinstance(ref, Spectrum):
+            raise TypeError("Reference scan ('ref') must be either an integer scan number or a Spectrum object")
+        if isinstance(scan, Spectrum):
+            raise TypeError(
+                "Spectrum object not allowed for 'scan'.  You can use Spectrum arithmetic if both 'scan' and 'ref' are Spectrum object."
+            )
+
+        scanlist = {}
+        if type(scan) == int:
+            scan = [scan]
+
+        if type(ref) == int:
+            kwargs["SCAN"] = scan + [ref]
+            (scans, _sf) = self._common_selection(
+                fdnum=fdnum,
+                ifnum=ifnum,
+                plnum=plnum,
+                apply_flags=apply_flags,
+                ref=ref,
+                **kwargs,
+            )
+            sc = scans.copy()
+            sc.remove(ref)
+            scanlist["ON"] = sc
+            scanlist["OFF"] = [ref] * len(sc)  # lengths of these arrays must match
+        else:
+            kwargs["SCAN"] = scan
+            (scans, _sf) = self._common_selection(
+                fdnum=fdnum,
+                ifnum=ifnum,
+                plnum=plnum,
+                apply_flags=apply_flags,
+                **kwargs,
+            )
+            scanlist["ON"] = scans
+            scanlist["OFF"] = [None] * len(scans)
+        scanblock = ScanBlock()
+        for i in range(len(self._sdf)):
+            _df = select_from("FITSINDEX", i, _sf)
+            if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                logger.debug(f"scans {scans} not found, continuing")
+                continue
+            rows = {}
+
+            for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+                _ondf = select_from("SCAN", on, _df)
+                _offdf = select_from("SCAN", off, _df)
+                rows["ON"] = list(_ondf["ROW"])
+                rows["OFF"] = list(_offdf["ROW"])
+                for key in rows:
+                    if len(rows[key]) == 0 and off is not None:
+                        raise Exception(f"{key} scans not found in scan list {scans}")
+                # do not pass scan list here. We need all the cal rows. They will
+                # be intersected with scan rows in PSScan
+                calrows = {}
+                dfcalT = select_from("CAL", "T", _df)
+                dfcalF = select_from("CAL", "F", _df)
+                calrows["ON"] = list(dfcalT["ROW"])
+                calrows["OFF"] = list(dfcalF["ROW"])
+                d = {"ON": on, "OFF": off}
+                g = PSScan(
+                    self._sdf[i],
+                    scan=d,
+                    scanrows=rows,
+                    calrows=calrows,
+                    fdnum=fdnum,
+                    ifnum=ifnum,
+                    plnum=plnum,
+                    bintable=bintable,
+                    calibrate=calibrate,
+                    smoothref=smoothref,
+                    apply_flags=apply_flags,
+                    bunit=bunit,
+                    zenith_opacity=zenith_opacity,
+                    refspec=ref,
+                    tsys=tsys,
+                )
+                g.merge_commentary(self)
+                scanblock.append(g)
+
+        if len(scanblock) == 0:
+            raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
+        return scanblock
+        # end of getsigref()
+
+    @log_call_to_result
     def getps(
         self,
-        fdnum,
-        ifnum,
-        plnum,
-        calibrate=True,
-        bintable=None,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
+        calibrate: bool = True,
+        bintable: int = None,
         smoothref: int = 1,
         apply_flags: str = True,
         bunit: str = "ta",
         zenith_opacity: float = None,
         **kwargs,
-    ):
+    ) -> ScanBlock:
         """
         Retrieve and calibrate position-switched data.
 
@@ -1130,7 +1291,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         calibrate : boolean, optional
@@ -1163,8 +1324,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing one or more `~spectra.scan.PSScan`.
+        scanblock : `~dysh.spectra.scan.ScanBlock`
+            ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
 
         """
         ScanBase._check_bunit(bunit)
@@ -1199,7 +1360,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 continue
             rows = {}
             # loop over scan pairs
-            c = 0
             for on, off in zip(scanlist["ON"], scanlist["OFF"]):
                 _ondf = select_from("SCAN", on, _df)
                 _offdf = select_from("SCAN", off, _df)
@@ -1237,7 +1397,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
-                c = c + 1
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1247,13 +1406,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getnod(
         self,
-        ifnum,
-        plnum,
-        fdnum=None,
-        calibrate=True,
-        bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        ifnum: int,
+        plnum: int,
+        fdnum: int = None,
+        calibrate: bool = True,
+        bintable: int = None,
+        smoothref: int = 1,
+        apply_flags: bool = True,
         t_sys=None,
         nocal=False,
         bunit="ta",
@@ -1266,7 +1425,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Parameters
         ----------
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         fdnum:  2-tuple, optional
@@ -1302,8 +1461,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing one or more `~spectra.scan.NodScan`.
+        scanblock : `~dysh.spectra.scan.ScanBlock`
+            ScanBlock containing one or more `~dysh.spectra.scan.NodScan`.
 
         """
 
@@ -1437,16 +1596,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getfs(
         self,
-        fdnum,
-        ifnum,
-        plnum,
-        calibrate=True,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
+        calibrate: bool = True,
         fold=True,
         shift_method="fft",
         use_sig=True,
-        bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        bintable: int = None,
+        smoothref: int = 1,
+        apply_flags: bool = True,
         bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
@@ -1460,7 +1619,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         calibrate : boolean, optional
@@ -1505,8 +1664,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing one or more`~spectra.scan.FSScan`.
+        scanblock : `~dysh.spectra.scan.ScanBlock`
+            ScanBlock containing one or more`~dysh.spectra.scan.FSScan`.
 
         """
         debug = kwargs.pop("debug", False)
@@ -1591,19 +1750,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def subbeamnod(
         self,
-        fdnum,
-        ifnum,
-        plnum,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
         method="cycle",
         sig=None,
         cal=None,
-        calibrate=True,
+        calibrate: bool = True,
         timeaverage=True,
         polaverage=False,
         weights="tsys",
-        bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        bintable: int = None,
+        smoothref: int = 1,
+        apply_flags: bool = True,
         bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
@@ -1616,7 +1775,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         method: str
@@ -1659,8 +1818,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        data : `~spectra.scan.ScanBlock`
-            A ScanBlock containing one or more `~spectra.scan.SubBeamNodScan`
+        data : `~dysh.spectra.scan.ScanBlock`
+            A ScanBlock containing one or more `~dysh.spectra.scan.SubBeamNodScan`
         """
 
         ScanBase._check_bunit(bunit)
@@ -2459,7 +2618,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Normally the SKY scan is directly followed by the VANE scan.
             @todo if one scan given, assume sky is vane+1
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         feeds : list of ints, optional
@@ -2553,7 +2712,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        (sp1, sp2) : tuple of `~spectra.spectrum.Spectrum`
+        (sp1, sp2) : tuple of `~dysh.spectra.spectrum.Spectrum`
             the two nodding spectra, caller is responsible for averaging them, e.g. `sp1.average(sp2)`
         """
 
@@ -2716,6 +2875,10 @@ class GBTOnline(GBTFITSLoad):
     def gettp(self, **kwargs):
         self._reload()
         return super().gettp(**kwargs)
+
+    def getsigref(self, **kwargs):
+        self._reload()
+        return super().getsigref(**kwargs)
 
     def getps(self, **kwargs):
         self._reload()
