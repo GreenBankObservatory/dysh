@@ -1166,6 +1166,14 @@ class TestGBTFITSLoad:
         assert (
             np.abs(np.mean(ta.data - x.data)) < 2e-3
         )  # this number is picked so that it passes.  I didn't calculate what it SHOULD be
+
+        # 5.  Input tsys should overrride whatever is in the header.  Scale difference should be ratio of
+        # sytem temperatures.
+        sigref = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0, tsys=500.0)
+        ta2 = sigref.timeaverage()
+        assert ta2.meta["TSYS"] == pytest.approx(500.0)
+        assert np.mean(ta2.data / ta.data) == pytest.approx(500 / ta.meta["TSYS"])
+
         # Check that expected errors are raised for wrong or incomplete inputs
         with pytest.raises(TypeError):
             sb = sdf.getsigref(scan=x, ref=52, fdnum=0, ifnum=0, plnum=0)
