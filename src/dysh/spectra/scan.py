@@ -957,7 +957,6 @@ class TPScan(ScanBase):
         """Calibrate the total power data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
-        # print("PJT CALSTATE:", self.calstate)
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         if self.calstate is None:
@@ -1001,12 +1000,10 @@ class TPScan(ScanBase):
             # to_nocal
             self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
             nspect = len(self._tcal)
-            # print("PJT nspect",nspect)
             self._tsys = np.ones(nspect, dtype=float)
             return
         self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])  # PJT
         nspect = len(self._tcal)
-        # print("PJT nspect",nspect)
         self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
         if len(self._tcal) != nspect:
             raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
@@ -1338,7 +1335,6 @@ class PSScan(ScanBase):
         """
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        print(f"{exp_sig_on=} {exp_sig_off=}")
         if self._has_refspec:
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
             if exp_ref is None:
@@ -1352,7 +1348,6 @@ class PSScan(ScanBase):
             )
             exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
-        print(f"{exp_ref=} {exp_sig}=")
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
