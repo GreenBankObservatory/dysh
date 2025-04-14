@@ -108,3 +108,21 @@ final_sp.plot(xaxis_unit="km/s")
 # spectrum is at ~-3720,   vlsr ~ 1720 though,   restfreq wrong?
 
 final_sp.plot(xaxis_unit="km/s", xmin=-4000, xmax=-3500, ymin=-0.3, ymax=1.9)
+
+
+#%% new getsigref from #546
+
+p1 = sdf.getsigref(scan=56,ref=57,fdnum=0,ifnum=1,plnum=0).timeaverage()
+p2 = sdf.getsigref(scan=58,ref=57,fdnum=0,ifnum=1,plnum=0).timeaverage()
+final_sp2 = p1.average(p2)
+final_sp2[20000:30000].stats(qac=True)
+# '0.09244847050922786 0.15949706831348484 -0.5741176754236221 0.7108851075172424'
+
+#%% why can't I subtract these two.
+
+d = final_sp - final_sp2
+# UnitConversionError: Can only apply 'subtract' function to quantities with compatible dimensions
+
+# when drilling down to sp.flux.data they also cannot be subtracted
+
+# TypeError: unsupported operand type(s) for -: 'memoryview' and 'memoryview'
