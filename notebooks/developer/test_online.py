@@ -103,11 +103,9 @@ sdf = GBTOnline('online.fits')
 
 sdf1 = GBTOffline("TRFI_122024_U1")
 print(sdf1.filename) # successfully returns file path
-/home/sdfits/TRFI_122024_U1/TRFI_122024_U1.raw.vegas
 
 sdf2 = GBTFITSLoad("/home/sdfits/TRFI_122024_U1/TRFI_122024_U1.raw.vegas")
 print(sdf2.filename) # fails to return file path
-AttributeError: 'GBTSDFITSLoad' object has no attribute '_filename'
 
 # however printing the object works in both cases
 print(sdf1)
