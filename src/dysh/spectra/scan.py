@@ -1338,13 +1338,13 @@ class PSScan(ScanBase):
         """
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        print(f"{exp_sig_on=} {exp_sig_off=}")
         if self._has_refspec:
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
             if exp_ref is None:
                 raise ValueError(
                     "Can't set exposure time for PSScan integrations because reference spectrum no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
                 )
-            return np.full_like(exp_sig_on, None)
         else:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = (
@@ -1352,6 +1352,7 @@ class PSScan(ScanBase):
             )
             exp_ref = exp_ref_on + exp_ref_off
         exp_sig = exp_sig_on + exp_sig_off
+        print(f"{exp_ref=} {exp_sig}=")
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
@@ -1374,7 +1375,7 @@ class PSScan(ScanBase):
         df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
         if self._has_refspec:
-            df_ref_on = df_ref_off = np.full_like(self._sigonrows, refspec.meta["CDELT1"])
+            df_ref_on = df_ref_off = np.full_like(self._sigonrows, self.refspec.meta["CDELT1"])
         else:
             df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
             df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
