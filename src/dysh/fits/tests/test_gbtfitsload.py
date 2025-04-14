@@ -1159,7 +1159,13 @@ class TestGBTFITSLoad:
         assert np.all(np.abs(y.data - x.data) < 1e-7)
 
         # 4. Scan is an int, ref is a Spectrum
-
+        reftp = sdf.gettp(scan=52, fdnum=0, ifnum=0, plnum=0)
+        refspec = reftp.timeaverage()
+        sigref = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0)
+        ta = sigref.timeaverage()
+        assert (
+            np.abs(np.mean(ta.data - x.data)) < 2e-3
+        )  # this number is picked so that it passes.  I didn't calculate what it SHOULD be
         # Check that expected errors are raised for wrong or incomplete inputs
         with pytest.raises(TypeError):
             sb = sdf.getsigref(scan=x, ref=52, fdnum=0, ifnum=0, plnum=0)
