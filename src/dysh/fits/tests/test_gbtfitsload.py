@@ -58,6 +58,18 @@ class TestGBTFITSLoad:
             sdf = gbtfitsload.GBTFITSLoad(fnm)
             assert len(sdf.index(bintable=0)) == expected[filename]
 
+    def test_names(self):
+        """
+        Test basic filename
+        """
+        fnm = Path(self._file_list[0])  # why Path() here, and not in sdfits
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        assert fnm == sdf.filename
+
+        fnm = Path(f"{self.data_dir}/AGBT20B_014_03.raw.vegas")
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        assert fnm == sdf.filename
+
     def test_getspec(self):
         """
         Test that a GBTFITSLoad object can use the `getspec` function.
