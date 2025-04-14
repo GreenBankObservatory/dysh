@@ -17,8 +17,8 @@ class TestGB20mFITSload:
         """
         Test basic filename
         """
-        assert(self.data_path == self.sdfits.filename)
-        
+        assert self.data_path == self.sdfits.filename
+
     def test_find_cal(self):
         """
         Test that the indices for finding the calibration data
