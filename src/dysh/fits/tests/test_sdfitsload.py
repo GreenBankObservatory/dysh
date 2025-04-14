@@ -57,7 +57,7 @@ class TestSDFITSLoad:
         filename = "TGBT21A_501_11.raw.vegas.fits"
         fnm = self._file_list[0]  # note fnm is a string
         sdf = SDFITSLoad(fnm)
-        assert(fnm == sdf.filename)
+        assert fnm == sdf.filename
 
     def test_getspec(self):
         """
