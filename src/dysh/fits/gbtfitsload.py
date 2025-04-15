@@ -11,9 +11,9 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-from astropy import units as u
 from astropy.io import fits
 
+from astropy import units as u
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
@@ -1136,34 +1136,36 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scan: int or list
             The signal scan numbers to calibrate
         ref: int or Spectrum
-            The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object
+            The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.
         fdnum: int
-            The feed number
+            The feed number.
         ifnum : int
-            The intermediate frequency (IF) number
+            The intermediate frequency (IF) number.
         plnum : int
-            The polarization number
+            The polarization number.
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
         smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
-        apply_flags : boolean, optional.  If True, apply flags before calibration.
+            If >1 smooth the reference with a boxcar kernel with a width of `smooth_ref` channels. The default is to not smooth the reference.
+        apply_flags : boolean, optional
+            If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
         bunit : str, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
                     - 'ta'  : Antenna Temperature
                     - 'ta*' : Antenna temperature corrected to above the atmosphere
                     - 'jy'  : flux density in Jansky
-            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+            If 'ta*' or 'jy' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity: float, optional
-            The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+            The zenith opacity to use in calculating the scale factors for the integrations.  Default: None
         tsys: float, optional
-            If given, this is the system temperature in Kelvin.  If signal and reference are scan numbers, the
-            system temperature will be calculated from the signal and reference scans.  If the reference
-            is a `Spectrum` the reference system temperature as given in the metadata header  will be used/d
+            If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
+            If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
+            scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+            in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1187,7 +1189,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise TypeError("Reference scan ('ref') must be either an integer scan number or a Spectrum object")
         if isinstance(scan, Spectrum):
             raise TypeError(
-                "Spectrum object not allowed for 'scan'.  You can use Spectrum arithmetic if both 'scan' and 'ref' are Spectrum object."
+                "Spectrum object not allowed for 'scan'.  You can use Spectrum arithmetic if both 'scan' and 'ref' are Spectrum objects"
             )
 
         scanlist = {}

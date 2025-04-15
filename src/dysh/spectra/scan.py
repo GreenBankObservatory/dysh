@@ -9,12 +9,12 @@ from typing import Union
 
 import astropy.units as u
 import numpy as np
-from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.utils.masked import Masked
 
+from astropy import constants as ac
 from dysh.spectra import core
 
 from ..coordinates import Observatory
@@ -1105,26 +1105,27 @@ class PSScan(ScanBase):
     Parameters
     ----------
     gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
-        input GBTFITSLoad object
+        Input GBTFITSLoad object.
     scan : dict
-        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers NOTE: there should be one ON and one OFF, a pair
+        dictionary with keys 'ON' and 'OFF' containing unique list of ON (signal) and OFF (reference) scan numbers NOTE: there should be one ON and one OFF, a pair.
     scanrows : dict
-        dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations
+        dictionary with keys 'ON' and 'OFF' containing the list of rows in `sdfits` corresponding to ON (signal) and OFF (reference) integrations.
     calrows : dict
         dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations.
     fdnum: int
-        The feed number
+        The feed number.
     ifnum : int
-        The IF number
+        The intermediate frequency (IF) number.
     plnum : int
-        The polarization number
+        The polarization number.
     bintable : int
-        the index for BINTABLE in `sdfits` containing the scans
+        The index for BINTABLE in `sdfits` containing the scans.
     calibrate: bool
-        whether or not to calibrate the data.  If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
+        Whether or not to calibrate the data. If true, data will be calibrated as TSYS*(ON-OFF)/OFF. Default: True
     smoothref: int
-        the number of channels in the reference to boxcar smooth prior to calibration
-    apply_flags : boolean, optional.  If True, apply flags before calibration.
+        If >1 smooth the reference with a boxcar kernel with a width of `smooth_ref` channels. The default is to not smooth the reference.
+    apply_flags : boolean, optional
+        If True, apply flags before calibration.
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -1135,13 +1136,16 @@ class PSScan(ScanBase):
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
-        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+        If 'ta*' or 'jy' the zenith opacity must also be given. Default: 'ta'
     zenith_opacity: float, optional
-        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+        The zenith opacity to use in calculating the scale factors for the integrations. Default: None
     refspec : int or `~spectra.spectrum.Spectrum`, optional
         If given, the Spectrum will be used as the reference rather than using scan data.
-    tsys: float or `~np.ndarray`
-
+    tsys : float or `~np.ndarray`
+        If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
+        If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
+        scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+        in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
     """
 
     def __init__(
