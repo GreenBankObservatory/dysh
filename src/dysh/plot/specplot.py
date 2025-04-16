@@ -468,6 +468,7 @@ class SpectrumPlot:
                 self.spans = [] # store drawn spans
                 self.selection = [] #store span extents
                 self.hlines = [] # store drawn axhlines
+                self.active = 0 # avoid autorepeated keypresses on "a"
                 print("Instructions:")
                 print('Press "a" to add a selection region')
                 print('Press "e" to end selection and print a Selection rule')
@@ -476,22 +477,24 @@ class SpectrumPlot:
 
             def on_select(self,xmin,xmax):
                 print(f'{xmin:.2f} | {xmax:.2f}')
+                self.active=0
 
             def on_key_press(self,event):
                 if event.key == 'a':
-                    print('a')
-                    self.spans.append(SpanSelector(
-                        self.ax,
-                        self.on_select,
-                        'horizontal',
-                        useblit=True,
-                        props=dict(alpha=0.5,facecolor='tab:gray'),
-                        interactive=True,
-                        drag_from_anywhere=True,
-                        button = 1,
-                        ignore_event_outside = True,
-                        grab_range=1
-                    ))
+                    if not self.active:
+                        self.active = 1
+                        self.spans.append(SpanSelector(
+                            self.ax,
+                            self.on_select,
+                            'horizontal',
+                            useblit=True,
+                            props=dict(alpha=0.5,facecolor='tab:gray'),
+                            interactive=True,
+                            drag_from_anywhere=True,
+                            button = 1,
+                            ignore_event_outside = True,
+                            grab_range=1
+                        ))
                 if event.key == 'e':
                     for hline in self.hlines:
                         hline.remove()
