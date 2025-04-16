@@ -1114,7 +1114,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getsigref(
         self,
-        scan: Union[int | list],
+        scan: Union[int | list | np.ndarray],
         ref: Union[int | Spectrum],
         fdnum: int,
         ifnum: int,
@@ -1133,11 +1133,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        scan: int or list
+        scan : int or list or `numpy.array`
             The signal scan numbers to calibrate
-        ref: int or Spectrum
+        ref : int or Spectrum
             The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.
-        fdnum: int
+        fdnum : int
             The feed number.
         ifnum : int
             The intermediate frequency (IF) number.
@@ -1148,7 +1148,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
-        smooth_ref: int, optional
+        smooth_ref : int, optional
             If >1 smooth the reference with a boxcar kernel with a width of `smooth_ref` channels. The default is to not smooth the reference.
         apply_flags : boolean, optional
             If True, apply flags before calibration.
@@ -1159,9 +1159,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     - 'ta*' : Antenna temperature corrected to above the atmosphere
                     - 'jy'  : flux density in Jansky
             If 'ta*' or 'jy' the zenith opacity must also be given. Default: 'ta'
-        zenith_opacity: float, optional
+        zenith_opacity : float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default: None
-        tsys: float, optional
+        tsys : float, optional
             If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
             If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
             scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
@@ -1195,6 +1195,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanlist = {}
         if type(scan) == int:
             scan = [scan]
+        elif isinstance(scan, np.ndarray):
+            scan = list(scan)
 
         if type(ref) == int:
             kwargs["SCAN"] = scan + [ref]
