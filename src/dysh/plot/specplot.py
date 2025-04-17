@@ -150,9 +150,9 @@ class SpectrumPlot:
 
 
             #callback = Index()
-            axtest = self._figure.add_axes([0.1, 0.9, 0.1, 0.075])
-            self._btest = Button(axtest, 'Test')
-            self._btest.on_clicked(self.next)
+            # axtest = self._figure.add_axes([0.1, 0.9, 0.1, 0.075])
+            # self._btest = Button(axtest, 'Test')
+            # self._btest.on_clicked(self.next)
 
         # if select:
         #     self.setregion(sa)
@@ -185,7 +185,7 @@ class SpectrumPlot:
                 doppler_convention=this_plot_kwargs["doppler_convention"],
             )
         if select:
-            self.setregion(sa)
+            self.setregion(s,sa)
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
@@ -445,29 +445,31 @@ class SpectrumPlot:
         self.figure.savefig(file, *kwargs)
 
 
-    def next(self, event):
-        "test button. puts a funny note on the plot when pressed."
-        fsize_small = 9
-        xyc = "figure fraction"
-        print(event)
-        print('test')
-        self._axis.annotate("oh hi there", (0.5, 0.5), xycoords=xyc, size=fsize_small)
-        self.refresh()
+    # def next(self, event):
+    #     "test button. puts a funny note on the plot when pressed."
+    #     fsize_small = 9
+    #     xyc = "figure fraction"
+    #     print(event)
+    #     print('test')
+    #     self._axis.annotate("oh hi there", (0.5, 0.5), xycoords=xyc, size=fsize_small)
+    #     self.refresh()
 
 
 
 
-    def setregion(self,sa):
+    def setregion(self,s,sa):
         """Set region callback function"""
 
         class RegionSelector:
-            def __init__(self,ax,plt,sa):
+            def __init__(self,ax,plt,s,sa):
                 self.ax = ax
+                self.s = s
                 self.sa = sa
                 self._plt = plt
                 self.spans = [] # store drawn spans
                 self.selection = [] #store span extents
                 self.hlines = [] # store drawn axhlines
+                self.rectangles = [] # store drawn rectangles
                 self.active = 0 # avoid autorepeated keypresses on "a"
                 print("Instructions:")
                 print('Press "a" to add a selection region')
@@ -496,21 +498,47 @@ class SpectrumPlot:
                             grab_range=1
                         ))
                 if event.key == 'e':
-                    for hline in self.hlines:
-                        hline.remove()
-                    self.hlines = []
+                    #for hline in self.hlines:
+                        #hline.remove()
+                    #self.hlines = []
+                    for rectangle in self.rectangles:
+                        rectangle.remove()
+                    self.rectangles = []
                     for span in self.spans:
                         x0,x1 = span.extents
-                        f0,f1 = self.ax.get_xlim()
-                        #f0,f1 = self.sa[0].value,self.sa[-1].value
-                        r0,r1 = (x0-f0)/(f1-f0) , (x1-f0)/(f1-f0)
-                        y0,y1 = self.ax.get_ylim()
-                        hline_yval = 0.05 * (y1-y0) + y0
-                        self.hlines.append(self.ax.axhline(hline_yval,r0,r1,c='k',linewidth=2))
-                        self.selection.append(span.extents)
+                        x0,x1 = (np.round(x0).astype(np.int64),np.round(x1).astype(np.int64))
+                        lsb = (self.sa[0] - self.sa[1]) > 0
+                        #print(lsb)
+                        if lsb:
+                            dat = (self.s)[x1*sa.unit:x0*sa.unit]
+                        else:
+                            dat = (self.s)[x0*sa.unit:x1*sa.unit]
+                        #print(dat)
+                        mean = np.mean(dat.flux).value
+                        sigma = np.std(dat.flux).value
+                        y0,y1 = (mean-sigma,mean+sigma)
+                        rect = Rectangle(
+                                (x0,y0), x1-x0, y1-y0, edgecolor='black',facecolor="None",zorder=1000
+                            )
+                        self.rectangles.append(rect)
+                        self.ax.add_patch(rect)
+                        self.ax.draw(plt.gcf().canvas.get_renderer())
+                        self.selection.append((x0,x1))
                         span.active = False
                         span = None
-                        #self.ax.draw()
+
+                    # for span in self.spans:
+                    #     x0,x1 = span.extents
+                    #     f0,f1 = self.ax.get_xlim()
+                    #     #f0,f1 = self.sa[0].value,self.sa[-1].value
+                    #     r0,r1 = (x0-f0)/(f1-f0) , (x1-f0)/(f1-f0)
+                    #     y0,y1 = self.ax.get_ylim()
+                    #     hline_yval = 0.05 * (y1-y0) + y0
+                    #     self.hlines.append(self.ax.axhline(hline_yval,r0,r1,c='k',linewidth=2))
+                    #     self.selection.append(span.extents)
+                    #     span.active = False
+                    #     span = None
+                    #     #self.ax.draw()
                     print(self.selection)
                     self.spans = []
                     self.selection = []
@@ -521,7 +549,7 @@ class SpectrumPlot:
                 #for span in self.spans:
                 return self.selection
 
-        self.span_selection = RegionSelector(self._axis,self._plt,sa)
+        self.span_selection = RegionSelector(self._axis,self._plt,s,sa)
 
         self.refresh()
 
