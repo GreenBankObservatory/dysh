@@ -30,4 +30,8 @@ and
 
 ## SDFITS Files
 
-The standard set of SDFITS files to run the benchmark on are ...
+The standard set of SDFITS files to run the benchmark on are:
+
+1. Standard positionswitch example from the notebooks - up to 4 PS on/off scans. Single fits file, 45MB - AGBT05B_047_01
+2. L-band edge data in On/Off/On mode - 8.5GB, 70 scans.   NGC2808 is extracted from this, using 9 "Track" scans in on/off/on mode. - AGBT15B_287_19
+3. ARGUS edge data in OTF mode - 1.3 GB, NGC0001 in AGBT21B_024_01 (or TBD if NGC5954 (2 strong sources) should be used - AGBT21B_024_20)
