@@ -7,19 +7,20 @@ import sys
 import time
 from pstats import SortKey
 
-from astropy.table import Table
+from astropy.table import Table,vstack
 import numpy as np
 from dysh.fits.gbtfitsload import GBTFITSLoad
 
 progname="perf_skel"
 data_dir = "/data/gbt/examples/"
-benchname = ""
+benchname = "FOOBAR BENCH"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=progname)
     parser.add_argument("--file", "-f", action="store", help="input filename", required=True)
     parser.add_argument("--out", "-o", action="store", help="output filename (astropy Table)", required=False)
     parser.add_argument("--append", "-a", action="store", help="append to previous output file (astropy Table)", required=False)
+    parser.add_argument("--overwrite", "-w", action="store", help="overwrite a previous output file (astropy Table)", required=False)
     parser.add_argument("--profile", "-p", action="store_true", help="run the profiler")
     parser.add_argument("--dosomething", "-d", action="store_true", help="do an optional action")
     #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
@@ -32,7 +33,7 @@ if __name__ == "__main__":
     table_cols = [ ]
     table_units = []
     table_dtypes = []
-    table = Table(names=names, meta={"name": f"Dysh Benchmark {benchname}"}, units=units, dtype=dtypes)
+    table = Table(names=table_cols, meta={"name": f"Dysh Benchmark {benchname}"}, units=table_units, dtype=table_dtypes)
     pr = cProfile.Profile()
     time_stats = {}
     time_data = []
@@ -56,10 +57,15 @@ if __name__ == "__main__":
         if table[c].info.dtype == float:
             table[c].info.format = "0.1f"
 
-    if args.out:
-        if os.path.exists(args.out) and args.append:
-            oldtable = Table.read(args.out, format="ipac")
-            table2 = vstack([oldtable, table])
+    if args.out is not None:
+        if os.path.exists(args.out):
+            if args.append:
+                oldtable = Table.read(args.out, format="ipac")
+                table2 = vstack([oldtable, table])
+            elif args.overwrite:
+                table2 = table
+            else:
+                raise Exception(f"{args.out} exists. Use -w to overwrite.")
         else:
             table2 = table
         table2.write(args.out, format="ipac", overwrite=True)
