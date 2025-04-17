@@ -39,7 +39,8 @@ if __name__ == "__main__":
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
     parser.add_argument("--dosomething", "-d", action="store_true",  help="do an optional action")
     parser.add_argument("--timeaverage", "-t", action="store_true",  help="time average the Scanblocks to make a Spectrum")
-    parser.add_argument("--nocalibrate",   "-n", action="store_false",  help="DON'T calibrate the data")
+    parser.add_argument("--nocalibrate", "-n", action="store_true", help="DON'T calibrate the data", default=False)
+    parser.add_argument("--loop",        "-l", action="store",       help="number of times to loop", default=4)
     parser.add_argument("--skipflags",   "-s", action="store_true",  help="skip reading flags")
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")    
     #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
@@ -48,6 +49,9 @@ if __name__ == "__main__":
 
     if args.quit:
         sys.exit(0)
+
+    if args.nocalibrate and args.timeaverage:
+        raise Exception("You must calibrate if you want to time average")
 
     timestr = ""
     i = 0
@@ -71,41 +75,19 @@ if __name__ == "__main__":
     sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
     time_data.append(time.perf_counter_ns())
     time_stats.append(["load", time_data[-1]])
+    calibrate = not args.nocalibrate
     if args.dosomething:
         scans = [51,53,55,57]
         scans = [51]
-        sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=args.nocalibrate)
-        time_data.append(time.perf_counter_ns())
-        time_stats.append(["getps1s", time_data[-1]])
-        #ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
-        if args.timeaverage:
-            ps = sb.timeaverage()
+        for i in range(1,int(args.loop)+1):
+            sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
             time_data.append(time.perf_counter_ns())
-            time_stats.append(["getps1t", time_data[-1]])
-        sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=args.nocalibrate)
-        time_data.append(time.perf_counter_ns())
-        time_stats.append(["getps2s", time_data[-1]])
-        #ps2 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
-        if args.timeaverage:
-            ps = sb.timeaverage()
-            time_data.append(time.perf_counter_ns())
-            time_stats.append(["getps2t", time_data[-1]])
-        sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=args.nocalibrate)
-        time_data.append(time.perf_counter_ns())
-        time_stats.append(["getps3s", time_data[-1]])
-        #ps3 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
-        if args.timeaverage:
-            ps = sb.timeaverage()
-            time_data.append(time.perf_counter_ns())
-            time_stats.append(["getps3t", time_data[-1]])
-        sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=args.nocalibrate)
-        time_data.append(time.perf_counter_ns())
-        time_stats.append(["getps4s", time_data[-1]])
-        #ps4 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
-        if args.timeaverage:
-            ps = sb.timeaverage()
-            time_data.append(time.perf_counter_ns())
-            time_stats.append(["getps4t", time_data[-1]])
+            time_stats.append([f"getps{i}s", time_data[-1]])
+            #ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
+            if args.timeaverage:
+                ps = sb.timeaverage()
+                time_data.append(time.perf_counter_ns())
+                time_stats.append([f"getps{i}t", time_data[-1]])
       
 
     time_data.append(time.perf_counter_ns())
