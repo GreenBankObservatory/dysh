@@ -11,9 +11,9 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
+from astropy import units as u
 from astropy.io import fits
 
-from astropy import units as u
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq

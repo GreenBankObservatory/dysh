@@ -9,12 +9,12 @@ from typing import Union
 
 import astropy.units as u
 import numpy as np
+from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.utils.masked import Masked
 
-from astropy import constants as ac
 from dysh.spectra import core
 
 from ..coordinates import Observatory
