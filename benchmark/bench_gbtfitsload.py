@@ -70,11 +70,17 @@ if __name__ == "__main__":
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
     parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")    
+    parser.add_argument("--justtable",   "-j", action="store_true",  help="just print the existin table and exit")    
     #parser.add_argument("--noindex",     "-n", action="store_true",  help="do not create dysh index table (pandas)")
     args = parser.parse_args()
     print(f"using {args}")
 
     if args.quit:
+        sys.exit(0)
+
+    if args.justtable:
+        table = Table.read(args.out,format="ascii.ecsv")
+        table.pprint_all()
         sys.exit(0)
 
     timestr = ""
@@ -132,7 +138,7 @@ if __name__ == "__main__":
     if args.out is not None:
         if os.path.exists(args.out):
             if args.append:
-                oldtable = Table.read(args.out, format="ipac")
+                oldtable = Table.read(args.out, format="ascii.ecsv")
                 table2 = vstack([oldtable, table])
             elif args.overwrite:
                 table2 = table
@@ -140,7 +146,7 @@ if __name__ == "__main__":
                 raise Exception(f"{args.out} exists. Use -w to overwrite.")
         else:
             table2 = table
-        table2.write(args.out, format="ipac", overwrite=True)
+        table2.write(args.out, format="ascii.ecsv", overwrite=True)
     else:
         table.pprint_all()
 
