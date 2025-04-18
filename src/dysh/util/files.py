@@ -68,9 +68,10 @@ valid_dysh_accept = {
     "nod7"       : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
     "nod8"       : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
     "nod9"       : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
-    "multismall" : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas",      # multiple small FITS files, small flags files
-    "multilargeflag" : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multipe modest FITS files, large flag files
-    "multihuge"  : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",      # multiple large FITS files, very flag files
+    "multismallsmall" : "AGBT20B_336_01/AGBT20B_336_01.raw.vegas",  # multiple small FITS files (54M each), small flags files (7 lines)
+    "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5GM each), small flags files (6 lines)
+    "multismallbig" : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas", # multiple small FITS files (64M each), large flag files (20 lines)
+    "multibighuge"  : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines)
 
 }
 
