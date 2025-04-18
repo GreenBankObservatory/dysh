@@ -79,6 +79,8 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.justtable:
+        if args.out is None:
+            raise Exception("You must provide the table filename with -o FILENAME")
         table = Table.read(args.out,format="ascii.ecsv")
         table.pprint_all()
         sys.exit(0)

@@ -46,12 +46,12 @@ in $DYSH_DATA/sdfits, under $DYSH_DATA/example-data or $DYSH_DATA/acceptance_tes
 ### Examples
 
 The first example already showed very bizarre behavior when we repeated various forms of `getps()` in a repeated loop. You would expect
-times to be the same, but it all depended on if we calibrated or not.  Times are in ms, on the lma machine at UMD.
+times to be the same, but it all depended on if we time-averaged or not.  Times are in ms, on the lma machine at UMD.
 
 ```
 $ OMP_NUM_THREADS=1 /usr/bin/time bench_getps.py -d -l 10 -t
 load     97.532862   Loading this was almost 100ms
-getps1s 190.831522   just a getps() to the TPScan is returned
+getps1s 190.831522   just a getps() to the PSScan is returned
 getps1t 672.748917   now .timeaverage() is added to return a Spectrum
 getps2s 401.706166
 getps2t 137.061235
@@ -71,5 +71,5 @@ getps9s 183.76686
 getps9t 134.601758
 end 0.00999
 ```
-if the -t was not added, only repeated TPScan's were obtained, and all the times was very compatible and about 185ms, especially
+if the -t was not added, only repeated PSScan's were obtained, and all the times was very compatible and about 185ms, especially
 the ``getps2s`` stands out at over 400ms.
