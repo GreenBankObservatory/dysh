@@ -32,6 +32,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=progname)
     # parser.add_argument("--file",        "-f", action="store",       help="input filename", required=True)
     parser.add_argument("--dobench",     "-d", action="store_true",  help="do the benchmark test")
+    parser.add_argument("--key",         "-k", action="store",       help="input dysh_data key", default="test1")
     parser.add_argument("--timeaverage", "-t", action="store_true",  help="time average the Scanblocks to make a Spectrum")
     parser.add_argument("--nocalibrate", "-n", action="store_true",  help="DON'T calibrate the data", default=False)
     parser.add_argument("--loop",        "-l", action="store",       help="number of times to loop", default=4)
@@ -56,9 +57,9 @@ if __name__ == "__main__":
     i = 0
     
     # output table colnames, units, and dtypes
-    table_cols = ["name", "time"]
-    table_units = []
-    table_dtypes = [str, int]
+    table_cols = ["name", "time", "skipflags"]
+    table_units = ["","ms",""]
+    table_dtypes = [str, float, str]
     table = Table(names=table_cols, meta={"name": f"Dysh Benchmark {benchname}"}, units=table_units, dtype=table_dtypes)
     if args.profile:
         pr = cProfile.Profile()
@@ -67,13 +68,15 @@ if __name__ == "__main__":
     time_stats = []
     time_data = []
     time_data.append(time.perf_counter_ns())
-    time_stats.append(["start", time_data[-1]])
+    #time_stats.append(["start", time_data[-1]])
+    time_stats.append(["start",  0, ""])
 
-    f1 = dysh_data(example="test1")     # position switch example from notebooks/examples
+    f1 = dysh_data(example=args.key)     # 'test1' = position switch example from notebooks/examples
     print("Loading ",f1)
     sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
     time_data.append(time.perf_counter_ns())
-    time_stats.append(["load", time_data[-1]])
+    sk=str(args.skipflags)
+    time_stats.append(["load", (time_data[-1]-time_data[-2])/1E6, sk])
     calibrate = not args.nocalibrate
     if args.dobench:
         #scans = [51,53,55,57]
@@ -81,17 +84,19 @@ if __name__ == "__main__":
         for i in range(1,int(args.loop)+1):
             sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
             time_data.append(time.perf_counter_ns())
-            time_stats.append([f"getps{i}s", time_data[-1]])
+            #time_stats.append([f"getps{i}s", time_data[-1]])
+            time_stats.append([f"getps{i}s", (time_data[-1]-time_data[-2])/1E6, sk])
             #ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
             if args.timeaverage:
                 ps = sb.timeaverage()
                 time_data.append(time.perf_counter_ns())
-                time_stats.append([f"getps{i}t", time_data[-1]])
+                #time_stats.append([f"getps{i}t", time_data[-1]])
+                time_stats.append([f"getps{i}t", (time_data[-1]-time_data[-2])/1E6, sk])
       
 
     time_data.append(time.perf_counter_ns())
-    time_stats.append(["end", time_data[-1]])
-    print((time_stats[-1][1]-time_stats[0][1])/1e9)
+    time_stats.append(["end-start", (time_data[-1]-time_data[0])/1E6,""])
+    #print((time_stats[-1][1]-time_stats[0][1])/1e9)
         
     if args.profile:
         pr.disable()
@@ -124,10 +129,10 @@ if __name__ == "__main__":
 
     # one final time?
     time_data.append(time.perf_counter_ns())
-    time_stats.append(["done", time_data[-1]])
-    print('final',(time_stats[-1][1]-time_stats[0][1])/1e9,'sec')
+    print('final',(time_data[-1]-time_data[0])/1e9,'sec')
 
-    for i in range(1,len(time_stats)):
-        dt = (time_stats[i][1]-time_stats[i-1][1])/1e6
-        label = time_stats[i][0]
-        print(label, dt)
+    if False:
+        for i in range(1,len(time_stats)):
+            dt = (time_stats[i][1]-time_stats[i-1][1])/1e6
+            label = time_stats[i][0]
+            print(label, dt)
