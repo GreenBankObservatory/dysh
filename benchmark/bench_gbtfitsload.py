@@ -81,10 +81,10 @@ if __name__ == "__main__":
     i = 0
     
     # output table colnames, units, and dtypes
-    table_cols = ["name", "time", "per file data (MB)", "flag (lines)", "skipflags"]
-    table_cols = ["name", "time", "skipflags"]
+    table_cols = ["name", "time (ms)", "# files", "file size (MB)", "flag (lines)", "skipflags"]
+    #table_cols = ["name", "time", "skipflags"]
     table_units = []
-    table_dtypes = [str, int, str]
+    table_dtypes = [str, float, int, float, int, str]
     table = Table(names=table_cols, meta={"name": f"Dysh Benchmark {benchname} {args.key}"}, units=table_units, dtype=table_dtypes)
     if args.profile:
         pr = cProfile.Profile()
@@ -94,25 +94,27 @@ if __name__ == "__main__":
     time_data = []
     time_data.append(time.perf_counter_ns())
     sk = str(args.skipflags)
-    time_stats.append(["start", time_data[-1], ""])
+    time_stats.append(["start", 0, 0, 0, 0, ""])
 
     f1 = dysh_data(accept=args.key)
     # use secret GBTFITSLOAD nfiles kwarg to limit number of files loaded.
     nfiles = int(args.numfiles)
     print(f"Loading not more than {nfiles} from {f1}")
-    file_stats = filestats(f1)
-    print(f"Found {file_stats[0]} files, FITS size per file {np.round(file_stats[1],2)}MB, Flag lines {file_stats[2]}")
+    trueNfiles,size_b,nflags= filestats(f1)
+    nload = min(nfiles,trueNfiles)
+    size_mb = np.round(size_b,2)
+    print(f"Will load {nload} of {trueNfiles} files. FITS size per file {size_mb}MB, Flag lines {nflags}")
     if args.dobench:
         for i in range(1,int(args.loop)+1):
             sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nfiles)
             num_loaded = len(sdf1.files)
             time_data.append(time.perf_counter_ns())
-            k = f"load{i}-{num_loaded}"
-            time_stats.append([k, time_data[-1], sk])
+            k = f"load{i}"
+            time_stats.append([k, (time_data[-1]-time_data[-2])/1e6, num_loaded, size_mb, nflags, sk])
 
     time_data.append(time.perf_counter_ns())
-    time_stats.append(["end", time_data[-1], ""])
-    print((time_stats[-1][1]-time_stats[0][1])/1e9)
+    time_stats.append(["end", (time_data[-1]-time_data[-2])/1E6, 0, 0, 0, ""])
+    #print("Total (s): ",(time_data[-1]-time_data[0])/1E9)
         
     if args.profile:
         pr.disable()
@@ -146,9 +148,4 @@ if __name__ == "__main__":
     # one final time?
     time_data.append(time.perf_counter_ns())
     time_stats.append(["done", time_data[-1]])
-    print('final',(time_stats[-1][1]-time_stats[0][1])/1e9,'sec')
-
-    for i in range(1,len(time_stats)):
-        dt = (time_stats[i][1]-time_stats[i-1][1])/1e6
-        label = time_stats[i][0]
-        print(label, dt)
+    print('final',np.round((time_data[-1]-time_data[0])/1e9,3),'sec')
