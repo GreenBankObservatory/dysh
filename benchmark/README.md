@@ -30,4 +30,46 @@ and
 
 ## SDFITS Files
 
-The standard set of SDFITS files to run the benchmark on are ...
+The standard set of SDFITS files to run the benchmark on are:
+
+1. Standard positionswitch example from the notebooks - up to 4 PS on/off scans. Single fits file, 45MB - AGBT05B_047_01
+2. L-band edge data in On/Off/On mode - 8.5GB, 70 scans.   NGC2808 is extracted from this, using 9 "Track" scans in on/off/on mode. - AGBT15B_287_19
+3. ARGUS edge data in OTF mode - 1.3 GB, NGC0001 in AGBT21B_024_01 (or TBD if NGC5954 (2 strong sources) should be used - AGBT21B_024_20)
+
+
+### DYSH_DATA
+
+To make it portable accross machines, data not in the $DYSH/testdata directory can be easily used via the `dysh.util.files.dysh_data()` function. Either placed
+in $DYSH_DATA/sdfits, under $DYSH_DATA/example-data or $DYSH_DATA/acceptance_testing.   TBD
+
+
+### Examples
+
+The first example already showed very bizarre behavior when we repeated various forms of `getps()` in a repeated loop. You would expect
+times to be the same, but it all depended on if we calibrated or not.  Times are in ms, on the lma machine at UMD.
+
+```
+$ OMP_NUM_THREADS=1 /usr/bin/time bench_getps.py -d -l 10 -t
+load     97.532862   Loading this was almost 100ms
+getps1s 190.831522   just a getps() to the TPScan is returned
+getps1t 672.748917   now .timeaverage() is added to return a Spectrum
+getps2s 401.706166
+getps2t 137.061235
+getps3s 186.651159
+getps3t 135.26012
+getps4s 186.649279
+getps4t 151.799951
+getps5s 191.804484
+getps5t 136.399024
+getps6s 186.610638
+getps6t 134.886799
+getps7s 184.546092
+getps7t 135.14739
+getps8s 184.658502
+getps8t 133.752485
+getps9s 183.76686
+getps9t 134.601758
+end 0.00999
+```
+if the -t was not added, only repeated TPScan's were obtained, and all the times was very compatible and about 185ms, especially
+the ``getps2s`` stands out at over 400ms.
