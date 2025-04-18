@@ -81,9 +81,9 @@ if __name__ == "__main__":
     i = 0
     
     # output table colnames, units, and dtypes
-    table_cols = ["name", "time (ms)", "# files", "file size (MB)", "flag (lines)", "skipflags"]
+    table_cols = ["name", "time", "# files", "file size", "flag (lines)", "skipflags"]
     #table_cols = ["name", "time", "skipflags"]
-    table_units = []
+    table_units = ["","ms","","MB","",""]
     table_dtypes = [str, float, int, float, int, str]
     table = Table(names=table_cols, meta={"name": f"Dysh Benchmark {benchname} {args.key}"}, units=table_units, dtype=table_dtypes)
     if args.profile:
