@@ -192,7 +192,7 @@ class SpectrumPlot:
         sf = Masked(sf, s.mask)
         self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
-            self._axis.set_xlim(sa[0].value, sa[-1].value)
+            self._axis.set_xlim(np.min(sa).value, np.max(sa).value)
         else:
             self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
@@ -468,7 +468,7 @@ class SpectrumPlot:
                 self._plt = plt
                 self.spans = [] # store drawn spans
                 self.selection = [] #store span extents
-                self.hlines = [] # store drawn axhlines
+                self.selected_chans=[] #store span extents in channels
                 self.rectangles = [] # store drawn rectangles
                 self.active = 0 # avoid autorepeated keypresses on "a"
                 print("Instructions:")
@@ -478,7 +478,7 @@ class SpectrumPlot:
                 self.cid_key = plt.gcf().canvas.mpl_connect("key_press_event",self.on_key_press)
 
             def on_select(self,xmin,xmax):
-                print(f'{xmin:.2f} | {xmax:.2f}')
+                #print(f'{xmin:.2f} | {xmax:.2f}')
                 self.active=0
 
             def on_key_press(self,event):
@@ -498,17 +498,13 @@ class SpectrumPlot:
                             grab_range=1
                         ))
                 if event.key == 'e':
-                    #for hline in self.hlines:
-                        #hline.remove()
-                    #self.hlines = []
                     for rectangle in self.rectangles:
                         rectangle.remove()
+                    lsb = s.spectral_axis_direction == 'decreasing'
                     self.rectangles = []
                     for span in self.spans:
                         x0,x1 = span.extents
                         x0,x1 = (np.round(x0).astype(np.int64),np.round(x1).astype(np.int64))
-                        lsb = (self.sa[0] - self.sa[1]) > 0
-                        #print(lsb)
                         if lsb:
                             dat = (self.s)[x1*sa.unit:x0*sa.unit]
                         else:
@@ -523,23 +519,20 @@ class SpectrumPlot:
                         self.rectangles.append(rect)
                         self.ax.add_patch(rect)
                         self.ax.draw(plt.gcf().canvas.get_renderer())
+                        nchan = self.sa.shape[0]
+                        bw = (np.max(sa) - np.min(sa)).value
+                        c0 = int( (x0-np.min(self.sa).value) / bw * len(self.sa) )
+                        c1 = int( (x1-np.min(self.sa).value) / bw * len(self.sa) )
+                        if lsb:
+                            self.selected_chans.insert(0,(nchan-c1,nchan-c0))
+                        else:
+                            self.selected_chans.append([c0,c1])
                         self.selection.append((x0,x1))
                         span.active = False
                         span = None
-
-                    # for span in self.spans:
-                    #     x0,x1 = span.extents
-                    #     f0,f1 = self.ax.get_xlim()
-                    #     #f0,f1 = self.sa[0].value,self.sa[-1].value
-                    #     r0,r1 = (x0-f0)/(f1-f0) , (x1-f0)/(f1-f0)
-                    #     y0,y1 = self.ax.get_ylim()
-                    #     hline_yval = 0.05 * (y1-y0) + y0
-                    #     self.hlines.append(self.ax.axhline(hline_yval,r0,r1,c='k',linewidth=2))
-                    #     self.selection.append(span.extents)
-                    #     span.active = False
-                    #     span = None
-                    #     #self.ax.draw()
-                    print(self.selection)
+                        del span
+                    out = f'exclude = {self.selected_chans}'
+                    print(out)
                     self.spans = []
                     self.selection = []
                     self.ax.figure.canvas.draw()
