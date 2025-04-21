@@ -132,13 +132,13 @@ class SpectrumPlot:
         this_plot_kwargs.update(kwargs)
         if True:  # @todo deal with plot reuse (notebook vs script)
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
+
         # else:
         #    self._axis.cla()
-        def apply_region_selection(x,y):#or list of start/stop values?
+        def apply_region_selection(x, y):  # or list of start/stop values?
             """Apply region selected using Selection"""
-            #sdf.Select(blah blah blah)
-            print(x,y)
-
+            # sdf.Select(blah blah blah)
+            print(x, y)
 
         # TODO: procedurally generate subplot params based on show header/buttons args.
         # ideally place left/right params right here, then top gets determined below.
@@ -148,8 +148,7 @@ class SpectrumPlot:
             self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
             self._set_header(s)
 
-
-            #callback = Index()
+            # callback = Index()
             # axtest = self._figure.add_axes([0.1, 0.9, 0.1, 0.075])
             # self._btest = Button(axtest, 'Test')
             # self._btest.on_clicked(self.next)
@@ -185,7 +184,7 @@ class SpectrumPlot:
                 doppler_convention=this_plot_kwargs["doppler_convention"],
             )
         if select:
-            self.setregion(s,sa)
+            self.setregion(s, sa)
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
@@ -440,10 +439,9 @@ class SpectrumPlot:
             Other arguments to pass to `~matplotlib.pyplot.savefig`
 
         """
-        #TODO: add clause about cutting off the top of the figure where the interactive buttons are
-        #bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
+        # TODO: add clause about cutting off the top of the figure where the interactive buttons are
+        # bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
         self.figure.savefig(file, *kwargs)
-
 
     # def next(self, event):
     #     "test button. puts a funny note on the plot when pressed."
@@ -454,84 +452,81 @@ class SpectrumPlot:
     #     self._axis.annotate("oh hi there", (0.5, 0.5), xycoords=xyc, size=fsize_small)
     #     self.refresh()
 
-
-
-
-    def setregion(self,s,sa):
+    def setregion(self, s, sa):
         """Set region callback function"""
 
         class RegionSelector:
-            def __init__(self,ax,plt,s,sa):
+            def __init__(self, ax, plt, s, sa):
                 self.ax = ax
                 self.s = s
                 self.sa = sa
                 self._plt = plt
-                self.spans = [] # store drawn spans
-                self.selection = [] #store span extents
-                self.selected_chans=[] #store span extents in channels
-                self.rectangles = [] # store drawn rectangles
-                self.active = 0 # avoid autorepeated keypresses on "a"
+                self.spans = []  # store drawn spans
+                self.selection = []  # store span extents
+                self.selected_chans = []  # store span extents in channels
+                self.rectangles = []  # store drawn rectangles
+                self.active = 0  # avoid autorepeated keypresses on "a"
                 print("Instructions:")
                 print('Press "a" to add a selection region')
                 print('Press "e" to end selection and print a Selection rule')
 
-                self.cid_key = plt.gcf().canvas.mpl_connect("key_press_event",self.on_key_press)
+                self.cid_key = plt.gcf().canvas.mpl_connect("key_press_event", self.on_key_press)
 
-            def on_select(self,xmin,xmax):
-                #print(f'{xmin:.2f} | {xmax:.2f}')
-                self.active=0
+            def on_select(self, xmin, xmax):
+                # print(f'{xmin:.2f} | {xmax:.2f}')
+                self.active = 0
 
-            def on_key_press(self,event):
-                if event.key == 'a':
+            def on_key_press(self, event):
+                if event.key == "a":
                     if not self.active:
                         self.active = 1
-                        self.spans.append(SpanSelector(
-                            self.ax,
-                            self.on_select,
-                            'horizontal',
-                            useblit=True,
-                            props=dict(alpha=0.5,facecolor='tab:gray'),
-                            interactive=True,
-                            drag_from_anywhere=True,
-                            button = 1,
-                            ignore_event_outside = True,
-                            grab_range=1
-                        ))
-                if event.key == 'e':
+                        self.spans.append(
+                            SpanSelector(
+                                self.ax,
+                                self.on_select,
+                                "horizontal",
+                                useblit=True,
+                                props=dict(alpha=0.5, facecolor="tab:gray"),
+                                interactive=True,
+                                drag_from_anywhere=True,
+                                button=1,
+                                ignore_event_outside=True,
+                                grab_range=1,
+                            )
+                        )
+                if event.key == "e":
                     for rectangle in self.rectangles:
                         rectangle.remove()
-                    lsb = s.spectral_axis_direction == 'decreasing'
+                    lsb = s.spectral_axis_direction == "decreasing"
                     self.rectangles = []
                     for span in self.spans:
-                        x0,x1 = span.extents
-                        x0,x1 = (np.round(x0).astype(np.int64),np.round(x1).astype(np.int64))
+                        x0, x1 = span.extents
+                        x0, x1 = (np.round(x0).astype(np.int64), np.round(x1).astype(np.int64))
                         if lsb:
-                            dat = (self.s)[x1*sa.unit:x0*sa.unit]
+                            dat = (self.s)[x1 * sa.unit : x0 * sa.unit]
                         else:
-                            dat = (self.s)[x0*sa.unit:x1*sa.unit]
-                        #print(dat)
+                            dat = (self.s)[x0 * sa.unit : x1 * sa.unit]
+                        # print(dat)
                         mean = np.mean(dat.flux).value
                         sigma = np.std(dat.flux).value
-                        y0,y1 = (mean-sigma,mean+sigma)
-                        rect = Rectangle(
-                                (x0,y0), x1-x0, y1-y0, edgecolor='black',facecolor="None",zorder=1000
-                            )
+                        y0, y1 = (mean - sigma, mean + sigma)
+                        rect = Rectangle((x0, y0), x1 - x0, y1 - y0, edgecolor="black", facecolor="None", zorder=1000)
                         self.rectangles.append(rect)
                         self.ax.add_patch(rect)
                         self.ax.draw(plt.gcf().canvas.get_renderer())
                         nchan = self.sa.shape[0]
                         bw = (np.max(sa) - np.min(sa)).value
-                        c0 = int( (x0-np.min(self.sa).value) / bw * len(self.sa) )
-                        c1 = int( (x1-np.min(self.sa).value) / bw * len(self.sa) )
+                        c0 = int((x0 - np.min(self.sa).value) / bw * len(self.sa))
+                        c1 = int((x1 - np.min(self.sa).value) / bw * len(self.sa))
                         if lsb:
-                            self.selected_chans.insert(0,(nchan-c1,nchan-c0))
+                            self.selected_chans.insert(0, (nchan - c1, nchan - c0))
                         else:
-                            self.selected_chans.append([c0,c1])
-                        self.selection.append((x0,x1))
+                            self.selected_chans.append([c0, c1])
+                        self.selection.append((x0, x1))
                         span.active = False
                         span = None
                         del span
-                    out = f'include = {self.selected_chans}'
+                    out = f"include = {self.selected_chans}"
                     print(out)
                     self.spans = []
                     self.selection = []
@@ -539,14 +534,9 @@ class SpectrumPlot:
                     self._plt.show()
 
             def get_selection(self):
-                #for span in self.spans:
+                # for span in self.spans:
                 return self.selection
 
-        self.span_selection = RegionSelector(self._axis,self._plt,s,sa)
+        self.span_selection = RegionSelector(self._axis, self._plt, s, sa)
 
         self.refresh()
-
-
-
-
-
