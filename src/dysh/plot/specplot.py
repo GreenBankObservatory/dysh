@@ -452,7 +452,8 @@ class SpectrumPlot:
     def get_selected_regions(self):
         """ """
         regions = self._selector.get_selected_regions()
-        return np.sort([tuple(np.argmin(abs(p - self._sa.value)) for p in r) for r in regions])
+        return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
+        # return [tuple(np.sort[np.argmin(abs(p - self._sa.value)) for p in r]) for r in regions]
 
     # def next(self, event):
     #     "test button. puts a funny note on the plot when pressed."
