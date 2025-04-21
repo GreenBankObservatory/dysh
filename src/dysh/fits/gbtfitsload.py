@@ -68,10 +68,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     @log_call_to_history
     def __init__(self, fileobj, source=None, hdu=None, skipflags=False, **kwargs):
-        kwargs_opts = {
-            "index": True,  # only set to False for performance testing.
-            "verbose": False,
-        }
+        kwargs_opts = {"index": True, "verbose": False, "fix_ka": True}  # only set to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
@@ -83,6 +80,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
             self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
+            if not hasattr(self, "_filename"):
+                self._filename = self._sdf[0].filename
         elif path.is_dir():
             logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
@@ -94,6 +93,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
             if len(self._sdf) == 0:  # fixes issue 381
                 raise Exception(f"No FITS files found in {fileobj}.")
+            if not hasattr(self, "_filename"):
+                self._filename = self._sdf[0].filename.parent
             self.add_history(f"This GBTFITSLoad encapsulates the files: {self.filenames()}", add_time=True)
         else:
             raise Exception(f"{fileobj} is not a file or directory path")
@@ -106,6 +107,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if kwargs_opts["index"]:
             self._create_index_if_needed(skipflags)
             self._update_radesys()
+            # This only works if the index was created.
+            if kwargs_opts["fix_ka"]:
+                self._fix_ka_rx_if_needed()
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # cds.enable()  # to get mmHg
@@ -960,7 +964,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scans = uniq(_final["SCAN"])
         elif type(scans) == int:
             scans = list([scans])
-        plnum = self._fix_ka_rx_if_needed(_final, fdnum, plnum)
         preselected = {}
         preselected["SCAN"] = scans
         preselected["FDNUM"] = fdnum
@@ -1565,53 +1568,24 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return scanblock
         # end of getfs()
 
-    def _fix_ka_rx_if_needed(self, df, fdnum, plnum):
-        """The Ka band receiver had mislabeled PLNUM for a period of time.
-        This code returns the correct PLNUM for the given feed number
+    def _fix_ka_rx_if_needed(self):
+        """The Ka band receiver had mislabeled FDNUM for a period of time.
+        This corrects FDNUM for the given polarization (the Ka beams measure orthogonal polarizations).
 
         **Note**:   I don't know what date range this was effective, so this
         method may do the wrong thing for some data!
 
         See issue #160 https://github.com/GreenBankObservatory/dysh/issues/160
-
-        Parameters
-        ----------
-        df : `~pandas.DataFrame`
-            The index of the down-selected data.
-        fdnum: int
-            The feed number selected.
-        plnum: int
-            The original polarization number
-
-        Returns
-        -------
-        corrected_plnum : int
-            The corrected polarization number
         """
         # Check if we are dealing with Ka data before the beam switch.
-        rx = np.unique(df["FRONTEND"])
-        corrected_plnum = plnum
-        if len(rx) > 1:
-            # Does this ever actually happen?
-            raise TypeError(f"More than one receiver {rx} for the selected scan.")
-        elif rx[0] == "Rcvr26_40":  # and df["DATE-OBS"][-1] < xxxx
-            # Switch the polarizations to match the beams,
-            # for this receiver only because it has had its feeds
-            # mislabelled since $DATE.
-            # For the rest of the receivers the method should use
-            # the same polarization for the selected feeds.
-            # See also issue #160
-            if fdnum == 0:
-                corrected_plnum = 1
-                logger.info(
-                    f"Fixing PLNUM mislabel {plnum} for Rcvr26_40 feed {fdnum}, PLNUM changed to {corrected_plnum}"
-                )
-            elif fdnum == 1:
-                corrected_plnum = 0
-                logger.info(
-                    f"Fixing PLNUM mislabel {plnum} for Rcvr26_40 feed {fdnum}, PLNUM changed to {corrected_plnum}"
-                )
-        return corrected_plnum
+        rx = set(self["FRONTEND"])
+        if "Rcvr26_40" not in rx:
+            return
+
+        self._fix_column("FDNUM", 1, {"FRONTEND": "Rcvr26_40", "PLNUM": 1})
+        logger.info(f"Fixing FDNUM mislabel for Rcvr26_40. FDNUM 0 changed to 1")
+        self._fix_column("FDNUM", 0, {"FRONTEND": "Rcvr26_40", "PLNUM": 0})
+        logger.info(f"Fixing FDNUM mislabel for Rcvr26_40. FDNUM 1 changed to 0")
 
     # @todo sig/cal no longer needed?
     @log_call_to_result
@@ -2029,7 +2003,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             dim1 = np.shape(flagval)[1]
                             form = f"{dim1}B"
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
-                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
+                            self._sdf[k]._update_column({"FLAGS": c}, b)
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
@@ -2070,7 +2044,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             form = f"{dim1}B"
                             # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
-                            self._sdf[k]._update_binary_table_column({"FLAGS": c})
+                            self._sdf[k]._update_column({"FLAGS": c}, b)
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
@@ -2107,26 +2081,42 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
 
         # Azimuth and elevation case.
-        self._update_radesys_frame(radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
+        self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
 
         # Hour angle and declination case.
-        self._update_radesys_frame(radesys["HADec"], {"CTYPE2": "HA"})
+        self._fix_column("RADESYS", radesys["HADec"], {"CTYPE2": "HA"})
 
         # Galactic coordinates.
-        self._update_radesys_frame(radesys["Galactic"], {"CTYPE2": "GLON"})
+        self._fix_column("RADESYS", radesys["Galactic"], {"CTYPE2": "GLON"})
 
-    def _update_radesys_frame(self, frame, ctype_dict):
-        frame_mask = self._ctype_mask(ctype_dict)
-        if frame_mask.sum() == 0:
+    def _fix_column(self, column, new_val, mask_dict):
+        """
+        Update the values of an existing SDFITS `column` with `new_val` where `mask_dict` is true.
+        This updates `GBTFITSLoad._index` and `GBTFITSLoad._sdf.index`.
+        This is mainly used to "fix" values.
+
+        Parameters
+        ----------
+        column : str
+            SDFITS column to update.
+        new_val : str or float
+            New value for `column`.
+        mask_dict : dict
+            Dictionary with column names and column values as keys and values.
+            This will be used to determine where `GBTFITSLoad[key] == value`.
+            Multiple keys and values will be combined using `numpy.logical_and`.
+        """
+        _mask = self._column_mask(mask_dict)
+        if _mask.sum() == 0:
             return
         # Update self._index.
-        self._index.loc[frame_mask, "RADESYS"] = frame
+        self._index.loc[_mask, column] = new_val
         # Update SDFITSLoad.index.
-        sdf_idx = set(self["FITSINDEX"][frame_mask])
+        sdf_idx = set(self["FITSINDEX"][_mask])
         for i in sdf_idx:
             sdfi = self._sdf[i].index()
-            frame_mask = self._sdf[i]._ctype_mask(ctype_dict)
-            sdfi.loc[frame_mask, "RADESYS"] = frame
+            _mask = self._sdf[i]._column_mask(mask_dict)
+            sdfi.loc[_mask, column] = new_val
 
     def __getitem__(self, items):
         # items can be a single string or a list of strings.

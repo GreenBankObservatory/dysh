@@ -13,6 +13,12 @@ class TestGB20mFITSload:
         with pytest.warns(UserWarning):
             self.sdfits = gb20mfitsload.GB20MFITSLoad(self.data_path)
 
+    def test_names(self):
+        """
+        Test basic filename
+        """
+        assert self.data_path == self.sdfits.filename
+
     def test_find_cal(self):
         """
         Test that the indices for finding the calibration data
