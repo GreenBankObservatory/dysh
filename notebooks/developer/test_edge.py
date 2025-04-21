@@ -65,11 +65,14 @@ f1=dysh_data('AGBT15B_287/AGBT15B_287_19.raw.vegas')
 sdf = GBTFITSLoad(f1)
 sdf.summary()
 
+# 65640 rows
 
 if False:
     # make a small test
     mkdir("edge")
     sdf.write('edge/file.fits',scan=[56,57,58], ifnum=1, plnum=0, intnum=0)
+    #  6 rows
+    #  3090 rows if all times
 
 
 sp = []
@@ -90,7 +93,7 @@ final_sp[20000:30000].stats(qac=True)
 
 sdf = GBTFITSLoad('edge')
 sdf.summary()
-
+s
 sp=[]
 s=56
 sp1 = sdf.gettp(scan=s+0,ifnum=1,fdnum=0,plnum=0).timeaverage()
@@ -107,3 +110,21 @@ final_sp.meta["RESTFREQ"] = final_sp.meta["RESTFRQ"] = 1420.405751786
 final_sp.plot(xaxis_unit="km/s")
 # spectrum is at ~-3720,   vlsr ~ 1720 though,   restfreq wrong
 
+#%%     https://www.stecf.org/software/ASTROsoft/DER_SNR/der_snr.py
+
+def der_snr(flux):
+    n1   = len(flux)
+    flux = flux[np.where(flux != 0.0)]
+    n2   = len(flux)   
+    
+    n = n2
+
+    # For spectra shorter than this, no value can be returned
+    # note 0.6052697 = 1.482602 / sqrt(6)
+    if n>4:
+        signal = np.median(flux)
+        noise  = 0.6052697 * np.median(np.abs(2.0 * flux[2:n-2] - flux[0:n-4] - flux[4:n]))
+
+        return signal / noise
+
+    return 0.0
