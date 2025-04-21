@@ -453,7 +453,6 @@ class SpectrumPlot:
         """ """
         regions = self._selector.get_selected_regions()
         return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
-        # return [tuple(np.sort[np.argmin(abs(p - self._sa.value)) for p in r]) for r in regions]
 
     # def next(self, event):
     #     "test button. puts a funny note on the plot when pressed."
@@ -486,8 +485,8 @@ class InteractiveSpanSelector:
         )
 
         # Button to clear all selections.
-        self.button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.1, 0.04])
-        self.clear_button = Button(self.button_ax, "Clear")
+        self.button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
+        self.clear_button = Button(self.button_ax, "Clear Regions")
         self.clear_button.on_clicked(self.clear_regions)
 
         # Connect interaction events for dragging/resizing
