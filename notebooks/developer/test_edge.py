@@ -68,30 +68,37 @@ sdf.summary()
 # 65640 rows
 
 if False:
+<<<<<<< HEAD
     # make a small test
     mkdir("edge")
     sdf.write('edge/file.fits',scan=[56,57,58], ifnum=1, plnum=0, intnum=0)
     #  6 rows
     #  3090 rows if all times
 
+=======
+    # make a small test, HI in the 2nd IF
+    sdf.write('edge.fits',scan=[56,57,58], ifnum=1, plnum=0, intnum=0, multifile=False, overwrite=True)
+>>>>>>> abde571f626cc308990f5efdb1eecbd22792e87d
 
+# the full data should have 23x better S/N
 sp = []
-for s in [56, 59, 62]:
+for s in [56, 59, 62]:         # three triplets
    print("Working on ",s)
-   sp1 = sdf.gettp(scan=s+0,ifnum=1,fdnum=0,plnum=0).timeaverage()
-   sp2 = sdf.gettp(scan=s+1,ifnum=1,fdnum=0,plnum=0).timeaverage()
-   sp3 = sdf.gettp(scan=s+2,ifnum=1,fdnum=0,plnum=0).timeaverage()
-   sp.append((sp1-sp2)/sp2 * sp1.meta["TSYS"])
-   sp.append((sp3-sp2)/sp2 * sp3.meta["TSYS"])
+   for pl in [0,1]:            # two polarizations
+       sp1 = sdf.gettp(scan=s+0,ifnum=1,fdnum=0,plnum=pl).timeaverage()
+       sp2 = sdf.gettp(scan=s+1,ifnum=1,fdnum=0,plnum=pl).timeaverage()
+       sp3 = sdf.gettp(scan=s+2,ifnum=1,fdnum=0,plnum=pl).timeaverage()
+       sp.append((sp1-sp2)/sp2 * sp1.meta["TSYS"])
+       sp.append((sp3-sp2)/sp2 * sp3.meta["TSYS"])
 
 final_sp = sp[0].average(sp[1:])
 final_sp[20000:30000].stats(qac=True)
-#  '0.004810282452645506 0.013742155052110412 -0.4985143657346781 0.06365481218448035'
-
+#  '0.020347771462288694 0.009417386409339035 -0.25814777126242 0.19478180068687698'     2-pol
+final_sp.plot(xaxis_unit="km/s", xmin=-4000, xmax=-3500, ymin=-0.1, ymax=1.6)
 
 #%% small test needs edge.fits
 
-sdf = GBTFITSLoad('edge')
+sdf = GBTFITSLoad('edge.fits')
 sdf.summary()
 s
 sp=[]
@@ -103,13 +110,14 @@ p1 = (sp1-sp2)/sp2 * sp1.meta["TSYS"]
 p2 = (sp3-sp2)/sp2 * sp3.meta["TSYS"]
 final_sp = p1.average(p2)
 final_sp[20000:30000].stats(qac=True)
-
+# '0.09221439817177293 0.15920341703887056 -0.5727973574918991 0.709867703916811'
 
 final_sp.meta["RESTFREQ"] = final_sp.meta["RESTFRQ"] = 1420.405751786
 
 final_sp.plot(xaxis_unit="km/s")
-# spectrum is at ~-3720,   vlsr ~ 1720 though,   restfreq wrong
+# spectrum is at ~-3720,   vlsr ~ 1720 though,   restfreq wrong?
 
+<<<<<<< HEAD
 #%%     https://www.stecf.org/software/ASTROsoft/DER_SNR/der_snr.py
 
 def der_snr(flux):
@@ -128,3 +136,24 @@ def der_snr(flux):
         return signal / noise
 
     return 0.0
+=======
+final_sp.plot(xaxis_unit="km/s", xmin=-4000, xmax=-3500, ymin=-0.3, ymax=1.9)
+
+
+#%% new getsigref from #546
+
+p1 = sdf.getsigref(scan=56,ref=57,fdnum=0,ifnum=1,plnum=0).timeaverage()
+p2 = sdf.getsigref(scan=58,ref=57,fdnum=0,ifnum=1,plnum=0).timeaverage()
+final_sp2 = p1.average(p2)
+final_sp2[20000:30000].stats(qac=True)
+# '0.09244847050922786 0.15949706831348484 -0.5741176754236221 0.7108851075172424'
+
+#%% why can't I subtract these two.
+
+d = final_sp - final_sp2
+# UnitConversionError: Can only apply 'subtract' function to quantities with compatible dimensions
+
+# when drilling down to sp.flux.data they also cannot be subtracted
+
+# TypeError: unsupported operand type(s) for -: 'memoryview' and 'memoryview'
+>>>>>>> abde571f626cc308990f5efdb1eecbd22792e87d
