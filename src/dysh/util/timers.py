@@ -92,7 +92,8 @@ if __name__ == "__main__":
     dt.tag("arange(1e7)")
     a = np.arange(1e8)
     dt.tag("arange(1e8)")
-    a = np.arange(1e9)
-    dt.tag("arange(1e9)")
+    #   stop here, too much memory
+    #a = np.arange(1e9)
+    #dt.tag("arange(1e9)")
     dt.close()
     dt.report()
