@@ -531,7 +531,7 @@ class SpectrumPlot:
                         span.active = False
                         span = None
                         del span
-                    out = f'exclude = {self.selected_chans}'
+                    out = f'include = {self.selected_chans}'
                     print(out)
                     self.spans = []
                     self.selection = []
