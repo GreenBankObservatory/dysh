@@ -271,6 +271,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
 
+    def get_selected_regions(self):
+        """Get selected regions from plot."""
+        if self._plotter is None:
+            raise TypeError("No plotter attached to spectrum. Use Spectrum.plot() first.")
+
+        return self._plotter.get_selected_regions()
+
     @property
     def obstime(self):
         return self._obstime
