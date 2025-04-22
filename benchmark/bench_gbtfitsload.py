@@ -118,8 +118,7 @@ if __name__ == "__main__":
     if args.dobench:
         for i in range(1, int(args.loop) + 1):
             sdf = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nfiles)
-            nif, nfd, npol, nrow, nchan = sdf.stats()
-            num_loaded = len(sdf.files)
-            dt.tag(f"load{i}", [num_loaded, size_mb, nchan, nrow, nif, nfd, npol, nflags, args.skipflags])
+            s = sdf.stats()
+            dt.tag(f"load{i}", [s['nfiles'], size_mb, s['nchan'], s['nrows'], s['ifnum'], s['fdnum'], s['plnum'], nflags, args.skipflags])
 
     dt.report()
