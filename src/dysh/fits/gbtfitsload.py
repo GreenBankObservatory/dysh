@@ -301,6 +301,26 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             df = df[df["BINTABLE"] == bintable]
         return df
 
+    def stats(self,bintable=0):
+        """
+        Return some basic statistics of the GBTFITSLoad. 
+        Useful for performance testing.
+
+        Parameters
+        ----------
+        bintable :  int
+            The index of the `bintable` attribute to probe.
+        """
+
+        df = self.index(bintable=bintable)
+        nif = len(uniq(df["IFNUM"]))
+        nfd = len(uniq(df["FDNUM"]))
+        npl = len(uniq(df["PLNUM"]))
+        nrows = len(df)
+        nchan = self._sdf[0].nchan(0)
+        return [nif, nfd, npl, nrows, nchan]
+        
+    
     # override sdfits version
     def rawspectra(self, bintable, fitsindex, setmask=False):
         """
