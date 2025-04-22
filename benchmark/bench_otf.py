@@ -65,8 +65,8 @@ if __name__ == "__main__":
     data_units = [""]
     data_types = [str]
     dt = DTime(benchname=benchname,
-               out=args.out, append=args.append, overwrite=args.overwrite, profile=args.profile, statslines=args.statslines, # @todo   use args ?
-               data_cols=data_cols, data_units=data_units, data_types=data_types)  # no data=[] supported yet
+               data_cols=data_cols, data_units=data_units, data_types=data_types, # no data=[] supported yet
+               args=vars(args))               
 
     sk=str(args.skipflags)
 

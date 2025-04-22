@@ -38,16 +38,17 @@ class DTime(object):
 
     def __init__(self,
                  benchname="generic", units="ms",
-                 out = None, overwrite=False, append=False, profile=False, statslines=25,
-                 data_cols = None, data_units = None, data_types = None):
+                 data_cols = None, data_units = None, data_types = None,
+                 args = None):
+                 # out = None, overwrite=False, append=False, profile=False, statslines=25,
         self.benchname = benchname
         self.active = 1                    # @todo
         self.state = 0
-        self.out = out                     # args
-        self.append = append               # args
-        self.overwrite = overwrite         # args
-        self.profile = profile             # args
-        self.statslines = int(statslines)  # args
+        self.out = args['out']             # @todo check the dictionary
+        self.append = args['append']
+        self.overwrite = args['overwrite']
+        self.profile = args['profile']
+        self.statslines = int(args['statslines'])
         if self.profile:
             self.pr = cProfile.Profile()
             self.pr.enable()
