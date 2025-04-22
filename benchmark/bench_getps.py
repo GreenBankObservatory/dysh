@@ -26,7 +26,8 @@ if __name__ == "__main__":
     parser.add_argument("--append",      "-a", action="store_true",  help="append to previous output file (astropy Table)", required=False)
     parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
-    parser.add_argument("--statslines",  "-e", action="store",      help="number of profiler statistics lines to print", default=25)
+    parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
+    parser.add_argument("--memory",      "-m", action="store_true",  help="track memory usage")
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")    
     parser.add_argument("--justtable",   "-j", action="store_true",  help="just print the existing table and exit")    
     #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
@@ -55,9 +56,12 @@ if __name__ == "__main__":
 
     sk=str(args.skipflags)
 
+    # reading dataset-1
+
     f1 = dysh_data(example=args.key)     # 'test1' = position switch example from notebooks/examples
     print("Loading ",f1)
     sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
+    print('STATS:',sdf1.stats())    
     dt.tag("load", [sk])
     calibrate = not args.nocalibrate
     if args.dobench:
@@ -70,6 +74,40 @@ if __name__ == "__main__":
             if args.timeaverage:
                 ps = sb.timeaverage()
                 dt.tag(f"getps{i}t",[sk])
+
+    # close data, do some other silly work
+    if True:
+        del sdf1
+        sdf1 = np.arange(1e5)
+        dt.tag("arange 1e5", [sk])
+        sdf1 = np.arange(1e6)
+        dt.tag("arange 1e6", [sk])
+        sdf1 = np.arange(1e7)
+        dt.tag("arange 1e7", [sk])
+        sdf1 = np.arange(1e8)
+        dt.tag("arange 1e8", [sk])
+        sdf1 = np.arange(1e5)
+        dt.tag("arange 1e5", [sk])
+
+        # read it one more time
+
+        f1 = dysh_data(example=args.key)     # 'test1' = position switch example from notebooks/examples
+        print("Loading ",f1)
+        sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
+        dt.tag("load", [sk])
+        calibrate = not args.nocalibrate
+        if args.dobench:
+            #scans = [51,53,55,57]
+            scans = [51]
+            for i in range(1,int(args.loop)+1):
+                sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
+                dt.tag(f"getps{i}s", [sk])
+                #ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
+                if args.timeaverage:
+                    ps = sb.timeaverage()
+                    dt.tag(f"getps{i}t",[sk])
+
+        
     dt.tag('report',[sk])
     dt.close()
     dt.report()
