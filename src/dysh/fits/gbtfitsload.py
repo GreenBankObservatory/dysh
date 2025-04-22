@@ -304,21 +304,36 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def stats(self,bintable=0):
         """
         Return some basic statistics of the GBTFITSLoad. 
-        Useful for performance testing.
+        Useful for performance testing.  A dictionary with
+        the following keys and values is returned:
+
+            nfiles : number of FITS files
+            nrows  : number of data rows 
+            fdnum  : number of unique feeds
+            ifnum  : number of unique IFs
+            plnum  : number of unique polarizations
+            sig    : number of unique SIG integrations
+            cal    : number of unique CAL integrations
 
         Parameters
         ----------
         bintable :  int
             The index of the `bintable` attribute to probe.
+
+        Returns
+        -------
+        stats : dict
+            A dictionary with keys
         """
 
+        s = {}
         df = self.index(bintable=bintable)
-        nif = len(uniq(df["IFNUM"]))
-        nfd = len(uniq(df["FDNUM"]))
-        npl = len(uniq(df["PLNUM"]))
-        nrows = len(df)
-        nchan = self._sdf[0].nchan(0)
-        return [nif, nfd, npl, nrows, nchan]
+        s["nrows"] = len(df)
+        s["nfiles"] = len(self.files)
+        for k in ["fdnum", "ifnum", "plnum", "intnum", "sig", "cal"]:
+            s[k] = len(uniq(df[k.upper()]))
+        s['nchan'] = self._sdf[0].nchan(0)
+        return s
         
     
     # override sdfits version
