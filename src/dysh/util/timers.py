@@ -106,7 +106,7 @@ class DTime(object):
             if self.out is not None:
                 if os.path.exists(self.out):
                     if self.append:
-                        oldtable = Table.read(self.out, format="ipac")
+                        oldtable = Table.read(self.out, format="ascii.ecsv")
                         table2 = vstack([oldtable, self.table])
                     elif self.overwrite:
                         table2 = self.table
@@ -115,7 +115,7 @@ class DTime(object):
                 else:
                     table2 = self.table
                 print(f"Overwriting {self.out}")
-                table2.write(self.out, format="ipac", overwrite=True)
+                table2.write(self.out, format="ascii.ecsv", overwrite=True)
             else:
                 self.table.pprint_all()
 
