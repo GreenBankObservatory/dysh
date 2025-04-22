@@ -1,17 +1,12 @@
 #!/usr/bin/env python
 #
 import argparse
-import cProfile
 import os
-import pstats
 import sys
-import time
-from pathlib import Path
-from pstats import SortKey
 
 import numpy as np
-from astropy.table import Table, vstack
 import astropy.units as u
+from astropy.table import Table
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.util.files import dysh_data
 from dysh.util.timers import DTime
@@ -84,6 +79,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--statslines", "-e", action="store", help="number of profiler statistics lines to print", default=25
     )
+    parser.add_argument("--memory",      "-m", action="store_true",  help="track memory usage")
     parser.add_argument("--quit", "-q", action="store_true", help="quit early")
     parser.add_argument("--justtable", "-j", action="store_true", help="just print the existin table and exit")
     # parser.add_argument("--noindex",     "-n", action="store_true",  help="do not create dysh index table (pandas)")
@@ -106,7 +102,6 @@ if __name__ == "__main__":
     data_types = [int,         float,      int,     int,   int,   int,    int,    int,      bool]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
-    sk = str(args.skipflags)
     f1 = dysh_data(accept=args.key)
     # use secret GBTFITSLOAD nfiles kwarg to limit number of files loaded.
     nfiles = int(args.numfiles)
