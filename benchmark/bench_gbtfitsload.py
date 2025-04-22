@@ -88,7 +88,6 @@ if __name__ == "__main__":
     parser.add_argument("--justtable", "-j", action="store_true", help="just print the existin table and exit")
     # parser.add_argument("--noindex",     "-n", action="store_true",  help="do not create dysh index table (pandas)")
     args = parser.parse_args()
-    print(f"using {args}")
 
     if args.quit:
         sys.exit(0)
@@ -102,9 +101,9 @@ if __name__ == "__main__":
 
     # output table colnames, units, and dtypes
     # DTime automatically handles name and time, so just the additional columns go here.
-    data_cols = ["# files", "file size", "nchan", "flag (lines)", "skipflags"]
-    data_units = ["", "MB", "", "", ""]
-    data_types = [int, float, int, int, str]
+    data_cols  = ["#files", "file_size", "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
+    data_units = ["",         "MB",        "",      "",    "",    "",     "",     "",       ""]
+    data_types = [int,         float,      int,     int,   int,   int,    int,    int,      bool]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
     sk = str(args.skipflags)
@@ -118,9 +117,9 @@ if __name__ == "__main__":
     print(f"Will load {nload} of {trueNfiles} files. FITS size per file {size_mb}MB, Flag lines {nflags}")
     if args.dobench:
         for i in range(1, int(args.loop) + 1):
-            sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nfiles)
-            num_loaded = len(sdf1.files)
-            nchan = sdf1._sdf[0].nchan(0)
-            dt.tag(f"load{i}", [num_loaded, size_mb, nchan, nflags, sk])
+            sdf = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nfiles)
+            nif, nfd, npol, nrow, nchan = sdf.stats()
+            num_loaded = len(sdf.files)
+            dt.tag(f"load{i}", [num_loaded, size_mb, nchan, nrow, nif, nfd, npol, nflags, args.skipflags])
 
     dt.report()
