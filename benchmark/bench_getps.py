@@ -1,36 +1,19 @@
 #!/usr/bin/env python
 #
-import argparse
-import cProfile
-import os
-import pstats
-import sys
-import time
-from pstats import SortKey
 
+import argparse
+import os
+import sys
 import numpy as np
-from astropy.table import Table,vstack
+from astropy.table import Table
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.util.files import dysh_data
 from dysh.util.timers import DTime
 
-def mkdir(name, clean=True):
-    """ simpler frontend for making a directory that might also already exist
-        clean=True:    also remove files inside
-    """
-    os.makedirs(name, exist_ok = True)
-    if clean:
-        fns = os.listdir(name)
-        for fn in fns:
-            print(f"Removing {fn} from {name}")
-            os.unlink(os.path.join(name,fn))
-
-progname  = "bench_getps"
 benchname = "positionswitch"
-data_dir  = "/lma1/teuben/GBT/dysh_data/sdfits/"      # should migrate to use dysh_data or $DYSH_DATA
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog=progname)
+    parser = argparse.ArgumentParser(prog=sys.argv[0])
     # parser.add_argument("--file",        "-f", action="store",       help="input filename", required=True)
     parser.add_argument("--dobench",     "-d", action="store_true",  help="do the benchmark test")
     parser.add_argument("--key",         "-k", action="store",       help="input dysh_data key", default="test1")
@@ -38,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--nocalibrate", "-n", action="store_true",  help="DON'T calibrate the data", default=False)
     parser.add_argument("--loop",        "-l", action="store",       help="number of times to loop", default=4)
     parser.add_argument("--skipflags",   "-s", action="store_true",  help="skip reading flags")
+    
     parser.add_argument("--out",         "-o", action="store",       help="output filename (astropy Table)", required=False)
     parser.add_argument("--append",      "-a", action="store_true",  help="append to previous output file (astropy Table)", required=False)
     parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
@@ -62,18 +46,11 @@ if __name__ == "__main__":
     if args.nocalibrate and args.timeaverage:
         raise Exception("You must calibrate if you want to time average")
 
-    timestr = ""
-    i = 0
-
-    if args.profile:
-        pr = cProfile.Profile()
-        pr.enable()
-
-        
     data_cols  = ["skipflags"]
     data_units = [""]
     data_types = [str]
-    dt = DTime(out=args.out,
+    dt = DTime(benchname=benchname,
+               out=args.out, append=args.append, overwrite=args.overwrite, profile=args.profile, statslines=args.statslines, # @todo   use args ?
                data_cols=data_cols, data_units=data_units, data_types=data_types)  # no data=[] supported yet
 
     sk=str(args.skipflags)
@@ -93,20 +70,9 @@ if __name__ == "__main__":
             if args.timeaverage:
                 ps = sb.timeaverage()
                 dt.tag(f"getps{i}t",[sk])
-    dt.tag("done",[sk])
-        
-    if args.profile:
-        pr.disable()
-        ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE)
-        #ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE, SortKey.TIME)
-        ps.print_stats(int(args.statslines))
-
     dt.tag('report',[sk])
     dt.close()
     dt.report()
 
-    # report total CPU time in sec.
-    # This does not include startup time before the DTime() [~2 sec]
-    total = dt.total()
-    print('final',total/1000,' sec')
+    print('final',dt.total()/1000,' sec')
     

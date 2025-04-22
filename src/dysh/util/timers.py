@@ -3,6 +3,9 @@
 import os
 import sys
 import time
+import pstats
+from pstats import SortKey
+import cProfile
 
 from pathlib import Path
 import numpy as np
@@ -35,14 +38,20 @@ class DTime(object):
 
     def __init__(self,
                  benchname="generic", units="ms",
-                 out = None,  mode="overwrite", #   append, "w" "w!", "a"
+                 out = None, overwrite=False, append=False, profile=False, statslines=25,
                  data_cols = None, data_units = None, data_types = None):
         self.benchname = benchname
-        self.out = out
-        self.active = 1                   # @todo
+        self.active = 1                    # @todo
         self.state = 0
-        self.append = False               # @todo
-        self.overwrite = True             # @todo        
+        self.out = out                     # args
+        self.append = append               # args
+        self.overwrite = overwrite         # args
+        self.profile = profile             # args
+        self.statslines = int(statslines)  # args
+        if self.profile:
+            self.pr = cProfile.Profile()
+            self.pr.enable()
+            
         if data_cols is not None and data_units is not None and data_types is not None:
             # @todo check if all lengths are the same
             my_cols =  ["name", "time"]
@@ -92,7 +101,6 @@ class DTime(object):
             if self.table is not None:
                 self.table.add_row([self.stats[i][0], dt] + self.stats[i][2])
         if self.table is not None:
-            # print(f"Write the table {self.out}")
             self.table["time"].info.format = "0.1f"
             if self.out is not None:
                 if os.path.exists(self.out):
@@ -109,6 +117,13 @@ class DTime(object):
                 table2.write(self.out, format="ipac", overwrite=True)
             else:
                 self.table.pprint_all()
+
+        if self.profile:
+            self.pr.disable()
+            ps = pstats.Stats(self.pr).sort_stats(SortKey.CUMULATIVE)
+            #ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE, SortKey.TIME)
+            #ps.print_stats(int(args.statslines))
+            ps.print_stats(self.statslines)
 
     def total(self):
         """report total time so far"""
