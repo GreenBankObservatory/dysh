@@ -42,6 +42,7 @@ if __name__ == "__main__":
     parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
     parser.add_argument("--statslines",  "-e", action="store",      help="number of profiler statistics lines to print", default=25)
+    parser.add_argument("--memory",      "-m", action="store_true",  help="track memory usage")    
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")    
     parser.add_argument("--justtable",   "-j", action="store_true",  help="just print the existing table and exit")    
     #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
@@ -73,6 +74,7 @@ if __name__ == "__main__":
     f1 = dysh_data(accept='AGBT21B_024_20/AGBT21B_024_20.raw.vegas')  # @todo why does just AGBT21B_024_20  not work
     print("Loading ",f1)
     sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
+    print('STATS:',sdf1.stats())    
     dt.tag("load1", [sk])
     if args.big:
         sdf2 = sdf1
@@ -84,7 +86,11 @@ if __name__ == "__main__":
         sdf1.write('ngc5954a/file.fits', scan=scans,overwrite=True)
         dt.tag("write1",[sk])
         sdf2 = GBTFITSLoad('ngc5954a', skipflags=args.skipflags)
+        print('STATS:',sdf2.stats())
         dt.tag("load2",[sk])
+        del sdf1
+        sdf1 = np.arange(100)   # just dummy space
+        dt.tag("mem",[sk])        
         
     calibrate = not args.nocalibrate
     if args.dobench:
@@ -102,6 +108,12 @@ if __name__ == "__main__":
     
 
 __result__ = """
+
+# (no args means it's reading the flags, very time consuming)
+# but it didn't influence the write1 
+ load1 614611.7     False
+write1   8185.2     False
+ load2   3176.5     False
 
 # -s 
  load1 12059.1      True

@@ -18,10 +18,44 @@ import astropy.units as u
 
 __all__ = ["DTime"]
 
+__ostype__ = None
+
 # see also ADMIT's util.utils.Dtime()
 
 class DTime(object):
     r"""This class encapsulated some popular timing/performance tools.
+
+    Parameters
+    ----------
+
+    benchname : str
+         Identifying name of the benchmark stored in the metadata of the table
+
+    units : str
+         Units. Allowed are "ms" (the default), others not implemented yet, if ever.
+
+    data_cols : list
+         List of names of the extra columns (in addition to the default name and time) written
+         to an Astropy at the report stage of this class. 
+
+    data_units : list
+         List of units names of the extra columns.
+
+    data_types : list
+         List of data types of the extra columns.
+
+    args: dict
+         This dictionary controls a number of common variables used in dysh benchmarking. 
+
+         out        : output filename (astropy Table). Default it none is written.
+         append     : append to previous output file (astropy Table). Default:
+         overwrite  : overwrite a previous output file (astropy Table).
+         profile    : run the profiler: Default False
+         statslines : number of profiler statistics lines to print. Default 25
+
+
+    Example
+    -------
 
     dt = DTime()
     dt.tag("test1")
@@ -44,11 +78,22 @@ class DTime(object):
         self.benchname = benchname
         self.active = 1                    # @todo
         self.state = 0
-        self.out = args['out']             # @todo check the dictionary
-        self.append = args['append']
-        self.overwrite = args['overwrite']
-        self.profile = args['profile']
-        self.statslines = int(args['statslines'])
+        if args is not None:
+            self.out = args['out']             # @todo check the dictionary
+            self.append = args['append']
+            self.overwrite = args['overwrite']
+            self.profile = args['profile']
+            self.statslines = int(args['statslines'])
+            self.memory = args['memory']
+        else:
+            self.out = None
+            self.out = "junk.tab"
+            self.append = False
+            self.overwrite = False
+            self.profile = False
+            self.statslines = 0
+            self.memory = True            
+            
         if self.profile:
             self.pr = cProfile.Profile()
             self.pr.enable()
@@ -58,6 +103,13 @@ class DTime(object):
             my_cols =  ["name", "time"]
             my_unit =  ["", "ms"]
             my_type =  [str, float]
+            if self.memory:
+                my_cols.append("VmSize")
+                my_cols.append("VmRSS")
+                my_unit.append("MB")
+                my_unit.append("MB")
+                my_type.append(float)
+                my_type.append(float)
             self.table = Table(meta={"name": f"Dysh Benchmark {benchname}"},
                                names=my_cols+data_cols, 
                                units=my_unit+data_units,
@@ -78,15 +130,69 @@ class DTime(object):
             my_data = None
         
         self.stats = []
-        self.stats.append(["start", time.perf_counter_ns(), my_data])
+        if self.memory:
+            self.stats.append(["start", time.perf_counter_ns(), 0.0, 0.0, my_data])
+        else:
+            self.stats.append(["start", time.perf_counter_ns(), my_data])
 
     def tag(self, name, data=None):
-        self.stats.append([name, time.perf_counter_ns(), data])
+        """
+        """
+        if self.memory:
+            mem1, mem2 = self.mem()
+            self.stats.append([name, time.perf_counter_ns(), mem1, mem2, data])
+        else:
+            self.stats.append([name, time.perf_counter_ns(), data])
 
     def close(self):
+        """
+        """
         self.state = 1
 
+    def mem(self):
+        """ Read memory usage info from /proc/pid/status
+            Return Virtual and Resident memory size in MBytes.
+        """
+        global __ostype__
+
+        if __ostype__ is None:
+            __ostype__ = os.uname()[0].lower()
+            print("Found ostype=",__ostype__)
+            
+        scale = {'MB': 1024.0}
+        lines = []
+           
+        try:
+            if __ostype__ == "linux":
+                proc_status = '/proc/%d/status' % os.getpid()          # linux only
+                # open pseudo file  /proc/<pid>/status
+                t = open(proc_status)
+                # get value from line e.g. 'VmRSS:  9999  kB\n'
+                for it in t.readlines():
+                    if 'VmSize' in it or 'VmRSS' in it :
+                        lines.append(it)
+                t.close()
+            else:
+                print("no get_mem yet")
+                return np.array([])
+        except:
+            print("error get_mem")
+            return np.array([])
+
+        mem = {}
+        if __ostype__ != "darwin":
+            for line in lines:
+                words = line.strip().split()
+                key = words[0][:-1]
+                scaled = float(words[1]) / scale['MB']
+                mem[key] = scaled
+
+        return np.array([mem['VmSize'], mem['VmRSS']])
+
+
     def report(self, debug=False):
+        """
+        """
         #assert(self.state == 1)
         print(f"# Dysh Benchmark: {self.benchname}")
         n = len(self.stats)
@@ -100,9 +206,17 @@ class DTime(object):
             if True:
                 print(self.stats[i][0],dt)
             if self.table is not None:
-                self.table.add_row([self.stats[i][0], dt] + self.stats[i][2])
+                if self.memory:
+                    mem1 = self.stats[i][2]
+                    mem2 = self.stats[i][3]
+                    self.table.add_row([self.stats[i][0], dt, mem1, mem2] + self.stats[i][4])
+                else:
+                    self.table.add_row([self.stats[i][0], dt] + self.stats[i][2])
         if self.table is not None:
             self.table["time"].info.format = "0.1f"
+            if self.memory:
+                self.table["VmSize"].info.format = "0.1f"
+                self.table["VmRSS"].info.format = "0.1f"
             if self.out is not None:
                 if os.path.exists(self.out):
                     if self.append:
@@ -127,7 +241,9 @@ class DTime(object):
             ps.print_stats(self.statslines)
 
     def total(self):
-        """report total time so far"""
+        """ 
+        report total CPU time so far
+        """
         n = len(self.stats)
         dt =  (self.stats[n-1][1] - self.stats[0][1])/1e6
         return dt
@@ -145,18 +261,25 @@ if __name__ == "__main__":
     dt.tag("test4      ")
     a = np.arange(1e3)
     dt.tag("arange(1e3)")
+    print(dt.mem())
     a = np.arange(1e4)
     dt.tag("arange(1e4)")
+    print(dt.mem())
     a = np.arange(1e5)
     dt.tag("arange(1e5)")
+    print(dt.mem())
     a = np.arange(1e6)
     dt.tag("arange(1e6)")
+    print(dt.mem())
     a = np.arange(1e7)
     dt.tag("arange(1e7)")
+    print(dt.mem())
     a = np.arange(1e8)
     dt.tag("arange(1e8)")
+    print(dt.mem())
     #   stop here, too much memory
     #a = np.arange(1e9)
     #dt.tag("arange(1e9)")
     dt.close()
     dt.report(debug=False)
+    print("Final total:",dt.total())
