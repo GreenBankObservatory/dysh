@@ -53,7 +53,7 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
 0. Benchmarking is tricky, you measure CPU and MEM usage that does not always make sense. For example we have a case where repeated
    calls to getps() showed unreasonable variations.
 
-1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be very large, notably for ARGUS examples. 9sec vs. 9min were seen.
+1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be very large, notably for ARGUS examples. 9sec vs. 9min were seen.  Our implementation of processing Flag files via Selection object, while convenient, is expensive.  We need to drill down and find out why this is so.
 
 2. Overhead of working on a few scans from a big file, vs. a file containing only those scans seems to suggest that all scans were "used".
 
