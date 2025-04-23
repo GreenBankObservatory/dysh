@@ -27,6 +27,7 @@ benchname = "otf"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=sys.argv[0])
+    # fmt: off
     # parser.add_argument("--file",        "-f", action="store",       help="input filename", required=True)
     parser.add_argument("--dobench",     "-d", action="store_true",  help="do the benchmark test")
     parser.add_argument("--key",         "-k", action="store",       help="input dysh_data key", default="test1")
@@ -41,22 +42,14 @@ if __name__ == "__main__":
     parser.add_argument("--append",      "-a", action="store_true",  help="append to previous output file (astropy Table)", required=False)
     parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
-    parser.add_argument("--statslines",  "-e", action="store",      help="number of profiler statistics lines to print", default=25)
-    parser.add_argument("--memory",      "-m", action="store_true",  help="track memory usage")    
+    parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")    
-    parser.add_argument("--justtable",   "-j", action="store_true",  help="just print the existing table and exit")    
     #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
+    # fmt: on
     args = parser.parse_args()
     print(f"using {args}")
 
     if args.quit:
-        sys.exit(0)
-
-    if args.justtable:
-        if args.out is None:
-            raise Exception("You must provide the table filename with -o FILENAME")
-        table = Table.read(args.out,format="ascii.ecsv")
-        table.pprint_all()
         sys.exit(0)
 
     if args.nocalibrate and args.timeaverage:
