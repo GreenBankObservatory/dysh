@@ -84,7 +84,6 @@ class DTime(object):
             self.overwrite = args['overwrite']
             self.profile = args['profile']
             self.statslines = int(args['statslines'])
-            self.memory = args['memory']
         else:
             self.out = None
             self.out = "junk.tab"
@@ -92,7 +91,6 @@ class DTime(object):
             self.overwrite = False
             self.profile = False
             self.statslines = 0
-            self.memory = True            
             
         if self.profile:
             self.pr = cProfile.Profile()
@@ -100,16 +98,9 @@ class DTime(object):
             
         if data_cols is not None and data_units is not None and data_types is not None:
             # @todo check if all lengths are the same
-            my_cols =  ["name", "time"]
-            my_unit =  ["", "ms"]
-            my_type =  [str, float]
-            if self.memory:
-                my_cols.append("VmSize")
-                my_cols.append("VmRSS")
-                my_unit.append("MB")
-                my_unit.append("MB")
-                my_type.append(float)
-                my_type.append(float)
+            my_cols =  ["name", "time", "VmSize", "VmRSS"]
+            my_unit =  ["", "ms", "MB", "MB"]
+            my_type =  [str, float, float, float]
             self.table = Table(meta={"name": f"Dysh Benchmark {benchname}"},
                                names=my_cols+data_cols, 
                                units=my_unit+data_units,
@@ -130,19 +121,13 @@ class DTime(object):
             my_data = None
         
         self.stats = []
-        if self.memory:
-            self.stats.append(["start", time.perf_counter_ns(), 0.0, 0.0, my_data])
-        else:
-            self.stats.append(["start", time.perf_counter_ns(), my_data])
+        self.stats.append(["start", time.perf_counter_ns(), 0.0, 0.0, my_data])
 
     def tag(self, name, data=None):
         """
         """
-        if self.memory:
-            mem1, mem2 = self.mem()
-            self.stats.append([name, time.perf_counter_ns(), mem1, mem2, data])
-        else:
-            self.stats.append([name, time.perf_counter_ns(), data])
+        mem1, mem2 = self.mem()
+        self.stats.append([name, time.perf_counter_ns(), mem1, mem2, data])
 
     def close(self):
         """
@@ -152,6 +137,8 @@ class DTime(object):
     def mem(self):
         """ Read memory usage info from /proc/pid/status
             Return Virtual and Resident memory size in MBytes.
+
+            @todo   add implementation for Mac (see ADMIT)
         """
         global __ostype__
 
@@ -206,17 +193,13 @@ class DTime(object):
             if True:
                 print(self.stats[i][0],dt)
             if self.table is not None:
-                if self.memory:
-                    mem1 = self.stats[i][2]
-                    mem2 = self.stats[i][3]
-                    self.table.add_row([self.stats[i][0], dt, mem1, mem2] + self.stats[i][4])
-                else:
-                    self.table.add_row([self.stats[i][0], dt] + self.stats[i][2])
+                mem1 = self.stats[i][2]
+                mem2 = self.stats[i][3]
+                self.table.add_row([self.stats[i][0], dt, mem1, mem2] + self.stats[i][4])
         if self.table is not None:
             self.table["time"].info.format = "0.1f"
-            if self.memory:
-                self.table["VmSize"].info.format = "0.1f"
-                self.table["VmRSS"].info.format = "0.1f"
+            self.table["VmSize"].info.format = "0.1f"
+            self.table["VmRSS"].info.format = "0.1f"
             if self.out is not None:
                 if os.path.exists(self.out):
                     if self.append:
