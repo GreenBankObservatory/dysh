@@ -9,7 +9,7 @@ The purpose of this  benchmarking is to:
 ## Q9
 - Identify and implement solutions to bottlenecks found in Q8.
 
-We wrote a dysh.util.timers.DTime() class that in its simplest form tells us CPU and MEM usage via tags:
+We wrote a dysh.util.timers.DTime() class that in its simplest form tells us CPU and MEM usage via naming tags:
 
 ```
       dt = DTime()
@@ -20,6 +20,22 @@ We wrote a dysh.util.timers.DTime() class that in its simplest form tells us CPU
       dt.close()
       dt.report()
 
+```
+for example here is the output of `bench_getps.py -s -d -t`
+
+```
+  name     time VmSize VmRSS  skipflags
+             ms  Mbyte  Mbyte           
+---------- ----- ------ ------ ---------
+      load 101.2 2251.1  311.9      True
+   getps1s 193.0 2263.3  326.4      True
+   getps1t 614.7 2325.2  390.0      True
+   getps2s 298.3 2300.5  365.4      True
+   getps2t 137.7 2300.5  365.4      True
+   getps3s 185.9 2300.5  365.4      True
+   getps3t 132.5 2300.5  365.4      True
+   getps4s 184.6 2300.5  365.4      True
+   getps4t 132.6 2300.5  365.4      True
 ```
 
 # Overall findings
