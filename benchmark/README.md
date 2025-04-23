@@ -37,6 +37,16 @@ for example here is the output of `bench_getps.py -s -d -t`
    getps4s 184.6 2300.5  365.4      True
    getps4t 132.6 2300.5  365.4      True
 ```
+## 10
+- Fit benchmarking data to find pain points
+
+We wrote fitbench.py (still under devel) that allows you to do a linear fit plus offset of one column of the benchmark data (default "time") to up to 3 other columns of the data. e.g.
+
+```
+./fitbench.py --files bench*.tab -p nchan nrow nflag
+```
+
+It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
 
 # Overall findings
 
