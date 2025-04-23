@@ -11,6 +11,8 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astropy.utils.masked import Masked
+from matplotlib.patches import Rectangle
+from matplotlib.widgets import Button, SpanSelector
 
 from ..coordinates import Observatory, crval4_to_pol, decode_veldef, frame_to_label
 
@@ -83,6 +85,7 @@ class SpectrumPlot:
         self._figure = None
         self._axis = None
         self._title = self._plot_kwargs["title"]
+        self._selector: InteractiveSpanSelector = None
 
     # def __call__ (see pyspeckit)
 
@@ -108,7 +111,7 @@ class SpectrumPlot:
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self, show_header=True, **kwargs):
+    def plot(self, show_header=True, select=True, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
@@ -122,6 +125,8 @@ class SpectrumPlot:
         """
         plt.ion()
         plt.rcParams["font.family"] = "monospace"
+        # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
+
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:
         self._set_xaxis_info()
@@ -130,8 +135,13 @@ class SpectrumPlot:
         this_plot_kwargs.update(kwargs)
         if True:  # @todo deal with plot reuse (notebook vs script)
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
+
         # else:
         #    self._axis.cla()
+        def apply_region_selection(x, y):  # or list of start/stop values?
+            """Apply region selected using Selection"""
+            # sdf.Select(blah blah blah)
+            print(x, y)
 
         # TODO: procedurally generate subplot params based on show header/buttons args.
         # ideally place left/right params right here, then top gets determined below.
@@ -141,7 +151,15 @@ class SpectrumPlot:
             self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
             self._set_header(s)
 
-        sa = s.spectral_axis
+            # callback = Index()
+            # axtest = self._figure.add_axes([0.1, 0.9, 0.1, 0.075])
+            # self._btest = Button(axtest, 'Test')
+            # self._btest.on_clicked(self.next)
+
+        # if select:
+        #     self.setregion(sa)
+
+        self._sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
         xunit = this_plot_kwargs["xaxis_unit"]
         yunit = this_plot_kwargs["yaxis_unit"]
@@ -156,13 +174,14 @@ class SpectrumPlot:
             else:
                 this_plot_kwargs["vel_frame"] = s.velocity_frame
         if "chan" in str(xunit).lower():
-            sa = np.arange(len(sa))
+            self._sa = u.Quantity(np.arange(len(self._sa)))
             this_plot_kwargs["xlabel"] = "Channel"
         else:
             # convert the x axis to the requested
             # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
-            # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"], equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
-            sa = s.velocity_axis_to(
+            # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"],
+            #   equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
+            self._sa = s.velocity_axis_to(
                 unit=xunit,
                 toframe=this_plot_kwargs["vel_frame"],
                 doppler_convention=this_plot_kwargs["doppler_convention"],
@@ -171,8 +190,11 @@ class SpectrumPlot:
         if yunit is not None:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
-        self._axis.plot(sa, sf, color=this_plot_kwargs["color"], lw=lw)
-        self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
+        self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
+            self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
+        else:
+            self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
         if this_plot_kwargs["grid"]:
@@ -183,6 +205,11 @@ class SpectrumPlot:
         # self._axis.axhline(y=0,color='red',lw=2)
         if self._title is not None:
             self._axis.set_title(self._title)
+
+        if select:
+            self._selector = InteractiveSpanSelector(self._axis)
+            self._spectrum._selection = self._selector.get_selected_regions()
+
         self.refresh()
 
     def reset(self):
@@ -405,7 +432,7 @@ class SpectrumPlot:
         if self.axis is not None:
             self.axis.figure.canvas.draw()
             # self.axis.figure.canvas.draw_idle()
-            self._plt.show()
+            # self._plt.show()
 
     def savefig(self, file, **kwargs):
         r"""Save the plot
@@ -418,4 +445,121 @@ class SpectrumPlot:
             Other arguments to pass to `~matplotlib.pyplot.savefig`
 
         """
+        # TODO: add clause about cutting off the top of the figure where the interactive buttons are
+        # bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
         self.figure.savefig(file, *kwargs)
+
+    def get_selected_regions(self):
+        """ """
+        regions = self._selector.get_selected_regions()
+        return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
+
+    # def next(self, event):
+    #     "test button. puts a funny note on the plot when pressed."
+    #     fsize_small = 9
+    #     xyc = "figure fraction"
+    #     print(event)
+    #     print('test')
+    #     self._axis.annotate("oh hi there", (0.5, 0.5), xycoords=xyc, size=fsize_small)
+    #     self.refresh()
+
+
+class InteractiveSpanSelector:
+    def __init__(self, ax):
+        self.ax = ax
+        self.canvas = ax.figure.canvas
+        self.regions = []
+        self.active_patch = None
+        self.press = None
+        self.dragging_edge = None
+        self.edge_threshold = 0.02  # in axes fraction
+
+        # SpanSelector for creating new regions.
+        self.span = SpanSelector(
+            ax,
+            self.onselect,
+            direction="horizontal",
+            useblit=True,
+            interactive=False,
+            props=dict(alpha=0.3, facecolor="tab:gray"),
+        )
+
+        # Button to clear all selections.
+        self.button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
+        self.clear_button = Button(self.button_ax, "Clear Regions")
+        self.clear_button.on_clicked(self.clear_regions)
+
+        # Connect interaction events for dragging/resizing
+        self.cid_press = self.canvas.mpl_connect("button_press_event", self.on_press)
+        self.cid_release = self.canvas.mpl_connect("button_release_event", self.on_release)
+        self.cid_motion = self.canvas.mpl_connect("motion_notify_event", self.on_motion)
+
+    def onselect(self, vmin, vmax):
+        if abs(vmax - vmin) < 1e-6:
+            return  # ignore tiny selections
+        rect = Rectangle(
+            (vmin, 0),
+            vmax - vmin,
+            1,
+            transform=self.ax.get_xaxis_transform(),
+            facecolor="tab:gray",
+            alpha=0.3,
+            edgecolor="black",
+        )
+        self.ax.add_patch(rect)
+        self.regions.append(rect)
+        self.canvas.draw()
+
+    def on_press(self, event):
+        if event.inaxes != self.ax:
+            return
+        for patch in self.regions:
+            contains, attr = patch.contains(event)
+            if contains:
+                self.span.set_active(False)
+                x0 = patch.get_x()
+                x1 = x0 + patch.get_width()
+                xtol = self.edge_threshold * (self.ax.get_xlim()[1] - self.ax.get_xlim()[0])
+                if abs(event.xdata - x0) < xtol:
+                    self.dragging_edge = "left"
+                elif abs(event.xdata - x1) < xtol:
+                    self.dragging_edge = "right"
+                else:
+                    self.dragging_edge = "move"
+                self.active_patch = patch
+                self.press = event.xdata, x0, x1
+                break
+
+    def on_motion(self, event):
+        if not self.active_patch or event.inaxes != self.ax or self.press is None:
+            return
+        xdata, x0, x1 = self.press
+        dx = event.xdata - xdata
+        if self.dragging_edge == "move":
+            new_x = x0 + dx
+            self.active_patch.set_x(new_x)
+        elif self.dragging_edge == "left":
+            new_x0 = x0 + dx
+            if new_x0 < x1:
+                self.active_patch.set_x(new_x0)
+                self.active_patch.set_width(x1 - new_x0)
+        elif self.dragging_edge == "right":
+            new_x1 = x1 + dx
+            if new_x1 > x0:
+                self.active_patch.set_width(new_x1 - x0)
+        self.canvas.draw_idle()
+
+    def on_release(self, event):
+        self.active_patch = None
+        self.press = None
+        self.dragging_edge = None
+        self.span.set_active(True)
+
+    def clear_regions(self, event=None):
+        for patch in self.regions:
+            patch.remove()
+        self.regions.clear()
+        self.canvas.draw()
+
+    def get_selected_regions(self):
+        return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]

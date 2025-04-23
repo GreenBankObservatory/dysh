@@ -58,6 +58,18 @@ class TestGBTFITSLoad:
             sdf = gbtfitsload.GBTFITSLoad(fnm)
             assert len(sdf.index(bintable=0)) == expected[filename]
 
+    def test_names(self):
+        """
+        Test basic filename
+        """
+        fnm = Path(self._file_list[0])  # why Path() here, and not in sdfits
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        assert fnm == sdf.filename
+
+        fnm = Path(f"{self.data_dir}/AGBT20B_014_03.raw.vegas")
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        assert fnm == sdf.filename
+
     def test_getspec(self):
         """
         Test that a GBTFITSLoad object can use the `getspec` function.
@@ -545,7 +557,8 @@ class TestGBTFITSLoad:
             g = gbtfitsload.GBTFITSLoad(f)
             for key, val in keyval.items():
                 _set = set([val])
-                g[key] = val
+                with pytest.warns(UserWarning):
+                    g[key] = val
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -560,10 +573,12 @@ class TestGBTFITSLoad:
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
             else:
-                g = gbtfitsload.GBTFITSLoad(o)
+                with pytest.warns(UserWarning):
+                    g = gbtfitsload.GBTFITSLoad(o)
             for key, val in keyval.items():
                 _set = set([val])
-                g[key] = val
+                with pytest.warns(UserWarning):
+                    g[key] = val
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -576,7 +591,8 @@ class TestGBTFITSLoad:
             for key, val in keyval.items():
                 array = [val] * g.total_rows
                 _set = set([val])
-                g[key] = array
+                with pytest.warns(UserWarning):
+                    g[key] = array
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     for b in sdf._bintable:
@@ -590,10 +606,12 @@ class TestGBTFITSLoad:
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
             else:
-                g = gbtfitsload.GBTFITSLoad(o)
+                with pytest.warns(UserWarning):
+                    g = gbtfitsload.GBTFITSLoad(o)
             for key, val in keyval.items():
                 _set = set([val])
-                g[key] = val
+                with pytest.warns(UserWarning):
+                    g[key] = val
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -605,8 +623,10 @@ class TestGBTFITSLoad:
             g = gbtfitsload.GBTFITSLoad(f)
             for key, val in keyval.items():
                 array = [val] * 2 * g.total_rows
-                with pytest.raises(ValueError):
-                    g[key] = array
+                # This will warn and raise an error.
+                with pytest.warns(UserWarning):
+                    with pytest.raises(ValueError):
+                        g[key] = array
 
         # test that changed a previously selection column results in a warning
         g = gbtfitsload.GBTFITSLoad(files[0])
@@ -647,9 +667,10 @@ class TestGBTFITSLoad:
         new_path = tmp_path / "o"
         new_path.mkdir(parents=True)
         sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
-        sdf_org["RADESYS"] = ""
-        sdf_org["CTYPE2"] = "AZ"
-        sdf_org["CTYPE3"] = "EL"
+        with pytest.warns(UserWarning):
+            sdf_org["RADESYS"] = ""
+            sdf_org["CTYPE2"] = "AZ"
+            sdf_org["CTYPE3"] = "EL"
 
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"
@@ -663,6 +684,7 @@ class TestGBTFITSLoad:
         # Test that we can create a `Spectrum` object.
         tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
 
+    @pytest.mark.filterwarnings("ignore:Changing an existing SDFITS column")
     def test_hadec_coords(self, tmp_path):
         """
         Test that observations using HADec coordinates can produce a valid `Spectrum`.
@@ -673,8 +695,9 @@ class TestGBTFITSLoad:
         new_path = tmp_path / "o"
         new_path.mkdir(parents=True)
         sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
-        sdf_org["RADESYS"] = ""
-        sdf_org["CTYPE2"] = "HA"
+        with pytest.warns(UserWarning):
+            sdf_org["RADESYS"] = ""
+            sdf_org["CTYPE2"] = "HA"
 
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"
@@ -688,6 +711,7 @@ class TestGBTFITSLoad:
         # Test that we can create a `Spectrum` object.
         tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
 
+    @pytest.mark.filterwarnings("ignore:Changing an existing SDFITS column")
     def test_galactic_coords(self, tmp_path):
         """
         Test that observations using Galactic coordinates can produce a valid `Spectrum`.
@@ -698,9 +722,10 @@ class TestGBTFITSLoad:
         new_path = tmp_path / "o"
         new_path.mkdir(parents=True)
         sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
-        sdf_org["RADESYS"] = ""
-        sdf_org["CTYPE2"] = "GLON"
-        sdf_org["CTYPE3"] = "GLAT"
+        with pytest.warns(UserWarning):
+            sdf_org["RADESYS"] = ""
+            sdf_org["CTYPE2"] = "GLON"
+            sdf_org["CTYPE3"] = "GLAT"
 
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"
@@ -838,8 +863,8 @@ class TestGBTFITSLoad:
         # Load GBTIDL reduction.
         # row 0 is `fdnum=2`.
         # row 1 is `fdnum=6`.
-        hdu = fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits")
-        table = hdu[1].data
+        with fits.open(util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.cal.vegas.fits") as hdu:
+            table = hdu[1].data
 
         # Compare.
         assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
@@ -865,8 +890,8 @@ class TestGBTFITSLoad:
         # Load GBTIDL reduction.
         # row 0 is `fdnum=0`.
         # row 1 is `fdnum=1`.
-        hdu = fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits")
-        table = hdu[1].data
+        with fits.open(util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.cal.vegas.fits") as hdu:
+            table = hdu[1].data
 
         # Compare.
         assert nodsp0.meta["EXPOSURE"] == pytest.approx(table["EXPOSURE"][0])
@@ -1051,3 +1076,61 @@ class TestGBTFITSLoad:
             sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
         with pytest.raises(ValueError):
             sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)
+
+    def test_fix_ka(self):
+        """
+        Check that the Ka SDFITS files have the beams properly labeled.
+        """
+
+        sdf_file = f"{self.data_dir}/TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        sdf1 = gbtfitsload.GBTFITSLoad(sdf_file, fix_ka=False)
+        sdf2 = gbtfitsload.GBTFITSLoad(sdf_file, fix_ka=True)
+
+        cols = ["PLNUM", "FDNUM"]
+        assert sdf1[cols].all(axis=1).sum() == 0  # PLNUM=0 corresponds to FDNUM=1, so this should be zero.
+        assert sdf2[cols].all(axis=1).sum() == sdf2._sdf[0].nintegrations(
+            0
+        )  # Only FDNUM=1 will be True, so this returns half the total number of rows, which is equal to the number of integrations.
+
+    def test_getps_ka(self):
+        """
+        Check that the line brightness is higher in FDNUM 1.
+        This checks the Ka beam mislabeling fix.
+        The test file also contains observations with X-Band, so
+        it also checks that there are no issues if two receivers are
+        present in the same SDFITS (see Issue #553).
+        """
+
+        sdf_file = f"{self.data_dir}/AGBT18A_333_21/AGBT18A_333_21.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        ps1 = sdf.getps(scan=11, fdnum=0, plnum=0, ifnum=0).timeaverage()
+        ps2 = sdf.getps(scan=11, fdnum=1, plnum=1, ifnum=0).timeaverage()
+
+        # Get stats and check.
+        s1 = ps1.stats()
+        s2 = ps2.stats()
+
+        expected1 = {
+            "mean": -0.20809913,
+            "median": -0.21268716,
+            "rms": 0.32515864,
+            "min": -1.5866431,
+            "max": 6.48147535,
+        }
+
+        expected2 = {
+            "mean": -0.27350813,
+            "median": -0.27524167,
+            "rms": 0.33285654,
+            "min": -1.75938678,
+            "max": 2.47693372,
+        }
+
+        # Line is brighter in beam 1.
+        assert s1["max"] > s2["max"]
+        # Self consistency checks.
+        for k, v in expected1.items():
+            assert s1[k].value == pytest.approx(v)
+        for k, v in expected2.items():
+            assert s2[k].value == pytest.approx(v)

@@ -50,6 +50,15 @@ class TestSDFITSLoad:
             sdf = SDFITSLoad(fnm)
             assert len(sdf._index) == expected[filename]
 
+    def test_names(self):
+        """
+        Test basic filename
+        """
+        filename = "TGBT21A_501_11.raw.vegas.fits"
+        fnm = self._file_list[0]  # note fnm is a string
+        sdf = SDFITSLoad(fnm)
+        assert fnm == sdf.filename
+
     def test_getspec(self):
         """
         Test that a SDFITSLoad object can use the `getspec` function.
@@ -90,7 +99,8 @@ class TestSDFITSLoad:
         f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
         g = SDFITSLoad(f)
         # all rows of a column to a single value
-        g["FREQRES"] = 1500.0  # Hz
+        with pytest.warns(UserWarning):
+            g["FREQRES"] = 1500.0  # Hz
         # test that the selection (index) was set
         assert list(set(g["FREQRES"]))[0] == 1500
         # test that the BinTableHDU data was set
@@ -98,13 +108,15 @@ class TestSDFITSLoad:
         # rows of a column to different values
         x = 3.1415 * np.arange(g.nrows(0), dtype=np.float64)
         # make sure lower/varying case also works
-        g["dopfreq"] = x
+        with pytest.warns(UserWarning):
+            g["dopfreq"] = x
         assert np.all(g["DoPFreQ"] == x)
         assert np.all(g._bintable[0].data["DOPFREQ"] == x)
         # Wrong length array (except single value which sets all rows) should raise ValueError.
         # We re-raise with additional context as Exception.
-        with pytest.raises(Exception):
-            g["TWARM"] = np.arange(g.nrows(0) + 99)
+        with pytest.warns(UserWarning):
+            with pytest.raises(Exception):
+                g["TWARM"] = np.arange(g.nrows(0) + 99)
 
         # File with multiple BinTableHDUs
         # This is a rare case and in any event the multiple bintables make likely  have
@@ -115,28 +127,33 @@ class TestSDFITSLoad:
         g = SDFITSLoad(f)
         # first test setting all rows to same value
         c = "MBM12"
-        g["OBJECT"] = c
+        with pytest.warns(UserWarning):
+            g["OBJECT"] = c
         assert np.all(g["object"] == c)
         assert np.all(g.bintable[0].data["OBJECT"] == c)
         assert np.all(g.bintable[1].data["OBJECT"] == c)
         # now an array
         c = ["NGC123"] * g.nrows(0) + ["3C111"] * g.nrows(1)
-        g["object"] = c
+        with pytest.warns(UserWarning):
+            g["object"] = c
         assert np.all(g["object"] == c)
         assert np.all(g.bintable[0].data["OBJECT"] == c[0 : g.nrows(0)])
         assert np.all(g.bintable[1].data["OBJECT"] == c[g.nrows(0) :])
         c.append("ONETOOMANY")
-        with pytest.raises(Exception):
-            g["object"] = c
+        with pytest.warns(UserWarning):
+            with pytest.raises(Exception):
+                g["object"] = c
         # now a number
         num = 1.23e9
-        g["RESTFREQ"] = num
+        with pytest.warns(UserWarning):
+            g["RESTFREQ"] = num
         assert np.all(g["restfreq"] == num)
         assert np.all(g.bintable[0].data["RESTFREQ"] == num)
         assert np.all(g.bintable[1].data["RESTFREQ"] == num)
         # now a sequence of numbers
         num = np.arange(8) * 9.0e9
-        g["RESTFREQ"] = num
+        with pytest.warns(UserWarning):
+            g["RESTFREQ"] = num
         assert np.all(g["restfreq"] == num)
         assert np.all(g.bintable[0].data["restfreq"] == num[0 : g.nrows(0)])  # wow astropy allows lowercase
         assert np.all(g.bintable[1].data["restfreq"] == num[g.nrows(0) :])
@@ -205,7 +222,8 @@ class TestSDFITSLoad:
             assert np.all(g.bintable[0].data[k] == v)
         with pytest.raises(Exception):
             c.append("nope")
-            g["robin"] = c
+            with pytest.warns(UserWarning):
+                g["robin"] = c
         c = ["boy wonder"] * g.nrows(0)
         colval["robin"] = c
         # write and check
@@ -231,7 +249,8 @@ class TestSDFITSLoad:
         #    assert np.all(g.bintable[1].data[k] == v)
         with pytest.raises(Exception):
             c.append("nope")
-            g["robin"] = c
+            with pytest.warns(UserWarning):
+                g["robin"] = c
         c = ["boy wonder"] * g.total_rows
         colval["robin"] = c
 
@@ -240,21 +259,24 @@ class TestSDFITSLoad:
         d = util.get_project_testdata()
         f = d / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
         g = SDFITSLoad(f)
-        g.delete_column("dopfreq")
+        with pytest.warns(UserWarning):
+            g.delete_column("dopfreq")
         assert "DOPFREQ" not in g.columns
         assert "DOPFREQ" not in g._bintable[0].data.names
 
         # File with multiple BinTableHDUs
         f = d / "TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_truncated_rows.fits"
         g = SDFITSLoad(f)
-        g.delete_column("TWARM")
+        with pytest.warns(UserWarning):
+            g.delete_column("TWARM")
         assert "TWARM" not in g.columns
         for b in g._bintable:
             assert "TWARM" not in b.data.names
 
         # DATA columns can't be deleted
-        with pytest.raises(Exception):
-            g.delete_column("dAtA")
+        with pytest.warns(UserWarning):
+            with pytest.raises(Exception):
+                g.delete_column("dAtA")
 
     def test_data_access(self):
         """test getting and setting the DATA column of SDFITS"""
@@ -264,7 +286,8 @@ class TestSDFITSLoad:
         g = SDFITSLoad(f)
         data = g["DATA"]
         assert data.shape == (32, 131072)
-        g["DATA"] = np.zeros([32, 131072])
+        with pytest.warns(UserWarning):
+            g["DATA"] = np.zeros([32, 131072])
         assert np.all(g["DATA"] == 0)
         # test some slicing
         assert np.shape(g["DATA"][:, 0:10]) == (32, 10)
@@ -278,8 +301,9 @@ class TestSDFITSLoad:
         # The binary tables have different shapes, so setting and getting is not allowed.
         with pytest.raises(Exception):
             g["DATA"]
-        with pytest.raises(Exception):
-            g["DATA"] = np.random.rand(1024)
+        with pytest.warns(UserWarning):
+            with pytest.raises(Exception):
+                g["DATA"] = np.random.rand(1024)
 
     def test_udata(self):
         """Test that `udata` is working."""
