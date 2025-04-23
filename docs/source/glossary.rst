@@ -396,7 +396,7 @@ https://dss.gb.nrao.edu/receivers/summary
 * Ku: 12-18 GHz
 * K: 18-27 GHz
 * Ka: 28-40 GHz
-* V: 40-75
+* V: 40-75 (is this used at all)
 * Q: 33-50 GHz or 6-9.1mm
 * W: 84-116 GHz (also: 75-110)
 
