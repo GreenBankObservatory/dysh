@@ -16,8 +16,11 @@ do
     out="benchtest$i.tab"
     opr="$out.pr"
     oprs="$out.prs"
-    ./bench_gbtfitsload.py -d -l 4 -n ${nfile[$i]} -s -k ${dd[$i]} -a -o $out -p -m  > $opr
-    ./bench_gbtfitsload.py -d -l 4 -n ${nfile[$i]} -k ${dd[$i]} -a -o $out -p -m >  $oprs
+    for j in $(seq 1 ${nfile[$i]})
+    do
+        ./bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]} -a -o $out -m #> $opr
+        ./bench_gbtfitsload.py -d -l 4 -n $j -k ${dd[$i]} -a -o $out -m #>  $oprs
+    done
 done
 
 exit

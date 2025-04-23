@@ -97,9 +97,9 @@ if __name__ == "__main__":
 
     # output table colnames, units, and dtypes
     # DTime automatically handles name and time, so just the additional columns go here.
-    data_cols  = ["#files", "file_size", "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
-    data_units = ["",         "MB",        "",      "",    "",    "",     "",     "",       ""]
-    data_types = [int,         float,      int,     int,   int,   int,    int,    int,      bool]
+    data_cols  = ["#files", "file_size", "totsize" "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
+    data_units = ["",         "MB",        "MB",     "",      "",    "",    "",     "",     "",       ""]
+    data_types = [int,         float,      float, int,     int,   int,   int,    int,    int,      bool]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
     f1 = dysh_data(accept=args.key)
@@ -114,6 +114,10 @@ if __name__ == "__main__":
         for i in range(1, int(args.loop) + 1):
             sdf = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nfiles)
             s = sdf.stats()
-            dt.tag(f"load{i}", [s['nfiles'], size_mb, s['nchan'], s['nrows'], s['ifnum'], s['fdnum'], s['plnum'], nflags, args.skipflags])
+            if args.skipflags:
+                nf = 0
+            else:
+                nf = nflags
+            dt.tag(f"load{i}", [s['nfiles'], size_mb, size_mb*s['nfiles'], s['nchan'], s['nrows'], s['ifnum'], s['fdnum'], s['plnum'], nf, args.skipflags])
 
     dt.report()
