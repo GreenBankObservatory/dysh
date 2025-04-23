@@ -9,6 +9,31 @@ The purpose of this  benchmarking is to:
 ## Q9
 - Identify and implement solutions to bottlenecks found in Q8.
 
+We wrote a dysh.util.timers.DTime() class that in its simplest form tells us CPU and MEM usage via tags:
+
+```
+      dt = DTime()
+      do_work1()
+      dt.tag("work1")
+      do)=_work2()
+      dt.tag("work2")
+      dt.close()
+      dt.report()
+
+```
+
+# Overall findings
+
+0. Benchmarking is tricky, you measure CPU and MEM usage that does not always make sense. For example we have a case where repeated
+   calls to getps() showed unreasonable variations.
+
+1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be very large, notably for ARGUS examples. 9sec vs. 9min were seen.
+
+2. Overhead of working on a few scans from a big file, vs. a file containing only those scans seems to suggest that all scans were "used".
+
+3. more to come.
+
+
 ### Notes
 
   - Not all operations are one-to-one with GBTIDL. For instance GBTIDL cannot calibrate multiple scans at once, whereas dysh can.  We will indicate in tabulated results if a dysh operation has no GBTIDL analog
@@ -73,3 +98,9 @@ end 0.00999
 ```
 if the -t was not added, only repeated PSScan's were obtained, and all the times was very compatible and about 185ms, especially
 the ``getps2s`` stands out at over 400ms.
+
+
+## TODO
+
+- API args= to **kwargs ?
+- always do CPU and MEM, currently MEM is done via args.memory=True
