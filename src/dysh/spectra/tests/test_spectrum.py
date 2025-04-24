@@ -1,5 +1,4 @@
 import warnings
-from unittest.mock import patch
 
 import astropy.units as u
 import numpy as np
@@ -254,12 +253,17 @@ class TestSpectrum:
         print(s.comments)
         assert "I removed a baseline" in s.comments
 
-    @patch("dysh.plot.specplot.plt.show")
-    def test_slice(self, mock_show, tmp_path):
+    def test_slice(self, tmp_path):
         """
         Test that we can slice a `Spectrum` using channels or units.
         For units we only consider frequencies for now.
         """
+
+        # Disable interactive plotting.
+        import matplotlib.pyplot as plt
+
+        plt.ioff()
+
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
         s = slice(1000, 1100, 1)
@@ -279,7 +283,7 @@ class TestSpectrum:
         for k in spec_pars:
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
-        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs")
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs", show=False)
         # Check that we can write.
         o = tmp_path / "sub"
         o.mkdir()
@@ -302,7 +306,7 @@ class TestSpectrum:
                 assert trimmed_nu.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
-        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK")
+        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", show=False)
 
         # km/s.
         spec_ax = self.ps0.spectral_axis.to("km/s")
@@ -314,7 +318,7 @@ class TestSpectrum:
                 assert trimmed_vel.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
-        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK")
+        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", show=False)
 
         # m.
         spec_ax = self.ps0.spectral_axis.to("m")
