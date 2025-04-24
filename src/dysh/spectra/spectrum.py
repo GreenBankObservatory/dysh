@@ -39,7 +39,13 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 from ..log import HistoricalBase, log_call_to_history  # , logger
 from ..plot import specplot as sp
 from ..util import minimum_string_match
-from . import baseline, get_spectral_equivalency
+from . import (
+    baseline,
+    exclude_to_spectral_region,
+    get_spectral_equivalency,
+    spectral_region_to_list_of_tuples,
+    spectral_region_to_unit,
+)
 
 # from astropy.nddata import StdDevUncertainty
 
@@ -251,8 +257,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
             Examples: One channel-based region: [11,51],
                       Two channel-based regions: [(11,51),(99,123)].
-                      One ~astropy.units.Quantity region: [110.198*u.GHz,110.204*u.GHz].
-                      One compound ~specutils.SpectralRegion: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
+                      One `~astropy.units.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
+                      One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
         """
         pass
@@ -271,12 +277,28 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
 
-    def get_selected_regions(self):
+    def get_selected_regions(self, unit=None):
         """Get selected regions from plot."""
         if self._plotter is None:
             raise TypeError("No plotter attached to spectrum. Use Spectrum.plot() first.")
 
-        return self._plotter.get_selected_regions()
+        regions = self._plotter.get_selected_regions()
+
+        # If there are no selected regions, tell the user and return.
+        if len(regions) == 0:
+            warnings.warn(
+                "No selected regions.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return
+
+        if unit is not None:
+            regions = exclude_to_spectral_region(regions, self)
+            regions = spectral_region_to_unit(regions, self, unit=unit, append_doppler=True)
+            regions = spectral_region_to_list_of_tuples(regions)
+
+        return regions
 
     @property
     def obstime(self):

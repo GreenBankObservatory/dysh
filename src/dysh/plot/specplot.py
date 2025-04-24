@@ -117,7 +117,7 @@ class SpectrumPlot:
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self, show_header=True, select=True, **kwargs):
+    def plot(self, show_header=True, select=True, show=True, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
@@ -129,7 +129,8 @@ class SpectrumPlot:
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
-        plt.ion()
+        if show:
+            plt.ion()
         plt.rcParams["font.family"] = "monospace"
         # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
 
@@ -216,7 +217,8 @@ class SpectrumPlot:
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
 
-        self.refresh()
+        if show:
+            self.refresh()
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""

@@ -736,3 +736,31 @@ class TestSpectrum:
             data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
         )
         assert s.meta["RADESYS"] == meta["RADECSYS"]
+
+    def test_get_selected_regions(self):
+        """
+        * Test that get selected regions raises TypeError if no plotter is found.
+        * Test that the returned selection is in the expected format.
+        """
+
+        s = Spectrum.fake_spectrum()
+        with pytest.raises(TypeError) as excinfo:
+            s.get_selected_regions()
+        assert excinfo.type is TypeError
+
+        # Plot and add a region.
+        import matplotlib.pyplot as plt
+
+        plt.ioff()
+        s.plot(show=False, xaxis_unit="MHz")
+        s._plotter._selector.onselect(1402.3, 1402.5)
+        r = s.get_selected_regions()
+        assert r == [(574, 853)]
+
+        # Now with units.
+        r_nu = s.get_selected_regions(unit="MHz")
+        assert r_nu[0][0].value == pytest.approx(1402.3)
+        assert r_nu[0][1].value == pytest.approx(1402.5)
+        r_v = s.get_selected_regions(unit="km/s")
+        assert r_v[0][0].value == pytest.approx(3870.69160846)
+        assert r_v[0][1].value == pytest.approx(3827.48453869)
