@@ -71,13 +71,15 @@ class DTime(object):
     """
 
     def __init__(self,
-                 benchname="generic", units="ms",
+                 benchname="generic", units="ms", active = True,
                  data_cols = None, data_units = None, data_types = None,
                  args = None):
                  # out = None, overwrite=False, append=False, profile=False, statslines=25,
+        self.active = active
+        if not self.active: return
         self.benchname = benchname
-        self.active = 1                    # @todo
         self.state = 0
+        self.ndata = 0
         if args is not None:
             self.out = args['out']             # @todo check the dictionary
             self.append = args['append']
@@ -85,8 +87,8 @@ class DTime(object):
             self.profile = args['profile']
             self.statslines = int(args['statslines'])
         else:
+            print("simple mode")
             self.out = None
-            self.out = "junk.tab"
             self.append = False
             self.overwrite = False
             self.profile = False
@@ -95,46 +97,57 @@ class DTime(object):
         if self.profile:
             self.pr = cProfile.Profile()
             self.pr.enable()
+
+        # standard columns if no data[] are given
+        my_cols = ["name", "time", "VmSize", "VmRSS"]
+        my_unit = ["",     "ms",   "MB",     "MB"]
+        my_type = [str,    float,  float,    float]
+        my_data = []
             
         if data_cols is not None and data_units is not None and data_types is not None:
-            # @todo check if all lengths are the same
-            my_cols =  ["name", "time", "VmSize", "VmRSS"]
-            my_unit =  ["", "ms", "MB", "MB"]
-            my_type =  [str, float, float, float]
-            self.table = Table(meta={"name": f"Dysh Benchmark {benchname}"},
-                               names=my_cols+data_cols, 
-                               units=my_unit+data_units,
-                               dtype=my_type+data_types)
-            # prepare dummy data[] for the first row in the table
-            # or define a data=None in the constructor
-            my_data = []
-            for t in data_types:
-                if type(t) == type(str):
-                    my_data.append("")
-                elif type(t) == type(float):
-                    my_data.append(0.0)
-                else:
-                    my_data.append(None)
-        else:
-            print("Warning: skipping table saving")
-            self.table = None
-            my_data = None
-        
+            self.ndata = len(data_cols)
+            assert(len(data_units) == self.ndata)
+            assert(len(data_types) == self.ndata)
+            my_cols = my_cols + data_cols
+            my_unit = my_unit + data_units
+            my_type = my_type + data_types
+            
+        self.table = Table(meta={"name": f"Dysh Benchmark {benchname}"},
+                           names=my_cols, units=my_unit, dtype=my_type)
         self.stats = []
+
+        # prepare for the first row in the table
+        my_data = []
+        for i in range(self.ndata):
+            t = data_types[i]
+            if type(t) == type(str):
+                my_data.append("")
+            elif type(t) == type(float):
+                my_data.append(0.0)
+            else:
+                my_data.append(None)            
+        
         self.stats.append(["start", time.perf_counter_ns(), 0.0, 0.0, my_data])
+
+    def active(self):
+        return self.active
 
     def tag(self, name, data=None):
         """
         """
-        mem1, mem2 = self.mem()
+        if not self.active: return
+        if data is not None:
+            assert(len(data) == self.ndata)
+        mem1, mem2 = self._mem()
         self.stats.append([name, time.perf_counter_ns(), mem1, mem2, data])
 
     def close(self):
         """
         """
         self.state = 1
+        if not self.active: return
 
-    def mem(self):
+    def _mem(self):
         """ Read memory usage info from /proc/pid/status
             Return Virtual and Resident memory size in MBytes.
 
@@ -180,6 +193,7 @@ class DTime(object):
     def report(self, debug=False):
         """
         """
+        if not self.active: return
         #assert(self.state == 1)
         print(f"# Dysh Benchmark: {self.benchname}")
         n = len(self.stats)
@@ -195,7 +209,10 @@ class DTime(object):
             if self.table is not None:
                 mem1 = self.stats[i][2]
                 mem2 = self.stats[i][3]
-                self.table.add_row([self.stats[i][0], dt, mem1, mem2] + self.stats[i][4])
+                if self.ndata == 0:
+                    self.table.add_row([self.stats[i][0], dt, mem1, mem2])
+                else:
+                    self.table.add_row([self.stats[i][0], dt, mem1, mem2] + self.stats[i][4])
         if self.table is not None:
             self.table["time"].info.format = "0.1f"
             self.table["VmSize"].info.format = "0.1f"
@@ -227,6 +244,7 @@ class DTime(object):
         """ 
         report total CPU time so far
         """
+        if not self.active: return 0
         n = len(self.stats)
         dt =  (self.stats[n-1][1] - self.stats[0][1])/1e6
         return dt
@@ -235,34 +253,16 @@ if __name__ == "__main__":
     #  Also compare the output of this with /usr/bin/time on the executable
     #  to find any overhead of the timer we didn't account. Optionally run
     #  a benchmark once and twice and use the difference.
-    dt = DTime()
+    dt = DTime(active=True)
     dt.tag("nothing    ")
     dt.tag("test0      ")
     dt.tag("test1      ")
     dt.tag("test2      ")
     dt.tag("test3      ")
     dt.tag("test4      ")
-    a = np.arange(1e3)
-    dt.tag("arange(1e3)")
-    print(dt.mem())
-    a = np.arange(1e4)
-    dt.tag("arange(1e4)")
-    print(dt.mem())
-    a = np.arange(1e5)
-    dt.tag("arange(1e5)")
-    print(dt.mem())
-    a = np.arange(1e6)
-    dt.tag("arange(1e6)")
-    print(dt.mem())
-    a = np.arange(1e7)
-    dt.tag("arange(1e7)")
-    print(dt.mem())
-    a = np.arange(1e8)
-    dt.tag("arange(1e8)")
-    print(dt.mem())
-    #   stop here, too much memory
-    #a = np.arange(1e9)
-    #dt.tag("arange(1e9)")
+    for k in range(3,9):
+        a = np.arange(10**k)
+        dt.tag(f"arange(1e{k})")
     dt.close()
     dt.report(debug=False)
     print("Final total:",dt.total())
