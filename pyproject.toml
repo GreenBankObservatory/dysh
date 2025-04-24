@@ -62,6 +62,7 @@ dev = [
   "sphinx-design",
   "sphinx-inline-tabs",
   "sphinxcontrib-mermaid",
+  "dysh[all]", # ensure that all extras are included in dev envs
 ]
 
 [project.urls]
