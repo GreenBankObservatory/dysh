@@ -316,7 +316,7 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
         return sr
 
 
-def spectral_region_to_unit(spectral_region, refspec, unit=None):
+def spectral_region_to_unit(spectral_region, refspec, unit=None, append_doppler=True):
     """
     Change the unit of `spectral_region` to `unit` using the equivalencies of `refspec`.
     If no `unit` is provided, it will change to the units of `refspec._spectral_axis`.
@@ -330,6 +330,9 @@ def spectral_region_to_unit(spectral_region, refspec, unit=None):
         when converting to `unit` (e.g. channels to GHz).
     unit : str or `~astropy.units.Quantity`
         The target units for `spectral_region`.
+    append_doppler : bool
+        Add the `doppler_convention` and `doppler_rest` attributes to the columns of the `~astropy.table.QTable`
+        used to convert the `spectral_region` units.
 
     Returns
     -------
@@ -342,10 +345,34 @@ def spectral_region_to_unit(spectral_region, refspec, unit=None):
     if unit is None:
         unit = refspec._spectral_axis.unit
 
+    if append_doppler:
+        append_doppler_to_spectral_region_qtable(qt, refspec)
+
     lb = qt["lower_bound"].to(unit, equivalencies=refspec.equivalencies)
     ub = qt["upper_bound"].to(unit, equivalencies=refspec.equivalencies)
 
     return SpectralRegion(list(zip(lb, ub)))
+
+
+def append_doppler_to_spectral_region_qtable(qtable, refspec):
+    """
+    Set the `doppler_convention` and `doppler_rest` attributes to the columns of `qtable`.
+
+    Parameters
+    ----------
+    qtable : `~astropy.table.QTable`
+        Table with `~specutils.SpectralAxis` as columns.
+    refspec : `~spectra.spectrum.Spectrum`
+        The reference spectrum whose spectral axis will be used to set the attributes.
+    """
+    transfer = {
+        "doppler_convention": "doppler_convention",
+        "doppler_rest": "rest_value",
+    }
+    for col in qtable.columns:
+        for k, v in transfer.items():
+            a = refspec.__getattribute__(v)
+            qtable[col].__setattr__(k, a)
 
 
 def spectral_region_to_list(spectral_region):
@@ -371,6 +398,23 @@ def spectral_region_to_list(spectral_region):
         region_list.append(SpectralRegion([r]))
 
     return region_list
+
+
+def spectral_region_to_list_of_tuples(spectral_region):
+    """
+    Convert `spectral_region` into a list of tuples
+    compatible with `~dysh.spectra.Spectrum.baseline`
+    `include` or `exclude` arguments.
+
+    Parameters
+    ----------
+    spectral_region : `~specutils.SpectralRegion`
+        Region to convert to a list of tuples.
+    """
+    o = []
+    for sr in spectral_region.subregions:
+        o.append((sr[0].quantity, sr[1].quantity))
+    return o
 
 
 def region_to_axis_indices(region, refspec):
