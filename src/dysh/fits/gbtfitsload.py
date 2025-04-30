@@ -1365,7 +1365,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         for i in range(len(self._sdf)):
             df0 = select_from("FITSINDEX", i, _sf)
-            for j,f in enumerate(feeds):
+            for j, f in enumerate(feeds):
                 _df = select_from("FDNUM", f, df0)
                 if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
                     continue
@@ -1406,11 +1406,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         if tsys is None:
                             dfoncalF = select_from("CAL", "F", _ondf)
                             _tsys = dfoncalF["TSYS"].to_numpy()
-                            logger.info("Using TSYS column") 
+                            logger.info("Using TSYS column")
                     # Use user provided system temperature.
                     if tsys is not None:
                         _tsys = tsys[on][j]
-                    
+
                     logger.debug(f"{i, f, c} SCANROWS {rows}")
                     logger.debug(f"BEAM1 {beam1_selected}")
                     g = NodScan(
@@ -2750,8 +2750,7 @@ class GBTOnline(GBTFITSLoad):
 
 
 def _parse_tsys(tsys, scans):
-    """
-    """
+    """ """
     if isinstance(tsys, numbers.Real):
         tsys = _tsys_float_to_dict(tsys, scans)
     if isinstance(tsys, list):
@@ -2771,11 +2770,13 @@ def _parse_tsys(tsys, scans):
 
     return tsys
 
+
 def _tsys_float_to_dict(tsys, scans):
     tsys_dict = {}
     for scan in scans:
         tsys_dict[scan] = np.array([tsys, tsys])
     return tsys_dict
+
 
 def _tsys_1Darray_to_dict(tsys, scans):
     tsys_dict = {}
@@ -2783,9 +2784,9 @@ def _tsys_1Darray_to_dict(tsys, scans):
         tsys_dict[scan] = np.vstack((tsys, tsys))
     return tsys_dict
 
+
 def _tsys_2Darray_to_dict(tsys, scans):
     tsys_dict = {}
     for scan in scans:
         tsys_dict[scan] = np.vstack((tsys[0], tsys[1]))
     return tsys_dict
-
