@@ -143,28 +143,14 @@ class SpectrumPlot:
         if True:  # @todo deal with plot reuse (notebook vs script)
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
 
-        # else:
-        #    self._axis.cla()
-        def apply_region_selection(x, y):  # or list of start/stop values?
-            """Apply region selected using Selection"""
-            # sdf.Select(blah blah blah)
-            print(x, y)
-
         # TODO: procedurally generate subplot params based on show header/buttons args.
         # ideally place left/right params right here, then top gets determined below.
 
         s = self._spectrum
+
         if show_header:
             self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
             self._set_header(s)
-
-            # callback = Index()
-            # axtest = self._figure.add_axes([0.1, 0.9, 0.1, 0.075])
-            # self._btest = Button(axtest, 'Test')
-            # self._btest.on_clicked(self.next)
-
-        # if select:
-        #     self.setregion(sa)
 
         self._sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
@@ -386,9 +372,10 @@ class SpectrumPlot:
         # bottom row
         ra, dec = coord_formatter(s)
         self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(
-            f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
-        )
+        if self._axis.get_title() == "":
+            self._axis.annotate(
+                f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
+            )
         az = np.around(s.meta["AZIMUTH"], 1)
         el = np.around(s.meta["ELEVATIO"], 1)
         ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
@@ -396,20 +383,7 @@ class SpectrumPlot:
             f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
         )
 
-        # bottom row
-        ra, dec = coord_formatter(s)
-        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(
-            f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
-        )
-        az = np.around(s.meta["AZIMUTH"], 1)
-        el = np.around(s.meta["ELEVATIO"], 1)
-        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
-        self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
-        )
-
-        # last corner
+        # last corner -- current date time.
         ts = str(dt.datetime.now())[:19]
         self._axis.annotate(f"{ts}", (0.85, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right")
 
