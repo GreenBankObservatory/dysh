@@ -1,6 +1,7 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
+import numbers
 import os
 import platform
 import time
@@ -1355,16 +1356,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
 
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _nocal = nocal
+
         beam1_selected = True
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
             df0 = select_from("FITSINDEX", i, _sf)
-            for f in feeds:
+            for j,f in enumerate(feeds):
                 _df = select_from("FDNUM", f, df0)
                 if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
                     continue
-                # scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
                 scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
                 if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                     logger.debug(f"Some of scans {scans} not found, continuing")
@@ -1395,13 +1399,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
+
                     # Check if there is a noise diode.
                     if len(calrows["ON"]) == 0 or nocal:
-                        nocal = True
-                        if t_sys is None:
+                        _nocal = True
+                        if tsys is None:
                             dfoncalF = select_from("CAL", "F", _ondf)
-                            t_sys = dfoncalF["TSYS"].to_numpy()
-                            logger.info("Using TSYS column")
+                            _tsys = dfoncalF["TSYS"].to_numpy()
+                            logger.info("Using TSYS column") 
+                    # Use user provided system temperature.
+                    if tsys is not None:
+                        _tsys = tsys[on][j]
+                    
                     logger.debug(f"{i, f, c} SCANROWS {rows}")
                     logger.debug(f"BEAM1 {beam1_selected}")
                     g = NodScan(
@@ -1417,14 +1426,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         calibrate=calibrate,
                         smoothref=smoothref,
                         apply_flags=apply_flags,
-                        nocal=nocal,
-                        tsys=t_sys,
+                        nocal=_nocal,
+                        tsys=_tsys,
                         bunit=bunit,
                         zenith_opacity=zenith_opacity,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
                     c = c + 1
+                    _nocal = nocal
+                    _tsys = None
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
@@ -2736,3 +2747,45 @@ class GBTOnline(GBTFITSLoad):
     def vanecal(self, **kwargs):
         self._reload()
         return super().vanecal(**kwargs)
+
+
+def _parse_tsys(tsys, scans):
+    """
+    """
+    if isinstance(tsys, numbers.Real):
+        tsys = _tsys_float_to_dict(tsys, scans)
+    if isinstance(tsys, list):
+        tsys = np.array(tsys)
+    if isinstance(tsys, np.ndarray):
+        if tsys.ndim <= 1:
+            tsys = _tsys_1Darray_to_dict(tsys, scans)
+        elif tsys.ndim == 2:
+            tsys = _tsys_2Darray_to_dict(tsys, scans)
+    if isinstance(tsys, dict):
+        # Check that there is one entry for every scan.
+        try:
+            assert list(tsys.keys()) == list(scans)
+        except AssertionError:
+            missing = set(scans) - set(tsys.keys())
+            raise TypeError(f"Missing system temperature for scan(s): {','.join(map(str,missing))}")
+
+    return tsys
+
+def _tsys_float_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        tsys_dict[scan] = np.array([tsys, tsys])
+    return tsys_dict
+
+def _tsys_1Darray_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        tsys_dict[scan] = np.vstack((tsys, tsys))
+    return tsys_dict
+
+def _tsys_2Darray_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        tsys_dict[scan] = np.vstack((tsys[0], tsys[1]))
+    return tsys_dict
+
