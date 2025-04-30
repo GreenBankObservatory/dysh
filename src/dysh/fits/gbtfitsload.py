@@ -2767,6 +2767,7 @@ def _parse_tsys(tsys, scans):
         except AssertionError:
             missing = set(scans) - set(tsys.keys())
             raise TypeError(f"Missing system temperature for scan(s): {','.join(map(str,missing))}")
+        tsys = _tsys_dict_to_dict(tsys, scans)
 
     return tsys
 
@@ -2789,4 +2790,18 @@ def _tsys_2Darray_to_dict(tsys, scans):
     tsys_dict = {}
     for scan in scans:
         tsys_dict[scan] = np.vstack((tsys[0], tsys[1]))
+    return tsys_dict
+
+
+def _tsys_dict_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        try:
+            len(tsys[scan])
+        except TypeError:
+            tsys[scan] = [tsys[scan]]
+        if len(tsys[scan]) < 2:
+            tsys_dict[scan] = np.vstack((tsys[scan], tsys[scan]))
+        else:
+            tsys_dict[scan] = tsys[scan]
     return tsys_dict

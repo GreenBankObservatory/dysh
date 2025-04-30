@@ -1205,6 +1205,7 @@ def test_parse_tsys():
     def compare_tsys_dicts(result, expected):
         for k, v in expected.items():
             assert np.all(result[k] == v)
+            assert len(result[k]) == len(v)
 
     # Single value case.
     tsys = 1
