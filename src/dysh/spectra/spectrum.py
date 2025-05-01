@@ -227,6 +227,16 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._data = s._data
             self._subtracted = True
 
+        if self._plotter is not None:
+            if kwargs_opts["remove"]:
+                print('refresh')
+                self._plotter.refresh()
+                self._plotter.axis.figure.canvas.draw_idle()
+            else:
+                print('oshow baseline')
+                self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis),c='k')
+                self._plotter.refresh()
+
     # baseline
     @log_call_to_history
     def undo_baseline(self):
