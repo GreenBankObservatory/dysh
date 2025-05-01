@@ -13,9 +13,9 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-from astropy import units as u
 from astropy.io import fits
 
+from astropy import units as u
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
@@ -1377,13 +1377,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             procvals=procvals,
             **kwargs,
         )
-        som = uniq(_sf["SUBOBSMODE"])
-        if len(som) > 1:
-            raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _nocal = nocal
+        _bintable = bintable
 
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
@@ -1421,10 +1419,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         logger.info("Using TSYS column")
                 # Use user provided system temperature.
                 if tsys is not None:
-                    _tsys = tsys[on][j]
+                    try:
+                        _tsys = tsys[on][0]
+                    except KeyError:
+                        _tsys = tsys[off][0]
                 d = {"ON": on, "OFF": off}
-                if bintable is None:
-                    bintable = self._get_bintable(_ondf)
+                if _bintable is None:
+                    _bintable = self._get_bintable(_ondf)
                 g = PSScan(
                     self._sdf[i],
                     scan=d,
@@ -1433,7 +1434,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fdnum=fdnum,
                     ifnum=ifnum,
                     plnum=plnum,
-                    bintable=bintable,
+                    bintable=_bintable,
                     calibrate=calibrate,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
@@ -1445,8 +1446,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 g.merge_commentary(self)
                 scanblock.append(g)
                 c = c + 1
+                # Reset these variables in case they change for the next scan.
                 _nocal = nocal
                 _tsys = None
+                _bintable = bintable
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
