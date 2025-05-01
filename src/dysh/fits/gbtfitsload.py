@@ -10,9 +10,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from astropy import units as u
 from astropy.io import fits
 
+from astropy import units as u
 from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
@@ -1059,22 +1059,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         calrows = {}
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
+            if len(_df) == 0:  # If nothing was selected go to next file.
+                continue
             for scan in scans:
                 _sifdf = select_from("SCAN", scan, _df)
                 dfcalT = select_from("CAL", "T", _sifdf)
                 dfcalF = select_from("CAL", "F", _sifdf)
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
-                # print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                 if len(calrows["ON"]) != len(calrows["OFF"]):
                     if len(calrows["ON"]) > 0:
                         raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
-                    # else: print("Warning: hacking gettp with no calrows")
                 # sig and cal are treated specially since
                 # they are not in kwargs and in SDFITS header
                 # they are not booleans but chars
                 if sig is not None:
                     _sifdf = select_from("SIG", TF[sig], _sifdf)
+                if bintable is None:
+                    bintable = set(_sifdf["BINTABLE"])
+                    # I do not know if this is possible, but just in case.
+                    if len(bintable) > 1:
+                        raise TypeError("Selection crosses binary tables.")
+                    bintable = next(iter(bintable))  # Get the first element of the set.
                 # if cal is not None:
                 #    df = select_from("CAL", TF[cal], df)
                 # the rows with the selected sig state and all cal states
@@ -1082,7 +1088,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"TPROWS len={len(tprows)}")
                 logger.debug(f"CALROWS on len={len(calrows['ON'])}")
                 logger.debug(f"fitsindex={i}")
-                # print("PJT TPROWS", tprows)
                 if len(tprows) == 0:
                     continue
                 g = TPScan(

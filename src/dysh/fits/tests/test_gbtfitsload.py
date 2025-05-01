@@ -166,6 +166,8 @@ class TestGBTFITSLoad:
         For the differenced spectrum (gbtidl - dysh) we check:
         For the noise calibration diode on, off, and both:
          - mean value is 0.0
+
+        Check that it grabs the correct data when using an input SDFITS with multiple binary tables.
         """
         # @todo refactor the repeated gbtidl/tp0 sections here.
         # Get the answer from GBTIDL.
@@ -329,6 +331,19 @@ class TestGBTFITSLoad:
             ).value
             == 0
         )
+
+        # Multiple binary tables.
+        fits_path = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        tpsb = sdf.gettp(scan=269, ifnum=0, plnum=0, fdnum=0)
+        assert tpsb[0].meta[0]["OBJECT"] == "U8249"
+        assert tpsb[0].nchan == 32768
+        tpsb = sdf.gettp(scan=220, ifnum=0, plnum=0, fdnum=0)
+        assert tpsb[0].meta[0]["OBJECT"] == "3C286"
+        assert tpsb[0].nchan == 8192
+        tpsb = sdf.gettp(scan=274, ifnum=0, plnum=0, fdnum=0)
+        assert tpsb[0].meta[0]["OBJECT"] == "U8091"
+        assert tpsb[0].nchan == 32768
 
     def test_load_multifits(self):
         """
