@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
     # output table colnames, units, and dtypes
     # DTime automatically handles name and time, so just the additional columns go here.
-    data_cols  = ["#files", "file_size", "totsize" "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
+    data_cols  = ["#files", "file_size", "totsize", "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
     data_units = ["",         "MB",        "MB",     "",      "",    "",    "",     "",     "",       ""]
     data_types = [int,         float,      float, int,     int,   int,   int,    int,    int,      bool]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
@@ -120,4 +120,5 @@ if __name__ == "__main__":
                 nf = nflags
             dt.tag(f"load{i}", [s['nfiles'], size_mb, size_mb*s['nfiles'], s['nchan'], s['nrows'], s['ifnum'], s['fdnum'], s['plnum'], nf, args.skipflags])
 
+    dt.close()
     dt.report()
