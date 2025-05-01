@@ -159,6 +159,58 @@ class TestGBTFITSLoad:
                 except AssertionError:
                     print(f"{col} fails: {ps.meta[col]}, {table[col][0]}")
 
+    def test_getps_bintables(self):
+        """
+        Tests for `gettp` using an input SDFITS with multiple binary tables.
+        It compares the results to GBTIDL.
+        It tests the use of a user provided system temperature.
+        """
+
+        fits_path = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf.summary()
+
+        gbtidl_file = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.cal.acs.testtrim.fits"
+        with fits.open(gbtidl_file) as hdu:
+            table1 = hdu[1].data
+            table2 = hdu[2].data
+
+        pssb1 = sdf.getps(scan=220, ifnum=0, plnum=0, fdnum=0)
+        assert pssb1[0].nchan == 8192
+        assert pssb1[0].nint == 1
+        ps1 = pssb1[0].timeaverage()
+        assert np.all(abs(ps1.data.data - table1["DATA"]) < 2e-6)
+        assert ps1.meta["TSYS"] == 59.299739949229995
+        assert ps1.meta["TSYS"] == pytest.approx(table1["TSYS"])
+
+        pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0)
+        assert pssb2[0].nchan == 32768
+        ps2 = pssb2[0].timeaverage()
+        assert np.all(abs(ps2.data.data - table2["DATA"]) < 2e-6)
+        assert ps2.meta["TSYS"] == 28.069919712410798
+        assert ps2.meta["TSYS"] == pytest.approx(table2["TSYS"])
+
+        pssb3 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0, t_sys=20)
+        assert pssb3[0].nchan == 32768
+        ps3 = pssb3[0].timeaverage()
+        assert ps3.meta["TSYS"] == 20
+        assert np.all(abs(pssb3[0]._calibrated / pssb2[0]._calibrated - 20 / pssb2[0].tsys) < 1e-6)
+        assert np.all(abs(pssb3[0]._calibrated / table2["DATA"] - 20 / table2["TSYS"]) < 1e-6)
+
+        pssb4 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0)
+        assert pssb4[0].nchan == 8192
+        assert pssb4[1].nchan == 32768
+        assert pssb4[0].scan == 221
+        assert pssb4[1].scan == 264
+        assert np.all(abs(pssb4[0].timeaverage().data.data - table1["DATA"]) < 2e-6)
+        assert np.all(abs(pssb4[1].timeaverage().data.data - table2["DATA"]) < 2e-6)
+
+        pssb5 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0, t_sys={220: 10, 263: 20})
+        assert pssb5[0].tsys == 10
+        assert pssb5[1].tsys == 20
+        assert np.all(abs(pssb5[0]._calibrated / pssb1[0]._calibrated - 10 / pssb1[0].tsys) < 1e-6)
+        assert np.all(abs(pssb5[1]._calibrated / pssb2[0]._calibrated - 20 / pssb2[0].tsys) < 1e-6)
+
     def test_gettp(self):
         """
         Compare gbtidl result to dysh for a gettp spectrum from a single polarization and feed and
@@ -865,7 +917,7 @@ class TestGBTFITSLoad:
 
     def test_getnod_wcal(self):
         """
-        Test for getnod using data with noise diode.
+        Test for `getnod` using data with noise diode.
         """
 
         # Reduce with dysh.
@@ -890,9 +942,42 @@ class TestGBTFITSLoad:
         assert table["TSYS"][0] == pytest.approx(nodsp0.meta["TSYS"])
         assert table["TSYS"][1] == pytest.approx(nodsp1.meta["TSYS"])
 
+    def test_getnod_wcal_tsys(self):
+        """
+        Test for `getnod` using data with noise diode and user provided system temperature.
+        """
+
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb1 = sdf.getnod(scan=62, ifnum=0, plnum=0, t_sys=[[1], [2]])
+
+        # Check that the system temperature was used.
+        assert np.all(nodsb1[0].tsys == 1)
+        assert np.all(nodsb1[1].tsys == 2)
+
+        # Now without a user provided system temperature.
+        nodsb2 = sdf.getnod(scan=62, ifnum=0, plnum=0)
+
+        # The ratio between the data values and the system temperatures must be equal.
+        tsys_ratio = nodsb1[0].tsys / nodsb2[0].tsys
+        data_ratio = nodsb1[0]._calibrated / nodsb2[0]._calibrated
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            assert np.all(data_ratio == pytest.approx(tsys_ratio))
+        tsys_ratio = nodsb1[1].tsys / nodsb2[1].tsys
+        data_ratio = nodsb1[1]._calibrated / nodsb2[1]._calibrated
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            assert np.all(data_ratio == pytest.approx(tsys_ratio))
+
+        # Check with a single value for the system temperature.
+        nodsb3 = sdf.getnod(scan=62, ifnum=0, plnum=0, t_sys=10)
+        assert np.all(nodsb3[0].tsys == 10)
+
     def test_getnod_nocal(self):
         """
-        Test for getnod using data without noise diode.
+        Test for `getnod` using data without noise diode.
         """
 
         # Reduce with dysh.
@@ -916,6 +1001,33 @@ class TestGBTFITSLoad:
         np.testing.assert_allclose(nodsp1.data, table["DATA"][1], rtol=2e-7, equal_nan=False)
         assert table["TSYS"][0] == pytest.approx(nodsp0.meta["TSYS"])
         assert table["TSYS"][1] == pytest.approx(nodsp1.meta["TSYS"])
+
+    def test_getnod_nocal_tsys(self):
+        """
+        Test for `getnod` using data without noise diode and user provided system temperature.
+        """
+
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TSCAL_220105_W/TSCAL_220105_W.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(scan=24, ifnum=0, plnum=0, t_sys=[[1], [2]])
+        assert np.all(nodsb[0].tsys == 1)
+        assert np.all(nodsb[1].tsys == 2)
+
+        # Now without a user provided system temperature.
+        nodsb2 = sdf.getnod(scan=24, ifnum=0, plnum=0)
+
+        # The ratio between the data values and the system temperatures must be equal.
+        tsys_ratio = nodsb[0].tsys / nodsb2[0].tsys
+        data_ratio = nodsb[0]._calibrated / nodsb2[0]._calibrated
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            assert np.all(data_ratio == pytest.approx(tsys_ratio))
+        tsys_ratio = nodsb[1].tsys / nodsb2[1].tsys
+        data_ratio = nodsb[1]._calibrated / nodsb2[1]._calibrated
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            assert np.all(data_ratio == pytest.approx(tsys_ratio))
 
     def test_subbeamnod(self):
         """simple check of subbeamnod for two different cases.  this mimics the notebook example"""
@@ -1149,3 +1261,73 @@ class TestGBTFITSLoad:
             assert s1[k].value == pytest.approx(v)
         for k, v in expected2.items():
             assert s2[k].value == pytest.approx(v)
+
+
+def test_parse_tsys():
+    """
+    Test that `_parse_tsys` produces the expected results for different cases.
+    """
+    scans = [1, 2, 3]
+
+    def compare_tsys_dicts(result, expected):
+        for k, v in expected.items():
+            assert np.all(result[k] == v)
+            assert len(result[k]) == len(v)
+
+    # Single value case.
+    tsys = 1
+    _tsys = gbtfitsload._parse_tsys(1, scans)
+    expected = {1: np.array([tsys, tsys]), 2: np.array([tsys, tsys]), 3: np.array([tsys, tsys])}
+    compare_tsys_dicts(_tsys, expected)
+
+    # List case.
+    tsys = [1, 2]
+    _tsys = gbtfitsload._parse_tsys(tsys, scans)
+    expected = {1: np.array([tsys, tsys]), 2: np.array([tsys, tsys]), 3: np.array([tsys, tsys])}
+    compare_tsys_dicts(_tsys, expected)
+
+    # List of lists case.
+    tsys = [[1, 2], [3, 4]]
+    _tsys = gbtfitsload._parse_tsys(tsys, scans)
+    expected = {1: np.array([tsys[0], tsys[1]]), 2: np.array([tsys[0], tsys[1]]), 3: np.array([tsys[0], tsys[1]])}
+    compare_tsys_dicts(_tsys, expected)
+
+    # ndarray case.
+    tsys = np.array([[1, 2], [3, 4]])
+    _tsys = gbtfitsload._parse_tsys(tsys, scans)
+    expected = {1: np.array([tsys[0], tsys[1]]), 2: np.array([tsys[0], tsys[1]]), 3: np.array([tsys[0], tsys[1]])}
+    compare_tsys_dicts(_tsys, expected)
+
+    # dict case.
+    tsys = {1: 1, 2: 2, 3: 4}
+    _tsys = gbtfitsload._parse_tsys(tsys, scans)
+    expected = {
+        1: np.array([[tsys[1]], [tsys[1]]]),
+        2: np.array([[tsys[2]], [tsys[2]]]),
+        3: np.array([[tsys[3]], [tsys[3]]]),
+    }
+    compare_tsys_dicts(_tsys, expected)
+
+    # dict of arrays case.
+    tsys = {1: [1, 2, 3], 2: [4, 5, 6], 3: [6, 7, 8]}
+    _tsys = gbtfitsload._parse_tsys(tsys, scans)
+    expected = {1: [1, 2, 3], 2: [4, 5, 6], 3: [6, 7, 8]}
+    compare_tsys_dicts(_tsys, expected)
+
+    # None case.
+    tsys = None
+    _tsys = gbtfitsload._parse_tsys(tsys, scans)
+    expected = None
+    assert _tsys == expected
+
+    # Missing system temperature for a scan.
+    tsys = {1: [1, 2, 3], 2: [4, 5, 6]}
+    with pytest.raises(TypeError) as excinfo:
+        _tsys = gbtfitsload._parse_tsys(tsys, scans)
+    assert "Missing system temperature for scan(s): 3" in str(excinfo.value)
+
+    # Missing system temperature for two scans.
+    tsys = {1: [1, 2, 3]}
+    with pytest.raises(TypeError) as excinfo:
+        _tsys = gbtfitsload._parse_tsys(tsys, scans)
+    assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
