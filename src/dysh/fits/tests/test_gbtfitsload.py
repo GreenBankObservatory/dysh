@@ -159,10 +159,11 @@ class TestGBTFITSLoad:
                 except AssertionError:
                     print(f"{col} fails: {ps.meta[col]}, {table[col][0]}")
 
-    def test_gettp(self):
+    def test_getps_bintables(self):
         """
         Tests for `gettp` using an input SDFITS with multiple binary tables.
         It compares the results to GBTIDL.
+        It tests the use of a user provided system temperature.
         """
 
         fits_path = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
@@ -188,6 +189,27 @@ class TestGBTFITSLoad:
         assert np.all(abs(ps2.data.data - table2["DATA"]) < 2e-6)
         assert ps2.meta["TSYS"] == 28.069919712410798
         assert ps2.meta["TSYS"] == pytest.approx(table2["TSYS"])
+
+        pssb3 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0, t_sys=20)
+        assert pssb3[0].nchan == 32768
+        ps3 = pssb3[0].timeaverage()
+        assert ps3.meta["TSYS"] == 20
+        assert np.all(abs(pssb3[0]._calibrated / pssb2[0]._calibrated - 20 / pssb2[0].tsys) < 1e-6)
+        assert np.all(abs(pssb3[0]._calibrated / table2["DATA"] - 20 / table2["TSYS"]) < 1e-6)
+
+        pssb4 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0)
+        assert pssb4[0].nchan == 8192
+        assert pssb4[1].nchan == 32768
+        assert pssb4[0].scan == 221
+        assert pssb4[1].scan == 264
+        assert np.all(abs(pssb4[0].timeaverage().data.data - table1["DATA"]) < 2e-6)
+        assert np.all(abs(pssb4[1].timeaverage().data.data - table2["DATA"]) < 2e-6)
+
+        pssb5 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0, t_sys={220: 10, 263: 20})
+        assert pssb5[0].tsys == 10
+        assert pssb5[1].tsys == 20
+        assert np.all(abs(pssb5[0]._calibrated / pssb1[0]._calibrated - 10 / pssb1[0].tsys) < 1e-6)
+        assert np.all(abs(pssb5[1]._calibrated / pssb2[0]._calibrated - 20 / pssb2[0].tsys) < 1e-6)
 
     def test_gettp(self):
         """
