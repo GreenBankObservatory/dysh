@@ -373,7 +373,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
+    def summary(self, scan=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
@@ -388,7 +388,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        scans : int or 2-tuple
+        scan : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
         verbose: bool
             If True, list every record, otherwise return a compact summary.
@@ -455,12 +455,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _df.loc[:, "VELOCITY"] /= 1e3  # convert to km/s
         _df["RESTFREQ"] = _df["RESTFREQ"] / 1.0e9  # convert to GHz
         _df["DOPFREQ"] = _df["DOPFREQ"] / 1.0e9  # convert to GHz
-        if scans is not None:
-            if type(scans) == int:
-                scans = [scans]
-            if len(scans) == 1:
-                scans = [scans[0], scans[0]]  # or should this be [scans[0],lastscan]?
-            _df = self._select_scans(scans, _df).filter(show)
+        if scan is not None:
+            if type(scan) == int:
+                scan = [scan]
+            if len(scan) == 1:
+                scan = [scan[0], scan[0]]  # or should this be [scans[0],lastscan]?
+            _df = self._select_scans(scan, _df).filter(show)
             if uncompressed_df is None:
                 uncompressed_df = _df
             else:  # no longer used
@@ -1064,6 +1064,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         calrows = {}
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
+            if len(_df) == 0:  # If nothing was selected go to next file.
+                continue
             for scan in scans:
                 _sifdf = select_from("SCAN", scan, _df)
                 dfcalT = select_from("CAL", "T", _sifdf)
@@ -1073,12 +1075,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if len(calrows["ON"]) != len(calrows["OFF"]):
                     if len(calrows["ON"]) > 0:
                         raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
-                    # else: print("Warning: hacking gettp with no calrows")
                 # sig and cal are treated specially since
                 # they are not in kwargs and in SDFITS header
                 # they are not booleans but chars
                 if sig is not None:
                     _sifdf = select_from("SIG", TF[sig], _sifdf)
+                if bintable is None:
+                    bintable = set(_sifdf["BINTABLE"])
+                    # I do not know if this is possible, but just in case.
+                    if len(bintable) > 1:
+                        raise TypeError("Selection crosses binary tables.")
+                    bintable = next(iter(bintable))  # Get the first element of the set.
                 # if cal is not None:
                 #    df = select_from("CAL", TF[cal], df)
                 # the rows with the selected sig state and all cal states

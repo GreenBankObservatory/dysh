@@ -183,6 +183,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._add_calibration_meta()
         if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
             self.scale(bunit, zenith_opacity)
+        self._nint = len(meta_rows)
 
         self._validate_defaults()
 
@@ -599,7 +600,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def __len__(self):
-        return self._nrows
+        return self._nint
 
     def _init_tsys(self, tsys=None):
         """

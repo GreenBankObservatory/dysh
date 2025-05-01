@@ -166,6 +166,8 @@ class TestGBTFITSLoad:
         For the differenced spectrum (gbtidl - dysh) we check:
         For the noise calibration diode on, off, and both:
          - mean value is 0.0
+
+        Check that it grabs the correct data when using an input SDFITS with multiple binary tables.
         """
         # @todo refactor the repeated gbtidl/tp0 sections here.
         # Get the answer from GBTIDL.
@@ -329,6 +331,19 @@ class TestGBTFITSLoad:
             ).value
             == 0
         )
+
+        # Multiple binary tables.
+        fits_path = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        tpsb = sdf.gettp(scan=269, ifnum=0, plnum=0, fdnum=0)
+        assert tpsb[0].meta[0]["OBJECT"] == "U8249"
+        assert tpsb[0].nchan == 32768
+        tpsb = sdf.gettp(scan=220, ifnum=0, plnum=0, fdnum=0)
+        assert tpsb[0].meta[0]["OBJECT"] == "3C286"
+        assert tpsb[0].nchan == 8192
+        tpsb = sdf.gettp(scan=274, ifnum=0, plnum=0, fdnum=0)
+        assert tpsb[0].meta[0]["OBJECT"] == "U8091"
+        assert tpsb[0].nchan == 32768
 
     def test_load_multifits(self):
         """
@@ -557,7 +572,8 @@ class TestGBTFITSLoad:
             g = gbtfitsload.GBTFITSLoad(f)
             for key, val in keyval.items():
                 _set = set([val])
-                g[key] = val
+                with pytest.warns(UserWarning):
+                    g[key] = val
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -572,10 +588,12 @@ class TestGBTFITSLoad:
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
             else:
-                g = gbtfitsload.GBTFITSLoad(o)
+                with pytest.warns(UserWarning):
+                    g = gbtfitsload.GBTFITSLoad(o)
             for key, val in keyval.items():
                 _set = set([val])
-                g[key] = val
+                with pytest.warns(UserWarning):
+                    g[key] = val
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -588,7 +606,8 @@ class TestGBTFITSLoad:
             for key, val in keyval.items():
                 array = [val] * g.total_rows
                 _set = set([val])
-                g[key] = array
+                with pytest.warns(UserWarning):
+                    g[key] = array
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     for b in sdf._bintable:
@@ -602,10 +621,12 @@ class TestGBTFITSLoad:
             if "A6" in f.name:
                 g = gbtfitsload.GBTFITSLoad(out)
             else:
-                g = gbtfitsload.GBTFITSLoad(o)
+                with pytest.warns(UserWarning):
+                    g = gbtfitsload.GBTFITSLoad(o)
             for key, val in keyval.items():
                 _set = set([val])
-                g[key] = val
+                with pytest.warns(UserWarning):
+                    g[key] = val
                 assert set(g[key]) == _set
                 for sdf in g._sdf:
                     assert set(sdf[key]) == _set
@@ -617,8 +638,10 @@ class TestGBTFITSLoad:
             g = gbtfitsload.GBTFITSLoad(f)
             for key, val in keyval.items():
                 array = [val] * 2 * g.total_rows
-                with pytest.raises(ValueError):
-                    g[key] = array
+                # This will warn and raise an error.
+                with pytest.warns(UserWarning):
+                    with pytest.raises(ValueError):
+                        g[key] = array
 
         # test that changed a previously selection column results in a warning
         g = gbtfitsload.GBTFITSLoad(files[0])
@@ -659,9 +682,10 @@ class TestGBTFITSLoad:
         new_path = tmp_path / "o"
         new_path.mkdir(parents=True)
         sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
-        sdf_org["RADESYS"] = ""
-        sdf_org["CTYPE2"] = "AZ"
-        sdf_org["CTYPE3"] = "EL"
+        with pytest.warns(UserWarning):
+            sdf_org["RADESYS"] = ""
+            sdf_org["CTYPE2"] = "AZ"
+            sdf_org["CTYPE3"] = "EL"
 
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"
@@ -675,6 +699,7 @@ class TestGBTFITSLoad:
         # Test that we can create a `Spectrum` object.
         tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
 
+    @pytest.mark.filterwarnings("ignore:Changing an existing SDFITS column")
     def test_hadec_coords(self, tmp_path):
         """
         Test that observations using HADec coordinates can produce a valid `Spectrum`.
@@ -685,8 +710,9 @@ class TestGBTFITSLoad:
         new_path = tmp_path / "o"
         new_path.mkdir(parents=True)
         sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
-        sdf_org["RADESYS"] = ""
-        sdf_org["CTYPE2"] = "HA"
+        with pytest.warns(UserWarning):
+            sdf_org["RADESYS"] = ""
+            sdf_org["CTYPE2"] = "HA"
 
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"
@@ -700,6 +726,7 @@ class TestGBTFITSLoad:
         # Test that we can create a `Spectrum` object.
         tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
 
+    @pytest.mark.filterwarnings("ignore:Changing an existing SDFITS column")
     def test_galactic_coords(self, tmp_path):
         """
         Test that observations using Galactic coordinates can produce a valid `Spectrum`.
@@ -710,9 +737,10 @@ class TestGBTFITSLoad:
         new_path = tmp_path / "o"
         new_path.mkdir(parents=True)
         sdf_org = gbtfitsload.GBTFITSLoad(fits_path)
-        sdf_org["RADESYS"] = ""
-        sdf_org["CTYPE2"] = "GLON"
-        sdf_org["CTYPE3"] = "GLAT"
+        with pytest.warns(UserWarning):
+            sdf_org["RADESYS"] = ""
+            sdf_org["CTYPE2"] = "GLON"
+            sdf_org["CTYPE3"] = "GLAT"
 
         # Create a temporary directory and write the modified SDFITS.
         new_path = tmp_path / "o"

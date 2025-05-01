@@ -747,3 +747,16 @@ def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):
 
     altaz = coord.SkyCoord(az=az, alt=alt, unit=unit, frame="altaz", obstime=Time(date_obs), location=location)
     return altaz.transform_to(astropy_frame_dict[frame])
+
+
+def ra2ha(lst, ra):
+    """
+    Take LST (sec) and RA (deg) and output wrapped HA (hr).
+    Follows GBTIDL implementation (with the hour conversion included)
+    """
+    ha = np.around(15 * (lst / 3600) - ra, 2)
+    if ha > 180:
+        ha -= 360
+    elif ha < -180:
+        ha += 360
+    return np.around(ha / 15, 2)

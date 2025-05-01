@@ -790,6 +790,7 @@ nb = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage", extra = ["toml"] },
+    { name = "dysh", extra = ["all"] },
     { name = "ipdb" },
     { name = "myst-nb" },
     { name = "nbclient" },
@@ -835,6 +836,7 @@ provides-extras = ["all", "nb"]
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", extras = ["toml"] },
+    { name = "dysh", extras = ["all"] },
     { name = "ipdb" },
     { name = "myst-nb" },
     { name = "nbclient" },
