@@ -39,3 +39,13 @@ keep
 gettp,269,cal=0
 keep
 ```
+
+To produce the GBTIDL results:
+```IDL
+filein,"AGBT04A_008_02.raw.acs"
+fileout,"AGBT04A_008_02.cal.acs.testtrim.fits"
+getps,220
+keep
+getps,263
+keep
+```
