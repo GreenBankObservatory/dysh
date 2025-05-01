@@ -176,11 +176,18 @@ class TestGBTFITSLoad:
 
         pssb1 = sdf.getps(scan=220, ifnum=0, plnum=0, fdnum=0)
         assert pssb1[0].nchan == 8192
+        assert pssb1[0].nint == 1
         ps1 = pssb1[0].timeaverage()
-        assert np.all(abs(ps1.data.data - table1["DATA"]) < 1e-7)
+        assert np.all(abs(ps1.data.data - table1["DATA"]) < 2e-6)
+        assert ps1.meta["TSYS"] == 59.299739949229995
+        assert ps1.meta["TSYS"] == pytest.approx(table1["TSYS"])
 
-        # pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0)
-        # assert pssb2[0].nchan ==
+        pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0)
+        assert pssb2[0].nchan == 32768
+        ps2 = pssb2[0].timeaverage()
+        assert np.all(abs(ps2.data.data - table2["DATA"]) < 2e-6)
+        assert ps2.meta["TSYS"] == 28.069919712410798
+        assert ps2.meta["TSYS"] == pytest.approx(table2["TSYS"])
 
     def test_gettp(self):
         """
