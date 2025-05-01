@@ -67,9 +67,21 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
  - Timing is 'wall clock time', i.e., it includes and kernel/sleep operations.  In python, we are using  *time.perfcounter_ns()*
 
 ## Avoiding File caching
-On linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  Therefore you have to turn off file caching **each time** you run your benchmark with:
+
+On linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  
+Therefore you have to turn off file caching **each time** you run your benchmark with:
 
     sudo echo 1 > /proc/sys/vm/drop_caches
+
+if this gives permission denied, open up a root shell, and issue the command in that shell as root:
+
+    sudo su
+    sync;sync;sync
+    echo 1 > /proc/sys/vm/drop_caches
+
+## disk I/O
+
+Although `hdparm -t` will report a typical I/O speed, in real life this is never achieved. Blocksize of reading affects timing. For dysh we mostly care about read time.
 
 ## OMP_NUM_THREADS
 The OMP_NUM_THREADS environment variable sets the number of threads to use for  parallel processing.  Peter has in other benchmarks found that changing this from unset to 1 can affect performance.   So you should try your benchmark with both states, e.g. (csh):
@@ -130,3 +142,8 @@ the ``getps2s`` stands out at over 400ms.
 
 - API args= to **kwargs ?
 - always do CPU and MEM, currently MEM is done via args.memory=True
+- the command
+       python -m cProfile  ./bench_getps.py -s -d -t -l 1 |less
+  gives different results from 
+       ./bench_getps.py -s -d -t -l 1 -p
+  Most notably, it claims in the former that loading gb20mfitsload.py took 2.7sec
