@@ -12,11 +12,11 @@ keep
 For getsigref tests:
 ```
 
-filein,"AGBT05B_047_01.raw.acs.fits"
-getsigref,53,52,ifnum=0,plnum=0,fdnum=0,eqweight=1
-fileout,"getsigref_53_52_eqweight.fits"
+filein,"AGBT05B_047.raw.acs/AGBT05B_047_01.raw.acs.fits"
+getsigref,53,52,ifnum=0,plnum=0,fdnum=0,eqweight=1,avgref=1
+fileout,"getsigref_53_52_eqweight_avgref.fits"
 keep
-getsigref,53,52,ifnum=0,plnum=0,fdnum=0,eqweight=0
-fileout,"getsigref_53_52_tsysweight.fits"
+getsigref,53,52,ifnum=0,plnum=0,fdnum=0,eqweight=0,avgref=1
+fileout,"getsigref_53_52_tsysweight_avgref.fits"
 keep
 ```
