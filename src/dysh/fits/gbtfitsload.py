@@ -1213,19 +1213,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scan = [scan]
         elif isinstance(scan, np.ndarray):
             scan = list(scan)
-        kwargs["SCAN"] = scan
         (scans, _sf) = self._common_selection(
             fdnum=fdnum,
             ifnum=ifnum,
             plnum=plnum,
             apply_flags=apply_flags,
+            scan=scan,
             **kwargs,
         )
         scanlist["ON"] = scans
         scanlist["OFF"] = [None] * len(scans)
         if type(ref) == int:
             # make an average reference spectrum
-
             # @todo when tsys is addted to gettp, pass it on.
             refspec = self.gettp(
                 scan=ref,
@@ -1289,6 +1288,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     refspec=refspec,
                     tsys=tsys,
                 )
+                g._refscan = ref
                 g.merge_commentary(self)
                 scanblock.append(g)
 
