@@ -948,6 +948,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The intermediate frequency (IF) number
         plnum : int
             The polarization number
+        kwargs : dict
+            Additional selections
 
         Returns
         -------
@@ -1086,8 +1088,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if len(bintable) > 1:
                         raise TypeError("Selection crosses binary tables.")
                     bintable = next(iter(bintable))  # Get the first element of the set.
-                # if cal is not None:
-                #    df = select_from("CAL", TF[cal], df)
                 # the rows with the selected sig state and all cal states
                 tprows = list(_sifdf["ROW"])
                 logger.debug(f"TPROWS len={len(tprows)}")
@@ -1136,15 +1136,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights="tsys",
         **kwargs,
     ) -> ScanBlock:
-        """
-        Retrieve and calibrate position-switched data using a custom reference scan.  Also known as "Flexible Off."
+        r"""
+        Retrieve and calibrate position-switched data using a custom reference scan.  Also known as `Flexible Off.`
 
         Parameters
         ----------
         scan : int or list or `numpy.array`
             The signal scan numbers to calibrate
         ref : int or Spectrum
-            The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.
+            The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.  If an integer is given,
+            the reference spectrum will be the total power time-averaged spectrum using the weights given.
         fdnum : int
             The feed number.
         ifnum : int
@@ -1212,63 +1213,33 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scan = [scan]
         elif isinstance(scan, np.ndarray):
             scan = list(scan)
+        kwargs["SCAN"] = scan
+        (scans, _sf) = self._common_selection(
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            apply_flags=apply_flags,
+            **kwargs,
+        )
+        scanlist["ON"] = scans
+        scanlist["OFF"] = [None] * len(scans)
+        if type(ref) == int:
+            # make an average reference spectrum
 
-        if False:
-            if type(ref) == int:
-                kwargs["SCAN"] = scan + [ref]
-                (scans, _sf) = self._common_selection(
-                    fdnum=fdnum,
-                    ifnum=ifnum,
-                    plnum=plnum,
-                    apply_flags=apply_flags,
-                    ref=ref,
-                    **kwargs,
-                )
-                sc = scans.copy()
-                sc.remove(ref)
-                scanlist["ON"] = sc
-                scanlist["OFF"] = [ref] * len(sc)  # lengths of these arrays must match
-            else:
-                kwargs["SCAN"] = scan
-                (scans, _sf) = self._common_selection(
-                    fdnum=fdnum,
-                    ifnum=ifnum,
-                    plnum=plnum,
-                    apply_flags=apply_flags,
-                    **kwargs,
-                )
-                scanlist["ON"] = scans
-                scanlist["OFF"] = [None] * len(scans)
-                kwargs["SCAN"] = scan
-            (scans, _sf) = self._common_selection(
+            # @todo when tsys is addted to gettp, pass it on.
+            refspec = self.gettp(
+                scan=ref,
                 fdnum=fdnum,
                 ifnum=ifnum,
                 plnum=plnum,
+                bintable=bintable,
+                calibrate=calibrate,
+                smoothref=smoothref,
                 apply_flags=apply_flags,
                 **kwargs,
-            )
-            scanlist["ON"] = scans
-            if type(ref) == int:
-                # make an average reference spectrum
-                scanlist["OFF"] = [ref] * len(scans)
-                # @todo when tsys is addted to gettp, pass it on.
-                refspec = self.gettp(
-                    scan=ref,
-                    fdnum=fdnum,
-                    ifnum=ifnum,
-                    plnum=plnum,
-                    bintable=bintable,
-                    calibrate=calibrate,
-                    smoothref=smoothref,
-                    apply_flags=apply_flags,
-                    bunit=bunit,
-                    zenith_opacity=zenith_opacity,
-                    **kwargs,
-                ).timeaverage(weights=weights)
-            else:
-                scanlist["OFF"] = [None] * len(scans)
-                refspec = ref
-
+            ).timeaverage(weights=weights)
+        else:
+            refspec = ref
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
@@ -1280,6 +1251,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for on, off in zip(scanlist["ON"], scanlist["OFF"]):
                 _ondf = select_from("SCAN", on, _df)
                 _offdf = select_from("SCAN", off, _df)
+                if bintable is None:
+                    bintable = set(_ondf["BINTABLE"])
+                    # I do not know if this is possible, but just in case.
+                    if len(bintable) > 1:
+                        raise TypeError("Selection crosses binary tables.")
+                    bintable = next(iter(bintable))  # Get the first element of the set.
                 rows["ON"] = list(_ondf["ROW"])
                 rows["OFF"] = list(_offdf["ROW"])
                 # if len(rows["ON"]) > len(rows["OFF"]):
@@ -1750,7 +1727,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows["OFF"] = list(dfcalF["ROW"])
                 sigrows["ON"] = list(dfsigT["ROW"])
                 sigrows["OFF"] = list(dfsigF["ROW"])
-                print(f"{scan=} {sigrows=} {calrows=}")
                 g = FSScan(
                     self._sdf[i],
                     scan=scan,

@@ -172,7 +172,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity):
 
         if len(meta_rows) == 0:
-            raise Exception("No data left to calibrate. Check blank integrations, flags, and selection.")
+            raise Exception(
+                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
+            )
         self._calibrate = calibrate
         self._make_meta(meta_rows)
         if self._calibrate:
@@ -928,15 +930,14 @@ class TPScan(ScanBase):
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
         goodrows = np.intersect1d(nb1, nb2)
-        self.goodrows = goodrows
         if len(self._refcalon) == 0:
             # special case for notpcal (when calrows["ON"] is 0)
+            self._calstate = False  # set calstate to false so that _calc_exposure() doesn't raise exception
             goodrows = np.intersect1d(nb2, nb2)  # isn't this just nb2.flatten()?
-            self.goodrows = goodrows
             self._refcalon = None
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = []
-            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]  # why not self._refoffrows[goodrows] ??
             self._nchan = len(self._refcaloff[0])  # PJT
             self._calc_exposure()
             self._calc_delta_freq()
@@ -1024,6 +1025,7 @@ class TPScan(ScanBase):
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
+
         elif self.calstate:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = 0
@@ -1219,12 +1221,10 @@ class PSScan(ScanBase):
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
             # Catch blank integrations.
             goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
-            print(f"Found {len(goodrows)} integrations in rows {goodrows}. nbad = {len(self._sigcalon)-len(goodrows)}")
             self._refcalon = self._refcalon[goodrows]
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = [self._refonrows[i] for i in goodrows]
             self._refoffrows = [self._refoffrows[i] for i in goodrows]
-
         self._sigcalon = self._sigcalon[goodrows]
         self._sigcaloff = self._sigcaloff[goodrows]
         self._sigonrows = [self._sigonrows[i] for i in goodrows]
