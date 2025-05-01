@@ -161,6 +161,29 @@ class TestGBTFITSLoad:
 
     def test_gettp(self):
         """
+        Tests for `gettp` using an input SDFITS with multiple binary tables.
+        It compares the results to GBTIDL.
+        """
+
+        fits_path = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf.summary()
+
+        gbtidl_file = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.cal.acs.testtrim.fits"
+        with fits.open(gbtidl_file) as hdu:
+            table1 = hdu[1].data
+            table2 = hdu[2].data
+
+        pssb1 = sdf.getps(scan=220, ifnum=0, plnum=0, fdnum=0)
+        assert pssb1[0].nchan == 8192
+        ps1 = pssb1[0].timeaverage()
+        assert np.all(abs(ps1.data.data - table1["DATA"]) < 1e-7)
+
+        # pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0)
+        # assert pssb2[0].nchan ==
+
+    def test_gettp(self):
+        """
         Compare gbtidl result to dysh for a gettp spectrum from a single polarization and feed and
         different cal states.
         For the differenced spectrum (gbtidl - dysh) we check:

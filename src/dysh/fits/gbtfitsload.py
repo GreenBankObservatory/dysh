@@ -1085,11 +1085,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if sig is not None:
                     _sifdf = select_from("SIG", TF[sig], _sifdf)
                 if bintable is None:
-                    bintable = set(_sifdf["BINTABLE"])
-                    # I do not know if this is possible, but just in case.
-                    if len(bintable) > 1:
-                        raise TypeError("Selection crosses binary tables.")
-                    bintable = next(iter(bintable))  # Get the first element of the set.
+                    bintable = self._get_bintable(_sifdf)
                 # the rows with the selected sig state and all cal states
                 tprows = list(_sifdf["ROW"])
                 logger.debug(f"TPROWS len={len(tprows)}")
@@ -1134,8 +1130,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags: str = True,
         bunit: str = "ta",
         zenith_opacity: float = None,  # noqa: RUF013
-        tsys=None,
         weights="tsys",
+        t_sys=None,
+        nocal: bool = False,
         **kwargs,
     ) -> ScanBlock:
         r"""
@@ -1319,19 +1316,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        fdnum: int
-            The feed number
+        fdnum : int
+            The feed number.
         ifnum : int
-            The intermediate frequency (IF) number
+            The intermediate frequency (IF) number.
         plnum : int
-            The polarization number
+            The polarization number.
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
+        smooth_ref : int, optional
+            The number of channels in the reference to boxcar smooth prior to calibration.
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
         bunit : str, optional
@@ -1342,7 +1339,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
         zenith_opacity: float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
-
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this. Default: False
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1385,6 +1388,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
+            if len(_df) == 0:  # If nothing was selected go to next file.
+                continue
             scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
             if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                 logger.debug(f"scans {scans} not found, continuing")
@@ -1411,6 +1416,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
                 d = {"ON": on, "OFF": off}
+                if bintable is None:
+                    bintable = self._get_bintable(_ondf)
                 g = PSScan(
                     self._sdf[i],
                     scan=d,
@@ -2785,6 +2792,33 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         sp2.meta["TSYS"] = tsys[1]
 
         return (sp1, sp2)
+
+    def _get_bintable(self, df: pd.DataFrame) -> int:
+        """
+        Extracts the binary table from `df`.
+
+        Parameters
+        ----------
+        df : `~pandas.DataFrame`
+            The data frame to be used.
+
+        Returns
+        -------
+        bintable : int
+            The binary table index.
+
+        Raises
+        ------
+        TypeError
+            If there is more than one unique value in the "BINTABLE" column of `df`.
+        """
+
+        bintable = set(df["BINTABLE"])
+        # I do not know if this is possible, but just in case.
+        if len(bintable) > 1:
+            raise TypeError("Selection crosses binary tables.")
+        bintable = next(iter(bintable))  # Get the first element of the set.
+        return bintable
 
 
 class GBTOffline(GBTFITSLoad):
