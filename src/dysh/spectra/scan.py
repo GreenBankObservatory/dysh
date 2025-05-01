@@ -171,6 +171,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity):
 
+        if len(meta_rows) == 0:
+            raise Exception("No data left to calibrate. Check blank integrations, flags, and selection.")
         self._calibrate = calibrate
         self._make_meta(meta_rows)
         if self._calibrate:
@@ -925,9 +927,11 @@ class TPScan(ScanBase):
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
         goodrows = np.intersect1d(nb1, nb2)
+        self.goodrows = goodrows
         if len(self._refcalon) == 0:
             # special case for notpcal (when calrows["ON"] is 0)
             goodrows = np.intersect1d(nb2, nb2)  # isn't this just nb2.flatten()?
+            self.goodrows = goodrows
             self._refcalon = None
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = []
@@ -1191,7 +1195,9 @@ class PSScan(ScanBase):
             self._bintable_index = gbtfits._find_bintable_and_row(self._scanrows["ON"][0])[0]
         else:
             self._bintable_index = bintable
+        # noise diode on, signal position
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
+        # noise diode off, signal position
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
         self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
@@ -1204,12 +1210,15 @@ class PSScan(ScanBase):
             # Catch blank integrations.
             goodrows = find_nonblank_ints(self._sigcaloff, self._sigcalon)
         else:
+            # noise diode on, reference position
             self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
+            # noise diode off, reference position
             self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
             self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
             # Catch blank integrations.
             goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+            print(f"Found {len(goodrows)} integrations in rows {goodrows}. nbad = {len(self._sigcalon)-len(goodrows)}")
             self._refcalon = self._refcalon[goodrows]
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = [self._refonrows[i] for i in goodrows]
