@@ -1377,14 +1377,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             procvals=procvals,
             **kwargs,
         )
-        # @todo pjt  two additions in this merge ?
-        if True:
-            som = uniq(_sf["SUBOBSMODE"])
-            if len(som) > 1:
-                raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
-            if som[0] == "TPNOCAL":
-                self._tpnocal = True
-                raise Exception("Cannot deal with TPNOCAL yet")
+        som = uniq(_sf["SUBOBSMODE"])
+        if len(som) > 1:
+            raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
+
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _nocal = nocal
+
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
@@ -1411,10 +1411,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows = {}
                 dfcalT = select_from("CAL", "T", _df)
                 dfcalF = select_from("CAL", "F", _df)
-                # calrows["ON"] = list(dfcalT.index)
-                # calrows["OFF"] = list(dfcalF.index)
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
+                if len(calrows["ON"]) == 0 or nocal:
+                    _nocal = True
+                    if tsys is None:
+                        dfoncalF = select_from("CAL", "F", _ondf)
+                        _tsys = dfoncalF["TSYS"].to_numpy()
+                        logger.info("Using TSYS column")
+                # Use user provided system temperature.
+                if tsys is not None:
+                    _tsys = tsys[on][j]
                 d = {"ON": on, "OFF": off}
                 if bintable is None:
                     bintable = self._get_bintable(_ondf)
@@ -1432,9 +1439,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     apply_flags=apply_flags,
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
+                    nocal=_nocal,
+                    tsys=_tsys,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                c = c + 1
+                _nocal = nocal
+                _tsys = None
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)

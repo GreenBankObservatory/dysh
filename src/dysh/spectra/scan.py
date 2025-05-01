@@ -169,13 +169,15 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 f"Unrecognized brightness temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
-    def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity):
+    def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity, tsys=None):
         if len(meta_rows) == 0:
             raise Exception(
                 f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
             )
         self._calibrate = calibrate
+        self._nint = len(meta_rows)
         self._make_meta(meta_rows)
+        self._init_tsys(tsys)
         if self._calibrate:
             if calibrate_kwargs is not None:
                 self.calibrate(**calibrate_kwargs)
@@ -184,8 +186,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._add_calibration_meta()
         if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
             self.scale(bunit, zenith_opacity)
-        self._nint = len(meta_rows)
-
         self._validate_defaults()
 
     def calibrated(self, i):  ##SCANBASE
@@ -347,57 +347,73 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @property
     def nchan(self):
         """
-        The number of channels in this scan
+        The number of channels in this scan.
 
         Returns
         -------
         int
-            The number of channels in this scan
+            The number of channels in this scan.
 
         """
         return self._nchan
 
     @property
-    def nrows(self):
-        """The number of rows in this Scan
+    def nint(self):
+        """
+        The number of integrations in this scan.
 
         Returns
         -------
         int
-            The number of rows in this Scan
+            The number of integrations in this scan.
+        """
+        return self._nint
+
+    @property
+    def nrows(self):
+        """
+        The number of rows in this scan.
+
+        Returns
+        -------
+        int
+            The number of rows in this scan.
         """
         return self._nrows
 
     @property
     def ifnum(self):
-        """The IF number
+        """
+        The intermediate frequency (IF) number.
 
         Returns
         -------
         int
-            The index of the Intermediate Frequency
+            The index of the IF.
         """
         return self._ifnum
 
     @property
     def fdnum(self):
-        """The feed number
+        """
+        The feed number.
 
         Returns
         -------
         int
-            The index of the Feed
+            The index of the feed.
         """
         return self._fdnum
 
     @property
     def plnum(self):
-        """The polarization number
+        """
+        The polarization number.
 
         Returns
         -------
         int
-            The polarization number
+            The polarization number.
         """
         return self._plnum
 
@@ -1172,6 +1188,7 @@ class PSScan(ScanBase):
         zenith_opacity=0.0,
         refspec=None,
         tsys=None,
+        nocal=False,
     ):
         ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
@@ -1187,6 +1204,7 @@ class PSScan(ScanBase):
         else:
             self._has_refspec = False
         self._sigspec = None
+        self._nocal = nocal
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -1218,22 +1236,33 @@ class PSScan(ScanBase):
             self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
             self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+        
             # Catch blank integrations.
-            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
-            self._refcalon = self._refcalon[goodrows]
-            self._refcaloff = self._refcaloff[goodrows]
-            self._refonrows = [self._refonrows[i] for i in goodrows]
-            self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._sigcalon = self._sigcalon[goodrows]
-        self._sigcaloff = self._sigcaloff[goodrows]
-        self._sigonrows = [self._sigonrows[i] for i in goodrows]
-        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
-        # Update number of rows after removing blanks.
-        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
-        self._nrows = nsigrows
+            if not self._nocal:
+                goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+                self._refcalon = self._refcalon[goodrows]
+                self._refcaloff = self._refcaloff[goodrows]
+                self._refonrows = [self._refonrows[i] for i in goodrows]
+                self._refoffrows = [self._refoffrows[i] for i in goodrows]
+                self._sigcalon = self._sigcalon[goodrows]
+                self._sigcaloff = self._sigcaloff[goodrows]
+                self._sigonrows = [self._sigonrows[i] for i in goodrows]
+                self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+                # Update number of rows after removing blanks.
+                nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+                self._nrows = nsigrows
+            else:
+                goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff)
+                self._refcaloff = self._refcaloff[goodrows]
+                self._refoffrows = [self._refoffrows[i] for i in goodrows]
+                self._sigcaloff = self._sigcaloff[goodrows]
+                self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+                # Update number of rows after removing blanks.
+                nsigrows = len(self._sigoffrows)
+                self._nrows = nsigrows
 
         self._nchan = gbtfits.nchan(self._bintable_index)
-        self._finish_initialization(calibrate, None, self._sigonrows, bunit, zenith_opacity)
+        self._finish_initialization(calibrate, None, self._sigonrows, bunit, zenith_opacity, tsys=tsys)
 
     @property
     def sigscan(self) -> int:
@@ -1280,15 +1309,13 @@ class PSScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
-            print(f"PSScan smoothref={self._smoothref}")
+            logger.debug(f"PSScan smoothref={self._smoothref}")
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
-
-        nspect = self.nrows // 2
+        nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-
-        self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
+
         if self._has_refspec:
             # tcal = self.refspec.meta.get("TCAL", None)  # @todo allow user to input tcal in kwargs?
             # if tcal is None:
@@ -1318,21 +1345,31 @@ class PSScan(ScanBase):
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._tsys[i] = tsys
         else:
-            tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
+            tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
             if len(tcal) != nspect:
                 raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
-            for i in range(nspect):
-                if self._input_tsys is None:
-                    tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-                else:
-                    tsys = self._input_tsys
-                sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
-                ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
-                if self._smoothref > 1:
-                    ref = core.smooth(ref, "boxcar", self._smoothref)
-                self._calibrated[i] = tsys * (sig - ref) / ref
-                self._tsys[i] = tsys
-                self._exposure[i] = self.exposure[i]
+            if not self._nocal:
+                for i in range(nspect):
+                    if not np.isnan(self._tsys[i]):
+                        tsys = self._tsys[i]
+                    else:
+                        tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                    sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                    ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+                    if self._smoothref > 1:
+                        ref = core.smooth(ref, "boxcar", self._smoothref)
+                    self._calibrated[i] = tsys * (sig - ref) / ref
+                    self._tsys[i] = tsys
+                    self._exposure[i] = self.exposure[i]
+            else:
+                for i in range(nspect):
+                    tsys = self._tsys[i]
+                    sig = self._sigcaloff[i]
+                    ref = self._refcaloff[i]
+                    if self._smoothref > 1:
+                        ref = core.smooth(ref, "boxcar", self._smoothref)
+                    self._calibrated[i] = tsys * (sig - ref) / ref
+                    self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
 
     @property
@@ -1514,7 +1551,6 @@ class NodScan(ScanBase):
             # Update number of rows after removing blanks.
             nsigrows = len(self._sigonrows) + len(self._sigoffrows)
             self._nrows = nsigrows
-            self._nint = nsigrows // 2
         else:
             goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff)
             self._refcaloff = self._refcaloff[goodrows]
@@ -1524,11 +1560,9 @@ class NodScan(ScanBase):
             # Update number of rows after removing blanks.
             nsigrows = len(self._sigoffrows)
             self._nrows = nsigrows
-            self._nint = nsigrows
 
         self._nchan = len(self._sigcaloff[0])
-        self._init_tsys(tsys)
-        self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity)
+        self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity, tsys=tsys)
 
     def calibrate(self, **kwargs):  ##NODSCAN
         """
