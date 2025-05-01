@@ -1126,6 +1126,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bunit: str = "ta",
         zenith_opacity: float = None,
         tsys=None,
+        weights="tsys",
         **kwargs,
     ) -> ScanBlock:
         """
@@ -1166,6 +1167,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
             scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
             in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+        weights: str
+            Weighting scheme to use when averaging the signal and reference scans
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1198,22 +1206,33 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         elif isinstance(scan, np.ndarray):
             scan = list(scan)
 
-        if type(ref) == int:
-            kwargs["SCAN"] = scan + [ref]
-            (scans, _sf) = self._common_selection(
-                fdnum=fdnum,
-                ifnum=ifnum,
-                plnum=plnum,
-                apply_flags=apply_flags,
-                ref=ref,
-                **kwargs,
-            )
-            sc = scans.copy()
-            sc.remove(ref)
-            scanlist["ON"] = sc
-            scanlist["OFF"] = [ref] * len(sc)  # lengths of these arrays must match
-        else:
-            kwargs["SCAN"] = scan
+        if False:
+            if type(ref) == int:
+                kwargs["SCAN"] = scan + [ref]
+                (scans, _sf) = self._common_selection(
+                    fdnum=fdnum,
+                    ifnum=ifnum,
+                    plnum=plnum,
+                    apply_flags=apply_flags,
+                    ref=ref,
+                    **kwargs,
+                )
+                sc = scans.copy()
+                sc.remove(ref)
+                scanlist["ON"] = sc
+                scanlist["OFF"] = [ref] * len(sc)  # lengths of these arrays must match
+            else:
+                kwargs["SCAN"] = scan
+                (scans, _sf) = self._common_selection(
+                    fdnum=fdnum,
+                    ifnum=ifnum,
+                    plnum=plnum,
+                    apply_flags=apply_flags,
+                    **kwargs,
+                )
+                scanlist["ON"] = scans
+                scanlist["OFF"] = [None] * len(scans)
+                kwargs["SCAN"] = scan
             (scans, _sf) = self._common_selection(
                 fdnum=fdnum,
                 ifnum=ifnum,
@@ -1222,7 +1241,27 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 **kwargs,
             )
             scanlist["ON"] = scans
-            scanlist["OFF"] = [None] * len(scans)
+            if type(ref) == int:
+                # make an average reference spectrum
+                scanlist["OFF"] = [ref] * len(scans)
+                # @todo when tsys is addted to gettp, pass it on.
+                refspec = self.gettp(
+                    scan=ref,
+                    fdnum=fdnum,
+                    ifnum=ifnum,
+                    plnum=plnum,
+                    bintable=bintable,
+                    calibrate=calibrate,
+                    smoothref=smoothref,
+                    apply_flags=apply_flags,
+                    bunit=bunit,
+                    zenith_opacity=zenith_opacity,
+                    **kwargs,
+                ).timeaverage(weights=weights)
+            else:
+                scanlist["OFF"] = [None] * len(scans)
+                refspec = ref
+
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
@@ -1236,6 +1275,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 _offdf = select_from("SCAN", off, _df)
                 rows["ON"] = list(_ondf["ROW"])
                 rows["OFF"] = list(_offdf["ROW"])
+                # if len(rows["ON"]) > len(rows["OFF"]):
+                #    warnings.warn("Fewer reference integrations than signal integrations.  Will use average reference for all")
                 for key in rows:
                     if len(rows[key]) == 0 and off is not None:
                         raise Exception(f"{key} scans not found in scan list {scans}")
@@ -1261,7 +1302,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     apply_flags=apply_flags,
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
-                    refspec=ref,
+                    refspec=refspec,
                     tsys=tsys,
                 )
                 g.merge_commentary(self)
