@@ -8,12 +8,12 @@ from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
-from astropy import constants as ac
 from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.utils.masked import Masked
 
+from astropy import constants as ac
 from dysh.spectra import core
 
 from ..coordinates import Observatory
@@ -180,6 +180,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._add_calibration_meta()
         if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
             self.scale(bunit, zenith_opacity)
+        self._nint = len(meta_rows)
 
         self._validate_defaults()
 
@@ -596,7 +597,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def __len__(self):
-        return self._nrows
+        return self._nint
 
     def _init_tsys(self, tsys=None):
         """

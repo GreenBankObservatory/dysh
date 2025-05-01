@@ -371,7 +371,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
+    def summary(self, scan=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
@@ -386,7 +386,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        scans : int or 2-tuple
+        scan : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
         verbose: bool
             If True, list every record, otherwise return a compact summary.
@@ -453,12 +453,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _df.loc[:, "VELOCITY"] /= 1e3  # convert to km/s
         _df["RESTFREQ"] = _df["RESTFREQ"] / 1.0e9  # convert to GHz
         _df["DOPFREQ"] = _df["DOPFREQ"] / 1.0e9  # convert to GHz
-        if scans is not None:
-            if type(scans) == int:
-                scans = [scans]
-            if len(scans) == 1:
-                scans = [scans[0], scans[0]]  # or should this be [scans[0],lastscan]?
-            _df = self._select_scans(scans, _df).filter(show)
+        if scan is not None:
+            if type(scan) == int:
+                scan = [scan]
+            if len(scan) == 1:
+                scan = [scan[0], scan[0]]  # or should this be [scans[0],lastscan]?
+            _df = self._select_scans(scan, _df).filter(show)
             if uncompressed_df is None:
                 uncompressed_df = _df
             else:  # no longer used
