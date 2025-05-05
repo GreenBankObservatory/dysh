@@ -38,4 +38,4 @@ class TestGB20mFITSload:
         """
         Test that we can use `getps`.
         """
-        spec = self.sdfits.getps(ifnum=0, plnum=0)
+        spec = self.sdfits.getps(ifnum=0, plnum=0)  # noqa: F841

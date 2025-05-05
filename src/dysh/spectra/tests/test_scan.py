@@ -114,10 +114,10 @@ class TestPSScan:
         gbtidl_post = hdu[1].data["DATA"][0]
         hdu.close()
         hdu = fits.open(gbtidl_modelfile)
-        gbtidl_bline_model = hdu[1].data["DATA"][0]
+        gbtidl_bline_model = hdu[1].data["DATA"][0]  # noqa: F841
         hdu.close()
 
-        diff = psscan - gbtidl_post
+        diff = psscan - gbtidl_post  # noqa: F841
 
         # check that the spectra are the same but this won't pass right now
         # what is the tolerance for not passing?
@@ -136,7 +136,7 @@ class TestPSScan:
         ta1 = ps_sb.timeaverage()
         if False:
             # This should not raise any errors.
-            ta2 = ps_sb.timeaverage(None)
+            ta2 = ps_sb.timeaverage(None)  # noqa: F841
             # Check if the time average is all NaNs.
             all_nan = np.isnan(ta1.flux.value).sum() == len(ta1.flux)
             assert ~all_nan
@@ -199,7 +199,7 @@ class TestSubBeamNod:
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
         # make sure call to timeaverage functions
-        xx = sbn.timeaverage()
+        xx = sbn.timeaverage()  # noqa: F841
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
@@ -477,4 +477,4 @@ class TestScanBlock:
         testfile = o / "test_scanblock_write.fits"
         sb.write(fileobj=testfile, overwrite=True)
         g2 = gbtfitsload.GBTFITSLoad(testfile)
-        x = g2.summary()  # simple check that basic function works.
+        x = g2.summary()  # simple check that basic function works.  # noqa: F841

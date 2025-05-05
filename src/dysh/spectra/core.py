@@ -275,7 +275,7 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
         A `~specutils.SpectralRegion` corresponding to `exclude`.
     """
 
-    p = refspec
+    p = refspec  # noqa: F841
     sa = refspec.spectral_axis
     lastchan = len(sa) - 1
 
@@ -308,7 +308,7 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
                     if mask.sum() > 0:
                         msg = f"Setting upper limit to {lastchan}."
                         exclude[exclude > len(sa)] = lastchan
-                        warnings.warn(msg)
+                        warnings.warn(msg)  # noqa: B028
                 # If the spectral_axis is decreasing, flip it.
                 sr = SpectralRegion(sa[exclude][:, ::o])
 
@@ -558,7 +558,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         "polynomial": Polynomial1D,
     }
     model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
-    if model == None:
+    if model == None:  # noqa: E711
         raise ValueError(f"Unrecognized input model {kwargs['model']}. Must be one of {list(available_models.keys())}")
     sa_min = spectrum.spectral_axis.min().value
     sa_max = spectrum.spectral_axis.max().value
@@ -737,7 +737,7 @@ def tsys_weight(exposure, delta_freq, tsys):
     # precision over the calculation used by GBTIDL:
     # weight = abs(delta_freq) * exposure / tsys**2.
     weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
-    if type(weight) == u.Quantity:
+    if type(weight) == u.Quantity:  # noqa: E721
         return weight.value.astype(np.float64)
     else:
         return weight.astype(np.float64)
@@ -977,7 +977,7 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         "gaussian": Gaussian1DKernel,
     }
     method = minimum_string_match(method, list(available_methods.keys()))
-    if method == None:
+    if method == None:  # noqa: E711
         raise ValueError(f"Unrecognized input method {method}. Must be one of {list(available_methods.keys())}")
     kernel = available_methods[method](width)
     if show:
@@ -986,7 +986,7 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
     if hasattr(data, "mask"):
         mask = data.mask
     else:
-        mask = None
+        mask = None  # noqa: F841
     new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
     return new_data
 
