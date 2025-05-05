@@ -3,9 +3,7 @@ import argparse
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from astropy.table import Table
-from matplotlib.ticker import FormatStrFormatter
 
 
 def add_patch(legend, fc, label):

@@ -49,7 +49,7 @@ class TestCore:
             ("radio", "galactic"),
             ("optical", "heliocentric"),
         ]
-        for i, j in zip(inputs, outputs):
+        for i, j in zip(inputs, outputs, strict=False):
             assert decode_veldef(i) == j
 
         # Now test that bad input raises an exception

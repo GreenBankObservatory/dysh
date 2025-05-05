@@ -1109,7 +1109,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # RADECSYS is also a valid column name. See issue #287
         # https://github.com/GreenBankObservatory/dysh/issues/287
-        if "RADECSYS" in _meta.keys() and not "RADESYS" in _meta.keys():
+        if "RADECSYS" in _meta.keys() and "RADESYS" not in _meta.keys():
             _meta["RADESYS"] = deepcopy(_meta["RADECSYS"])
             del _meta["RADECSYS"]
 

@@ -1,9 +1,9 @@
-import nbformat
-from nbclient import NotebookClient
-from glob import glob
 import os
 from pathlib import Path
+
+import nbformat
 import pytest
+from nbclient import NotebookClient
 
 
 def check_notebook_execution(notebook_file):

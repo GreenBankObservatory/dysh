@@ -16,7 +16,6 @@ from typing import Union
 
 import astropy.units as u
 import numpy as np
-from astropy.coordinates import SpectralCoord
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from numpy.polynomial.polynomial import Polynomial
@@ -25,7 +24,7 @@ from pandas import DataFrame
 from ..log import logger
 from .core import to_mjd_list, to_quantity_list
 
-__all__ = ["BaseWeatherForecast", "GBTWeatherForecast", "GBTForecastScriptInterface"]
+__all__ = ["BaseWeatherForecast", "GBTForecastScriptInterface", "GBTWeatherForecast"]
 
 
 class BaseWeatherForecast(ABC):
