@@ -25,8 +25,8 @@ repos:
       - id: check-docstring-first
       - id: check-case-conflict # Check for files with names that would conflict on a case-insensitive filesystem
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.2
+    rev: v0.11.8
     hooks:
     - id: ruff-format
-    # - id: ruff
-    #   args: ['--fix', '--exit-non-zero-on-fix']
+    - id: ruff
+      args: ['--fix', '--exit-non-zero-on-fix']

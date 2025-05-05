@@ -436,7 +436,7 @@ class SelectionBase(DataFrame):
             tag = self._table.loc[_id]["TAG"]
             if s.equals(df):
                 tag = self._table.loc[_id]["TAG"]
-                warnings.warn(
+                warnings.warn(  # noqa: B028
                     f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
                     " Ignoring."
                 )
@@ -567,11 +567,11 @@ class SelectionBase(DataFrame):
         elif multi_value_queries is not None and single_value_queries is None:
             query = multi_value_queries
         else:
-            warnings.warn("There was no data selection")  # should never happen
+            warnings.warn("There was no data selection")  # should never happen  # noqa: B028
             return False
         df = df.query(query)
         if df.empty:
-            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
+            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
             return False
         df.loc[:, "CHAN"] = proposed_channel_rule  # this column is normally None so no need to check if None first.
         self._addrow(row, df, tag)
@@ -638,7 +638,7 @@ class SelectionBase(DataFrame):
             else:
                 raise Exception(f"Couldn't parse value tuple {v} for key {k} as a range.")
         if df.empty:
-            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
+            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
             return
         self._addrow(row, df, tag)
 

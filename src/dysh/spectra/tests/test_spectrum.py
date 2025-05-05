@@ -38,7 +38,7 @@ def compare_spectrum(one, other, ignore_history=False, ignore_comments=False):
         if ignore_history and k == "_comments":
             continue
         elif k in ["_wcs"]:
-            v.to_header() == vars(other)[k].to_header()
+            v.to_header() == vars(other)[k].to_header()  # noqa: B015
         elif k in ["_spectral_axis"]:
             for k_, v_ in vars(v).items():
                 assert v_ == vars(vars(other)[k])[k_]
@@ -686,7 +686,7 @@ class TestSpectrum:
         sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
         sdf = GBTFITSLoad(sdf_file)
         gbtidl_two_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_bmodel.fits")
-        gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")
+        gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")  # noqa: F841
 
         order = 3
         in_reg = [(99, 381), (449, 721)]

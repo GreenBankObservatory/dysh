@@ -32,7 +32,11 @@ class BaseWeatherForecast(ABC):
 
     @abstractmethod
     def fetch(
-        specval: Quantity, valueType: list = None, mjd: Union[Time, np.ndarray] = None, coeffs=None, **kwargs
+        specval: Quantity,
+        valueType: list = None,  # noqa: RUF013
+        mjd: Union[Time, np.ndarray] = None,
+        coeffs=None,
+        **kwargs,  # noqa: RUF013, RUF100
     ) -> np.ndarray:
         pass
 
@@ -366,7 +370,7 @@ class GBTForecastScriptInterface:
         # frequency ranges as of 2/2025.
         self.fr = [2.0, 22.0, 22.0 + 1e-9, 50.0, 67.0, 116.0]  # GHz
         ccols = [f"c{n}" for n in np.arange(self._MAX_COEFFICIENTS)]
-        self._fitcols = ["MJD", "freqLoGHz", "freqHiGHz"] + ccols
+        self._fitcols = ["MJD", "freqLoGHz", "freqHiGHz"] + ccols  # noqa: RUF005
         self._valid_vartypes = [
             "Opacity",
             "Tatm",
@@ -406,7 +410,11 @@ class GBTForecastScriptInterface:
     # and the high order coefficients for the other ranges will be set to zero.
     # Note: input MJDs are rounded to the nearest ~5 minutes.  Data are only taken every hour
     def __call__(
-        self, vartype: str = "Opacity", freq: list = None, mjd: list = None, coeffs: bool = True
+        self,
+        vartype: str = "Opacity",
+        freq: list = None,  # noqa: RUF013
+        mjd: list = None,  # noqa: RUF013
+        coeffs: bool = True,  # noqa: RUF013, RUF100
     ) -> np.ndarray:
         r"""Call the GBO weather script and parse the results into numbers.
 

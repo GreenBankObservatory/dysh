@@ -100,7 +100,7 @@ class BaseGainCorrection(ABC):
         """
         pass
 
-    def zenith_opacity(self, specval: Quantity, **kwargs) -> Union[float, np.ndarray]:
+    def zenith_opacity(self, specval: Quantity, **kwargs) -> Union[float, np.ndarray]:  # noqa: B027
         """
         Compute the zenith opacity.
 
@@ -134,7 +134,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
     _valid_scales = ["ta", "ta*", "jy"]
 
-    def __init__(self, gain_correction_table: Path = None):
+    def __init__(self, gain_correction_table: Path = None):  # noqa: RUF013
         if gain_correction_table is None:
             gain_correction_table = get_project_configuration() / "gaincorrection.tab"
         self._gct = QTable.read(gain_correction_table, format="ascii.ecsv")
@@ -504,7 +504,7 @@ class GBTGainCorrection(BaseGainCorrection):
                 self._forecast = GBTWeatherForecast()
             except Exception as e:
                 self._forecast = None
-                raise Exception(
+                raise Exception(  # noqa: B904
                     f"Could not create GBTWeatherForecast object because {e!s} . Are you on the GBO network?"
                 )
         if mjd is None:

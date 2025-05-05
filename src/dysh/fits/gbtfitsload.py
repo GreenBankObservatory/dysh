@@ -40,7 +40,7 @@ from ..util import (
     uniq,
 )
 from ..util.files import dysh_data
-from ..util.selection import Flag, Selection
+from ..util.selection import Flag, Selection  # noqa: F811
 from . import conf
 from .sdfitsload import SDFITSLoad
 
@@ -267,7 +267,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return [p.as_posix() for p in self.files]
 
-    def index(self, hdu=None, bintable: int = None, fitsindex=None):
+    def index(self, hdu=None, bintable: int = None, fitsindex=None):  # noqa: RUF013
         """
         Return The index table
 
@@ -456,7 +456,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _df["RESTFREQ"] = _df["RESTFREQ"] / 1.0e9  # convert to GHz
         _df["DOPFREQ"] = _df["DOPFREQ"] / 1.0e9  # convert to GHz
         if scan is not None:
-            if type(scan) == int:
+            if type(scan) == int:  # noqa: E721
                 scan = [scan]
             if len(scan) == 1:
                 scan = [scan[0], scan[0]]  # or should this be [scans[0],lastscan]?
@@ -494,8 +494,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             uf_int = select_from("PLNUM", uf_int["PLNUM"].iloc[0], uf_int)
             uf_int = select_from("IFNUM", uf_int["IFNUM"].iloc[0], uf_int)
             nint = len(set(uf_int["DATE-OBS"]))  # see gbtidl io/line_index__define.pro
-            obj = list(set(uf["OBJECT"]))[0]  # We assume they are all the same!
-            proc = list(set(uf["PROC"]))[0]  # We assume they are all the same!
+            obj = list(set(uf["OBJECT"]))[0]  # We assume they are all the same!  # noqa: RUF015
+            proc = list(set(uf["PROC"]))[0]  # We assume they are all the same!  # noqa: RUF015
             s2 = pd.Series(
                 [obj, proc, nIF, nPol, nint, nfeed],
                 name="uniqued data",
@@ -806,7 +806,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # if it is list of lists, then it is upper lower inclusive
             dfs = selection.groupby(["FITSINDEX", "BINTABLE"])
             # the dict key for the groups is a tuple (fitsindex,bintable)
-            for i, ((fi, bi), g) in enumerate(dfs):
+            for i, ((fi, bi), g) in enumerate(dfs):  # noqa: B007
                 chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
@@ -882,10 +882,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         if self._selection is None:
-            warnings.warn("Couldn't construct procedure string: index is not yet created.")
+            warnings.warn("Couldn't construct procedure string: index is not yet created.")  # noqa: B028
             return
         if "OBSMODE" not in self._index:
-            warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
+            warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")  # noqa: B028
             return
         df = self["OBSMODE"].str.split(":", expand=True)
         for obj in [self._index, self._flag]:
@@ -906,7 +906,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zero when the scan number changes.
         """
         if self._index is None:
-            warnings.warn("Couldn't construct integration number: index is not yet created.")
+            warnings.warn("Couldn't construct integration number: index is not yet created.")  # noqa: B028
             return
 
         # check it hasn't been constructed before.
@@ -914,7 +914,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return
         # check that GBTIDL didn't write it out at some point.
         if "INT" in self._index:
-            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)
+            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)  # noqa: PD002
             for s in self._sdf:
                 s._rename_binary_table_column("int", "intnum")
             return
@@ -922,10 +922,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         intnumarray = np.empty(len(self._index), dtype=int)
         # Leverage pandas to group things by scan and observing time.
         dfs = self._index.groupby(["SCAN"])
-        for name, group in dfs:
+        for name, group in dfs:  # noqa: B007
             dfst = group.groupby("DATE-OBS")
             intnums = np.arange(0, len(dfst.groups))
-            for i, (n, g) in enumerate(dfst):
+            for i, (n, g) in enumerate(dfst):  # noqa: B007
                 idx = g.index
                 intnumarray[idx] = intnums[i]
         self._index["INTNUM"] = intnumarray
@@ -966,7 +966,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scans = kwargs.get("SCAN", None)
         if scans is None:
             scans = uniq(_final["SCAN"])
-        elif type(scans) == int:
+        elif type(scans) == int:  # noqa: E721
             scans = list([scans])
         if "REF" in kwargs:
             scans.append(kwargs.pop("REF"))
@@ -1019,7 +1019,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         sig=None,
         cal=None,
         calibrate: bool = True,
-        bintable: int = None,
+        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
         **kwargs,
@@ -1127,11 +1127,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        bintable: int = None,
+        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: str = True,
         bunit: str = "ta",
-        zenith_opacity: float = None,
+        zenith_opacity: float = None,  # noqa: RUF013
         tsys=None,
         weights="tsys",
         **kwargs,
@@ -1201,7 +1201,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
-        if type(ref) != int and not isinstance(ref, Spectrum):
+        if type(ref) != int and not isinstance(ref, Spectrum):  # noqa: E721
             raise TypeError("Reference scan ('ref') must be either an integer scan number or a Spectrum object")
         if isinstance(scan, Spectrum):
             raise TypeError(
@@ -1209,7 +1209,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
 
         scanlist = {}
-        if type(scan) == int:
+        if type(scan) == int:  # noqa: E721
             scan = [scan]
         elif isinstance(scan, np.ndarray):
             scan = list(scan)
@@ -1223,7 +1223,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
         scanlist["ON"] = scans
         scanlist["OFF"] = [None] * len(scans)
-        if type(ref) == int:
+        if type(ref) == int:  # noqa: E721
             # make an average reference spectrum
             # @todo when tsys is addted to gettp, pass it on.
             refspec = self.gettp(
@@ -1305,11 +1305,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        bintable: int = None,
+        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: str = True,
         bunit: str = "ta",
-        zenith_opacity: float = None,
+        zenith_opacity: float = None,  # noqa: RUF013
         **kwargs,
     ) -> ScanBlock:
         """
@@ -1437,9 +1437,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self,
         ifnum: int,
         plnum: int,
-        fdnum: int = None,
+        fdnum: int = None,  # noqa: RUF013
         calibrate: bool = True,
-        bintable: int = None,
+        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
         t_sys=None,
@@ -1632,7 +1632,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fold=True,
         shift_method="fft",
         use_sig=True,
-        bintable: int = None,
+        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
         bunit="ta",
@@ -1788,7 +1788,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         timeaverage=True,
         polaverage=False,
         weights="tsys",
-        bintable: int = None,
+        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
         bunit="ta",
@@ -1908,7 +1908,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     # Loop over cycles, calibrating each independently.
                     groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups, strict=False)
 
-                    for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):
+                    for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):  # noqa: B007
                         # Do it the dysh way.
                         calrows = {"ON": rgon, "OFF": rgoff}
                         tprows = np.sort(np.hstack((rgon, rgoff)))
@@ -1963,7 +1963,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     )
                     scanblock.append(sb)
         elif method == "scan":
-            for sdfi in range(len(self._sdf)):
+            for sdfi in range(len(self._sdf)):  # noqa: B007
                 # Process the whole scan as a single block.
                 # This is less accurate, but might be needed if
                 # the scan was aborted and there are not enough
@@ -2045,7 +2045,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return s
         if lenprocset > 1:
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
-        proc = list(procset)[0]
+        proc = list(procset)[0]  # noqa: RUF015
         dfon = select_from(prockey, procvals["ON"], selection)
         dfoff = select_from(prockey, procvals["OFF"], selection)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
@@ -2257,7 +2257,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
-        warning_msg = (
+        warning_msg = (  # noqa: E731
             lambda scans,
             a,
             coord,
@@ -2268,7 +2268,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
-            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
+            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))  # noqa: B028
 
         # Azimuth and elevation case.
         self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
@@ -2341,7 +2341,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            warnings.warn(f"Changing an existing SDFITS column {items}")
+            warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
@@ -2363,7 +2363,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 start = start + s.total_rows
         selected_cols = self.selection.columns_selected()
         if items in selected_cols:
-            warnings.warn(
+            warnings.warn(  # noqa: B028
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
@@ -2512,7 +2512,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if mask.sum() == 0.0:
             # Nothing to flag.
             return
-        flag_rows = np.where(mask == True)[0].tolist()
+        flag_rows = np.where(mask == True)[0].tolist()  # noqa: E712
         self.flag(row=flag_rows)
 
     def getbeam(self, debug=False):
@@ -2634,7 +2634,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return tsys, g
 
     # @todo PJT feeds->fdnum and add other standard args
-    def vanecal(self, vane_sky, ifnum, plnum, feeds=range(16), mode=2, tcal=None, verbose=False, **kwargs):
+    def vanecal(self, vane_sky, ifnum, plnum, feeds=range(16), mode=2, tcal=None, verbose=False, **kwargs):  # noqa: B008
         """
         Return Tsys calibration values for all or selected beams of the Argus
         VANE/SKY calibration cycle.

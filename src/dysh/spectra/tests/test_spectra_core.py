@@ -53,7 +53,7 @@ class TestMeanTsys:
         mask_off = table[mask]["CAL"] == "F"
         table_on = table[mask][mask_on]
         table_off = table[mask][mask_off]
-        nchan = table["DATA"].shape[1]
+        nchan = table["DATA"].shape[1]  # noqa: F841
         tsys_dysh = core.mean_tsys(table_on["DATA"][0], table_off["DATA"][0], table_on["TCAL"][0])
 
         hdu = fits.open(gbtidl_file)
@@ -81,8 +81,8 @@ class TestMeanTsys:
         # Keys are the expected values, the rest the inputs.
         pairs = {
             1: {"exposure": 1, "delta_freq": 1, "tsys": 1},
-            1: {"exposure": 1 * u.s, "delta_freq": 1 * u.Hz, "tsys": 1 * u.K},
-            1: {"exposure": 1, "delta_freq": -1, "tsys": 1},
+            1: {"exposure": 1 * u.s, "delta_freq": 1 * u.Hz, "tsys": 1 * u.K},  # noqa: F601
+            1: {"exposure": 1, "delta_freq": -1, "tsys": 1},  # noqa: F601
             2: {"exposure": 1, "delta_freq": -1, "tsys": 0.5**0.5},
         }
 

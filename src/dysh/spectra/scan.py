@@ -728,7 +728,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         if len(bunit) > 1:
             logger.warning(f"The Scans in this ScanBlock have differing brightness units {bunit}")
             return list(bunit)
-        return list(bunit)[0]
+        return list(bunit)[0]  # noqa: RUF015
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
@@ -968,7 +968,7 @@ class TPScan(ScanBase):
             self._calibrated = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
             self._calibrated = self._refcalon.astype(float)
-        elif self.calstate == False:
+        elif self.calstate == False:  # noqa: E712
             self._calibrated = self._refcaloff.astype(float)
         else:
             raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
@@ -1028,7 +1028,7 @@ class TPScan(ScanBase):
         elif self.calstate:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = 0
-        elif self.calstate == False:
+        elif self.calstate == False:  # noqa: E712
             exp_ref_on = 0
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
@@ -1044,7 +1044,7 @@ class TPScan(ScanBase):
             delta_freq = 0.5 * (df_ref_on + df_ref_off)
         elif self.calstate:
             delta_freq = df_ref_on
-        elif self.calstate == False:
+        elif self.calstate == False:  # noqa: E712
             delta_freq = df_ref_off
         self._delta_freq = delta_freq
 
