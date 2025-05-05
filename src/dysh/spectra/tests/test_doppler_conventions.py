@@ -1,9 +1,7 @@
-from copy import deepcopy
 from gzip import GzipFile
 
 import astropy.units as u
 import numpy as np
-import pytest
 
 from dysh.fits import gbtfitsload
 

@@ -1307,7 +1307,7 @@ class Flag(SelectionBase):
                         echan = [echan]
                     echan = [int(float(x)) for x in echan]
                     # pair up echan and bchan
-                    vdict["channel"] = list(zip(bchan, echan))
+                    vdict["channel"] = list(zip(bchan, echan, strict=False))
                 elif bchan is not None and echan is None:
                     if not isinstance(bchan, list):
                         bchan = [bchan]
@@ -1315,13 +1315,13 @@ class Flag(SelectionBase):
                     echan = [2**25] * len(
                         bchan
                     )  # Set to a large number so it effectively spans the whole range from `bchan`.
-                    vdict["channel"] = tuple(zip(bchan, echan))
+                    vdict["channel"] = tuple(zip(bchan, echan, strict=False))
                 elif bchan is None and echan is not None:
                     if not isinstance(echan, list):
                         echan = [echan]
                     echan = [int(float(x)) for x in echan]
                     bchan = [0] * len(echan)
-                    vdict["channel"] = tuple(zip(bchan, echan))
+                    vdict["channel"] = tuple(zip(bchan, echan, strict=False))
 
                 if kwargs is not None:
                     vdict.update(kwargs)

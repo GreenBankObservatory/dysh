@@ -1,10 +1,6 @@
 import numpy as np
-import pytest
-from astropy import units as u
-from astropy.io import fits
 
-import dysh.util as util
-from dysh.fits import gbtfitsload, sdfitsload
+from dysh.fits import gbtfitsload
 
 # from dysh.fits.core import calseq, getbeam, getnod, mean_data, plot_vegas, vanecal
 from dysh.util.files import dysh_data

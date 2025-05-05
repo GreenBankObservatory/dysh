@@ -4,7 +4,7 @@ from astropy import units as u
 from astropy.io import fits
 
 import dysh.util as util
-from dysh.fits import gbtfitsload, sdfitsload
+from dysh.fits import gbtfitsload
 
 
 class TestPSScan:
