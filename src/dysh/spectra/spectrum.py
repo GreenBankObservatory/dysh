@@ -492,7 +492,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # Now decimate if needed.
         if decimate >= 0:
-
             if decimate == 0:
                 # Take the default decimation by `width`.
                 decimate = int(abs(width))
@@ -1294,7 +1293,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return deepcopy(operand)
 
     def __getitem__(self, item):
-
         def q2idx(q, wcs, spectral_axis, coo, sto):
             """Quantity to index."""
             if "velocity" in u.get_physical_type(q):

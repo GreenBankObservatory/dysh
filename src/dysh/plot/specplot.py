@@ -376,10 +376,10 @@ class SpectrumPlot:
 
         # col 5
         self._axis.annotate(
-            f"Tsys   :  {np.around(s.meta['MEANTSYS'],2)}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small
+            f"Tsys   :  {np.around(s.meta['MEANTSYS'], 2)}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(
-            f"Tcal   :  {np.around(s.meta['TCAL'],2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
+            f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
 

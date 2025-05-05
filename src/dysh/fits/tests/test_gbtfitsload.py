@@ -1082,7 +1082,6 @@ class TestGBTFITSLoad:
                 assert b.data["FLAGS"].sum() == channels[i]
 
     def test_nums_are_ints(self):
-
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         with pytest.raises(ValueError):
@@ -1103,8 +1102,8 @@ class TestGBTFITSLoad:
 
         cols = ["PLNUM", "FDNUM"]
         assert sdf1[cols].all(axis=1).sum() == 0  # PLNUM=0 corresponds to FDNUM=1, so this should be zero.
-        assert sdf2[cols].all(axis=1).sum() == sdf2._sdf[0].nintegrations(
-            0
+        assert (
+            sdf2[cols].all(axis=1).sum() == sdf2._sdf[0].nintegrations(0)
         )  # Only FDNUM=1 will be True, so this returns half the total number of rows, which is equal to the number of integrations.
 
     def test_getps_ka(self):
