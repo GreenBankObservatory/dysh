@@ -1076,7 +1076,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows["OFF"] = list(dfcalF["ROW"])
                 if len(calrows["ON"]) != len(calrows["OFF"]):
                     if len(calrows["ON"]) > 0:
-                        raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
+                        raise Exception(f"unbalanced calrows {len(calrows['ON'])} != {len(calrows['OFF'])}")
                 # sig and cal are treated specially since
                 # they are not in kwargs and in SDFITS header
                 # they are not booleans but chars
@@ -2109,7 +2109,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             s["ON"] = sorted(set(sons))
             s["OFF"] = sorted(set(soffs))
             if len(s["ON"]) != len(s["OFF"]):
-                raise Exception(f'ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"])}')
+                raise Exception(f"ON and OFF scan list lengths differ {len(s['ON'])} != {len(s['OFF'])}")
         return s
 
     def write(
@@ -2258,7 +2258,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
         warning_msg = (
-            lambda scans, a, coord, limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            lambda scans,
+            a,
+            coord,
+            limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.

@@ -560,7 +560,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     }
     model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
     if model == None:
-        raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {list(available_models.keys())}')
+        raise ValueError(f"Unrecognized input model {kwargs['model']}. Must be one of {list(available_models.keys())}")
     sa_min = spectrum.spectral_axis.min().value
     sa_max = spectrum.spectral_axis.max().value
     selected_model = available_models[model](degree=order, domain=(sa_max, sa_min))
@@ -568,7 +568,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     _valid_exclude_actions = ["replace", "append", None]
     if kwargs_opts["exclude_action"] not in _valid_exclude_actions:
         raise ValueError(
-            f'Unrecognized exclude region action {kwargs["exclude_region"]}. Must be one of {_valid_exclude_actions}'
+            f"Unrecognized exclude region action {kwargs['exclude_region']}. Must be one of {_valid_exclude_actions}"
         )
     fitter = kwargs_opts["fitter"]
     # print(f"MODEL {model} FITTER {fitter}")
