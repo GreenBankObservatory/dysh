@@ -137,6 +137,31 @@ end 0.00999
 if the -t was not added, only repeated PSScan's were obtained, and all the times was very compatible and about 185ms, especially
 the ``getps2s`` stands out at over 400ms.
 
+## NEMO
+
+In NEMO two programs exist that go down to the C level, including an option to use OpenMP, to benchmark a typical 4-phase calibration cycle
+of a PS observation (and perhaps more). The work is very similar to bench_sdmath.py, some care should be taken not to make nscan*nchan too small,
+or else CPU cache will be used and code will look too fast.  A good compromise seems to be:
+
+      /usr/bin/time sdmath nscan=1000 nchan=100000 iter=10
+
+which typically takes 3.5 on lma, depending on the CPU (e.g. 11.5s on fourier)
+
+### getps
+
+The example='test' in dysh are 8 ON/OFF scans, 352 rows, thus nscan=88 for nchan=32768.
+
+
+      python bench_getps.py  -d -s -l 10 
+      -> 600 ms
+
+      bench_sdmath.py -d -s 88 -n 32768 -m -1 -l 10
+      -> 18 ms
+
+      /usr/bin/time sdmath 88 32768 1000
+      -> 10.6 ms
+
+### gbtfitsload
 
 ## TODO
 
