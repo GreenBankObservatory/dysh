@@ -4,7 +4,6 @@ Core utility definitions, classes, and functions
 
 import hashlib
 import numbers
-import re
 import sys
 from collections.abc import Sequence
 from pathlib import Path

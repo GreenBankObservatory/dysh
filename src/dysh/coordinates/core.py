@@ -4,7 +4,6 @@ Core functions/classes for spatial and velocity coordinates and reference frames
 
 import warnings
 
-import astropy.constants as const
 import astropy.coordinates as coord
 import astropy.units as u
 import numpy as np
@@ -208,13 +207,13 @@ def decode_veldef(veldef):
     try:
         velocity_convention = velocity_convention_dict[vconv]
     except KeyError:
-        raise KeyError(f"Velocity convention {vconv} not recognized.")
+        raise KeyError(f"Velocity convention {vconv} not recognized.")  # noqa: B904
 
     frame = veldef[4:]
     try:
         frame_type = frame_dict[frame]
     except KeyError:
-        raise KeyError(f"Velocity frame {frame} not recognized.")
+        raise KeyError(f"Velocity frame {frame} not recognized.")  # noqa: B904
 
     return velocity_convention, frame_type
 
@@ -319,7 +318,7 @@ def sanitize_skycoord(target):
             else:
                 pm_lon = target.pm_l_cosb
                 pm_lat = target.pm_b
-        except:
+        except:  # noqa: E722
             pm_lon = _PMZERORAD
             pm_lat = _PMZERORAD
         # print(
@@ -364,7 +363,7 @@ def sanitize_skycoord(target):
             radial_velocity=_rv,
         )
     else:
-        warnings.warn(f"Can't sanitize {target}")
+        warnings.warn(f"Can't sanitize {target}")  # noqa: B028
         return target
 
     _target.sanitized = True
@@ -406,7 +405,7 @@ def topocentric_velocity_to_frame(target, toframe, observer, obstime):
     # raise Exception("input frame must be ICRS")
     topocoord = observer.get_itrs(obstime=obstime)
     sc = coord.SpectralCoord(1 * u.Hz, observer=topocoord, target=_target)
-    sc2 = sc.with_observer_stationary_relative_to(toframe)
+    sc2 = sc.with_observer_stationary_relative_to(toframe)  # noqa: F841
     return sc.with_observer_stationary_relative_to(toframe).radial_velocity
 
 
@@ -689,7 +688,7 @@ class Observatory:
         return coord.EarthLocation.from_geodetic(longitude, latitude, height, ellipsoid)
 
 
-def eq2hor(lon, lat, frame, date_obs, unit="deg", location=GBT()):
+def eq2hor(lon, lat, frame, date_obs, unit="deg", location=GBT()):  # noqa: B008
     """
     Equatorial to horizontal coordinate conversion.
 
@@ -719,7 +718,7 @@ def eq2hor(lon, lat, frame, date_obs, unit="deg", location=GBT()):
     return lonlat.transform_to(coord.AltAz(location=location))
 
 
-def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):
+def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):  # noqa: B008
     """
     Horizontal to Equatorial coordinate conversion.
 
@@ -747,3 +746,16 @@ def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):
 
     altaz = coord.SkyCoord(az=az, alt=alt, unit=unit, frame="altaz", obstime=Time(date_obs), location=location)
     return altaz.transform_to(astropy_frame_dict[frame])
+
+
+def ra2ha(lst, ra):
+    """
+    Take LST (sec) and RA (deg) and output wrapped HA (hr).
+    Follows GBTIDL implementation (with the hour conversion included)
+    """
+    ha = np.around(15 * (lst / 3600) - ra, 2)
+    if ha > 180:
+        ha -= 360
+    elif ha < -180:
+        ha += 360
+    return np.around(ha / 15, 2)

@@ -122,7 +122,9 @@ class TestGainCorrection:
         for d in self.dates[[5, 7]]:
             # first find the elevation angle where the gain curve reaches a maximum
             maxpoint = minimize_scalar(
-                lambda x: -f(angle=x * u.degree, date=d, zd=False), bounds=[0, 90], method="bounded"
+                lambda x: -f(angle=x * u.degree, date=d, zd=False),  # noqa: B023
+                bounds=[0, 90],
+                method="bounded",  # noqa: B023, RUF100
             )
             # Evaluate the aperture efficiency at the given requencies and the elevation of the gain maximum
             a = maxpoint.x * u.degree
