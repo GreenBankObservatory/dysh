@@ -1496,32 +1496,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
 
-        def get_nod_beams(sdf):
-            """find the two nodding beams if user did not specify them"""
-            kb = ["DATE-OBS", "SCAN", "IFNUM", "PLNUM", "FDNUM", "PROCSCAN", "FEED", "SRFEED", "FEEDXOFF", "FEEDEOFF"]
-            a = sdf._index[kb]
-            b = a.loc[a["FEEDXOFF"] == 0.0]
-            c = b.loc[b["FEEDEOFF"] == 0.0]
-            d1 = c.loc[c["PROCSCAN"] == "BEAM1"]
-            d2 = c.loc[c["PROCSCAN"] == "BEAM2"]
-            if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
-                beam1 = d1["FDNUM"].unique()[0]
-                beam2 = d2["FDNUM"].unique()[0]
-                return [beam1, beam2]
-            else:
-                # one more attempt (this can happen if PROCSCAN contains "Unknown")
-                # ugh, is it possible that BEAM1 and BEAM2 are switched here, given how we unique() ?
-                if len(c["FEED"].unique()) == 2:
-                    logger.debug("get_nod_beams rescued")
-                    b = c["FEED"].unique() - 1
-                    return list(b)
-                return []
-
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
-        nod_beams = get_nod_beams(self)
+        nod_beams = self.get_nod_beams()
         feeds = fdnum
         if fdnum is None:
             logger.info(f"Found nodding beams {nod_beams}")
@@ -2526,18 +2505,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         flag_rows = np.where(mask == True)[0].tolist()  # noqa: E712
         self.flag(row=flag_rows)
 
-    def getbeam(self, debug=False):
+    def get_nod_beams(self):
         """
         Find the two nodding beams based on on a given FDNUM, FEED
         needs PROCSCAN='BEAM1' or 'BEAM2'
 
         Parameters
         ----------
-        sdf : `GBTFITSLoad`
-            data handle, containing one or more SDFITS files specific to GBT
-        debug : boolean, optional
-            Add more debugging output. @todo use logger
-            The default is False.
 
         Returns
         -------
@@ -2551,23 +2525,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         b2 = b1.loc[b1["FEEDEOFF"] == 0.0]
         d1 = b2.loc[b2["PROCSCAN"] == "BEAM1"]
         d2 = b2.loc[b2["PROCSCAN"] == "BEAM2"]
-        #
+
         if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
             beam1 = d1["FDNUM"].unique()[0]
             beam2 = d2["FDNUM"].unique()[0]
             fdnum1 = d1["FEED"].unique()[0]
             fdnum2 = d2["FEED"].unique()[0]
-            if debug:
-                print("beams: ", beam1, beam2, fdnum1, fdnum2)
+            logger.debug("beams: ", beam1, beam2, fdnum1, fdnum2)
             return [beam1, beam2]
         else:
             # try one other thing
             if len(b2["FEED"].unique()) == 2:
-                print("getbeam rescued")
+                logger.debug("getbeam rescued")
                 b = b2["FEED"].unique() - 1
                 return list(b)
-            print("too many in beam1:", d1["FDNUM"].unique())
-            print("too many in beam2:", d2["FDNUM"].unique())
+            logger.warning("too many in beam1:", d1["FDNUM"].unique())
+            logger.warning("too many in beam2:", d2["FDNUM"].unique())
             return []
 
     def calseq(self, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):

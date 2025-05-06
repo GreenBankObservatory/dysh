@@ -17,7 +17,7 @@ class TestVaneScan:
         sdf_file = dysh_data(test="AGBT21B_024_14/AGBT21B_024_14_test")
         sdf2 = gbtfitsload.GBTFITSLoad(sdf_file)
 
-        beam2 = sdf2.getbeam()
+        beam2 = sdf2.get_nod_beams()
         assert len(beam2) == 2
         assert beam2[0] == 1 and beam2[1] == 9
 
@@ -51,7 +51,7 @@ class TestVaneScan:
         sdf_file = dysh_data(test="AGBT15B_244_07/AGBT15B_244_07_test")
         sdf3 = gbtfitsload.GBTFITSLoad(sdf_file)
 
-        beam3 = sdf3.getbeam()
+        beam3 = sdf3.get_nod_beams()
         assert len(beam3) == 2
         assert beam3[0] == 0 and beam3[1] == 1
 
