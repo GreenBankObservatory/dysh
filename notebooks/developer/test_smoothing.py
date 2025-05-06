@@ -48,7 +48,7 @@ sdf1 = GBTFITSLoad(f1)
 sdf1.info()
 sdf1.summary(verbose=True)
 
-p1 = sdf1.getps(scan=152, ifnum=0, plnum=0)
+p1 = sdf1.getps(scan=152, fdnum=0, ifnum=0, plnum=0)
 sp1 = p1[0].calibrated(0)
     
 sp1b = sp1.smooth("boxcar",5,-1)
@@ -63,7 +63,7 @@ d1g=sp1g.flux.value
 # now the smoothref version; it needs to be odd, otherwise
 # the IDL kernel isn't the same as astropy
 
-p1s = sdf1.getps(scan=152, ifnum=0, plnum=0, smoothref=15)
+p1s = sdf1.getps(scan=152, fdnum=0, ifnum=0, plnum=0, smoothref=15)
 sp1s = p1s[0].calibrated(0)
 d1s = sp1s.flux.value
 
@@ -104,34 +104,29 @@ print("e han :", np.nanstd(e2h))
 print("e gau :", np.nanstd(e2g))
 print("e smth:", np.nanstd(e2s))
 
-#%% issue 415
+#%% issue 415    https://github.com/GreenBankObservatory/dysh/issues/415
 
 
 filename = dysh_data(test="AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits")
 
 sdfits = GBTFITSLoad(filename)
 sdfits.summary()
-sdfits.flag_channel([[170,200],[2880,2980],[31000,32768]])   # note even 33000 cann be used with no warning
-scan_block = sdfits.getps(ifnum=0, plnum=0)
+sdfits.flag_channel([[1,2],[170,200],[2880,2980],[5000,6000],[31000,32768]])   # note even 33000 can be used with no warning
+# sdfits.flag_channel([[170,200],[2880,2980],[31000,32768]])
+scan_block = sdfits.getps(fdnum=0, ifnum=0, plnum=0)
 ta = scan_block.timeaverage()
+# ValueError: Element 0 of `spectra` is not a `Spectrum`. <class 'dysh.spectra.spectrum.Spectrum'>
 ta.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
+# count # nan
+sp0 = ta.flux.to("K").value.astype(np.float32)
+np.isclose(sp0,0.0).sum()   # 2903
+
 ta.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)], remove=True)
-ts = ta.smooth('gaussian',16)
-ta.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
+ts = ta.smooth('gaussian',160)
+ts.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-50, ymax=200, grid=True)
 
-#%%  for #415
-
-from dysh.fits import GBTFITSLoad
-from dysh.util import get_project_testdata
-filename = get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
-sdfits = GBTFITSLoad(filename)
-sdfits.summary()
-sdfits.flag_channel([[170,200],[2880,2980],[31000,32768]])
-# TypeError: Flag.flag_channel() missing 1 required positional argument: 'chan'
-scan_block = sdfits.getps(ifnum=0, plnum=0, fdnum=0)
-ta = scan_block.timeaverage()
-ta.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
-ta.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)], remove=True)
-ts = ta.smooth('gaussian',16)
-ta.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
-
+# ta[4900:6000].stats(qac=True)
+# '-0.005263931439728934 0.07665602564728961 -0.11532570632524355 0.09867437495433862'
+# '0.0006200863382407294 0.03587053412146505 -0.11543905492821577 0.10897145990870111'
+ta[5000:6000].stats(qac=True)
+ '0.0007527548583979342 0.03542761455354253 -0.11543905492821577 0.10897145990870111'
