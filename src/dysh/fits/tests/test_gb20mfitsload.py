@@ -7,11 +7,16 @@ from dysh.util import get_project_testdata
 
 
 class TestGB20mFITSload:
-
     def setup_method(self):
         self.data_path = get_project_testdata() / "20m/Skynet_60476_DR21_118886_68343.cyb.fits"
         with pytest.warns(UserWarning):
             self.sdfits = gb20mfitsload.GB20MFITSLoad(self.data_path)
+
+    def test_names(self):
+        """
+        Test basic filename
+        """
+        assert self.data_path == self.sdfits.filename
 
     def test_find_cal(self):
         """
@@ -33,4 +38,4 @@ class TestGB20mFITSload:
         """
         Test that we can use `getps`.
         """
-        spec = self.sdfits.getps(ifnum=0, plnum=0)
+        spec = self.sdfits.getps(ifnum=0, plnum=0)  # noqa: F841

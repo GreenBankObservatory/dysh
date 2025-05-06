@@ -147,7 +147,7 @@ class SDFITSLoad(object):
             df = df[df["BINTABLE"] == bintable]
         return df
 
-    def create_index(self, hdu=None, skipindex=["DATA", "FLAGS"]):
+    def create_index(self, hdu=None, skipindex=["DATA", "FLAGS"]):  # noqa: B006
         """
         Create the index of the SDFITS file.
 
@@ -495,16 +495,16 @@ class SDFITSLoad(object):
         else:
             bunit = None
             h = self.binheader[0]
-            for k, v, c in h.cards:
+            for k, v, c in h.cards:  # noqa: B007
                 if k == "BUNIT":
                     bunit = v
             ukey = None
-            for k, v, c in h.cards:  # loop over the (key,val,comment) for all cards in the header
+            for k, v, c in h.cards:  # loop over the (key,val,comment) for all cards in the header  # noqa: B007
                 if v == "DATA":
                     ukey = "TUNIT" + k[5:]
                     break
             if ukey is not None:  # ukey should almost never be "None" in standard SDFITS
-                for k, v, c in h.cards:
+                for k, v, c in h.cards:  # noqa: B007
                     if k == ukey:
                         if bunit != v:
                             logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
@@ -633,13 +633,28 @@ class SDFITSLoad(object):
     # def __len__(self):  # this has no meaning for multiple bintables
     #    return self._nrows
 
-    def _ctype_mask(self, ctype_dict):
-        ctype_mask = np.zeros((len(ctype_dict), len(self[next(iter(ctype_dict.keys()))])), dtype=bool)
-        for i, (k, v) in enumerate(ctype_dict.items()):
-            ctype_mask[i, :] = self[k] == v
-        if ctype_mask.shape[0] > 1:
-            ctype_mask = np.logical_and(*ctype_mask)
-        return ctype_mask.ravel()
+    def _column_mask(self, column_dict):
+        """
+        Generate a boolean array given a dictionary.
+        The keys in the dictionary are the column names and the values the column values.
+        It will combine multiple dictionary items using `numpy.logical_and`.
+
+        Parameters
+        ----------
+        column_dict : dict
+            Dictionary with column names and column values as keys and values.
+
+        Returns
+        -------
+        _mask : `numpy.array`
+            Array of booleans with True where the column equals column value.
+        """
+        _mask = np.zeros((len(column_dict), len(self[next(iter(column_dict.keys()))])), dtype=bool)
+        for i, (k, v) in enumerate(column_dict.items()):
+            _mask[i, :] = self[k] == v
+        if _mask.shape[0] > 1:
+            _mask = np.logical_and(*_mask)
+        return _mask.ravel()
 
     def __repr__(self):
         return str(self._filename)
@@ -668,7 +683,7 @@ class SDFITSLoad(object):
 
         """
         # ensure it is a list if int was given
-        if type(rows) == int:
+        if type(rows) == int:  # noqa: E721
             rows = [rows]
         # ensure rows are sorted
         rows.sort()
@@ -758,7 +773,7 @@ class SDFITSLoad(object):
         """
         ou = oldname.upper()
         nu = newname.upper()
-        self._index.rename(columns={ou: nu}, inplace=True)
+        self._index.rename(columns={ou: nu}, inplace=True)  # noqa: PD002
         self._rename_binary_table_column(ou, nu)
 
     def delete_column(self, column):
@@ -776,17 +791,17 @@ class SDFITSLoad(object):
         None.
 
         """
-        warnings.warn(f"Deleting column {column}. Cannot be undone!")
+        warnings.warn(f"Deleting column {column}. Cannot be undone!")  # noqa: B028
 
         if isinstance(column, str):
             cu = column.upper()
             if cu == "DATA":
                 raise Exception("You can't delete the DATA column. It's for your own good.")
-            self._index.drop(columns=cu, inplace=True)
+            self._index.drop(columns=cu, inplace=True)  # noqa: PD002
             self._delete_binary_table_column(column)
         elif isinstance(column, (Sequence, np.ndarray)):
             cu = [c.upper() for c in column]
-            self._index.drop(columns=cu, inplace=True)
+            self._index.drop(columns=cu, inplace=True)  # noqa: PD002
             for c in column:
                 self._delete_binary_table_column(c)
 
@@ -1061,7 +1076,7 @@ class SDFITSLoad(object):
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str")
         if "DATA" in items:
-            warnings.warn("Beware: you are changing the DATA column.")
+            warnings.warn("Beware: you are changing the DATA column.")  # noqa: B028
         # warn if changing an existing column
         if isinstance(items, str):
             iset = set([items])
@@ -1069,11 +1084,11 @@ class SDFITSLoad(object):
             iset = set(items)
         col_exists = len(set(self.columns).intersection(iset)) > 0
         if col_exists and "DATA" not in items:
-            warnings.warn(f"Changing an existing SDFITS column {items}")
+            warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
         try:
             self._update_column(d)
         except Exception as e:
-            raise Exception(f"Could not update SDFITS binary table for {items} because {e}")
+            raise Exception(f"Could not update SDFITS binary table for {items} because {e}")  # noqa: B904
         # only update the index if the binary table could be updated.
         # DATA is not in the index.
         if "DATA" not in items:

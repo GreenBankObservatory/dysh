@@ -75,7 +75,7 @@ class GB20MFITSLoad(SDFITSLoad):
 
         self.selected_index = self._index.query(query)
         self.selected_data = self._bintable[0].data[list(self.selected_index.index)]
-        self.selected_index.reset_index(inplace=True, drop=True)
+        self.selected_index.reset_index(inplace=True, drop=True)  # noqa: PD002
 
     def _get_tsys_ps(self):
         """ """

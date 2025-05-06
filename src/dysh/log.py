@@ -193,15 +193,15 @@ def log_function_call(log_level: str = "info"):
         try:
             ilog_level = logging._nameToLevel[log_level.upper()]
         except KeyError:
-            raise Exception(f"Log level {log_level} unrecognized. Must be one of {list(logging._nameToLevel.keys())}.")
+            raise Exception(f"Log level {log_level} unrecognized. Must be one of {list(logging._nameToLevel.keys())}.")  # noqa: B904
 
         @wraps(func)
         def func_wrapper(*args, **kwargs):
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace
+            except:  # remove the wrapper from the stack trace  # noqa: E722
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)
+                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
             # Log the function name and arguments
             sig = inspect.signature(func)
             logmsg = f"DYSH v{dysh_version} : {func.__module__}"
@@ -279,16 +279,16 @@ def log_call_to_result(func: Callable):
         if self is None:
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace
+            except:  # remove the wrapper from the stack trace  # noqa: E722
                 # @todo this no longer works under python >3.9
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)
+                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
         else:
             try:
                 result = func(self, *args, **kwargs)
-            except:  # remove the wrapper from the stack trace
+            except:  # remove the wrapper from the stack trace  # noqa: E722
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)
+                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
         resultname = result.__class__.__name__
         if hasattr(result, "_history"):
             sig = inspect.signature(func)
@@ -344,15 +344,15 @@ def log_call_to_history(func: Callable):
             # could put this try around the whole thing but then it would catch exceptions from the wrapper itself
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace
+            except:  # remove the wrapper from the stack trace  # noqa: E722
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)
+                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
         else:  # it's a class instance
             try:
                 result = func(self, *args, **kwargs)
-            except:  # remove the wrapper from the stack trace
+            except:  # remove the wrapper from the stack trace  # noqa: E722
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)
+                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
             classname = self.__class__.__name__
             if hasattr(self, "_history"):
                 sig = inspect.signature(func)
@@ -387,7 +387,7 @@ def log_call_to_history(func: Callable):
 StrList = NewType("Strlist", list[str])
 
 
-class HistoricalBase(ABC):
+class HistoricalBase(ABC):  # noqa: B024
     """Abstract base class to manage history and comments metadata."""
 
     def __init__(self):
