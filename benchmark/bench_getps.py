@@ -58,18 +58,19 @@ if __name__ == "__main__":
     dt.tag("load", [sk])
     calibrate = not args.nocalibrate
     if args.dobench:
-        #scans = [51,53,55,57]
+        scans = [51,53,55,57]
         scans = [51]
         for i in range(1,int(args.loop)+1):
-            sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
-            dt.tag(f"getps{i}s", [sk])
-            #ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
-            if args.timeaverage:
-                ps = sb.timeaverage()
+            if not args.timeaverage:
+                sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
+                dt.tag(f"getps{i}s", [sk])
+                #ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
+            else:
+                ps = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate).timeaverage()
                 dt.tag(f"getps{i}t",[sk])
 
     # close data, do some other silly work
-    if True:
+    if False:
         del sdf1
         sdf1 = np.arange(1e5)
         dt.tag("arange 1e5", [sk])
@@ -94,11 +95,12 @@ if __name__ == "__main__":
             scans = [51]
             #sb = list(range(int(args.loop)+1))
             for i in range(1,int(args.loop)+1):
-                sb  = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
-                dt.tag(f"getps{i}s", [sk])
-                #ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
-                if args.timeaverage:
-                    ps = sb.timeaverage()
+                if not args.timeaverage:
+                    sb  = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
+                    dt.tag(f"getps{i}s", [sk])
+                    #ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
+                else:
+                    ps = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate).timeaverage()
                     dt.tag(f"getps{i}t",[sk])
 
         
