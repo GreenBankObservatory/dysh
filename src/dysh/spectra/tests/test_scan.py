@@ -285,6 +285,19 @@ class TestSubBeamNod:
 
 
 class TestTPScan:
+    def test_len(self, data_dir):
+        """
+        Test that `TPScan` has the proper len.
+        """
+
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        scan = 153
+        tpsb = sdf.gettp(scan=153, ifnum=0, plnum=0, fdnum=0)
+
+        assert len(tpsb[0]) == sdf.summary(scan=scan)["# INT"][0]
+
     def test_tsys(self, data_dir):
         """
         Test that `gettp` produces the same system temperature as GBTDIL.
