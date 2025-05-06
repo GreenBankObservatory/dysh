@@ -59,7 +59,7 @@ if __name__ == "__main__":
     calibrate = not args.nocalibrate
     if args.dobench:
         scans = [51,53,55,57]
-        scans = [51]
+        #scans = [51]
         for i in range(1,int(args.loop)+1):
             if not args.timeaverage:
                 sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
