@@ -67,9 +67,21 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
  - Timing is 'wall clock time', i.e., it includes and kernel/sleep operations.  In python, we are using  *time.perfcounter_ns()*
 
 ## Avoiding File caching
-On linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  Therefore you have to turn off file caching **each time** you run your benchmark with:
+
+On linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  
+Therefore you have to turn off file caching **each time** you run your benchmark with:
 
     sudo echo 1 > /proc/sys/vm/drop_caches
+
+if this gives permission denied, open up a root shell, and issue the command in that shell as root:
+
+    sudo su
+    sync;sync;sync
+    echo 1 > /proc/sys/vm/drop_caches
+
+## disk I/O
+
+Although `hdparm -t` will report a typical I/O speed, in real life this is never achieved. Blocksize of reading affects timing. For dysh we mostly care about read time.
 
 ## OMP_NUM_THREADS
 The OMP_NUM_THREADS environment variable sets the number of threads to use for  parallel processing.  Peter has in other benchmarks found that changing this from unset to 1 can affect performance.   So you should try your benchmark with both states, e.g. (csh):
@@ -125,8 +137,38 @@ end 0.00999
 if the -t was not added, only repeated PSScan's were obtained, and all the times was very compatible and about 185ms, especially
 the ``getps2s`` stands out at over 400ms.
 
+## NEMO
+
+In NEMO two programs exist that go down to the C level, including an option to use OpenMP, to benchmark a typical 4-phase calibration cycle
+of a PS observation (and perhaps more). The work is very similar to bench_sdmath.py, some care should be taken not to make nscan*nchan too small,
+or else CPU cache will be used and code will look too fast.  A good compromise seems to be:
+
+      /usr/bin/time sdmath nscan=1000 nchan=100000 iter=10
+
+which typically takes 3.5 on lma, depending on the CPU (e.g. 11.5s on fourier)
+
+### getps
+
+The example='test' in dysh are 8 ON/OFF scans, 352 rows, thus nscan=88 for nchan=32768.
+
+
+      python bench_getps.py  -d -s -l 10 
+      -> 600 ms
+
+      bench_sdmath.py -d -s 88 -n 32768 -m -1 -l 10
+      -> 18 ms
+
+      /usr/bin/time sdmath 88 32768 1000
+      -> 10.6 ms
+
+### gbtfitsload
 
 ## TODO
 
 - API args= to **kwargs ?
 - always do CPU and MEM, currently MEM is done via args.memory=True
+- the command
+       python -m cProfile  ./bench_getps.py -s -d -t -l 1 |less
+  gives different results from 
+       ./bench_getps.py -s -d -t -l 1 -p
+  Most notably, it claims in the former that loading gb20mfitsload.py took 2.7sec
