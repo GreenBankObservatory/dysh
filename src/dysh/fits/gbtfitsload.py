@@ -2956,11 +2956,9 @@ def _parse_tsys(tsys, scans):
             tsys = _tsys_2Darray_to_dict(tsys, scans)
     if isinstance(tsys, dict):
         # Check that there is one entry for every scan.
-        try:
-            assert list(tsys.keys()) == list(scans)
-        except AssertionError:
+        if list(tsys.keys()) != list(scans):
             missing = set(scans) - set(tsys.keys())
-            raise TypeError(f"Missing system temperature for scan(s): {','.join(map(str,missing))}")
+            raise TypeError(f"Missing system temperature for scan(s): {','.join(map(str, missing))}")
         tsys = _tsys_dict_to_dict(tsys, scans)
 
     return tsys

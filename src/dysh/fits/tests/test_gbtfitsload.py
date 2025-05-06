@@ -1209,7 +1209,7 @@ class TestGBTFITSLoad:
         for k, v in expected2.items():
             assert s2[k].value == pytest.approx(v)
 
-        def test_getsigref(self):
+    def test_getsigref(self):
         """test of various getsigref modes"""
         # 1. Ensure that getsigref(scan=int,ref=int) returns the same as getps(scan=int [ref implied])
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
@@ -1282,9 +1282,9 @@ class TestGBTFITSLoad:
 
         # Check that expected errors are raised for wrong or incomplete inputs
         with pytest.raises(TypeError):
-            sb = sdf.getsigref(scan=x, ref=52, fdnum=0, ifnum=0, plnum=0)
+            sdf.getsigref(scan=x, ref=52, fdnum=0, ifnum=0, plnum=0)
         with pytest.raises(TypeError):
-            sb = sdf.getsigref(scan=51, ref=x.data, fdnum=0, ifnum=0, plnum=0)
+            sdf.getsigref(scan=51, ref=x.data, fdnum=0, ifnum=0, plnum=0)
 
 
 def test_parse_tsys():
