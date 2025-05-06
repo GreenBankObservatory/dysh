@@ -298,32 +298,34 @@ class Spectrum(Spectrum1D, HistoricalBase):
             Default: 0
         qac : bool
             If set, the returned simple string contains mean,rms,datamin,datamax
-            for easier visual regression. Based on some legacy code.
+            for easier visual regression. Based on some legacy code. May evolve
+            into a more formal regression option. Don't write code that depends
+            on qac=True yet.
             Default: False
 
         Returns
         -------
-        stats : dict
+        stats : dict or str
             Dictionary consisting of (mean,median,rms,datamin,datamax)
+            If qac=True, a string is returned.
 
         """
 
+        #print("PJT: new nan based stats")
         if roll == 0:
-            mean = self.mean()
-            median = self.median()
-            rms = np.nanstd(self.flux)
-            dmin = self.min()
-            dmax = self.max()
+            data = self.flux
         else:
-            d = self[roll:] - self[:-roll]
-            mean = d.mean()
-            median = d.median()
-            rms = np.nanstd(d.flux)
-            dmin = d.min()
-            dmax = d.max()
-
+            data = self.flux[roll:] - self.flux[:-roll]
+        mean = np.nanmean(data)
+        median = np.nanmedian(data)
+        rms = np.nanstd(data)
+        dmin = np.nanmin(data)
+        dmax = np.nanmax(data)
         if qac:
-            out = f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
+            n0 = len(data)                         # data length
+            n1 = len(np.where(data == np.nan)[0])  # number of NaN's
+            n2 = np.isclose(data,0.0).sum()        # number of 0's
+            out = f"{mean.value} {rms.value} {dmin.value} {dmax.value} {n2}/{n1}/{n0}"
             return out
 
         out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax}
@@ -449,13 +451,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             kwidth = width
             s1 = core.smooth(md, this_method, width)
-        # mask = np.full(s1.shape, False)
+        #+PJT
+        mask = np.full(s1.shape, False)
         # in core.smooth, we fill masked values with np.nan.
         # astropy.convolve does not return a new mask, so we recreate
         # a decimated mask where values are nan
-        # mask[np.where(s1 == np.nan)] = True
-        # new_data = Masked(s1 * self.flux.unit, mask)
-        new_data = s1 * self.flux.unit
+        #+PJT
+        if True:
+            mask[np.where(s1 == np.nan)] = True
+            new_data = Masked(s1 * self.flux.unit, mask)
+        else:
+            new_data = s1 * self.flux.unit
         new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
 
         s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
