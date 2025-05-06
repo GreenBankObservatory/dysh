@@ -87,7 +87,6 @@ class DTime(object):
             self.profile = args['profile']
             self.statslines = int(args['statslines'])
         else:
-            print("simple mode")
             self.out = None
             self.append = False
             self.overwrite = False
@@ -106,6 +105,7 @@ class DTime(object):
             
         if data_cols is not None and data_units is not None and data_types is not None:
             self.ndata = len(data_cols)
+            #print("PJT ndata",self.ndata)
             assert(len(data_units) == self.ndata)
             assert(len(data_types) == self.ndata)
             my_cols = my_cols + data_cols
@@ -144,6 +144,7 @@ class DTime(object):
     def close(self):
         """
         """
+        #print("PJT close")
         self.state = 1
         if not self.active: return
 
@@ -194,8 +195,8 @@ class DTime(object):
         """
         """
         if not self.active: return
-        #assert(self.state == 1)
-        print(f"# Dysh Benchmark: {self.benchname}")
+        #print("PJT state",self.state)
+        assert(self.state == 1)
         n = len(self.stats)
         if debug:
             print(f"Found {n} entries")
@@ -204,7 +205,7 @@ class DTime(object):
 
         for i in range(1,n):
             dt = (self.stats[i][1] - self.stats[i-1][1])/1e6   # in ms, @todo check units
-            if True:
+            if debug:
                 print(self.stats[i][0],dt)
             if self.table is not None:
                 mem1 = self.stats[i][2]
@@ -231,6 +232,7 @@ class DTime(object):
                 print(f"Overwriting {self.out}")
                 table2.write(self.out, format="ascii.ecsv", overwrite=True)
             else:
+                print(f"# Dysh Benchmark: {self.benchname}")
                 self.table.pprint_all()
 
         if self.profile:
