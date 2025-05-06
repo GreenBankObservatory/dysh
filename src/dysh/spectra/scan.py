@@ -612,7 +612,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         # Noise diode firing and no user provided tsys.
         if not self._nocal and tsys is None:
-            self._tsys = np.empty(self._nint, dtype=float)
+            self._tsys = np.full(self._nint, np.nan, dtype=float)
         # User provided tsys.
         elif tsys is not None:
             self._tsys = np.ones(self._nint, dtype=float) * tsys
@@ -1472,8 +1472,6 @@ class NodScan(ScanBase):
         self._beam1 = beam1
         self._nocal = nocal
 
-        # @todo   allow having no calrow where noise diode was not fired
-
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
         # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
@@ -1539,7 +1537,7 @@ class NodScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
-            print(f"NodScan smoothref={self._smoothref}")
+            logger.debug(f"NodScan smoothref={self._smoothref}")
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
@@ -1550,7 +1548,10 @@ class NodScan(ScanBase):
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         if not self._nocal:
             for i in range(nspect):
-                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                if not np.isnan(self._tsys[i]):
+                    tsys = self._tsys[i]
+                else:
+                    tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
                 sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                 ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
                 if self._smoothref > 1:
