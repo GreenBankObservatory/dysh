@@ -83,7 +83,7 @@ class TestGBTFITSLoad:
         spec2 = sdf.getspec(0, setmask=True)
         assert any(spec.mask != spec2.mask)
         assert all(spec2.mask[0:101])
-        assert all(spec2.mask[102:] == False)
+        assert all(spec2.mask[102:] == False)  # noqa: E712
 
     def test_getps_single_int(self):
         """
@@ -284,8 +284,8 @@ class TestGBTFITSLoad:
             7: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": False},
             8: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": False, "SIG": True},
         }
-        for k, v in tests.items():
-            if v["SIG"] == False:
+        for k, v in tests.items():  # noqa: B007
+            if v["SIG"] == False:  # noqa: E712
                 with pytest.raises(Exception):
                     tps = sdf.gettp(
                         scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], fdnum=0, cal=v["CAL"], sig=v["SIG"]
@@ -697,7 +697,7 @@ class TestGBTFITSLoad:
         # Not this part of the test, but just to make sure.
         assert np.all(sdf["RADESYS"] == "AltAz")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)  # noqa: F841
 
     @pytest.mark.filterwarnings("ignore:Changing an existing SDFITS column")
     def test_hadec_coords(self, tmp_path):
@@ -724,7 +724,7 @@ class TestGBTFITSLoad:
         # Not this part of the test, but just to make sure.
         assert np.all(sdf["RADESYS"] == "hadec")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)  # noqa: F841
 
     @pytest.mark.filterwarnings("ignore:Changing an existing SDFITS column")
     def test_galactic_coords(self, tmp_path):
@@ -752,7 +752,7 @@ class TestGBTFITSLoad:
         # Not this part of the test, but just to make sure.
         assert np.all(sdf["RADESYS"] == "galactic")
         # Test that we can create a `Spectrum` object.
-        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)[0].total_power(0)  # noqa: F841
 
     def test_add_history_comments(self):
         fits_path = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
@@ -786,7 +786,7 @@ class TestGBTFITSLoad:
             print("Windows seems to lock the file, can't remover or overwite")
         else:
             shutil.copyfile(f2, o1)
-            s = sdf.summary()
+            s = sdf.summary()  # noqa: F841
             n = len(sdf._index)
             assert n == 8
 
@@ -842,13 +842,13 @@ class TestGBTFITSLoad:
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
         # The data should not be flagged, as the flags are only for intnum=arange(43,52)
         ps = sdf.getps(scan=19, plnum=0, ifnum=0, fdnum=0, apply_flags=True).timeaverage()
-        assert np.all(ps.mask == False)
+        assert np.all(ps.mask == False)  # noqa: E712
         # The data should be flagged for these integrations.
         ps = sdf.getps(
             scan=19, plnum=0, ifnum=0, fdnum=0, apply_flags=True, intnum=[i for i in range(43, 52)]
         ).timeaverage()
-        assert np.all(ps.mask[2299:] == True)
-        assert np.all(ps.mask[:2299] == False)
+        assert np.all(ps.mask[2299:] == True)  # noqa: E712
+        assert np.all(ps.mask[:2299] == False)  # noqa: E712
 
     def test_rawspectrum(self):
         """regression test for issue 442"""
@@ -1093,7 +1093,7 @@ class TestGBTFITSLoad:
         qd_el = sdf["QD_EL"].to_numpy()
         qd_el[10] += 100
         sdf.qd_flag()
-        assert np.all(sdf.flags.final.index.values == 10)
+        assert np.all(sdf.flags.final.index.values == 10)  # noqa: PD011
         sdf.flags.clear()
 
         qd_el[11:15] += 100
@@ -1142,7 +1142,6 @@ class TestGBTFITSLoad:
                 assert b.data["FLAGS"].sum() == channels[i]
 
     def test_nums_are_ints(self):
-
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         with pytest.raises(ValueError):
@@ -1150,7 +1149,7 @@ class TestGBTFITSLoad:
         with pytest.raises(ValueError):
             sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)
+            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)  # noqa: F841
 
     def test_fix_ka(self):
         """
@@ -1163,8 +1162,8 @@ class TestGBTFITSLoad:
 
         cols = ["PLNUM", "FDNUM"]
         assert sdf1[cols].all(axis=1).sum() == 0  # PLNUM=0 corresponds to FDNUM=1, so this should be zero.
-        assert sdf2[cols].all(axis=1).sum() == sdf2._sdf[0].nintegrations(
-            0
+        assert (
+            sdf2[cols].all(axis=1).sum() == sdf2._sdf[0].nintegrations(0)
         )  # Only FDNUM=1 will be True, so this returns half the total number of rows, which is equal to the number of integrations.
 
     def test_getps_ka(self):

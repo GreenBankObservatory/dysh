@@ -215,9 +215,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # `include` and `exclude` are mutually exclusive, but we allow `include`
         # if `include` is used, transform it to `exclude`.
-        if include != None:
-            if exclude != None:
-                logger.info(f"Warning: ignoring exclude={exclude}")
+        if include != None:  # noqa: E711
+            if exclude != None:  # noqa: E711
+                logger.info(f"Warning: ignoring exclude={exclude}")  # noqa: F821
             exclude = core.include_to_exclude_spectral_region(include, self)
 
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
@@ -239,7 +239,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             return
         if self._subtracted:
             if self._normalized:
-                warnings.warn("Cannot undo previously normalized baseline subtraction")
+                warnings.warn("Cannot undo previously normalized baseline subtraction")  # noqa: B028
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
@@ -446,7 +446,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s : `Spectrum`
             The new, possibly decimated, convolved `Spectrum`.
         """
-        nchan = len(self._data)
+        nchan = len(self._data)  # noqa: F841
         # decimate = int(decimate) # Should we change this value and tell the user, or just error out?
         # For now, we'll error out if decimate is not an integer..
 
@@ -456,7 +456,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # @todo  see also core.smooth() for valid_methods
         valid_methods = ["hanning", "boxcar", "gaussian"]
         this_method = minimum_string_match(method, valid_methods)
-        if this_method == None:
+        if this_method == None:  # noqa: E711
             raise Exception(f"smooth({method}): valid methods are {valid_methods}")
 
         if not float(decimate).is_integer():
@@ -492,7 +492,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # Now decimate if needed.
         if decimate >= 0:
-
             if decimate == 0:
                 # Take the default decimation by `width`.
                 decimate = int(abs(width))
@@ -1110,7 +1109,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # RADECSYS is also a valid column name. See issue #287
         # https://github.com/GreenBankObservatory/dysh/issues/287
-        if "RADECSYS" in _meta.keys() and not "RADESYS" in _meta.keys():
+        if "RADECSYS" in _meta.keys() and "RADESYS" not in _meta.keys():
             _meta["RADESYS"] = deepcopy(_meta["RADECSYS"])
             del _meta["RADECSYS"]
 
@@ -1163,12 +1162,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
                         _meta["SITELONG"], _meta["SITELAT"], _meta["SITEELEV"]
                     )
                 except KeyError as ke:
-                    raise Exception(f"Not enough info to create observer_location: {ke}")
+                    raise Exception(f"Not enough info to create observer_location: {ke}")  # noqa: B904
             obsitrs = SpectralCoord._validate_coordinate(
                 attach_zero_velocities(observer_location.get_itrs(obstime=obstime))
             )
         else:
-            warnings.warn(
+            warnings.warn(  # noqa: B028
                 "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
                 " frames"
             )
@@ -1294,7 +1293,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return deepcopy(operand)
 
     def __getitem__(self, item):
-
         def q2idx(q, wcs, spectral_axis, coo, sto):
             """Quantity to index."""
             if "velocity" in u.get_physical_type(q):
@@ -1500,11 +1498,11 @@ def _read_table(fileobj, format, **kwargs):
         # parse the 3rd line column names, We only care about the ferquency axis
         h3 = df[df.columns[0]][1].split()
         units, vd = h3[0].split("-")
-        spectral_axis = spectral_axis.values * u.Unit(units)
+        spectral_axis = spectral_axis.values * u.Unit(units)  # noqa: PD011
         meta["VELDEF"] = velocity_convention + "-" + vd
         meta["POL"] = h3[1]
 
-        s = Spectrum(flux=flux.values * fu, spectral_axis=spectral_axis, meta=meta)
+        s = Spectrum(flux=flux.values * fu, spectral_axis=spectral_axis, meta=meta)  # noqa: PD011
         return s
 
     t = Table.read(fileobj, format=format, **kwargs)

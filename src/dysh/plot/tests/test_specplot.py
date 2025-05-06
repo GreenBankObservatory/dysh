@@ -1,7 +1,5 @@
 """Tests for specplot."""
 
-from pathlib import Path
-
 from dysh.fits import GBTFITSLoad
 from dysh.util import get_project_testdata
 
