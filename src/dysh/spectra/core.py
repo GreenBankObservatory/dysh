@@ -944,7 +944,11 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         mask = data.mask
     else:
         mask = None
-    new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
+    # PJT
+    if True:
+        new_data = convolve(data, kernel, boundary="extend",      nan_treatment="fill", fill_value=np.nan, mask=mask)
+    else:
+        new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
     return new_data
 
 
