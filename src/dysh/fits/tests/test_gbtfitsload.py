@@ -1286,6 +1286,27 @@ class TestGBTFITSLoad:
         with pytest.raises(TypeError):
             sdf.getsigref(scan=51, ref=x.data, fdnum=0, ifnum=0, plnum=0)
 
+    def test_get_nod_beams(self):
+        """Test that we can get the nodding beams"""
+        sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        assert sdf.get_nod_beams(scan=331) == [1, 9]
+        assert sdf.get_nod_beams(scan=332) == [1, 9]
+        assert sdf.get_nod_beams(scan=333) == [1, 9]
+        assert sdf.get_nod_beams(scan=334) == [1, 9]
+
+        # Change one.
+        mask = (sdf["SCAN"] == 331) & (sdf["FEEDXOFF"] == 0) & (sdf["FEEDEOFF"] == 0)
+        fdnums = sdf["FDNUM"].to_numpy()
+        fdnums[mask] = 10
+        with pytest.warns(UserWarning):
+            sdf["FDNUM"] = fdnums
+        assert sdf.get_nod_beams(scan=331) == [10, 9]
+        assert sdf.get_nod_beams(scan=332) == [10, 9]
+        assert sdf.get_nod_beams(scan=333) == [1, 9]
+        assert sdf.get_nod_beams(scan=334) == [1, 9]
+
 
 def test_parse_tsys():
     """

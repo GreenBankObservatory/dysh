@@ -1,6 +1,7 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
+import itertools
 import numbers
 import os
 import platform
@@ -1500,21 +1501,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
-        nod_beams = self.get_nod_beams()
-        feeds = fdnum
-        if fdnum is None:
-            logger.info(f"Found nodding beams {nod_beams}")
-            feeds = nod_beams
-        else:
-            if nod_beams != fdnum:
-                logger.info(f"Using beams {fdnum} instead of nodding beams {nod_beams} found in the data")
-        if type(feeds) is int or len(feeds) != 2:
-            raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
-        logger.debug(f"getnod: using fdnum={feeds}")
+        if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
+            raise TypeError(f"fdnum={fdnum} not valid, need a list with two feeds")
+        logger.debug(f"getnod: using fdnum={fdnum}")
         prockey = "PROCSEQN"
         procvals = {"ON": 1, "OFF": 2}
         (scans, _sf) = self._common_selection(
-            fdnum=feeds,
+            fdnum=fdnum,
             ifnum=ifnum,
             plnum=plnum,
             apply_flags=apply_flags,
@@ -1532,25 +1525,32 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         for i in range(len(self._sdf)):
             df0 = select_from("FITSINDEX", i, _sf)
-            for j, f in enumerate(feeds):
-                _df = select_from("FDNUM", f, df0)
-                if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
-                    continue
-                scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
-                if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
-                    logger.debug(f"Some of scans {scans} not found, continuing")
-                    continue
+            if len(df0) == 0:
+                continue
+            scanlist = self._common_scan_list_selection(scans, df0, prockey=prockey, procvals=procvals, check=False)
+            if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                logger.debug(f"Some of scans {scans} not found, continuing")
+                continue
+            # Loop over scan pairs.
+            c = 0
+            for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
+                # Each scan could use a different pair of fdnums.
+                if fdnum is None:
+                    _fdnum = self.get_nod_beams(scan=on)
+                else:
+                    _fdnum = fdnum
+                for j, f in enumerate(_fdnum):
+                    _df = select_from("FDNUM", f, df0)
+                    if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
+                        continue
+                    beam1_selected = f == _fdnum[0]
+                    logger.debug(f"SCANLIST {scanlist}")
+                    logger.debug(f"FEED {f} {beam1_selected} {_fdnum[0]}")
+                    logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
+                    logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
+                    logger.debug(f"and PROC {set(_df['PROC'])}")
 
-                beam1_selected = f == feeds[0]
-                logger.debug(f"SCANLIST {scanlist}")
-                logger.debug(f"FEED {f} {beam1_selected} {feeds[0]}")
-                logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
-                logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                logger.debug(f"and PROC {set(_df['PROC'])}")
-                rows = {}
-                # Loop over scan pairs.
-                c = 0
-                for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
+                    rows = {}
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
                     rows["ON"] = list(_ondf["ROW"])
@@ -2505,43 +2505,66 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         flag_rows = np.where(mask == True)[0].tolist()  # noqa: E712
         self.flag(row=flag_rows)
 
-    def get_nod_beams(self):
+    def _get_beam(self, scan, mask, bi=1):
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} does not have column 'PROCSCAN' with 'BEAM{bi}' values.")
+        else:
+            feed = set(self["FDNUM"][mask])
+            if len(feed) > 1:
+                raise ValueError(f"Scan {scan} contains more than one FDNUM for 'PROCSCAN'='BEAM{bi}'.")
+            feed = next(iter(feed))
+        return feed
+
+    def get_nod_beams(self, scan):
         """
-        Find the two nodding beams based on on a given FDNUM, FEED
-        needs PROCSCAN='BEAM1' or 'BEAM2'
+        Find the FDNUM values for two nodding beams.
+        It relies on the SDFITS having the column 'PROCSCAN' set to 'BEAM1' or 'BEAM2'.
 
         Parameters
         ----------
+        scan : int
+            Scan for which to find the nodding beams.
 
         Returns
         -------
-        beams : list of two ints representing the nodding beams (0 = first beam)
+        beams : list of two ints
+            Feed numbers representing the nodding beams.
+            The first item is the first nodding beam.
 
+        Raises
+        ------
+        TypeError
+            If `scan` is not an integer.
+        ValueError
+            If there is no 'SCAN'=`scan` in the index, or if it is not possible to determine the nodding beams.
         """
-        # list of columns needed to differentiate and find the nodding beams
-        kb = ["FEEDXOFF", "FEEDEOFF", "PROCSCAN", "FDNUM", "FEED"]
-        a0 = self._index[kb]
-        b1 = a0.loc[a0["FEEDXOFF"] == 0.0]
-        b2 = b1.loc[b1["FEEDEOFF"] == 0.0]
-        d1 = b2.loc[b2["PROCSCAN"] == "BEAM1"]
-        d2 = b2.loc[b2["PROCSCAN"] == "BEAM2"]
+        if not isinstance(scan, numbers.Integral):
+            raise TypeError("scan must be an integer.")
+        scan = [scan]
 
-        if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
-            beam1 = d1["FDNUM"].unique()[0]
-            beam2 = d2["FDNUM"].unique()[0]
-            fdnum1 = d1["FEED"].unique()[0]
-            fdnum2 = d2["FEED"].unique()[0]
-            logger.debug("beams: ", beam1, beam2, fdnum1, fdnum2)
-            return [beam1, beam2]
-        else:
-            # try one other thing
-            if len(b2["FEED"].unique()) == 2:
-                logger.debug("getbeam rescued")
-                b = b2["FEED"].unique() - 1
-                return list(b)
-            logger.warning("too many in beam1:", d1["FDNUM"].unique())
-            logger.warning("too many in beam2:", d2["FDNUM"].unique())
-            return []
+        # Find the Nod scan pairs.
+        scanlist = self._common_scan_list_selection(
+            scan,
+            self._index,
+            prockey="PROCSEQN",
+            procvals={"ON": 1, "OFF": 2},
+            check=False,
+        )
+        scans = list(itertools.chain.from_iterable(list(scanlist.values())))
+
+        # Make the index smaller, checkling at every step that the rules contain valid data.
+        mask = self["SCAN"].isin(scans)
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} not found in index.")
+        mask = mask & (self["FEEDXOFF"] == 0.0) & (self["FEEDEOFF"] == 0.0)
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} does not have a beam centered on the target.")
+        mask1 = mask & (self["PROCSCAN"] == "BEAM1")
+        mask2 = mask & (self["PROCSCAN"] == "BEAM2")
+        feed1 = self._get_beam(scan, mask1, bi=1)
+        feed2 = self._get_beam(scan, mask2, bi=2)
+
+        return [feed1, feed2]
 
     def calseq(self, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):
         """

@@ -517,6 +517,8 @@ class SelectionBase(DataFrame):
         single_value_queries = None
         multi_value_queries = None
         for k, v in list(kwargs.items()):
+            if v is None:
+                continue
             ku = k.upper()
             if ku in self._aliases:
                 ku = self._aliases[ku]
