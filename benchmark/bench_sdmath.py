@@ -11,29 +11,29 @@ from dysh.util.timers import DTime
 
 benchname = "sdmath"
 
-def initps(n, mode=1):
+def initps(n, mode=1, dtype=np.float64):
     # initialize a spectrum
     if mode == 1:
         # random but expensive for large n
-        r1 = np.random.normal(0,1,n)
-        r2 = np.random.normal(0,1,n)
-        r3 = np.random.normal(0,1,n)
-        r4 = np.random.normal(0,1,n)
+        r1 = np.random.normal(0,1,n).astype(dtype)
+        r2 = np.random.normal(0,1,n).astype(dtype)
+        r3 = np.random.normal(0,1,n).astype(dtype)
+        r4 = np.random.normal(0,1,n).astype(dtype)
     else:
         # silly sequence, reproducable between C and Python
-        r1 = np.arange(0.0*n,1.0*n)
-        r2 = np.arange(1.0*n,2.0*n)
-        r3 = np.arange(2.0*n,3.0*n)
-        r4 = np.arange(3.0*n,4.0*n)
+        r1 = np.arange(0.0*n,1.0*n,dtype=dtype)
+        r2 = np.arange(1.0*n,2.0*n,dtype=dtype)
+        r3 = np.arange(2.0*n,3.0*n,dtype=dtype)
+        r4 = np.arange(3.0*n,4.0*n,dtype=dtype)
     return r1,r2,r3,r4
 
-def initps2(nscan,nchan, mode=1):
+def initps2(nscan,nchan, mode=1, dtype=np.float64):
     # initialize a spectrum
     # random but expensive for large n
     if mode == -1:
-        data = np.random.normal(0,1,(nscan,4,nchan))
+        data = np.random.normal(0,1,(nscan,4,nchan)).astype(dtype)
     else:
-        data = np.arange(0.0,nscan*4*nchan).reshape(nscan,4,nchan)
+        data = np.arange(0.0,nscan*4*nchan, dtype=dtype).reshape(nscan,4,nchan)
     return data
 
 def getps(r1,r2,r3,r4):
@@ -91,9 +91,11 @@ if __name__ == "__main__":
     mode = int(args.mode)
     data = [nscan, nchan, mode]
 
+    dtype = np.float32
+
     if mode > 0:
         # dangerous, might run quicker since there's no block of data, only 4 rows
-        r1,r2,r3,r4 = initps(nchan, mode)
+        r1,r2,r3,r4 = initps(nchan, mode, dtype)   # 224 -> 146
         dt.tag("init", data)
 
         if args.dobench:
@@ -103,9 +105,10 @@ if __name__ == "__main__":
                 dt.tag(f"math_{i}", data)
             print("mean:",sp.sum())
             print('data:',r1[0],r1[1],r4[-1])
+            print('type:',type(r1[0]),type(sp.sum()))
     else:
         # trying a full block of nscan x nchan data
-        raw = initps2(nscan, nchan, mode)
+        raw = initps2(nscan, nchan, mode, dtype)    # 680 -> 355
         dt.tag("init",data)
 
         if args.dobench:
@@ -116,8 +119,12 @@ if __name__ == "__main__":
                 else:
                     taver = getps2(raw).mean(axis=0)
                     dt.tag(f"aver2_{i}", data)
-                
+            if not args.timeaverage:
+                print('mean:',ta.sum())
+            else:
+                print('mean:',taver.sum())
             print('data:',raw[0][0][0], raw[0][0][1], raw[-1][-1][-1])
+            print('type:',type(raw[0][0][0]))
             
     dt.tag('report', data)
     dt.close()
