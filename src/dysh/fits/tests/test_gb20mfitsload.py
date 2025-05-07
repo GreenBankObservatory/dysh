@@ -7,7 +7,6 @@ from dysh.util import get_project_testdata
 
 
 class TestGB20mFITSload:
-
     def setup_method(self):
         self.data_path = get_project_testdata() / "20m/Skynet_60476_DR21_118886_68343.cyb.fits"
         with pytest.warns(UserWarning):
@@ -39,4 +38,4 @@ class TestGB20mFITSload:
         """
         Test that we can use `getps`.
         """
-        spec = self.sdfits.getps(ifnum=0, plnum=0)
+        spec = self.sdfits.getps(ifnum=0, plnum=0)  # noqa: F841

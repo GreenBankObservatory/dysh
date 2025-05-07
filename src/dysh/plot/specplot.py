@@ -171,7 +171,7 @@ class SpectrumPlot:
         xunit = this_plot_kwargs["xaxis_unit"]
         yunit = this_plot_kwargs["yaxis_unit"]
         if xunit is None:
-            xunit = str(sa.unit)
+            xunit = str(sa.unit)  # noqa: F821
         if "vel_frame" not in this_plot_kwargs:
             if u.Unit(xunit).is_equivalent("km/s") and "VELDEF" in s.meta:
                 # If the user specified velocity units, default to
@@ -295,7 +295,7 @@ class SpectrumPlot:
             and other keyword=value arguments
         """
         title = kwargs.get("title", None)
-        xlabel = kwargs.get("xlabel", None)
+        xlabel = kwargs.get("xlabel", None)  # noqa: F841
         ylabel = kwargs.get("ylabel", None)
         if title is not None:
             self._title = title
@@ -376,10 +376,10 @@ class SpectrumPlot:
 
         # col 5
         self._axis.annotate(
-            f"Tsys   :  {np.around(s.meta['MEANTSYS'],2)}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small
+            f"Tsys   :  {np.around(s.meta['MEANTSYS'], 2)}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(
-            f"Tcal   :  {np.around(s.meta['TCAL'],2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
+            f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
 
@@ -461,7 +461,7 @@ class InteractiveSpanSelector:
         self.colors = {
             "edge": (0, 0, 0, 1),
             "face": (0, 0, 0, 0.3),
-            "edge_selected": plt.matplotlib.colors.to_rgb("#6c3483") + (1.0,),
+            "edge_selected": plt.matplotlib.colors.to_rgb("#6c3483") + (1.0,),  # noqa: RUF005
         }
 
         # SpanSelector for creating new regions.
@@ -570,7 +570,7 @@ class InteractiveSpanSelector:
     def clear_region(self, event=None):
         if not self.active_patch:
             return
-        idx = self.regions.index(self.active_patch)
+        idx = self.regions.index(self.active_patch)  # noqa: F841
         self.regions.remove(self.active_patch)
         self.active_patch.remove()
         self.active_patch = None

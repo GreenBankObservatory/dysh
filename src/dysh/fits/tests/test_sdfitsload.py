@@ -54,7 +54,7 @@ class TestSDFITSLoad:
         """
         Test basic filename
         """
-        filename = "TGBT21A_501_11.raw.vegas.fits"
+        filename = "TGBT21A_501_11.raw.vegas.fits"  # noqa: F841
         fnm = self._file_list[0]  # note fnm is a string
         sdf = SDFITSLoad(fnm)
         assert fnm == sdf.filename
@@ -102,7 +102,7 @@ class TestSDFITSLoad:
         with pytest.warns(UserWarning):
             g["FREQRES"] = 1500.0  # Hz
         # test that the selection (index) was set
-        assert list(set(g["FREQRES"]))[0] == 1500
+        assert list(set(g["FREQRES"]))[0] == 1500  # noqa: RUF015
         # test that the BinTableHDU data was set
         assert np.all(g._bintable[0].data["FREQRES"] == 1500.0)
         # rows of a column to different values

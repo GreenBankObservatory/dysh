@@ -3,9 +3,7 @@ import argparse
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from astropy.table import Table
-from matplotlib.ticker import FormatStrFormatter
 
 
 def add_patch(legend, fc, label):
@@ -27,10 +25,10 @@ def add_patch(legend, fc, label):
 
 def lineplots(file):
     t = Table.read(file, format="ipac")
-    colors = ["red", "tan", "lime"]
+    colors = ["red", "tan", "lime"]  # noqa: F841
     df = t.to_pandas()  # .sort_values('N_rows')
     time_cols = ["Load", "Index", "Create_Obsblocks", "Baseline_1", "Baseline_2", "Baseline_3"]
-    tc = [s.replace("_", " ") for s in time_cols]
+    tc = [s.replace("_", " ") for s in time_cols]  # noqa: F841
     size_col = "Size"
     df[time_cols] /= 1000.0
     df[size_col] = np.rint(df[size_col]).astype(int)
@@ -128,7 +126,7 @@ def lineplots(file):
     for j in range(axindex, len(axf)):
         axf[j].axis("off")
     plt.subplots_adjust(wspace=0.35, hspace=0.25)
-    fontdict = {"size": 14, "fontweight": "bold"}
+    fontdict = {"size": 14, "fontweight": "bold"}  # noqa: F841
     fig.suptitle(args.title, size=14, weight="bold")
     if args.outfile:
         plt.savefig(args.outfile, dpi=300)
@@ -267,9 +265,9 @@ if __name__ == "__main__":
     if args.barplots:
         barplots(file=[args.file, args.file2])
 if False:
-    for c in ax.containers:
+    for c in ax.containers:  # noqa: F821
         # Optional: if the segment is small or 0, customize the labels
         labels = [np.rint(v.get_height()).astype(int) if v.get_height() > 0 else "" for v in c]
 
         # remove the labels parameter if it's not needed for customized labels
-        ax.bar_label(c, labels=labels, label_type="center")
+        ax.bar_label(c, labels=labels, label_type="center")  # noqa: F821

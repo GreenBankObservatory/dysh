@@ -22,7 +22,6 @@ from specutils.fitting import fit_continuum
 from specutils.fitting.fitmodels import _strip_units_from_model
 from specutils.utils import QuantityModel
 
-from ..coordinates import veltofreq
 from ..log import logger
 from ..util import minimum_string_match, powerof2
 
@@ -178,7 +177,7 @@ def sort_spectral_region(spectral_region):
     unit = spectral_region.lower.unit
     bound_list = np.sort([srb.value for sr in spectral_region.subregions for srb in sr]) * unit
     it = iter(bound_list)
-    sorted_spectral_region = SpectralRegion(list(zip(it, it)))
+    sorted_spectral_region = SpectralRegion(list(zip(it, it, strict=False)))
 
     return sorted_spectral_region
 
@@ -276,7 +275,7 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
         A `~specutils.SpectralRegion` corresponding to `exclude`.
     """
 
-    p = refspec
+    p = refspec  # noqa: F841
     sa = refspec.spectral_axis
     lastchan = len(sa) - 1
 
@@ -296,7 +295,7 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
             # took a list argument, we wouldn't have to do this.
             if type(exclude[0]) is not tuple:
                 it = iter(exclude)
-                exclude = list(zip(it, it))
+                exclude = list(zip(it, it, strict=False))
             try:
                 sr = SpectralRegion(exclude)
                 # The above will error if the elements are not quantities.
@@ -309,7 +308,7 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
                     if mask.sum() > 0:
                         msg = f"Setting upper limit to {lastchan}."
                         exclude[exclude > len(sa)] = lastchan
-                        warnings.warn(msg)
+                        warnings.warn(msg)  # noqa: B028
                 # If the spectral_axis is decreasing, flip it.
                 sr = SpectralRegion(sa[exclude][:, ::o])
 
@@ -351,7 +350,7 @@ def spectral_region_to_unit(spectral_region, refspec, unit=None, append_doppler=
     lb = qt["lower_bound"].to(unit, equivalencies=refspec.equivalencies)
     ub = qt["upper_bound"].to(unit, equivalencies=refspec.equivalencies)
 
-    return SpectralRegion(list(zip(lb, ub)))
+    return SpectralRegion(list(zip(lb, ub, strict=False)))
 
 
 def append_doppler_to_spectral_region_qtable(qtable, refspec):
@@ -559,8 +558,8 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         "polynomial": Polynomial1D,
     }
     model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
-    if model == None:
-        raise ValueError(f'Unrecognized input model {kwargs["model"]}. Must be one of {list(available_models.keys())}')
+    if model == None:  # noqa: E711
+        raise ValueError(f"Unrecognized input model {kwargs['model']}. Must be one of {list(available_models.keys())}")
     sa_min = spectrum.spectral_axis.min().value
     sa_max = spectrum.spectral_axis.max().value
     selected_model = available_models[model](degree=order, domain=(sa_max, sa_min))
@@ -568,7 +567,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     _valid_exclude_actions = ["replace", "append", None]
     if kwargs_opts["exclude_action"] not in _valid_exclude_actions:
         raise ValueError(
-            f'Unrecognized exclude region action {kwargs["exclude_region"]}. Must be one of {_valid_exclude_actions}'
+            f"Unrecognized exclude region action {kwargs['exclude_region']}. Must be one of {_valid_exclude_actions}"
         )
     fitter = kwargs_opts["fitter"]
     # print(f"MODEL {model} FITTER {fitter}")
@@ -738,7 +737,7 @@ def tsys_weight(exposure, delta_freq, tsys):
     # precision over the calculation used by GBTIDL:
     # weight = abs(delta_freq) * exposure / tsys**2.
     weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
-    if type(weight) == u.Quantity:
+    if type(weight) == u.Quantity:  # noqa: E721
         return weight.value.astype(np.float64)
     else:
         return weight.astype(np.float64)
@@ -978,7 +977,7 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         "gaussian": Gaussian1DKernel,
     }
     method = minimum_string_match(method, list(available_methods.keys()))
-    if method == None:
+    if method == None:  # noqa: E711
         raise ValueError(f"Unrecognized input method {method}. Must be one of {list(available_methods.keys())}")
     kernel = available_methods[method](width)
     if show:
@@ -987,7 +986,7 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
     if hasattr(data, "mask"):
         mask = data.mask
     else:
-        mask = None
+        mask = None  # noqa: F841
     new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
     return new_data
 

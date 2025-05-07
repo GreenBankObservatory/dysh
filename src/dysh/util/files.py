@@ -12,7 +12,6 @@
 
 import glob
 import os
-import sys
 from pathlib import Path
 
 import dysh.util as util
@@ -165,7 +164,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     #     - throw!?
     #     ? e.g. dysh_data('foo.fits') ->   sdfits='foo.fits'
 
-    if dysh_data == None and "DYSH_DATA" in os.environ:
+    if dysh_data == None and "DYSH_DATA" in os.environ:  # noqa: E711
         dysh_data = Path(os.environ["DYSH_DATA"])
     if verbose:
         print("DYSH_DATA:", dysh_data)
@@ -174,9 +173,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # sdfits:   the main place where GBO data reside
 
-    if sdfits != None:
+    if sdfits != None:  # noqa: E711
         if sdfits == "?":
-            if dysh_data == None:
+            if dysh_data == None:  # noqa: E711
                 dd = Path("/home/sdfits")
             else:
                 dd = dysh_data / "sdfits"
@@ -187,7 +186,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("# -----------------")
             os.system(cmd)
             return None
-        if dysh_data != None:
+        if dysh_data != None:  # noqa: E711
             fn = dysh_data / Path("sdfits") / sdfits  # normally user is using a private sdfits
             if fn.exists():
                 return sdfits_offline(fn)
@@ -199,7 +198,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # test:   this should also be allowed to use util.get_project_testdata() as well
 
-    if test != None:
+    if test != None:  # noqa: E711
         if test == "?":
             print("# dysh_data::test")
             print("# ---------------")
@@ -207,12 +206,12 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_test[k])
             return None
         my_test = minimum_string_match(test, list(valid_dysh_test.keys()))
-        if my_test != None:
+        if my_test != None:  # noqa: E711
             my_test = valid_dysh_test[my_test]
         else:
             my_test = test
         #
-        if dysh_data != None:
+        if dysh_data != None:  # noqa: E711
             fn = dysh_data / "testdata" / my_test
             if not fn.exists():
                 fn = util.get_project_testdata() / my_test
@@ -227,7 +226,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # example:  these can also obtain data via from_url (or perhaps astropy caching???)
 
-    if example != None:
+    if example != None:  # noqa: E711
         if example == "?":
             print("# dysh_data::example")
             print("# ------------------")
@@ -235,16 +234,16 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_example[k])
             return None
         my_example = minimum_string_match(example, list(valid_dysh_example.keys()))
-        if my_example != None:
+        if my_example != None:  # noqa: E711
             my_example = valid_dysh_example[my_example]
         else:
             my_example = example
-        if dysh_data != None:
+        if dysh_data != None:  # noqa: E711
             fn = dysh_data / "example_data" / my_example
             if fn.exists():
                 return fn
             print("Odd-1, did not find", fn)
-        if dysh_data == None and os.path.exists(_example_data):
+        if dysh_data == None and os.path.exists(_example_data):  # noqa: E711
             fn = Path(_example_data) / my_example
             if fn.exists():
                 return fn
@@ -259,7 +258,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             try:
                 filename = from_url(url)
                 print(f"\nRetrieved {filename}")
-            except:
+            except:  # noqa: E722
                 print(f"\nFailing to retrieve example {filename} ")
                 return None
         else:
@@ -268,7 +267,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # accept:   acceptance_testing/data - from_url not recommended (does not work on multifile fits)
 
-    if accept != None:
+    if accept != None:  # noqa: E711
         if accept == "?":
             print("# dysh_data::accept")
             print("# -----------------")
@@ -276,16 +275,16 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_accept[k])
             return None
         my_accept = minimum_string_match(accept, list(valid_dysh_accept.keys()))
-        if my_accept != None:
+        if my_accept != None:  # noqa: E711
             my_accept = valid_dysh_accept[my_accept]
         else:
             my_accept = accept
-        if dysh_data != None:
+        if dysh_data != None:  # noqa: E711
             fn = dysh_data / "acceptance_testing/data" / my_accept
             if fn.exists():
                 return fn
             print("Odd-1, did not find", fn)
-        if dysh_data == None and os.path.exists(_accept_data):
+        if dysh_data == None and os.path.exists(_accept_data):  # noqa: E711
             fn = Path(_accept_data) / my_accept
             if fn.exists():
                 return fn
@@ -300,7 +299,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             try:
                 filename = from_url(url)
                 print(f"\nRetrieved {filename}")
-            except:
+            except:  # noqa: E722
                 print(f"\nFailing to retrieve accept {filename}")
                 return None
         else:
