@@ -52,6 +52,7 @@ class DTime(object):
          overwrite  : overwrite a previous output file (astropy Table).
          profile    : run the profiler: Default False
          statslines : number of profiler statistics lines to print. Default 25
+         sortkey    : how to sort the profiler statistics, "cumulative" or "time". Default "cumulative" (SortKey.CUMULATIVE). 
 
 
     Example
@@ -80,18 +81,21 @@ class DTime(object):
         self.benchname = benchname
         self.state = 0
         self.ndata = 0
+        self._sortkeys = {"cumulative": SortKey.CUMULATIVE, "time":SortKey.Time}
         if args is not None:
             self.out = args['out']             # @todo check the dictionary
             self.append = args['append']
             self.overwrite = args['overwrite']
             self.profile = args['profile']
             self.statslines = int(args['statslines'])
+            self.sortkey = self._sortkeys[args['sortkey']]
         else:
             self.out = None
             self.append = False
             self.overwrite = False
             self.profile = False
             self.statslines = 0
+            self.sortkey = self._sortkeys["cumulative"]
             
         if self.profile:
             self.pr = cProfile.Profile()
@@ -237,7 +241,7 @@ class DTime(object):
 
         if self.profile:
             self.pr.disable()
-            ps = pstats.Stats(self.pr).sort_stats(SortKey.CUMULATIVE)
+            ps = pstats.Stats(self.pr).sort_stats(self.sortkey)
             #ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE, SortKey.TIME)
             #ps.print_stats(int(args.statslines))
             ps.print_stats(self.statslines)
