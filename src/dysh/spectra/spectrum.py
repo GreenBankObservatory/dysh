@@ -219,19 +219,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
             if exclude != None:
                 logger.info(f"Warning: ignoring exclude={exclude}")
             exclude = core.include_to_exclude_spectral_region(include, self)
-
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
-
         if kwargs_opts["remove"]:
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._subtracted = True
-
         if self._plotter is not None:
             if kwargs_opts["remove"]:
                 print('refresh')
                 self._plotter.refresh()
-                self._plotter.axis.figure.canvas.draw_idle()
+                #self._plotter._axis.clear()
+                self._plotter._axis.figure.canvas.draw()
+                sf = s.flux
+                self._plotter._axis.plot(self.spectral_axis, sf)
+                #self.plot()
             else:
                 print('oshow baseline')
                 self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis),c='k')
