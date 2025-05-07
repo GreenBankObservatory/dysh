@@ -14,13 +14,13 @@ nfile=(8 8 5 3)
 for i in $(seq 0 3)
 do
     out="benchtest$i.tab"
-    opr="${dd[$i]}.profile"
-    oprs="${dd[$i]}.profile.skipflags"
+    opr="${dd[$i]}.profile.time"
+    oprs="${dd[$i]}.profile.skipflags.tim"
     #for j in $(seq 1 ${nfile[$i]})
     j=${nfile[$i]}
     #do
-        ./bench_gbtfitsload.py -d -l 4 -n $j  -k ${dd[$i]} --statslines 50 -m -p  > $opr
-        ./bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]}  --statslines 50 -m  -p  > $oprs
+        ../bench_gbtfitsload.py -d -l 4 -n $j  -k ${dd[$i]} --statslines 50 -m -p  -x time > $opr
+        ../bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]}  --statslines 50 -m  -p  -x time > $oprs
         echo "done ${dd[$i]}"
     #done
 done
