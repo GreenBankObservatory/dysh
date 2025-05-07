@@ -81,7 +81,7 @@ class DTime(object):
         self.benchname = benchname
         self.state = 0
         self.ndata = 0
-        self._sortkeys = {"cumulative": SortKey.CUMULATIVE, "time":SortKey.Time}
+        self._sortkeys = {"cumulative": SortKey.CUMULATIVE, "time":SortKey.TIME}
         if args is not None:
             self.out = args['out']             # @todo check the dictionary
             self.append = args['append']
