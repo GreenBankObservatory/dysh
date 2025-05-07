@@ -11,7 +11,13 @@ class TestCore:
         """Test the Observator class"""
         obs = Observatory()
         for k in ["alma", "Hat Creek", "La Silla Observatory", "Mars Hill", "Whipple"]:
-            assert obs[k] == EarthLocation.of_site(k)
+            # Try to get the observatory locations using the existing cache.
+            try:
+                eloc = EarthLocation.of_site(k)
+            # Force cache refresh if this fails.
+            except UnknownSiteException:
+                eloc = EarthLocation.of_site(k, refresh_cache=True)
+            assert obs[k] == eloc
         assert obs["GBT"] is GBT()  # instance method
         assert Observatory["GBT"] is GBT()  # static method
         try:
@@ -43,7 +49,7 @@ class TestCore:
             ("radio", "galactic"),
             ("optical", "heliocentric"),
         ]
-        for i, j in zip(inputs, outputs):
+        for i, j in zip(inputs, outputs, strict=False):
             assert decode_veldef(i) == j
 
         # Now test that bad input raises an exception
