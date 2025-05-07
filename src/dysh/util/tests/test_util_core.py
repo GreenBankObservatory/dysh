@@ -23,10 +23,10 @@ class TestUtil:
         """Test minimum_string_match function"""
         s = ["alpha", "beta", "gamma", "gemma"]
         assert du.minimum_string_match("a", s) == "alpha"
-        assert du.minimum_string_match("A", s) == None
-        assert du.minimum_string_match("g", s) == None
+        assert du.minimum_string_match("A", s) == None  # noqa: E711
+        assert du.minimum_string_match("g", s) == None  # noqa: E711
         assert du.minimum_string_match("ga", s) == "gamma"
-        assert du.minimum_string_match("am", s) == None
+        assert du.minimum_string_match("am", s) == None  # noqa: E711
 
     def test_powerof2(self):
         """Test powerof2 function"""

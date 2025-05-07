@@ -1,5 +1,4 @@
 import argparse
-import logging
 import sys
 from pathlib import Path
 from typing import List, Union
@@ -88,7 +87,7 @@ def init_shell(
     c.BaseIPythonApplication.profile = profile
     c.InteractiveShell.colors = colors
     c.InteractiveShell.banner2 = BANNER.format(
-        user_ns_str="\n".join(f"{' '*8}{k} (from {v.__name__})" for k, v in user_ns.items())
+        user_ns_str="\n".join(f"{' ' * 8}{k} (from {v.__name__})" for k, v in user_ns.items())
     )
     if sdfits_files:
         user_ns["sdfits_files"] = sdfits_files
