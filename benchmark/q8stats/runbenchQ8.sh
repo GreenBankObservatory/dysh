@@ -11,18 +11,30 @@ nfile=(8 8 5 3)
 # GBTFITSLOAD
 #####################
 
-for i in $(seq 0 3)
-do
-    out="benchtest$i.tab"
-    opr="${dd[$i]}.profile.time"
-    oprs="${dd[$i]}.profile.skipflags.tim"
-    #for j in $(seq 1 ${nfile[$i]})
-    j=${nfile[$i]}
-    #do
-        ../bench_gbtfitsload.py -d -l 4 -n $j  -k ${dd[$i]} --statslines 50 -m -p  -x time > $opr
-        ../bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]}  --statslines 50 -m  -p  -x time > $oprs
-        echo "done ${dd[$i]}"
-    #done
-done
+# skip gbtfitsload because i already ran this bench
+if false; then
+    for i in $(seq 0 3)
+    do
+        out="benchtest$i.tab"
+        opr="${dd[$i]}.profile.time"
+        oprs="${dd[$i]}.profile.skipflags.time"
+        #for j in $(seq 1 ${nfile[$i]})
+        j=${nfile[$i]}
+        #do
+            ../bench_gbtfitsload.py -d -l 4 -n $j  -k ${dd[$i]} --statslines 50 -m -p  -x time > $opr
+            ../bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]}  --statslines 50 -m  -p  -x time > $oprs
+            echo "done ${dd[$i]}"
+        #done
+    done
+fi
+
+#####################
+# GETPS
+#####################
+echo "doing GETPS bench..."
+../bench_getps.py -d -s -t --statslines 50 -m -p -x time > getps_bench_ta.profile.time
+../bench_getps.py -d -s -t --statslines 50 -m -p > getps_bench_ta.profile
+../bench_getps.py -d -s --statslines 50 -m -p -x time > getps_bench.profile.time
+../bench_getps.py -d -s --statslines 50 -m -p > getps_bench.profile
 
 exit

@@ -27,3 +27,26 @@ These are the top CPU using methods as listed by the profiler
 
 - Various astropy and pandas methods. Some astropy methods appear to be related to initial manipulation of the binary table (drop_fields) when creating the index.  
  
+## Profiler results for GETPS
+
+These are the top CPU using methods as listed by the profiler, not including loading the SDFITS file.
+Basic result: Creating Spectrum objects is expensive.  This may be due to creating WCS under the hood (anecdotal). We would have to perf test Spectrum itself for more info.
+
+## without timeaverage
+
+- exposure() called from calibrate(). Unnecessarily called N times to access elements i thru N.  See issue.  6ms/call but called 352 times.
+
+- astropy fitsrec and column accessors - ~10 ms/call but ~200 calls
+
+- sdfitsload.rawspectra  - 25 ms/call
+
+- perhaps scan._add_calibration_meta could be improved - 68 ms/call
+
+## with timeaverage
+
+- ScanBase.timeaverage - 230 ms/call - includes one call to Spectrum constructor
+
+- Spectrum.make_spectrum (Spectrum/Spectrum1D constructor) - 200 ms/call
+
+- called to scan.calibrated (which creates a Spectrum object) - 200 ms/call
+

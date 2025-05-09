@@ -29,6 +29,7 @@ if __name__ == "__main__":
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
     parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
     parser.add_argument("--sortkey", "-x", action="store", help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
+    parser.add_argument("--memory",      "-m", action="store_true",  help="track memory usage")
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")    
     #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
     # fmt: on    
