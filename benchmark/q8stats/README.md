@@ -30,7 +30,7 @@ These are the top CPU using methods as listed by the profiler
 ## Profiler results for GETPS
 
 These are the top CPU using methods as listed by the profiler, not including loading the SDFITS file.
-Basic result: Creating Spectrum objects is expensive.  This may be due to creating WCS under the hood (anecdotal). We would have to perf test Spectrum itself for more info.
+Basic result: Creating Spectrum objects is expensive.  This may be due to creating WCS under the hood. We would have to perf test Spectrum itself for more info.
 
 ## without timeaverage
 
@@ -49,4 +49,6 @@ Basic result: Creating Spectrum objects is expensive.  This may be due to creati
 - Spectrum.make_spectrum (Spectrum/Spectrum1D constructor) - 200 ms/call
 
 - called to scan.calibrated (which creates a Spectrum object) - 200 ms/call
+
+- astropy/wcs/wcsapi/high_level_api.py - called during Spectrum construction (by Spectrum1D) - 164 ms/call
 
