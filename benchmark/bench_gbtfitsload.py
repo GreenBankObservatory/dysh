@@ -79,20 +79,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--statslines", "-e", action="store", help="number of profiler statistics lines to print", default=25
     )
+    parser.add_argument("--sortkey", "-x", action="store", help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
     parser.add_argument("--memory",      "-m", action="store_true",  help="track memory usage")
     parser.add_argument("--quit", "-q", action="store_true", help="quit early")
-    parser.add_argument("--justtable", "-j", action="store_true", help="just print the existin table and exit")
     # parser.add_argument("--noindex",     "-n", action="store_true",  help="do not create dysh index table (pandas)")
     args = parser.parse_args()
 
     if args.quit:
-        sys.exit(0)
-
-    if args.justtable:
-        if args.out is None:
-            raise Exception("You must provide the table filename with -o FILENAME")
-        table = Table.read(args.out, format="ascii.ecsv")
-        table.pprint_all()
         sys.exit(0)
 
     # output table colnames, units, and dtypes
