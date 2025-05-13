@@ -161,6 +161,16 @@ The example='test' in dysh are 8 ON/OFF scans, 352 rows, thus nscan=88 for nchan
       /usr/bin/time sdmath 88 32768 1000
       -> 10.6 ms
 
+Also perhaps to note is that bench_sdmath runs faster in float32/float64 (60-90% in two cases), whereas the C program
+only ran 20% faster. Odd.
+
+        # getps, timing in ms
+        # with 4 scans     with 1 scan
+ 
+        -n      270          100
+        .       600          180
+        -t      950          315
+
 ### gbtfitsload
 
 ## TODO
