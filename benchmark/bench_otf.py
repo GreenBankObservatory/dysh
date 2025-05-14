@@ -43,6 +43,7 @@ if __name__ == "__main__":
     parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
     parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
+    parser.add_argument("--sortkey",     "-x", action="store",       help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")    
     #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
     # fmt: on
@@ -59,11 +60,13 @@ if __name__ == "__main__":
     data_units = [""]
     data_types = [str]
     dt = DTime(benchname=benchname,
-               data_cols=data_cols, data_units=data_units, data_types=data_types, # no data=[] supported yet
+               data_cols=data_cols, data_units=data_units, data_types=data_types, 
                args=vars(args))               
 
     sk=str(args.skipflags)
 
+    
+    # NGC5954 double galaxy
     f1 = dysh_data(accept='AGBT21B_024_20/AGBT21B_024_20.raw.vegas')  # @todo why does just AGBT21B_024_20  not work
     print("Loading ",f1)
     sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
@@ -82,9 +85,10 @@ if __name__ == "__main__":
         print('STATS:',sdf2.stats())
         dt.tag("load2",[sk])
         del sdf1
-        sdf1 = np.arange(100)   # just dummy space
-        dt.tag("mem",[sk])        
-        
+        # sdf1 = np.arange(100)   # dummy space
+        # dt.tag("mem",[sk])
+
+    # note this loop is simpler than the more realistic one in test_otf.py
     calibrate = not args.nocalibrate
     if args.dobench:
         scan = [22]
@@ -114,8 +118,35 @@ write1  8107.9      True   varies to 9154
  load2  3003.0      True   varies to 3156
 report     0.0      True
 
-# -s -d -f 16 -l 1 -b
-gettp1s 65762.6      True
+# -s -d 
+  load1 12359.9 3948.0 2028.6      True
+ write1  8077.4 7442.5 5010.9      True
+  load2  3062.7 7768.1 5336.1      True
+gettp1s 17002.2 5260.5 2829.0      True
+gettp2s 16656.9 5260.5 2829.0      True
+gettp3s 16723.4 5260.5 2829.0      True
+gettp4s 16789.6 5260.5 2829.0      True
+ report     0.0 5260.5 2829.0      True
+
+# -s -d -f 16
+  load1 12569.5 3947.6 2029.3      True
+ write1  8066.8 7453.0 5023.2      True
+  load2  3075.7 7767.1 5337.1      True
+gettp1s 17231.2 5312.6 2883.1      True
+gettp2s 16803.8 5312.6 2883.1      True
+gettp3s 16780.3 5312.6 2883.1      True
+gettp4s 16834.0 5312.6 2883.1      True
+ report     0.0 5312.6 2883.1      True
+
+# -s -d -l 4 -b
+  load1 12272.5 3947.5 2030.6      True
+ write1     0.1 3947.5 2030.6      True
+  load2     0.0 3947.5 2030.6      True
+gettp1s 63685.9 4538.5 2108.5      True
+gettp2s 63356.6 4538.5 2108.5      True
+gettp3s 63102.5 4538.5 2108.5      True
+gettp4s 63593.1 4538.5 2108.5      True
+ report     0.0 4538.5 2108.5      True
 
 # -s -d -f 1 -l 4 -b
 gettp1s  4306.2      True
@@ -134,5 +165,13 @@ gettp4s   985.4      True
 which is roughly the ratio of rows
 
 
+load all:     12280   (156 scans)
+load decmap:   1300   (35 scans)
+
+all 16 beams:   63685.9 from 156 scan file
+                17000   from  35 scan file
+
+-> loading is linear in size
+   extracting is also linear from size, no skipping????
 
 """
