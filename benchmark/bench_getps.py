@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
     parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
-    parser.add_argument("--sortkey", "-x", action="store", help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
+    parser.add_argument("--sortkey",     "-x", action="store",       help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
     parser.add_argument("--memory",      "-m", action="store_true",  help="track memory usage")
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")    
     #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     data_units = [""]
     data_types = [str]
     dt = DTime(benchname=benchname,
-               data_cols=data_cols, data_units=data_units, data_types=data_types, # no data=[] supported yet
+               data_cols=data_cols, data_units=data_units, data_types=data_types,
                args=vars(args))
 
     sk=str(args.skipflags)
