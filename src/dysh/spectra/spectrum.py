@@ -229,7 +229,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             if kwargs_opts["remove"]:
                 self._plotter._line.set_ydata(self._data)
                 if self._bline is not None:
-                    self._bline.set_ydata(np.ones(int(self.meta['NAXIS1']))*np.nan)
+                    self._bline.set_ydata(np.ones(int(self.meta["NAXIS1"])) * np.nan)
                 ydiff = np.max(self._data) - np.min(self._data)
                 self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
                 self._plotter._figure.canvas.flush_events()
