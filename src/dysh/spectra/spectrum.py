@@ -227,14 +227,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is not None:
             if kwargs_opts["remove"]:
                 self._plotter._line.set_ydata(self._data)
-                self._bline.set_ydata(np.ones(int(self.meta['NAXIS1']))*np.nan)
+                self._bline.set_ydata(np.ones(int(self.meta["NAXIS1"])) * np.nan)
                 ydiff = np.max(self._data) - np.min(self._data)
-                self._plotter._axis.set_ylim(np.min(self._data)-0.05*ydiff,
-                    np.max(self._data)+0.05*ydiff)
+                self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
                 self._plotter._figure.canvas.flush_events()
             else:
-                lines = self._plotter._axis.plot(self.spectral_axis,
-                    self._baseline_model(self.spectral_axis),c='k')
+                lines = self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis), c="k")
                 self._bline = lines[0]
                 self._plotter.refresh()
 
@@ -257,8 +255,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._baseline_model = None
             self._plotter._line.set_ydata(self._data)
             ydiff = np.max(self._data) - np.min(self._data)
-            self._plotter._axis.set_ylim(np.min(self._data)-0.05*ydiff,
-                np.max(self._data)+0.05*ydiff)
+            self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
             self._plotter._figure.canvas.flush_events()
 
     def _set_exclude_regions(self, exclude):
