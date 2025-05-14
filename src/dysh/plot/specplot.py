@@ -197,7 +197,8 @@ class SpectrumPlot:
         if yunit is not None:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
-        self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        self._line = lines[0]
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
         else:
