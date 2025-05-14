@@ -24,6 +24,9 @@ import dysh.util as util
 from dysh.util.selection import Selection
 from dysh.util.files import dysh_data
 
+from dysh.spectra import ScanBlock
+
+
 #%%  helper functions
 
 def mkdir(name, clean=True):
@@ -61,7 +64,88 @@ if False:
     sdf3 = GBTFITSLoad("ngc0001")
     sb1 = sdf3.gettp(scan=23,fdnum=0,ifnum=0,plnum=0,calibrate=True,cal=False)
     # there are 68 integrations in here
+    scans=list(range(23,58)) + list(range(67,102))
+    mkdir("ngc0001sky")
+    sdf1.write('ngc0001sky/file.fits',scan=scans, overwrite=True)
+    sdf4 =  GBTFITSLoad("ngc0001sky")
+    sdf4.summary()
     
+    
+#%% work on ngc0001/file*fits
+
+# this one can have the INTNUM bug   
+sdf2 = GBTFITSLoad('ngc0001.fits', skipflags=True)    
+sdf2.summary()
+
+#
+sdf3 = GBTFITSLoad('ngc0001', skipflags=True)
+sdf3.summary()
+
+
+#%%  pedro's speed up for NGC0001
+
+
+f1 = dysh_data(accept='AGBT21B_024_01/AGBT21B_024_01.raw.vegas')
+sdf1 = GBTFITSLoad(f1, skipflags=True)    # ~14sec
+
+start = 23
+end   = 57
+scans = list(range(start,end+1))
+nchan = 1024
+fdnum = sdf1.udata("FDNUM")
+
+sb = ScanBlock()
+
+for fd in fdnum:
+    print("Feed",fd)
+    tpsb = sdf1.gettp(scan=scans,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False)  # 6.5 sec
+    off = np.empty((4*2,nchan), dtype=float)
+    exp_off = np.empty((4*2,nchan), dtype=float)
+    on = np.empty((68-4*2,nchan), dtype=float)
+    for i,(t,s) in enumerate(zip(tpsb,scans)):
+        print("scan",s)
+        off[:4] = t._calibrated[:4]
+        off[4:] = t._calibrated[-4:]
+        exp_off[:4] = t.exposure[:4,np.newaxis]
+        exp_off[4:] = t.exposure[-4:,np.newaxis]
+        on = t._calibrated[4:-4]
+        off_avg = np.average(off, axis=0, weights=exp_off**2.)
+        ta = (on - off_avg[np.newaxis,:])/(off_avg[np.newaxis,:])
+        itpsb = sdf1.gettp(scan=s,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False,intnum=list(range(4,64)))[0]  # 2.2 sec
+        itpsb._calibrated = ta
+        sb.append(itpsb)
+
+# Save to SDFITS and then run the gbtgridder on it
+sb.write("otf-test.fits", overwrite=True)
+
+#%% bench : one feed  ~ 98sec
+sb = ScanBlock()
+
+fdnum = [7]
+
+for fd in fdnum:
+    print("Feed",fd)
+    tpsb = sdf1.gettp(scan=scans,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False)  # 6.5 sec
+    off = np.empty((4*2,nchan), dtype=float)
+    exp_off = np.empty((4*2,nchan), dtype=float)
+    on = np.empty((68-4*2,nchan), dtype=float)
+    for i,(t,s) in enumerate(zip(tpsb,scans)):
+        print("scan",s)
+        off[:4] = t._calibrated[:4]
+        off[4:] = t._calibrated[-4:]
+        exp_off[:4] = t.exposure[:4,np.newaxis]
+        exp_off[4:] = t.exposure[-4:,np.newaxis]
+        on = t._calibrated[4:-4]
+        off_avg = np.average(off, axis=0, weights=exp_off**2.)     # < 1ms
+        ta = (on - off_avg[np.newaxis,:])/(off_avg[np.newaxis,:])  # < 1ms
+        itpsb = sdf1.gettp(scan=s,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False,intnum=list(range(4,64)))[0]  # 2.2 sec
+        itpsb._calibrated = ta
+        sb.append(itpsb)
+
+
+#   2.2sec for 60 integrations:    -> 36ms/intnum
+#   calling gettp() doesn't make a difference if 
+
 #%%
    
 start = 23
@@ -91,6 +175,8 @@ fp.close()
 
 
 
+
+
 #%%    preparing ngc5954.fits since the data container is large (923 MB)
 
 f1 = dysh_data('AGBT21B_024_20')  # AGBT21B_024_20.raw.vegas 
@@ -101,7 +187,9 @@ sdf1 = GBTFITSLoad(f1)    # ,skipflags=True)
 #    with skipflags:   CPU times: user 9min 1s, sys: 3.49 s, total: 9min 5s Wall time: 8min 56s
 # without skipflags:   CPU times: user 4.07 s, sys: 539 ms, total: 4.61 s
 
-
+sdf1.summary()
+# 22..56 is the decmap
+# There are 156 rows, of which 35 (22%) are the decmap
 
 # NGC0001 is scans 
 
@@ -198,3 +286,35 @@ def sizes(sdf):
     s['cal'] = len(sdf._index['CAL'].unique())
     return s
     
+
+#%%
+
+kw=['SCAN', 'FDNUM', 'INTNUM', 'CRVAL2', 'CRVAL3']
+a=sdf4._index[kw]
+x=a['CRVAL2']
+y=a['CRVAL3']
+mask = np.where((x != 0) & (y != 0))[0]
+print('mask1',len(mask))
+mask = np.where(   (not np.isclose(x,0)) & (not np.isclose(y,0)))[0]
+print('mask2',len(mask))
+x=a['CRVAL2'][mask]
+y=a['CRVAL3'][mask]
+#plt.plot(x,y,'+')
+xc = x.mean()
+yc = y.mean()
+y = (y - yc)*3600.0
+x = (x - xc)*3600.0 * np.cos(np.pi*yc/180)
+
+heatmap, xedges, yedges = np.histogram2d(x, y, bins=50)
+plt.imshow(heatmap.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', aspect='auto', cmap='viridis')
+
+# Add a colorbar to show the value scale
+plt.colorbar(label='Density')
+
+# Set plot labels
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.title('Heatmap from Scatter Data')
+
+
+
