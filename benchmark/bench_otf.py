@@ -89,6 +89,7 @@ if __name__ == "__main__":
         # dt.tag("mem",[sk])
 
     # note this loop is simpler than the more realistic one in test_otf.py
+    # @todo use the code example from test_otf so we can test writing the cumulated SB's
     if args.dobench:
         calibrate = not args.nocalibrate
         intnums = list(range(4,64))
