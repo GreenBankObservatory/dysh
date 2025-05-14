@@ -299,7 +299,7 @@ def heatmap(sdf, cell=6, scans=None):
     y=df['CRVAL3']
     
     # it seems when EXPOSURE is small (0.018 in my example) the x and y are 0
-    # note these are not VANE/SKY
+    # note these are not VANE/SKY.
     
     mask = np.where(~np.isclose(x,0) & ~np.isclose(y,0))[0]
     nxy = len(x)
@@ -339,4 +339,31 @@ def heatmap(sdf, cell=6, scans=None):
 #%%
 
 heatmap(sdf4)
+
+#%%
+
+
+f1 = dysh_data('AGBT21B_024_41')  # AGBT21B_024_20.raw.vegas 
+print(f1)
+sdf1 = GBTFITSLoad(f1, skipflags=True)  #
+
+# 	UGC03960   31..65  83..117
+scans = list(range(31,66)) + list(range(83,118))
+print(scans)
+heatmap(sdf1, cell=6, scans=scans)
+
+#%%
+
+f1 = dysh_data(example='mapping-L/data/TGBT17A_506_11.raw.vegas')    # 2.3GB
+print(f1)
+
+sdf1 = GBTFITSLoad(f1)
+sdf1.summary()
+#
+#  scans 14..26 is the DecLatMap
+#  scan 27 is a Track on the reference position
+
+sdf.getsig
+
+
 
