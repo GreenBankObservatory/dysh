@@ -289,32 +289,54 @@ def sizes(sdf):
 
 #%%
 
-kw=['SCAN', 'FDNUM', 'INTNUM', 'CRVAL2', 'CRVAL3']
-a=sdf4._index[kw]
-x=a['CRVAL2']
-y=a['CRVAL3']
-mask = np.where((x != 0) & (y != 0))[0]
-print('mask1',len(mask))
-mask = np.where(   (not np.isclose(x,0)) & (not np.isclose(y,0)))[0]
-print('mask2',len(mask))
-x=a['CRVAL2'][mask]
-y=a['CRVAL3'][mask]
-#plt.plot(x,y,'+')
-xc = x.mean()
-yc = y.mean()
-y = (y - yc)*3600.0
-x = (x - xc)*3600.0 * np.cos(np.pi*yc/180)
+def heatmap(sdf, cell=6, scans=None):
+    kw=['SCAN', 'FDNUM', 'INTNUM', 'CRVAL2', 'CRVAL3']
+    df=sdf._index[kw]
+    if scans is not None:
+        print(f"Selection on scans={scans}")
+        df = df[df['SCAN'].isin(scans)]
+    x=df['CRVAL2']
+    y=df['CRVAL3']
+    
+    # it seems when EXPOSURE is small (0.018 in my example) the x and y are 0
+    # note these are not VANE/SKY
+    
+    mask = np.where(~np.isclose(x,0) & ~np.isclose(y,0))[0]
+    nxy = len(x)
+    n0 = nxy - len(mask)
+    print(f'{n0}/{nxy} positions at (0,0)')
+    x=df.iloc[mask]['CRVAL2']
+    y=df.iloc[mask]['CRVAL3']
+    #
+    xc = x.mean()
+    yc = y.mean()
+    y = (y - yc)*3600.0
+    x = (x - xc)*3600.0 * np.cos(np.pi*yc/180)
+    xmin = x.min()
+    xmax = x.max()
+    ymin = y.min()
+    ymax = y.max()
+    bmax = max(-xmin, -ymin, xmax, ymax)
+    print(f"bmax={bmax}")
+    # @todo  fix edges to be symmetric around (0,0)
+    xedges = np.arange(-bmax-cell, bmax+cell, cell)
+    yedges = np.arange(-bmax-cell, bmax+cell, cell)
+    print(xedges)
+    
+    heatmap, xedges, yedges = np.histogram2d(x, y, bins=(xedges, yedges))
+    dx = xedges[1]-xedges[0]
+    dy = yedges[1]-yedges[0]
+    print("dx,dy",dx,dy,"arcsec")
 
-heatmap, xedges, yedges = np.histogram2d(x, y, bins=50)
-plt.imshow(heatmap.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', aspect='auto', cmap='viridis')
+    plt.figure()
+    plt.imshow(heatmap.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', aspect='equal', cmap='viridis')
+    plt.colorbar(label=f'Visits per  cell')
 
-# Add a colorbar to show the value scale
-plt.colorbar(label='Density')
+    plt.xlabel(f'dX, cell= {dx:.2f} arcsec')
+    plt.ylabel(f'dY  cell= {dx:.2f} arcsec')
+    plt.title(f'{sdf.filename}   {xc:.6f}  {yc:.6f}')
 
-# Set plot labels
-plt.xlabel('X')
-plt.ylabel('Y')
-plt.title('Heatmap from Scatter Data')
+#%%
 
-
+heatmap(sdf4)
 
