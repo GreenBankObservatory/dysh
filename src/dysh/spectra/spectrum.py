@@ -118,6 +118,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self.mask is None:
             self._mask = np.full(np.shape(self.flux), False)
         self._baseline_model = None
+        self._bline = None
         self._subtracted = False
         self._normalized = False
         self._exclude_regions = None
@@ -227,7 +228,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is not None:
             if kwargs_opts["remove"]:
                 self._plotter._line.set_ydata(self._data)
-                self._bline.set_ydata(np.ones(int(self.meta["NAXIS1"])) * np.nan)
+                if self._bline is not None:
+                    self._bline.set_ydata(np.ones(int(self.meta['NAXIS1']))*np.nan)
                 ydiff = np.max(self._data) - np.min(self._data)
                 self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
                 self._plotter._figure.canvas.flush_events()
