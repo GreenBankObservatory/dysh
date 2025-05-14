@@ -89,12 +89,14 @@ if __name__ == "__main__":
         # dt.tag("mem",[sk])
 
     # note this loop is simpler than the more realistic one in test_otf.py
-    calibrate = not args.nocalibrate
     if args.dobench:
+        calibrate = not args.nocalibrate
+        intnums = list(range(4,64))
+        intnums = [0]
         scan = [22]
         for i in range(1,int(args.loop)+1):
             for f in range(int(args.feeds)):    # loop over all feeds
-                sb = sdf2.gettp(scan=scan, fdnum=f, ifnum=0, plnum=0, intnum=0, calibrate=True, cal=False)
+                sb = sdf2.gettp(scan=scan, fdnum=f, ifnum=0, plnum=0, intnum=intnums, calibrate=True, cal=False)
             dt.tag(f"gettp{i}s", [sk])
 
     dt.tag('report',[sk])
