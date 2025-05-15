@@ -1327,7 +1327,7 @@ class TestGBTFITSLoad:
 
         # 5.  Input tsys should overrride whatever is in the header.  Scale difference should be ratio of
         # sytem temperatures.
-        sigref = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0, tsys=500.0)
+        sigref = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0, t_sys=500.0)
         ta2 = sigref.timeaverage()
         assert ta2.meta["TSYS"] == pytest.approx(500.0)
         assert np.mean(ta2.data / ta.data) == pytest.approx(500 / ta.meta["TSYS"])

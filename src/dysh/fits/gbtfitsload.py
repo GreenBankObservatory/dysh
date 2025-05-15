@@ -1285,7 +1285,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
                     refspec=refspec,
-                    tsys=tsys,
+                    tsys=t_sys,
                 )
                 g._refscan = ref
                 g.merge_commentary(self)
@@ -1309,6 +1309,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags: str = True,
         bunit: str = "ta",
         zenith_opacity: float = None,  # noqa: RUF013
+        t_sys=None,
+        nocal=False,
         **kwargs,
     ) -> ScanBlock:
         """
@@ -1445,7 +1447,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
-                c = c + 1
                 # Reset these variables in case they change for the next scan.
                 _nocal = nocal
                 _tsys = None
