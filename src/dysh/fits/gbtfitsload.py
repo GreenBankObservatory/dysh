@@ -1,6 +1,8 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
+import itertools
+import numbers
 import os
 import platform
 import time
@@ -1457,21 +1459,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The intermediate frequency (IF) number
         plnum : int
             The polarization number
-        fdnum:  2-tuple, optional
+        fdnum :  2-tuple, optional
             The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
         calibrate : boolean, optional
             Calibrate the scans.
             The default is True.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
-            (This keyword should eventually go away)
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
-        apply_flags : boolean, optional.  If True, apply flags before calibration.
+        smooth_ref : int, optional
+            Smooth the reference spectra using a boxcar kernel with a width of `smooth_ref` channels.
+            The default is to not smooth the reference spectra.
+        apply_flags : boolean, optional.
+            If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        t_sys : float, optional
+        t_sys : float or list or list of lists or dict, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+            For example, `t_sys = np.array([[30], [50]])` would use a system temperature of 30 K for
+            the first feed and 50 K for the second feed. Another example, `t_sys = {1: [[50, 60]], 2: [[45],[65]], 3: [[60],[70]]}`
+            would use a system temperature of 50 K for the first feed in scan 1, 60 K for the second feed in scan 1, 45 K for the first feed in scan 2, 65 K for the second feed in scan 2, 60 K for the first feed in scan 3, and 70 K for the second feed in scan 3. If passing a dict it should contain an item for every scan.
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
@@ -1479,9 +1485,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
-            e.g., `ifnum=1, plnum=2` etc.
+            e.g., `intnum=1, plnum=2` etc.
             For multi-beam with more than 2 beams, fdnum=[BEAM1,BEAM2] must be selected,
-            unless the data have been properly taggeed using PROCSCAN which BEAM1 and BEAM2 are.
+            unless the data have been properly tagged using PROCSCAN which BEAM1 and BEAM2 are.
 
         Raises
         ------
@@ -1495,46 +1501,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
 
-        def get_nod_beams(sdf):
-            """find the two nodding beams if user did not specify them"""
-            kb = ["DATE-OBS", "SCAN", "IFNUM", "PLNUM", "FDNUM", "PROCSCAN", "FEED", "SRFEED", "FEEDXOFF", "FEEDEOFF"]
-            a = sdf._index[kb]
-            b = a.loc[a["FEEDXOFF"] == 0.0]
-            c = b.loc[b["FEEDEOFF"] == 0.0]
-            d1 = c.loc[c["PROCSCAN"] == "BEAM1"]
-            d2 = c.loc[c["PROCSCAN"] == "BEAM2"]
-            if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
-                beam1 = d1["FDNUM"].unique()[0]
-                beam2 = d2["FDNUM"].unique()[0]
-                return [beam1, beam2]
-            else:
-                # one more attempt (this can happen if PROCSCAN contains "Unknown")
-                # ugh, is it possible that BEAM1 and BEAM2 are switched here, given how we unique() ?
-                if len(c["FEED"].unique()) == 2:
-                    logger.debug("get_nod_beams rescued")
-                    b = c["FEED"].unique() - 1
-                    return list(b)
-                return []
-
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
-        nod_beams = get_nod_beams(self)
-        feeds = fdnum
-        if fdnum is None:
-            logger.info(f"Found nodding beams {nod_beams}")
-            feeds = nod_beams
-        else:
-            if nod_beams != fdnum:
-                logger.info(f"Using beams {fdnum} instead of nodding beams {nod_beams} found in the data")
-        if type(feeds) is int or len(feeds) != 2:
-            raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
-        logger.debug(f"getnod: using fdnum={feeds}")
+        if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
+            raise TypeError(f"fdnum={fdnum} not valid, need a list with two feeds")
+        logger.debug(f"getnod: using fdnum={fdnum}")
         prockey = "PROCSEQN"
         procvals = {"ON": 1, "OFF": 2}
         (scans, _sf) = self._common_selection(
-            fdnum=feeds,
+            fdnum=fdnum,
             ifnum=ifnum,
             plnum=plnum,
             apply_flags=apply_flags,
@@ -1543,31 +1520,41 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
 
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _nocal = nocal
+
         beam1_selected = True
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
             df0 = select_from("FITSINDEX", i, _sf)
-            for f in feeds:
-                _df = select_from("FDNUM", f, df0)
-                if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
-                    continue
-                # scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
-                scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
-                if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
-                    logger.debug(f"Some of scans {scans} not found, continuing")
-                    continue
+            if len(df0) == 0:
+                continue
+            scanlist = self._common_scan_list_selection(scans, df0, prockey=prockey, procvals=procvals, check=False)
+            if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                logger.debug(f"Some of scans {scans} not found, continuing")
+                continue
+            # Loop over scan pairs.
+            c = 0
+            for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
+                # Each scan could use a different pair of fdnums.
+                if fdnum is None:
+                    _fdnum = self.get_nod_beams(scan=on)
+                else:
+                    _fdnum = fdnum
+                for j, f in enumerate(_fdnum):
+                    _df = select_from("FDNUM", f, df0)
+                    if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
+                        continue
+                    beam1_selected = f == _fdnum[0]
+                    logger.debug(f"SCANLIST {scanlist}")
+                    logger.debug(f"FEED {f} {beam1_selected} {_fdnum[0]}")
+                    logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
+                    logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
+                    logger.debug(f"and PROC {set(_df['PROC'])}")
 
-                beam1_selected = f == feeds[0]
-                logger.debug(f"SCANLIST {scanlist}")
-                logger.debug(f"FEED {f} {beam1_selected} {feeds[0]}")
-                logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
-                logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                logger.debug(f"and PROC {set(_df['PROC'])}")
-                rows = {}
-                # Loop over scan pairs.
-                c = 0
-                for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
+                    rows = {}
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
                     rows["ON"] = list(_ondf["ROW"])
@@ -1583,13 +1570,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
+
                     # Check if there is a noise diode.
                     if len(calrows["ON"]) == 0 or nocal:
-                        nocal = True
-                        if t_sys is None:
+                        _nocal = True
+                        if tsys is None:
                             dfoncalF = select_from("CAL", "F", _ondf)
-                            t_sys = dfoncalF["TSYS"].to_numpy()
+                            _tsys = dfoncalF["TSYS"].to_numpy()
                             logger.info("Using TSYS column")
+                    # Use user provided system temperature.
+                    if tsys is not None:
+                        _tsys = tsys[on][j]
+
                     logger.debug(f"{i, f, c} SCANROWS {rows}")
                     logger.debug(f"BEAM1 {beam1_selected}")
                     g = NodScan(
@@ -1605,14 +1597,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         calibrate=calibrate,
                         smoothref=smoothref,
                         apply_flags=apply_flags,
-                        nocal=nocal,
-                        tsys=t_sys,
+                        nocal=_nocal,
+                        tsys=_tsys,
                         bunit=bunit,
                         zenith_opacity=zenith_opacity,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
                     c = c + 1
+                    _nocal = nocal
+                    _tsys = None
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
@@ -2515,49 +2509,66 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         flag_rows = np.where(mask == True)[0].tolist()  # noqa: E712
         self.flag(row=flag_rows)
 
-    def getbeam(self, debug=False):
+    def _get_beam(self, scan, mask, bi=1):
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} does not have column 'PROCSCAN' with 'BEAM{bi}' values.")
+        else:
+            feed = set(self["FDNUM"][mask])
+            if len(feed) > 1:
+                raise ValueError(f"Scan {scan} contains more than one FDNUM for 'PROCSCAN'='BEAM{bi}'.")
+            feed = next(iter(feed))
+        return feed
+
+    def get_nod_beams(self, scan):
         """
-        Find the two nodding beams based on on a given FDNUM, FEED
-        needs PROCSCAN='BEAM1' or 'BEAM2'
+        Find the FDNUM values for two nodding beams.
+        It relies on the SDFITS having the column 'PROCSCAN' set to 'BEAM1' or 'BEAM2'.
 
         Parameters
         ----------
-        sdf : `GBTFITSLoad`
-            data handle, containing one or more SDFITS files specific to GBT
-        debug : boolean, optional
-            Add more debugging output. @todo use logger
-            The default is False.
+        scan : int
+            Scan for which to find the nodding beams.
 
         Returns
         -------
-        beams : list of two ints representing the nodding beams (0 = first beam)
+        beams : list of two ints
+            Feed numbers representing the nodding beams.
+            The first item is the first nodding beam.
 
+        Raises
+        ------
+        TypeError
+            If `scan` is not an integer.
+        ValueError
+            If there is no 'SCAN'=`scan` in the index, or if it is not possible to determine the nodding beams.
         """
-        # list of columns needed to differentiate and find the nodding beams
-        kb = ["FEEDXOFF", "FEEDEOFF", "PROCSCAN", "FDNUM", "FEED"]
-        a0 = self._index[kb]
-        b1 = a0.loc[a0["FEEDXOFF"] == 0.0]
-        b2 = b1.loc[b1["FEEDEOFF"] == 0.0]
-        d1 = b2.loc[b2["PROCSCAN"] == "BEAM1"]
-        d2 = b2.loc[b2["PROCSCAN"] == "BEAM2"]
-        #
-        if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
-            beam1 = d1["FDNUM"].unique()[0]
-            beam2 = d2["FDNUM"].unique()[0]
-            fdnum1 = d1["FEED"].unique()[0]
-            fdnum2 = d2["FEED"].unique()[0]
-            if debug:
-                print("beams: ", beam1, beam2, fdnum1, fdnum2)
-            return [beam1, beam2]
-        else:
-            # try one other thing
-            if len(b2["FEED"].unique()) == 2:
-                print("getbeam rescued")
-                b = b2["FEED"].unique() - 1
-                return list(b)
-            print("too many in beam1:", d1["FDNUM"].unique())
-            print("too many in beam2:", d2["FDNUM"].unique())
-            return []
+        if not isinstance(scan, numbers.Integral):
+            raise TypeError("scan must be an integer.")
+        scan = [scan]
+
+        # Find the Nod scan pairs.
+        scanlist = self._common_scan_list_selection(
+            scan,
+            self._index,
+            prockey="PROCSEQN",
+            procvals={"ON": 1, "OFF": 2},
+            check=False,
+        )
+        scans = list(itertools.chain.from_iterable(list(scanlist.values())))
+
+        # Make the index smaller, checkling at every step that the rules contain valid data.
+        mask = self["SCAN"].isin(scans)
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} not found in index.")
+        mask = mask & np.isclose(self["FEEDXOFF"], 0.0) & np.isclose(self["FEEDEOFF"], 0.0)
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} does not have a beam centered on the target.")
+        mask1 = mask & (self["PROCSCAN"] == "BEAM1")
+        mask2 = mask & (self["PROCSCAN"] == "BEAM2")
+        feed1 = self._get_beam(scan, mask1, bi=1)
+        feed2 = self._get_beam(scan, mask2, bi=2)
+
+        return [feed1, feed2]
 
     def calseq(self, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):
         """
@@ -2930,3 +2941,59 @@ class GBTOnline(GBTFITSLoad):
     def vanecal(self, **kwargs):
         self._reload()
         return super().vanecal(**kwargs)
+
+
+def _parse_tsys(tsys, scans):
+    """ """
+    if isinstance(tsys, numbers.Real):
+        tsys = _tsys_float_to_dict(tsys, scans)
+    if isinstance(tsys, list):
+        tsys = np.array(tsys)
+    if isinstance(tsys, np.ndarray):
+        if tsys.ndim <= 1:
+            tsys = _tsys_1Darray_to_dict(tsys, scans)
+        elif tsys.ndim == 2:
+            tsys = _tsys_2Darray_to_dict(tsys, scans)
+    if isinstance(tsys, dict):
+        # Check that there is one entry for every scan.
+        if list(tsys.keys()) != list(scans):
+            missing = set(scans) - set(tsys.keys())
+            raise TypeError(f"Missing system temperature for scan(s): {','.join(map(str, missing))}")
+        tsys = _tsys_dict_to_dict(tsys, scans)
+
+    return tsys
+
+
+def _tsys_float_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        tsys_dict[scan] = np.array([tsys, tsys])
+    return tsys_dict
+
+
+def _tsys_1Darray_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        tsys_dict[scan] = np.vstack((tsys, tsys))
+    return tsys_dict
+
+
+def _tsys_2Darray_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        tsys_dict[scan] = np.vstack((tsys[0], tsys[1]))
+    return tsys_dict
+
+
+def _tsys_dict_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        try:
+            len(tsys[scan])
+        except TypeError:
+            tsys[scan] = [tsys[scan]]
+        if len(tsys[scan]) < 2:
+            tsys_dict[scan] = np.vstack((tsys[scan], tsys[scan]))
+        else:
+            tsys_dict[scan] = tsys[scan]
+    return tsys_dict
