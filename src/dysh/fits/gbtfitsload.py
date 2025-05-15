@@ -1459,21 +1459,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The intermediate frequency (IF) number
         plnum : int
             The polarization number
-        fdnum:  2-tuple, optional
+        fdnum :  2-tuple, optional
             The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
         calibrate : boolean, optional
             Calibrate the scans.
             The default is True.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
-            (This keyword should eventually go away)
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
-        apply_flags : boolean, optional.  If True, apply flags before calibration.
+        smooth_ref : int, optional
+            Smooth the reference spectra using a boxcar kernel with a width of `smooth_ref` channels.
+            The default is to not smooth the reference spectra.
+        apply_flags : boolean, optional.
+            If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        t_sys : float, optional
+        t_sys : float or list or list of lists or dict, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+            For example, `t_sys = np.array([[30], [50]])` would use a system temperature of 30 K for
+            the first feed and 50 K for the second feed. Another example, `t_sys = {1: [[50, 60]], 2: [[45],[65]], 3: [[60],[70]]}`
+            would use a system temperature of 50 K for the first feed in scan 1, 60 K for the second feed in scan 1, 45 K for the first feed in scan 2, 65 K for the second feed in scan 2, 60 K for the first feed in scan 3, and 70 K for the second feed in scan 3. If passing a dict it should contain an item for every scan.
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
@@ -1481,9 +1485,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
-            e.g., `ifnum=1, plnum=2` etc.
+            e.g., `intnum=1, plnum=2` etc.
             For multi-beam with more than 2 beams, fdnum=[BEAM1,BEAM2] must be selected,
-            unless the data have been properly taggeed using PROCSCAN which BEAM1 and BEAM2 are.
+            unless the data have been properly tagged using PROCSCAN which BEAM1 and BEAM2 are.
 
         Raises
         ------
@@ -2556,7 +2560,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         mask = self["SCAN"].isin(scans)
         if mask.sum() == 0:
             raise ValueError(f"Scan {scan} not found in index.")
-        mask = mask & (self["FEEDXOFF"] == 0.0) & (self["FEEDEOFF"] == 0.0)
+        mask = mask & np.isclose(self["FEEDXOFF"], 0.0) & np.isclose(self["FEEDEOFF"], 0.0)
         if mask.sum() == 0:
             raise ValueError(f"Scan {scan} does not have a beam centered on the target.")
         mask1 = mask & (self["PROCSCAN"] == "BEAM1")

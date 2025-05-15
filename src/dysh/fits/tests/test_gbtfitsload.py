@@ -898,11 +898,11 @@ class TestGBTFITSLoad:
         # Reduce with dysh.
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
-        nodsb1 = sdf.getnod(scan=62, ifnum=0, plnum=0, t_sys=[[1], [2]])
+        nodsb1 = sdf.getnod(scan=62, ifnum=0, plnum=0, t_sys=[[10], [20]])
 
         # Check that the system temperature was used.
-        assert np.all(nodsb1[0].tsys == 1)
-        assert np.all(nodsb1[1].tsys == 2)
+        assert np.all(nodsb1[0].tsys == 10)
+        assert np.all(nodsb1[1].tsys == 20)
 
         # Now without a user provided system temperature.
         nodsb2 = sdf.getnod(scan=62, ifnum=0, plnum=0)
@@ -1320,31 +1320,31 @@ def test_parse_tsys():
             assert len(result[k]) == len(v)
 
     # Single value case.
-    tsys = 1
-    _tsys = gbtfitsload._parse_tsys(1, scans)
+    tsys = 50
+    _tsys = gbtfitsload._parse_tsys(tsys, scans)
     expected = {1: np.array([tsys, tsys]), 2: np.array([tsys, tsys]), 3: np.array([tsys, tsys])}
     compare_tsys_dicts(_tsys, expected)
 
     # List case.
-    tsys = [1, 2]
+    tsys = [50, 60]
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
     expected = {1: np.array([tsys, tsys]), 2: np.array([tsys, tsys]), 3: np.array([tsys, tsys])}
     compare_tsys_dicts(_tsys, expected)
 
     # List of lists case.
-    tsys = [[1, 2], [3, 4]]
+    tsys = [[50, 60], [55, 65]]
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
     expected = {1: np.array([tsys[0], tsys[1]]), 2: np.array([tsys[0], tsys[1]]), 3: np.array([tsys[0], tsys[1]])}
     compare_tsys_dicts(_tsys, expected)
 
     # ndarray case.
-    tsys = np.array([[1, 2], [3, 4]])
+    tsys = np.array([[50, 60], [55, 65]])
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
     expected = {1: np.array([tsys[0], tsys[1]]), 2: np.array([tsys[0], tsys[1]]), 3: np.array([tsys[0], tsys[1]])}
     compare_tsys_dicts(_tsys, expected)
 
     # dict case.
-    tsys = {1: 1, 2: 2, 3: 4}
+    tsys = {1: 100, 2: 200, 3: 40}
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
     expected = {
         1: np.array([[tsys[1]], [tsys[1]]]),
@@ -1354,9 +1354,9 @@ def test_parse_tsys():
     compare_tsys_dicts(_tsys, expected)
 
     # dict of arrays case.
-    tsys = {1: [1, 2, 3], 2: [4, 5, 6], 3: [6, 7, 8]}
+    tsys = {1: [10, 20, 30], 2: [40, 50, 60], 3: [60, 70, 80]}
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
-    expected = {1: [1, 2, 3], 2: [4, 5, 6], 3: [6, 7, 8]}
+    expected = {1: [10, 20, 30], 2: [40, 50, 60], 3: [60, 70, 80]}
     compare_tsys_dicts(_tsys, expected)
 
     # None case.
@@ -1366,13 +1366,13 @@ def test_parse_tsys():
     assert _tsys == expected
 
     # Missing system temperature for a scan.
-    tsys = {1: [1, 2, 3], 2: [4, 5, 6]}
+    tsys = {1: [10, 20, 30], 2: [40, 50, 60]}
     with pytest.raises(TypeError) as excinfo:
         _tsys = gbtfitsload._parse_tsys(tsys, scans)
     assert "Missing system temperature for scan(s): 3" in str(excinfo.value)
 
     # Missing system temperature for two scans.
-    tsys = {1: [1, 2, 3]}
+    tsys = {1: [10, 20, 30]}
     with pytest.raises(TypeError) as excinfo:
         _tsys = gbtfitsload._parse_tsys(tsys, scans)
     assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
