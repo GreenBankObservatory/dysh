@@ -100,7 +100,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._fdnum = fdnum
         self._ifnum = ifnum
         self._plnum = plnum
-        self._input_tsys = tsys
+        # self._input_tsys = tsys
         self._nchan = -1
         self._scan = -1
         self._nrows = -1
@@ -1236,7 +1236,7 @@ class PSScan(ScanBase):
             self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
             self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
-        
+
             # Catch blank integrations.
             if not self._nocal:
                 goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
@@ -1262,7 +1262,7 @@ class PSScan(ScanBase):
                 self._nrows = nsigrows
 
         self._nchan = gbtfits.nchan(self._bintable_index)
-        self._finish_initialization(calibrate, None, self._sigonrows, bunit, zenith_opacity, tsys=tsys)
+        self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity, tsys=tsys)
 
     @property
     def sigscan(self) -> int:
@@ -1317,31 +1317,16 @@ class PSScan(ScanBase):
         self._exposure = np.empty(nspect, dtype="d")
 
         if self._has_refspec:
-            # tcal = self.refspec.meta.get("TCAL", None)  # @todo allow user to input tcal in kwargs?
-            # if tcal is None:
-            #   r1292aise ValueError(
-            #        "Reference spectrum has no calibration temperature in its metadata.  Solve with refspec.meta['TCAL']=value."
-            #   )
-            # The possible system temperature keywords in the refspec header, in order of preference.
-            if self._input_tsys is None:
-                tsyskw = ["TSYS", "MEANTSYS", "WTTSYS"]
-                for kw in tsyskw:
-                    tsys = self._refspec.meta.get(kw, None)
-                    if tsys is None:
-                        continue
-            else:
-                tsys = self._input_tsys
-            if tsys is None:
-                raise ValueError(
-                    "Reference spectrum has no system temperature in its metadata.  Solve with refspec.meta['TSYS']=value or add parameter 'tsys' to getps/getsigref."
-                )
-
             if self._smoothref > 1:
                 ref = core.smooth(self.refspec.data, "boxcar", self._smoothref)
             else:
                 ref = self.refspec.data
             for i in range(nspect):
-                sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                tsys = self._tsys[i]
+                if not self._nocal:
+                    sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                else:
+                    sig = self._sigcaloff[i]
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._tsys[i] = tsys
         else:
@@ -1389,15 +1374,21 @@ class PSScan(ScanBase):
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
             if exp_ref is None:
                 raise ValueError(
-                    "Can't set exposure time for PSScan integrations because reference spectrum no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
+                    "Can't set exposure time for PSScan integrations because reference spectrum has no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
                 )
         else:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
-            exp_ref = exp_ref_on + exp_ref_off
-        exp_sig = exp_sig_on + exp_sig_off
+            if not self._nocal:
+                exp_ref = exp_ref_on + exp_ref_off
+            else:
+                exp_ref = exp_ref_off
+        if not self._nocal:
+            exp_sig = exp_sig_on + exp_sig_off
+        else:
+            exp_sig = exp_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
@@ -1420,12 +1411,16 @@ class PSScan(ScanBase):
         df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
         if self._has_refspec:
-            df_ref_on = df_ref_off = np.full_like(self._sigonrows, self.refspec.meta["CDELT1"])
+            df_ref_on = df_ref_off = np.full_like(self._sigoffrows, self.refspec.meta["CDELT1"])
         else:
             df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
             df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        df_ref = 0.5 * (df_ref_on + df_ref_off)
-        df_sig = 0.5 * (df_sig_on + df_sig_off)
+        if not self._nocal:
+            df_ref = 0.5 * (df_ref_on + df_ref_off)
+            df_sig = 0.5 * (df_sig_on + df_sig_off)
+        else:
+            df_ref = df_ref_off
+            df_sig = df_sig_off
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
