@@ -159,6 +159,48 @@ class TestGBTFITSLoad:
                 except AssertionError:
                     print(f"{col} fails: {ps.meta[col]}, {table[col][0]}")
 
+    def test_getps_nocal(self):
+        """
+        Test for `getps` without noise diodes.
+        It compares the results to those produced by GBTIDL.
+        """
+
+        data_dir = util.get_project_testdata() / "AGBT04A_008_02"
+        sdf_file = data_dir / "AGBT04A_008_02.raw.acs"
+        idl_file = data_dir / "AGBT04A_008_02.cal.acs.testtrim.fits"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Data reduction with dysh.
+        pssb = sdf.getps(scan=295, ifnum=0, plnum=0, fdnum=0)
+        ps = pssb.timeaverage()
+        tsys = 28.0
+        pssb2 = sdf.getps(scan=295, ifnum=0, plnum=0, fdnum=0, t_sys=tsys)
+        ps2 = pssb2.timeaverage()
+
+        with fits.open(idl_file) as hdu:
+            table2 = hdu[2].data
+
+        # Compare dysh and GBTIDL.
+        diff = abs(ps.data - table2["DATA"][-1])
+        assert np.all(diff <= 5e-7)
+        assert ps.meta["TSYS"] == table2["TSYS"][-1]
+        diff2 = abs(ps2.data - table2["DATA"][-2])
+        assert np.all(diff2 <= 1e-3)  # Not sure why the difference is so large for this one.
+        assert ps2.meta["TSYS"] == table2["TSYS"][-2]
+        # Self consistency tests.
+        assert ps.meta["TSYS"] == 1.0
+        assert ps.data.std() == pytest.approx(0.2272044911846344)
+        assert ps.data.mean() == pytest.approx(0.002761552785188872)
+        assert ps.data.min() == pytest.approx(-35.62441635131836)
+        assert ps.data.max() == pytest.approx(7.538166522979736)
+        assert ps2.meta["TSYS"] == 28.0
+        assert ps2.data.std() == pytest.approx(6.361725974052712)
+        assert ps2.data.mean() == pytest.approx(0.0773234772812656)
+        assert ps2.data.min() == pytest.approx(-997.4837036132812)
+        assert ps2.data.max() == pytest.approx(211.06866455078125)
+        assert ps2.data.std() == pytest.approx(ps.data.std() * tsys)
+
     def test_getps_bintables(self):
         """
         Tests for `gettp` using an input SDFITS with multiple binary tables.
@@ -186,16 +228,16 @@ class TestGBTFITSLoad:
         pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0)
         assert pssb2[0].nchan == 32768
         ps2 = pssb2[0].timeaverage()
-        assert np.all(abs(ps2.data.data - table2["DATA"]) < 2e-6)
+        assert np.all(abs(ps2.data.data - table2["DATA"][0]) < 2e-6)
         assert ps2.meta["TSYS"] == 28.069919712410798
-        assert ps2.meta["TSYS"] == pytest.approx(table2["TSYS"])
+        assert ps2.meta["TSYS"] == pytest.approx(table2["TSYS"][0])
 
         pssb3 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0, t_sys=20)
         assert pssb3[0].nchan == 32768
         ps3 = pssb3[0].timeaverage()
         assert ps3.meta["TSYS"] == 20
         assert np.all(abs(pssb3[0]._calibrated / pssb2[0]._calibrated - 20 / pssb2[0].tsys) < 1e-6)
-        assert np.all(abs(pssb3[0]._calibrated / table2["DATA"] - 20 / table2["TSYS"]) < 1e-6)
+        assert np.all(abs(pssb3[0]._calibrated / table2["DATA"][0] - 20 / table2["TSYS"][0]) < 1e-6)
 
         pssb4 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0)
         assert pssb4[0].nchan == 8192
@@ -203,7 +245,7 @@ class TestGBTFITSLoad:
         assert pssb4[0].scan == 221
         assert pssb4[1].scan == 264
         assert np.all(abs(pssb4[0].timeaverage().data.data - table1["DATA"]) < 2e-6)
-        assert np.all(abs(pssb4[1].timeaverage().data.data - table2["DATA"]) < 2e-6)
+        assert np.all(abs(pssb4[1].timeaverage().data.data - table2["DATA"][0]) < 2e-6)
 
         pssb5 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0, t_sys={220: 10, 263: 20})
         assert pssb5[0].tsys == 10

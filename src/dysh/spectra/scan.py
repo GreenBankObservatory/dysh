@@ -100,7 +100,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._fdnum = fdnum
         self._ifnum = ifnum
         self._plnum = plnum
-        # self._input_tsys = tsys
         self._nchan = -1
         self._scan = -1
         self._nrows = -1
