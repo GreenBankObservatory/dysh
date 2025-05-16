@@ -38,4 +38,22 @@ gettp,269,cal=1
 keep
 gettp,269,cal=0
 keep
+gettp,295
+keep
+gettp,296
+keep
+```
+
+To produce the GBTIDL results:
+```IDL
+filein,"AGBT04A_008_02.raw.acs"
+fileout,"AGBT04A_008_02.cal.acs.testtrim.fits"
+getps,220
+keep
+getps,263
+keep
+getsigref,296,295,tsys=28
+keep
+getsigref,296,295
+keep
 ```
