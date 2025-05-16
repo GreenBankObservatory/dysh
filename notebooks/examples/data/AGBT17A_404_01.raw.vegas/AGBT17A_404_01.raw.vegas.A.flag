@@ -1,6 +1,0 @@
-[header]
-created = Fri Nov 22 11:32:09 2024
-version = 1.0
-created_by = sdfits
-[flags]
-#RECNUM,SCAN,INTNUM,PLNUM,IFNUM,FDNUM,BCHAN,ECHAN,IDSTRING
