@@ -3052,7 +3052,7 @@ class GBTOnline(GBTFITSLoad):
 def _parse_tsys(tsys, scans):
     """ """
     if isinstance(tsys, numbers.Real):
-        tsys = _tsys_float_to_dict(tsys, scans)
+        tsys = _tsys_1Darray_to_dict(tsys, scans)
     if isinstance(tsys, list):
         tsys = np.array(tsys)
     if isinstance(tsys, np.ndarray):
@@ -3068,13 +3068,6 @@ def _parse_tsys(tsys, scans):
         tsys = _tsys_dict_to_dict(tsys, scans)
 
     return tsys
-
-
-def _tsys_float_to_dict(tsys, scans):
-    tsys_dict = {}
-    for scan in scans:
-        tsys_dict[scan] = np.array([tsys, tsys])
-    return tsys_dict
 
 
 def _tsys_1Darray_to_dict(tsys, scans):

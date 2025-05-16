@@ -628,9 +628,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # Noise diode firing and no user provided tsys.
         if not self._nocal and tsys is None:
             self._tsys = np.full(self._nint, np.nan, dtype=float)
-        # User provided tsys.
+        # User provided tsys or TSYS column.
         elif tsys is not None:
-            self._tsys = np.ones(self._nint, dtype=float) * tsys
+            self._tsys = np.ones(self._nint, dtype=float) * tsys[: self._nint]
 
 
 class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
