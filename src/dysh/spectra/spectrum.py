@@ -164,7 +164,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self._baseline_model
 
     @log_call_to_history
-    def baseline(self, degree, exclude=None, include=None, color='k', **kwargs):
+    def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):
         # fmt: off
         """
         Compute and optionally remove a baseline.
@@ -234,8 +234,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
                 self._plotter._figure.canvas.flush_events()
             else:
-                lines = self._plotter._axis.plot(self.spectral_axis,
-                    self._baseline_model(self.spectral_axis), c=color)
+                lines = self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis), c=color)
                 self._bline = lines[0]
                 self._plotter.refresh()
 
