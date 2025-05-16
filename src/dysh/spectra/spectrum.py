@@ -118,6 +118,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self.mask is None:
             self._mask = np.full(np.shape(self.flux), False)
         self._baseline_model = None
+        self._bline = None
         self._subtracted = False
         self._normalized = False
         self._exclude_regions = None
@@ -163,7 +164,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self._baseline_model
 
     @log_call_to_history
-    def baseline(self, degree, exclude=None, include=None, **kwargs):
+    def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):
         # fmt: off
         """
         Compute and optionally remove a baseline.
@@ -219,13 +220,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
             if exclude != None:  # noqa: E711
                 logger.info(f"Warning: ignoring exclude={exclude}")  # noqa: F821
             exclude = core.include_to_exclude_spectral_region(include, self)
-
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
-
         if kwargs_opts["remove"]:
             s = self.subtract(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._subtracted = True
+        if self._plotter is not None:
+            if kwargs_opts["remove"]:
+                self._plotter._line.set_ydata(self._data)
+                if self._bline is not None:
+                    self._bline.set_ydata(np.ones(int(self.meta["NAXIS1"])) * np.nan)
+                ydiff = np.max(self._data) - np.min(self._data)
+                self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
+                self._plotter._figure.canvas.flush_events()
+            else:
+                lines = self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis), c=color)
+                self._bline = lines[0]
+                self._plotter.refresh()
 
     # baseline
     @log_call_to_history
@@ -244,6 +255,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
             self._baseline_model = None
+            self._plotter._line.set_ydata(self._data)
+            ydiff = np.max(self._data) - np.min(self._data)
+            self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
+            self._plotter._figure.canvas.flush_events()
 
     def _set_exclude_regions(self, exclude):
         """
@@ -823,7 +838,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Save the plot"""
         if self._plotter is None:
             raise Exception("You have to invoke plot() first")
-        self._plotter.figure.savefig(file, **kwargs)
+        self._plotter.savefig(file, **kwargs)
 
     def _write_table(self, fileobj, format, **kwargs):
         """

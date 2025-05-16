@@ -197,7 +197,8 @@ class SpectrumPlot:
         if yunit is not None:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
-        self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        self._line = lines[0]
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
         else:
@@ -440,7 +441,15 @@ class SpectrumPlot:
         """
         # TODO: add clause about cutting off the top of the figure where the interactive buttons are
         # bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
+        # or, set_visible to False
+        # buttons are currently listed in the _localaxes, but this includes the plot window at index 0
+        # so if the plot window ever goes missing, check the order in this list
+        # there has to be a better way to do this
+        for button in self.figure._localaxes[1:]:
+            button.set_visible(False)
         self.figure.savefig(file, *kwargs)
+        for button in self.figure._localaxes[1:]:
+            button.set_visible(True)
 
     def get_selected_regions(self):
         """ """
@@ -474,14 +483,14 @@ class InteractiveSpanSelector:
         )
 
         # Button to clear all selections.
-        self.button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
-        self.clear_button = Button(self.button_ax, "Clear Regions")
-        self.clear_button.on_clicked(self.clear_regions)
+        self.region_clear_button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
+        self.region_clear_button = Button(self.region_clear_button_ax, "Clear Regions")
+        self.region_clear_button.on_clicked(self.clear_regions)
 
         # Button to clear a single region.
-        self.button2_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04])
-        self.del_button = Button(self.button2_ax, "Delete Region")
-        self.del_button.on_clicked(self.clear_region)
+        self.region_del_button_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04])
+        self.region_del_button = Button(self.region_del_button_ax, "Delete Region")
+        self.region_del_button.on_clicked(self.clear_region)
 
         # Connect interaction events for dragging/resizing
         self.cid_press = self.canvas.mpl_connect("button_press_event", self.on_press)
