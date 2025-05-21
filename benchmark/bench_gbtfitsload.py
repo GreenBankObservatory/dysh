@@ -105,7 +105,7 @@ if __name__ == "__main__":
     print(f"Will load {nload} of {trueNfiles} files. FITS size per file {size_mb}MB, Flag lines {nflags}")
     if args.dobench:
         for i in range(1, int(args.loop) + 1):
-            sdf = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nfiles)
+            sdf = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nload)
             s = sdf.stats()
             if args.skipflags:
                 nf = 0
