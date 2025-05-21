@@ -42,6 +42,7 @@ valid_dysh_example = {
     "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",   # staff training PS      same as test='test1'
     "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",
                    #    positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/"
+    "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
                    #    frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/"    # staff training FS
     "subbeamnod" : "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
