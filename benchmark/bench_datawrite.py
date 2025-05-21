@@ -57,7 +57,7 @@ benchname = "DataWrite"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=progname)
-    #parser.add_argument("--key", "-k", action="store", help="input dysh_data key", default="multismallsmall")
+    #parser.add_argument("--key", "-k", action="store", help="input dysh_data key", default="getpslarge")
     #parser.add_argument(
     #    "--numfiles", "-n", action="store", help="number of SDFITS files to load for multifile data", default=1
     #)
