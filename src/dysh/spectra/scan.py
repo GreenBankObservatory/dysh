@@ -739,9 +739,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         fileobj : str, file-like or `pathlib.Path`
             File to write to.  If a file object, must be opened in a
             writeable mode.
-        multifile: bool, optional
-            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
-            Otherwise, write to a single SDFITS file.
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
