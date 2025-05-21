@@ -52,3 +52,10 @@ Basic result: Creating Spectrum objects is expensive.  This may be due to creati
 
 - astropy/wcs/wcsapi/high_level_api.py - called during Spectrum construction (by Spectrum1D) - 164 ms/call
 
+## Profiler results for GETPS
+
+The test does a getps on 13 scans then writes the scanblock with from 1 to 13 PSScans.  The result is linear with number of scans 
+with an average of about 13 ms per scan plus a one-time fixed set up time of 140 ms.  This is perfectly reasonable and does not
+need improvement.  A plot of the results
+
+(./datawrite.png "Performance of scanblock write)
