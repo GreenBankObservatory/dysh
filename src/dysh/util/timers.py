@@ -152,6 +152,14 @@ class DTime(object):
         self.state = 1
         if not self.active: return
 
+    def enable(self):
+        """Enable the profiler"""
+        self.pr.enable()
+
+    def disable(self):
+        """Disable the profiler"""
+        self.pr.disable()
+
     def _mem(self):
         """ Read memory usage info from /proc/pid/status
             Return Virtual and Resident memory size in MBytes.
