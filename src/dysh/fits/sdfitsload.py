@@ -185,7 +185,7 @@ class SDFITSLoad(object):
             if self._index is None:
                 self._index = df
             else:
-                self._index = pd.concat([self._index, df], axis=0)
+                self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
 
     def _add_primary_hdu(self):
