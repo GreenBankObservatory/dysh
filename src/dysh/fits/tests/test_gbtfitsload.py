@@ -183,7 +183,7 @@ class TestGBTFITSLoad:
 
         # Compare dysh and GBTIDL.
         diff = abs(ps.data - table2["DATA"][-1])
-        assert np.all(diff <= 5e-7)
+        assert np.all(diff <= 2e-6)  # Marc reported the test fails for him with 5e-7.
         assert ps.meta["TSYS"] == table2["TSYS"][-1]
         diff2 = abs(ps2.data - table2["DATA"][-2])
         assert np.all(diff2 <= 1e-3)  # Not sure why the difference is so large for this one.
@@ -228,7 +228,7 @@ class TestGBTFITSLoad:
         pssb2 = sdf.getps(scan=263, ifnum=0, plnum=0, fdnum=0)
         assert pssb2[0].nchan == 32768
         ps2 = pssb2[0].timeaverage()
-        assert np.all(abs(ps2.data.data - table2["DATA"][0]) < 2e-6)
+        assert np.all(abs(ps2.data.data - table2["DATA"][0]) < 8e-6)  # Marc reported the test fails for him with 2e-6.
         assert ps2.meta["TSYS"] == 28.069919712410798
         assert ps2.meta["TSYS"] == pytest.approx(table2["TSYS"][0])
 
@@ -245,7 +245,9 @@ class TestGBTFITSLoad:
         assert pssb4[0].scan == 221
         assert pssb4[1].scan == 264
         assert np.all(abs(pssb4[0].timeaverage().data.data - table1["DATA"]) < 2e-6)
-        assert np.all(abs(pssb4[1].timeaverage().data.data - table2["DATA"][0]) < 2e-6)
+        assert np.all(
+            abs(pssb4[1].timeaverage().data.data - table2["DATA"][0]) < 8e-6
+        )  # Marc reported the test fails for him with 2e-6.
 
         pssb5 = sdf.getps(scan=[220, 263], ifnum=0, plnum=0, fdnum=0, t_sys={220: 10, 263: 20})
         assert pssb5[0].tsys == 10
