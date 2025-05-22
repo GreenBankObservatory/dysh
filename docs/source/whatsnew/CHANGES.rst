@@ -1,3 +1,32 @@
+Version 0.6.1
+=============
+
+.. _0.6.1-bugfixes:
+
+Bug Fixes
+---------
+- Fixes a bug where calibration routines would not fetch the correct data when the input SDFITS had multiple binary tables.
+- Fixes a bug where calibration routines would not work if there was no noise diode being fired. This is still an issue for `getfs`.
+
+Version 0.6.0
+=============
+
+.. _0.6.0-functionality:
+
+Functionality & Enhancements
+----------------------------
+- Baseline plotting
+  - `Spectrum.plot` will now update when using `Spectrum.baseline`. If `remove=False` the plot will show the baseline solution, if `remove=True` the plot will update to show the baseline subtracted data.
+
+Version 0.5.0
+=============
+
+.. _0.5.0-functionality:
+
+Functionality & Enhancements
+----------------------------
+- Calibration with a flexible Off
+  - Implements `GBTFITSLoad.getsigref https://dysh.readthedocs.io/en/latest/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getsigref`_.
 
 Version 0.4.0
 =============
