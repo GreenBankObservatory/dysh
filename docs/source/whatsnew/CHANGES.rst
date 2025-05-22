@@ -1,3 +1,13 @@
+Version 0.6.2
+=============
+
+.. _0.6.2-bugfixes:
+
+Bug Fixes
+---------
+- Fixes a bug where the integration number for files with multiple binary tables would have bogus values. See `Issue #425 <https://github.com/GreenBankObservatory/dysh/issues/425>`_.
+
+
 Version 0.6.1
 =============
 
@@ -26,7 +36,7 @@ Version 0.5.0
 Functionality & Enhancements
 ----------------------------
 - Calibration with a flexible Off
-  - Implements `GBTFITSLoad.getsigref https://dysh.readthedocs.io/en/latest/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getsigref`_.
+  - Implements `GBTFITSLoad.getsigref <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getsigref>`_.
 
 Version 0.4.0
 =============
