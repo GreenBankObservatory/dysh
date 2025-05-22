@@ -441,6 +441,16 @@ class TestGBTFITSLoad:
         assert tpsb[0].meta[0]["OBJECT"] == "U8091"
         assert tpsb[0].nchan == 32768
 
+        # No noise diodes.
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0).timeaverage()
+        assert tp_nnd.meta["TSYS"] == 1.0
+        tsys = 30
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
+        assert tp_nnd.meta["TSYS"] == tsys
+        tsys = {295: 35}
+        tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
+        assert tp_nnd.meta["TSYS"] == tsys[295]
+
     def test_load_multifits(self):
         """
         Loading multiple SDFITS files under a directory.

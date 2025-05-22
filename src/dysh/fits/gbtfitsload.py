@@ -1024,6 +1024,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
+        t_sys=None,
+        nocal: bool = False,
         **kwargs,
     ):
         """
@@ -1063,6 +1065,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _bintable = bintable
+        _nocal = nocal
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
@@ -1072,6 +1078,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 continue
             for scan in scans:
                 _sifdf = select_from("SCAN", scan, _df)
+                if len(_sifdf) == 0:
+                    continue
                 dfcalT = select_from("CAL", "T", _sifdf)
                 dfcalF = select_from("CAL", "F", _sifdf)
                 calrows["ON"] = list(dfcalT["ROW"])
@@ -1084,9 +1092,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # they are not booleans but chars
                 if sig is not None:
                     _sifdf = select_from("SIG", TF[sig], _sifdf)
-                if bintable is None:
-                    bintable = self._get_bintable(_sifdf)
-                # the rows with the selected sig state and all cal states
+                if _bintable is None:
+                    _bintable = self._get_bintable(_sifdf)
+                if len(calrows["ON"]) == 0 or nocal:
+                    _nocal = True
+                    if tsys is None:
+                        _tsys = dfcalF["TSYS"].to_numpy()
+                        logger.info("Using TSYS column")
+                # Use user provided system temperature.
+                if tsys is not None:
+                    _tsys = tsys[scan][0]
+                # The rows with the selected sig state and all cal states.
                 tprows = list(_sifdf["ROW"])
                 logger.debug(f"TPROWS len={len(tprows)}")
                 logger.debug(f"CALROWS on len={len(calrows['ON'])}")
@@ -1103,13 +1119,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fdnum=fdnum,
                     ifnum=ifnum,
                     plnum=plnum,
-                    bintable=bintable,
+                    bintable=_bintable,
                     calibrate=calibrate,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
+                    tsys=_tsys,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                # Reset variables in case they change between scans.
+                _tsys = None
+                _bintable = bintable
+                _nocal = nocal
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)

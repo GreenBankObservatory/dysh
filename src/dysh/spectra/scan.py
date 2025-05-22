@@ -907,6 +907,7 @@ class TPScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
+        tsys=None,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
@@ -948,15 +949,19 @@ class TPScan(ScanBase):
             # special case for notpcal (when calrows["ON"] is 0)
             self._calstate = False  # set calstate to false so that _calc_exposure() doesn't raise exception
             goodrows = np.intersect1d(nb2, nb2)  # isn't this just nb2.flatten()?
+            if len(goodrows) != len(self._refcaloff):
+                nblanks = len(self._refcaloff) - len(goodrows)
+                logger.info(f"Ignoring {nblanks} blanked integration(s).")
             self._refcalon = None
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = []
-            self._refoffrows = [self._refoffrows[i] for i in goodrows]  # why not self._refoffrows[goodrows] ??
+            self._refoffrows = [
+                self._refoffrows[i] for i in goodrows
+            ]  # why not self._refoffrows[goodrows] ?? -> because it is a list.
             self._nchan = len(self._refcaloff[0])  # PJT
             self._calc_exposure()
             self._calc_delta_freq()
             self._validate_defaults()
-            self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
         else:
             # Tell the user about blank integration(s) that will be ignored.
             if len(goodrows) != len(self._refcalon):
@@ -970,8 +975,8 @@ class TPScan(ScanBase):
             self._nchan = len(self._refcalon[0])
             self._calc_exposure()
             self._calc_delta_freq()
-            # use 'ta' as bunit in this call so that scaling is not attempted.
-            self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
+        # Use 'ta' as bunit in this call so that scaling is not attempted.
+        self._finish_initialization(calibrate, None, self._refoffrows, "ta", None, tsys=tsys)
 
     def calibrate(self, **kwargs):  ## TPSCAN
         """Calibrate the total power data according to the CAL/SIG table above"""
@@ -1015,22 +1020,18 @@ class TPScan(ScanBase):
         """
         Calculate the system temperature array, according to table above.
         """
-        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
-        if len(self._tcal) == 0:
-            # to_nocal
-            self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+        if len(self._calrows["ON"]) == 0:
+            if np.all(np.isnan(self._tsys)):
+                self._tsys = np.ones(self._nint, dtype=float)
+        else:
             nspect = len(self._tcal)
-            self._tsys = np.ones(nspect, dtype=float)
-            return
-        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])  # PJT
-        nspect = len(self._tcal)
-        self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
-        if len(self._tcal) != nspect:
-            raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
-        for i in range(nspect):
-            # tsys = mean_tsys(calon=calon[i], caloff=caloff[i], tcal=tcal[i])
-            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
-            self._tsys[i] = tsys
+            self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
+            if len(self._tcal) != nspect:
+                raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
+            for i in range(nspect):
+                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
+                self._tsys[i] = tsys
 
     def _calc_exposure(self):
         """Calculate the exposure time. See :meth:`exposure`"""
