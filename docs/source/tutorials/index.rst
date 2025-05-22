@@ -9,6 +9,74 @@ Learning-oriented lessons take you through a series of steps to complete a proje
 Most useful when you want to get started reducing your data.
 
 
+.. grid:: 1 2 2 2
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Position Switched Data**
+
+        .. button-link:: examples/positionswitch.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Position Switching
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Frequency Switched Data**
+
+        .. button-link:: examples/frequencyswitch.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Frequency Switching
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Subreflector Beam Nodding Data**
+
+        .. button-link:: examples/subbeamnod.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Sub-beam Nodding
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Beam Nodding Data**
+
+        .. button-link:: examples/nodding.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Beam Nodding
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **HI-Survey**
+
+        .. button-link:: examples/hi_survey.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            HI Survey
+
+
 .. card-carousel:: 2
 
     .. card:: Position Switched Data
@@ -35,3 +103,4 @@ Most useful when you want to get started reducing your data.
    examples/frequencyswitch
    examples/subbeamnod
    examples/nodding
+   examples/hi_survey
