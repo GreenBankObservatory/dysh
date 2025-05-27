@@ -1190,7 +1190,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'jy' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity : float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default: None
-        tsys : float, optional
+        t_sys : float, optional
             If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
             If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
             scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
