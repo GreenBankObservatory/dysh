@@ -772,6 +772,8 @@ class TestSpectrum:
     def test_average(self):
         """
         Test average method of Spectrum.
+        * Test that masks are propagated.
+        * Test that history is propagated.
         """
         f1 = Spectrum.fake_spectrum()
         f2 = Spectrum.fake_spectrum()
@@ -791,3 +793,13 @@ class TestSpectrum:
         assert f2.mask.sum() == 3
         fa = f1.average(f2)
         assert fa.mask.sum() == 3
+
+        # History.
+        f1.baseline(1, model="poly", remove=True)
+        fa = f1.average(f2)
+        # Check that history was inherited.
+        for h in f1.history:
+            assert h in fa.history
+        # Check that original Spectrum history did not change.
+        assert "baseline" in f1.history[-1]
+        assert "__init__" in f2.history[-1]

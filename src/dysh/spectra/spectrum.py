@@ -36,7 +36,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..log import HistoricalBase, log_call_to_history  # , logger
+from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import (
@@ -1389,6 +1389,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             observer_location=Observatory[meta["TELESCOP"]],
         )
 
+    @log_call_to_result
     def average(self, spectra, weights="tsys", align=False):
         r"""
         Average this `Spectrum` with `spectra`.
@@ -1421,7 +1422,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         spectra += [self]
 
-        return average_spectra(spectra, weights=weights, align=align)
+        return average_spectra(spectra, weights=weights, align=align, history=self.history)
 
 
 # @todo figure how how to document write()
@@ -1578,7 +1579,7 @@ with registry.delay_doc_updates(Spectrum):
     # registry.register_writer("mrt", Spectrum, spectrum_reader_mrt)
 
 
-def average_spectra(spectra, weights="tsys", align=False):
+def average_spectra(spectra, weights="tsys", align=False, history=None):
     r"""
     Average `spectra`. The resulting `average` will have an exposure equal to the sum of the exposures,
     and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
@@ -1655,5 +1656,9 @@ def average_spectra(spectra, weights="tsys", align=False):
     new_meta["CRVAL3"] = ycoo
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
+
+    if history is not None:
+        # Keep previous history first.
+        averaged._history = history + averaged._history
 
     return averaged
