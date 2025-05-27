@@ -1607,7 +1607,9 @@ def average_spectra(spectra, weights="tsys", align=False):
     nspec = len(spectra)
     nchan = len(spectra[0].data)
     shape = (nspec, nchan)
-    data_array = np.ma.empty(shape, dtype=float)
+    _data = np.empty(shape, dtype=float)
+    _mask = np.zeros(shape, dtype=bool)
+    data_array = np.ma.MaskedArray(_data, mask=_mask, dtype=float, fill_value=np.nan)
     wts = np.empty(shape, dtype=float)
     exposures = np.empty(nspec, dtype=float)
     tsyss = np.empty(nspec, dtype=float)
@@ -1638,7 +1640,8 @@ def average_spectra(spectra, weights="tsys", align=False):
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
 
-    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array) | data_array.mask, fill_value=np.nan)
+    _mask = np.isnan(data_array.data) | data_array.mask
+    data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data = np.ma.average(data_array, axis=0, weights=wts)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
     xcoo = np.ma.average(xcoos, axis=0, weights=wts[:, 0])
