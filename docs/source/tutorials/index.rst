@@ -76,24 +76,19 @@ Most useful when you want to get started reducing your data.
 
             HI Survey
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
 
-.. card-carousel:: 2
+        **W-Band Nod**
 
-    .. card:: Position Switched Data
-        :link: examples/positionswitch.html
+        .. button-link:: examples/w-band.html
+            :color: primary
+            :outline:
+            :click-parent:
 
-        - Calibrate the data.
+            Beam Nodding with W-Band
 
-    .. card:: Frequency Switched Data
-        :link: examples/frequencyswitch.html
-
-        - Calibrate the data.
-
-    .. card:: Sub Beam Nod Data
-        :link: examples/subbeamnod.html
-
-    .. card:: Nodding Data
-        :link: examples/nodding.html
 
 .. toctree::
    :maxdepth: 4
@@ -104,3 +99,4 @@ Most useful when you want to get started reducing your data.
    examples/subbeamnod
    examples/nodding
    examples/hi_survey
+   examples/w-band
