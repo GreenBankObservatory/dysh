@@ -148,10 +148,6 @@ class SpectrumPlot:
 
         s = self._spectrum
 
-        if show_header:
-            self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
-            self._set_header(s)
-
         self._sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
         xunit = this_plot_kwargs["xaxis_unit"]
@@ -199,6 +195,10 @@ class SpectrumPlot:
         # self._axis.axhline(y=0,color='red',lw=2)
         if self._title is not None:
             self._axis.set_title(self._title)
+
+        if show_header:
+            self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
+            self._set_header(s)
 
         if select:
             self._selector = InteractiveSpanSelector(self._axis)
