@@ -459,3 +459,45 @@ def abbreviate_to(length, value, squeeze=True):
         ec = bc - 1
         strv = strv[0:bc] + "..." + strv[-ec:]
     return strv
+
+
+def merge_ranges(ranges):
+    """
+    Merge overlapping and adjacent ranges and yield the merged ranges
+    in order. The argument must be an iterable of pairs (start, stop).
+
+    Taken from: https://codereview.stackexchange.com/a/21333
+
+    Parameters
+    ----------
+    ranges : iterable
+        Pairs of (start, stop) ranges.
+
+    Yields
+    ------
+    iterable
+        Merged ranges.
+
+    Examples
+    --------
+    >>> list(merge_ranges([(5,7), (3,5), (-1,3)]))
+    [(-1, 7)]
+    >>> list(merge_ranges([(5,6), (3,4), (1,2)]))
+    [(1, 2), (3, 4), (5, 6)]
+    >>> list(merge_ranges([]))
+    []
+    """
+    ranges = iter(sorted(ranges))
+    try:
+        current_start, current_stop = next(ranges)
+    except StopIteration:
+        return
+    for start, stop in ranges:
+        if start > current_stop:
+            # Gap between segments: output current segment and start a new one.
+            yield current_start, current_stop
+            current_start, current_stop = start, stop
+        else:
+            # Segments adjacent or overlapping: merge.
+            current_stop = max(current_stop, stop)
+    yield current_start, current_stop
