@@ -6,6 +6,7 @@ import hashlib
 import numbers
 import sys
 from collections.abc import Sequence
+from itertools import zip_longest
 from pathlib import Path
 from typing import Union
 
@@ -501,3 +502,20 @@ def merge_ranges(ranges):
             # Segments adjacent or overlapping: merge.
             current_stop = max(current_stop, stop)
     yield current_start, current_stop
+
+
+def grouper(iterable, n, *, incomplete="fill", fillvalue=None):
+    "Collect data into non-overlapping fixed-length chunks or blocks."
+    # grouper('ABCDEFG', 3, fillvalue='x') → ABC DEF Gxx
+    # grouper('ABCDEFG', 3, incomplete='strict') → ABC DEF ValueError
+    # grouper('ABCDEFG', 3, incomplete='ignore') → ABC DEF
+    iterators = [iter(iterable)] * n
+    match incomplete:
+        case "fill":
+            return zip_longest(*iterators, fillvalue=fillvalue)
+        case "strict":
+            return zip(*iterators, strict=True)
+        case "ignore":
+            return zip(*iterators, strict=False)
+        case _:
+            raise ValueError("Expected fill, strict, or ignore")
