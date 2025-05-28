@@ -555,9 +555,12 @@ class TestGBTFITSLoad:
                 check_index=False,
             )
 
-    def test_contruct_integration_number(self):
-        """Test that construction of integration number (intnum) during FITS load matches
-        that in the GBTIDL index file
+    def test_contruct_integration_number(self, tmp_path):
+        """
+        Tests for _construct_integration_number.
+        * Test that construction of integration number (intnum) during FITS load matches
+        that in the GBTIDL index file.
+        * Test that the integration numbers make sense. See issue #425.
         """
         p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
         index_file = p / "AGBT20B_014_03.raw.vegas.A6.index"
@@ -565,6 +568,13 @@ class TestGBTFITSLoad:
         g = gbtfitsload.GBTFITSLoad(data_file)
         gbtidl_index = pd.read_csv(index_file, skiprows=10, sep=r"\s+")
         assert np.all(g._index["INTNUM"] == gbtidl_index["INT"])
+
+        # Based on issue #425.
+        fn = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fn)
+        sdf.write(tmp_path / "write_test_intnum.fits", plnum=0, overwrite=True, multifile=False)
+        sdf2 = gbtfitsload.GBTFITSLoad(tmp_path / "write_test_intnum.fits")
+        assert set(sdf2["INTNUM"]) == set((0, 1, 2, 3))  # There should be only four integration numbers.
 
     def test_getps_smoothref(self):
         """ """

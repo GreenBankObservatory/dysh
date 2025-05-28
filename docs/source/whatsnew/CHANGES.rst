@@ -7,6 +7,7 @@ Bug Fixes
 ---------
 - Fixes a bug where `Spectrum.average` would not mask the data, if there was anything to be masked.
 - Fixes a bug where `Spectrum.average` would not propagate the data reduction history to the resulting `Spectrum`.
+- Fixes a bug where the integration number for files with multiple binary tables would have bogus values. See `Issue #425 <https://github.com/GreenBankObservatory/dysh/issues/425>`_.
 
 Version 0.6.1
 =============
@@ -36,10 +37,9 @@ Version 0.5.0
 Functionality & Enhancements
 ----------------------------
 - Calibration with a flexible Off
-  - Implements `GBTFITSLoad.getsigref https://dysh.readthedocs.io/en/latest/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getsigref`_.
+  - Implements `GBTFITSLoad.getsigref <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getsigref>`_.
 - Calibration of W-Band and Argus observations
   - There are now `GBTFITSLoad.calseq` and `GBTFITSLoad.vanecal` functions to derive system temperatures for W-Band and Argus observations, respectively.
-
 
 Version 0.4.0
 =============
