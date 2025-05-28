@@ -182,6 +182,13 @@ def sort_spectral_region(spectral_region):
     return sorted_spectral_region
 
 
+def sort_spectral_region_subregions(spectral_region):
+    """ """
+
+    for i, s in enumerate(spectral_region._subregions):
+        spectral_region._subregions[i] = sorted(s)
+
+
 def invert_spectral_region(sr, refspec):
     """
     Invert an spectral region. The spectral region is sorted and the ranges has been merged previously.
@@ -241,6 +248,7 @@ def include_to_exclude_spectral_region(include, refspec):
         `include` as a region to be excluded.
     """
     spectral_region = exclude_to_spectral_region(include, refspec)
+    sort_spectral_region_subregions(spectral_region)
     # Merge include ranges.
     spectral_region = exclude_to_spectral_region(list(merge_ranges(spectral_region._subregions)), refspec)
     # Invert.
