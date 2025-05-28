@@ -338,7 +338,7 @@ class SpectrumPlot:
             f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(
-            f"Int : {time_formatter(s.meta['DURATION'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
+            f"Int : {time_formatter(s.meta['EXPOSURE'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(
             f"LST : {time_formatter(s.meta['LST'])}", (hcoords[1], vcoords[2]), xycoords=xyc, size=fsize_small
