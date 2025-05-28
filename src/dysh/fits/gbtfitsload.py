@@ -1575,7 +1575,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
             raise TypeError(f"fdnum={fdnum} not valid, need a list with two feeds")
-        logger.debug(f"getnod: using fdnum={fdnum}")
+
         prockey = "PROCSEQN"
         procvals = {"ON": 1, "OFF": 2}
         (scans, _sf) = self._common_selection(
@@ -1611,6 +1611,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     _fdnum = self.get_nod_beams(scan=on)
                 else:
                     _fdnum = fdnum
+                logger.debug(f"getnod using fdnum={_fdnum}")
                 for j, f in enumerate(_fdnum):
                     _df = select_from("FDNUM", f, df0)
                     if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
