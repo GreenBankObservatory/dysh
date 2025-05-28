@@ -14,7 +14,13 @@ from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, SpanSelector
 
-from ..coordinates import Observatory, crval4_to_pol, decode_veldef, frame_to_label
+from ..coordinates import (
+    Observatory,
+    crval4_to_pol,
+    decode_veldef,
+    frame_to_label,
+    ra2ha,
+)
 
 _KMS = u.km / u.s
 
@@ -111,7 +117,7 @@ class SpectrumPlot:
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self, show_header=True, select=True, **kwargs):
+    def plot(self, show_header=True, select=True, show=True, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
@@ -123,7 +129,8 @@ class SpectrumPlot:
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
-        plt.ion()
+        if show:
+            plt.ion()
         plt.rcParams["font.family"] = "monospace"
         # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
 
@@ -164,7 +171,7 @@ class SpectrumPlot:
         xunit = this_plot_kwargs["xaxis_unit"]
         yunit = this_plot_kwargs["yaxis_unit"]
         if xunit is None:
-            xunit = str(sa.unit)
+            xunit = str(sa.unit)  # noqa: F821
         if "vel_frame" not in this_plot_kwargs:
             if u.Unit(xunit).is_equivalent("km/s") and "VELDEF" in s.meta:
                 # If the user specified velocity units, default to
@@ -190,7 +197,8 @@ class SpectrumPlot:
         if yunit is not None:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
-        self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        self._line = lines[0]
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
         else:
@@ -210,7 +218,8 @@ class SpectrumPlot:
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
 
-        self.refresh()
+        if show:
+            self.refresh()
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -287,7 +296,7 @@ class SpectrumPlot:
             and other keyword=value arguments
         """
         title = kwargs.get("title", None)
-        xlabel = kwargs.get("xlabel", None)
+        xlabel = kwargs.get("xlabel", None)  # noqa: F841
         ylabel = kwargs.get("ylabel", None)
         if title is not None:
             self._title = title
@@ -332,18 +341,6 @@ class SpectrumPlot:
             out_dec = out_str[12:]
             return out_ra, out_dec
 
-        def ra2ha(lst, ra):
-            """
-            Take LST (sec) and RA (deg) and output wrapped HA (hr).
-            Follows GBTIDL implementation (with the hour conversion included)
-            """
-            ha = np.around(15 * (lst / 3600) - ra, 2)
-            if ha > 180:
-                ha -= 360
-            elif ha < -180:
-                ha += 360
-            return np.around(ha / 15, 2)
-
         # col 1
         self._axis.annotate(f"Scan     {s.meta['SCAN']}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
         self._axis.annotate(f"{s.meta['DATE-OBS'][:10]}", (hcoords[0], vcoords[1]), xycoords=xyc, size=fsize_small)
@@ -379,11 +376,10 @@ class SpectrumPlot:
         self._axis.annotate(f"{s.meta['PROJID']}", (hcoords[3], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # col 5
+        _tsys = np.around(s.meta["TSYS"], 2)
+        self._axis.annotate(f"Tsys   :  {_tsys}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small)
         self._axis.annotate(
-            f"Tsys   :  {np.around(s.meta['MEANTSYS'],2)}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(
-            f"Tcal   :  {np.around(s.meta['TCAL'],2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
+            f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
 
@@ -430,9 +426,7 @@ class SpectrumPlot:
     def refresh(self):
         """Refresh the plot"""
         if self.axis is not None:
-            self.axis.figure.canvas.draw()
-            # self.axis.figure.canvas.draw_idle()
-            # self._plt.show()
+            self.axis.figure.canvas.draw_idle()
 
     def savefig(self, file, **kwargs):
         r"""Save the plot
@@ -447,21 +441,20 @@ class SpectrumPlot:
         """
         # TODO: add clause about cutting off the top of the figure where the interactive buttons are
         # bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
+        # or, set_visible to False
+        # buttons are currently listed in the _localaxes, but this includes the plot window at index 0
+        # so if the plot window ever goes missing, check the order in this list
+        # there has to be a better way to do this
+        for button in self.figure._localaxes[1:]:
+            button.set_visible(False)
         self.figure.savefig(file, *kwargs)
+        for button in self.figure._localaxes[1:]:
+            button.set_visible(True)
 
     def get_selected_regions(self):
         """ """
         regions = self._selector.get_selected_regions()
         return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
-
-    # def next(self, event):
-    #     "test button. puts a funny note on the plot when pressed."
-    #     fsize_small = 9
-    #     xyc = "figure fraction"
-    #     print(event)
-    #     print('test')
-    #     self._axis.annotate("oh hi there", (0.5, 0.5), xycoords=xyc, size=fsize_small)
-    #     self.refresh()
 
 
 class InteractiveSpanSelector:
@@ -472,7 +465,12 @@ class InteractiveSpanSelector:
         self.active_patch = None
         self.press = None
         self.dragging_edge = None
-        self.edge_threshold = 0.02  # in axes fraction
+        self.edge_threshold = 0.03  # in axes fraction
+        self.colors = {
+            "edge": (0, 0, 0, 1),
+            "face": (0, 0, 0, 0.3),
+            "edge_selected": plt.matplotlib.colors.to_rgb("#6c3483") + (1.0,),  # noqa: RUF005
+        }
 
         # SpanSelector for creating new regions.
         self.span = SpanSelector(
@@ -481,18 +479,24 @@ class InteractiveSpanSelector:
             direction="horizontal",
             useblit=True,
             interactive=False,
-            props=dict(alpha=0.3, facecolor="tab:gray"),
+            props=dict(facecolor=self.colors["face"], alpha=0.3),
         )
 
         # Button to clear all selections.
-        self.button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
-        self.clear_button = Button(self.button_ax, "Clear Regions")
-        self.clear_button.on_clicked(self.clear_regions)
+        self.region_clear_button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
+        self.region_clear_button = Button(self.region_clear_button_ax, "Clear Regions")
+        self.region_clear_button.on_clicked(self.clear_regions)
+
+        # Button to clear a single region.
+        self.region_del_button_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04])
+        self.region_del_button = Button(self.region_del_button_ax, "Delete Region")
+        self.region_del_button.on_clicked(self.clear_region)
 
         # Connect interaction events for dragging/resizing
         self.cid_press = self.canvas.mpl_connect("button_press_event", self.on_press)
         self.cid_release = self.canvas.mpl_connect("button_release_event", self.on_release)
         self.cid_motion = self.canvas.mpl_connect("motion_notify_event", self.on_motion)
+        self.cid_key = plt.gcf().canvas.mpl_connect("key_press_event", self.on_key_press)
 
     def onselect(self, vmin, vmax):
         if abs(vmax - vmin) < 1e-6:
@@ -502,9 +506,8 @@ class InteractiveSpanSelector:
             vmax - vmin,
             1,
             transform=self.ax.get_xaxis_transform(),
-            facecolor="tab:gray",
-            alpha=0.3,
-            edgecolor="black",
+            facecolor=self.colors["face"],
+            edgecolor=self.colors["edge"],
         )
         self.ax.add_patch(rect)
         self.regions.append(rect)
@@ -513,22 +516,28 @@ class InteractiveSpanSelector:
     def on_press(self, event):
         if event.inaxes != self.ax:
             return
+        got_one = False
         for patch in self.regions:
             contains, attr = patch.contains(event)
-            if contains:
+            if contains and not got_one:
                 self.span.set_active(False)
                 x0 = patch.get_x()
                 x1 = x0 + patch.get_width()
                 xtol = self.edge_threshold * (self.ax.get_xlim()[1] - self.ax.get_xlim()[0])
-                if abs(event.xdata - x0) < xtol:
+                if abs(event.xdata - x0) <= xtol or abs(event.xdata + x0) <= xtol:
                     self.dragging_edge = "left"
-                elif abs(event.xdata - x1) < xtol:
+                elif abs(event.xdata - x1) <= xtol or abs(event.xdata + x1) <= xtol:
                     self.dragging_edge = "right"
                 else:
                     self.dragging_edge = "move"
                 self.active_patch = patch
                 self.press = event.xdata, x0, x1
-                break
+                self.active_patch.set_edgecolor(self.colors["edge_selected"])
+                self.active_patch.set_linewidth(2.0)
+                got_one = True
+            else:
+                patch.set_edgecolor(self.colors["edge"])
+                patch.set_linewidth(1.0)
 
     def on_motion(self, event):
         if not self.active_patch or event.inaxes != self.ax or self.press is None:
@@ -550,16 +559,30 @@ class InteractiveSpanSelector:
         self.canvas.draw_idle()
 
     def on_release(self, event):
-        self.active_patch = None
         self.press = None
         self.dragging_edge = None
         self.span.set_active(True)
+
+    def on_key_press(self, event):
+        if event.key == "d":
+            self.clear_region(event)
+        if event.key == "D":
+            self.clear_regions(event)
 
     def clear_regions(self, event=None):
         for patch in self.regions:
             patch.remove()
         self.regions.clear()
-        self.canvas.draw()
+        self.canvas.draw_idle()
+
+    def clear_region(self, event=None):
+        if not self.active_patch:
+            return
+        idx = self.regions.index(self.active_patch)  # noqa: F841
+        self.regions.remove(self.active_patch)
+        self.active_patch.remove()
+        self.active_patch = None
+        self.canvas.draw_idle()
 
     def get_selected_regions(self):
         return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]

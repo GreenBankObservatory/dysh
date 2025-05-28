@@ -1,12 +1,15 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
+import itertools
+import numbers
 import os
 import platform
 import time
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -24,6 +27,7 @@ from ..spectra.scan import (
     PSScan,
     ScanBase,
     ScanBlock,
+    Spectrum,
     SubBeamNodScan,
     TPScan,
 )
@@ -38,7 +42,7 @@ from ..util import (
     uniq,
 )
 from ..util.files import dysh_data
-from ..util.selection import Flag, Selection
+from ..util.selection import Flag, Selection  # noqa: F811
 from . import conf
 from .sdfitsload import SDFITSLoad
 
@@ -265,7 +269,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return [p.as_posix() for p in self.files]
 
-    def index(self, hdu=None, bintable=None, fitsindex=None):
+    def index(self, hdu=None, bintable: int = None, fitsindex=None):  # noqa: RUF013
         """
         Return The index table
 
@@ -371,7 +375,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def summary(self, scans=None, verbose=False, show_index=True):  # selected=False
+    def summary(self, scan=None, verbose=False, show_index=True):  # selected=False
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
@@ -386,7 +390,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        scans : int or 2-tuple
+        scan : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
         verbose: bool
             If True, list every record, otherwise return a compact summary.
@@ -453,12 +457,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _df.loc[:, "VELOCITY"] /= 1e3  # convert to km/s
         _df["RESTFREQ"] = _df["RESTFREQ"] / 1.0e9  # convert to GHz
         _df["DOPFREQ"] = _df["DOPFREQ"] / 1.0e9  # convert to GHz
-        if scans is not None:
-            if type(scans) == int:
-                scans = [scans]
-            if len(scans) == 1:
-                scans = [scans[0], scans[0]]  # or should this be [scans[0],lastscan]?
-            _df = self._select_scans(scans, _df).filter(show)
+        if scan is not None:
+            if type(scan) == int:  # noqa: E721
+                scan = [scan]
+            if len(scan) == 1:
+                scan = [scan[0], scan[0]]  # or should this be [scans[0],lastscan]?
+            _df = self._select_scans(scan, _df).filter(show)
             if uncompressed_df is None:
                 uncompressed_df = _df
             else:  # no longer used
@@ -492,8 +496,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             uf_int = select_from("PLNUM", uf_int["PLNUM"].iloc[0], uf_int)
             uf_int = select_from("IFNUM", uf_int["IFNUM"].iloc[0], uf_int)
             nint = len(set(uf_int["DATE-OBS"]))  # see gbtidl io/line_index__define.pro
-            obj = list(set(uf["OBJECT"]))[0]  # We assume they are all the same!
-            proc = list(set(uf["PROC"]))[0]  # We assume they are all the same!
+            obj = list(set(uf["OBJECT"]))[0]  # We assume they are all the same!  # noqa: RUF015
+            proc = list(set(uf["PROC"]))[0]  # We assume they are all the same!  # noqa: RUF015
             s2 = pd.Series(
                 [obj, proc, nIF, nPol, nint, nfeed],
                 name="uniqued data",
@@ -804,7 +808,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # if it is list of lists, then it is upper lower inclusive
             dfs = selection.groupby(["FITSINDEX", "BINTABLE"])
             # the dict key for the groups is a tuple (fitsindex,bintable)
-            for i, ((fi, bi), g) in enumerate(dfs):
+            for i, ((fi, bi), g) in enumerate(dfs):  # noqa: B007
                 chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
@@ -880,10 +884,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         if self._selection is None:
-            warnings.warn("Couldn't construct procedure string: index is not yet created.")
+            warnings.warn("Couldn't construct procedure string: index is not yet created.")  # noqa: B028
             return
         if "OBSMODE" not in self._index:
-            warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")
+            warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")  # noqa: B028
             return
         df = self["OBSMODE"].str.split(":", expand=True)
         for obj in [self._index, self._flag]:
@@ -904,7 +908,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zero when the scan number changes.
         """
         if self._index is None:
-            warnings.warn("Couldn't construct integration number: index is not yet created.")
+            warnings.warn("Couldn't construct integration number: index is not yet created.")  # noqa: B028
             return
 
         # check it hasn't been constructed before.
@@ -912,7 +916,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return
         # check that GBTIDL didn't write it out at some point.
         if "INT" in self._index:
-            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)
+            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)  # noqa: PD002
             for s in self._sdf:
                 s._rename_binary_table_column("int", "intnum")
             return
@@ -920,10 +924,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         intnumarray = np.empty(len(self._index), dtype=int)
         # Leverage pandas to group things by scan and observing time.
         dfs = self._index.groupby(["SCAN"])
-        for name, group in dfs:
+        for name, group in dfs:  # noqa: B007
             dfst = group.groupby("DATE-OBS")
             intnums = np.arange(0, len(dfst.groups))
-            for i, (n, g) in enumerate(dfst):
+            for i, (n, g) in enumerate(dfst):  # noqa: B007
                 idx = g.index
                 intnumarray[idx] = intnums[i]
         self._index["INTNUM"] = intnumarray
@@ -943,9 +947,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
+        kwargs : dict
+            Additional selections
 
         Returns
         -------
@@ -962,8 +968,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scans = kwargs.get("SCAN", None)
         if scans is None:
             scans = uniq(_final["SCAN"])
-        elif type(scans) == int:
+        elif type(scans) == int:  # noqa: E721
             scans = list([scans])
+        if "REF" in kwargs:
+            scans.append(kwargs.pop("REF"))
+            scans = uniq(scans)
         preselected = {}
         preselected["SCAN"] = scans
         preselected["FDNUM"] = fdnum
@@ -1006,15 +1015,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def gettp(
         self,
-        fdnum,
-        ifnum,
-        plnum,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
         sig=None,
         cal=None,
-        calibrate=True,
-        bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        calibrate: bool = True,
+        bintable: int = None,  # noqa: RUF013
+        smoothref: int = 1,
+        apply_flags: bool = True,
+        t_sys=None,
+        nocal: bool = False,
         **kwargs,
     ):
         """
@@ -1025,7 +1036,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         sig : bool or None
@@ -1049,40 +1060,53 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        data : `~spectra.scan.ScanBlock`
-            A ScanBlock containing one or more `~spectra.scan.TPScan`
+        data : `~dysh.spectra.scan.ScanBlock`
+            A ScanBlock containing one or more `~dysh.spectra.scan.TPScan`
 
         """
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _bintable = bintable
+        _nocal = nocal
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
+            if len(_df) == 0:  # If nothing was selected go to next file.
+                continue
             for scan in scans:
                 _sifdf = select_from("SCAN", scan, _df)
+                if len(_sifdf) == 0:
+                    continue
                 dfcalT = select_from("CAL", "T", _sifdf)
                 dfcalF = select_from("CAL", "F", _sifdf)
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
-                # print("PJT CALROWS: ",calrows["ON"] ,calrows["OFF"])
                 if len(calrows["ON"]) != len(calrows["OFF"]):
                     if len(calrows["ON"]) > 0:
-                        raise Exception(f'unbalanced calrows {len(calrows["ON"])} != {len(calrows["OFF"])}')
-                    # else: print("Warning: hacking gettp with no calrows")
+                        raise Exception(f"unbalanced calrows {len(calrows['ON'])} != {len(calrows['OFF'])}")
                 # sig and cal are treated specially since
                 # they are not in kwargs and in SDFITS header
                 # they are not booleans but chars
                 if sig is not None:
                     _sifdf = select_from("SIG", TF[sig], _sifdf)
-                # if cal is not None:
-                #    df = select_from("CAL", TF[cal], df)
-                # the rows with the selected sig state and all cal states
+                if _bintable is None:
+                    _bintable = self._get_bintable(_sifdf)
+                if len(calrows["ON"]) == 0 or nocal:
+                    _nocal = True
+                    if tsys is None:
+                        _tsys = dfcalF["TSYS"].to_numpy()
+                        logger.info("Using TSYS column")
+                # Use user provided system temperature.
+                if tsys is not None:
+                    _tsys = tsys[scan][0]
+                # The rows with the selected sig state and all cal states.
                 tprows = list(_sifdf["ROW"])
                 logger.debug(f"TPROWS len={len(tprows)}")
                 logger.debug(f"CALROWS on len={len(calrows['ON'])}")
                 logger.debug(f"fitsindex={i}")
-                # print("PJT TPROWS", tprows)
                 if len(tprows) == 0:
                     continue
                 g = TPScan(
@@ -1095,13 +1119,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fdnum=fdnum,
                     ifnum=ifnum,
                     plnum=plnum,
-                    bintable=bintable,
+                    bintable=_bintable,
                     calibrate=calibrate,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
+                    tsys=_tsys,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                # Reset variables in case they change between scans.
+                _tsys = None
+                _bintable = bintable
+                _nocal = nocal
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1109,37 +1138,244 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # end of gettp()
 
     @log_call_to_result
-    def getps(
+    def getsigref(
         self,
-        fdnum,
-        ifnum,
-        plnum,
-        calibrate=True,
-        bintable=None,
+        scan: Union[int | list | np.ndarray],
+        ref: Union[int | Spectrum],
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
+        calibrate: bool = True,
+        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: str = True,
         bunit: str = "ta",
-        zenith_opacity: float = None,
+        zenith_opacity: float = None,  # noqa: RUF013
+        weights="tsys",
+        t_sys=None,
+        nocal: bool = False,
         **kwargs,
-    ):
-        """
-        Retrieve and calibrate position-switched data.
+    ) -> ScanBlock:
+        r"""
+        Retrieve and calibrate position-switched data using a custom reference scan.  Also known as `Flexible Off.`
 
         Parameters
         ----------
-        fdnum: int
-            The feed number
+        scan : int or list or `numpy.array`
+            The signal scan numbers to calibrate
+        ref : int or Spectrum
+            The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.  If an integer is given,
+            the reference spectrum will be the total power time-averaged spectrum using the weights given.
+        fdnum : int
+            The feed number.
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number.
         plnum : int
-            The polarization number
+            The polarization number.
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
             (This keyword should eventually go away)
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
+        smooth_ref : int, optional
+            If >1 smooth the reference with a boxcar kernel with a width of `smooth_ref` channels. The default is to not smooth the reference.
+        apply_flags : boolean, optional
+            If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
+        bunit : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
+                    - 'ta'  : Antenna Temperature
+                    - 'ta*' : Antenna temperature corrected to above the atmosphere
+                    - 'jy'  : flux density in Jansky
+            If 'ta*' or 'jy' the zenith opacity must also be given. Default: 'ta'
+        zenith_opacity : float, optional
+            The zenith opacity to use in calculating the scale factors for the integrations.  Default: None
+        tsys : float, optional
+            If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
+            If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
+            scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+            in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+        weights: str
+            Weighting scheme to use when averaging the signal and reference scans
+            'tsys' or None.  If 'tsys' the weight will be calculated as:
+
+             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
+
+            Default: 'tsys'
+        **kwargs : dict
+            Optional additional selection keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `source='NGC123', ` etc.
+
+        Raises
+        ------
+        Exception
+            If scans matching the selection criteria are not found.
+
+        Returns
+        -------
+        scanblock : `~dysh.spectra.scan.ScanBlock`
+            ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
+
+        """
+        ScanBase._check_bunit(bunit)
+        if bunit.lower() != "ta" and zenith_opacity is None:
+            raise ValueError("Can't scale the data without a valid zenith opacity")
+        if type(ref) != int and not isinstance(ref, Spectrum):  # noqa: E721
+            raise TypeError("Reference scan ('ref') must be either an integer scan number or a Spectrum object")
+        if isinstance(scan, Spectrum):
+            raise TypeError(
+                "Spectrum object not allowed for 'scan'.  You can use Spectrum arithmetic if both 'scan' and 'ref' are Spectrum objects"
+            )
+
+        scanlist = {}
+        if type(scan) == int:  # noqa: E721
+            scan = [scan]
+        elif isinstance(scan, np.ndarray):
+            scan = list(scan)
+        (scans, _sf) = self._common_selection(
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            apply_flags=apply_flags,
+            scan=scan,
+            **kwargs,
+        )
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _nocal = nocal
+        _bintable = bintable
+        scanlist["ON"] = scans
+        scanlist["OFF"] = [None] * len(scans)
+        if type(ref) == int:  # noqa: E721
+            # make an average reference spectrum
+            # @todo when tsys is addted to gettp, pass it on.
+            refspec = self.gettp(
+                scan=ref,
+                fdnum=fdnum,
+                ifnum=ifnum,
+                plnum=plnum,
+                bintable=bintable,
+                calibrate=calibrate,
+                smoothref=smoothref,
+                apply_flags=apply_flags,
+                **kwargs,
+            ).timeaverage(weights=weights)
+        else:
+            refspec = ref
+        # Check if `refspec` has a system temperature.
+        if tsys is None:
+            tsys = self._get_refspec_tsys(refspec)
+            tsys = _parse_tsys(tsys, scans)  # Put it in a known format.
+
+        scanblock = ScanBlock()
+        for i in range(len(self._sdf)):
+            _df = select_from("FITSINDEX", i, _sf)
+            if len(_df) == 0:
+                continue
+            if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                logger.debug(f"scans {scans} not found, continuing")
+                continue
+            rows = {}
+
+            for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
+                _ondf = select_from("SCAN", on, _df)
+                _offdf = select_from("SCAN", off, _df)
+                if _bintable is None:
+                    _bintable = self._get_bintable(_ondf)
+                rows["ON"] = list(_ondf["ROW"])
+                rows["OFF"] = list(_offdf["ROW"])
+                # if len(rows["ON"]) > len(rows["OFF"]):
+                #    warnings.warn("Fewer reference integrations than signal integrations.  Will use average reference for all")
+                for key in rows:
+                    if len(rows[key]) == 0 and off is not None:
+                        raise Exception(f"{key} scans not found in scan list {scans}")
+                # do not pass scan list here. We need all the cal rows. They will
+                # be intersected with scan rows in PSScan
+                calrows = {}
+                dfcalT = select_from("CAL", "T", _df)
+                dfcalF = select_from("CAL", "F", _df)
+                calrows["ON"] = list(dfcalT["ROW"])
+                calrows["OFF"] = list(dfcalF["ROW"])
+                d = {"ON": on, "OFF": off}
+                if len(calrows["ON"]) == 0 or nocal:
+                    _nocal = True
+                    if tsys is None:
+                        dfoncalF = select_from("CAL", "F", _ondf)
+                        _tsys = dfoncalF["TSYS"].to_numpy()
+                        logger.info("Using TSYS column")
+                # Use user provided system temperature.
+                if tsys is not None:
+                    try:
+                        _tsys = tsys[on][0]
+                    except KeyError:
+                        _tsys = tsys[off][0]
+                g = PSScan(
+                    self._sdf[i],
+                    scan=d,
+                    scanrows=rows,
+                    calrows=calrows,
+                    fdnum=fdnum,
+                    ifnum=ifnum,
+                    plnum=plnum,
+                    bintable=_bintable,
+                    calibrate=calibrate,
+                    smoothref=smoothref,
+                    apply_flags=apply_flags,
+                    bunit=bunit,
+                    zenith_opacity=zenith_opacity,
+                    refspec=refspec,
+                    nocal=_nocal,
+                    tsys=_tsys,
+                )
+                g._refscan = ref
+                g.merge_commentary(self)
+                scanblock.append(g)
+                # Reset these variables in case they change for the next scan.
+                _nocal = nocal
+                _tsys = None
+                _bintable = bintable
+
+        if len(scanblock) == 0:
+            raise Exception("Didn't find any scans matching the input selection criteria.")
+        scanblock.merge_commentary(self)
+        return scanblock
+        # end of getsigref()
+
+    @log_call_to_result
+    def getps(
+        self,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
+        calibrate: bool = True,
+        bintable: int = None,  # noqa: RUF013
+        smoothref: int = 1,
+        apply_flags: str = True,
+        bunit: str = "ta",
+        zenith_opacity: float = None,  # noqa: RUF013
+        t_sys=None,
+        nocal=False,
+        **kwargs,
+    ) -> ScanBlock:
+        """
+        Retrieve and calibrate position-switched data.
+
+        Parameters
+        ----------
+        fdnum : int
+            The feed number.
+        ifnum : int
+            The intermediate frequency (IF) number.
+        plnum : int
+            The polarization number.
+        calibrate : boolean, optional
+            Calibrate the scans. The default is True.
+        bintable : int, optional
+            Limit to the input binary table index. The default is None which means use all binary tables.
+            (This keyword should eventually go away)
+        smooth_ref : int, optional
+            The number of channels in the reference to boxcar smooth prior to calibration.
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
         bunit : str, optional
@@ -1150,7 +1386,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
         zenith_opacity: float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
-
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this. Default: False
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1163,8 +1405,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing one or more `~spectra.scan.PSScan`.
+        scanblock : `~dysh.spectra.scan.ScanBlock`
+            ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
 
         """
         ScanBase._check_bunit(bunit)
@@ -1182,25 +1424,24 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             procvals=procvals,
             **kwargs,
         )
-        # @todo pjt  two additions in this merge ?
-        if True:
-            som = uniq(_sf["SUBOBSMODE"])
-            if len(som) > 1:
-                raise Exception(f"Multiple SUBOBSMODE present, cannot deal with this yet {som}")
-            if som[0] == "TPNOCAL":
-                self._tpnocal = True
-                raise Exception("Cannot deal with TPNOCAL yet")
+
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _nocal = nocal
+        _bintable = bintable
+
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
             _df = select_from("FITSINDEX", i, _sf)
+            if len(_df) == 0:  # If nothing was selected go to next file.
+                continue
             scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
             if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
                 logger.debug(f"scans {scans} not found, continuing")
                 continue
             rows = {}
             # loop over scan pairs
-            c = 0
-            for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+            for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
                 _ondf = select_from("SCAN", on, _df)
                 _offdf = select_from("SCAN", off, _df)
                 # rows["ON"] = list(_ondf.index)
@@ -1215,11 +1456,23 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows = {}
                 dfcalT = select_from("CAL", "T", _df)
                 dfcalF = select_from("CAL", "F", _df)
-                # calrows["ON"] = list(dfcalT.index)
-                # calrows["OFF"] = list(dfcalF.index)
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
+                if len(calrows["ON"]) == 0 or nocal:
+                    _nocal = True
+                    if tsys is None:
+                        dfoncalF = select_from("CAL", "F", _ondf)
+                        _tsys = dfoncalF["TSYS"].to_numpy()
+                        logger.info("Using TSYS column")
+                # Use user provided system temperature.
+                if tsys is not None:
+                    try:
+                        _tsys = tsys[on][0]
+                    except KeyError:
+                        _tsys = tsys[off][0]
                 d = {"ON": on, "OFF": off}
+                if _bintable is None:
+                    _bintable = self._get_bintable(_ondf)
                 g = PSScan(
                     self._sdf[i],
                     scan=d,
@@ -1228,16 +1481,21 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fdnum=fdnum,
                     ifnum=ifnum,
                     plnum=plnum,
-                    bintable=bintable,
+                    bintable=_bintable,
                     calibrate=calibrate,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
+                    nocal=_nocal,
+                    tsys=_tsys,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
-                c = c + 1
+                # Reset these variables in case they change for the next scan.
+                _nocal = nocal
+                _tsys = None
+                _bintable = bintable
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1247,13 +1505,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getnod(
         self,
-        ifnum,
-        plnum,
-        fdnum=None,
-        calibrate=True,
-        bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        ifnum: int,
+        plnum: int,
+        fdnum: int = None,  # noqa: RUF013
+        calibrate: bool = True,
+        bintable: int = None,  # noqa: RUF013
+        smoothref: int = 1,
+        apply_flags: bool = True,
         t_sys=None,
         nocal=False,
         bunit="ta",
@@ -1266,24 +1524,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Parameters
         ----------
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
-        fdnum:  2-tuple, optional
+        fdnum :  2-tuple, optional
             The feed numbers. A pair of feed numbers may be given to choose different nodding beams than were used to obtain the observations.  Default: None which means use the beams found in the data.
         calibrate : boolean, optional
             Calibrate the scans.
             The default is True.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
-            (This keyword should eventually go away)
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
-        apply_flags : boolean, optional.  If True, apply flags before calibration.
+        smooth_ref : int, optional
+            Smooth the reference spectra using a boxcar kernel with a width of `smooth_ref` channels.
+            The default is to not smooth the reference spectra.
+        apply_flags : boolean, optional.
+            If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        t_sys : float, optional
+        t_sys : float or list or list of lists or dict, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+            For example, `t_sys = np.array([[30], [50]])` would use a system temperature of 30 K for
+            the first feed and 50 K for the second feed. Another example, `t_sys = {1: [[50, 60]], 2: [[45],[65]], 3: [[60],[70]]}`
+            would use a system temperature of 50 K for the first feed in scan 1, 60 K for the second feed in scan 1, 45 K for the first feed in scan 2, 65 K for the second feed in scan 2, 60 K for the first feed in scan 3, and 70 K for the second feed in scan 3. If passing a dict it should contain an item for every scan.
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
@@ -1291,9 +1553,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
-            e.g., `ifnum=1, plnum=2` etc.
+            e.g., `intnum=1, plnum=2` etc.
             For multi-beam with more than 2 beams, fdnum=[BEAM1,BEAM2] must be selected,
-            unless the data have been properly taggeed using PROCSCAN which BEAM1 and BEAM2 are.
+            unless the data have been properly tagged using PROCSCAN which BEAM1 and BEAM2 are.
 
         Raises
         ------
@@ -1302,51 +1564,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing one or more `~spectra.scan.NodScan`.
+        scanblock : `~dysh.spectra.scan.ScanBlock`
+            ScanBlock containing one or more `~dysh.spectra.scan.NodScan`.
 
         """
-
-        def get_nod_beams(sdf):
-            """find the two nodding beams if user did not specify them"""
-            kb = ["DATE-OBS", "SCAN", "IFNUM", "PLNUM", "FDNUM", "PROCSCAN", "FEED", "SRFEED", "FEEDXOFF", "FEEDEOFF"]
-            a = sdf._index[kb]
-            b = a.loc[a["FEEDXOFF"] == 0.0]
-            c = b.loc[b["FEEDEOFF"] == 0.0]
-            d1 = c.loc[c["PROCSCAN"] == "BEAM1"]
-            d2 = c.loc[c["PROCSCAN"] == "BEAM2"]
-            if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
-                beam1 = d1["FDNUM"].unique()[0]
-                beam2 = d2["FDNUM"].unique()[0]
-                return [beam1, beam2]
-            else:
-                # one more attempt (this can happen if PROCSCAN contains "Unknown")
-                # ugh, is it possible that BEAM1 and BEAM2 are switched here, given how we unique() ?
-                if len(c["FEED"].unique()) == 2:
-                    logger.debug("get_nod_beams rescued")
-                    b = c["FEED"].unique() - 1
-                    return list(b)
-                return []
 
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
-        nod_beams = get_nod_beams(self)
-        feeds = fdnum
-        if fdnum is None:
-            logger.info(f"Found nodding beams {nod_beams}")
-            feeds = nod_beams
-        else:
-            if nod_beams != fdnum:
-                logger.info(f"Using beams {fdnum} instead of nodding beams {nod_beams} found in the data")
-        if type(feeds) is int or len(feeds) != 2:
-            raise Exception(f"fdnum={feeds} not valid, need a list with two feeds")
-        logger.debug(f"getnod: using fdnum={feeds}")
+        if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
+            raise TypeError(f"fdnum={fdnum} not valid, need a list with two feeds")
+        logger.debug(f"getnod: using fdnum={fdnum}")
         prockey = "PROCSEQN"
         procvals = {"ON": 1, "OFF": 2}
         (scans, _sf) = self._common_selection(
-            fdnum=feeds,
+            fdnum=fdnum,
             ifnum=ifnum,
             plnum=plnum,
             apply_flags=apply_flags,
@@ -1355,31 +1588,41 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             **kwargs,
         )
 
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _nocal = nocal
+        _bintable = bintable
+
         beam1_selected = True
         scanblock = ScanBlock()
 
         for i in range(len(self._sdf)):
             df0 = select_from("FITSINDEX", i, _sf)
-            for f in feeds:
-                _df = select_from("FDNUM", f, df0)
-                if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
-                    continue
-                # scanlist = self._nod_scan_list_selection(scans, _df, feeds, check=False)
-                scanlist = self._common_scan_list_selection(scans, _df, prockey=prockey, procvals=procvals, check=False)
-                if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
-                    logger.debug(f"Some of scans {scans} not found, continuing")
-                    continue
+            if len(df0) == 0:
+                continue
+            scanlist = self._common_scan_list_selection(scans, df0, prockey=prockey, procvals=procvals, check=False)
+            if len(scanlist["ON"]) == 0 or len(scanlist["OFF"]) == 0:
+                logger.debug(f"Some of scans {scans} not found, continuing")
+                continue
+            # Loop over scan pairs.
+            for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
+                # Each scan could use a different pair of fdnums.
+                if fdnum is None:
+                    _fdnum = self.get_nod_beams(scan=on)
+                else:
+                    _fdnum = fdnum
+                for j, f in enumerate(_fdnum):
+                    _df = select_from("FDNUM", f, df0)
+                    if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
+                        continue
+                    beam1_selected = f == _fdnum[0]
+                    logger.debug(f"SCANLIST {scanlist}")
+                    logger.debug(f"FEED {f} {beam1_selected} {_fdnum[0]}")
+                    logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
+                    logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
+                    logger.debug(f"and PROC {set(_df['PROC'])}")
 
-                beam1_selected = f == feeds[0]
-                logger.debug(f"SCANLIST {scanlist}")
-                logger.debug(f"FEED {f} {beam1_selected} {feeds[0]}")
-                logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
-                logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                logger.debug(f"and PROC {set(_df['PROC'])}")
-                rows = {}
-                # Loop over scan pairs.
-                c = 0
-                for on, off in zip(scanlist["ON"], scanlist["OFF"]):
+                    rows = {}
                     _ondf = select_from("SCAN", on, _df)
                     _offdf = select_from("SCAN", off, _df)
                     rows["ON"] = list(_ondf["ROW"])
@@ -1387,6 +1630,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     for key in rows:
                         if len(rows[key]) == 0:
                             raise Exception(f"{key} scans not found in scan list {scans}")
+                    if _bintable is None:
+                        _bintable = self._get_bintable(_ondf)
                     # Do not pass scan list here. We need all the cal rows. They will
                     # be intersected with scan rows in NodScan.
                     calrows = {}
@@ -1395,14 +1640,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calrows["ON"] = list(dfcalT["ROW"])
                     calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
+
                     # Check if there is a noise diode.
                     if len(calrows["ON"]) == 0 or nocal:
-                        nocal = True
-                        if t_sys is None:
+                        _nocal = True
+                        if tsys is None:
                             dfoncalF = select_from("CAL", "F", _ondf)
-                            t_sys = dfoncalF["TSYS"].to_numpy()
+                            _tsys = dfoncalF["TSYS"].to_numpy()
                             logger.info("Using TSYS column")
-                    logger.debug(f"{i, f, c} SCANROWS {rows}")
+                    # Use user provided system temperature.
+                    if tsys is not None:
+                        _tsys = tsys[on][j]
+
+                    logger.debug(f"{i, f} SCANROWS {rows}")
                     logger.debug(f"BEAM1 {beam1_selected}")
                     g = NodScan(
                         self._sdf[i],
@@ -1413,18 +1663,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         fdnum=f,
                         ifnum=ifnum,
                         plnum=plnum,
-                        bintable=bintable,
+                        bintable=_bintable,
                         calibrate=calibrate,
                         smoothref=smoothref,
                         apply_flags=apply_flags,
-                        nocal=nocal,
-                        tsys=t_sys,
+                        nocal=_nocal,
+                        tsys=_tsys,
                         bunit=bunit,
                         zenith_opacity=zenith_opacity,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
-                    c = c + 1
+                    _nocal = nocal
+                    _tsys = None
+                    _bintable = bintable
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
@@ -1437,16 +1689,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getfs(
         self,
-        fdnum,
-        ifnum,
-        plnum,
-        calibrate=True,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
+        calibrate: bool = True,
         fold=True,
         shift_method="fft",
         use_sig=True,
-        bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        bintable: int = None,  # noqa: RUF013
+        smoothref: int = 1,
+        apply_flags: bool = True,
         bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
@@ -1460,7 +1712,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         calibrate : boolean, optional
@@ -1505,12 +1757,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        scanblock : `~spectra.scan.ScanBlock`
-            ScanBlock containing one or more`~spectra.scan.FSScan`.
+        scanblock : `~dysh.spectra.scan.ScanBlock`
+            ScanBlock containing one or more`~dysh.spectra.scan.FSScan`.
 
         """
         debug = kwargs.pop("debug", False)
         logger.debug(kwargs)
+
+        _bintable = bintable
 
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
@@ -1524,22 +1778,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             logger.debug(f"Processing file {i}: {self._sdf[i].filename}")
 
             df = select_from("FITSINDEX", i, _sf)
+            if len(df) == 0:
+                continue
+
             # loop over scans:
             for scan in scans:
                 logger.debug(f"doing scan {scan}")
                 calrows = {}
                 _df = select_from("SCAN", scan, df)
+                if len(_df) == 0:
+                    continue
+                if _bintable is None:
+                    _bintable = self._get_bintable(_df)
                 dfcalT = select_from("CAL", "T", _df)
                 dfcalF = select_from("CAL", "F", _df)
                 sigrows = {}
                 dfsigT = select_from("SIG", "T", _df)
                 dfsigF = select_from("SIG", "F", _df)
-                #
+
                 calrows["ON"] = list(dfcalT["ROW"])
                 calrows["OFF"] = list(dfcalF["ROW"])
                 sigrows["ON"] = list(dfsigT["ROW"])
                 sigrows["OFF"] = list(dfsigF["ROW"])
-                print(f"{scan=} {sigrows=} {calrows=}")
                 g = FSScan(
                     self._sdf[i],
                     scan=scan,
@@ -1548,7 +1808,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fdnum=fdnum,
                     ifnum=ifnum,
                     plnum=plnum,
-                    bintable=bintable,
+                    bintable=_bintable,
                     calibrate=calibrate,
                     fold=fold,
                     shift_method=shift_method,
@@ -1562,6 +1822,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                _bintable = bintable
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1583,27 +1844,27 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return
 
         self._fix_column("FDNUM", 1, {"FRONTEND": "Rcvr26_40", "PLNUM": 1})
-        logger.info(f"Fixing FDNUM mislabel for Rcvr26_40. FDNUM 0 changed to 1")
+        logger.info("Fixing FDNUM mislabel for Rcvr26_40. FDNUM 0 changed to 1")
         self._fix_column("FDNUM", 0, {"FRONTEND": "Rcvr26_40", "PLNUM": 0})
-        logger.info(f"Fixing FDNUM mislabel for Rcvr26_40. FDNUM 1 changed to 0")
+        logger.info("Fixing FDNUM mislabel for Rcvr26_40. FDNUM 1 changed to 0")
 
     # @todo sig/cal no longer needed?
     @log_call_to_result
     def subbeamnod(
         self,
-        fdnum,
-        ifnum,
-        plnum,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
         method="cycle",
         sig=None,
         cal=None,
-        calibrate=True,
+        calibrate: bool = True,
         timeaverage=True,
         polaverage=False,
         weights="tsys",
-        bintable=None,
-        smoothref=1,
-        apply_flags=True,
+        bintable: int = None,  # noqa: RUF013
+        smoothref: int = 1,
+        apply_flags: bool = True,
         bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
@@ -1616,7 +1877,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int
             The feed number
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         method: str
@@ -1659,13 +1920,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        data : `~spectra.scan.ScanBlock`
-            A ScanBlock containing one or more `~spectra.scan.SubBeamNodScan`
+        data : `~dysh.spectra.scan.ScanBlock`
+            A ScanBlock containing one or more `~dysh.spectra.scan.SubBeamNodScan`
         """
 
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
+
+        _bintable = bintable
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
         scanblock = ScanBlock()
@@ -1681,6 +1944,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fulltp = []
                     logger.debug(f"doing scan {scan}")
                     df = select_from("SCAN", scan, _df)
+                    if len(df) == 0:
+                        continue
+                    if _bintable is None:
+                        _bintable = self._get_bintable(df)
                     df_on = df[df["CAL"] == "T"]
                     df_off = df[df["CAL"] == "F"]
                     df_on_sig = df_on[df_on["SUBREF_STATE"] == -1]
@@ -1719,9 +1986,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 Try using method='scan'."""
                         raise ValueError(e)
                     # Loop over cycles, calibrating each independently.
-                    groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups)
+                    groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups, strict=False)
 
-                    for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):
+                    for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):  # noqa: B007
                         # Do it the dysh way.
                         calrows = {"ON": rgon, "OFF": rgoff}
                         tprows = np.sort(np.hstack((rgon, rgoff)))
@@ -1736,7 +2003,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 fdnum=fdnum,
                                 ifnum=ifnum,
                                 plnum=plnum,
-                                bintable=bintable,
+                                bintable=_bintable,
                                 calibrate=calibrate,
                                 smoothref=smoothref,
                                 apply_flags=apply_flags,
@@ -1755,7 +2022,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 fdnum=fdnum,
                                 ifnum=ifnum,
                                 plnum=plnum,
-                                bintable=bintable,
+                                bintable=_bintable,
                                 calibrate=calibrate,
                                 smoothref=smoothref,
                                 apply_flags=apply_flags,
@@ -1775,8 +2042,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         zenith_opacity=zenith_opacity,
                     )
                     scanblock.append(sb)
+                    _bintable = bintable
         elif method == "scan":
-            for sdfi in range(len(self._sdf)):
+            for sdfi in range(len(self._sdf)):  # noqa: B007
                 # Process the whole scan as a single block.
                 # This is less accurate, but might be needed if
                 # the scan was aborted and there are not enough
@@ -1858,7 +2126,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return s
         if lenprocset > 1:
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
-        proc = list(procset)[0]
+        proc = list(procset)[0]  # noqa: RUF015
         dfon = select_from(prockey, procvals["ON"], selection)
         dfoff = select_from(prockey, procvals["OFF"], selection)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
@@ -1922,7 +2190,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             s["ON"] = sorted(set(sons))
             s["OFF"] = sorted(set(soffs))
             if len(s["ON"]) != len(s["OFF"]):
-                raise Exception(f'ON and OFF scan list lengths differ {len(s["ON"])} != {len(s["OFF"])}')
+                raise Exception(f"ON and OFF scan list lengths differ {len(s['ON'])} != {len(s['OFF'])}")
         return s
 
     def write(
@@ -2070,15 +2338,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
-        warning_msg = (
-            lambda scans, a, coord, limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+        warning_msg = (  # noqa: E731
+            lambda scans,
+            a,
+            coord,
+            limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.
         low_el_mask = self["ELEVATIO"] < 5
         if low_el_mask.sum() > 0:
             low_el_scans = map(str, set(self._index.loc[low_el_mask, "SCAN"]))
-            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))
+            warnings.warn(warning_msg(",".join(low_el_scans), "an", "elevation", "5 degrees"))  # noqa: B028
 
         # Azimuth and elevation case.
         self._fix_column("RADESYS", radesys["AzEl"], {"CTYPE2": "AZ", "CTYPE3": "EL"})
@@ -2151,7 +2422,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_exists = len(set(self.columns).intersection(iset)) > 0
         # col_in_selection =
         if col_exists:
-            warnings.warn(f"Changing an existing SDFITS column {items}")
+            warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
         # now deal with values as arrays
         is_array = False
         if isinstance(values, (Sequence, np.ndarray)) and not isinstance(values, str):
@@ -2173,7 +2444,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 start = start + s.total_rows
         selected_cols = self.selection.columns_selected()
         if items in selected_cols:
-            warnings.warn(
+            warnings.warn(  # noqa: B028
                 f"You have changed the metadata for a column that was previously used in a data selection [{items}]."
                 " You may wish to update the selection. "
             )
@@ -2322,52 +2593,69 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if mask.sum() == 0.0:
             # Nothing to flag.
             return
-        flag_rows = np.where(mask == True)[0].tolist()
+        flag_rows = np.where(mask == True)[0].tolist()  # noqa: E712
         self.flag(row=flag_rows)
 
-    def getbeam(self, debug=False):
+    def _get_beam(self, scan, mask, bi=1):
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} does not have column 'PROCSCAN' with 'BEAM{bi}' values.")
+        else:
+            feed = set(self["FDNUM"][mask])
+            if len(feed) > 1:
+                raise ValueError(f"Scan {scan} contains more than one FDNUM for 'PROCSCAN'='BEAM{bi}'.")
+            feed = next(iter(feed))
+        return feed
+
+    def get_nod_beams(self, scan):
         """
-        Find the two nodding beams based on on a given FDNUM, FEED
-        needs PROCSCAN='BEAM1' or 'BEAM2'
+        Find the FDNUM values for two nodding beams.
+        It relies on the SDFITS having the column 'PROCSCAN' set to 'BEAM1' or 'BEAM2'.
 
         Parameters
         ----------
-        sdf : `GBTFITSLoad`
-            data handle, containing one or more SDFITS files specific to GBT
-        debug : boolean, optional
-            Add more debugging output. @todo use logger
-            The default is False.
+        scan : int
+            Scan for which to find the nodding beams.
 
         Returns
         -------
-        beams : list of two ints representing the nodding beams (0 = first beam)
+        beams : list of two ints
+            Feed numbers representing the nodding beams.
+            The first item is the first nodding beam.
 
+        Raises
+        ------
+        TypeError
+            If `scan` is not an integer.
+        ValueError
+            If there is no 'SCAN'=`scan` in the index, or if it is not possible to determine the nodding beams.
         """
-        # list of columns needed to differentiate and find the nodding beams
-        kb = ["FEEDXOFF", "FEEDEOFF", "PROCSCAN", "FDNUM", "FEED"]
-        a0 = self._index[kb]
-        b1 = a0.loc[a0["FEEDXOFF"] == 0.0]
-        b2 = b1.loc[b1["FEEDEOFF"] == 0.0]
-        d1 = b2.loc[b2["PROCSCAN"] == "BEAM1"]
-        d2 = b2.loc[b2["PROCSCAN"] == "BEAM2"]
-        #
-        if len(d1["FDNUM"].unique()) == 1 and len(d2["FDNUM"].unique()) == 1:
-            beam1 = d1["FDNUM"].unique()[0]
-            beam2 = d2["FDNUM"].unique()[0]
-            fdnum1 = d1["FEED"].unique()[0]
-            fdnum2 = d2["FEED"].unique()[0]
-            if debug:
-                print("beams: ", beam1, beam2, fdnum1, fdnum2)
-            return [beam1, beam2]
-        else:
-            # try one other thing
-            if len(b2["FEED"].unique()) == 2:
-                print("getbeam rescued")
-                b = b2["FEED"].unique() - 1
-                return list(b)
-            print("too many in beam1:", d1["FDNUM"].unique())
-            print("too many in beam2:", d2["FDNUM"].unique())
-            return []
+        if not isinstance(scan, numbers.Integral):
+            raise TypeError("scan must be an integer.")
+        scan = [scan]
+
+        # Find the Nod scan pairs.
+        scanlist = self._common_scan_list_selection(
+            scan,
+            self._index,
+            prockey="PROCSEQN",
+            procvals={"ON": 1, "OFF": 2},
+            check=False,
+        )
+        scans = list(itertools.chain.from_iterable(list(scanlist.values())))
+
+        # Make the index smaller, checkling at every step that the rules contain valid data.
+        mask = self["SCAN"].isin(scans)
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} not found in index.")
+        mask = mask & np.isclose(self["FEEDXOFF"], 0.0) & np.isclose(self["FEEDEOFF"], 0.0)
+        if mask.sum() == 0:
+            raise ValueError(f"Scan {scan} does not have a beam centered on the target.")
+        mask1 = mask & (self["PROCSCAN"] == "BEAM1")
+        mask2 = mask & (self["PROCSCAN"] == "BEAM2")
+        feed1 = self._get_beam(scan, mask1, bi=1)
+        feed2 = self._get_beam(scan, mask2, bi=2)
+
+        return [feed1, feed2]
 
     def calseq(self, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):
         """
@@ -2444,7 +2732,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return tsys, g
 
     # @todo PJT feeds->fdnum and add other standard args
-    def vanecal(self, vane_sky, ifnum, plnum, feeds=range(16), mode=2, tcal=None, verbose=False, **kwargs):
+    def vanecal(self, vane_sky, ifnum, plnum, feeds=range(16), mode=2, tcal=None, verbose=False, **kwargs):  # noqa: B008
         """
         Return Tsys calibration values for all or selected beams of the Argus
         VANE/SKY calibration cycle.
@@ -2459,7 +2747,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Normally the SKY scan is directly followed by the VANE scan.
             @todo if one scan given, assume sky is vane+1
         ifnum : int
-            The IF number
+            The intermediate frequency (IF) number
         plnum : int
             The polarization number
         feeds : list of ints, optional
@@ -2553,7 +2841,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         -------
-        (sp1, sp2) : tuple of `~spectra.spectrum.Spectrum`
+        (sp1, sp2) : tuple of `~dysh.spectra.spectrum.Spectrum`
             the two nodding spectra, caller is responsible for averaging them, e.g. `sp1.average(sp2)`
         """
 
@@ -2584,6 +2872,46 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         sp2.meta["TSYS"] = tsys[1]
 
         return (sp1, sp2)
+
+    def _get_bintable(self, df: pd.DataFrame) -> int:
+        """
+        Extracts the binary table from `df`.
+
+        Parameters
+        ----------
+        df : `~pandas.DataFrame`
+            The data frame to be used.
+
+        Returns
+        -------
+        bintable : int
+            The binary table index.
+
+        Raises
+        ------
+        TypeError
+            If there is more than one unique value in the "BINTABLE" column of `df`.
+        """
+
+        bintable = set(df["BINTABLE"])
+        # I do not know if this is possible, but just in case.
+        if len(bintable) > 1:
+            raise TypeError("Selection crosses binary tables.")
+        bintable = next(iter(bintable))  # Get the first element of the set.
+        return bintable
+
+    def _get_refspec_tsys(self, refspec):
+        """ """
+        tsyskw = ["TSYS", "MEANTSYS", "WTTSYS"]
+        for kw in tsyskw:
+            tsys = refspec.meta.get(kw, None)
+            if tsys is None:
+                continue
+        if tsys is None:
+            raise ValueError(
+                "Reference spectrum has no system temperature in its metadata.  Solve with refspec.meta['TSYS']=value or add parameter `t_sys` to getps/getsigref."
+            )
+        return tsys
 
 
 class GBTOffline(GBTFITSLoad):
@@ -2717,6 +3045,10 @@ class GBTOnline(GBTFITSLoad):
         self._reload()
         return super().gettp(**kwargs)
 
+    def getsigref(self, **kwargs):
+        self._reload()
+        return super().getsigref(**kwargs)
+
     def getps(self, **kwargs):
         self._reload()
         return super().getps(**kwargs)
@@ -2736,3 +3068,52 @@ class GBTOnline(GBTFITSLoad):
     def vanecal(self, **kwargs):
         self._reload()
         return super().vanecal(**kwargs)
+
+
+def _parse_tsys(tsys, scans):
+    """ """
+    if isinstance(tsys, numbers.Real):
+        tsys = _tsys_1Darray_to_dict(tsys, scans)
+    if isinstance(tsys, list):
+        tsys = np.array(tsys)
+    if isinstance(tsys, np.ndarray):
+        if tsys.ndim <= 1:
+            tsys = _tsys_1Darray_to_dict(tsys, scans)
+        elif tsys.ndim == 2:
+            tsys = _tsys_2Darray_to_dict(tsys, scans)
+    if isinstance(tsys, dict):
+        # Check that there is one entry for every scan.
+        if list(tsys.keys()) != list(scans):
+            missing = set(scans) - set(tsys.keys())
+            raise TypeError(f"Missing system temperature for scan(s): {','.join(map(str, missing))}")
+        tsys = _tsys_dict_to_dict(tsys, scans)
+
+    return tsys
+
+
+def _tsys_1Darray_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        tsys_dict[scan] = np.vstack((tsys, tsys))
+    return tsys_dict
+
+
+def _tsys_2Darray_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        tsys_dict[scan] = np.vstack((tsys[0], tsys[1]))
+    return tsys_dict
+
+
+def _tsys_dict_to_dict(tsys, scans):
+    tsys_dict = {}
+    for scan in scans:
+        try:
+            len(tsys[scan])
+        except TypeError:
+            tsys[scan] = [tsys[scan]]
+        if len(tsys[scan]) < 2:
+            tsys_dict[scan] = np.vstack((tsys[scan], tsys[scan]))
+        else:
+            tsys_dict[scan] = tsys[scan]
+    return tsys_dict

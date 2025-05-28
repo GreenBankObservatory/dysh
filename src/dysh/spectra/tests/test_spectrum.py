@@ -1,5 +1,4 @@
 import warnings
-from unittest.mock import patch
 
 import astropy.units as u
 import numpy as np
@@ -39,7 +38,7 @@ def compare_spectrum(one, other, ignore_history=False, ignore_comments=False):
         if ignore_history and k == "_comments":
             continue
         elif k in ["_wcs"]:
-            v.to_header() == vars(other)[k].to_header()
+            v.to_header() == vars(other)[k].to_header()  # noqa: B015
         elif k in ["_spectral_axis"]:
             for k_, v_ in vars(v).items():
                 assert v_ == vars(vars(other)[k])[k_]
@@ -254,12 +253,17 @@ class TestSpectrum:
         print(s.comments)
         assert "I removed a baseline" in s.comments
 
-    @patch("dysh.plot.specplot.plt.show")
-    def test_slice(self, mock_show, tmp_path):
+    def test_slice(self, tmp_path):
         """
         Test that we can slice a `Spectrum` using channels or units.
         For units we only consider frequencies for now.
         """
+
+        # Disable interactive plotting.
+        import matplotlib.pyplot as plt
+
+        plt.ioff()
+
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
         s = slice(1000, 1100, 1)
@@ -279,7 +283,7 @@ class TestSpectrum:
         for k in spec_pars:
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
-        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs")
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs", show=False)
         # Check that we can write.
         o = tmp_path / "sub"
         o.mkdir()
@@ -302,7 +306,7 @@ class TestSpectrum:
                 assert trimmed_nu.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
-        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK")
+        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", show=False)
 
         # km/s.
         spec_ax = self.ps0.spectral_axis.to("km/s")
@@ -314,7 +318,7 @@ class TestSpectrum:
                 assert trimmed_vel.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
-        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK")
+        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", show=False)
 
         # m.
         spec_ax = self.ps0.spectral_axis.to("m")
@@ -682,7 +686,7 @@ class TestSpectrum:
         sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
         sdf = GBTFITSLoad(sdf_file)
         gbtidl_two_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_bmodel.fits")
-        gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")
+        gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")  # noqa: F841
 
         order = 3
         in_reg = [(99, 381), (449, 721)]
@@ -736,3 +740,31 @@ class TestSpectrum:
             data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
         )
         assert s.meta["RADESYS"] == meta["RADECSYS"]
+
+    def test_get_selected_regions(self):
+        """
+        * Test that get selected regions raises TypeError if no plotter is found.
+        * Test that the returned selection is in the expected format.
+        """
+
+        s = Spectrum.fake_spectrum()
+        with pytest.raises(TypeError) as excinfo:
+            s.get_selected_regions()
+        assert excinfo.type is TypeError
+
+        # Plot and add a region.
+        import matplotlib.pyplot as plt
+
+        plt.ioff()
+        s.plot(show=False, xaxis_unit="MHz")
+        s._plotter._selector.onselect(1402.3, 1402.5)
+        r = s.get_selected_regions()
+        assert r == [(574, 853)]
+
+        # Now with units.
+        r_nu = s.get_selected_regions(unit="MHz")
+        assert r_nu[0][0].value == pytest.approx(1402.3)
+        assert r_nu[0][1].value == pytest.approx(1402.5)
+        r_v = s.get_selected_regions(unit="km/s")
+        assert r_v[0][0].value == pytest.approx(3870.69160846)
+        assert r_v[0][1].value == pytest.approx(3827.48453869)

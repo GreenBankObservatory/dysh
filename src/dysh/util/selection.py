@@ -436,7 +436,7 @@ class SelectionBase(DataFrame):
             tag = self._table.loc[_id]["TAG"]
             if s.equals(df):
                 tag = self._table.loc[_id]["TAG"]
-                warnings.warn(
+                warnings.warn(  # noqa: B028
                     f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
                     " Ignoring."
                 )
@@ -517,6 +517,8 @@ class SelectionBase(DataFrame):
         single_value_queries = None
         multi_value_queries = None
         for k, v in list(kwargs.items()):
+            if v is None:
+                continue
             ku = k.upper()
             if ku in self._aliases:
                 ku = self._aliases[ku]
@@ -567,11 +569,11 @@ class SelectionBase(DataFrame):
         elif multi_value_queries is not None and single_value_queries is None:
             query = multi_value_queries
         else:
-            warnings.warn("There was no data selection")  # should never happen
+            warnings.warn("There was no data selection")  # should never happen  # noqa: B028
             return False
         df = df.query(query)
         if df.empty:
-            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
+            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
             return False
         df.loc[:, "CHAN"] = proposed_channel_rule  # this column is normally None so no need to check if None first.
         self._addrow(row, df, tag)
@@ -638,7 +640,7 @@ class SelectionBase(DataFrame):
             else:
                 raise Exception(f"Couldn't parse value tuple {v} for key {k} as a range.")
         if df.empty:
-            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")
+            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
             return
         self._addrow(row, df, tag)
 
@@ -1307,7 +1309,7 @@ class Flag(SelectionBase):
                         echan = [echan]
                     echan = [int(float(x)) for x in echan]
                     # pair up echan and bchan
-                    vdict["channel"] = list(zip(bchan, echan))
+                    vdict["channel"] = list(zip(bchan, echan, strict=False))
                 elif bchan is not None and echan is None:
                     if not isinstance(bchan, list):
                         bchan = [bchan]
@@ -1315,13 +1317,13 @@ class Flag(SelectionBase):
                     echan = [2**25] * len(
                         bchan
                     )  # Set to a large number so it effectively spans the whole range from `bchan`.
-                    vdict["channel"] = tuple(zip(bchan, echan))
+                    vdict["channel"] = tuple(zip(bchan, echan, strict=False))
                 elif bchan is None and echan is not None:
                     if not isinstance(echan, list):
                         echan = [echan]
                     echan = [int(float(x)) for x in echan]
                     bchan = [0] * len(echan)
-                    vdict["channel"] = tuple(zip(bchan, echan))
+                    vdict["channel"] = tuple(zip(bchan, echan, strict=False))
 
                 if kwargs is not None:
                     vdict.update(kwargs)
