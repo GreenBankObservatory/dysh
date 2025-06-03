@@ -2669,8 +2669,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        sdf : `GBTFITSLoad`
-            data handle, containing one or more SDFITS files specific to GBT
         scan : int or list of int
             Scan number(s) where CALSEQ is expected. See sdf.summary() to find the scan number(s).
             If multiple scans are used, an average Tsys is computed.
