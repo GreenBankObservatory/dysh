@@ -95,7 +95,17 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits, smoothref, apply_flags, observer_location, fdnum=-1, ifnum=-1, plnum=-1, tsys=None):
+    def __init__(
+        self,
+        sdfits,
+        smoothref,
+        apply_flags,
+        observer_location,
+        fdnum=-1,
+        ifnum=-1,
+        plnum=-1,
+        tsys=None,
+    ):
         HistoricalBase.__init__(self)
         self._fdnum = fdnum
         self._ifnum = ifnum
@@ -177,6 +187,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._nint = len(meta_rows)
         self._make_meta(meta_rows)
         self._init_tsys(tsys)
+        self._calc_exposure()
         if self._calibrate:
             if calibrate_kwargs is not None:
                 self.calibrate(**calibrate_kwargs)
@@ -186,6 +197,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
             self.scale(bunit, zenith_opacity)
         self._validate_defaults()
+
+    @abstractmethod
+    def _calc_exposure(self):
+        """Method to compute the specific exposure array for the given Scan type"""
+        raise NotImplementedError(f"Exposure calculation for {self.__class__.__name__} needs to be implemented.")
+        # actually you won't even be able to instantiate the class if the method is not implemented.
 
     def calibrated(self, i):  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
@@ -200,7 +217,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
+            Masked(
+                self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()],
+                self._calibrated[i].mask,
+            ),
             meta=self.meta[i],
             observer_location=self._observer_location,
         )
@@ -1345,7 +1365,7 @@ class PSScan(ScanBase):
                         ref = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
                     self._tsys[i] = tsys
-                    self._exposure[i] = self.exposure[i]
+                    # self._exposure[i] = self.exposure[i]
             else:
                 for i in range(nspect):
                     tsys = self._tsys[i]
@@ -1354,11 +1374,9 @@ class PSScan(ScanBase):
                     if self._smoothref > 1:
                         ref = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
-                    self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
 
-    @property
-    def exposure(self):
+    def _calc_exposure(self):
         """The array of exposure (integration) times
 
         exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
@@ -1393,8 +1411,7 @@ class PSScan(ScanBase):
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
-        exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
-        return exposure
+        self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
 
     @property
     def delta_freq(self):
@@ -1596,11 +1613,9 @@ class NodScan(ScanBase):
                 if self._smoothref > 1:
                     ref = core.smooth(ref, "boxcar", self._smoothref)
                 self._calibrated[i] = tsys * (sig - ref) / ref
-                self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
 
-    @property
-    def exposure(self):
+    def _calc_exposure(self):
         """The array of exposure (integration) times
 
         exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
@@ -1624,8 +1639,7 @@ class NodScan(ScanBase):
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
-        exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
-        return exposure
+        self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
 
     @property
     def delta_freq(self):
@@ -1786,7 +1800,11 @@ class FSScan(ScanBase):
 
         self._nchan = len(self._sigcalon[0])
         self._finish_initialization(
-            calibrate, {"fold": fold, "shift_method": shift_method}, self._sigonrows, bunit, zenith_opacity
+            calibrate,
+            {"fold": fold, "shift_method": shift_method},
+            self._sigonrows,
+            bunit,
+            zenith_opacity,
         )
 
     @property
@@ -1945,7 +1963,7 @@ class FSScan(ScanBase):
                 else:
                     self._calibrated[i] = cal_ref_fold
                     self._tsys[i] = tsys_sig
-                self._exposure[i] = 2 * self.exposure[i]  # @todo
+
             else:
                 if self._use_sig:
                     self._calibrated[i] = cal_sig
@@ -1953,11 +1971,11 @@ class FSScan(ScanBase):
                 else:
                     self._calibrated[i] = cal_ref
                     self._tsys[i] = tsys_sig
-                self._exposure[i] = self.exposure[i]
+        if _fold:
+            self._exposure = 2 * self.exposure  # @todo -- why todo?
         logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
-    @property
-    def exposure(self):
+    def _calc_exposure(self):
         """The array of exposure (integration) times for FSscan
 
         exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
@@ -1978,7 +1996,6 @@ class FSScan(ScanBase):
         else:
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
-        return self._exposure
 
     @property
     def delta_freq(self):
@@ -2087,6 +2104,10 @@ class SubBeamNodScan(ScanBase):
         meta_rows = list(set(meta_rows))
 
         self._finish_initialization(calibrate, {"weights": w}, meta_rows, bunit, zenith_opacity)
+
+    def _calc_exposure(self):
+        # This is done in calibrate via assignment.
+        pass
 
     def calibrate(self, **kwargs):  ##SUBBEAMNOD
         """Calibrate the SubBeamNodScan data"""
