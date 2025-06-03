@@ -2739,8 +2739,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        sdf : `GBTFITSLoad`
-            data handle, containing one or more SDFITS files specific to GBT
         vane_sky : list of two ints
             The first designates the VANE scan, the second the SKY scan.
             Normally the SKY scan is directly followed by the VANE scan.
