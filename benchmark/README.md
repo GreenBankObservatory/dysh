@@ -53,23 +53,22 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
 0. Benchmarking is tricky, you measure CPU and MEM usage that does not always make sense. For example we have a case where repeated
    calls to getps() showed unreasonable variations.
 
-1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be very large, notably for ARGUS examples. 9sec vs. 9min were seen.  Our implementation of processing Flag files via Selection object, while convenient, is expensive.  We need to drill down and find out why this is so.
+1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be very large, notably for ARGUS examples. 9sec vs. 9min were seen.  Our implementation of processing Flag files via Selection object, while convenient, is expensive.  
 
 2. Overhead of working on a few scans from a big file, vs. a file containing only those scans seems to suggest that all scans were "used".
 
-3. more to come.
-
+More details are in q8stats/README.md.
 
 ### Notes
 
-  - Not all operations are one-to-one with GBTIDL. For instance GBTIDL cannot calibrate multiple scans at once, whereas dysh can.  We will indicate in tabulated results if a dysh operation has no GBTIDL analog
+  - Not all operations are one-to-one with GBTIDL. For instance, GBTIDL cannot calibrate multiple scans at once, whereas dysh can.  
   - dysh always creates the analog of GBTIDL's index file, so GBTIDL comparisons should be run with no index file.
  - Timing is 'wall clock time', i.e., it includes and kernel/sleep operations.  In python, we are using  *time.perfcounter_ns()*
 
 ## Avoiding File caching
 
 On linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  
-Therefore you have to turn off file caching **each time** you run your benchmark with:
+Therefore it is best if you turn off file caching **each time** you run your benchmark with:
 
     sudo echo 1 > /proc/sys/vm/drop_caches
 
@@ -103,13 +102,17 @@ The standard set of SDFITS files to run the benchmark on are:
 ### DYSH_DATA
 
 To make it portable accross machines, data not in the $DYSH/testdata directory can be easily used via the `dysh.util.files.dysh_data()` function. Either placed
-in $DYSH_DATA/sdfits, under $DYSH_DATA/example-data or $DYSH_DATA/acceptance_testing.   TBD
+in $DYSH_DATA/sdfits, under $DYSH_DATA/example-data or $DYSH_DATA/acceptance_testing.  
+
+### Summary of tests and Results
+
+The full report is in q8stats/README.me 
 
 
-### Examples
+#### Example: Strange behavior when time-averaging
 
 The first example already showed very bizarre behavior when we repeated various forms of `getps()` in a repeated loop. You would expect
-times to be the same, but it all depended on if we time-averaged or not.  Times are in ms, on the lma machine at UMD.
+times to be the same, but it all depended on if we time-averaged or not.  Times are in ms, on the lma machine at UMD.  This may be related to issue #583.
 
 ```
 $ OMP_NUM_THREADS=1 /usr/bin/time bench_getps.py -d -l 10 -t
@@ -137,6 +140,7 @@ end 0.00999
 if the -t was not added, only repeated PSScan's were obtained, and all the times was very compatible and about 185ms, especially
 the ``getps2s`` stands out at over 400ms.
 
+
 ## NEMO
 
 In NEMO two programs exist that go down to the C level, including an option to use OpenMP, to benchmark a typical 4-phase calibration cycle
@@ -147,31 +151,9 @@ or else CPU cache will be used and code will look too fast.  A good compromise s
 
 which typically takes 3.5 on lma, depending on the CPU (e.g. 11.5s on fourier)
 
-### getps
 
-The example='test' in dysh are 8 ON/OFF scans, 352 rows, thus nscan=88 for nchan=32768.
-
-
-      python bench_getps.py  -d -s -l 10 
-      -> 600 ms
-
-      bench_sdmath.py -d -s 88 -n 32768 -m -1 -l 10
-      -> 18 ms
-
-      /usr/bin/time sdmath 88 32768 1000
-      -> 10.6 ms
-
-Also perhaps to note is that bench_sdmath runs faster in float32/float64 (60-90% in two cases), whereas the C program
-only ran 20% faster. Odd.
-
-        # getps, timing in ms
-        # with 4 scans     with 1 scan
- 
-        -n      270          100
-        .       600          180
         -t      950          315
 
-### gbtfitsload
 
 ## TODO
 
