@@ -1334,7 +1334,7 @@ class PSScan(ScanBase):
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-        self._exposure = np.empty(nspect, dtype="d")
+        # self._exposure = np.empty(nspect, dtype="d")
 
         if self._has_refspec:
             if self._smoothref > 1:
@@ -1374,6 +1374,7 @@ class PSScan(ScanBase):
                     if self._smoothref > 1:
                         ref = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
+                    # self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
 
     def _calc_exposure(self):
