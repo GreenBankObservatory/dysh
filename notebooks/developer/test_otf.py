@@ -46,8 +46,8 @@ def mkdir(name, clean=True):
 f1 = dysh_data('AGBT21B_024_01')   
 sdf1 = GBTFITSLoad(f1, skipflags=True)
 sdf1 = GBTFITSLoad(f1)    # ,skipflags=True)
-#    with skipflags:   CPU times: user 9min 1s, sys: 3.49 s, total: 9min 5s Wall time: 8min 56s
-# without skipflags:   CPU times: user 4.07 s, sys: 539 ms, total: 4.61 s
+# skipflags=False:   CPU times: user 9min 1s, sys: 3.49 s, total: 9min 5s Wall time: 8min 56s
+# skipflags=True:    CPU times: user 4.07 s, sys: 539 ms, total: 4.61 s
 
 
 
@@ -90,6 +90,7 @@ sdf1 = GBTFITSLoad(f1, skipflags=True)    # ~14sec
 
 start = 23
 end   = 57
+end   = 23
 scans = list(range(start,end+1))
 nchan = 1024
 fdnum = sdf1.udata("FDNUM")
@@ -115,6 +116,7 @@ for fd in fdnum:
         itpsb._calibrated = ta
         sb.append(itpsb)
 
+#%%
 # Save to SDFITS and then run the gbtgridder on it
 sb.write("otf-test.fits", overwrite=True)
 
@@ -352,18 +354,128 @@ scans = list(range(31,66)) + list(range(83,118))
 print(scans)
 heatmap(sdf1, cell=6, scans=scans)
 
+#%%  testps with getsigref
+
+f1 = dysh_data(test='getps')
+sdf1 = GBTFITSLoad(f1)
+
+sp1 = sdf1.getps(fdnum=0, ifnum=0, plnum=0).timeaverage()
+
+sp2 = sdf1.getsigref(152,153,fdnum=0, ifnum=0, plnum=0).timeaverage()
+
+
+sp1.stats()         # rms ~ 0.67
+(sp1-sp2).stats()   # rms ~ 2e-8
+
+
 #%%
+
+__help__ = """
+    SCAN         OBJECT VELOCITY       PROC  ...  # INT # FEED     AZIMUTH   ELEVATIO
+0      6          3C286      0.0      OnOff  ...     13      1  248.365704   72.55312
+1      7          3C286      0.0      OnOff  ...     13      1  250.038525  73.677706
+2      8         SgrB2M     57.0      Track  ...     61      1  142.384473  12.254537
+3      9           W33B     64.0      Track  ...     61      1  132.205692   17.97864
+4     10  G30.589-0.044     38.0      Track  ...     61      1  115.481079  25.552326
+5     11  G31.412+0.307     97.0      Track  ...     61      1  115.803415   27.09864
+6     12  G35.577-0.029     49.0      Track  ...     61      1   112.31392  29.033662
+7     13  G40.622-0.137     32.0      Track  ...     61      1   107.77357  31.315933
+8     14        NGC6946     45.0  DecLatMap  ...     61      1   38.962631  41.364443
+9     15        NGC6946     45.0  DecLatMap  ...     61      1   38.991018   41.44875
+10    16        NGC6946     45.0  DecLatMap  ...     61      1   38.991814  41.535999
+11    17        NGC6946     45.0  DecLatMap  ...     61      1   39.019325   41.62031
+12    18        NGC6946     45.0  DecLatMap  ...     61      1   39.019752  41.707519
+13    19        NGC6946     45.0  DecLatMap  ...     61      1   39.046779  41.791907
+14    20        NGC6946     45.0  DecLatMap  ...     61      1   39.046452  41.879147
+15    21        NGC6946     45.0  DecLatMap  ...     61      1   39.072974  41.963652
+16    22        NGC6946     45.0  DecLatMap  ...     61      1   39.072156  42.050849
+17    23        NGC6946     45.0  DecLatMap  ...     61      1   39.098252  42.135459
+18    24        NGC6946     45.0  DecLatMap  ...     61      1   39.096777  42.222654
+19    25        NGC6946     45.0  DecLatMap  ...     61      1   39.122446  42.307343
+20    26        NGC6946     45.0  DecLatMap  ...     61      1    39.12023  42.394543
+21    27        NGC6946     45.0      Track  ...     61      1   39.088117  42.149313
+
+[22 rows x 13 columns]
+
+"""
 
 f1 = dysh_data(example='mapping-L/data/TGBT17A_506_11.raw.vegas')    # 2.3GB
 print(f1)
 
 sdf1 = GBTFITSLoad(f1)
 sdf1.summary()
-#
-#  scans 14..26 is the DecLatMap
+
+# note INTNUM has odd values for scan=6
+
+if False:
+    mkdir("otf1")
+    scans=[20,27]
+    sdf1.write('otf1/file.fits',scan=scans, overwrite=True, ifnum=0, plnum=0)
+
+#  scans 14..26 is the DecLatMap  (procseq=1..13)
 #  scan 27 is a Track on the reference position
 
-sdf.getsig
+# ifnum: 0..4    
+# fdnum: 0
+# plnum: 0..1
+
+sdf1.getsigref(scan=26, ref=27, fdnum=0, ifnum=0, plnum=0)
+# ValueError: cannot reindex on an axis with duplicate labels
+# error gone when fix 425 was merged
 
 
+#%%
+
+
+
+#%%   prepare a smaller sdfits just for NGC6946
+
+ifnum=0        # needs to be 0
+plnum=0        # pick 0 and 1 to average
+fdnum=0        # fixed
+nint = 61      # nunber of integrations per scan
+intnum = 30    # pick something in the middle for a test
+sig = 20
+ref = 27
+
+# make smaller sdfits
+scans = list(range(14,28))
+mkdir("otf1")
+# scans = [sig, ref]
+sdf1.write('otf1/file.fits',scan=scans, overwrite=True, fdnum=fdnum, ifnum=ifnum, plnum=plnum)
+
+
+sdf2 = GBTFITSLoad('otf1')
+sdf2.summary()
+
+#  quick test
+sp2 = sdf2.getsigref(scan=sig, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum, intnum=intnum).timeaverage()
+sp2.plot(xaxis_unit="km/s")
+
+# region between -2000 and -500   and 500..2000 can be used for baseline
+
+#%% pick sdf1 or sdf2 for speed testing the calibration portion
+
+# on the big one it takes ~ 1'12"
+# small one it takes ~      6"
+
+scans = list(range(14,27))
+sb = ScanBlock()
+
+# sdf = sdf1    # big one (2300MB)
+# sdf = sdf2    # just the relevant scans 14..27  (5MB)
+
+print("Using", sdf.filename, "for", scans)
+for s in scans:
+    print(s)
+    sb1 =  sdf.getsigref(scan=s, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)[0]
+    sb.append(sb1)
+
+#%%
+sb.write("otf-test2.fits", overwrite=True)    #  300 ms
+
+#
+# gbtgridder --size 32 32  --channels 500:3500 -o test2 --clobber --auto otf-test2.fits
+# pixels:  2.9'  100x100 ->  
+# confirmed the two cubes from sdf1 and sdf2 are identical 
 
