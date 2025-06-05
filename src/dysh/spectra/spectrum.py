@@ -231,8 +231,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 if self._bline is not None:
                     self._bline.set_ydata(np.ones(int(self.meta["NAXIS1"])) * np.nan)
                 if not self._plotter._freezey:
-                    self._plotter._axis.autoscale(enable=True)
-                    self._plotter._axis.autoscale_view()
+                    self.freey()
                 # ydiff = np.max(self._data) - np.min(self._data)
                 # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
                 # self._plotter._figure.canvas.flush_events()
@@ -260,8 +259,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._baseline_model = None
             self._plotter._line.set_ydata(self._data)
             if not self._plotter._freezey:
-                self._plotter._axis.autoscale(enable=True)
-                self._plotter._axis.autoscale_view()
+                self.freey()
 
     def _set_exclude_regions(self, exclude):
         """
@@ -329,15 +327,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def freex(self):
         if self._plotter is not None:
             self._plotter._freezex = False
+            # This line (and the other in specplot.py) will have to be addressed when we
+            # implement multiple IF windows in the same plot
+            self._plotter._axis.set_xlim(np.min(self._spectral_axis).value, np.max(self._spectral_axis).value)
 
     def freey(self):
         if self._plotter is not None:
             self._plotter._freezey = False
+            self._plotter._axis.relim()
+            self._plotter._axis.autoscale(axis='y',enable=True)
+            self._plotter._axis.autoscale_view()
 
     def freexy(self):
         if self._plotter is not None:
-            self._plotter._freezex = False
-            self._plotter._freezey = False
+            self.freex()
+            self.freey()
 
     def stats(self, roll=0, qac=False):
         """

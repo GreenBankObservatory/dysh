@@ -209,7 +209,7 @@ class SpectrumPlot:
         if self._freezey:
             self._axis.autoscale(enable=False)
         else:
-            self._axis.autoscale(enable=True)
+            self._axis.autoscale(axis="y", enable=True)
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
         if this_plot_kwargs["grid"]:
             self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
