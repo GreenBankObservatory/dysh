@@ -326,6 +326,19 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def plotter(self):
         return self._plotter
 
+    def freex(self):
+        if self._plotter is not None:
+            self._plotter._freezex = False
+
+    def freey(self):
+        if self._plotter is not None:
+            self._plotter._freezey = False
+
+    def freexy(self):
+        if self._plotter is not None:
+            self._plotter._freezex = False
+            self._plotter._freezey = False
+
     def stats(self, roll=0, qac=False):
         """
         Compute some statistics of this `Spectrum`.  The mean, rms, median,

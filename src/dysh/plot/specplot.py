@@ -92,7 +92,8 @@ class SpectrumPlot:
         self._axis = None
         self._title = self._plot_kwargs["title"]
         self._selector: InteractiveSpanSelector = None
-        self._freeze = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
+        self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
+        self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
 
     # def __call__ (see pyspeckit)
 
@@ -205,7 +206,7 @@ class SpectrumPlot:
         else:
             self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
-        if self._freeze:
+        if self._freezey:
             self._axis.autoscale(enable=False)
         else:
             self._axis.autoscale(enable=True)
