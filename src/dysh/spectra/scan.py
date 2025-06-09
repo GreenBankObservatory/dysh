@@ -2,6 +2,7 @@
 The classes that define various types of Scan and their calibration methods.
 """
 
+import warnings
 from abc import abstractmethod
 from collections import UserList
 from copy import deepcopy
@@ -95,7 +96,17 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits, smoothref, apply_flags, observer_location, fdnum=-1, ifnum=-1, plnum=-1, tsys=None):
+    def __init__(
+        self,
+        sdfits,
+        smoothref,
+        apply_flags,
+        observer_location,
+        fdnum=-1,
+        ifnum=-1,
+        plnum=-1,
+        tsys=None,
+    ):
         HistoricalBase.__init__(self)
         self._fdnum = fdnum
         self._ifnum = ifnum
@@ -118,6 +129,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._bunit_to_unit = {"ta": u.K, "ta*": u.K, "jy": u.Jy, "counts": u.ct}
+        self._baseline_model = None
+        self._subtracted = False
 
     def _validate_defaults(self):
         _required = {
@@ -200,7 +213,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
+            Masked(
+                self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()],
+                self._calibrated[i].mask,
+            ),
             meta=self.meta[i],
             observer_location=self._observer_location,
         )
@@ -330,6 +346,41 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def _set_all_meta(self, key, value):
         for i in range(len(self._meta)):
             self._meta[i][key] = value
+
+    def _check_model(self, model, c0, sa, tol):
+        # make sure flux units match
+        if model.return_units != c0.unit:
+            raise ValueError(f"Units of model {model.return_units} and calibrated data {c0.unit} must be the same.")
+        # Warn if domain of model doesn't encompass domain of spectral axis
+        cdelt = sa[1] - sa[0]
+        toldelt = abs(tol * cdelt)
+        if (sa[0] - model.domain[0] * model.input_units < -toldelt) or (
+            model.domain[-1] * model.input_units - sa[1] > toldelt
+        ):
+            raise ValueError(f"Baseline model would extrapolate on spectral axis by more than {tol} channels.")
+
+    @log_call_to_history
+    def subtract_baseline(self, model, tol=1, force=False):
+        if not self._calibrated:
+            raise ValueError("foo")
+        if self._subtracted:
+            if not force:
+                warnings.warn("foo", stacklevel=2)
+                return
+
+        c0 = self.calibrated(0)
+        sa = c0.spectral_axis
+        self._check_model(model, c0, sa, tol)
+        self._calibrated -= model(sa).value
+        self._subtracted = True
+        # if self._baseline_model is not None and force:
+        #    self._baseline_model += model  # this doesn't work for QuantityModel
+        # else:
+        self._baseline_model = model
+
+    def undo_baseline(self):
+        sa = self.calibrated(0).spectral_axis
+        self._calibrated += self._baseline_model(sa).value
 
     @property
     def scan(self):
@@ -1786,7 +1837,11 @@ class FSScan(ScanBase):
 
         self._nchan = len(self._sigcalon[0])
         self._finish_initialization(
-            calibrate, {"fold": fold, "shift_method": shift_method}, self._sigonrows, bunit, zenith_opacity
+            calibrate,
+            {"fold": fold, "shift_method": shift_method},
+            self._sigonrows,
+            bunit,
+            zenith_opacity,
         )
 
     @property
