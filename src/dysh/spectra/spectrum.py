@@ -335,7 +335,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is not None:
             self._plotter._freezey = False
             self._plotter._axis.relim()
-            self._plotter._axis.autoscale(axis='y',enable=True)
+            self._plotter._axis.autoscale(axis="y", enable=True)
             self._plotter._axis.autoscale_view()
 
     def freexy(self):
