@@ -254,11 +254,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
-            self._baseline_model = None
+
             self._plotter._line.set_ydata(self._data)
             ydiff = np.max(self._data) - np.min(self._data)
             self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
             self._plotter._figure.canvas.flush_events()
+        self._baseline_model = None
 
     def _set_exclude_regions(self, exclude):
         """
@@ -881,7 +882,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
             unc = self.uncertainty.quantity
             udesc = "Flux uncertainty"
         outarray = [self.spectral_axis, self.flux, unc, self.weights, mask, bl]
-        description = ["Spectral axis", "Flux", udesc, "Channel weights", "Mask 0=unmasked, 1=masked", bldesc]
+        description = [
+            "Spectral axis",
+            "Flux",
+            udesc,
+            "Channel weights",
+            "Mask 0=unmasked, 1=masked",
+            bldesc,
+        ]
         # remove FITS reserve keywords
         meta = deepcopy(self.meta)
         meta.pop("NAXIS1", None)
