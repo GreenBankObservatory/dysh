@@ -130,7 +130,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._observer_location = observer_location
         self._bunit_to_unit = {"ta": u.K, "ta*": u.K, "jy": u.Jy, "counts": u.ct}
         self._baseline_model = None
-        self._subtracted = False
+        self._subtracted = False  # arguably this is True if baseline_model is None
 
     def _validate_defaults(self):
         _required = {
@@ -221,6 +221,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             observer_location=self._observer_location,
         )
         s.merge_commentary(self)
+        s._baseline_model = self._baseline_model
+        s._subtracted = self._subtracted
         return s
 
     @property
@@ -361,11 +363,41 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     @log_call_to_history
     def subtract_baseline(self, model, tol=1, force=False):
-        if not self._calibrated:
-            raise ValueError("foo")
+        """
+        Subtract a (previously computed) baseline model from every integration in this Scan.
+
+        Parameters
+        ----------
+        model : `~astropy.modeling.Model`
+            The baseline model to subtract. This is typically a `~specutils.utils.quantity_model.QuantityModel`
+            derived by removing a baseline from a similar spectrum.
+        tol : int, optional
+            The maximum number of channels on either end of the spectrum to extrapolate the baseline model,
+            if the spectral domain of the baseline model is smaller than the spectral axis of the Scan.
+            The default is 1.
+        force : bool, optional
+            Force subtraction of the input baseline model, even if another baseline model has been previously subtracted.
+            Note: The previous baseline model will **not** be undone (added back in) before subtraction of the input baseline model.
+            The default is False.
+
+        Raises
+        ------
+        ValueError
+            If the data are not yet calibrated or the tolerance `tol` is exceeded.
+
+        Returns
+        -------
+        None.
+
+        """
+        if self._calibrated is None:
+            raise ValueError("Data must be calibrated before a baseline can be subtracted.")
         if self._subtracted:
             if not force:
-                warnings.warn("foo", stacklevel=2)
+                warnings.warn(
+                    "A baseline model has already been subtracted from this scan. Use 'force=True' to force removal of another model.",
+                    stacklevel=2,
+                )
                 return
 
         c0 = self.calibrated(0)
@@ -373,14 +405,16 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._check_model(model, c0, sa, tol)
         self._calibrated -= model(sa).value
         self._subtracted = True
-        # if self._baseline_model is not None and force:
-        #    self._baseline_model += model  # this doesn't work for QuantityModel
-        # else:
         self._baseline_model = model
 
     def undo_baseline(self):
         sa = self.calibrated(0).spectral_axis
         self._calibrated += self._baseline_model(sa).value
+
+    @property
+    def baseline_model(self):
+        """Returns the subtracted baseline model or None if it has not yet been computed."""
+        return self._baseline_model
 
     @property
     def scan(self):
@@ -795,6 +829,38 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             logger.warning(f"The Scans in this ScanBlock have differing brightness units {bunit}")
             return list(bunit)
         return list(bunit)[0]  # noqa: RUF015
+
+    @log_call_to_history
+    def subtract_baseline(self, model, tol=1, force=False):
+        """
+        Subtract a (previously computed) baseline model from every integration of every Scan in this ScanBlocl.
+
+        Parameters
+        ----------
+        model : `~astropy.modeling.Model`
+            The baseline model to subtract. This is typically a `~specutils.utils.quantity_model.QuantityModel`
+            derived by removing a baseline from a similar spectrum.
+        tol : int, optional
+            The maximum number of channels on either end of the spectrum to extrapolate the baseline model,
+            if the spectral domain of the baseline model is smaller than the spectral axis of the Scan.
+            The default is 1.
+        force : bool, optional
+            Force subtraction of the input baseline model, even if another baseline model has been previously subtracted.
+            Note: The previous baseline model will **not** be undone (added back in) before subtraction of the input baseline model.
+            The default is False.
+
+        Raises
+        ------
+        ValueError
+            If the data are not yet calibrated or the tolerance `tol` is exceeded.
+
+        Returns
+        -------
+        None.
+
+        """
+        for scan in self.data:
+            scan.subtract_baseline(model, tol, force)
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
