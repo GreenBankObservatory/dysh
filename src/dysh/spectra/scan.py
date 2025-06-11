@@ -383,6 +383,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         tol : int, optional
             The maximum number of channels on either end of the spectrum to extrapolate the baseline model,
             if the spectral domain of the baseline model is smaller than the spectral axis of the Scan.
+            For instance, if `tol=1`, then
+            one channel on the low frequency and one channel on the high frequency end are allowed to be extrapolated.
             The default is 1.
         force : bool, optional
             Force subtraction of the input baseline model, even if another baseline model has been previously subtracted.
@@ -874,7 +876,8 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             derived by removing a baseline from a similar spectrum.
         tol : int, optional
             The maximum number of channels on either end of the spectrum to extrapolate the baseline model,
-            if the spectral domain of the baseline model is smaller than the spectral axis of the Scan.
+            if the spectral domain of the baseline model is smaller than the spectral axis of the Scan. For instance, if `tol=1`, then
+            one channel on the low frequency and one channel on the high frequency end are allowed to be extrapolated.
             The default is 1.
         force : bool, optional
             Force subtraction of the input baseline model, even if another baseline model has been previously subtracted.
