@@ -2669,6 +2669,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         freq: u.Quantity = None,
         tcold: float | None = None,
         twarm: float | None = None,
+        apply_flags: bool = True,
     ):
         """
         This routine returns the system temperature and gain for the selected W-band channel.
@@ -2698,6 +2699,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Set the cold temperature. By default it is computed as ``54 K - 0.6 K/GHz * (freq - 77 GHz)``.
         twarm : float, optional
             Set the warm temperature. By default it will use the value in the TWARM column of the SDFITS.
+        apply_flags : bool, optional
+            If True, apply flags before computing the system temperature.
 
         Returns
         -------
@@ -2712,7 +2715,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If `fdnum` is not 0 or 1.
         """
 
-        tp_args = {"scan": scan, "ifnum": ifnum, "plnum": plnum, "fdnum": fdnum, "calibrate": True, "cal": False}
+        tp_args = {
+            "scan": scan,
+            "ifnum": ifnum,
+            "plnum": plnum,
+            "fdnum": fdnum,
+            "calibrate": True,
+            "cal": False,
+            "apply_flags": apply_flags,
+        }
         vsky = self.gettp(CALPOSITION="Observing", **tp_args).timeaverage()
         vcold1 = self.gettp(CALPOSITION="Cold1", **tp_args).timeaverage()
         vcold2 = self.gettp(CALPOSITION="Cold2", **tp_args).timeaverage()
@@ -2793,6 +2804,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Temperature of the VANE in K. If not provided it will use the value found in the "TWARM" column of the SDFITS for `scan`.
         tbkg : float, optional
             Background temperature in K.
+        apply_flags : bool, optional
+            If True, apply flags before deriving the system temperature.
 
         Returns
         -------
