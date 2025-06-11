@@ -196,11 +196,11 @@ class DTime(object):
         return np.array([mem["VmSize"], mem["VmRSS"]])
 
     def report(self, debug=False):
-
         """ """
-        if not self.active: return
-        #print("PJT state",self.state)
-	#        assert(self.state == 1)
+        if not self.active:
+            return
+            #        assert(self.state == 1)
+        # print("PJT state",self.state)
 
         n = len(self.stats)
         if debug:
