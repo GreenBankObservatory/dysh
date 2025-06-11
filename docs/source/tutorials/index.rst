@@ -80,14 +80,14 @@ Most useful when you want to get started reducing your data.
         :shadow: md
         :margin: 2 2 0 0
 
-        **W-Band Nod**
+        **Calibration Sequence**
 
-        .. button-link:: examples/w-band.html
+        .. button-link:: examples/calseq.html
             :color: primary
             :outline:
             :click-parent:
 
-            Beam Nodding with W-Band
+            Calibration sequence and beam nodding with GBT W-Band
 
 
 .. toctree::
@@ -99,4 +99,4 @@ Most useful when you want to get started reducing your data.
    examples/subbeamnod
    examples/nodding
    examples/hi_survey
-   examples/w-band
+   examples/calseq
