@@ -73,5 +73,3 @@ load4 15658.5 4796.0 1909.0      8     56.18  449.44  1024 95136   4   2    2   
       188    0.236    0.001    0.392    0.002 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/internals/managers.py:2276(_merge_blocks)
    761088    0.236    0.000    0.322    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:859(in_subfmt)
         4    0.235    0.059   40.926   10.232 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:863(_create_index_if_needed)
-
-

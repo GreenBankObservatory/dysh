@@ -70,5 +70,3 @@ load4 14927.2 4735.8 1848.6      8     56.18  449.44  1024 95136   4   2    2   
     11904    0.010    0.000    1.850    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1149(__iter__)
 13825488/13818636    1.795    0.000    1.831    0.000 {built-in method builtins.isinstance}
   4566600    1.217    0.000    1.698    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:442(_select_subfmts)
-
-

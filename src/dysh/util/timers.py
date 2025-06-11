@@ -1,26 +1,20 @@
 #! /usr/bin/env python
 #
-import os
-import sys
-import time
-import pstats
-from pstats import SortKey
 import cProfile
+import os
+import pstats
+import time
+from pstats import SortKey
 
-from pathlib import Path
 import numpy as np
-from astropy.time import Time
-
-from astropy.table import Table,vstack
-import astropy.units as u
-
-
+from astropy.table import Table, vstack
 
 __all__ = ["DTime"]
 
 __ostype__ = None
 
 # see also ADMIT's util.utils.Dtime()
+
 
 class DTime(object):
     r"""This class encapsulated some popular timing/performance tools.
@@ -36,7 +30,7 @@ class DTime(object):
 
     data_cols : list
          List of names of the extra columns (in addition to the default name and time) written
-         to an Astropy at the report stage of this class. 
+         to an Astropy at the report stage of this class.
 
     data_units : list
          List of units names of the extra columns.
@@ -45,14 +39,14 @@ class DTime(object):
          List of data types of the extra columns.
 
     args: dict
-         This dictionary controls a number of common variables used in dysh benchmarking. 
+         This dictionary controls a number of common variables used in dysh benchmarking.
 
          out        : output filename (astropy Table). Default it none is written.
          append     : append to previous output file (astropy Table). Default:
          overwrite  : overwrite a previous output file (astropy Table).
          profile    : run the profiler: Default False
          statslines : number of profiler statistics lines to print. Default 25
-         sortkey    : how to sort the profiler statistics, "cumulative" or "time". Default "cumulative" (SortKey.CUMULATIVE). 
+         sortkey    : how to sort the profiler statistics, "cumulative" or "time". Default "cumulative" (SortKey.CUMULATIVE).
 
 
     Example
@@ -64,31 +58,31 @@ class DTime(object):
     dt.tag("test3")
     dt.done()
 
-    By default it simply builds a delta-time of the time it took between the different tags, as 
+    By default it simply builds a delta-time of the time it took between the different tags, as
     labeled by their tag name. If DTime() is supplied a number of data items for extra columns,
     these will be reported, or stored in a table, if out= is supplied.
-    
+
 
     """
 
-    def __init__(self,
-                 benchname="generic", units="ms", active = True,
-                 data_cols = None, data_units = None, data_types = None,
-                 args = None):
-                 # out = None, overwrite=False, append=False, profile=False, statslines=25,
+    def __init__(
+        self, benchname="generic", units="ms", active=True, data_cols=None, data_units=None, data_types=None, args=None
+    ):
+        # out = None, overwrite=False, append=False, profile=False, statslines=25,
         self.active = active
-        if not self.active: return
+        if not self.active:
+            return
         self.benchname = benchname
         self.state = 0
         self.ndata = 0
-        self._sortkeys = {"cumulative": SortKey.CUMULATIVE, "time":SortKey.TIME}
+        self._sortkeys = {"cumulative": SortKey.CUMULATIVE, "time": SortKey.TIME}
         if args is not None:
-            self.out = args['out']             # @todo check the dictionary
-            self.append = args['append']
-            self.overwrite = args['overwrite']
-            self.profile = args['profile']
-            self.statslines = int(args['statslines'])
-            self.sortkey = self._sortkeys[args['sortkey']]
+            self.out = args["out"]  # @todo check the dictionary
+            self.append = args["append"]
+            self.overwrite = args["overwrite"]
+            self.profile = args["profile"]
+            self.statslines = int(args["statslines"])
+            self.sortkey = self._sortkeys[args["sortkey"]]
         else:
             self.out = None
             self.append = False
@@ -96,28 +90,27 @@ class DTime(object):
             self.profile = False
             self.statslines = 0
             self.sortkey = self._sortkeys["cumulative"]
-            
+
         if self.profile:
             self.pr = cProfile.Profile()
             self.pr.enable()
 
         # standard columns if no data[] are given
         my_cols = ["name", "time", "VmSize", "VmRSS"]
-        my_unit = ["",     "ms",   "MB",     "MB"]
-        my_type = [str,    float,  float,    float]
+        my_unit = ["", "ms", "MB", "MB"]
+        my_type = [str, float, float, float]
         my_data = []
-            
+
         if data_cols is not None and data_units is not None and data_types is not None:
             self.ndata = len(data_cols)
-            #print("PJT ndata",self.ndata)
-            assert(len(data_units) == self.ndata)
-            assert(len(data_types) == self.ndata)
+            # print("PJT ndata",self.ndata)
+            assert len(data_units) == self.ndata
+            assert len(data_types) == self.ndata
             my_cols = my_cols + data_cols
             my_unit = my_unit + data_units
             my_type = my_type + data_types
-            
-        self.table = Table(meta={"name": f"Dysh Benchmark {benchname}"},
-                           names=my_cols, units=my_unit, dtype=my_type)
+
+        self.table = Table(meta={"name": f"Dysh Benchmark {benchname}"}, names=my_cols, units=my_unit, dtype=my_type)
         self.stats = []
 
         # prepare for the first row in the table
@@ -129,28 +122,28 @@ class DTime(object):
             elif type(t) == type(float):
                 my_data.append(0.0)
             else:
-                my_data.append(None)            
-        
+                my_data.append(None)
+
         self.stats.append(["start", time.perf_counter_ns(), 0.0, 0.0, my_data])
 
     def active(self):
         return self.active
 
     def tag(self, name, data=None):
-        """
-        """
-        if not self.active: return
+        """ """
+        if not self.active:
+            return
         if data is not None:
-            assert(len(data) == self.ndata)
+            assert len(data) == self.ndata
         mem1, mem2 = self._mem()
         self.stats.append([name, time.perf_counter_ns(), mem1, mem2, data])
 
     def close(self):
-        """
-        """
-        #print("PJT close")
+        """ """
+        # print("PJT close")
         self.state = 1
-        if not self.active: return
+        if not self.active:
+            return
 
     def enable(self):
         """Enable the profiler"""
@@ -161,28 +154,28 @@ class DTime(object):
         self.pr.disable()
 
     def _mem(self):
-        """ Read memory usage info from /proc/pid/status
-            Return Virtual and Resident memory size in MBytes.
+        """Read memory usage info from /proc/pid/status
+        Return Virtual and Resident memory size in MBytes.
 
-            @todo   add implementation for Mac (see ADMIT)
+        @todo   add implementation for Mac (see ADMIT)
         """
         global __ostype__
 
         if __ostype__ is None:
             __ostype__ = os.uname()[0].lower()
-            print("Found ostype=",__ostype__)
-            
-        scale = {'MB': 1024.0}
+            print("Found ostype=", __ostype__)
+
+        scale = {"MB": 1024.0}
         lines = []
-           
+
         try:
             if __ostype__ == "linux":
-                proc_status = '/proc/%d/status' % os.getpid()          # linux only
+                proc_status = "/proc/%d/status" % os.getpid()  # linux only
                 # open pseudo file  /proc/<pid>/status
                 t = open(proc_status)
                 # get value from line e.g. 'VmRSS:  9999  kB\n'
                 for it in t.readlines():
-                    if 'VmSize' in it or 'VmRSS' in it :
+                    if "VmSize" in it or "VmRSS" in it:
                         lines.append(it)
                 t.close()
             else:
@@ -197,28 +190,27 @@ class DTime(object):
             for line in lines:
                 words = line.strip().split()
                 key = words[0][:-1]
-                scaled = float(words[1]) / scale['MB']
+                scaled = float(words[1]) / scale["MB"]
                 mem[key] = scaled
 
-        return np.array([mem['VmSize'], mem['VmRSS']])
-
+        return np.array([mem["VmSize"], mem["VmRSS"]])
 
     def report(self, debug=False):
-        """
-        """
-        if not self.active: return
-        #print("PJT state",self.state)
-        assert(self.state == 1)
+        """ """
+        if not self.active:
+            return
+        # print("PJT state",self.state)
+        assert self.state == 1
         n = len(self.stats)
         if debug:
             print(f"Found {n} entries")
             for i in range(n):
                 print(self.stats[i])
 
-        for i in range(1,n):
-            dt = (self.stats[i][1] - self.stats[i-1][1])/1e6   # in ms, @todo check units
+        for i in range(1, n):
+            dt = (self.stats[i][1] - self.stats[i - 1][1]) / 1e6  # in ms, @todo check units
             if debug:
-                print(self.stats[i][0],dt)
+                print(self.stats[i][0], dt)
             if self.table is not None:
                 mem1 = self.stats[i][2]
                 mem2 = self.stats[i][3]
@@ -250,19 +242,21 @@ class DTime(object):
         if self.profile:
             self.pr.disable()
             ps = pstats.Stats(self.pr).sort_stats(self.sortkey)
-            #ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE, SortKey.TIME)
-            #ps.print_stats(int(args.statslines))
+            # ps = pstats.Stats(pr).sort_stats(SortKey.CUMULATIVE, SortKey.TIME)
+            # ps.print_stats(int(args.statslines))
             ps.print_stats(self.statslines)
 
     def total(self):
-        """ 
+        """
         report total CPU time so far
         """
-        if not self.active: return 0
+        if not self.active:
+            return 0
         n = len(self.stats)
-        dt =  (self.stats[n-1][1] - self.stats[0][1])/1e6
+        dt = (self.stats[n - 1][1] - self.stats[0][1]) / 1e6
         return dt
-        
+
+
 if __name__ == "__main__":
     #  Also compare the output of this with /usr/bin/time on the executable
     #  to find any overhead of the timer we didn't account. Optionally run
@@ -274,9 +268,9 @@ if __name__ == "__main__":
     dt.tag("test2      ")
     dt.tag("test3      ")
     dt.tag("test4      ")
-    for k in range(3,9):
+    for k in range(3, 9):
         a = np.arange(10**k)
         dt.tag(f"arange(1e{k})")
     dt.close()
     dt.report(debug=False)
-    print("Final total:",dt.total())
+    print("Final total:", dt.total())

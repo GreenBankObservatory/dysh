@@ -74,5 +74,3 @@ load4 15696.6 4799.2 1910.6      8     56.18  449.44  1024 95136   4   2    2   
 14618884/14611872    1.940    0.000    2.000    0.000 {built-in method builtins.isinstance}
        36    0.000    0.000    1.898    0.053 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/accessor.py:834(split)
     11904    0.038    0.000    1.894    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/groupby/ops.py:607(get_iterator)
-
-

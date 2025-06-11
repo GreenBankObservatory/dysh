@@ -73,5 +73,3 @@ load4 35621.6 6080.7 2098.9      3    768.09 2304.27 32768 17496   3   2    2   
    249032    0.558    0.000    0.668    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/generic.py:278(__init__)
    338408    0.555    0.000    2.130    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/table/column.py:1000(searchsorted)
 1104918/1102202    0.551    0.000    3.649    0.000 {method 'view' of 'numpy.ndarray' objects}
-
-

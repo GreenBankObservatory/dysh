@@ -69,5 +69,3 @@ load4 3191.9 6029.2 2047.4      3    768.09 2304.27 32768 17496   3   2    2    
         8    0.047    0.006    0.139    0.017 /lma1/mpound/dysh/src/dysh/util/core.py:101(gbt_timestamp_to_time)
    139976    0.047    0.000    0.139    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:778(scale)
    139976    0.047    0.000    5.255    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:263(self_iter)
-
-

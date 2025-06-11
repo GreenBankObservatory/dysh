@@ -51,5 +51,3 @@ echo "doing OTF bench..."
 ../bench_otf.py -d -s  --statslines 50 -m -p -x time    > getotf_bench.profile
 ../bench_otf.py -d -s  --statslines 50 -m -p         -b > getotf_bench_big.profile.time
 ../bench_otf.py -d -s  --statslines 50 -m -p -x time -b > getotf_bench_big.profile
-
-

@@ -74,5 +74,3 @@ load4 12553.0 3973.8 1086.8      8     66.72  533.76 16384 8064   4   2    2    
     25312    0.096    0.000    2.452    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/table/index.py:829(_get_rows)
     64520    0.022    0.000    2.414    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:263(self_iter)
     64512    0.054    0.000    2.391    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:243(__getitem__)
-
-

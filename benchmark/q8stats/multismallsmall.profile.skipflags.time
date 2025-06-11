@@ -69,5 +69,3 @@ load4 14817.2 4740.8 1853.4      8     56.18  449.44  1024 95136   4   2    2   
   1522208    0.230    0.000    0.230    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:269(scale)
    761088    0.229    0.000    0.315    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:859(in_subfmt)
       188    0.229    0.001    0.379    0.002 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/internals/managers.py:2276(_merge_blocks)
-
-

@@ -70,7 +70,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     @log_call_to_history
     def __init__(self, fileobj, source=None, hdu=None, skipflags=False, **kwargs):
-        kwargs_opts = {"index": True, "verbose": False, "fix_ka": True}  # only set index to False for performance testing.
+        kwargs_opts = {
+            "index": True,
+            "verbose": False,
+            "fix_ka": True,
+        }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
         path = Path(fileobj)
@@ -93,9 +97,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"Selecting {f} to load")
                 if kwargs.get("verbose", None):
                     print(f"Loading {f}")
-                if nf < kwargs.get('nfiles',99999): #performance testing limit number of files loaded
+                if nf < kwargs.get("nfiles", 99999):  # performance testing limit number of files loaded
                     self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
-                    nf+=1
+                    nf += 1
             if len(self._sdf) == 0:  # fixes issue 381
                 raise Exception(f"No FITS files found in {fileobj}.")
             if not hasattr(self, "_filename"):
@@ -303,14 +307,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             df = df[df["BINTABLE"] == bintable]
         return df
 
-    def stats(self,bintable=0):
+    def stats(self, bintable=0):
         """
-        Return some basic statistics of the GBTFITSLoad. 
+        Return some basic statistics of the GBTFITSLoad.
         Useful for performance testing.  A dictionary with
         the following keys and values is returned:
 
             nfiles : number of FITS files
-            nrows  : number of data rows 
+            nrows  : number of data rows
             fdnum  : number of unique feeds
             ifnum  : number of unique IFs
             plnum  : number of unique polarizations
@@ -334,10 +338,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         s["nfiles"] = len(self.files)
         for k in ["fdnum", "ifnum", "plnum", "intnum", "sig", "cal"]:
             s[k] = len(uniq(df[k.upper()]))
-        s['nchan'] = self._sdf[0].nchan(0)
+        s["nchan"] = self._sdf[0].nchan(0)
         return s
-        
-    
+
     # override sdfits version
     def rawspectra(self, bintable, fitsindex, setmask=False):
         """

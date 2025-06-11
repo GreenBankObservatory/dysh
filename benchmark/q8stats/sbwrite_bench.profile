@@ -172,5 +172,3 @@ sbwrite10   896.8 13120.2 6497.3      2   3963.61 7927.22 32768 60192   8   1   
       260    0.536    0.002    9.632    0.037 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:285(from_columns)
       520    0.019    0.000    9.483    0.018 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:1467(__init__)
    869815    2.252    0.000    9.479    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/config/configuration.py:442(__call__)
-
-
