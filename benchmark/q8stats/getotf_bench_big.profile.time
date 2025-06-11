@@ -1,0 +1,73 @@
+using Namespace(dobench=True, key='test1', timeaverage=False, nocalibrate=False, loop=4, feeds=16, skipflags=True, big=True, out=None, append=False, overwrite=False, profile=True, statslines='50', sortkey='cumulative', memory=True, quit=False)
+Loading  /lma1/teuben/GBT/dysh_data/example_data/mapping-L/data/TGBT17A_506_11.raw.vegas
+STATS: {'nrows': 15680, 'nfiles': 1, 'fdnum': 1, 'ifnum': 5, 'plnum': 2, 'intnum': 61, 'sig': 2, 'cal': 2, 'nchan': 32768}
+Found ostype= linux
+# Dysh Benchmark: otf
+   name     time   VmSize VmRSS  skipflags
+             ms    Mbyte  Mbyte           
+--------- -------- ------ ------ ---------
+    load1   5268.7 3860.5 2262.1      True
+   write1      0.1 3860.5 2262.1      True
+    load2      0.0 3860.5 2262.1      True
+getsigref 115701.4 3946.8 2349.8      True
+   write2    921.7 3954.8 2358.1      True
+   report      0.1 3954.8 2358.1      True
+         266045053 function calls (233077953 primitive calls) in 121.891 seconds
+
+   Ordered by: cumulative time
+   List reduced from 3188 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    26/13    0.006    0.000  115.700    8.900 /lma1/teuben/GBT/dysh/src/dysh/log.py:278(wrapper)
+       13    0.158    0.012  115.690    8.899 /lma1/teuben/GBT/dysh/src/dysh/fits/gbtfitsload.py:1159(getsigref)
+       26    0.025    0.001   87.803    3.377 /lma1/teuben/GBT/dysh/src/dysh/fits/gbtfitsload.py:977(_common_selection)
+32442609/15106   28.167    0.000   86.425    0.006 /lma1/teuben/GBT/anaconda3/lib/python3.12/copy.py:118(deepcopy)
+       26    0.001    0.000   86.239    3.317 /lma1/teuben/GBT/dysh/src/dysh/util/selection.py:871(__deepcopy__)
+14529/10343    0.024    0.000   85.641    0.008 /lma1/teuben/GBT/anaconda3/lib/python3.12/copy.py:247(_reconstruct)
+15708/1044    0.005    0.000   85.554    0.082 /lma1/teuben/GBT/anaconda3/lib/python3.12/copy.py:252(<genexpr>)
+      762    0.003    0.000   85.552    0.112 /lma1/teuben/GBT/anaconda3/lib/python3.12/copy.py:200(_deepcopy_tuple)
+     4589    6.315    0.001   85.551    0.019 {method '__deepcopy__' of 'numpy.ndarray' objects}
+       13    0.161    0.012   46.402    3.569 /lma1/teuben/GBT/dysh/src/dysh/fits/gbtfitsload.py:1051(gettp)
+   919141   11.437    0.000   36.077    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/time/core.py:1350(_apply)
+   851799    0.435    0.000   34.745    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/time/core.py:1472(__deepcopy__)
+   851799    0.705    0.000   34.310    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/time/core.py:1294(copy)
+       26    0.001    0.000   20.462    0.787 /lma1/teuben/GBT/dysh/src/dysh/spectra/scan.py:172(_finish_initialization)
+       13    0.001    0.000   20.237    1.557 /lma1/teuben/GBT/dysh/src/dysh/spectra/scan.py:1154(__init__)
+       26    0.011    0.000   18.455    0.710 /lma1/teuben/GBT/dysh/src/dysh/spectra/scan.py:489(_add_calibration_meta)
+      780    2.765    0.004   18.378    0.024 /lma1/teuben/GBT/dysh/src/dysh/spectra/scan.py:1335(exposure)
+     3485    0.017    0.000   15.737    0.005 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/generic.py:4142(_take_with_is_copy)
+     3508    0.037    0.000   15.735    0.004 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/generic.py:4027(take)
+     3508    0.017    0.000   15.589    0.004 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:869(take)
+     3508    0.247    0.000   15.228    0.004 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:623(reindex_indexer)
+  1841032    3.395    0.000   14.858    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:155(__init__)
+   231263    0.339    0.000   14.746    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/internals/blocks.py:1287(take_nd)
+   231338    0.317    0.000   14.112    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/array_algos/take.py:59(take_nd)
+     1664    0.019    0.000   14.098    0.008 /lma1/teuben/GBT/dysh/src/dysh/fits/sdfitsload.py:124(index)
+     5469    0.053    0.000   14.039    0.003 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:4062(__getitem__)
+   231338   10.670    0.000   13.725    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/array_algos/take.py:120(_take_nd_ndarray)
+     1808    0.014    0.000   13.708    0.008 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:4130(_getitem_bool_array)
+   106/67    0.002    0.000    9.903    0.148 /lma1/teuben/GBT/dysh/src/dysh/log.py:338(wrapper)
+ 66432652    9.756    0.000    9.756    0.000 {method 'get' of 'dict' objects}
+        1    0.000    0.000    5.223    5.223 /lma1/teuben/GBT/dysh/src/dysh/fits/gbtfitsload.py:71(__init__)
+       13    0.000    0.000    4.653    0.358 /lma1/teuben/GBT/dysh/src/dysh/spectra/scan.py:638(timeaverage)
+       26    0.002    0.000    4.550    0.175 /lma1/teuben/GBT/dysh/src/dysh/spectra/spectrum.py:1054(make_spectrum)
+5779720/5691410    1.759    0.000    4.534    0.000 {built-in method builtins.getattr}
+  3682276    2.897    0.000    4.478    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:2453(_validate_jd_for_storage)
+  1841138    1.386    0.000    3.885    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:241(jd2)
+       26    0.001    0.000    3.790    0.146 /lma1/teuben/GBT/dysh/src/dysh/spectra/spectrum.py:76(__init__)
+       26    0.001    0.000    3.780    0.145 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/specutils/spectra/spectrum1d.py:73(__init__)
+       26    0.000    0.000    3.744    0.144 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/wcs/wcsapi/high_level_api.py:325(pixel_to_world)
+       26    0.000    0.000    3.742    0.144 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/wcs/wcsapi/high_level_api.py:246(values_to_high_level_objects)
+       52    0.004    0.000    3.730    0.072 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/wcs/wcsapi/fitswcs.py:367(_get_components_and_classes)
+   312/52    0.002    0.000    3.645    0.070 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/coordinates/baseframe.py:1233(transform_to)
+   312/52    0.003    0.000    3.642    0.070 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/coordinates/transformations/composite.py:95(__call__)
+  364/104    0.008    0.000    3.632    0.035 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/coordinates/transformations/function.py:167(__call__)
+ 33382677    3.601    0.000    3.601    0.000 {built-in method builtins.id}
+        1    0.005    0.005    3.437    3.437 /lma1/teuben/GBT/dysh/src/dysh/fits/gbtfitsload.py:863(_create_index_if_needed)
+  1841138    0.768    0.000    3.155    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:231(jd1)
+21853387/21848613    2.981    0.000    3.088    0.000 {built-in method builtins.isinstance}
+       13    0.000    0.000    2.989    0.230 /lma1/teuben/GBT/dysh/src/dysh/spectra/scan.py:505(timeaverage)
+     7584    0.055    0.000    2.955    0.000 /lma1/teuben/GBT/anaconda3/lib/python3.12/site-packages/pandas/core/construction.py:517(sanitize_array)
+
+
+final 121.891956467  sec
