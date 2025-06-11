@@ -1618,6 +1618,8 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     align : bool
         If `True` align the `spectra` to the first element.
         This uses `Spectrum.align_to`.
+    history : `dysh.log.HistoricalBase`
+        History to append to the averaged spectra.
 
     Returns
     -------
