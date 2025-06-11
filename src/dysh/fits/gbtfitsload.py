@@ -2832,6 +2832,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if tatm is None:
             try:
+                gbwf = GBTWeatherForecast()
                 _, _, tatm = gbwf.fetch(vartype="Tatm", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd)
             except ValueError as e:
                 logger.debug("Could not get forecasted atmospheric temperature ", e)
