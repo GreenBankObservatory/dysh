@@ -243,7 +243,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def undo_baseline(self):
         """
         Undo the most recently computed baseline. If the baseline
-        has been subtracted, it will be added back. The `baseline_model`
+        has been subtracted, it will be added back to the data. The `baseline_model`
         attribute is set to None. Exclude regions are untouched.
         """
         if self._baseline_model is None:
@@ -260,6 +260,16 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
             self._plotter._figure.canvas.flush_events()
         self._baseline_model = None
+
+    @property
+    def subtracted(self):
+        """Has a baseline model been subtracted?"
+
+        Returns
+        -------
+        True if a baseline model has been subtracted, False otherwise
+        """
+        return self._subtracted
 
     def _set_exclude_regions(self, exclude):
         """
