@@ -768,3 +768,38 @@ class TestSpectrum:
         r_v = s.get_selected_regions(unit="km/s")
         assert r_v[0][0].value == pytest.approx(3870.69160846)
         assert r_v[0][1].value == pytest.approx(3827.48453869)
+
+    def test_average(self):
+        """
+        Test average method of Spectrum.
+        * Test that masks are propagated.
+        * Test that history is propagated.
+        """
+        f1 = Spectrum.fake_spectrum()
+        f2 = Spectrum.fake_spectrum()
+        assert f1.mask.sum() == 0
+        assert f2.mask.sum() == 0
+
+        # Set mask.
+        f1.mask[[100, 200, 300]] = True
+        f2.mask[[100, 200]] = True
+        assert f1.mask.sum() == 3
+        assert f2.mask.sum() == 2
+        # Average.
+        fa = f1.average(f2)
+        assert fa.mask.sum() == 2
+
+        f2.mask[[300]] = True
+        assert f2.mask.sum() == 3
+        fa = f1.average(f2)
+        assert fa.mask.sum() == 3
+
+        # History.
+        f1.baseline(1, model="poly", remove=True)
+        fa = f1.average(f2)
+        # Check that history was inherited.
+        for h in f1.history:
+            assert h in fa.history
+        # Check that original Spectrum history did not change.
+        assert "baseline" in f1.history[-1]
+        assert "__init__" in f2.history[-1]
