@@ -69,5 +69,3 @@ load4 2256.8 3952.3 1064.2      8     66.72  533.76 16384 8064   4   2    2     
     63118    0.039    0.000    0.687    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/config/configuration.py:333(__get__)
     63123    0.039    0.000    0.039    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/extern/configobj/validate.py:637(_parse_with_caching)
    322664    0.038    0.000    0.038    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:228(jd1)
-
-

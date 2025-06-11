@@ -70,5 +70,3 @@ load4 3232.6 6025.3 2043.4      3    768.09 2304.27 32768 17496   3   2    2    
        12    0.000    0.000    0.552    0.046 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/hdu/table.py:174(_get_tbdata)
        12    0.000    0.000    0.540    0.045 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:75(_init_flags)
   1609632    0.309    0.000    0.529    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/object_array.py:451(<lambda>)
-
-

@@ -73,5 +73,3 @@ load4 7032.9 25609.5 7250.0      5   3713.27 18566.35 131072 35370   5   1    2 
    282968    0.097    0.000   10.604    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:263(self_iter)
 819672/780447    0.096    0.000    0.165    0.000 {built-in method builtins.len}
        48    0.096    0.002    0.096    0.002 /lma1/mpound/dysh/src/dysh/util/core.py:332(uniq)
-
-
