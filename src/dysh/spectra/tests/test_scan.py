@@ -515,3 +515,7 @@ class TestScanBlock:
         for s in sb:
             assert s.baseline_model is None
             assert not s.subtracted
+        # no baseline allowed if not calibrated
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0, calibrate=False)
+        with pytest.raises(ValueError):
+            sb.subtract_baseline(ta.baseline_model)
