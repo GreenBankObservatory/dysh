@@ -76,6 +76,19 @@ Most useful when you want to get started reducing your data.
 
             HI Survey
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Interactive Plotter**
+
+        .. button-link:: iplotter.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Interactive Plotter
+
 
 .. card-carousel:: 2
 
@@ -104,3 +117,4 @@ Most useful when you want to get started reducing your data.
    examples/subbeamnod
    examples/nodding
    examples/hi_survey
+   iplotter
