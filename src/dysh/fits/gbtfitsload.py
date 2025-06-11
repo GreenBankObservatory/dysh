@@ -2658,23 +2658,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return [feed1, feed2]
 
-    def calseq(self, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):
+    def calseq(
+        self,
+        scan,
+        fdnum=0,
+        ifnum=0,
+        plnum=0,
+        freq: u.Quantity = None,
+        tcold: float | None = None,
+        twarm: float | None = None,
+    ):
         """
-        This routine returns the Tsys and gain for the selected W-band channel.
+        This routine returns the system temperature and gain for the selected W-band channel.
 
-        W-band receivers use a CALSEQ where during a scan three different
+        The W-band receiver uses a CALSEQ where during a scan three different
         observations are made: sky, cold1 and cold2, from which the
         system temperature is derived.
-
 
         Parameters
         ----------
         scan : int or list of int
             Scan number(s) where CALSEQ is expected. See sdf.summary() to find the scan number(s).
             If multiple scans are used, an average Tsys is computed.
-        tcold : float, optional
-            Set the cold temperature. See also freq= for an alternative computation.
-            The default is 54.
         fdnum : int, optional
             Feed to be used, 0 being the first.
             The default is 0.
@@ -2684,13 +2689,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         plnum : int, optional
             Polarization to be used, 0 being the first.
             The default is 0.
-        freq : float, optional
-            Observing frequency if Tcold to be set different from the default:
-            Tcold = 54 - 0.6*(FREQ-77)      FREQ in GHz
-            The default is None.
-        verbose : boolean, optional
-            Add more information mimicking the GBTIDL outout of VANECAL.
-            The default is False
+        freq : `~astropy.units.Quantity`, optional
+            Set the frequency. By default the topocentric frequency of `ifnum` at `scan` will be used.
+            It must have units of frequency.
+        tcold : float, optional
+            Set the cold temperature. By default it is computed as ``54 K - 0.6 K/GHz * (freq - 77 GHz)``.
+        twarm : float, optional
+            Set the warm temperature. By default it will use the value in the TWARM column of the SDFITS.
 
         Returns
         -------
@@ -2699,34 +2704,40 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         g : float
             The gain in K/counts
 
+        Raises
+        ------
+        ValueError
+            If `fdnum` is not 0 or 1.
         """
-        if freq is not None:
-            # see eq.(13) in GBT memo 302
-            tcold = 54 - 0.6 * (freq - 77)
-            print(f"Warning: calseq using freq={freq} GHz and setting tcold={tcold} K")
-
-        twarm = self._index["TWARM"].mean()
-        # @todo ? there was a period when TWARM was recorded wrongly as 99C, wwhere TAMBIENT (in K) would be better
 
         tp_args = {"scan": scan, "ifnum": ifnum, "plnum": plnum, "fdnum": fdnum, "calibrate": True, "cal": False}
         vsky = self.gettp(CALPOSITION="Observing", **tp_args).timeaverage()
         vcold1 = self.gettp(CALPOSITION="Cold1", **tp_args).timeaverage()
         vcold2 = self.gettp(CALPOSITION="Cold2", **tp_args).timeaverage()
 
+        # @todo ? there was a period when TWARM was recorded wrongly as 99 C, where TAMBIENT (in K) would be better.
+        if twarm is None:
+            twarm = vsky.meta["TWARM"]
+
+        if freq is None:
+            freq = vsky.spectral_axis.quantity.mean().to("GHz")
+
+        if tcold is None:
+            tcold = (54 - 0.6 * u.GHz**-1 * (freq - 77 * u.GHz)).value
+
         if fdnum == 0:
             g = (twarm - tcold) / mean_data(vcold2.data - vcold1.data)
         elif fdnum == 1:
             g = (twarm - tcold) / mean_data(vcold1.data - vcold2.data)
         else:
-            print(f"Illegal fdnum={fdnum} for a CALSEQ")
-            return None
+            raise ValueError(f"Illegal fdnum={fdnum} for a CALSEQ")
+
         tsys = mean_data(g * vsky.data)
 
-        if verbose:
-            print(f"Twarm={twarm} Tcold={tcold}")
-            print(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
-            print(f"Tsys = {tsys}")
-            print(f"Gain [K/counts] = {g}")
+        logger.debug(f"Twarm={twarm} Tcold={tcold}")
+        logger.debug(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
+        logger.debug(f"Tsys = {tsys}")
+        logger.debug(f"Gain [K/counts] = {g}")
 
         return tsys, g
 

@@ -1423,6 +1423,21 @@ class TestGBTFITSLoad:
         assert sdf.get_nod_beams(scan=333) == [1, 9]
         assert sdf.get_nod_beams(scan=334) == [1, 9]
 
+    def test_calseq(self):
+        """Test for calseq"""
+
+        sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0)
+        assert tsys == pytest.approx(106.97707617351139)
+        assert gain == pytest.approx(8.811870868732733e-07)
+
+        # Make it error.
+        with pytest.warns(UserWarning):
+            with pytest.raises(Exception):
+                sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+
 
 def test_parse_tsys():
     """
