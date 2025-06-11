@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to run various benchmarks
-OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=1
 
 export DYSH_DATA="/lma1/teuben/GBT/dysh_data"
 
@@ -40,4 +40,16 @@ echo "doing GETPS bench..."
 #####################
 echo "doing Scanblock write bench..."
 ../bench_datawrite.py --writedata sb -l 10 --statslines 25 -m -p > sbwrite_bench.profile
-exit
+
+
+
+#####################
+# OTF
+#####################
+echo "doing OTF bench..."
+../bench_otf.py -d -s  --statslines 50 -m -p            > getotf_bench.profile.time
+../bench_otf.py -d -s  --statslines 50 -m -p -x time    > getotf_bench.profile
+../bench_otf.py -d -s  --statslines 50 -m -p         -b > getotf_bench_big.profile.time
+../bench_otf.py -d -s  --statslines 50 -m -p -x time -b > getotf_bench_big.profile
+
+
