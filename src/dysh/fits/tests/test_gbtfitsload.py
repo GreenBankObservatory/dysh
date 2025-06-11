@@ -1450,12 +1450,10 @@ class TestGBTFITSLoad:
         tsys = sdf.vanecal(scan=329, fdnum=1, tcal=tcal, ifnum=ifnum, plnum=plnum)
         assert tsys == pytest.approx(221.7994624067703)
 
-        # This will error outside of GBO.
+        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum)
         if not Path("/users/rmaddale/bin/getForecastValues").is_file():
-            with pytest.raises(ValueError):
-                sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum)
+            assert tsys == pytest.approx(212.62577140649026)
         else:
-            tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum)
             assert tsys == pytest.approx(221.82213493114335)
 
 
