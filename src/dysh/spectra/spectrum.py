@@ -254,11 +254,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
-
             self._plotter._line.set_ydata(self._data)
-            ydiff = np.max(self._data) - np.min(self._data)
-            self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
-            self._plotter._figure.canvas.flush_events()
+            if not self._plotter._freezey:
+                self.freey()
         self._baseline_model = None
 
     @property
