@@ -208,7 +208,7 @@ class DTime(object):
         """
         if not self.active: return
         #print("PJT state",self.state)
-        assert(self.state == 1)
+	#        assert(self.state == 1)
         n = len(self.stats)
         if debug:
             print(f"Found {n} entries")
