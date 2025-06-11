@@ -185,7 +185,15 @@ class TestSubBeamNod:
         # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sbn = sdf.subbeamnod(
-            scan=43, sig=None, cal=None, ifnum=0, fdnum=1, plnum=1, calibrate=True, weights="tsys", method="scan"
+            scan=43,
+            sig=None,
+            cal=None,
+            ifnum=0,
+            fdnum=1,
+            plnum=1,
+            calibrate=True,
+            weights="tsys",
+            method="scan",
         )
 
         # Load the GBTIDL result.
@@ -478,3 +486,32 @@ class TestScanBlock:
         sb.write(fileobj=testfile, overwrite=True)
         g2 = gbtfitsload.GBTFITSLoad(testfile)
         x = g2.summary()  # simple check that basic function works.  # noqa: F841
+
+    def test_baseline_subtraction(self, data_dir):
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        ta = sb.timeaverage()
+        ta.baseline(exclude=[3000, 5000] * u.km / u.s, degree=1)
+        sb.subtract_baseline(ta.baseline_model)
+        for s in sb:
+            assert s.baseline_model == ta.baseline_model
+            assert s.subtracted
+        sb = sdf.getps(scan=[51, 53], ifnum=0, plnum=0, fdnum=0)
+        ta = sb.timeaverage()
+        ta.baseline(exclude=[3000, 5000] * u.km / u.s, degree=1)
+
+        # check that tolerance limit works
+        with pytest.raises(ValueError):
+            sb.subtract_baseline(ta.baseline_model, tol=0)
+        sb.subtract_baseline(ta.baseline_model)
+        for s in sb:
+            assert s.baseline_model == ta.baseline_model
+            assert s.subtracted
+
+        # undo baseline for all scans
+        sb.undo_baseline()
+        for s in sb:
+            assert s.baseline_model is None
+            assert not s.subtracted
