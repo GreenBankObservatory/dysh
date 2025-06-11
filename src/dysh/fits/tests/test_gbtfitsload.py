@@ -1438,6 +1438,26 @@ class TestGBTFITSLoad:
             with pytest.raises(Exception):
                 sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
 
+    def test_vanecal(self):
+        """Test for vanecal"""
+
+        sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        tcal = 272
+        ifnum = 0
+        plnum = 0
+        tsys = sdf.vanecal(scan=329, fdnum=1, tcal=tcal, ifnum=ifnum, plnum=plnum)
+        assert tsys == pytest.approx(221.7994624067703)
+
+        # This will error outside of GBO.
+        if not Path("/users/rmaddale/bin/getForecastValues").is_file():
+            with pytest.raises(ValueError):
+                sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum)
+        else:
+            tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum)
+            assert tsys == pytest.approx(221.82213493114335)
+
 
 def test_parse_tsys():
     """
