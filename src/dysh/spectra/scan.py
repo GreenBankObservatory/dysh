@@ -129,8 +129,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._bunit_to_unit = {"ta": u.K, "ta*": u.K, "jy": u.Jy, "counts": u.ct}
+        # possible @todo: create a BaselineableMixin that Spectrum, ScanBlock, and ScanBase inherif from.
         self._baseline_model = None
-        self._subtracted = False  # arguably this is True if baseline_model is None
+        self._subtracted = (
+            False  # This is False iff baseline_model is None so we technically don't need a separate boolean.
+        )
 
     def _validate_defaults(self):
         _required = {
@@ -354,11 +357,17 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if model.return_units != c0.unit:
             raise ValueError(f"Units of model {model.return_units} and calibrated data {c0.unit} must be the same.")
         # Warn if domain of model doesn't encompass domain of spectral axis
-        cdelt = sa[1] - sa[0]
+        # THe model domain is always ascending in frequency [I THINK], so make sure
+        # the spectra axis is also asciending in frequency
+        ssa = sorted(sa.value) * sa.unit
+        cdelt = ssa[1] - ssa[0]
         toldelt = abs(tol * cdelt)
-        if (sa[0] - model.domain[0] * model.input_units < -toldelt) or (
-            model.domain[-1] * model.input_units - sa[1] > toldelt
-        ):
+        # print(f"{toldelt=}")
+        # print(f"{model.domain[0]=}. {model.domain[-1]=} {ssa[0]=} {ssa[-1]}=")
+        diff0 = ssa[0] - model.domain[0] * model.input_units
+        diff1 = model.domain[-1] * model.input_units - ssa[-1]
+        # print(f"{diff0=}  {diff1=}")
+        if (diff0 < -toldelt) or (diff1 > toldelt):
             raise ValueError(f"Baseline model would extrapolate on spectral axis by more than {tol} channels.")
 
     @log_call_to_history
@@ -399,7 +408,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                     stacklevel=2,
                 )
                 return
-
+        if tol < 0:
+            raise ValueError("tol must be non-negative.")
         c0 = self.calibrated(0)
         sa = c0.spectral_axis
         self._check_model(model, c0, sa, tol)
@@ -408,13 +418,31 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._baseline_model = model
 
     def undo_baseline(self):
+        """
+        Undo the applied (subtracted) baseline. The subtracted baseline
+        will be added back to the data. The `baseline_model` attribute is set to None.
+        """
+        if self._baseline_model is None:
+            return
         sa = self.calibrated(0).spectral_axis
         self._calibrated += self._baseline_model(sa).value
+        self._baseline_model = None
+        self._subtracted = False
 
     @property
     def baseline_model(self):
         """Returns the subtracted baseline model or None if it has not yet been computed."""
         return self._baseline_model
+
+    @property
+    def subtracted(self):
+        """Has a baseline model been subtracted?"
+
+        Returns
+        -------
+        True if a baseline model has been subtracted, False otherwise
+        """
+        return self._subtracted
 
     @property
     def scan(self):
@@ -830,10 +858,14 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             return list(bunit)
         return list(bunit)[0]  # noqa: RUF015
 
+    # possible @todo:  We could have a baseline() method with same signature as Spectrum.baseline, which would compute
+    # timeaverage for each Scan in a ScanBlock, and for each Scan calculate and remove that baseline from t
+    # the integrations in that Scan.
+
     @log_call_to_history
     def subtract_baseline(self, model, tol=1, force=False):
         """
-        Subtract a (previously computed) baseline model from every integration of every Scan in this ScanBlocl.
+        Subtract a (previously computed) baseline model from every integration of every Scan in this ScanBlock.
 
         Parameters
         ----------
@@ -861,6 +893,15 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         for scan in self.data:
             scan.subtract_baseline(model, tol, force)
+
+    @log_call_to_history
+    def undo_baseline(self):
+        """
+        For all Scans in this ScanBlock, undo the applied (subtracted) baseline. The subtracted baseline
+        will be added back to the data. The Scan's baseline_model` attribute is set to None.
+        """
+        for scan in self.data:
+            scan.undo_baseline()
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
