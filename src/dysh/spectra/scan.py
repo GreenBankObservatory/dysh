@@ -129,11 +129,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._bunit_to_unit = {"ta": u.K, "ta*": u.K, "jy": u.Jy, "counts": u.ct}
-        # possible @todo: create a BaselineableMixin that Spectrum, ScanBlock, and ScanBase inherit from.
+        # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
         self._baseline_model = None
-        self._subtracted = (
-            False  # This is False if baseline_model is None so we technically don't need a separate boolean.
-        )
+        self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
 
     def _validate_defaults(self):
         _required = {
