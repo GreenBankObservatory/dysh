@@ -27,7 +27,7 @@ First, we download data from an HI survey and open it with dysh.
 
 
 Now grab a position-switched scan with GPS interference, average it, and smooth
-with a 7-channel wide boxcar kernel. Start the interactive plotter with the `plot()` command. This command 
+with a 7-channel wide boxcar kernel. Start the interactive plotter with the `plot()` command. This command
 supports all kwargs offered by the standard `matplotlib.pyplot.plot()` command.
 If you do not wish to have the interactive plotter and prefer a static plot, add `interactive=False` to the arguments.
 
@@ -60,7 +60,7 @@ You can clear all regions with the "Clear Regions" (red) button.
 
 .. image:: files/iplotter6.gif
 
-You can click on a region to select it, allowing you to drag it to a different place in the spectrum or 
+You can click on a region to select it, allowing you to drag it to a different place in the spectrum or
 change its size. Regions are allowed to overlap. Once a region is selected,
 you can delete it with the "Delete Region" button.
 
@@ -88,7 +88,7 @@ in the future and will be addressed. We can check the stats before and after to 
 
     ps.get_selected_regions()
     [(210,2871)]
-    
+
     print(f"{ps[210:2871].stats()['mean']:.4f}, {ps[210:2871].stats()['rms']:.4f}")
     -0.0780 K, 0.0204 K
 
