@@ -356,14 +356,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # make sure flux units match
         if model.return_units != c0.unit:
             raise ValueError(f"Units of model {model.return_units} and calibrated data {c0.unit} must be the same.")
-        # Warn if domain of model doesn't encompass domain of spectral axis
-        # The model domain is always ascending in frequency [I THINK], so make sure
-        # the spectra axis is also ascending in frequency.
+        # Warn if domain of model doesn't encompass domain of spectral axis.
+        # Sort domain and spectral axis to make them both ascending.
+        domain = sorted(model.domain) * model.input_units
         ssa = sorted(sa.value) * sa.unit
         cdelt = ssa[1] - ssa[0]
         toldelt = abs(tol * cdelt)
-        diff0 = ssa[0] - model.domain[0] * model.input_units
-        diff1 = model.domain[-1] * model.input_units - ssa[-1]
+        diff0 = ssa[0] - domain[0]
+        diff1 = domain[-1] - ssa[-1]
         if (diff0 < -toldelt) or (diff1 > toldelt):
             raise ValueError(f"Baseline model would extrapolate on spectral axis by more than {tol} channels.")
 
