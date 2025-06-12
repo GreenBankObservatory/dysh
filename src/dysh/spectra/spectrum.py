@@ -256,9 +256,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
-            self._plotter._line.set_ydata(self._data)
-            if not self._plotter._freezey:
-                self.freey()
+            if self._plotter is not None:
+                self._plotter._line.set_ydata(self._data)
+                if not self._plotter._freezey:
+                    self.freey()
         self._baseline_model = None
 
     @property
