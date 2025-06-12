@@ -2,6 +2,7 @@
 #
 import cProfile
 import os
+import platform
 import pstats
 import time
 from pstats import SortKey
@@ -162,7 +163,8 @@ class DTime(object):
         global __ostype__
 
         if __ostype__ is None:
-            __ostype__ = os.uname()[0].lower()
+            # __ostype__ = os.uname()[0].lower()
+            __ostype__ = platform.uname()[0].lower()
             print("Found ostype=", __ostype__)
 
         scale = {"MB": 1024.0}
