@@ -245,7 +245,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def undo_baseline(self):
         """
         Undo the most recently computed baseline. If the baseline
-        has been subtracted, it will be added back. The `baseline_model`
+        has been subtracted, it will be added back to the data. The `baseline_model`
         attribute is set to None. Exclude regions are untouched.
         """
         if self._baseline_model is None:
@@ -256,10 +256,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
-            self._baseline_model = None
-            self._plotter._line.set_ydata(self._data)
-            if not self._plotter._freezey:
-                self.freey()
+            if self._plotter is not None:
+                self._plotter._line.set_ydata(self._data)
+                if not self._plotter._freezey:
+                    self.freey()
+        self._baseline_model = None
+
+    @property
+    def subtracted(self):
+        """Has a baseline model been subtracted?"
+
+        Returns
+        -------
+        True if a baseline model has been subtracted, False otherwise
+        """
+        return self._subtracted
 
     def _set_exclude_regions(self, exclude):
         """
@@ -901,7 +912,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
             unc = self.uncertainty.quantity
             udesc = "Flux uncertainty"
         outarray = [self.spectral_axis, self.flux, unc, self.weights, mask, bl]
-        description = ["Spectral axis", "Flux", udesc, "Channel weights", "Mask 0=unmasked, 1=masked", bldesc]
+        description = [
+            "Spectral axis",
+            "Flux",
+            udesc,
+            "Channel weights",
+            "Mask 0=unmasked, 1=masked",
+            bldesc,
+        ]
         # remove FITS reserve keywords
         meta = deepcopy(self.meta)
         meta.pop("NAXIS1", None)

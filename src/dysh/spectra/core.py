@@ -576,7 +576,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         "polynomial": Polynomial1D,
     }
     model = minimum_string_match(kwargs_opts["model"], list(available_models.keys()))
-    if model == None:  # noqa: E711
+    if model is None:
         raise ValueError(f"Unrecognized input model {kwargs['model']}. Must be one of {list(available_models.keys())}")
     sa_min = spectrum.spectral_axis.min().value
     sa_max = spectrum.spectral_axis.max().value
