@@ -42,7 +42,9 @@ from ..util import (
     uniq,
 )
 from ..util.files import dysh_data
+from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
+from ..util.weatherforecast import GBTWeatherForecast
 from . import conf
 from .sdfitsload import SDFITSLoad
 
@@ -1190,7 +1192,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'jy' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity : float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default: None
-        tsys : float, optional
+        t_sys : float, optional
             If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
             If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
             scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
@@ -1575,7 +1577,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
             raise TypeError(f"fdnum={fdnum} not valid, need a list with two feeds")
-        logger.debug(f"getnod: using fdnum={fdnum}")
+
         prockey = "PROCSEQN"
         procvals = {"ON": 1, "OFF": 2}
         (scans, _sf) = self._common_selection(
@@ -1611,6 +1613,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     _fdnum = self.get_nod_beams(scan=on)
                 else:
                     _fdnum = fdnum
+                logger.debug(f"getnod using fdnum={_fdnum}")
                 for j, f in enumerate(_fdnum):
                     _df = select_from("FDNUM", f, df0)
                     if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
@@ -2657,25 +2660,29 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return [feed1, feed2]
 
-    def calseq(self, scan, tcold=54, fdnum=0, ifnum=0, plnum=0, freq=None, verbose=False):
+    def calseq(
+        self,
+        scan,
+        fdnum=0,
+        ifnum=0,
+        plnum=0,
+        freq: u.Quantity = None,
+        tcold: float | None = None,
+        twarm: float | None = None,
+        apply_flags: bool = True,
+    ):
         """
-        This routine returns the Tsys and gain for the selected W-band channel.
+        This routine returns the system temperature and gain for the selected W-band channel.
 
-        W-band receivers use a CALSEQ where during a scan three different
+        The W-band receiver uses a CALSEQ where during a scan three different
         observations are made: sky, cold1 and cold2, from which the
         system temperature is derived.
 
-
         Parameters
         ----------
-        sdf : `GBTFITSLoad`
-            data handle, containing one or more SDFITS files specific to GBT
         scan : int or list of int
             Scan number(s) where CALSEQ is expected. See sdf.summary() to find the scan number(s).
             If multiple scans are used, an average Tsys is computed.
-        tcold : float, optional
-            Set the cold temperature. See also freq= for an alternative computation.
-            The default is 54.
         fdnum : int, optional
             Feed to be used, 0 being the first.
             The default is 0.
@@ -2685,13 +2692,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         plnum : int, optional
             Polarization to be used, 0 being the first.
             The default is 0.
-        freq : float, optional
-            Observing frequency if Tcold to be set different from the default:
-            Tcold = 54 - 0.6*(FREQ-77)      FREQ in GHz
-            The default is None.
-        verbose : boolean, optional
-            Add more information mimicking the GBTIDL outout of VANECAL.
-            The default is False
+        freq : `~astropy.units.Quantity`, optional
+            Set the frequency. By default the topocentric frequency of `ifnum` at `scan` will be used.
+            It must have units of frequency.
+        tcold : float, optional
+            Set the cold temperature. By default it is computed as ``54 K - 0.6 K/GHz * (freq - 77 GHz)``.
+        twarm : float, optional
+            Set the warm temperature. By default it will use the value in the TWARM column of the SDFITS.
+        apply_flags : bool, optional
+            If True, apply flags before computing the system temperature.
 
         Returns
         -------
@@ -2700,58 +2709,82 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         g : float
             The gain in K/counts
 
+        Raises
+        ------
+        ValueError
+            If `fdnum` is not 0 or 1.
         """
-        if freq is not None:
-            # see eq.(13) in GBT memo 302
-            tcold = 54 - 0.6 * (freq - 77)
-            print(f"Warning: calseq using freq={freq} GHz and setting tcold={tcold} K")
 
-        twarm = self._index["TWARM"].mean()
-        # @todo ? there was a period when TWARM was recorded wrongly as 99C, wwhere TAMBIENT (in K) would be better
-
-        tp_args = {"scan": scan, "ifnum": ifnum, "plnum": plnum, "fdnum": fdnum, "calibrate": True, "cal": False}
+        tp_args = {
+            "scan": scan,
+            "ifnum": ifnum,
+            "plnum": plnum,
+            "fdnum": fdnum,
+            "calibrate": True,
+            "cal": False,
+            "apply_flags": apply_flags,
+        }
         vsky = self.gettp(CALPOSITION="Observing", **tp_args).timeaverage()
         vcold1 = self.gettp(CALPOSITION="Cold1", **tp_args).timeaverage()
         vcold2 = self.gettp(CALPOSITION="Cold2", **tp_args).timeaverage()
+
+        # @todo ? there was a period when TWARM was recorded wrongly as 99 C, where TAMBIENT (in K) would be better.
+        if twarm is None:
+            twarm = vsky.meta["TWARM"]  # TWARM recorded in Kelvin when using Rcvr68_92 (W-Band).
+
+        if freq is None:
+            freq = vsky.spectral_axis.quantity.mean().to("GHz")
+
+        if tcold is None:
+            tcold = (54 - 0.6 * u.GHz**-1 * (freq - 77 * u.GHz)).value
 
         if fdnum == 0:
             g = (twarm - tcold) / mean_data(vcold2.data - vcold1.data)
         elif fdnum == 1:
             g = (twarm - tcold) / mean_data(vcold1.data - vcold2.data)
         else:
-            print(f"Illegal fdnum={fdnum} for a CALSEQ")
-            return None
+            raise ValueError(f"Illegal fdnum={fdnum} for a CALSEQ")
+
         tsys = mean_data(g * vsky.data)
 
-        if verbose:
-            print(f"Twarm={twarm} Tcold={tcold}")
-            print(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
-            print(f"Tsys = {tsys}")
-            print(f"Gain [K/counts] = {g}")
+        logger.debug(f"Twarm={twarm} Tcold={tcold}")
+        logger.debug(f"IFNUM {ifnum} PLNUM {plnum} FDNUM {fdnum}")
+        logger.debug(f"Tsys = {tsys}")
+        logger.debug(f"Gain [K/counts] = {g}")
 
         return tsys, g
 
     # @todo PJT feeds->fdnum and add other standard args
-    def vanecal(self, vane_sky, ifnum, plnum, feeds=range(16), mode=2, tcal=None, verbose=False, **kwargs):  # noqa: B008
+    def vanecal(
+        self,
+        scan,
+        ifnum=0,
+        plnum=0,
+        fdnum=0,
+        mode=2,
+        tcal=None,
+        zenith_opacity=None,
+        tatm=None,
+        twarm=None,
+        tbkg=2.725,
+        apply_flags=True,
+        **kwargs,
+    ):
         """
-        Return Tsys calibration values for all or selected beams of the Argus
-        VANE/SKY calibration cycle.
-
+        Compute the system temperature from a VANE/SKY calibration cycle.
+        Uses the Equations provided in [1]_. For the most accurate results `zenith_opacity` and `tatm` should be provided.
 
         Parameters
         ----------
-        sdf : `GBTFITSLoad`
-            data handle, containing one or more SDFITS files specific to GBT
-        vane_sky : list of two ints
-            The first designates the VANE scan, the second the SKY scan.
-            Normally the SKY scan is directly followed by the VANE scan.
-            @todo if one scan given, assume sky is vane+1
+        scan : int
+            Scan number for either the SKY or VANE object.
+            The pair will be found by the object name.
         ifnum : int
-            The intermediate frequency (IF) number
+            The intermediate frequency (IF) number.
         plnum : int
-            The polarization number
-        feeds : list of ints, optional
-            The default is range(16), i.e. using all Argus beams.
+            The polarization number.
+        fdnum : int
+            The feed number.
         mode : int, optional
             Mode of computing. See also `mean_tsys()`
             mode=0  Do the mean before the division
@@ -2759,55 +2792,88 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             mode=2  Take a median of the inverse division
             The default is 2.
         tcal : float, optional
-            Tcal value for normalization. Normally obtained from the
-            environment, but offsite cannot be done.
-            @todo fix this, but right now it is advised to manually enter tcal.
-            The default is None.
-        verbose : boolean, optional
-            Add more information mimicking the GBTIDL outout of VANECAL.
-            The default is False
+            Calibration temperature. If no value is provided, but `zenith_opacity` and `tatm` are provided, then
+            it will use Eq. (22) of [1]_. If `zenith_opacity` and `tatm` are not provided, it will first try to
+            retrieve them using the weather forecasts (only available at GBO), if that fails it will use the
+            ambient temperature, Eq. (23) of [1]_.
+        zenith_opacity : float, optional
+            Zenith opacity. If not provided it will try to fetch "Opacity" from the weather forecasts (only available at GBO).
+        tatm : float, optional
+            Atmospheric temperature in K. If not provided it will try to fetch "Tatm" from the weather forecasts (only available at GBO).
+        twarm : float, optional
+            Temperature of the VANE in K. If not provided it will use the value found in the "TWARM" column of the SDFITS for `scan`.
+        tbkg : float, optional
+            Background temperature in K.
+        apply_flags : bool, optional
+            If True, apply flags before deriving the system temperature.
 
         Returns
         -------
-        tsys : list of floats
-            Values of Tsys for each of the `feeds` given.
+        tsys : float
+            System temperature in K.
 
+        .. [1] `D. Frayer et al., "Calibration of Argus and the 4mm Receiver on the GBT" <https://ui.adsabs.harvard.edu/abs/2019nrao.reptE...1F/abstract>`_
         """
-        vane = vane_sky[0]
-        sky = vane_sky[1]
-        if len(feeds) == 0:
-            print("Warning, no feeds= given")
-            return None
-        tsys = np.zeros(len(feeds), dtype=float)
+        t = set(self._index["OBJECT"][self._index["SCAN"] == scan])
+        if len(t) > 1:
+            raise TypeError(f"More than one OBJECT for scan {scan}")
+        if t == {"VANE"}:
+            vane_scan = scan
+            sky_scan = scan + 1
+        elif t == {"SKY"}:
+            sky_scan = scan
+            vane_scan = scan - 1
 
-        #  for VANE/CAL data usually tcal=1
+        vane = self.gettp(
+            scan=vane_scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True, cal=False, apply_flags=apply_flags
+        ).timeaverage()
+        sky = self.gettp(
+            scan=sky_scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True, cal=False, apply_flags=apply_flags
+        ).timeaverage()
+
+        if twarm is None:
+            twarm = sky.meta["TWARM"] + 273.15  # TWARM is recorded in Celsius when using RcvrArray75_115 (Argus).
+
+        if zenith_opacity is None:
+            try:
+                gbwf = GBTWeatherForecast()
+                _, _, zenith_opacity = gbwf.fetch(
+                    vartype="Opacity", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd
+                )
+            except ValueError as e:
+                logger.debug("Could not get forecasted zenith opacity ", e)
+
+        if tatm is None:
+            try:
+                gbwf = GBTWeatherForecast()
+                _, _, tatm = gbwf.fetch(vartype="Tatm", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd)
+            except ValueError as e:
+                logger.debug("Could not get forecasted atmospheric temperature ", e)
+
         if tcal is None:
-            tcal = self._index["TCAL"].mean()
-            if tcal == 1.0:
-                # until we figure this out via getatmos  @todo warn here
-                tcal = 100.0  # set to 100K for now
+            logger.info("No calibration temperature provided.")
+            if zenith_opacity is None:
+                tcal = sky.meta["TAMBIENT"]
+                logger.info(
+                    f"No zenith opacity provided. Will approximate the calibration temperature to the ambient temperature {tcal} K."
+                )
+            elif tatm is not None:
+                airmass = GBTGainCorrection().airmass(sky.meta["ELEVATIO"] * u.deg, zd=False)
+                tcal = (tatm - tbkg) + (twarm - tatm) * np.exp(zenith_opacity * airmass)
 
-        i = 0
-        for f in feeds:
-            v = self.gettp(scan=vane, fdnum=f, ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
-            s = self.gettp(scan=sky, fdnum=f, ifnum=ifnum, plnum=plnum, calibrate=True, cal=False).timeaverage()
-            if mode == 0:
-                mean_off = mean_data(s.data)
-                mean_dif = mean_data(v.data - s.data)
-                tsys[i] = tcal * mean_off / mean_dif
-            elif mode == 1:
-                tsys[i] = tcal / mean_data((v.data - s.data) / s.data)
-            elif mode == 2:
-                tsys[i] = tcal / np.nanmedian((v.data - s.data) / s.data)
-            #  vanecal.pro seems to do    tcal / median( (v-s)/s)
-            #  as well as not take off the edges
-            i = i + 1
-        if verbose:
-            for i in range(len(feeds)):
-                print(f"fdnum,Tsys   {feeds[i]:2d}  {tsys[i]:10.5f}")
-            print(f"<Tsys>  {np.nanmean(tsys):.5f} +/- {np.nanstd(tsys):.5f}")
-            print(f"mode={mode}")
-            print("TCAL=", tcal)
+        match mode:
+            case 0:
+                mean_off = mean_data(sky.data)
+                mean_dif = mean_data(vane.data - sky.data)
+                tsys = tcal * mean_off / mean_dif
+            case 1:
+                tsys = tcal / mean_data((vane.data - sky.data) / sky.data)
+            case 2:
+                tsys = tcal / np.nanmedian((vane.data - sky.data) / sky.data)
+
+        logger.debug(f"TCAL={tcal} K")
+        logger.debug(f"mode={mode}")
+        logger.debug(f"TSYS={tsys} K")
 
         return tsys
 
