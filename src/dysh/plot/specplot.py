@@ -449,6 +449,8 @@ class SpectrumPlot:
         # buttons are currently listed in the _localaxes, but this includes the plot window at index 0
         # so if the plot window ever goes missing, check the order in this list
         # there has to be a better way to do this
+        # TODO: put buttons in a sub/different axes so we only have to hide the axes object instead of
+        # a list of all the buttons and plots
         for button in self.figure._localaxes[1:]:
             button.set_visible(False)
         self.figure.savefig(file, *kwargs)
