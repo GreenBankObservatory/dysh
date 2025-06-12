@@ -117,7 +117,7 @@ Data
    * - OBJECT
      -
      - 32A
-     - name of source observed
+     - Name of source observed
    * - BANDWID
      - Hz
      - 1D
@@ -125,19 +125,19 @@ Data
    * - DATE-OBS
      -
      - 22A
-     - date and time of observation start
+     - Start date and time of the integration
    * - DURATION
      - s
      - 1D
-     - total integration duration in seconds
+     - Total integration duration in seconds
    * - EXPOSURE
      - s
      - 1D
-     - effective int time (excludes blanking) in seconds
+     - Effective int time (excludes blanking) in seconds
    * - TSYS
      - K
      - 1D
-     - system temperature in Kelvin
+     - System temperature in Kelvin
    * - DATA
      -
      - 131072E
@@ -145,7 +145,7 @@ Data
    * - TDIM7
      -
      - 16A
-     - data dimensions of the array
+     - Data dimensions of the array
    * - TUNIT7
      -
      - 6A
@@ -153,7 +153,7 @@ Data
    * - CTYPE1
      - Hz
      - 8A
-     - first data axis is frequency-like
+     - First data axis is frequency-like
    * - CRVAL1
      - Hz
      - 1D
@@ -169,7 +169,7 @@ Data
    * - CTYPE2
      -
      - 4A
-     - second axis is longitude-like
+     - Second axis is longitude-like
    * - CRVAL2
      - deg
      - 1D
@@ -177,7 +177,7 @@ Data
    * - CTYPE3
      -
      - 4A
-     - third axis is latitude-like
+     - Third axis is latitude-like
    * - CRVAL3
      - deg
      - 1D
@@ -185,7 +185,7 @@ Data
    * - CTYPE4
      -
      -
-     - fourth axis is Stokes
+     - Fourth axis is Stokes
    * - CRVAL4
      -
      - 1I
@@ -193,43 +193,43 @@ Data
    * - OBSERVER
      -
      - 32A
-     - name of observer(s)
+     - Name of observer(s)
    * - OBSID
      -
      - 32A
-     - observation description
+     - Observation description
    * - SCAN
      -
      - 1J
-     - scan number
+     - Scan number
    * - OBSMODE
      -
      - 32A
-     - observing mode
+     - Observing mode
    * - FRONTEND
      -
      - 16A
-     - frontend device
+     - Frontend device
    * - TCAL
      - K
      - 1E
-     - calibration temperature
+     - Calibration temperature
    * - VELDEF
      -
      - 8A
-     - velocity definition and frame
+     - Velocity definition and frame
    * - VFRAME
      - m/s
      - 1D
-     - radial velocity of the reference frame
+     - Radial velocity of the reference frame
    * - RVSYS
      - m/s
      - 1D
-     - radial velocity, Vsource - Vtelescope
+     - Radial velocity, Vsource - Vtelescope
    * - OBSFREQ
      - Hz
      - 1D
-     - observed center frequency
+     - Observed center frequency
    * - LST
      - s
      - 1D
@@ -237,35 +237,35 @@ Data
    * - AZIMUTH
      - deg
      - 1D
-     - azimuth
+     - Azimuth
    * - ELEVATIO
      - deg
      - 1D
-     - elevation
+     - Elevation
    * - TAMBIENT
      - K
      - 1D
-     - ambient temperature
+     - Ambient temperature
    * - PRESSURE
      - mmHg
      - 1D
-     - ambient pressure
+     - Ambient pressure
    * - HUMIDITY
      -
      - 1D
-     - relative humidity
+     - Relative humidity
    * - RESTFREQ
      - Hz
      - 1D
-     - rest frequency at band center
+     - Rest frequency at band center
    * - FREQRES
      - Hz
      - 1D
-     - frequency resolution
+     - Frequency resolution
    * - EQUINOX
      -
      - 1D
-     - equinox of selected coordinate reference frame
+     - Equinox of selected coordinate reference frame
    * - RADESYS
      -
      - 8A
@@ -273,15 +273,15 @@ Data
    * - TRGTLONG
      - deg
      - 1D
-     - target longitude in coord. ref. frame
+     - Target longitude in coord. ref. frame
    * - TRGTLAT
      - deg
      - 1D
-     - target latitude in coord. ref. frame
+     - Target latitude in coord. ref. frame
    * - SAMPLER
      -
      - 12A
-     - sampler description (e.g., "A1" or "A1xA3")
+     - Sampler description (e.g., "A1" or "A1xA3")
    * - FEED
      -
      - 1I
@@ -289,51 +289,51 @@ Data
    * - SRFEED
      -
      - 1I
-     - reference feed number
+     - Reference feed number
    * - FEEDXOFF
      - deg
      - 1D
-     - feed XEL offset
+     - Feed XEL offset
    * - FEEDEOFF
      - deg
      - 1D
-     - feed EL offset
+     - Feed EL offset
    * - SUBREF_STATE
      -
      - 1I
-     - subreflector state (1,0,-1) - 0=moving
+     - Subreflector state (1,0,-1) - 0=moving
    * - SIDEBAND
      -
      - 1A
-     - resulting sideband ('U'pper or 'L'ower)
+     - Resulting sideband ('U'pper or 'L'ower)
    * - PROCSEQN
      -
      - 1I
-     - scan sequence number
+     - Scan sequence number
    * - PROCSIZE
      -
      - 1I
-     - number of scans in procedure
+     - Number of scans in procedure
    * - PROCSCAN
      -
      - 16A
-     - scan's role in the procedure
+     - Scan's role in the procedure
    * - PROCTYPE
      -
      - 16A
-     - type of the procedure
+     - Type of the procedure
    * - LASTON
      -
      - 1J
-     - last 'on' for position switching
+     - Last 'on' for position switching
    * - LASTOFF
      -
      - 1J
-     - last 'off' for position switching
+     - Last 'off' for position switching
    * - TIMESTAMP
      - UTC
      - 22A
-     - date and time of scan start
+     - Date and time of scan start
    * - QD_XEL
      - deg
      - 1D
@@ -357,7 +357,7 @@ Data
    * - ZEROCHAN
      -
      - 1E
-     - zero channel
+     - Zero channel
    * - DOPFREQ
      - Hz
      - 1D
@@ -369,7 +369,7 @@ Data
    * - VSPDELT
      -
      - 1D
-     - channel increment between adjacent VEGAS spurs
+     - Channel increment between adjacent VEGAS spurs
    * - VSPRVAL
      -
      - 1D
@@ -377,23 +377,23 @@ Data
    * - VSPRPIX
      -
      - 1D
-     - channel number of VEGAS spur VSPRVAL
+     - Channel number of VEGAS spur VSPRVAL
    * - SIG
      -
      - 1A
-     - signal is true, reference is false
+     - Signal is true, reference is false
    * - CAL
      -
      - 1A
-     - cal ON is true, cal OFF is false
+     - Cal ON is true, cal OFF is false
    * - CALTYPE
      -
      - 8A
      - LOW or HIGH, may eventually be other types
    * - TWARM
-     - K
+     - K or C
      - 1E
-     - 4mm RX ambient load temp (K)
+     - 4mm RX ambient load temp (K) or Argus vane temperature (C)
    * - TCOLD
      - K
      - 1E

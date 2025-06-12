@@ -23,7 +23,7 @@ from specutils.fitting.fitmodels import _strip_units_from_model
 from specutils.utils import QuantityModel
 
 from ..log import logger
-from ..util import minimum_string_match, powerof2
+from ..util import grouper, merge_ranges, minimum_string_match, powerof2
 
 
 # @todo: allow data to be SpectrumList or array of Spectrum
@@ -182,6 +182,36 @@ def sort_spectral_region(spectral_region):
     return sorted_spectral_region
 
 
+def sort_spectral_region_subregions(spectral_region):
+    """ """
+
+    for i, s in enumerate(spectral_region._subregions):
+        spectral_region._subregions[i] = sorted(s)
+
+
+def invert_spectral_region(sr, refspec):
+    """
+    Invert an spectral region. The spectral region is sorted and the ranges has been merged previously.
+
+    Parameters
+    ----------
+    sr : `~specutils.SpectralRegion`
+        Spectral region to invert.
+    refspec : `~spectra.spectrum.Spectrum`
+        Spectrum to define the boundaries for the inversion.
+
+    Returns
+    -------
+    `~specutils.SpectralRegion`
+        Inverted spectral region.
+    """
+    bl = refspec.spectral_axis.to(sr.bounds[0].unit, equivalencies=refspec.equivalencies).quantity.min()
+    bu = refspec.spectral_axis.to(sr.bounds[0].unit, equivalencies=refspec.equivalencies).quantity.max()
+    sr._reorder()
+    ll = [bl, *list(sum(sr._subregions, ())), bu]
+    return exclude_to_spectral_region(list(grouper(ll, 2)), refspec)
+
+
 def include_to_exclude_spectral_region(include, refspec):
     """
     Convert an inclusion region to an exclude region.
@@ -217,24 +247,12 @@ def include_to_exclude_spectral_region(include, refspec):
     exclude_region : `~specutils.SpectralRegion`
         `include` as a region to be excluded.
     """
-
-    unit = "cm"  # This has to be wavelength units. cm are familiar to observers?
-
     spectral_region = exclude_to_spectral_region(include, refspec)
-    spectral_region = spectral_region_to_unit(spectral_region, refspec, unit=unit)
-    # Convert unit of reference spectrum to wavelength.
-    # For some reason `SpectralRegion.invert_from_spectrum`
-    # only works in wavelength units.
-    org_unit = refspec._spectral_axis.unit
-    refspec._spectral_axis = refspec._spectral_axis.to(unit, equivalencies=refspec.equivalencies)
-    exclude_region = spectral_region.invert_from_spectrum(refspec)
-    refspec._spectral_axis = refspec._spectral_axis.to(org_unit, equivalencies=refspec.equivalencies)
-    exclude_region = spectral_region_to_unit(exclude_region, refspec)
-    # Sort the output.
-    # For some reason it is scrambled.
-    exclude_region = sort_spectral_region(exclude_region)
-
-    return exclude_region
+    sort_spectral_region_subregions(spectral_region)
+    # Merge include ranges.
+    spectral_region = exclude_to_spectral_region(list(merge_ranges(spectral_region._subregions)), refspec)
+    # Invert.
+    return invert_spectral_region(spectral_region, refspec)
 
 
 def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
