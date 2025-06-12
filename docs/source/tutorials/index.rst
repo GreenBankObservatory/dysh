@@ -80,6 +80,20 @@ Most useful when you want to get started reducing your data.
         :shadow: md
         :margin: 2 2 0 0
 
+        **Calibration Sequence**
+
+        .. button-link:: examples/calseq.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Calibration sequence and beam nodding with GBT W-Band
+
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
         **Interactive Plotter**
 
         .. button-link:: iplotter.html
@@ -90,24 +104,6 @@ Most useful when you want to get started reducing your data.
             Interactive Plotter
 
 
-.. card-carousel:: 2
-
-    .. card:: Position Switched Data
-        :link: examples/positionswitch.html
-
-        - Calibrate the data.
-
-    .. card:: Frequency Switched Data
-        :link: examples/frequencyswitch.html
-
-        - Calibrate the data.
-
-    .. card:: Sub Beam Nod Data
-        :link: examples/subbeamnod.html
-
-    .. card:: Nodding Data
-        :link: examples/nodding.html
-
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -117,4 +113,6 @@ Most useful when you want to get started reducing your data.
    examples/subbeamnod
    examples/nodding
    examples/hi_survey
+   examples/calseq
    iplotter
+

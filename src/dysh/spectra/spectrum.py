@@ -36,7 +36,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..log import HistoricalBase, log_call_to_history  # , logger
+from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import (
@@ -230,9 +230,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 self._plotter._line.set_ydata(self._data)
                 if self._bline is not None:
                     self._bline.set_ydata(np.ones(int(self.meta["NAXIS1"])) * np.nan)
-                ydiff = np.max(self._data) - np.min(self._data)
-                self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
-                self._plotter._figure.canvas.flush_events()
+                if not self._plotter._freezey:
+                    self.freey()
+                # ydiff = np.max(self._data) - np.min(self._data)
+                # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
+                # self._plotter._figure.canvas.flush_events()
             else:
                 lines = self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis), c=color)
                 self._bline = lines[0]
@@ -256,9 +258,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._data = s._data
             self._baseline_model = None
             self._plotter._line.set_ydata(self._data)
-            ydiff = np.max(self._data) - np.min(self._data)
-            self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
-            self._plotter._figure.canvas.flush_events()
+            if not self._plotter._freezey:
+                self.freey()
 
     def _set_exclude_regions(self, exclude):
         """
@@ -322,6 +323,25 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @property
     def plotter(self):
         return self._plotter
+
+    def freex(self):
+        if self._plotter is not None:
+            self._plotter._freezex = False
+            # This line (and the other in specplot.py) will have to be addressed when we
+            # implement multiple IF windows in the same plot
+            self._plotter._axis.set_xlim(np.min(self._spectral_axis).value, np.max(self._spectral_axis).value)
+
+    def freey(self):
+        if self._plotter is not None:
+            self._plotter._freezey = False
+            self._plotter._axis.relim()
+            self._plotter._axis.autoscale(axis="y", enable=True)
+            self._plotter._axis.autoscale_view()
+
+    def freexy(self):
+        if self._plotter is not None:
+            self.freex()
+            self.freey()
 
     def stats(self, roll=0, qac=False):
         """
@@ -1389,6 +1409,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             observer_location=Observatory[meta["TELESCOP"]],
         )
 
+    @log_call_to_result
     def average(self, spectra, weights="tsys", align=False):
         r"""
         Average this `Spectrum` with `spectra`.
@@ -1421,7 +1442,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         spectra += [self]
 
-        return average_spectra(spectra, weights=weights, align=align)
+        return average_spectra(spectra, weights=weights, align=align, history=self.history)
 
 
 # @todo figure how how to document write()
@@ -1578,7 +1599,7 @@ with registry.delay_doc_updates(Spectrum):
     # registry.register_writer("mrt", Spectrum, spectrum_reader_mrt)
 
 
-def average_spectra(spectra, weights="tsys", align=False):
+def average_spectra(spectra, weights="tsys", align=False, history=None):
     r"""
     Average `spectra`. The resulting `average` will have an exposure equal to the sum of the exposures,
     and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
@@ -1597,6 +1618,8 @@ def average_spectra(spectra, weights="tsys", align=False):
     align : bool
         If `True` align the `spectra` to the first element.
         This uses `Spectrum.align_to`.
+    history : `dysh.log.HistoricalBase`
+        History to append to the averaged spectra.
 
     Returns
     -------
@@ -1607,7 +1630,9 @@ def average_spectra(spectra, weights="tsys", align=False):
     nspec = len(spectra)
     nchan = len(spectra[0].data)
     shape = (nspec, nchan)
-    data_array = np.ma.empty(shape, dtype=float)
+    _data = np.empty(shape, dtype=float)
+    _mask = np.zeros(shape, dtype=bool)
+    data_array = np.ma.MaskedArray(_data, mask=_mask, dtype=float, fill_value=np.nan)
     wts = np.empty(shape, dtype=float)
     exposures = np.empty(nspec, dtype=float)
     tsyss = np.empty(nspec, dtype=float)
@@ -1638,7 +1663,8 @@ def average_spectra(spectra, weights="tsys", align=False):
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
 
-    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array) | data_array.mask, fill_value=np.nan)
+    _mask = np.isnan(data_array.data) | data_array.mask
+    data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data = np.ma.average(data_array, axis=0, weights=wts)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
     xcoo = np.ma.average(xcoos, axis=0, weights=wts[:, 0])
@@ -1652,5 +1678,9 @@ def average_spectra(spectra, weights="tsys", align=False):
     new_meta["CRVAL3"] = ycoo
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
+
+    if history is not None:
+        # Keep previous history first.
+        averaged._history = history + averaged._history
 
     return averaged
