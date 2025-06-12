@@ -119,7 +119,7 @@ class SpectrumPlot:
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self, show_header=True, select=True, show=True, **kwargs):
+    def plot(self, show_header=True, select=True, interactive=True, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
@@ -128,10 +128,14 @@ class SpectrumPlot:
         ----------
         show_header : bool
             Show informational header in the style of GBTIDL, default: True.
+        select : bool
+            Allow selecting regions via click and drag for baseline computation, default: True
+        interactive : bool
+            Allow interactive plots, default: True
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
-        if show:
+        if interactive:
             plt.ion()
         plt.rcParams["font.family"] = "monospace"
         # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
@@ -210,7 +214,7 @@ class SpectrumPlot:
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
 
-        if show:
+        if interactive:
             self.refresh()
 
     def reset(self):
@@ -425,6 +429,8 @@ class SpectrumPlot:
         # buttons are currently listed in the _localaxes, but this includes the plot window at index 0
         # so if the plot window ever goes missing, check the order in this list
         # there has to be a better way to do this
+        # TODO: put buttons in a sub/different axes so we only have to hide the axes object instead of
+        # a list of all the buttons and plots
         for button in self.figure._localaxes[1:]:
             button.set_visible(False)
         self.figure.savefig(file, *kwargs)
