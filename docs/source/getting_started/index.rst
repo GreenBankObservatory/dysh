@@ -5,7 +5,7 @@ Getting Started
 Using ``dysh`` at GBO
 =====================
 
-If you have access to a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier, thales, etc…), then you should be able to launch the latest version of ``dysh`` from a terminal by typing
+If you have access to a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier, thales, etc.), then you should be able to launch the latest version of ``dysh`` from a terminal by typing
 
 .. code::
 
