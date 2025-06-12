@@ -129,10 +129,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._bunit_to_unit = {"ta": u.K, "ta*": u.K, "jy": u.Jy, "counts": u.ct}
-        # possible @todo: create a BaselineableMixin that Spectrum, ScanBlock, and ScanBase inherif from.
+        # possible @todo: create a BaselineableMixin that Spectrum, ScanBlock, and ScanBase inherit from.
         self._baseline_model = None
         self._subtracted = (
-            False  # This is False iff baseline_model is None so we technically don't need a separate boolean.
+            False  # This is False if baseline_model is None so we technically don't need a separate boolean.
         )
 
     def _validate_defaults(self):
@@ -357,16 +357,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if model.return_units != c0.unit:
             raise ValueError(f"Units of model {model.return_units} and calibrated data {c0.unit} must be the same.")
         # Warn if domain of model doesn't encompass domain of spectral axis
-        # THe model domain is always ascending in frequency [I THINK], so make sure
-        # the spectra axis is also asciending in frequency
+        # The model domain is always ascending in frequency [I THINK], so make sure
+        # the spectra axis is also ascending in frequency.
         ssa = sorted(sa.value) * sa.unit
         cdelt = ssa[1] - ssa[0]
         toldelt = abs(tol * cdelt)
-        # print(f"{toldelt=}")
-        # print(f"{model.domain[0]=}. {model.domain[-1]=} {ssa[0]=} {ssa[-1]}=")
         diff0 = ssa[0] - model.domain[0] * model.input_units
         diff1 = model.domain[-1] * model.input_units - ssa[-1]
-        # print(f"{diff0=}  {diff1=}")
         if (diff0 < -toldelt) or (diff1 > toldelt):
             raise ValueError(f"Baseline model would extrapolate on spectral axis by more than {tol} channels.")
 
@@ -398,7 +395,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        None.
+        None
 
         """
         if self._calibrated is None:
@@ -438,7 +435,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     @property
     def subtracted(self):
-        """Has a baseline model been subtracted?"
+        """Has a baseline model been subtracted?
 
         Returns
         -------
@@ -891,8 +888,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        None.
-
+        None
         """
         for scan in self.data:
             scan.subtract_baseline(model, tol, force)
