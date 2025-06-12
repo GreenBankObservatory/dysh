@@ -895,4 +895,3 @@ class TestSpectrum:
         # Check that original Spectrum history did not change.
         assert "baseline" in f1.history[-1]
         assert "__init__" in f2.history[-1]
-
