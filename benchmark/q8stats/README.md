@@ -1,7 +1,7 @@
 # Benchmark outputs for Q8
 
 These files were created with runbenchq8.sh
-OMP_NUM_THREADS unset.
+Setting OMP_NUM_THREADS=1 to ensure no interference from the GIL.
 They contain the benchmark table and first 50 lines of profiler output.
 Profiler stats are sorted by CUMULATIVE time. Files with ".time" extension are sorted by TOTAL time.
 
@@ -53,9 +53,18 @@ Basic result: Creating Spectrum objects is expensive.  This may be due to creati
 - astropy/wcs/wcsapi/high_level_api.py - called during Spectrum construction (by Spectrum1D) - 164 ms/call
 
 ## Profiler results for Scanblock write!
+
 The test does a getps on 13 scans then writes the scanblock with from 1 to 13 PSScans.  The result is linear with number of scans 
 with an average of about 13 ms per scan plus a one-time fixed set up time of 140 ms.  This is perfectly reasonable and does not
 need improvement.  A plot of the results
 
 
 <img src="datawrite.png" width=700>
+
+
+## Profiler results for OTF (getsigref)
+
+Input file is abut 2.3GB, but the OTF is obtained from a subset of this, 13 ON scans, and one OFF scan, using getsigref(),
+on a single feed, IF (there are 5 in total) and pol (2 in total). The default mode in the benchmark extract these limited scans into a smaller
+(5MB) sdfits file., which is processed in about 19sec, whereas processing them directly from the big file takes about 116 sec. This is by
+far the largest impact on performance. The cost of writing (and reloading) that 5MB file is about 3 sec.
