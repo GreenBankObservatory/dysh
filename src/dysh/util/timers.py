@@ -182,7 +182,7 @@ class DTime(object):
                 t.close()
             else:
                 print("no get_mem yet")
-                return np.array([0,0])
+                return np.array([0, 0])
         except:
             print("error get_mem")
             return np.array([])

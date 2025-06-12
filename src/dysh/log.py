@@ -11,11 +11,15 @@ from io import StringIO
 from pathlib import Path
 from typing import Callable, NewType, Union  # , Self # not available until 3.11
 
+from astropy import log
 from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
 
 from . import version
 from .ascii import ensure_ascii
+
+# Set Astropy logging level to warning.
+log.setLevel("WARNING")
 
 LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")

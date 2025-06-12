@@ -9,23 +9,86 @@ Learning-oriented lessons take you through a series of steps to complete a proje
 Most useful when you want to get started reducing your data.
 
 
-.. card-carousel:: 2
+.. grid:: 1 2 2 2
 
-    .. card:: Position Switched Data
-        :link: examples/positionswitch.html
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
 
-        - Calibrate the data.
+        **Position Switched Data**
 
-    .. card:: Frequency Switched Data
-        :link: examples/frequencyswitch.html
+        .. button-link:: examples/positionswitch.html
+            :color: primary
+            :outline:
+            :click-parent:
 
-        - Calibrate the data.
+            Position Switching
 
-    .. card:: Sub Beam Nod Data
-        :link: examples/subbeamnod.html
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
 
-    .. card:: Nodding Data
-        :link: examples/nodding.html
+        **Frequency Switched Data**
+
+        .. button-link:: examples/frequencyswitch.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Frequency Switching
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Subreflector Beam Nodding Data**
+
+        .. button-link:: examples/subbeamnod.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Sub-beam Nodding
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Beam Nodding Data**
+
+        .. button-link:: examples/nodding.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Beam Nodding
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **HI-Survey**
+
+        .. button-link:: examples/hi_survey.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            HI Survey
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Calibration Sequence**
+
+        .. button-link:: examples/calseq.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Calibration sequence and beam nodding with GBT W-Band
+
 
 .. toctree::
    :maxdepth: 4
@@ -35,3 +98,5 @@ Most useful when you want to get started reducing your data.
    examples/frequencyswitch
    examples/subbeamnod
    examples/nodding
+   examples/hi_survey
+   examples/calseq
