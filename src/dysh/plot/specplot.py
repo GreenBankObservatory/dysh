@@ -92,6 +92,8 @@ class SpectrumPlot:
         self._axis = None
         self._title = self._plot_kwargs["title"]
         self._selector: InteractiveSpanSelector = None
+        self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
+        self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
 
     # def __call__ (see pyspeckit)
 
@@ -143,28 +145,10 @@ class SpectrumPlot:
         if True:  # @todo deal with plot reuse (notebook vs script)
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
 
-        # else:
-        #    self._axis.cla()
-        def apply_region_selection(x, y):  # or list of start/stop values?
-            """Apply region selected using Selection"""
-            # sdf.Select(blah blah blah)
-            print(x, y)
-
         # TODO: procedurally generate subplot params based on show header/buttons args.
         # ideally place left/right params right here, then top gets determined below.
 
         s = self._spectrum
-        if show_header:
-            self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
-            self._set_header(s)
-
-            # callback = Index()
-            # axtest = self._figure.add_axes([0.1, 0.9, 0.1, 0.075])
-            # self._btest = Button(axtest, 'Test')
-            # self._btest.on_clicked(self.next)
-
-        # if select:
-        #     self.setregion(sa)
 
         self._sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
@@ -197,12 +181,17 @@ class SpectrumPlot:
         if yunit is not None:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
-        self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        self._line = lines[0]
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
         else:
             self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
+        if self._freezey:
+            self._axis.autoscale(enable=False)
+        else:
+            self._axis.autoscale(axis="y", enable=True)
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
         if this_plot_kwargs["grid"]:
             self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
@@ -212,6 +201,10 @@ class SpectrumPlot:
         # self._axis.axhline(y=0,color='red',lw=2)
         if self._title is not None:
             self._axis.set_title(self._title)
+
+        if show_header:
+            self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
+            self._set_header(s)
 
         if select:
             self._selector = InteractiveSpanSelector(self._axis)
@@ -351,7 +344,7 @@ class SpectrumPlot:
             f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(
-            f"Int : {time_formatter(s.meta['DURATION'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
+            f"Int : {time_formatter(s.meta['EXPOSURE'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(
             f"LST : {time_formatter(s.meta['LST'])}", (hcoords[1], vcoords[2]), xycoords=xyc, size=fsize_small
@@ -375,9 +368,8 @@ class SpectrumPlot:
         self._axis.annotate(f"{s.meta['PROJID']}", (hcoords[3], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # col 5
-        self._axis.annotate(
-            f"Tsys   :  {np.around(s.meta['MEANTSYS'], 2)}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small
-        )
+        _tsys = np.around(s.meta["TSYS"], 2)
+        self._axis.annotate(f"Tsys   :  {_tsys}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small)
         self._axis.annotate(
             f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
         )
@@ -386,9 +378,10 @@ class SpectrumPlot:
         # bottom row
         ra, dec = coord_formatter(s)
         self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(
-            f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
-        )
+        if self._axis.get_title() == "":
+            self._axis.annotate(
+                f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
+            )
         az = np.around(s.meta["AZIMUTH"], 1)
         el = np.around(s.meta["ELEVATIO"], 1)
         ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
@@ -396,20 +389,7 @@ class SpectrumPlot:
             f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
         )
 
-        # bottom row
-        ra, dec = coord_formatter(s)
-        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(
-            f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
-        )
-        az = np.around(s.meta["AZIMUTH"], 1)
-        el = np.around(s.meta["ELEVATIO"], 1)
-        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
-        self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
-        )
-
-        # last corner
+        # last corner -- current date time.
         ts = str(dt.datetime.now())[:19]
         self._axis.annotate(f"{ts}", (0.85, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right")
 
@@ -441,7 +421,15 @@ class SpectrumPlot:
         """
         # TODO: add clause about cutting off the top of the figure where the interactive buttons are
         # bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
+        # or, set_visible to False
+        # buttons are currently listed in the _localaxes, but this includes the plot window at index 0
+        # so if the plot window ever goes missing, check the order in this list
+        # there has to be a better way to do this
+        for button in self.figure._localaxes[1:]:
+            button.set_visible(False)
         self.figure.savefig(file, *kwargs)
+        for button in self.figure._localaxes[1:]:
+            button.set_visible(True)
 
     def get_selected_regions(self):
         """ """
@@ -475,14 +463,14 @@ class InteractiveSpanSelector:
         )
 
         # Button to clear all selections.
-        self.button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
-        self.clear_button = Button(self.button_ax, "Clear Regions")
-        self.clear_button.on_clicked(self.clear_regions)
+        self.region_clear_button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
+        self.region_clear_button = Button(self.region_clear_button_ax, "Clear Regions")
+        self.region_clear_button.on_clicked(self.clear_regions)
 
         # Button to clear a single region.
-        self.button2_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04])
-        self.del_button = Button(self.button2_ax, "Delete Region")
-        self.del_button.on_clicked(self.clear_region)
+        self.region_del_button_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04])
+        self.region_del_button = Button(self.region_del_button_ax, "Delete Region")
+        self.region_del_button.on_clicked(self.clear_region)
 
         # Connect interaction events for dragging/resizing
         self.cid_press = self.canvas.mpl_connect("button_press_event", self.on_press)

@@ -34,3 +34,11 @@ class TestUtil:
 
         for k, v in inout.items():
             assert du.powerof2(k) == v
+
+    def test_merge_ranges(self):
+        """Test merge_ranges function"""
+        from astropy import units as u
+
+        r = [(1 * u.GHz, 2 * u.GHz), (1.5 * u.GHz, 3 * u.GHz)]
+        assert list(du.merge_ranges(r)) == [(1 * u.GHz, 3 * u.GHz)]
+        assert list(du.merge_ranges([])) == []
