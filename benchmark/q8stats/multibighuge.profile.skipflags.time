@@ -1,0 +1,71 @@
+Loading not more than 3 from /lma1/teuben/GBT/dysh_data/acceptance_testing/data/AGBT17B_319_06/AGBT17B_319_06.raw.vegas
+Will load 3 of 3 files. FITS size per file 768.09MB, Flag lines 102
+Loaded 3 FITS files
+Found ostype= linux
+Loaded 3 FITS files
+Loaded 3 FITS files
+Loaded 3 FITS files
+# Dysh Benchmark: GBTFITSLoad
+ name  time  VmSize VmRSS  #files file_size totsize nchan  nrow nIF nFd nPol #flags skipflags
+        ms   Mbyte  Mbyte           Mbyte    Mbyte                                           
+----- ------ ------ ------ ------ --------- ------- ----- ----- --- --- ---- ------ ---------
+load1 3277.5 5941.5 1960.5      3    768.09 2304.27 32768 17496   3   2    2      0      True
+load2 3222.6 6021.1 2039.6      3    768.09 2304.27 32768 17496   3   2    2      0      True
+load3 3273.2 6019.4 2037.9      3    768.09 2304.27 32768 17496   3   2    2      0      True
+load4 3191.9 6029.2 2047.4      3    768.09 2304.27 32768 17496   3   2    2      0      True
+         22623426 function calls (22498188 primitive calls) in 12.923 seconds
+
+   Ordered by: internal time
+   List reduced from 1518 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   139968    1.606    0.000    5.092    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:1321(_apply)
+   699888    0.717    0.000    0.717    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:1758(__getattr__)
+      276    0.654    0.002    0.654    0.002 {built-in method numpy._core._multiarray_umath._vec_string}
+      568    0.482    0.001    1.863    0.003 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/object_array.py:46(_str_map)
+   279968    0.454    0.000    2.154    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:156(__init__)
+       12    0.424    0.035    1.383    0.115 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/lib/recfunctions.py:32(recursive_fill_fields)
+2834357/2830933    0.383    0.000    0.406    0.000 {built-in method builtins.isinstance}
+   559888    0.348    0.000    0.663    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:2503(_validate_jd_for_storage)
+     6024    0.321    0.000    0.485    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1180(_chop)
+  1609632    0.313    0.000    0.576    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/accessor.py:2002(<lambda>)
+  1609632    0.305    0.000    0.520    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/object_array.py:451(<lambda>)
+  1609646    0.263    0.000    0.263    0.000 {method 'decode' of 'bytes' objects}
+24484/23900    0.226    0.000    0.228    0.000 {built-in method numpy.asarray}
+   839880    0.224    0.000    0.313    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:442(_select_subfmts)
+  1634134    0.220    0.000    0.220    0.000 {method 'strip' of 'str' objects}
+     1648    0.220    0.000    0.223    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/_core/numeric.py:290(full)
+738867/738795    0.213    0.000    0.562    0.000 {built-in method builtins.getattr}
+   279944    0.210    0.000    0.580    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:242(jd2)
+       32    0.199    0.006    0.757    0.024 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/dtypes/cast.py:1579(construct_1d_object_array_from_listlike)
+   283102    0.178    0.000    0.178    0.000 {built-in method numpy.array}
+   279968    0.123    0.000    0.156    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:277(precision)
+    13720    0.122    0.000    0.220    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/array_algos/take.py:120(_take_nd_ndarray)
+   279968    0.119    0.000    0.225    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:212(in_subfmt)
+   139968    0.118    0.000    0.154    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/object_array.py:358(<lambda>)
+      760    0.117    0.000    0.117    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/dtypes/missing.py:305(_isna_string_dtype)
+   139968    0.116    0.000    5.208    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:243(__getitem__)
+   279944    0.112    0.000    0.466    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:232(jd1)
+   279968    0.106    0.000    0.204    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:222(out_subfmt)
+     6024    0.106    0.000    0.119    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/indexes/base.py:5425(_getitem_slice)
+   279936    0.105    0.000    0.213    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:194(_get_allowed_subfmt)
+     1928    0.094    0.000    0.096    0.000 /lma1/mpound/Anaconda3-2024.10-1/lib/python3.12/warnings.py:184(_add_filter)
+   139992    0.092    0.000    0.183    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:234(__len__)
+   699944    0.086    0.000    0.086    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:228(jd1)
+    62160    0.076    0.000    0.076    0.000 {built-in method builtins.locals}
+     4144    0.067    0.000    0.661    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:561(__init__)
+   139968    0.065    0.000    0.102    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:1098(masked)
+272585/210420    0.065    0.000    0.394    0.000 {built-in method builtins.setattr}
+    66304    0.063    0.000    0.338    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:532(__set__)
+    24918    0.063    0.000    0.262    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/config/configuration.py:442(__call__)
+   279944    0.061    0.000    0.061    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:2519(_broadcast_writeable)
+   139984    0.056    0.000    0.091    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:263(scale)
+      568    0.056    0.000    0.198    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/accessor.py:255(_wrap_result)
+444761/419892    0.054    0.000    0.095    0.000 {built-in method builtins.len}
+      532    0.051    0.000    0.057    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/internals/managers.py:2246(_stack_arrays)
+        4    0.049    0.012    1.045    0.261 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:941(_construct_integration_number)
+        9    0.048    0.005    0.051    0.006 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/hdu/base.py:186(data)
+   182270    0.048    0.000    0.048    0.000 {method 'split' of 'str' objects}
+        8    0.047    0.006    0.139    0.017 /lma1/mpound/dysh/src/dysh/util/core.py:101(gbt_timestamp_to_time)
+   139976    0.047    0.000    0.139    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:778(scale)
+   139976    0.047    0.000    5.255    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:263(self_iter)
