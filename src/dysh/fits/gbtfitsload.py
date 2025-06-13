@@ -968,7 +968,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scans = kwargs.get("SCAN", None)
         if scans is None:
             scans = uniq(_final["SCAN"])
-        elif type(scans) == int:  # noqa: E721
+        elif isinstance(scans, int):
             scans = list([scans])
         if "REF" in kwargs:
             scans.append(kwargs.pop("REF"))
@@ -2126,7 +2126,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return s
         if lenprocset > 1:
             raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
-        proc = list(procset)[0]  # noqa: RUF015
+        proc = next(iter(procset))
         dfon = select_from(prockey, procvals["ON"], selection)
         dfoff = select_from(prockey, procvals["OFF"], selection)
         onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
