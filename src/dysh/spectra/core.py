@@ -322,11 +322,11 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
                 # If the user requested to fix the exclude range.
                 if fix_exclude:
                     exclude = np.array(exclude)
-                    mask = exclude > len(sa)
+                    mask = exclude >= len(sa)
                     if mask.sum() > 0:
                         msg = f"Setting upper limit to {lastchan}."
-                        exclude[exclude > len(sa)] = lastchan
-                        warnings.warn(msg)  # noqa: B028
+                        exclude[exclude >= len(sa)] = lastchan
+                        warnings.warn(msg, stacklevel=2)
                 # If the spectral_axis is decreasing, flip it.
                 sr = SpectralRegion(sa[exclude][:, ::o])
 
@@ -588,7 +588,6 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
             f"Unrecognized exclude region action {kwargs['exclude_region']}. Must be one of {_valid_exclude_actions}"
         )
     fitter = kwargs_opts["fitter"]
-    # print(f"MODEL {model} FITTER {fitter}")
     p = spectrum
     if np.isnan(p.data).all():
         # @todo handle masks
@@ -1148,7 +1147,11 @@ def cog_slope(c, flat_tol=0.1):
     slope = np.diff(c)
     slope_rms = slope.std()
     flat = abs(slope) < flat_tol * slope_rms
-    flat_idx0 = np.where(flat)[0][0]
+    flat_idx = np.where(flat)[0]
+    try:
+        flat_idx0 = flat_idx[0]
+    except IndexError:
+        flat_idx0 = -1
 
     return slope, slope_rms, flat_idx0
 
@@ -1252,6 +1255,7 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     r = np.cumsum(ydx[vc_idx - 1 :])  # Red.
     s = min(len(b), len(r))
     t = b[:s] + r[:s]
+    dx = dx[:s]
 
     # Find flux.
     flux, flux_std, slope = cog_flux(t, flat_tol)
@@ -1260,9 +1264,9 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
 
     # Find line widths.
     if 0.25 not in width_frac:
-        width_frac.insert(0.25)
+        width_frac.insert(0, 0.25)
     if 0.85 not in width_frac:
-        width_frac.insert(0.85)
+        width_frac.append(0.85)
     widths = dict.fromkeys(width_frac)
     _, _, flat_idx0 = cog_slope(t, flat_tol)
     nt = t[:flat_idx0] / flux
