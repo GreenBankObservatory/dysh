@@ -1427,6 +1427,39 @@ class TestGBTFITSLoad:
         assert sdf.get_nod_beams(scan=333) == [1, 9]
         assert sdf.get_nod_beams(scan=334) == [1, 9]
 
+    def test_calseq(self):
+        """Test for calseq"""
+
+        sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0)
+        assert tsys == pytest.approx(106.97707617351139)
+        assert gain == pytest.approx(8.811870868732733e-07)
+
+        # Make it error.
+        with pytest.warns(UserWarning):
+            with pytest.raises(Exception):
+                sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+
+    def test_vanecal(self):
+        """Test for vanecal"""
+
+        sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        tcal = 272
+        ifnum = 0
+        plnum = 0
+        tsys = sdf.vanecal(scan=329, fdnum=1, tcal=tcal, ifnum=ifnum, plnum=plnum)
+        assert tsys == pytest.approx(221.7994624067703)
+
+        tsys = sdf.vanecal(scan=329, fdnum=1, ifnum=ifnum, plnum=plnum)
+        if not Path("/users/rmaddale/bin/getForecastValues").is_file():
+            assert tsys == pytest.approx(212.62577140649026)
+        else:
+            assert tsys == pytest.approx(221.82213493114335)
+
 
 def test_parse_tsys():
     """
