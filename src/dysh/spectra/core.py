@@ -322,11 +322,11 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
                 # If the user requested to fix the exclude range.
                 if fix_exclude:
                     exclude = np.array(exclude)
-                    mask = exclude > len(sa)
+                    mask = exclude >= len(sa)
                     if mask.sum() > 0:
                         msg = f"Setting upper limit to {lastchan}."
-                        exclude[exclude > len(sa)] = lastchan
-                        warnings.warn(msg)  # noqa: B028
+                        exclude[exclude >= len(sa)] = lastchan
+                        warnings.warn(msg, stacklevel=2)
                 # If the spectral_axis is decreasing, flip it.
                 sr = SpectralRegion(sa[exclude][:, ::o])
 
@@ -588,7 +588,6 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
             f"Unrecognized exclude region action {kwargs['exclude_region']}. Must be one of {_valid_exclude_actions}"
         )
     fitter = kwargs_opts["fitter"]
-    # print(f"MODEL {model} FITTER {fitter}")
     p = spectrum
     if np.isnan(p.data).all():
         # @todo handle masks
@@ -1121,3 +1120,234 @@ def data_shift(y, s, axis=-1, remove_wrap=True, fill_value=np.nan, method="fft",
         y_new = data_fshift(y_new, fshift, method=method, pad=pad, window=window)
 
     return y_new
+
+
+def cog_slope(c, flat_tol=0.1):
+    """
+    Find slope for curve of growth analysis.
+
+    Parameters
+    ----------
+    c : array
+        Curve of growth values.
+    flat_tol : float
+        Tolerance to define the flat portion of the curve of growth.
+        The flat portion is that which is zero within `flat_tol` times the rms
+        of the slope.
+
+    Returns
+    -------
+    slope : array
+        Slope of `c`.
+    slope_rms : float
+        Standard deviation of the slope.
+    flat_idx0 : int
+        Index where the slope is consistent with zero.
+    """
+    slope = np.diff(c)
+    slope_rms = slope.std()
+    flat = abs(slope) < flat_tol * slope_rms
+    flat_idx = np.where(flat)[0]
+    try:
+        flat_idx0 = flat_idx[0]
+    except IndexError:
+        flat_idx0 = -1
+
+    return slope, slope_rms, flat_idx0
+
+
+def cog_flux(c, flat_tol=0.1):
+    """
+    Find the flux from the curve of growth.
+
+    Paramaters
+    ----------
+    c : array
+        Curve of growth values.
+    flat_tol : float
+        Tolerance to define the flat portion of the curve of growth.
+        The flat portion is that which is zero within `flat_tol` times the rms
+        of the slope.
+
+    Returns
+    -------
+    flux : float
+        The median of the curve of growth over its flat portion.
+    flux_std : float
+        The standard deviation of the curve of growth over the flat portion.
+    slope : array
+        The median value of the slope for the curve of growth before it becomes flat.
+    """
+    slope, slope_rms, flat_idx0 = cog_slope(c, flat_tol)
+    flux = np.nanmedian(c[flat_idx0:])
+    flux_std = np.nanstd(c[flat_idx0:])
+    slope = np.nanmedian(slope[:flat_idx0])
+    return flux, flux_std, slope
+
+
+def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=2):
+    """
+    Curve of growth analysis based on Yu et al. (2020) [1]_.
+
+    Parameters
+    ----------
+    x : array
+        Velocity values.
+    y : array
+        Flux values.
+    vc : float
+        Central velocity of the line in the same units as `x`.
+        If not provided, it will be estimated from the moment 1 of the `x` and `y` values.
+    width_frac : list
+        List of fractions of the total flux at which to compute the line width.
+        If 0.25 and 0.85 are not included, they will be added to estimate the concentration
+        as defined in [1]_.
+    bchan : int
+        Beginning channel where there is signal.
+        If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
+    echan : int
+        End channel where there is signal.
+        If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
+    flat_tol : float
+        Tolerance used to define the flat portion of the curve of growth.
+        The curve of growth will be considered flat when it's slope is within `flat_tol` times the standard deviation of the slope from zero.
+    fw : float
+        When estimating the line-free range, use `fw` times the largest width.
+
+    Returns
+    -------
+    results : dict
+        Dictionary with the flux (:math:`F`), width (:math:`V`), flux asymmetry (:math:`A_F`), slope asymmetry (:math:`A_C`), concentration (:math:`C_V`),
+        rms, central velocity ("vel"), redshifted flux (:math:`F_r`), blueshifted flux (:math:`F_b`),`bchan` and `echan`, and errors on the flux ("flux_std"), width ("width_std"), central velocity ("vel_std"), redshifted flux ("flux_r_std"), and blueshifted flux ("flux_b_std").
+        The rms is the standard deviation in the range outside of (bchan,echan).
+
+    .. [1] `N. Yu, L. Ho & J. Wang, "On the Determination of Rotation Velocity and Dynamical Mass of Galaxies Based on Integrated H I Spectra"
+       <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_.
+    """
+    if width_frac is None:
+        width_frac = [0.25, 0.65, 0.75, 0.85, 0.95]
+    # Sort data values.
+    p = 1
+    if x[0] > x[1]:
+        p = -1
+    _x = x[::p]
+    _y = y[::p]
+    # Use channel ranges if provided.
+    # Slice the end first to keep the meaning of bchan.
+    if echan is not None:
+        _x = _x[:echan]
+        _y = _y[:echan]
+    if bchan is not None:
+        _x = _x[bchan:]
+        _y = _y[bchan:]
+    dx = np.diff(_x)
+    ydx = _y[1:] * dx
+
+    # Find initial guess for central velocity.
+    _vc = vc
+    if _vc is None:
+        _vc = (_x * _y).sum() / _y.sum()
+    vc_idx = np.argmin(abs(_x - _vc))
+    xr = _x[vc_idx:] - _vc
+
+    # Compute curve of growth.
+    b = np.cumsum(ydx[:vc_idx][::-1])  # Blue.
+    r = np.cumsum(ydx[vc_idx - 1 :])  # Red.
+    s = min(len(b), len(r))
+    t = b[:s] + r[:s]
+    dx = dx[:s]
+
+    # Find flux.
+    flux, flux_std, slope = cog_flux(t, flat_tol)
+    flux_b, flux_b_std, slope_b = cog_flux(b, flat_tol)
+    flux_r, flux_r_std, slope_r = cog_flux(r, flat_tol)
+
+    # Find line widths.
+    if 0.25 not in width_frac:
+        width_frac.insert(0, 0.25)
+    if 0.85 not in width_frac:
+        width_frac.append(0.85)
+    widths = dict.fromkeys(width_frac)
+    _, _, flat_idx0 = cog_slope(t, flat_tol)
+    nt = t[:flat_idx0] / flux
+    for f in width_frac:
+        idx = np.argmin(abs(nt - f))
+        widths[f] = xr[idx]
+
+    # Estimate rms from line-free channels.
+    if bchan is None:
+        _bchan = np.argmin(abs(_x - (_vc - fw * widths[max(width_frac)])))
+        if _bchan <= 0:
+            _bchan = 0
+    else:
+        _bchan = bchan
+    if echan is None:
+        _echan = np.argmin(abs(_x - (_vc + fw * widths[max(width_frac)])))
+        if _echan >= len(x):
+            _echan = len(x)
+    else:
+        _echan = echan
+
+    # Use y values without channel crop.
+    rms = np.nanstd(np.hstack((y[:_bchan], y[_echan:])))
+
+    vc_std = 0 * x.unit
+    if vc is None:
+        fac1 = _vc / (_y * _x).sum() * np.sqrt(np.sum((_x * rms) ** 2))
+        fac2 = np.sqrt(len(_x)) * rms * _vc / _y.sum()
+        vc_std = np.sqrt(fac1**2 + fac2**2)
+
+    # Return to original ordering.
+    if p == -1:
+        if bchan is None:
+            _bchan = len(_x) - _bchan - 1
+        if echan is None:
+            _echan = len(_x) - _echan - 1
+        # Sort so that bchan is always lower than echan.
+        _bchan, _echan = np.sort([_bchan, _echan])
+
+    # Estimate error on widths.
+    nt_std = np.sqrt((nt / t[:flat_idx0] * rms * dx[:flat_idx0]) ** 2 + (nt / flux * flux_std) ** 2)
+    widths_std = dict.fromkeys(width_frac)
+    for f in width_frac:
+        idx = np.argmin(abs(nt - f))
+        std = nt_std[idx]
+        idx_m = np.argmin(abs(nt - std - f))
+        idx_p = np.argmin(abs(nt + std - f))
+        std_m = xr[idx_m] - xr[idx]
+        std_p = xr[idx] - xr[idx_p]
+        widths_std[f] = np.nanmax((std_m.value, std_p.value, dx[idx].value)) * dx.unit
+
+    # Flux asymmetry.
+    a_f = flux_b / flux_r
+    if a_f < 1:
+        a_f = 1 / a_f
+
+    # Shape asymmetry.
+    a_c = slope_b / slope_r
+    if a_c < 1:
+        a_c = 1 / a_c
+
+    # Concentration.
+    c_v = widths[0.85] / widths[0.25]
+
+    results = {
+        "flux": flux,
+        "flux_std": flux_std,
+        "flux_r": flux_r,
+        "flux_r_std": flux_r_std,
+        "flux_b": flux_b,
+        "flux_b_std": flux_b_std,
+        "width": widths,
+        "width_std": widths_std,
+        "A_F": a_f.value,
+        "A_C": a_c.value,
+        "C_C": c_v.value,
+        "rms": rms,
+        "bchan": _bchan,
+        "echan": _echan,
+        "vel": _vc,
+        "vel_std": vc_std,
+    }
+
+    return results

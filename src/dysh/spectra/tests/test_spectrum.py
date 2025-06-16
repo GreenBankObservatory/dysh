@@ -769,6 +769,98 @@ class TestSpectrum:
         assert r_v[0][0].value == pytest.approx(3870.69160846)
         assert r_v[0][1].value == pytest.approx(3827.48453869)
 
+    def test_cog(self):
+        """
+        Test for cog.
+        It creates a Gaussian line profile and checks the answers against the input parameters.
+        """
+
+        nchan = 2**14
+        ss = Spectrum.fake_spectrum(nchan=nchan, VELDEF="RADI-HEL")
+        x = np.arange(0, len(ss.data))
+        fwhm = 50
+        stdd = fwhm / 2 * np.sqrt(2 * np.log(2.0))
+        mean = int(x.mean())
+        rms = 0.001
+
+        # Add Gaussian line with noise.
+        ss._data = 1.0 / (stdd * np.sqrt(2 * np.pi)) * np.exp(-0.5 * (x - mean) ** 2 / stdd**2)
+        rng = np.random.default_rng(1234)
+        ss._data += rng.normal(loc=0, scale=rms, size=nchan)
+
+        p = ss[mean - 3 * fwhm : mean + 3 * fwhm].cog(width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95])
+
+        flux = p["flux"].value
+        flux_err = p["flux_std"].value
+        assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
+        assert stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
+            p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
+        )
+        assert ss.spectral_axis.to("km/s").quantity[mean].value == pytest.approx(
+            p["vel"].value, abs=3 * p["vel_std"].value
+        )
+        assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
+            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
+        )
+        assert rms == pytest.approx(p["rms"].value, abs=1e-3)
+
+        p = ss.cog(width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95], bchan=mean - 3 * fwhm, echan=mean + 3 * fwhm)
+        flux = p["flux"].value
+        flux_err = p["flux_std"].value
+        assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
+        assert stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
+            p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
+        )
+        assert ss.spectral_axis.to("km/s").quantity[mean].value == pytest.approx(
+            p["vel"].value, abs=3 * p["vel_std"].value
+        )
+        assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
+            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
+        )
+        assert rms == pytest.approx(p["rms"].value, abs=1e-3)
+        assert p["bchan"] == mean - 3 * fwhm
+        assert p["echan"] == mean + 3 * fwhm
+
+        p = ss.cog(vc=ss.spectral_axis.to("km/s").quantity[mean], width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95])
+        flux = p["flux"].value
+        flux_err = p["flux_std"].value
+        assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
+        assert stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
+            p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
+        )
+        assert ss.spectral_axis.to("km/s").quantity[mean].value == pytest.approx(
+            p["vel"].value, abs=3 * p["vel_std"].value
+        )
+        assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
+            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
+        )
+        assert rms == pytest.approx(p["rms"].value, abs=1e-3)
+
+        # Now, a line at the window edge.
+        ss = Spectrum.fake_spectrum(nchan=nchan, VELDEF="RADI-HEL")
+        mean = int(nchan * 0.7)
+        # Add Gaussian line with noise.
+        ss._data = 1.0 / (stdd * np.sqrt(2 * np.pi)) * np.exp(-0.5 * (x - mean) ** 2 / stdd**2)
+        rng = np.random.default_rng(1234)
+        ss._data += rng.normal(loc=0, scale=rms, size=nchan)
+        # Get CoG and test results.
+        p = ss.cog(width_frac=[0.25, 0.68, 0.85], bchan=mean - 3 * fwhm, echan=mean + 3 * fwhm)
+        flux = p["flux"].value
+        flux_err = p["flux_std"].value
+        assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
+        assert stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
+            p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
+        )
+        assert ss.spectral_axis.to("km/s").quantity[mean].value == pytest.approx(
+            p["vel"].value, abs=3 * p["vel_std"].value
+        )
+        assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
+            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
+        )
+        assert rms == pytest.approx(p["rms"].value, abs=1e-3)
+        assert p["bchan"] == mean - 3 * fwhm
+        assert p["echan"] == mean + 3 * fwhm
+
     def test_average(self):
         """
         Test average method of Spectrum.
