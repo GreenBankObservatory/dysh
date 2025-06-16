@@ -36,11 +36,12 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
-from ..log import HistoricalBase, log_call_to_history  # , logger
+from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import (
     baseline,
+    curve_of_growth,
     exclude_to_spectral_region,
     get_spectral_equivalency,
     spectral_region_to_list_of_tuples,
@@ -230,9 +231,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 self._plotter._line.set_ydata(self._data)
                 if self._bline is not None:
                     self._bline.set_ydata(np.ones(int(self.meta["NAXIS1"])) * np.nan)
-                ydiff = np.max(self._data) - np.min(self._data)
-                self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
-                self._plotter._figure.canvas.flush_events()
+                if not self._plotter._freezey:
+                    self.freey()
+                # ydiff = np.max(self._data) - np.min(self._data)
+                # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
+                # self._plotter._figure.canvas.flush_events()
             else:
                 lines = self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis), c=color)
                 self._bline = lines[0]
@@ -243,7 +246,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def undo_baseline(self):
         """
         Undo the most recently computed baseline. If the baseline
-        has been subtracted, it will be added back. The `baseline_model`
+        has been subtracted, it will be added back to the data. The `baseline_model`
         attribute is set to None. Exclude regions are untouched.
         """
         if self._baseline_model is None:
@@ -254,11 +257,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
-            self._baseline_model = None
-            self._plotter._line.set_ydata(self._data)
-            ydiff = np.max(self._data) - np.min(self._data)
-            self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
-            self._plotter._figure.canvas.flush_events()
+            if self._plotter is not None:
+                self._plotter._line.set_ydata(self._data)
+                if not self._plotter._freezey:
+                    self.freey()
+        self._baseline_model = None
+
+    @property
+    def subtracted(self):
+        """Has a baseline model been subtracted?"
+
+        Returns
+        -------
+        True if a baseline model has been subtracted, False otherwise
+        """
+        return self._subtracted
 
     def _set_exclude_regions(self, exclude):
         """
@@ -322,6 +335,25 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @property
     def plotter(self):
         return self._plotter
+
+    def freex(self):
+        if self._plotter is not None:
+            self._plotter._freezex = False
+            # This line (and the other in specplot.py) will have to be addressed when we
+            # implement multiple IF windows in the same plot
+            self._plotter._axis.set_xlim(np.min(self._spectral_axis).value, np.max(self._spectral_axis).value)
+
+    def freey(self):
+        if self._plotter is not None:
+            self._plotter._freezey = False
+            self._plotter._axis.relim()
+            self._plotter._axis.autoscale(axis="y", enable=True)
+            self._plotter._axis.autoscale_view()
+
+    def freexy(self):
+        if self._plotter is not None:
+            self.freex()
+            self.freey()
 
     def stats(self, roll=0, qac=False):
         """
@@ -881,7 +913,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
             unc = self.uncertainty.quantity
             udesc = "Flux uncertainty"
         outarray = [self.spectral_axis, self.flux, unc, self.weights, mask, bl]
-        description = ["Spectral axis", "Flux", udesc, "Channel weights", "Mask 0=unmasked, 1=masked", bldesc]
+        description = [
+            "Spectral axis",
+            "Flux",
+            udesc,
+            "Channel weights",
+            "Mask 0=unmasked, 1=masked",
+            bldesc,
+        ]
         # remove FITS reserve keywords
         meta = deepcopy(self.meta)
         meta.pop("NAXIS1", None)
@@ -1389,6 +1428,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             observer_location=Observatory[meta["TELESCOP"]],
         )
 
+    @log_call_to_result
     def average(self, spectra, weights="tsys", align=False):
         r"""
         Average this `Spectrum` with `spectra`.
@@ -1421,7 +1461,60 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         spectra += [self]
 
-        return average_spectra(spectra, weights=weights, align=align)
+        return average_spectra(spectra, weights=weights, align=align, history=self.history)
+
+    def cog(
+        self,
+        vc=None,
+        width_frac=None,
+        bchan=None,
+        echan=None,
+        flat_tol=0.1,
+        fw=2,
+        xunit="km/s",
+    ):
+        """
+        Curve of growth (CoG) analysis based on Yu et al. (2020) [1]_.
+
+        Parameters
+        ----------
+        vc : float
+            Central velocity of the line.
+            If not provided, it will be estimated from the moment 1 of the `x` and `y` values.
+        width_frac : list
+            List of fractions of the total flux at which to compute the line width.
+            If 0.25 and 0.85 are not included, they will be added to estimate the concentration
+            as defined in [1]_.
+        bchan : int
+            Beginning channel where there is signal.
+            If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
+        echan : int
+            End channel where there is signal.
+            If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
+        flat_tol : float
+            Tolerance used to define the flat portion of the curve of growth.
+            The curve of growth will be considered flat when it's slope is within `flat_tol` times the standard deviation of the slope from zero.
+        fw : float
+            When estimating the line-free range, use `fw` times the largest width.
+        xunit : str or `~astropy.units.quantity`
+            Units for the x axis when computing the CoG.
+
+        Returns
+        -------
+        results : dict
+            Dictionary with the flux (:math:`F`), width (:math:`V`), flux asymmetry (:math:`A_F`), slope asymmetry (:math:`A_C`), concentration (:math:`C_V`),
+            rms, central velocity ("vel"), redshifted flux (:math:`F_r`), blueshifted flux (:math:`F_b`),`bchan` and `echan`, and errors on the
+            flux ("flux_std"), width ("width_std"), central velocity ("vel_std"), redshifted flux ("flux_r_std"), and blueshifted flux ("flux_b_std").
+            The rms is the standard deviation in the range outside of (bchan,echan).
+
+        .. [1] `N. Yu, L. Ho & J. Wang, "On the Determination of Rotation Velocity and Dynamical Mass of Galaxies Based on Integrated H I Spectra"
+           <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_.
+        """
+        if width_frac is None:
+            width_frac = [0.25, 0.65, 0.75, 0.85, 0.95]
+        x = self.spectral_axis.to(xunit)
+        y = self.flux
+        return curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
 
 
 # @todo figure how how to document write()
@@ -1578,7 +1671,7 @@ with registry.delay_doc_updates(Spectrum):
     # registry.register_writer("mrt", Spectrum, spectrum_reader_mrt)
 
 
-def average_spectra(spectra, weights="tsys", align=False):
+def average_spectra(spectra, weights="tsys", align=False, history=None):
     r"""
     Average `spectra`. The resulting `average` will have an exposure equal to the sum of the exposures,
     and coordinates and system temperature equal to the weighted average of the coordinates and system temperatures.
@@ -1597,6 +1690,8 @@ def average_spectra(spectra, weights="tsys", align=False):
     align : bool
         If `True` align the `spectra` to the first element.
         This uses `Spectrum.align_to`.
+    history : `dysh.log.HistoricalBase`
+        History to append to the averaged spectra.
 
     Returns
     -------
@@ -1607,7 +1702,9 @@ def average_spectra(spectra, weights="tsys", align=False):
     nspec = len(spectra)
     nchan = len(spectra[0].data)
     shape = (nspec, nchan)
-    data_array = np.ma.empty(shape, dtype=float)
+    _data = np.empty(shape, dtype=float)
+    _mask = np.zeros(shape, dtype=bool)
+    data_array = np.ma.MaskedArray(_data, mask=_mask, dtype=float, fill_value=np.nan)
     wts = np.empty(shape, dtype=float)
     exposures = np.empty(nspec, dtype=float)
     tsyss = np.empty(nspec, dtype=float)
@@ -1638,7 +1735,8 @@ def average_spectra(spectra, weights="tsys", align=False):
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
 
-    data_array = np.ma.MaskedArray(data_array, mask=np.isnan(data_array) | data_array.mask, fill_value=np.nan)
+    _mask = np.isnan(data_array.data) | data_array.mask
+    data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data = np.ma.average(data_array, axis=0, weights=wts)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
     xcoo = np.ma.average(xcoos, axis=0, weights=wts[:, 0])
@@ -1652,5 +1750,9 @@ def average_spectra(spectra, weights="tsys", align=False):
     new_meta["CRVAL3"] = ycoo
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
+
+    if history is not None:
+        # Keep previous history first.
+        averaged._history = history + averaged._history
 
     return averaged
