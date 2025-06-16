@@ -1,3 +1,23 @@
+Version 0.7.0
+=============
+
+.. _0.7.0-functionality:
+
+Functionality & Enhancements
+----------------------------
+- Scan/ScanBlock baseline subtraction
+  - It is now possible to subtract a baseline model from all the integrations in a `Scan` or `ScanBlock` using the `subtract_baseline` method.
+- Curve of Growth
+  - `Spectrum` objects now have a `cog` method that computes the curve of growth.
+
+.. _0.7.0-bugfixes:
+
+Bug Fixes
+---------
+- Fixes a bug where using `proc=...` with `getps` would result in an error.
+- Fixes a bug where unpaired OnOff or OffOn observing procedures would result in an error.
+- Fixes a bug where using an exclude region with a boundary equal to the number of channels would produce an error.
+
 Version 0.6.2
 =============
 
