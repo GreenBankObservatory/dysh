@@ -1,3 +1,9 @@
+.. |minver| replace:: ``0.7.0``
+.. |minpatch| replace:: ``0.7.1``
+.. |pymin| replace:: 3.10
+.. |pymax| replace:: 3.12
+.. |pyupp| replace:: 3.13
+
 ***************
 Getting Started
 ***************
@@ -7,23 +13,24 @@ Using ``dysh`` at GBO
 
 If you have access to a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier, thales, etc.), then you should be able to launch the latest version of ``dysh`` from a terminal by typing
 
-.. code::
+.. code:: bash
 
     dysh
 
-The first time you run this, it may take a while. To make sure you are getting the latest version make sure that the following commands produce the output shown.
+The first time you run this, it may take a minute.
+To verify you are getting the latest version, check the output of these commands:
 
-.. code::
+.. code:: bash
 
     which dysh
 
 Should print: ``/opt/local/bin/dysh``. And
 
-.. code::
+.. code:: bash
 
     dysh --version
 
-Should print ``0.6.0`` or higher (e.g., ``0.6.1`` or ``0.7.0``).
+Should print |minver| or higher (e.g., |minpatch|).
 
 If you want to install your own version of ``dysh`` instead, read the following section.
 
@@ -31,7 +38,7 @@ If you want to install your own version of ``dysh`` instead, read the following 
 Installing ``dysh``
 ===================
 
-``dysh`` requires Python 3.10+ (up to 3.12, as we have not tested dysh on Python 3.13 or above) and recent versions of
+``dysh`` requires a Python version between |pymin| and |pymax| (``dysh`` has not been tested in Python |pyupp| or above) and recent versions of
 `astropy <https://astropy.org>`_,
 `numpy <https://numpy.org>`_,
 `scipy <https://scipy.org>`_,
@@ -49,26 +56,26 @@ Linux and MacOS
 
     The details of how to install ``dysh`` on your own depend on what package manager you use (e.g., ``uv``, ``conda``, ``pip``).
     We strongly recommend that you install ``dysh`` in a separate Python environment, so you do not change your system Python (if you use your own anaconda3, you can of course do anything you like, though we still recommend a virtual environment).
-    It is important to note that the latest version of ``dysh`` will only work on Python 3.10 or higher (up to 3.12, as we have not tested dysh on Python 3.13 or above).
+    It is important to note that the latest version of ``dysh`` will only work on Python versions between |pymin| and |pymax| (``dysh`` has not been tested on Python |pyupp| or above).
     Here we provide a few examples, which require the ability to install Python packages in your system.
 
     .. tab:: Using ``conda``
 
         If you use ``conda``, then you can use the following commands
 
-        #. Create a dedicated virtual environment for dysh, with Python 3.10 (you can use 3.11 or 3.12, but not lower than 3.10):
+        #. Create a dedicated virtual environment for ``dysh``, with Python 3.12 (you could use a Python version between |pymin| and |pymax|)
 
            .. code-block:: bash
 
-                conda create -n dysh-venv python==3.10
+                conda create -n dysh-venv python==3.12
 
-        #. Activate the newly create virtual environment
+        #. Activate the newly created virtual environment
 
            .. code-block:: bash
 
                 conda activate dysh-venv
 
-        #. Install dysh into the environment
+        #. Install ``dysh`` into the environment
 
            .. code-block:: bash
 
@@ -80,19 +87,20 @@ Linux and MacOS
 
                 dysh --version
 
-           It should print ``0.6.0`` of higher.
+           It should print |minver| or higher (e.g., |minpatch|).
 
     .. tab:: Using ``venv``
 
-        If you already have Python 3.10, 3.11 or 3.12 installed you can create a new virtual environment using ``venv``.
+        If you already have Python |pymin|, up to |pymax|, installed you can create a new virtual environment using ``venv``.
 
-        #. Create a dedicated virtual environment for dysh, with Python 3.10 (you can use 3.11 or 3.12, but not lower than 3.10):
+        #. Create a dedicated virtual environment for ``dysh``, with Python |pymax|:
 
            .. code-block:: bash
 
-                python3.10 -m venv dysh-venv
+                python3.12 -m venv dysh-venv
 
-           Having ``python3.10`` available as above may change depending on your own system. Make sure you are using Python 3.10, 3.11 or 3.12 with ``python --version``.
+           Having ``python3.12`` available as above may change depending on your own system.
+           Make sure you are using a Python version between |pymin| and |pymax| with ``python --version``.
 
         #. Activate the newly created virtual environment
 
@@ -100,13 +108,14 @@ Linux and MacOS
 
                 pip install "dysh[nb] @ git+https://github.com/GreenBankObservatory/dysh"
 
-        #. ``dysh`` should now be available through the ``dysh`` command. You can check what version you installed by running:
+        #. ``dysh`` should now be available through the ``dysh`` command.
+           You can check what version you installed by running:
 
            .. code-block:: bash
 
                 dysh --version
 
-           It should print ``0.6.0`` or higher.
+           It should print |minver| or higher (e.g., |minpatch|).
 
     .. tab:: Using ``uv``
 
@@ -122,7 +131,7 @@ Linux and MacOS
 
             dysh --version
 
-        It should print ``0.6.0`` or higher.
+        It should print |minver| or higher (e.g., |minpatch|).
 
         .. warning::
 
@@ -134,7 +143,7 @@ Linux and MacOS
 
     At GBO, on a linux machine from the terminal (assumes you’re using bash).
 
-    #. First, create a new Python virtual environment. For this example we will use Python 3.11 (you can change the Python version, but the latest ``dysh`` will only work on Python>=3.10):
+    #. First, create a new Python virtual environment. For this example we will use Python 3.11 (you can change the Python version, but the latest ``dysh`` will only work on Python between |pymin| and |pymax|):
 
        .. code-block:: bash
 
@@ -160,7 +169,7 @@ Linux and MacOS
 
             dysh --version
 
-       It should show ``0.6.0``, or greater (e.g., ``0.6.1`` or ``0.7.0``), if using Python>=3.10 (to check your Python version you can type ``python --version``).
+       It should show |minver| or higher (e.g., |minpatch|), if using Python between |pymin| and |pymax| (to check the Python version use ``python --version``).
 
     #. Launch the command line interface
 
@@ -212,7 +221,8 @@ If you want to install the latest stable version of ``dysh``, then it is not nec
         conda create -n dysh-venv python==3.10
 
    This will create a new virtual environment with ``Python3.10``.
-   You can use other versions of ``Python``, but not lower than 3.10, and ``dysh`` has not been tested with ``Python3.13`` and above.
+   You can use other versions of ``Python``, but not lower than |pymin| nor above |pymax|.
+   ``dysh`` has not been tested with ``Python`` |pyupp| and above.
    You can check the ``Python`` version using the command ``python --version`` in the terminal.
 
 #. After creating the environment, activate it. Enter the following command
@@ -239,7 +249,7 @@ If you want to install the latest stable version of ``dysh``, then it is not nec
 
         dysh --version
 
-   This should print ``0.6.0`` or above (e.g., ``0.7.0``).
+   This should print |minver| or above (e.g., |minpatch|).
 
 #. Launch the command line interface
 
@@ -253,8 +263,8 @@ If you want to install the latest stable version of ``dysh``, then it is not nec
 
         dysh-lab
 
-   The Jupyter lab interface is likely to launch in Internet Explorer as the default browser.
-   You can avoid launching a browser with the ``--no-browser`` option, so the commnad would be
+   The Jupyter lab interface will launch in your default browser, unless you have changed the Jupyter settings.
+   You can avoid launching a browser with the ``--no-browser`` option, so the command would be
 
    .. code-block:: powershell
 
