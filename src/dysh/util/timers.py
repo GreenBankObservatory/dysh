@@ -118,9 +118,9 @@ class DTime(object):
         my_data = []
         for i in range(self.ndata):
             t = data_types[i]
-            if type(t) == type(str):
+            if type(t) is type(str):
                 my_data.append("")
-            elif type(t) == type(float):
+            elif type(t) is type(float):
                 my_data.append(0.0)
             else:
                 my_data.append(None)
