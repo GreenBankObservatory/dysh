@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
         if args.dobench:
             for i in range(1, int(args.loop) + 1):
-                for j in range(int(args.nscan)):
+                for _j in range(int(args.nscan)):
                     sp = getps(r1, r2, r3, r4)
                 dt.tag(f"math_{i}", data)
             print("mean:", sp.sum())
