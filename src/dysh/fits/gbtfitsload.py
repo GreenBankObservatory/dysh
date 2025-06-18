@@ -1011,7 +1011,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scans = kwargs.get("SCAN", None)
         if scans is None:
             scans = uniq(_final["SCAN"])
-        elif type(scans) == int:  # noqa: E721
+        elif isinstance(scans, int):
             scans = list([scans])
         if "REF" in kwargs:
             scans.append(kwargs.pop("REF"))
@@ -1450,7 +1450,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
         scanblock : `~dysh.spectra.scan.ScanBlock`
             ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
-
         """
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
@@ -1497,10 +1496,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # do not pass scan list here. We need all the cal rows. They will
                 # be intersected with scan rows in PSScan
                 calrows = {}
-                dfcalT = select_from("CAL", "T", _df)
-                dfcalF = select_from("CAL", "F", _df)
-                calrows["ON"] = list(dfcalT["ROW"])
-                calrows["OFF"] = list(dfcalF["ROW"])
+                calrows["ON"] = list(select_from("CAL", "T", _ondf)["ROW"]) + list(
+                    select_from("CAL", "T", _offdf)["ROW"]
+                )
+                calrows["OFF"] = list(select_from("CAL", "F", _ondf)["ROW"]) + list(
+                    select_from("CAL", "F", _offdf)["ROW"]
+                )
                 if len(calrows["ON"]) == 0 or nocal:
                     _nocal = True
                     if tsys is None:
@@ -2161,81 +2162,69 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return scanblock
 
     def _common_scan_list_selection(self, scans, selection, prockey, procvals, check=False):
-        s = {"ON": [], "OFF": []}
-        df2 = selection[selection["SCAN"].isin(scans)]
-        procset = set(df2["PROC"])
+        # First list item is the PROCSEQN that defines the ON.
+        # Second list item is the delta between ON and OFF, delta=OFF-ON.
+        proc_dict = {
+            "OnOff": [1, 1],
+            "OffOn": [2, -1],
+            "Nod": [1, 1],
+        }
+        scan_selection = {"ON": [], "OFF": []}
+        df = selection[selection["SCAN"].isin(scans)]
+        procset = set(df["PROC"])
         lenprocset = len(procset)
         if lenprocset == 0:
             # This is ok since not all files in a set have all the polarizations, feeds, or IFs
-            return s
-        if lenprocset > 1:
-            raise Exception(f"Found more than one PROCTYPE in the requested scans: {procset}")
-        proc = list(procset)[0]  # noqa: RUF015
-        dfon = select_from(prockey, procvals["ON"], selection)
-        dfoff = select_from(prockey, procvals["OFF"], selection)
-        onscans = uniq(list(dfon["SCAN"]))  # wouldn't set() do this too?
-        offscans = uniq(list(dfoff["SCAN"]))
-        # pol1 = set(dfon["PLNUM"])
-        # pol2 = set(dfoff["PLNUM"])
-        # scans = list(selection["SCAN"])
-        # The companion scan will always be +/- 1 depending if procseqn is 1(ON) or 2(OFF).
-        # First check the requested scan number(s) are in the ONs or OFFs of this bintable.
-        seton = set(onscans)
-        setoff = set(offscans)
-        onrequested = seton.intersection(scans)
-        offrequested = setoff.intersection(scans)
-        if len(onrequested) == 0 and len(offrequested) == 0:
-            raise ValueError(f"Scans {scans} not found in ONs or OFFs")
-        # Then check that for each requested ON/OFF there is a matching OFF/ON
-        # and build the final matched list of ONs and OFfs.
-        sons = list(onrequested.copy())
-        soffs = list(offrequested.copy())
-        missingoff = []
-        missingon = []
-        # Special case position switch calibration
-        if procvals["ON"] == "PSWITCHON":
-            # Figure out the companion scan
-            if proc == "OnOff":
-                offdelta = 1
-                ondelta = -1
-            elif proc == "OffOn":
-                offdelta = -1
-                ondelta = 1
-            else:
-                raise Exception(f"I don't know how to handle PROCTYPE {proc} for the requested scan operation")
-        else:
-            # Nod data
-            offdelta = 1
-            ondelta = -1
-        for i in onrequested:
-            expectedoff = i + offdelta
-            if len(setoff.intersection([expectedoff])) == 0:
-                missingoff.append(expectedoff)
-            else:
-                soffs.append(expectedoff)
-        for i in offrequested:
-            expectedon = i + ondelta
-            if len(seton.intersection([expectedon])) == 0:
-                missingon.append(expectedon)
-            else:
-                sons.append(expectedon)
-        if check:
-            s["OFF"] = sorted(set(soffs).union(missingoff))
-            s["ON"] = sorted(set(sons).union(missingon))
-        else:
-            if len(missingoff) > 0:
-                raise ValueError(
-                    f"For the requested ON scans {onrequested}, the OFF scans {missingoff} were not present"
-                )
-            if len(missingon) > 0:
-                raise ValueError(
-                    f"For the requested OFF scans {offrequested}, the ON scans {missingon} were not present"
-                )
-            s["ON"] = sorted(set(sons))
-            s["OFF"] = sorted(set(soffs))
-            if len(s["ON"]) != len(s["OFF"]):
-                raise Exception(f"ON and OFF scan list lengths differ {len(s['ON'])} != {len(s['OFF'])}")
-        return s
+            return scan_selection
+
+        for proc in procset:
+            # This method should only be used by these observing procedures.
+            if proc not in proc_dict.keys():
+                continue
+
+            _proc_on = df.loc[(df["PROC"] == proc) & (df["PROCSEQN"] == proc_dict[proc][0])]["SCAN"]
+            _proc_off = df.loc[(df["PROC"] == proc) & (df["PROCSEQN"] == sum(proc_dict[proc]))]["SCAN"]
+            proc_on = list(set(_proc_on)) + list(set(_proc_off - proc_dict[proc][1]))
+            proc_off = list(set(_proc_off)) + list(set(_proc_on + proc_dict[proc][1]))
+
+            # Check that no bogus scan numbers were added.
+            df_on = selection[selection["SCAN"].isin(proc_on)]
+            df_off = selection[selection["SCAN"].isin(proc_off)]
+            bogus_on = df_on["PROCSEQN"] != proc_dict[proc][0]
+            bogus_off = df_off["PROCSEQN"] != sum(proc_dict[proc])
+            for s in set(df_on[bogus_on]["SCAN"]):
+                proc_on.remove(s)
+            for s in set(df_off[bogus_off]["SCAN"]):
+                proc_off.remove(s)
+
+            # Remove any scans with no pair.
+            if len(proc_on) != len(proc_off):
+                if len(proc_on) < len(proc_off):
+                    for o in proc_off:
+                        if o - proc_dict[proc][1] not in proc_on:
+                            logger.warning(f"Scan {o} has no matching ON scan. Will not calibrate.")
+                            proc_off.remove(o)
+                else:
+                    for o in proc_on:
+                        if o + proc_dict[proc][1] not in proc_off:
+                            logger.warning(f"Scan {o} has no matching OFF scan. Will not calibrate.")
+                            proc_on.remove(o)
+
+            # Add the remaining to the list of scans.
+            scan_selection["ON"] += sorted(list(set(proc_on)))
+            scan_selection["OFF"] += sorted(list(set(proc_off)))
+
+        # Make sure the elements are unique.
+        scan_selection["ON"] = sorted(list(set(scan_selection["ON"])))
+        scan_selection["OFF"] = sorted(list(set(scan_selection["OFF"])))
+
+        # Check again that they have the same number of elements.
+        if len(scan_selection["ON"]) != len(scan_selection["OFF"]):
+            raise Exception(
+                f"ON and OFF scan list lengths differ {len(scan_selection['ON'])} != {len(scan_selection['OFF'])}"
+            )
+
+        return scan_selection
 
     def write(
         self,
