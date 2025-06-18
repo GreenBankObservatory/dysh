@@ -216,7 +216,7 @@ def log_function_call(log_level: str = "info"):
             if "kwargs" in sig.parameters:
                 for k, v in kwargs.items():
                     logmsg += f"{k}={v},"
-            logmsg = ensure_ascii(logmsgs)
+            logmsg = ensure_ascii(logmsg)
             logger.log(level=ilog_level, msg=logmsg)
             return result
 
