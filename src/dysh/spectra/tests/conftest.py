@@ -10,4 +10,4 @@ def root_dir():
 
 @pytest.fixture(scope="module")
 def data_dir(root_dir):
-    return f"{root_dir}/testdata"
+    return util.get_project_testdata()

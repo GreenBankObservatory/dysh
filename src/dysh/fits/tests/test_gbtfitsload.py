@@ -20,8 +20,7 @@ class TestGBTFITSLoad:
     """ """
 
     def setup_method(self):
-        self.root_dir = util.get_project_root()
-        self.data_dir = f"{self.root_dir}/testdata"
+        self.data_dir = util.get_project_testdata()
         self._file_list = glob.glob(f"{self.data_dir}/TGBT21A_501_11/*.fits")
 
     def test_load(self):
