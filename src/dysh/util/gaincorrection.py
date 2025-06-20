@@ -11,7 +11,7 @@ from astropy.time import Time
 from astropy.units.quantity import Quantity
 
 from ..log import logger
-from ..util import get_project_configuration, to_quantity_list
+from ..util import get_project_data, to_quantity_list
 from .core import to_mjd_list
 from .weatherforecast import GBTWeatherForecast
 
@@ -136,7 +136,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
     def __init__(self, gain_correction_table: Path = None):  # noqa: RUF013
         if gain_correction_table is None:
-            gain_correction_table = get_project_configuration() / "gaincorrection.tab"
+            gain_correction_table = get_project_data() / "gaincorrection.tab"
         self._gct = QTable.read(gain_correction_table, format="ascii.ecsv")
         self._gct.sort("Date")  # just in case it ever is written unsorted.
         self.app_eff_0 = 0.71

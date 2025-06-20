@@ -17,8 +17,7 @@ class TestMeanTsys:
     """
 
     def setup_method(self):
-        self.root_dir = util.get_project_root()
-        self.data_dir = f"{self.root_dir}/testdata"
+        self.data_dir = util.get_project_testdata()
 
     def test_tsys(self):
         expected = np.array([17.24000345, 17.17140405, 17.15663698])
