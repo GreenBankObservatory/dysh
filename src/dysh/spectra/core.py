@@ -997,13 +997,18 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
     if method == None:  # noqa: E711
         raise ValueError(f"Unrecognized input method {method}. Must be one of {list(available_methods.keys())}")
     kernel = available_methods[method](width)
+
     if show:
         return kernel
-    # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
-    if hasattr(data, "mask"):
-        mask = data.mask
-    else:
-        mask = None  # noqa: F841
+
+    # if hasattr(data, "mask"):
+    #    mask = data.mask
+    # else:
+    #    mask = None
+
+    # Notes:
+    # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
+    # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
     new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
     return new_data
 
