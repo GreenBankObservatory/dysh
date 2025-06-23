@@ -2068,7 +2068,7 @@ class FSScan(ScanBase):
         nspect = self.nrows // 2
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._tsys = np.empty(nspect, dtype="d")
-        self._exposure = np.empty(nspect, dtype="d")
+        self._calc_exposure()
         #
         sig_freq = self._sigcalon[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
