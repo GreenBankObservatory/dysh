@@ -1731,7 +1731,7 @@ class NodScan(ScanBase):
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-        self._exposure = np.empty(nspect, dtype="d")
+        self._calc_exposure()
         tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
