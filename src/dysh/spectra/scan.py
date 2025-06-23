@@ -25,6 +25,7 @@ from .core import (  # fft_shift,; average,
     find_non_blanks,
     find_nonblank_ints,
     mean_tsys,
+    smooth,
     sq_weighted_avg,
     tsys_weight,
 )
@@ -32,6 +33,48 @@ from .spectrum import Spectrum, average_spectra
 
 
 class SpectralAverageMixin:
+    @log_call_to_history
+    def smooth(self, method="hanning", width=1, kernel=None):
+        """
+        Smooth or convolve the underlying calibrated data array, optionally decimating the data.
+        A number of methods from astropy.convolution can be selected
+        with the `method` keyword.
+
+        Default smoothing is hanning.
+
+        Note: Any previously computed/removed baseline will remain unchanged.
+
+        Parameters
+        ----------.
+        method : string, optional
+            Smoothing method. Valid are: 'hanning', 'boxcar' and
+            'gaussian'. Minimum match applies.
+            The default is 'hanning'.
+        width : int, optional
+            Effective width of the convolving kernel.  Should ideally be an
+            odd number.
+            For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
+            For 'boxcar' an even value triggers an odd one with half the
+            signal at the edges, and will thus not reproduce GBTIDL.
+            For 'gaussian' this is the FWHM of the final beam. We normally
+            assume the input beam has FWHM=1, pending resolution on cases
+            where CDELT1 is not the same as FREQRES.
+            The default is 1.
+
+        Raises
+        ------
+        Exception
+            If no valid smoothing method is given.
+
+        Returns
+        -------
+        None
+
+        """
+        # since kernel is not yet implemnted in core.smooth, it will not be exposed in this method.
+        data = smooth(self._calibrated, method, width, kernel=None, show=False)
+        self._calibrated = data
+
     @log_call_to_history
     def timeaverage(self, weights=None):
         r"""Compute the time-averaged spectrum for this scan.
@@ -760,6 +803,48 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """Calibrate all scans in this ScanBlock"""
         for scan in self.data:
             scan.calibrate(**kwargs)
+
+    @log_call_to_history
+    def smooth(self, method="hanning", width=1, kernel=None):
+        """
+        Smooth or convolve the  calibrated data arrays in contained Scans, optionally decimating the data.
+        A number of methods from astropy.convolution can be selected
+        with the `method` keyword.
+
+        Default smoothing is hanning.
+
+        Note: Any previously computed/removed baseline will remain unchanged.
+
+        Parameters
+        ----------.
+        method : string, optional
+            Smoothing method. Valid are: 'hanning', 'boxcar' and
+            'gaussian'. Minimum match applies.
+            The default is 'hanning'.
+        width : int, optional
+            Effective width of the convolving kernel.  Should ideally be an
+            odd number.
+            For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
+            For 'boxcar' an even value triggers an odd one with half the
+            signal at the edges, and will thus not reproduce GBTIDL.
+            For 'gaussian' this is the FWHM of the final beam. We normally
+            assume the input beam has FWHM=1, pending resolution on cases
+            where CDELT1 is not the same as FREQRES.
+            The default is 1.
+
+        Raises
+        ------
+        Exception
+            If no valid smoothing method is given.
+
+        Returns
+        -------
+        None
+
+        """
+        """Smooth all scans in this ScanBlock"""
+        for scan in self.data:
+            scan.smooth(method, width)
 
     @log_call_to_history
     def timeaverage(self, weights="tsys"):  ## SCANBLOCK
