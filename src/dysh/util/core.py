@@ -3,9 +3,11 @@ Core utility definitions, classes, and functions
 """
 
 import hashlib
+import importlib
 import numbers
 import sys
 from collections.abc import Sequence
+from itertools import zip_longest
 from pathlib import Path
 from typing import Union
 
@@ -252,17 +254,17 @@ def get_project_root() -> Path:
     """
     Returns the project root directory.
     """
-    return Path(__file__).parent.parent.parent.parent
+    return importlib.resources.files("dysh")
 
 
 def get_project_testdata() -> Path:
     """
     Returns the project testdata directory
     """
-    return get_project_root() / "testdata"
+    return get_project_root().parent.parent / "testdata"
 
 
-def get_project_configuration() -> Path:
+def get_project_data() -> Path:
     """
     Returns the directory where dysh configuration files are kept.
 
@@ -272,7 +274,7 @@ def get_project_configuration() -> Path:
         The project configuration directory.
 
     """
-    return get_project_root() / "conf"
+    return get_project_root() / "data"
 
 
 def get_size(obj, seen=None):
@@ -459,3 +461,62 @@ def abbreviate_to(length, value, squeeze=True):
         ec = bc - 1
         strv = strv[0:bc] + "..." + strv[-ec:]
     return strv
+
+
+def merge_ranges(ranges):
+    """
+    Merge overlapping and adjacent ranges and yield the merged ranges
+    in order. The argument must be an iterable of pairs (start, stop).
+
+    Taken from: https://codereview.stackexchange.com/a/21333
+
+    Parameters
+    ----------
+    ranges : iterable
+        Pairs of (start, stop) ranges.
+
+    Yields
+    ------
+    iterable
+        Merged ranges.
+
+    Examples
+    --------
+    >>> list(merge_ranges([(5,7), (3,5), (-1,3)]))
+    [(-1, 7)]
+    >>> list(merge_ranges([(5,6), (3,4), (1,2)]))
+    [(1, 2), (3, 4), (5, 6)]
+    >>> list(merge_ranges([]))
+    []
+    """
+    ranges = iter(sorted(ranges))
+    try:
+        current_start, current_stop = next(ranges)
+    except StopIteration:
+        return
+    for start, stop in ranges:
+        if start > current_stop:
+            # Gap between segments: output current segment and start a new one.
+            yield current_start, current_stop
+            current_start, current_stop = start, stop
+        else:
+            # Segments adjacent or overlapping: merge.
+            current_stop = max(current_stop, stop)
+    yield current_start, current_stop
+
+
+def grouper(iterable, n, *, incomplete="fill", fillvalue=None):
+    "Collect data into non-overlapping fixed-length chunks or blocks."
+    # grouper('ABCDEFG', 3, fillvalue='x') → ABC DEF Gxx
+    # grouper('ABCDEFG', 3, incomplete='strict') → ABC DEF ValueError
+    # grouper('ABCDEFG', 3, incomplete='ignore') → ABC DEF
+    iterators = [iter(iterable)] * n
+    match incomplete:
+        case "fill":
+            return zip_longest(*iterators, fillvalue=fillvalue)
+        case "strict":
+            return zip(*iterators, strict=True)
+        case "ignore":
+            return zip(*iterators, strict=False)
+        case _:
+            raise ValueError("Expected fill, strict, or ignore")
