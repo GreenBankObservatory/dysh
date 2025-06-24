@@ -368,7 +368,7 @@ sp1.stats()         # rms ~ 0.67
 (sp1-sp2).stats()   # rms ~ 2e-8
 
 
-#%%
+#%%  OTF in L-band
 
 __help__ = """
     SCAN         OBJECT VELOCITY       PROC  ...  # INT # FEED     AZIMUTH   ELEVATIO
@@ -402,7 +402,7 @@ __help__ = """
 f1 = dysh_data(example='mapping-L/data/TGBT17A_506_11.raw.vegas')    # 2.3GB
 print(f1)
 
-sdf1 = GBTFITSLoad(f1)
+sdf1 = GBTFITSLoad(f1)   #   ~  5 secs
 sdf1.summary()
 
 # note INTNUM has odd values for scan=6
@@ -455,23 +455,47 @@ sp2.plot(xaxis_unit="km/s")
 # region between -2000 and -500   and 500..2000 can be used for baseline
 
 #%% pick sdf1 or sdf2 for speed testing the calibration portion
+%%time
 
 # on the big one it takes ~ 1'12"
 # small one it takes ~      6"
 
 scans = list(range(14,27))
+scans = [20]
 sb = ScanBlock()
 
 # sdf = sdf1    # big one (2300MB)
-# sdf = sdf2    # just the relevant scans 14..27  (5MB)
+sdf = sdf2    # just the relevant scans 14..27  (5MB)
 
 print("Using", sdf.filename, "for", scans)
 for s in scans:
     print(s)
     sb1 =  sdf.getsigref(scan=s, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)[0]
     sb.append(sb1)
+    
+sb.timeaverage().plot(xaxis_unit='chan',title='one')
+    
+#%%   subtract a good baseline model from all scanblocks
+ta = sb.timeaverage()
+ta.plot(xaxis_unit='chan', title='two')
+ta.stats(qac=True)
 
-#%%
+sb.timeaverage().plot(xaxis_unit='chan',title='one again')
+
+if False:
+    ta.baseline(1, include=[(500, 1500), (2500, 3550)], remove=True, model='polynomial')
+    sb.subtract_baseline(ta.baseline_model, tol=1000, force=True)
+else:
+    # can also do -500 to 500 km/s
+    ta.baseline(1, [(1500,2500)], remove=True, model='polynomial')
+    print(np.mean( sb[0]._calibrated[0]))
+    sb.subtract_baseline(ta.baseline_model, force=True)
+    print(np.mean( sb[0]._calibrated[0]))
+    ta2 = sb.timeaverage()
+    ta2.plot(xaxis_unit='chan', title='three')
+    ta2.stats(qac=True)
+
+#%% write calibrated spectra
 sb.write("otf-test2.fits", overwrite=True)    #  300 ms
 
 #
