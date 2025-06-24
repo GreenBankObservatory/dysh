@@ -689,6 +689,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         cd = BinTableHDU(data=self._meta_as_table(), name="SINGLE DISH").columns
         form = f"{np.shape(self._calibrated)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
+        logger.debug(f"Adding {len(self._calibrated)} rows for output.")
         b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
         return b
 
@@ -1510,7 +1511,7 @@ class PSScan(ScanBase):
                         ref = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
                     self._exposure[i] = self.exposure[i]
-        logger.debug(f"Calibrated {nspect} spectra")
+        logger.debug(f"Calibrated {nspect} PSScan spectra")
 
     @property
     def exposure(self):
@@ -1752,7 +1753,7 @@ class NodScan(ScanBase):
                     ref = core.smooth(ref, "boxcar", self._smoothref)
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._exposure[i] = self.exposure[i]
-        logger.debug(f"Calibrated {nspect} spectra")
+        logger.debug(f"Calibrated {nspect} NODScan spectra")
 
     @property
     def exposure(self):
