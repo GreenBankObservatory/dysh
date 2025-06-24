@@ -538,3 +538,13 @@ class TestScanBlock:
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0, calibrate=False)
         with pytest.raises(ValueError):
             sb.subtract_baseline(ta.baseline_model)
+
+    def test_smooth(self, data_dir):
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        mean = np.nanmean(sb[0]._calibrated)
+        sb[0].smooth()
+        sm_mean = np.nanmean(sb[0]._calibrated)
+        assert mean / sm_mean
