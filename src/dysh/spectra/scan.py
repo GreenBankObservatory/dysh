@@ -945,7 +945,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         defaultkeys = set(s0._meta[0].keys())
         datashape = np.shape(s0._calibrated)
         tablelist = [s0._meta_as_table()]
-        n = 0
+        nrows = 0
         for scan in self.data:  # [1:]:
             # check data shapes are the same
             thisshape = np.shape(scan._calibrated)
@@ -963,9 +963,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                     f"Scan header keywords are not the same. These keywords were not present in all Scans: {diff}."
                     " Can't combine Scans into single BinTableHDU"
                 )
-            if n > 0:
+            if nrows > 0:
                 tablelist.append(scan._meta_as_table())
-            n = n + thisshape[0]
+            nrows = nrows + thisshape[0]
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
         # astropy Tables can be concatenated with vstack thankfully.
         table = vstack(tablelist, join_type="exact")
@@ -986,7 +986,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for c in self._comments:
             b.header["COMMENT"] = c
             
-        logger.debug(f"Saving {n} scans in {fileobj} from ScanBlock.")
+        logger.debug(f"Saving {nrows} scans in {fileobj} from ScanBlock.")
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
