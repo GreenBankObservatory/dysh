@@ -90,6 +90,20 @@ Most useful when you want to get started reducing your data.
             Calibration sequence and beam nodding with GBT W-Band
 
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Interactive Plotter**
+
+        .. button-link:: iplotter.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Interactive Plotter
+
+
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -100,3 +114,4 @@ Most useful when you want to get started reducing your data.
    examples/nodding
    examples/hi_survey
    examples/calseq
+   iplotter
