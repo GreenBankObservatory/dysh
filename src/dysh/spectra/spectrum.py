@@ -42,6 +42,7 @@ from ..util import minimum_string_match
 from . import (
     baseline,
     curve_of_growth,
+    decimate,
     exclude_to_spectral_region,
     get_spectral_equivalency,
     spectral_region_to_list_of_tuples,
@@ -421,19 +422,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s : `Spectrum`
             The decimated `Spectrum`.
         """
+        if False:
+            if not float(n).is_integer():
+                raise ValueError(f"`n` ({n}) must be an integer.")
 
-        if not float(n).is_integer():
-            raise ValueError(f"`n` ({n}) must be an integer.")
-
-        nchan = len(self._data)
-        new_meta = deepcopy(self.meta)
-        idx = np.arange(0, nchan, n)
-        new_cdelt1 = self.meta["CDELT1"] * n
-        cell_shift = 0.5 * (n - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-        new_data = self.data[idx] * self.flux.unit
-        new_meta["CDELT1"] = new_cdelt1
-        new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
-        new_meta["CRVAL1"] += cell_shift
+            nchan = len(self._data)
+            new_meta = deepcopy(self.meta)
+            idx = np.arange(0, nchan, n)
+            new_cdelt1 = self.meta["CDELT1"] * n
+            cell_shift = 0.5 * (n - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
+            new_data = self.data[idx] * self.flux.unit
+            new_meta["CDELT1"] = new_cdelt1
+            new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
+            new_meta["CRVAL1"] += cell_shift
+        else:
+            new_data, new_meta = decimate(self.data * self.flux.unit, n, self.meta)
 
         s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
 
