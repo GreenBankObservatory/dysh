@@ -985,7 +985,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             b.header["HISTORY"] = h
         for c in self._comments:
             b.header["COMMENT"] = c
-            
+
         logger.debug(f"Saving {n} scans in {fileobj} from ScanBlock.")
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
