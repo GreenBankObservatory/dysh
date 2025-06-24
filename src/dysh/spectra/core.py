@@ -938,9 +938,52 @@ def fft_shift(
     return new_y
 
 
+def decimate(data, n, meta=None):
+    """
+    Decimate a data array` by n pixels.
+
+    Parameters
+    ----------
+
+    data: `~numpy.ndarray` or `~astropy.quantity.Quantity`
+        The data to decimate
+
+    n : int
+        Decimation factor of the spectrum by returning every n-th channel.
+
+    meta: dict
+         metadata dictionary with CDELT1, CRVAL1, and CDELT1 which will be recalculated
+
+    Returns
+    -------
+    tuple : (`~numpy.ndarray` or `~astropy.quantity.Quantity`, dict)
+        A tuple of the decimated `data` and updated metadata (or None if no meta given)
+    """
+
+    if not float(n).is_integer():
+        raise ValueError(f"`n` ({n}) must be an integer.")
+
+    nchan = len(data)
+    idx = np.arange(0, nchan, n)
+    new_data = data[idx]
+    if meta is not None:
+        new_meta = deepcopy(meta)
+        new_cdelt1 = meta["CDELT1"] * n
+        cell_shift = 0.5 * (n - 1) * meta["CDELT1"]
+
+        new_meta["CDELT1"] = new_cdelt1
+        new_meta["CRPIX1"] = 1.0 + (meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
+        new_meta["CRVAL1"] += cell_shift
+    else:
+        new_meta = None
+
+    return (new_data, new_meta)
+
+
+# @todo it would be nice if this could take a 2-D array of N spectra. astropy.convolve can handle it.
 def smooth(data, method="hanning", width=1, kernel=None, show=False):
     """
-    Smooth or Convolve a spectrum, optionally decimating it.
+    Smooth or Convolve spectrum, optionally decimating it.
     A number of methods from astropy.convolution can be selected
     with the method= keyword.
 
