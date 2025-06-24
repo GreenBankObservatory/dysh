@@ -27,9 +27,11 @@ First, we download data from an HI survey and open it with dysh.
 
 
 Now grab a position-switched scan with GPS interference, average it, and smooth
-with a 7-channel wide boxcar kernel. Start the interactive plotter with the `plot()` command. This command
-supports all kwargs offered by the standard `matplotlib.pyplot.plot()` command.
-If you do not wish to have the interactive plotter and prefer a static plot, add `interactive=False` to the arguments.
+with a 7-channel wide boxcar kernel. Start the interactive plotter with the `plot()` command.
+`Spectrum.plot`` supports a subset of the arguments offered by `matplotlib.pyplot.plot`. These are: `xmin`, `xmax`,
+`ymin`, `ymax`, `xlabel`, `ylabel`, `xaxis_unit`, `yaxis_unit`, `grid`, `linewidth`, `color`, and `title`.
+If you do not wish to have the interactive plotter and prefer a static plot, add `interactive=False`
+to the arguments.
 
 
 .. code-block::
@@ -61,7 +63,8 @@ You can clear all regions with the "Clear Regions" (red) button.
 .. image:: files/iplotter6.gif
 
 You can click on a region to select it, allowing you to drag it to a different place in the spectrum or
-change its size. Regions are allowed to overlap. Once a region is selected,
+change its size. Currently, regions can only be resized by clicking near the edge from within the region.
+Regions are allowed to overlap. Once a region is selected,
 you can delete it with the "Delete Region" button.
 
 .. admonition:: Note
