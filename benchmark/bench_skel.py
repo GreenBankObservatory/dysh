@@ -3,15 +3,14 @@ import argparse
 import cProfile
 import os
 import pstats
-import sys
 import time
 from pstats import SortKey
 
-from astropy.table import Table,vstack
-import numpy as np
+from astropy.table import Table, vstack
+
 from dysh.fits.gbtfitsload import GBTFITSLoad
 
-progname="perf_skel"
+progname = "perf_skel"
 data_dir = "/data/gbt/examples/"
 benchname = "FOOBAR BENCH"
 
@@ -19,18 +18,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=progname)
     parser.add_argument("--file", "-f", action="store", help="input filename", required=True)
     parser.add_argument("--out", "-o", action="store", help="output filename (astropy Table)", required=False)
-    parser.add_argument("--append", "-a", action="store", help="append to previous output file (astropy Table)", required=False)
-    parser.add_argument("--overwrite", "-w", action="store", help="overwrite a previous output file (astropy Table)", required=False)
+    parser.add_argument(
+        "--append", "-a", action="store", help="append to previous output file (astropy Table)", required=False
+    )
+    parser.add_argument(
+        "--overwrite", "-w", action="store", help="overwrite a previous output file (astropy Table)", required=False
+    )
     parser.add_argument("--profile", "-p", action="store_true", help="run the profiler")
     parser.add_argument("--dosomething", "-d", action="store_true", help="do an optional action")
-    #parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
+    # parser.add_argument("--index", "-i", action="store_true", help="create dysh index table (pandas)")
     args = parser.parse_args()
     print(f"using {args}")
 
     timestr = ""
     i = 0
     # output table colnames, units, and dtypes
-    table_cols = [ ]
+    table_cols = []
     table_units = []
     table_dtypes = []
     table = Table(names=table_cols, meta={"name": f"Dysh Benchmark {benchname}"}, units=table_units, dtype=table_dtypes)
@@ -40,13 +43,13 @@ if __name__ == "__main__":
     time_data.append(time.perf_counter_ns())
     time_stats["start"] = time_data[-1]
     pr.enable()
-    sdf = GBTFITSLoad(data_dir+args.file)
+    sdf = GBTFITSLoad(data_dir + args.file)
     time_data.append(time.perf_counter_ns())
-    time_stats["load"] =  time_data[-1]
+    time_stats["load"] = time_data[-1]
     if args.dosomething:
         # do someting
         time_data.append(time.perf_counter_ns())
-        time_stats["something"] =  time_data[-1]
+        time_stats["something"] = time_data[-1]
     pr.disable()
     # table.add_row([...])
 

@@ -2,6 +2,7 @@
 The classes that define various types of Scan and their calibration methods.
 """
 
+import warnings
 from abc import abstractmethod
 from collections import UserList
 from copy import deepcopy
@@ -95,12 +96,21 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     Derived classes *must* implement :meth:`calibrate`.
     """
 
-    def __init__(self, sdfits, smoothref, apply_flags, observer_location, fdnum=-1, ifnum=-1, plnum=-1, tsys=None):
+    def __init__(
+        self,
+        sdfits,
+        smoothref,
+        apply_flags,
+        observer_location,
+        fdnum=-1,
+        ifnum=-1,
+        plnum=-1,
+        tsys=None,
+    ):
         HistoricalBase.__init__(self)
         self._fdnum = fdnum
         self._ifnum = ifnum
         self._plnum = plnum
-        self._input_tsys = tsys
         self._nchan = -1
         self._scan = -1
         self._nrows = -1
@@ -119,6 +129,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._bunit_to_unit = {"ta": u.K, "ta*": u.K, "jy": u.Jy, "counts": u.ct}
+        # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
+        self._baseline_model = None
+        self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
 
     def _validate_defaults(self):
         _required = {
@@ -169,13 +182,15 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 f"Unrecognized brightness temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
-    def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity):
+    def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity, tsys=None):
         if len(meta_rows) == 0:
             raise Exception(
                 f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
             )
         self._calibrate = calibrate
+        self._nint = len(meta_rows)
         self._make_meta(meta_rows)
+        self._init_tsys(tsys)
         if self._calibrate:
             if calibrate_kwargs is not None:
                 self.calibrate(**calibrate_kwargs)
@@ -184,8 +199,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._add_calibration_meta()
         if bunit.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
             self.scale(bunit, zenith_opacity)
-        self._nint = len(meta_rows)
-
         self._validate_defaults()
 
     def calibrated(self, i):  ##SCANBASE
@@ -201,11 +214,16 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         spectrum : `~spectra.spectrum.Spectrum`
         """
         s = Spectrum.make_spectrum(
-            Masked(self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()], self._calibrated[i].mask),
+            Masked(
+                self._calibrated[i] * self._bunit_to_unit[self.bunit.lower()],
+                self._calibrated[i].mask,
+            ),
             meta=self.meta[i],
             observer_location=self._observer_location,
         )
         s.merge_commentary(self)
+        s._baseline_model = self._baseline_model
+        s._subtracted = self._subtracted
         return s
 
     @property
@@ -332,6 +350,97 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         for i in range(len(self._meta)):
             self._meta[i][key] = value
 
+    def _check_model(self, model, c0, sa, tol):
+        # make sure flux units match
+        if model.return_units != c0.unit:
+            raise ValueError(f"Units of model {model.return_units} and calibrated data {c0.unit} must be the same.")
+        # Warn if domain of model doesn't encompass domain of spectral axis.
+        # Sort domain and spectral axis to make them both ascending.
+        domain = sorted(model.domain) * model.input_units
+        ssa = sorted(sa.value) * sa.unit
+        cdelt = ssa[1] - ssa[0]
+        toldelt = abs(tol * cdelt)
+        diff0 = ssa[0] - domain[0]
+        diff1 = domain[-1] - ssa[-1]
+        if (diff0 < -toldelt) or (diff1 > toldelt):
+            raise ValueError(f"Baseline model would extrapolate on spectral axis by more than {tol} channels.")
+
+    @log_call_to_history
+    def subtract_baseline(self, model, tol=1, force=False):
+        """
+        Subtract a (previously computed) baseline model from every integration in this Scan.
+
+        Parameters
+        ----------
+        model : `~astropy.modeling.Model`
+            The baseline model to subtract. This is typically a `~specutils.utils.quantity_model.QuantityModel`
+            derived by removing a baseline from a similar spectrum.
+        tol : int, optional
+            The maximum number of channels on either end of the spectrum to extrapolate the baseline model,
+            if the spectral domain of the baseline model is smaller than the spectral axis of the Scan.
+            For instance, if `tol=1`, then
+            one channel on the low frequency and one channel on the high frequency end are allowed to be extrapolated.
+            The default is 1.
+        force : bool, optional
+            Force subtraction of the input baseline model, even if another baseline model has been previously subtracted.
+            Note: The previous baseline model will **not** be undone (added back in) before subtraction of the input baseline model.
+            The default is False.
+
+        Raises
+        ------
+        ValueError
+            If the data are not yet calibrated or the tolerance `tol` is exceeded.
+
+        Returns
+        -------
+        None
+
+        """
+        if self._calibrated is None:
+            raise ValueError("Data must be calibrated before a baseline can be subtracted.")
+        if self._subtracted:
+            if not force:
+                warnings.warn(
+                    "A baseline model has already been subtracted from this scan. Use 'force=True' to force removal of another model.",
+                    stacklevel=2,
+                )
+                return
+        if tol < 0:
+            raise ValueError("tol must be non-negative.")
+        c0 = self.calibrated(0)
+        sa = c0.spectral_axis
+        self._check_model(model, c0, sa, tol)
+        self._calibrated -= model(sa).value
+        self._subtracted = True
+        self._baseline_model = model
+
+    def undo_baseline(self):
+        """
+        Undo the applied (subtracted) baseline. The subtracted baseline
+        will be added back to the data. The `baseline_model` attribute is set to None.
+        """
+        if self._baseline_model is None:
+            return
+        sa = self.calibrated(0).spectral_axis
+        self._calibrated += self._baseline_model(sa).value
+        self._baseline_model = None
+        self._subtracted = False
+
+    @property
+    def baseline_model(self):
+        """Returns the subtracted baseline model or None if it has not yet been computed."""
+        return self._baseline_model
+
+    @property
+    def subtracted(self):
+        """Has a baseline model been subtracted?
+
+        Returns
+        -------
+        True if a baseline model has been subtracted, False otherwise
+        """
+        return self._subtracted
+
     @property
     def scan(self):
         """
@@ -347,57 +456,73 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @property
     def nchan(self):
         """
-        The number of channels in this scan
+        The number of channels in this scan.
 
         Returns
         -------
         int
-            The number of channels in this scan
+            The number of channels in this scan.
 
         """
         return self._nchan
 
     @property
-    def nrows(self):
-        """The number of rows in this Scan
+    def nint(self):
+        """
+        The number of integrations in this scan.
 
         Returns
         -------
         int
-            The number of rows in this Scan
+            The number of integrations in this scan.
+        """
+        return self._nint
+
+    @property
+    def nrows(self):
+        """
+        The number of rows in this scan.
+
+        Returns
+        -------
+        int
+            The number of rows in this scan.
         """
         return self._nrows
 
     @property
     def ifnum(self):
-        """The IF number
+        """
+        The intermediate frequency (IF) number.
 
         Returns
         -------
         int
-            The index of the Intermediate Frequency
+            The index of the IF.
         """
         return self._ifnum
 
     @property
     def fdnum(self):
-        """The feed number
+        """
+        The feed number.
 
         Returns
         -------
         int
-            The index of the Feed
+            The index of the feed.
         """
         return self._fdnum
 
     @property
     def plnum(self):
-        """The polarization number
+        """
+        The polarization number.
 
         Returns
         -------
         int
-            The polarization number
+            The polarization number.
         """
         return self._plnum
 
@@ -612,10 +737,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         # Noise diode firing and no user provided tsys.
         if not self._nocal and tsys is None:
-            self._tsys = np.empty(self._nint, dtype=float)
-        # User provided tsys.
+            self._tsys = np.full(self._nint, np.nan, dtype=float)
+        # User provided tsys or TSYS column.
         elif tsys is not None:
-            self._tsys = np.ones(self._nint, dtype=float) * tsys
+            self._tsys = np.ones(self._nint, dtype=float) * tsys[: self._nint]
 
 
 class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
@@ -729,6 +854,51 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             logger.warning(f"The Scans in this ScanBlock have differing brightness units {bunit}")
             return list(bunit)
         return list(bunit)[0]  # noqa: RUF015
+
+    # possible @todo:  We could have a baseline() method with same signature as Spectrum.baseline, which would compute
+    # timeaverage for each Scan in a ScanBlock, and for each Scan calculate and remove that baseline from t
+    # the integrations in that Scan.
+
+    @log_call_to_history
+    def subtract_baseline(self, model, tol=1, force=False):
+        """
+        Subtract a (previously computed) baseline model from every integration of every Scan in this ScanBlock.
+
+        Parameters
+        ----------
+        model : `~astropy.modeling.Model`
+            The baseline model to subtract. This is typically a `~specutils.utils.quantity_model.QuantityModel`
+            derived by removing a baseline from a similar spectrum.
+        tol : int, optional
+            The maximum number of channels on either end of the spectrum to extrapolate the baseline model,
+            if the spectral domain of the baseline model is smaller than the spectral axis of the Scan. For instance, if `tol=1`, then
+            one channel on the low frequency and one channel on the high frequency end are allowed to be extrapolated.
+            The default is 1.
+        force : bool, optional
+            Force subtraction of the input baseline model, even if another baseline model has been previously subtracted.
+            Note: The previous baseline model will **not** be undone (added back in) before subtraction of the input baseline model.
+            The default is False.
+
+        Raises
+        ------
+        ValueError
+            If the data are not yet calibrated or the tolerance `tol` is exceeded.
+
+        Returns
+        -------
+        None
+        """
+        for scan in self.data:
+            scan.subtract_baseline(model, tol, force)
+
+    @log_call_to_history
+    def undo_baseline(self):
+        """
+        For all Scans in this ScanBlock, undo the applied (subtracted) baseline. The subtracted baseline
+        will be added back to the data. The Scan's baseline_model` attribute is set to None.
+        """
+        for scan in self.data:
+            scan.undo_baseline()
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
@@ -889,6 +1059,7 @@ class TPScan(ScanBase):
         calibrate=True,
         smoothref=1,
         apply_flags=False,
+        tsys=None,
         observer_location=Observatory["GBT"],
     ):
         ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
@@ -930,15 +1101,19 @@ class TPScan(ScanBase):
             # special case for notpcal (when calrows["ON"] is 0)
             self._calstate = False  # set calstate to false so that _calc_exposure() doesn't raise exception
             goodrows = np.intersect1d(nb2, nb2)  # isn't this just nb2.flatten()?
+            if len(goodrows) != len(self._refcaloff):
+                nblanks = len(self._refcaloff) - len(goodrows)
+                logger.info(f"Ignoring {nblanks} blanked integration(s).")
             self._refcalon = None
             self._refcaloff = self._refcaloff[goodrows]
             self._refonrows = []
-            self._refoffrows = [self._refoffrows[i] for i in goodrows]  # why not self._refoffrows[goodrows] ??
+            self._refoffrows = [
+                self._refoffrows[i] for i in goodrows
+            ]  # why not self._refoffrows[goodrows] ?? -> because it is a list.
             self._nchan = len(self._refcaloff[0])  # PJT
             self._calc_exposure()
             self._calc_delta_freq()
             self._validate_defaults()
-            self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
         else:
             # Tell the user about blank integration(s) that will be ignored.
             if len(goodrows) != len(self._refcalon):
@@ -952,8 +1127,8 @@ class TPScan(ScanBase):
             self._nchan = len(self._refcalon[0])
             self._calc_exposure()
             self._calc_delta_freq()
-            # use 'ta' as bunit in this call so that scaling is not attempted.
-            self._finish_initialization(calibrate, None, self._refoffrows, "ta", None)
+        # Use 'ta' as bunit in this call so that scaling is not attempted.
+        self._finish_initialization(calibrate, None, self._refoffrows, "ta", None, tsys=tsys)
 
     def calibrate(self, **kwargs):  ## TPSCAN
         """Calibrate the total power data according to the CAL/SIG table above"""
@@ -997,22 +1172,18 @@ class TPScan(ScanBase):
         """
         Calculate the system temperature array, according to table above.
         """
-        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"])
-        if len(self._tcal) == 0:
-            # to_nocal
-            self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+        if len(self._calrows["ON"]) == 0:
+            if np.all(np.isnan(self._tsys)):
+                self._tsys = np.ones(self._nint, dtype=float)
+        else:
             nspect = len(self._tcal)
-            self._tsys = np.ones(nspect, dtype=float)
-            return
-        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])  # PJT
-        nspect = len(self._tcal)
-        self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
-        if len(self._tcal) != nspect:
-            raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
-        for i in range(nspect):
-            # tsys = mean_tsys(calon=calon[i], caloff=caloff[i], tcal=tcal[i])
-            tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
-            self._tsys[i] = tsys
+            self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
+            if len(self._tcal) != nspect:
+                raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
+            for i in range(nspect):
+                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
+                self._tsys[i] = tsys
 
     def _calc_exposure(self):
         """Calculate the exposure time. See :meth:`exposure`"""
@@ -1169,6 +1340,7 @@ class PSScan(ScanBase):
         zenith_opacity=0.0,
         refspec=None,
         tsys=None,
+        nocal=False,
     ):
         ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
@@ -1184,6 +1356,7 @@ class PSScan(ScanBase):
         else:
             self._has_refspec = False
         self._sigspec = None
+        self._nocal = nocal
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -1215,22 +1388,33 @@ class PSScan(ScanBase):
             self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
             self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
             self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+
             # Catch blank integrations.
-            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
-            self._refcalon = self._refcalon[goodrows]
-            self._refcaloff = self._refcaloff[goodrows]
-            self._refonrows = [self._refonrows[i] for i in goodrows]
-            self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._sigcalon = self._sigcalon[goodrows]
-        self._sigcaloff = self._sigcaloff[goodrows]
-        self._sigonrows = [self._sigonrows[i] for i in goodrows]
-        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
-        # Update number of rows after removing blanks.
-        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
-        self._nrows = nsigrows
+            if not self._nocal:
+                goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+                self._refcalon = self._refcalon[goodrows]
+                self._refcaloff = self._refcaloff[goodrows]
+                self._refonrows = [self._refonrows[i] for i in goodrows]
+                self._refoffrows = [self._refoffrows[i] for i in goodrows]
+                self._sigcalon = self._sigcalon[goodrows]
+                self._sigcaloff = self._sigcaloff[goodrows]
+                self._sigonrows = [self._sigonrows[i] for i in goodrows]
+                self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+                # Update number of rows after removing blanks.
+                nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+                self._nrows = nsigrows
+            else:
+                goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff)
+                self._refcaloff = self._refcaloff[goodrows]
+                self._refoffrows = [self._refoffrows[i] for i in goodrows]
+                self._sigcaloff = self._sigcaloff[goodrows]
+                self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+                # Update number of rows after removing blanks.
+                nsigrows = len(self._sigoffrows)
+                self._nrows = nsigrows
 
         self._nchan = gbtfits.nchan(self._bintable_index)
-        self._finish_initialization(calibrate, None, self._sigonrows, bunit, zenith_opacity)
+        self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity, tsys=tsys)
 
     @property
     def sigscan(self) -> int:
@@ -1277,59 +1461,52 @@ class PSScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
-            print(f"PSScan smoothref={self._smoothref}")
+            logger.debug(f"PSScan smoothref={self._smoothref}")
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
-
-        nspect = self.nrows // 2
+        nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-
-        self._tsys = np.empty(nspect, dtype="d")
         self._exposure = np.empty(nspect, dtype="d")
-        if self._has_refspec:
-            # tcal = self.refspec.meta.get("TCAL", None)  # @todo allow user to input tcal in kwargs?
-            # if tcal is None:
-            #   r1292aise ValueError(
-            #        "Reference spectrum has no calibration temperature in its metadata.  Solve with refspec.meta['TCAL']=value."
-            #   )
-            # The possible system temperature keywords in the refspec header, in order of preference.
-            if self._input_tsys is None:
-                tsyskw = ["TSYS", "MEANTSYS", "WTTSYS"]
-                for kw in tsyskw:
-                    tsys = self._refspec.meta.get(kw, None)
-                    if tsys is None:
-                        continue
-            else:
-                tsys = self._input_tsys
-            if tsys is None:
-                raise ValueError(
-                    "Reference spectrum has no system temperature in its metadata.  Solve with refspec.meta['TSYS']=value or add parameter 'tsys' to getps/getsigref."
-                )
 
+        if self._has_refspec:
             if self._smoothref > 1:
                 ref = core.smooth(self.refspec.data, "boxcar", self._smoothref)
             else:
                 ref = self.refspec.data
             for i in range(nspect):
-                sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                tsys = self._tsys[i]
+                if not self._nocal:
+                    sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                else:
+                    sig = self._sigcaloff[i]
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._tsys[i] = tsys
         else:
-            tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["TCAL"].to_numpy()
+            tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
             if len(tcal) != nspect:
                 raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
-            for i in range(nspect):
-                if self._input_tsys is None:
-                    tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-                else:
-                    tsys = self._input_tsys
-                sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
-                ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
-                if self._smoothref > 1:
-                    ref = core.smooth(ref, "boxcar", self._smoothref)
-                self._calibrated[i] = tsys * (sig - ref) / ref
-                self._tsys[i] = tsys
-                self._exposure[i] = self.exposure[i]
+            if not self._nocal:
+                for i in range(nspect):
+                    if not np.isnan(self._tsys[i]):
+                        tsys = self._tsys[i]
+                    else:
+                        tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                    sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                    ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+                    if self._smoothref > 1:
+                        ref = core.smooth(ref, "boxcar", self._smoothref)
+                    self._calibrated[i] = tsys * (sig - ref) / ref
+                    self._tsys[i] = tsys
+                    self._exposure[i] = self.exposure[i]
+            else:
+                for i in range(nspect):
+                    tsys = self._tsys[i]
+                    sig = self._sigcaloff[i]
+                    ref = self._refcaloff[i]
+                    if self._smoothref > 1:
+                        ref = core.smooth(ref, "boxcar", self._smoothref)
+                    self._calibrated[i] = tsys * (sig - ref) / ref
+                    self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} spectra")
 
     @property
@@ -1349,15 +1526,21 @@ class PSScan(ScanBase):
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
             if exp_ref is None:
                 raise ValueError(
-                    "Can't set exposure time for PSScan integrations because reference spectrum no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
+                    "Can't set exposure time for PSScan integrations because reference spectrum has no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
                 )
         else:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
-            exp_ref = exp_ref_on + exp_ref_off
-        exp_sig = exp_sig_on + exp_sig_off
+            if not self._nocal:
+                exp_ref = exp_ref_on + exp_ref_off
+            else:
+                exp_ref = exp_ref_off
+        if not self._nocal:
+            exp_sig = exp_sig_on + exp_sig_off
+        else:
+            exp_sig = exp_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
@@ -1380,12 +1563,16 @@ class PSScan(ScanBase):
         df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
         if self._has_refspec:
-            df_ref_on = df_ref_off = np.full_like(self._sigonrows, self.refspec.meta["CDELT1"])
+            df_ref_on = df_ref_off = np.full_like(self._sigoffrows, self.refspec.meta["CDELT1"])
         else:
             df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
             df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        df_ref = 0.5 * (df_ref_on + df_ref_off)
-        df_sig = 0.5 * (df_sig_on + df_sig_off)
+        if not self._nocal:
+            df_ref = 0.5 * (df_ref_on + df_ref_off)
+            df_sig = 0.5 * (df_sig_on + df_sig_off)
+        else:
+            df_ref = df_ref_off
+            df_sig = df_sig_off
         delta_freq = 0.5 * (df_ref + df_sig)
         return delta_freq
 
@@ -1469,8 +1656,6 @@ class NodScan(ScanBase):
         self._beam1 = beam1
         self._nocal = nocal
 
-        # @todo   allow having no calrow where noise diode was not fired
-
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
         # calrows['OFF'] are rows with noise diode was off, regardless of sig or ref
@@ -1513,7 +1698,6 @@ class NodScan(ScanBase):
             # Update number of rows after removing blanks.
             nsigrows = len(self._sigonrows) + len(self._sigoffrows)
             self._nrows = nsigrows
-            self._nint = nsigrows // 2
         else:
             goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff)
             self._refcaloff = self._refcaloff[goodrows]
@@ -1523,11 +1707,9 @@ class NodScan(ScanBase):
             # Update number of rows after removing blanks.
             nsigrows = len(self._sigoffrows)
             self._nrows = nsigrows
-            self._nint = nsigrows
 
         self._nchan = len(self._sigcaloff[0])
-        self._init_tsys(tsys)
-        self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity)
+        self._finish_initialization(calibrate, None, self._sigoffrows, bunit, zenith_opacity, tsys=tsys)
 
     def calibrate(self, **kwargs):  ##NODSCAN
         """
@@ -1536,7 +1718,7 @@ class NodScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
-            print(f"NodScan smoothref={self._smoothref}")
+            logger.debug(f"NodScan smoothref={self._smoothref}")
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
@@ -1547,7 +1729,10 @@ class NodScan(ScanBase):
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         if not self._nocal:
             for i in range(nspect):
-                tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                if not np.isnan(self._tsys[i]):
+                    tsys = self._tsys[i]
+                else:
+                    tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
                 sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                 ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
                 if self._smoothref > 1:
@@ -1753,7 +1938,11 @@ class FSScan(ScanBase):
 
         self._nchan = len(self._sigcalon[0])
         self._finish_initialization(
-            calibrate, {"fold": fold, "shift_method": shift_method}, self._sigonrows, bunit, zenith_opacity
+            calibrate,
+            {"fold": fold, "shift_method": shift_method},
+            self._sigonrows,
+            bunit,
+            zenith_opacity,
         )
 
     @property

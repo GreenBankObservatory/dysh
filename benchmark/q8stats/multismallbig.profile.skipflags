@@ -70,5 +70,3 @@ load4 2256.6 3952.4 1064.4      8     66.72  533.76 16384 8064   4   2    2     
      2372    0.010    0.000    0.477    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:883(_convert_other)
       736    0.002    0.000    0.436    0.001 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/util.py:254(decode_ascii)
       736    0.006    0.000    0.433    0.001 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/_core/strings.py:509(decode)
-
-

@@ -1,3 +1,65 @@
+Version 0.7.0
+=============
+
+.. _0.7.0-functionality:
+
+Functionality & Enhancements
+----------------------------
+- Scan/ScanBlock baseline subtraction
+  - It is now possible to subtract a baseline model from all the integrations in a `Scan` or `ScanBlock` using the `subtract_baseline` method.
+- Curve of Growth
+  - `Spectrum` objects now have a `cog` method that computes the curve of growth.
+
+.. _0.7.0-bugfixes:
+
+Bug Fixes
+---------
+- Fixes a bug where using `proc=...` with `getps` would result in an error.
+- Fixes a bug where unpaired OnOff or OffOn observing procedures would result in an error.
+- Fixes a bug where using an exclude region with a boundary equal to the number of channels would produce an error.
+
+Version 0.6.2
+=============
+
+.. _0.6.2-bugfixes:
+
+Bug Fixes
+---------
+- Fixes a bug where `Spectrum.average` would not mask the data, if there was anything to be masked.
+- Fixes a bug where `Spectrum.average` would not propagate the data reduction history to the resulting `Spectrum`.
+- Fixes a bug where the integration number for files with multiple binary tables would have bogus values. See `Issue #425 <https://github.com/GreenBankObservatory/dysh/issues/425>`_.
+
+Version 0.6.1
+=============
+
+.. _0.6.1-bugfixes:
+
+Bug Fixes
+---------
+- Fixes a bug where calibration routines would not fetch the correct data when the input SDFITS had multiple binary tables.
+- Fixes a bug where calibration routines would not work if there was no noise diode being fired. This is still an issue for `getfs`.
+
+Version 0.6.0
+=============
+
+.. _0.6.0-functionality:
+
+Functionality & Enhancements
+----------------------------
+- Baseline plotting
+  - `Spectrum.plot` will now update when using `Spectrum.baseline`. If `remove=False` the plot will show the baseline solution, if `remove=True` the plot will update to show the baseline subtracted data.
+
+Version 0.5.0
+=============
+
+.. _0.5.0-functionality:
+
+Functionality & Enhancements
+----------------------------
+- Calibration with a flexible Off
+  - Implements `GBTFITSLoad.getsigref <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.fits.html#dysh.fits.gbtfitsload.GBTFITSLoad.getsigref>`_.
+- Calibration of W-Band and Argus observations
+  - There are now `GBTFITSLoad.calseq` and `GBTFITSLoad.vanecal` functions to derive system temperatures for W-Band and Argus observations, respectively.
 
 Version 0.4.0
 =============

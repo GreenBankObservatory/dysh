@@ -69,5 +69,3 @@ load4 6968.8 25600.0 7240.9      5   3713.27 18566.35 131072 35370   5   1    2 
    282968    0.094    0.000    0.277    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:778(scale)
    282960    0.093    0.000    0.129    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:846(precision)
    350486    0.093    0.000    0.093    0.000 {method 'split' of 'str' objects}
-
-

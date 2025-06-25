@@ -185,7 +185,15 @@ class TestSubBeamNod:
         # snodka-style. Need test for method='cycle'
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sbn = sdf.subbeamnod(
-            scan=43, sig=None, cal=None, ifnum=0, fdnum=1, plnum=1, calibrate=True, weights="tsys", method="scan"
+            scan=43,
+            sig=None,
+            cal=None,
+            ifnum=0,
+            fdnum=1,
+            plnum=1,
+            calibrate=True,
+            weights="tsys",
+            method="scan",
         )
 
         # Load the GBTIDL result.
@@ -478,3 +486,55 @@ class TestScanBlock:
         sb.write(fileobj=testfile, overwrite=True)
         g2 = gbtfitsload.GBTFITSLoad(testfile)
         x = g2.summary()  # simple check that basic function works.  # noqa: F841
+
+    def test_baseline_subtraction(self, data_dir):
+        """
+        Tests for ScanBlock.subtract_baseline
+        * Test that it works with a single Scan
+        * Test that it works with multiple Scans
+        * Test the tolerance limit
+        * Test that undo_baseline works
+        * Test that it raises an error with no calibrated data
+        """
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Single scan test.
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        ta = sb.timeaverage()
+        ta.baseline(exclude=[3000, 5000] * u.km / u.s, degree=1, remove=True)
+        sb.subtract_baseline(ta.baseline_model)
+        for s in sb:
+            assert s.baseline_model == ta.baseline_model
+            assert s.subtracted
+        assert np.all(abs(ta.data - sb.timeaverage().data) < 1e-15)
+
+        # Multiple scans.
+        sb = sdf.getps(scan=[51, 53], ifnum=0, plnum=0, fdnum=0)
+        ta = sb.timeaverage()
+        ta.baseline(exclude=[3000, 5000] * u.km / u.s, degree=1, remove=True)
+
+        # Check that tolerance limit works.
+        with pytest.raises(ValueError):
+            sb.subtract_baseline(ta.baseline_model, tol=0)
+        sb.subtract_baseline(ta.baseline_model)
+        for s in sb:
+            assert s.baseline_model == ta.baseline_model
+            assert s.subtracted
+        # More integrations results in a larger difference wrt the
+        # time average result, hence the change in threshold for the test.
+        assert np.all(abs(ta.data - sb.timeaverage().data) < 1e-7)
+
+        # Undo baseline for all scans.
+        sb.undo_baseline()
+        for s in sb:
+            assert s.baseline_model is None
+            assert not s.subtracted
+        ta.undo_baseline()
+        assert np.all(abs(ta.data - sb.timeaverage().data) < 1e-15)
+
+        # No baseline allowed if not calibrated.
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0, calibrate=False)
+        with pytest.raises(ValueError):
+            sb.subtract_baseline(ta.baseline_model)

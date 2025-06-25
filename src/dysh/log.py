@@ -11,11 +11,15 @@ from io import StringIO
 from pathlib import Path
 from typing import Callable, NewType, Union  # , Self # not available until 3.11
 
+from astropy import log
 from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
 
 from . import version
 from .ascii import ensure_ascii
+
+# Set Astropy logging level to warning.
+log.setLevel("WARNING")
 
 LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")
@@ -212,7 +216,7 @@ def log_function_call(log_level: str = "info"):
             if "kwargs" in sig.parameters:
                 for k, v in kwargs.items():
                     logmsg += f"{k}={v},"
-            logmsg = ensure_ascii(logmsgs)
+            logmsg = ensure_ascii(logmsg)
             logger.log(level=ilog_level, msg=logmsg)
             return result
 

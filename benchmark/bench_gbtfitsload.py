@@ -4,9 +4,9 @@ import argparse
 import os
 import sys
 
-import numpy as np
 import astropy.units as u
-from astropy.table import Table
+import numpy as np
+
 from dysh.fits.gbtfitsload import GBTFITSLoad
 from dysh.util.files import dysh_data
 from dysh.util.timers import DTime
@@ -79,8 +79,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--statslines", "-e", action="store", help="number of profiler statistics lines to print", default=25
     )
-    parser.add_argument("--sortkey", "-x", action="store", help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
-    parser.add_argument("--memory",      "-m", action="store_true",  help="track memory usage")
+    parser.add_argument(
+        "--sortkey",
+        "-x",
+        action="store",
+        help="How to sort the profiler statistics, 'cumulative' or 'time'",
+        default="cumulative",
+    )
+    parser.add_argument("--memory", "-m", action="store_true", help="track memory usage")
     parser.add_argument("--quit", "-q", action="store_true", help="quit early")
     # parser.add_argument("--noindex",     "-n", action="store_true",  help="do not create dysh index table (pandas)")
     args = parser.parse_args()
@@ -90,9 +96,9 @@ if __name__ == "__main__":
 
     # output table colnames, units, and dtypes
     # DTime automatically handles name and time, so just the additional columns go here.
-    data_cols  = ["#files", "file_size", "totsize", "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
-    data_units = ["",         "MB",        "MB",     "",      "",    "",    "",     "",     "",       ""]
-    data_types = [int,         float,      float, int,     int,   int,   int,    int,    int,      bool]
+    data_cols = ["#files", "file_size", "totsize", "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
+    data_units = ["", "MB", "MB", "", "", "", "", "", "", ""]
+    data_types = [int, float, float, int, int, int, int, int, int, bool]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
     f1 = dysh_data(accept=args.key)
@@ -111,7 +117,21 @@ if __name__ == "__main__":
                 nf = 0
             else:
                 nf = nflags
-            dt.tag(f"load{i}", [s['nfiles'], size_mb, size_mb*s['nfiles'], s['nchan'], s['nrows'], s['ifnum'], s['fdnum'], s['plnum'], nf, args.skipflags])
+            dt.tag(
+                f"load{i}",
+                [
+                    s["nfiles"],
+                    size_mb,
+                    size_mb * s["nfiles"],
+                    s["nchan"],
+                    s["nrows"],
+                    s["ifnum"],
+                    s["fdnum"],
+                    s["plnum"],
+                    nf,
+                    args.skipflags,
+                ],
+            )
 
     dt.close()
     dt.report()
