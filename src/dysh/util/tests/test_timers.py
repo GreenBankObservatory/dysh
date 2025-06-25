@@ -17,5 +17,4 @@ class TestUtil:
         dt.report()
         dt.close()
         dt_total = dt.total()
-        assert dt_total*slop > n_ms
-
+        assert dt_total * slop > n_ms
