@@ -26,11 +26,25 @@ from ..log import logger
 from ..util import grouper, merge_ranges, minimum_string_match, powerof2
 
 # note that these methods always return odd number in the kernel
-available_smooth_methods = {
+_available_smooth_methods = {
     "boxcar": Box1DKernel,  # (e.g. width=2 gives hanning)
     "hanning": Trapezoid1DKernel,  # only for width=1
     "gaussian": Gaussian1DKernel,
 }
+
+
+def available_smooth_methods():
+    """The list of smooth methods that dysh understands. These can be passed to various
+    smooth routines via their `method` keywords.
+
+    Returns
+    -------
+    methods: list
+        The method names allowable to `smooth`
+
+    """
+    return list(_available_smooth_methods.keys())
+
 
 FWHM_TO_STDDEV = np.sqrt(8 * np.log(2.0))
 
@@ -1043,15 +1057,18 @@ def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False
         The new convolved spectrum.
 
     """
+    if kernel is not None:
+        raise NotImplementedError("Custom kernels are not yet implemented.")
 
-    method = minimum_string_match(method, list(available_smooth_methods.keys()))
+    asm = available_smooth_methods()
+    method = minimum_string_match(method, asm)
     if method is None:
-        raise ValueError(f"Unrecognized input method {method}. Must be one of {list(available_smooth_methods.keys())}")
+        raise ValueError(f"Unrecognized input method {method}. Must be one of {asm}")
 
     if not float(ndecimate).is_integer():
         raise ValueError("`decimate ({ndecimate})` must be an integer.")
 
-    kernel = available_smooth_methods[method](width)
+    kernel = _available_smooth_methods[method](width)
 
     if show:
         return kernel
@@ -1059,6 +1076,7 @@ def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False
     # Notes:
     # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
     # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
+    print(f"smoothing the data with {kernel}")
     new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
     new_meta = deepcopy(meta)
     if new_meta is not None:
@@ -1066,6 +1084,7 @@ def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False
             width = width * FWHM_TO_STDDEV
         new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
     if ndecimate > 0:
+        print(f"decimating the data by {ndecimate}")
         new_data, new_meta = decimate(new_data, n=ndecimate, meta=new_meta)
 
     return new_data, new_meta

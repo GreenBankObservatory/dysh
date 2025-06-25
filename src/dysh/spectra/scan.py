@@ -20,8 +20,10 @@ from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
+from ..util import minimum_string_match
 from ..util.gaincorrection import GBTGainCorrection
-from .core import (  # fft_shift,; average,
+from .core import (
+    available_smooth_methods,
     find_non_blanks,
     find_nonblank_ints,
     mean_tsys,
@@ -34,9 +36,10 @@ from .spectrum import Spectrum, average_spectra
 
 class SpectralAverageMixin:
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, kernel=None):
+    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
         """
         Smooth or convolve the underlying calibrated data array, optionally decimating the data.
+
         A number of methods from astropy.convolution can be selected
         with the `method` keyword.
 
@@ -60,7 +63,19 @@ class SpectralAverageMixin:
             assume the input beam has FWHM=1, pending resolution on cases
             where CDELT1 is not the same as FREQRES.
             The default is 1.
-
+        decimate : int, optional
+            Decimation factor of the spectrum by returning every decimate channel.
+            -1:   no decimation
+            0:    use the width parameter
+            >1:   user supplied decimation (use with caution)
+            The default is 0, meaning decimation is by `width`
+        kernel : `~numpy.ndarray`, optional
+            A numpy array which is the kernel by which the signal is convolved.
+            Use with caution, as it is assumed the kernel is normalized to
+            one, and is symmetric. Since width is ill-defined here, the user
+            should supply an appropriate number manually.
+            NOTE: not implemented yet.
+            The default is None.
         Raises
         ------
         Exception
@@ -71,9 +86,46 @@ class SpectralAverageMixin:
         None
 
         """
-        # since kernel is not yet implemnted in core.smooth, it will not be exposed in this method.
-        data = smooth(self._calibrated, method, width, kernel=None, show=False)
-        self._calibrated = data
+
+        valid_methods = available_smooth_methods()
+        this_method = minimum_string_match(method, valid_methods)
+        if width < 1:
+            raise ValueError(f"`width` ({width}) must be >=1.")
+
+        if this_method is None:
+            raise Exception(f"smooth({method}): valid methods are {valid_methods}")
+        if decimate == 0:
+            # Take the default decimation by `width`.
+            decimate = int(abs(width))
+            if not float(width).is_integer():
+                print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
+        clen, nchan = self._calibrated.shape
+        sdata = []
+        meta = []
+        for i in range(clen):
+            c = self._calibrated[i]
+            newdata, newmeta = smooth(
+                data=c,
+                method=method,
+                width=width,
+                ndecimate=decimate,
+                kernel=None,
+                show=False,
+                meta=self.meta[i],
+            )
+            print(f"{newdata.shape=}")
+            sdata.append(newdata)
+            meta.append(newmeta)
+        self._calibrated = np.array(sdata)
+        self._meta = meta
+        # @todo If decimation occurs we must
+        # recompute deltafreq.  This needs the work in #583 completed first.
+        if decimate > -1:
+            self._calc_delta_freq()
+
+    @abstractmethod
+    def _calc_delta_freq(self):
+        pass
 
     @log_call_to_history
     def timeaverage(self, weights=None):
@@ -805,8 +857,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, kernel=None):
+    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):  # ScanBlock
         """
+        Smooth all scans in this ScanBlock.
         Smooth or convolve the  calibrated data arrays in contained Scans, optionally decimating the data.
         A number of methods from astropy.convolution can be selected
         with the `method` keyword.
@@ -831,7 +884,19 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             assume the input beam has FWHM=1, pending resolution on cases
             where CDELT1 is not the same as FREQRES.
             The default is 1.
-
+        decimate : int, optional
+            Decimation factor of the spectrum by returning every decimate channel.
+            -1:   no decimation
+            0:    use the width parameter
+            >1:   user supplied decimation (use with caution)
+            The default is 0, meaning decimation is by `width`
+        kernel : `~numpy.ndarray`, optional
+            A numpy array which is the kernel by which the signal is convolved.
+            Use with caution, as it is assumed the kernel is normalized to
+            one, and is symmetric. Since width is ill-defined here, the user
+            should supply an appropriate number manually.
+            NOTE: not implemented yet.
+            The default is None.
         Raises
         ------
         Exception
@@ -842,9 +907,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         None
 
         """
-        """Smooth all scans in this ScanBlock"""
+
         for scan in self.data:
-            scan.smooth(method, width)
+            scan.smooth(method, width, decimate, kernel)
 
     @log_call_to_history
     def timeaverage(self, weights="tsys"):  ## SCANBLOCK
@@ -1294,7 +1359,7 @@ class TPScan(ScanBase):
 
         self._exposure = exp_ref_on + exp_ref_off
 
-    def _calc_delta_freq(self):
+    def _calc_delta_freq(self):  # TPSCAN
         """Calculate the channel width.  See :meth:`delta_freq`"""
         df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
         df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()

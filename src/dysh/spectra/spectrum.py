@@ -466,7 +466,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The new, possibly decimated, convolved `Spectrum`.
         """
 
-        valid_methods = list(available_smooth_methods.keys())
+        valid_methods = available_smooth_methods()
         this_method = minimum_string_match(method, valid_methods)
         if width < 1:
             raise ValueError(f"`width` ({width}) must be >=1.")
@@ -809,19 +809,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         spectrum : `Spectrum`
             A new `Spectrum` object with `doppler_convention` as its Doppler convention.
         """
-        if False:
-            # this doesn't work.
-            # for some reason, the axis velocity
-            # still contains the difference between TOPO and observed frame
-            s = self.__class__(
-                flux=self.flux,
-                wcs=self.wcs,
-                meta=self.meta,
-                velocity_convention=doppler_convention,
-                target=self._target,
-                observer=self._spectral_axis.observer,
-            )
-            s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
         s = self._copy(velocity_convention=doppler_convention)
         s.set_convention(doppler_convention)
         return s
