@@ -3,6 +3,7 @@ Core utility definitions, classes, and functions
 """
 
 import hashlib
+import importlib
 import numbers
 import sys
 from collections.abc import Sequence
@@ -253,17 +254,17 @@ def get_project_root() -> Path:
     """
     Returns the project root directory.
     """
-    return Path(__file__).parent.parent.parent.parent
+    return importlib.resources.files("dysh")
 
 
 def get_project_testdata() -> Path:
     """
     Returns the project testdata directory
     """
-    return get_project_root() / "testdata"
+    return get_project_root().parent.parent / "testdata"
 
 
-def get_project_configuration() -> Path:
+def get_project_data() -> Path:
     """
     Returns the directory where dysh configuration files are kept.
 
@@ -273,7 +274,7 @@ def get_project_configuration() -> Path:
         The project configuration directory.
 
     """
-    return get_project_root() / "conf"
+    return get_project_root() / "data"
 
 
 def get_size(obj, seen=None):
