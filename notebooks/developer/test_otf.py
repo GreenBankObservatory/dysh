@@ -26,6 +26,20 @@ from dysh.util.files import dysh_data
 
 from dysh.spectra import ScanBlock
 
+from astropy.io import fits
+#%%
+ks=['DATE-OBS','SCAN', 'IFNUM', 'PLNUM', 'FDNUM', 'INTNUM', 'CAL', 'PROCSEQN']
+
+
+#  some more liberal panda dataframe display options
+import pandas as pd
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', 1000)
+#%%  debugging
+
+import dysh
+dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
 
 #%%  helper functions
 
@@ -65,6 +79,7 @@ if False:
     sb1 = sdf3.gettp(scan=23,fdnum=0,ifnum=0,plnum=0,calibrate=True,cal=False)
     # there are 68 integrations in here
     scans=list(range(23,58)) + list(range(67,102))
+    scans=list(range(23,58)) 
     mkdir("ngc0001sky")
     sdf1.write('ngc0001sky/file.fits',scan=scans, overwrite=True)
     sdf4 =  GBTFITSLoad("ngc0001sky")
@@ -88,35 +103,59 @@ sdf3.summary()
 f1 = dysh_data(accept='AGBT21B_024_01/AGBT21B_024_01.raw.vegas')
 sdf1 = GBTFITSLoad(f1, skipflags=True)    # ~14sec
 
+sdf1 = sdf4    # just 23..57
+
+
+#%%  EDGE + waterfall
+
 start = 23
 end   = 57
-end   = 23
+#end   = 24
 scans = list(range(start,end+1))
 nchan = 1024
 fdnum = sdf1.udata("FDNUM")
+nedge = 8
+ncube = 0
 
 sb = ScanBlock()
 
-for fd in fdnum:
-    print("Feed",fd)
+for j,fd in enumerate(fdnum):    # 7 min in short map
+    print("Loop/Feed",j,fd)
     tpsb = sdf1.gettp(scan=scans,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False)  # 6.5 sec
-    off = np.empty((4*2,nchan), dtype=float)
-    exp_off = np.empty((4*2,nchan), dtype=float)
-    on = np.empty((68-4*2,nchan), dtype=float)
+    nrows = tpsb[0].nrows
+    nrows2 = nrows - 2  * nedge
+    off = np.empty((nedge*2,nchan), dtype=float)
+    exp_off = np.empty((nedge*2,nchan), dtype=float)
+    on = np.empty((nrows-nedge*2,nchan), dtype=float)
     for i,(t,s) in enumerate(zip(tpsb,scans)):
-        print("scan",s)
-        off[:4] = t._calibrated[:4]
-        off[4:] = t._calibrated[-4:]
-        exp_off[:4] = t.exposure[:4,np.newaxis]
-        exp_off[4:] = t.exposure[-4:,np.newaxis]
-        on = t._calibrated[4:-4]
+        print(" loop/scan",i,s)
+        off[:nedge] = t._calibrated[:nedge]
+        off[nedge:] = t._calibrated[-nedge:]
+        exp_off[:nedge] = t.exposure[:nedge,np.newaxis]
+        exp_off[nedge:] = t.exposure[-nedge:,np.newaxis]
+        on = t._calibrated[nedge:-nedge]
         off_avg = np.average(off, axis=0, weights=exp_off**2.)
         ta = (on - off_avg[np.newaxis,:])/(off_avg[np.newaxis,:])
-        itpsb = sdf1.gettp(scan=s,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False,intnum=list(range(4,64)))[0]  # 2.2 sec
+        itpsb = sdf1.gettp(scan=s,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False,intnum=list(range(nedge,nrows-nedge)))[0]  # 2.2 sec
         itpsb._calibrated = ta
         sb.append(itpsb)
+        if ncube == 0:
+            # set up waterfall cube
+            nz = len(fdnum)               # feeds:    normally 16
+            ny = ta.shape[1]              # channel:  nchan
+            nx = ta.shape[0] * len(scans) # time:     nscans*nint, should be nrows-2*nedge
+            waterfall = np.zeros( (nz,ny,nx), dtype=float)
+            ncube = 1
+        for k in range(nrows2):
+            l = i*nrows2 + k
+            waterfall[fd,:,l] = ta[k,:]
+            
+#%% write waterfall
 
-#%%
+hdu = fits.PrimaryHDU(waterfall*100)
+hdu.writeto('otf-waterfall.fits', overwrite=True)
+        
+#%% write calibrated spectra
 # Save to SDFITS and then run the gbtgridder on it
 sb.write("otf-test.fits", overwrite=True)
 
@@ -461,7 +500,7 @@ sp2.plot(xaxis_unit="km/s")
 # small one it takes ~      6"
 
 scans = list(range(14,27))
-scans = [20]
+# scans = [20]
 sb = ScanBlock()
 
 # sdf = sdf1    # big one (2300MB)
@@ -498,8 +537,12 @@ else:
 #%% write calibrated spectra
 sb.write("otf-test2.fits", overwrite=True)    #  300 ms
 
+#%%
+
 #
 # gbtgridder --size 32 32  --channels 500:3500 -o test2 --clobber --auto otf-test2.fits
 # pixels:  2.9'  100x100 ->  
 # confirmed the two cubes from sdf1 and sdf2 are identical 
+
+!gbtgridder --size 32 32  --channels 500:3500 -o test2 --clobber --auto otf-test2.fits
 
