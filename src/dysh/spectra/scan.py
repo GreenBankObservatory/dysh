@@ -121,10 +121,25 @@ class SpectralAverageMixin:
         # @todo If decimation occurs we must
         # recompute deltafreq.  This needs the work in #583 completed first.
         if decimate > -1:
-            self._calc_delta_freq()
+            self._calc_delta_freq(use_meta=True)
 
     @abstractmethod
-    def _calc_delta_freq(self):
+    def _calc_delta_freq(self, use_meta: bool = False):
+        """
+
+        Calculate the channel frequency spacing.
+
+        Parameters
+        ----------
+        use_meta : bool optional
+            Use the metadata dictionary value of CRDELT1 to set `delta_freq`.  The default is False, which
+            mean use the SDFITS value(s)
+
+        Returns
+        -------
+        None.
+
+        """
         pass
 
     @log_call_to_history
@@ -1359,17 +1374,20 @@ class TPScan(ScanBase):
 
         self._exposure = exp_ref_on + exp_ref_off
 
-    def _calc_delta_freq(self):  # TPSCAN
+    def _calc_delta_freq(self, use_meta=False):  # TPSCAN
         """Calculate the channel width.  See :meth:`delta_freq`"""
-        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        if self.calstate is None:
-            delta_freq = 0.5 * (df_ref_on + df_ref_off)
-        elif self.calstate:
-            delta_freq = df_ref_on
-        elif self.calstate == False:  # noqa: E712
-            delta_freq = df_ref_off
-        self._delta_freq = delta_freq
+        if not use_meta:
+            df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+            df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+            if self.calstate is None:
+                delta_freq = 0.5 * (df_ref_on + df_ref_off)
+            elif self.calstate:
+                delta_freq = df_ref_on
+            elif self.calstate == False:  # noqa: E712
+                delta_freq = df_ref_off
+            self._delta_freq = delta_freq
+        else:
+            raise NotImplementedError("use_meta=True not yet implemented for self.__class__.__name-_")
 
     @property
     def exposure(self):
