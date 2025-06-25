@@ -260,7 +260,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             if self._plotter is not None:
                 self._plotter._line.set_ydata(self._data)
                 if not self._plotter._freezey:
-                    self._plotter._freey()
+                    self._plotter.freey()
         self._baseline_model = None
 
     @property
