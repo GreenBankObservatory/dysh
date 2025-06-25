@@ -8,6 +8,7 @@ class TestUtil:
 
     def test_dysh_timers(self):
         """Test dysh timers"""
+        slop = 1.01  # one of windows complained 49.8838 > 50
         n_ms = 50
         dt = timers.DTime()
         dt.tag("test1")
@@ -16,4 +17,5 @@ class TestUtil:
         dt.report()
         dt.close()
         dt_total = dt.total()
-        assert(dt_total > n_ms)
+        assert(dt_total*slop > n_ms)
+
