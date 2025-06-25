@@ -16,7 +16,6 @@ from astropy.io import fits
 from specutils import Spectrum1D
 from specutils.manipulation import box_smooth, gaussian_smooth, trapezoid_smooth
 
-import matplotlib.pyplot as plt
 
 from dysh.fits.sdfitsload import SDFITSLoad
 from dysh.fits.gbtfitsload import GBTFITSLoad
@@ -494,17 +493,20 @@ sp2.plot(xaxis_unit="km/s")
 # region between -2000 and -500   and 500..2000 can be used for baseline
 
 #%% pick sdf1 or sdf2 for speed testing the calibration portion
-%%time
 
 # on the big one it takes ~ 1'12"
 # small one it takes ~      6"
 
 scans = list(range(14,27))
-# scans = [20]
+#scans = [21]
 sb = ScanBlock()
 nint = 60          # use 60, not 61.   #61 seems to be blank a lot
+#nint=10
 nscan = len(scans)
 nchan = 4096
+fdnum = 0
+ifnum = 0
+plnum = 0
 
 # sdf = sdf1    # big one (2300MB)
 sdf = sdf2    # just the relevant scans 14..27  (5MB)
@@ -512,17 +514,50 @@ sdf = sdf2    # just the relevant scans 14..27  (5MB)
 ny = nscan*nint
 nx = nchan
 waterfall = np.zeros( (ny,nx), dtype=float)
+sp1 = 0
+
+#  mode=0,1   ~5sec
+#  mode=2     ~60 sec
+mode = 1
 
 print("Using", sdf.filename, "for", scans)
+
+# basmk for mode=1
+bmask = np.arange(nchan)
+bmask = (bmask>500) & (bmask<1500) | (bmask>2500) & (bmask<3500)
 for i,s in enumerate(scans):
-    print(s)
+    print(i,s)
     sb1 =  sdf.getsigref(scan=s, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)[0]
-    sb.append(sb1)
+    if sp1 == 0:
+        sp1 = sb1.timeaverage()   # now spectrum is in sp1.flux.data
     for j in range(nint):
+        print("Loop",i,j,s)
         k = i*nint + j
         waterfall[k] = sb1._calibrated[j]
+        if mode == 1:
+            # poor man's baseline reduction
+            smean = sb1._calibrated[j][bmask].mean()
+            waterfall[k] = sb1._calibrated[j] - smean
+        elif mode == 2:
+            # sp1 = sb1.timeaverage()
+            print("DATA0", sb1._calibrated[j][100])
+            sp1._data = sb1._calibrated[j]     # _data    value?
+            sp1.baseline(0, include=[(500, 1500), (2500, 3550)], remove=True, model='polynomial')
+            print(sp1.baseline_model)
+            sb1._calibrated[j] = sp1._data
+            sp1.undo_baseline()
+            #sp1.hack()
+            waterfall[k] = sb1._calibrated[j]
+            print("DATA1", sb1._calibrated[j][100])
+    sb.append(sb1)    
     
-    
+
+plt.figure(1)
+plt.clf()
+plt.imshow(waterfall, vmin=-0.5, vmax=0.5)
+plt.colorbar()
+
+
 #%%
 
 hdu = fits.PrimaryHDU(waterfall)
