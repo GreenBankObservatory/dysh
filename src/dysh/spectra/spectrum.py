@@ -40,6 +40,8 @@ from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import (
+    FWHM_TO_STDDEV,
+    available_smooth_methods,
     baseline,
     curve_of_growth,
     decimate,
@@ -422,24 +424,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s : `Spectrum`
             The decimated `Spectrum`.
         """
-        if False:
-            if not float(n).is_integer():
-                raise ValueError(f"`n` ({n}) must be an integer.")
-
-            nchan = len(self._data)
-            new_meta = deepcopy(self.meta)
-            idx = np.arange(0, nchan, n)
-            new_cdelt1 = self.meta["CDELT1"] * n
-            cell_shift = 0.5 * (n - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-            new_data = self.data[idx] * self.flux.unit
-            new_meta["CDELT1"] = new_cdelt1
-            new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
-            new_meta["CRVAL1"] += cell_shift
-        else:
-            new_data, new_meta = decimate(self.data * self.flux.unit, n, self.meta)
-
+        new_data, new_meta = decimate(self.data * self.flux.unit, n, self.meta)
         s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
-
         if self._baseline_model is not None:
             s._baseline_model = None
 
@@ -496,59 +482,47 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s : `Spectrum`
             The new, possibly decimated, convolved `Spectrum`.
         """
-        nchan = len(self._data)  # noqa: F841
-        # decimate = int(decimate) # Should we change this value and tell the user, or just error out?
-        # For now, we'll error out if decimate is not an integer..
 
+        valid_methods = list(available_smooth_methods.keys())
+        this_method = minimum_string_match(method, valid_methods)
         if width < 1:
             raise ValueError(f"`width` ({width}) must be >=1.")
 
-        # @todo  see also core.smooth() for valid_methods
-        valid_methods = ["hanning", "boxcar", "gaussian"]
-        this_method = minimum_string_match(method, valid_methods)
-        if this_method == None:  # noqa: E711
+        if this_method is None:
             raise Exception(f"smooth({method}): valid methods are {valid_methods}")
-
-        if not float(decimate).is_integer():
-            raise ValueError("`decimate` must be an integer.")
-
-        # All checks for smoothing should be completed by this point.
-        # Create a new metadata dictionary to modify by smooth.
-        new_meta = deepcopy(self.meta)
         md = np.ma.masked_array(self._data, self.mask)
+        if decimate == 0:
+            # Take the default decimation by `width`.
+            decimate = int(abs(width))
+            if not float(width).is_integer():
+                print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
         if this_method == "gaussian":
             if width <= self._resolution:
                 raise ValueError(
                     f"`width` ({width} channels) cannot be less than the current resolution ({self._resolution} channels)."
                 )
             kwidth = np.sqrt(width**2 - self._resolution**2)  # Kernel effective width.
-            stddev = kwidth / 2.35482
+            stddev = kwidth / FWHM_TO_STDDEV
 
-            s1 = core.smooth(md, this_method, stddev)
+            new_data, new_meta = core.smooth(
+                data=md * self.flux.unit,
+                method=this_method,
+                ndecimate=decimate,
+                width=stddev,
+                meta=self.meta,
+            )
         else:
             kwidth = width
-            s1 = core.smooth(md, this_method, width)
-        # mask = np.full(s1.shape, False)
-        # in core.smooth, we fill masked values with np.nan.
-        # astropy.convolve does not return a new mask, so we recreate
-        # a decimated mask where values are nan
-        # mask[np.where(s1 == np.nan)] = True
-        # new_data = Masked(s1 * self.flux.unit, mask)
-        new_data = s1 * self.flux.unit
-        new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
+            new_data, new_meta = core.smooth(
+                data=md * self.flux.unit,
+                method=this_method,
+                width=width,
+                ndecimate=decimate,
+                meta=self.meta,
+            )
 
         s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
         s._baseline_model = self._baseline_model
-
-        # Now decimate if needed.
-        if decimate >= 0:
-            if decimate == 0:
-                # Take the default decimation by `width`.
-                decimate = int(abs(width))
-                if not float(width).is_integer():
-                    print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
-
-            s = s.decimate(decimate)
 
         # Update the spectral resolution in channel units.
         s._resolution = s.meta["FREQRES"] / abs(s.meta["CDELT1"])
