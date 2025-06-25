@@ -35,7 +35,9 @@ class TestMeanTsys:
         tsys_dysh = np.empty(table_pl0_off["DATA"].shape[0] // 2, dtype=float)
         for i in range(len(tsys_dysh)):
             tsys_dysh[i] = core.mean_tsys(
-                calon=table_pl0_off["DATA"][1::2][i], caloff=table_pl0_off["DATA"][0::2][i], tcal=tcal
+                calon=table_pl0_off["DATA"][1::2][i],
+                caloff=table_pl0_off["DATA"][0::2][i],
+                tcal=tcal,
             )
         # Compare.
         assert tsys_dysh == pytest.approx(expected)
@@ -66,11 +68,11 @@ class TestMeanTsys:
         data0h = np.array([0, 0, 0.25, 0.5, 0.25, 0, 0])
         data0b = np.array([0, 0.2, 0.2, 0.2, 0.2, 0.2, 0])
         data0g = np.array([0, 1.3563e-5, 0.055554, 0.888865, 0.055554, 1.3563e-5, 0])
-        data1h = core.smooth(data0, "hanning")
+        data1h, meta = core.smooth(data0, "hanning")
         assert data1h == pytest.approx(data0h)
-        data1b = core.smooth(data0, "boxcar", 5)
+        data1b, meta = core.smooth(data0, "boxcar", 5)
         assert data1b == pytest.approx(data0b)
-        data1g = core.smooth(data0, "gaussian", 1 / 2.35482)
+        data1g, meta = core.smooth(data0, "gaussian", 1 / 2.35482)
 
         assert data1g == pytest.approx(data0g)
 
