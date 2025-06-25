@@ -232,7 +232,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 if self._bline is not None:
                     self._bline.set_ydata(np.ones(int(self.meta["NAXIS1"])) * np.nan)
                 if not self._plotter._freezey:
-                    self.freey()
+                    self._plotter.freey()
                 # ydiff = np.max(self._data) - np.min(self._data)
                 # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
                 # self._plotter._figure.canvas.flush_events()
@@ -260,7 +260,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             if self._plotter is not None:
                 self._plotter._line.set_ydata(self._data)
                 if not self._plotter._freezey:
-                    self.freey()
+                    self.plotter._freey()
         self._baseline_model = None
 
     @property
