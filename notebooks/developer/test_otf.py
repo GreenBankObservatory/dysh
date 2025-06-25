@@ -142,18 +142,18 @@ for j,fd in enumerate(fdnum):    # 7 min in short map
         if ncube == 0:
             # set up waterfall cube
             nz = len(fdnum)               # feeds:    normally 16
-            ny = ta.shape[1]              # channel:  nchan
-            nx = ta.shape[0] * len(scans) # time:     nscans*nint, should be nrows-2*nedge
+            ny = ta.shape[0] * len(scans) # time:     nscans*nint, should be nrows-2*nedge
+            nx = ta.shape[1]              # channel:  nchan
             waterfall = np.zeros( (nz,ny,nx), dtype=float)
             ncube = 1
         for k in range(nrows2):
             l = i*nrows2 + k
-            waterfall[fd,:,l] = ta[k,:]
+            waterfall[fd,l,:] = ta[k,:]
             
 #%% write waterfall
 
-hdu = fits.PrimaryHDU(waterfall*100)
-hdu.writeto('otf-waterfall.fits', overwrite=True)
+hdu = fits.PrimaryHDU(waterfall*100)    # 100K, pending proper calibration using vane/sky
+hdu.writeto('otf2-waterfall.fits', overwrite=True)
         
 #%% write calibrated spectra
 # Save to SDFITS and then run the gbtgridder on it
@@ -502,15 +502,31 @@ sp2.plot(xaxis_unit="km/s")
 scans = list(range(14,27))
 # scans = [20]
 sb = ScanBlock()
+nint = 60          # use 60, not 61.   #61 seems to be blank a lot
+nscan = len(scans)
+nchan = 4096
 
 # sdf = sdf1    # big one (2300MB)
 sdf = sdf2    # just the relevant scans 14..27  (5MB)
 
+ny = nscan*nint
+nx = nchan
+waterfall = np.zeros( (ny,nx), dtype=float)
+
 print("Using", sdf.filename, "for", scans)
-for s in scans:
+for i,s in enumerate(scans):
     print(s)
     sb1 =  sdf.getsigref(scan=s, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)[0]
     sb.append(sb1)
+    for j in range(nint):
+        k = i*nint + j
+        waterfall[k] = sb1._calibrated[j]
+    
+    
+#%%
+
+hdu = fits.PrimaryHDU(waterfall)
+hdu.writeto('otf1-waterfall.fits', overwrite=True)
     
 sb.timeaverage().plot(xaxis_unit='chan',title='one')
     
