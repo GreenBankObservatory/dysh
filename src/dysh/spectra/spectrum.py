@@ -304,6 +304,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is None:
             self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
+        return self._plotter
 
     def get_selected_regions(self, unit=None):
         """Get selected regions from plot."""
@@ -335,25 +336,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @property
     def plotter(self):
         return self._plotter
-
-    def freex(self):
-        if self._plotter is not None:
-            self._plotter._freezex = False
-            # This line (and the other in specplot.py) will have to be addressed when we
-            # implement multiple IF windows in the same plot
-            self._plotter._axis.set_xlim(np.min(self._spectral_axis).value, np.max(self._spectral_axis).value)
-
-    def freey(self):
-        if self._plotter is not None:
-            self._plotter._freezey = False
-            self._plotter._axis.relim()
-            self._plotter._axis.autoscale(axis="y", enable=True)
-            self._plotter._axis.autoscale_view()
-
-    def freexy(self):
-        if self._plotter is not None:
-            self.freex()
-            self.freey()
 
     def stats(self, roll=0, qac=False):
         """
@@ -868,9 +850,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def savefig(self, file, **kwargs):
         """Save the plot"""
-        if self._plotter is None:
-            raise Exception("You have to invoke plot() first")
-        self._plotter.savefig(file, **kwargs)
+        raise Exception("savefig() has been moved to the SpecPlot class")
 
     def _write_table(self, fileobj, format, **kwargs):
         """
