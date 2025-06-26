@@ -138,8 +138,8 @@ class SpectrumPlot:
         """
         self.__init__(self._spectrum, **kwargs)
         if interactive:
-            plt.ion()
-        plt.rcParams["font.family"] = "monospace"
+            self._plt.ion()
+        self._plt.rcParams["font.family"] = "monospace"
         # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
 
         # xtype = 'velocity, 'frequency', 'wavelength'
@@ -382,6 +382,7 @@ class SpectrumPlot:
 
         # bottom row
         vcoord_bot = 0.72
+        hcoord_bot = 0.95
         ra, dec = coord_formatter(s)
         self._axis.annotate(f"{ra}  {dec}", (hcoords[0], vcoord_bot), xycoords=xyc, size=fsize_small)
         if self._axis.get_title() == "":
@@ -392,16 +393,12 @@ class SpectrumPlot:
         el = np.around(s.meta["ELEVATIO"], 1)
         ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
         self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}",
-            (0.95, vcoord_bot),
-            xycoords=xyc,
-            size=fsize_small,
-            horizontalalignment="right",
+            f"Az: {az}  El: {el}  HA: {ha}", (hcoord_bot, vcoord_bot), xycoords=xyc, size=fsize_small, horizontalalignment="right"
         )
 
         # last corner -- current date time.
         ts = str(dt.datetime.now())[:19]
-        self._axis.annotate(f"{ts}", (0.85, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right")
+        self._axis.annotate(f"{ts}", (hcoord_bot-0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right")
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
@@ -452,7 +449,7 @@ class SpectrumPlot:
         self._freezex = False
         # This line (and the other in specplot.py) will have to be addressed when we
         # implement multiple IF windows in the same plot
-        self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
+        self._axis.set_xlim(self._sa.min.value, self._sa.max.value)
 
     def freey(self):
         self._freezey = False
