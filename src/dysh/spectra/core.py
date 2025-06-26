@@ -975,7 +975,7 @@ def decimate(data, n, meta=None):
         Decimation factor of the spectrum by returning every n-th channel.
 
     meta: dict
-         metadata dictionary with CDELT1, CRVAL1, and CRPIX1 which will be recalculated
+         metadata dictionary with CDELT1, CRVAL1, NAXIS1, and CRPIX1 which will be recalculated
 
     Returns
     -------
@@ -997,6 +997,7 @@ def decimate(data, n, meta=None):
         new_meta["CDELT1"] = new_cdelt1
         new_meta["CRPIX1"] = 1.0 + (meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
         new_meta["CRVAL1"] += cell_shift
+        new_meta["NAXIS1"] = len(new_data)
     else:
         new_meta = None
 
@@ -1044,7 +1045,7 @@ def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False
         If set, the kernel is returned, instead of the convolved array.
         The default is False.
     meta: dict
-         metadata dictionary with CDELT1, CRVAL1, CRPIX1, and FREQRES which will be recalculated if necessary
+         metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
 
     Raises
     ------
