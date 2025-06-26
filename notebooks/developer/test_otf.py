@@ -4,6 +4,12 @@
 Created on Wed Apr 16 11:06:02 2025
 
 @author: teuben
+
+there are 3 examples of OTF:
+    
+    otf1    L-band example (best developed, last example in this notebook)
+    otf2    EDGE NGC0001 (first example)
+    otf3    EDGE NGC5954 (second example)
 """
 
 
@@ -53,24 +59,121 @@ def mkdir(name, clean=True):
             print(f"Removing {fn} from {name}")
             os.unlink(os.path.join(name,fn))
             
+            
+def skyplot(sdf, scan=None, fdnum=8, size=None, title=None):
+    """ for a selection of scans plot the skymap coverage for a given feed
+    If size is given, plot will be rescaled in arcsec from -size to size
+    in both RA and DEC around the mean position in X and Y (RA,DEC)
+    
+    @todo  change to using fig.,ax. instead of plt.
+    @todo  allow sdf to be a file, so it can bypass the sdf.write() and
+           grab sdf1 from the file
 
-#%%    preparing ngc0001.fits since the data container is large  (1.3 GB)
+    @todo  add source and <ra,dec> to title
+    @todo  add color bar with scan number as the scale
+    """
+    # make a temporary fits file with the selected scans
+    sdf.write('skyplot.fits', scan=scan, overwrite=True, multifile=False)
+    #
+    sdf1 = GBTFITSLoad('skyplot.fits')
+    f=sdf1._index['FDNUM']
+    mask = f==fdnum
+    if mask.sum() == 0:
+        print(f"no data for scan={scan}, fdnum={fdnum}")
+        return
+
+    x=sdf1._index['CRVAL2'][mask]
+    y=sdf1._index['CRVAL3'][mask]
+    s=sdf1._index['SCAN'][mask]
+
+    mz = (x!=0) | (y!=0)
+    x = x[mz]
+    y = y[mz]
+    s = s[mz]
+    
+    if size is None:
+        #  this will make RA run the wrong way, see heatmap
+        plt.scatter(x, y, c=s)
+        #return (x,y,s)
+    else:
+        xc = x.mean()
+        yc = y.mean()
+        dx = (x-xc)*np.cos(np.radians(yc)) * 3600
+        dy = (y-yc) * 3600
+        sc=plt.scatter(dx,dy,c=s)
+        cbar = plt.colorbar(sc)
+        cbar.set_label("scan")
+        plt.xlim(size,-size)
+        plt.ylim(-size,size)
+        plt.gca().set_aspect('equal')
+        #return (xc,yc,s)                
+             
+    if title is not None:
+        plt.title(title)             
+    
+def heatmap(sdf, cell=6, scans=None):
+    kw=['SCAN', 'FDNUM', 'INTNUM', 'CRVAL2', 'CRVAL3']
+    df=sdf._index[kw]
+    if scans is not None:
+        print(f"Selection on scans={scans}")
+        df = df[df['SCAN'].isin(scans)]
+    x=df['CRVAL2']
+    y=df['CRVAL3']
+    
+    # it seems when EXPOSURE is small (0.018 in my example) the x and y are 0
+    # note these are not VANE/SKY.
+    
+    mask = np.where(~np.isclose(x,0) & ~np.isclose(y,0))[0]
+    nxy = len(x)
+    n0 = nxy - len(mask)
+    print(f'{n0}/{nxy} positions at (0,0)')
+    x=df.iloc[mask]['CRVAL2']
+    y=df.iloc[mask]['CRVAL3']
+    #
+    xc = x.mean()
+    yc = y.mean()
+    y = (y - yc)*3600.0
+    x = (x - xc)*3600.0 * np.cos(np.pi*yc/180)
+    xmin = x.min()
+    xmax = x.max()
+    ymin = y.min()
+    ymax = y.max()
+    bmax = max(-xmin, -ymin, xmax, ymax)
+    print(f"bmax={bmax}")
+    # @todo  fix edges to be symmetric around (0,0)
+    xedges = np.arange(-bmax-cell, bmax+cell, cell)
+    yedges = np.arange(-bmax-cell, bmax+cell, cell)
+    print(xedges)
+    
+    heatmap, xedges, yedges = np.histogram2d(x, y, bins=(xedges, yedges))
+    dx = xedges[1]-xedges[0]
+    dy = yedges[1]-yedges[0]
+    print("dx,dy",dx,dy,"arcsec")
+
+    plt.figure()
+    plt.imshow(heatmap.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', aspect='equal', cmap='viridis')
+    plt.colorbar(label=f'Visits per  cell')
+
+    plt.xlabel(f'dX, cell= {dx:.2f} arcsec')
+    plt.ylabel(f'dY  cell= {dx:.2f} arcsec')
+    plt.title(f'{sdf.filename}   {xc:.6f}  {yc:.6f}')
+
+#%%    OTF2::    preparing ngc0001.fits since the data container is large  (1.3 GB)
 
 f1 = dysh_data('AGBT21B_024_01')   
 sdf1 = GBTFITSLoad(f1, skipflags=True)
-sdf1 = GBTFITSLoad(f1)    # ,skipflags=True)
+# sdf1 = GBTFITSLoad(f1)    # ,skipflags=True)
 # skipflags=False:   CPU times: user 9min 1s, sys: 3.49 s, total: 9min 5s Wall time: 8min 56s
 # skipflags=True:    CPU times: user 4.07 s, sys: 539 ms, total: 4.61 s
+sdf1.summary()
 
-
-
-# NGC0001 is scans 
 
 if False:
     scans=list(range(21,60))+list(range(65,104))
     sdf1.write('ngc0001.fits',scan=scans, overwrite=True, multifile=False)
     # 442MB
     sdf2 = GBTFITSLoad("ngc0001.fits")
+    sdf2.summary()
     # CPU times: user 3.91 s, sys: 128 ms, total: 4.04 s
     mkdir("ngc0001")
     sdf1.write('ngc0001/file.fits',scan=scans, overwrite=True)
@@ -84,6 +187,21 @@ if False:
     sdf4 =  GBTFITSLoad("ngc0001sky")
     sdf4.summary()
     
+    #
+    sdf1.write("ngc0001_vane", scan=[21,22], overwrite=True, multifile=False)
+    sdf5 = GBTFITSLoad("ngc0001_vane")
+    sdf5.summary()
+    
+    
+#%% skyplot NGC0001
+
+skyplot(sdf2, scan=list(range(23,58)),  size=60, title="NGC0001 DecLatMap")
+skyplot(sdf2, scan=list(range(67,76)),  size=60, title="NGC0001 RALongMap")
+
+
+# UGC01659
+skyplot(sdf1, scan=list(range(117,152)),  size=60, title="UGC01659 DecLatMap")
+skyplot(sdf1, scan=list(range(161,196)),  size=60, title="UGC01659 RALongMap")
     
 #%% work on ngc0001/file*fits
 
@@ -91,12 +209,8 @@ if False:
 sdf2 = GBTFITSLoad('ngc0001.fits', skipflags=True)    
 sdf2.summary()
 
-#
-sdf3 = GBTFITSLoad('ngc0001', skipflags=True)
-sdf3.summary()
 
-
-#%%  pedro's speed up for NGC0001
+#%%  speed up for NGC0001 by usinng the smaller sdf4
 
 
 f1 = dysh_data(accept='AGBT21B_024_01/AGBT21B_024_01.raw.vegas')
@@ -117,6 +231,7 @@ nedge = 8
 ncube = 0
 
 sb = ScanBlock()
+sp1 = 0
 
 for j,fd in enumerate(fdnum):    # 7 min in short map
     print("Loop/Feed",j,fd)
@@ -135,9 +250,9 @@ for j,fd in enumerate(fdnum):    # 7 min in short map
         on = t._calibrated[nedge:-nedge]
         off_avg = np.average(off, axis=0, weights=exp_off**2.)
         ta = (on - off_avg[np.newaxis,:])/(off_avg[np.newaxis,:])
-        itpsb = sdf1.gettp(scan=s,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False,intnum=list(range(nedge,nrows-nedge)))[0]  # 2.2 sec
-        itpsb._calibrated = ta
-        sb.append(itpsb)
+        sb1 = sdf1.gettp(scan=s,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False,intnum=list(range(nedge,nrows-nedge)))[0]  # 2.2 sec
+        sb1._calibrated = ta
+
         if ncube == 0:
             # set up waterfall cube
             nz = len(fdnum)               # feeds:    normally 16
@@ -145,9 +260,15 @@ for j,fd in enumerate(fdnum):    # 7 min in short map
             nx = ta.shape[1]              # channel:  nchan
             waterfall = np.zeros( (nz,ny,nx), dtype=float)
             ncube = 1
+            sp1 = sb1.timeaverage()
         for k in range(nrows2):
             l = i*nrows2 + k
-            waterfall[fd,l,:] = ta[k,:]
+            sp1._data =  ta[k,:]
+            sp1.baseline(5,exclude=[(300,700)], remove=True)
+            sb1._calibrated[j] = sp1._data
+            sp1.undo_baseline()
+            waterfall[fd,l,:] = sp1._data
+        sb.append(sb1)            
             
 #%% write waterfall
 
@@ -217,7 +338,7 @@ fp.close()
 
 
 
-#%%    preparing ngc5954.fits since the data container is large (923 MB)
+#%%    OTF3:: preparing ngc5954.fits since the data container is large (923 MB)
 
 f1 = dysh_data('AGBT21B_024_20')  # AGBT21B_024_20.raw.vegas 
 print(f1)
@@ -234,21 +355,23 @@ sdf1.summary()
 # NGC0001 is scans 
 
 if False:
-    scans=list(range(20,59))+list(range(64,103))
+    scans=list(range(20,59))+list(range(64,103))    # this includes the matching sky/vane
     mkdir("ngc5954")
     sdf1.write('ngc5954/file.fits',scan=scans, overwrite=True)
     sdf3 = GBTFITSLoad("ngc5954")
     sb1 = sdf3.gettp(scan=23,fdnum=0,ifnum=0,plnum=0,calibrate=True,cal=False)
     # there are 68 integrations in here
     
-#%%    DecLatMap
+
+    
+#%%    DecLatMap:   bad slow way]
 
 #   DecLatMap:    sky/vane  20,21  and 57,58    data:  22,56
-#   one row for 60 points and 16 beams took almost 6'
+#   one row for 60 points and 16 beams took almost 6' this way
    
 start = 22
 end   = 56
-#end   = 22
+end   = 22
 noff = 4  
 
 sdf = sdf3
@@ -276,6 +399,30 @@ fp.close()
         
 #  CPU times: user 1h 23min 47s, sys: 5min 18s, total: 1h 29min 6s    Wall time: 1h 29min 4s  
 
+#%%
+
+
+#   skyplot(sdf3, scan=list(range(22,57)),  size=60, title="NGC5954 DecLatMap")
+#   skyplot(sdf3, scan=list(range(66,101)), size=60, title="NGC5954 RALongMap")
+
+
+#%%
+sdf3.write('junk1.fits', scan=list(range(22,57)), overwrite=True, multifile=False)
+sdf3a = GBTFITSLoad('junk1.fits')
+sdf3a.summary()
+
+#%% collect
+
+sdf = sdf3a
+
+f=sdf._index['FDNUM']
+mask = f==8
+
+x=sdf._index['CRVAL2'][mask]
+y=sdf._index['CRVAL3'][mask]
+s=sdf._index['SCAN'][mask]
+
+mz = (x!=0) | (y!=0)
 
 #%%    DecLatMap sky coverage
 
@@ -289,7 +436,7 @@ start = 22
 end   = 56
 end   = 22
 
-sdf = sdf3
+sdf = sdf3a
 tsys = 200
 
 fp = open("coverage.txt","w")
@@ -329,52 +476,6 @@ def sizes(sdf):
 
 #%%
 
-def heatmap(sdf, cell=6, scans=None):
-    kw=['SCAN', 'FDNUM', 'INTNUM', 'CRVAL2', 'CRVAL3']
-    df=sdf._index[kw]
-    if scans is not None:
-        print(f"Selection on scans={scans}")
-        df = df[df['SCAN'].isin(scans)]
-    x=df['CRVAL2']
-    y=df['CRVAL3']
-    
-    # it seems when EXPOSURE is small (0.018 in my example) the x and y are 0
-    # note these are not VANE/SKY.
-    
-    mask = np.where(~np.isclose(x,0) & ~np.isclose(y,0))[0]
-    nxy = len(x)
-    n0 = nxy - len(mask)
-    print(f'{n0}/{nxy} positions at (0,0)')
-    x=df.iloc[mask]['CRVAL2']
-    y=df.iloc[mask]['CRVAL3']
-    #
-    xc = x.mean()
-    yc = y.mean()
-    y = (y - yc)*3600.0
-    x = (x - xc)*3600.0 * np.cos(np.pi*yc/180)
-    xmin = x.min()
-    xmax = x.max()
-    ymin = y.min()
-    ymax = y.max()
-    bmax = max(-xmin, -ymin, xmax, ymax)
-    print(f"bmax={bmax}")
-    # @todo  fix edges to be symmetric around (0,0)
-    xedges = np.arange(-bmax-cell, bmax+cell, cell)
-    yedges = np.arange(-bmax-cell, bmax+cell, cell)
-    print(xedges)
-    
-    heatmap, xedges, yedges = np.histogram2d(x, y, bins=(xedges, yedges))
-    dx = xedges[1]-xedges[0]
-    dy = yedges[1]-yedges[0]
-    print("dx,dy",dx,dy,"arcsec")
-
-    plt.figure()
-    plt.imshow(heatmap.T, extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], origin='lower', aspect='equal', cmap='viridis')
-    plt.colorbar(label=f'Visits per  cell')
-
-    plt.xlabel(f'dX, cell= {dx:.2f} arcsec')
-    plt.ylabel(f'dY  cell= {dx:.2f} arcsec')
-    plt.title(f'{sdf.filename}   {xc:.6f}  {yc:.6f}')
 
 #%%
 
@@ -406,7 +507,7 @@ sp1.stats()         # rms ~ 0.67
 (sp1-sp2).stats()   # rms ~ 2e-8
 
 
-#%%  OTF in L-band
+#%%  OTF1::  L-band
 
 __help__ = """
     SCAN         OBJECT VELOCITY       PROC  ...  # INT # FEED     AZIMUTH   ELEVATIO
@@ -471,7 +572,7 @@ sdf1.getsigref(scan=26, ref=27, fdnum=0, ifnum=0, plnum=0)
 ifnum=0        # needs to be 0
 plnum=0        # pick 0 and 1 to average
 fdnum=0        # fixed
-nint = 61      # nunber of integrations per scan
+nint = 61      # nunber of integrations per scan  (a.k.a. nrows/2)
 intnum = 30    # pick something in the middle for a test
 sig = 20
 ref = 27
@@ -482,7 +583,7 @@ mkdir("otf1")
 # scans = [sig, ref]
 sdf1.write('otf1/file.fits',scan=scans, overwrite=True, fdnum=fdnum, ifnum=ifnum, plnum=plnum)
 
-
+                     
 sdf2 = GBTFITSLoad('otf1')
 sdf2.summary()
 
@@ -498,15 +599,16 @@ sp2.plot(xaxis_unit="km/s")
 # small one it takes ~      6"
 
 scans = list(range(14,27))
-#scans = [21]
-sb = ScanBlock()
-nint = 60          # use 60, not 61.   #61 seems to be blank a lot
-#nint=10
 nscan = len(scans)
-nchan = 4096
 fdnum = 0
 ifnum = 0
 plnum = 0
+
+# test to get nint, nchan
+sb = sdf1.getsigref(scans[0], ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)[0]
+nint = sb.nint - 1     # last integration always problematic
+nchan = sb.nchan
+print(f"Using nchan={nchan} and nint={nint}")
 
 # sdf = sdf1    # big one (2300MB)
 sdf = sdf2    # just the relevant scans 14..27  (5MB)
@@ -518,7 +620,8 @@ sp1 = 0
 
 #  mode=0,1   ~5sec
 #  mode=2     ~60 sec
-mode = 1
+mode = 2
+sb = ScanBlock()
 
 print("Using", sdf.filename, "for", scans)
 
@@ -540,15 +643,15 @@ for i,s in enumerate(scans):
             waterfall[k] = sb1._calibrated[j] - smean
         elif mode == 2:
             # sp1 = sb1.timeaverage()
-            print("DATA0", sb1._calibrated[j][100])
+            #print("DATA0", sb1._calibrated[j][100])
             sp1._data = sb1._calibrated[j]     # _data    value?
-            sp1.baseline(0, include=[(500, 1500), (2500, 3550)], remove=True, model='polynomial')
-            print(sp1.baseline_model)
+            sp1.baseline(1, include=[(500, 1500), (2500, 3550)], remove=True, model='polynomial')
+            #print(sp1.baseline_model)
             sb1._calibrated[j] = sp1._data
             sp1.undo_baseline()
             #sp1.hack()
             waterfall[k] = sb1._calibrated[j]
-            print("DATA1", sb1._calibrated[j][100])
+            #print("DATA1", sb1._calibrated[j][100])
     sb.append(sb1)    
     
 
@@ -587,6 +690,9 @@ else:
 
 #%% write calibrated spectra
 sb.write("otf-test2.fits", overwrite=True)    #  300 ms
+
+
+
 
 #%%
 
