@@ -76,6 +76,25 @@ class TestMeanTsys:
 
         assert data1g == pytest.approx(data0g)
 
+    def test_decimate(self):
+        a1 = np.arange(100)
+        a2, _meta = core.decimate(a1, 2, None)
+        assert len(a2) == 50
+        a2, _meta = core.decimate(a1, 3, None)
+        assert len(a2) == 34
+        with pytest.raises(ValueError):
+            # n must be an integer
+            a2, _meta = core.decimate(a1, 3.1415, None)
+        # now test with meta
+        meta = {"NAXIS1": 100, "CDELT1": 1, "CRPIX1": 1, "CRVAL1": 0, "FREQRES": 0.5}
+        for i in range(1, 6):
+            a2, _meta = core.decimate(a1, i, meta)
+            assert _meta["NAXIS1"] == len(a2)
+            assert _meta["CDELT1"] == meta["CDELT1"] * float(i)
+            assert _meta["FREQRES"] == meta["FREQRES"]  # should not change since no smoothing
+            assert _meta["CRPIX1"] == 1.0 + (meta["CRPIX1"] - 1) / i + 0.5 * (i - 1) / i
+            assert _meta["CRVAL1"] == meta["CRVAL1"] + 0.5 * (i - 1) * meta["CDELT1"]
+
     def test_tsys_weight(self):
         """Test that `dysh.spectra.core.tsys_weight` works."""
 
