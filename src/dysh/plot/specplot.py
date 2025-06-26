@@ -392,7 +392,11 @@ class SpectrumPlot:
         el = np.around(s.meta["ELEVATIO"], 1)
         ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
         self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}", (0.95, vcoord_bot), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+            f"Az: {az}  El: {el}  HA: {ha}",
+            (0.95, vcoord_bot),
+            xycoords=xyc,
+            size=fsize_small,
+            horizontalalignment="right",
         )
 
         # last corner -- current date time.
@@ -590,5 +594,3 @@ class InteractiveSpanSelector:
 
     def get_selected_regions(self):
         return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]
-
-
