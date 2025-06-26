@@ -393,12 +393,18 @@ class SpectrumPlot:
         el = np.around(s.meta["ELEVATIO"], 1)
         ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
         self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}", (hcoord_bot, vcoord_bot), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+            f"Az: {az}  El: {el}  HA: {ha}",
+            (hcoord_bot, vcoord_bot),
+            xycoords=xyc,
+            size=fsize_small,
+            horizontalalignment="right",
         )
 
         # last corner -- current date time.
         ts = str(dt.datetime.now())[:19]
-        self._axis.annotate(f"{ts}", (hcoord_bot-0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right")
+        self._axis.annotate(
+            f"{ts}", (hcoord_bot - 0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+        )
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
