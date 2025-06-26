@@ -1643,7 +1643,7 @@ class PSScan(ScanBase):
 
         if self._has_refspec:
             if self._smoothref > 1:
-                ref = core.smooth(self.refspec.data, "boxcar", self._smoothref)
+                ref, _meta = core.smooth(self.refspec.data, "boxcar", self._smoothref)
             else:
                 ref = self.refspec.data
             for i in range(nspect):
@@ -1667,7 +1667,7 @@ class PSScan(ScanBase):
                     sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                     ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
                     if self._smoothref > 1:
-                        ref = core.smooth(ref, "boxcar", self._smoothref)
+                        ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
                     self._tsys[i] = tsys
                     self._exposure[i] = self.exposure[i]
@@ -1677,7 +1677,7 @@ class PSScan(ScanBase):
                     sig = self._sigcaloff[i]
                     ref = self._refcaloff[i]
                     if self._smoothref > 1:
-                        ref = core.smooth(ref, "boxcar", self._smoothref)
+                        ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
                     self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} PSScan spectra")
@@ -1909,7 +1909,7 @@ class NodScan(ScanBase):
                 sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                 ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
                 if self._smoothref > 1:
-                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                    ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._tsys[i] = tsys
                 self._exposure[i] = self.exposure[i]
@@ -1919,7 +1919,7 @@ class NodScan(ScanBase):
                 sig = self._sigcaloff[i]
                 ref = self._refcaloff[i]
                 if self._smoothref > 1:
-                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                    ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} NODScan spectra")
