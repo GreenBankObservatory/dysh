@@ -136,6 +136,7 @@ class SpectrumPlot:
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
+        self.__init__(self._spectrum, **kwargs)
         if interactive:
             plt.ion()
         plt.rcParams["font.family"] = "monospace"
@@ -380,17 +381,18 @@ class SpectrumPlot:
         self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # bottom row
+        vcoord_bot = 0.72
         ra, dec = coord_formatter(s)
-        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], vcoord_bot), xycoords=xyc, size=fsize_small)
         if self._axis.get_title() == "":
             self._axis.annotate(
-                f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
+                f"{s.meta['OBJECT']}", (0.5, vcoord_bot), xycoords=xyc, size=fsize_large, horizontalalignment="center"
             )
         az = np.around(s.meta["AZIMUTH"], 1)
         el = np.around(s.meta["ELEVATIO"], 1)
         ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
         self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+            f"Az: {az}  El: {el}  HA: {ha}", (0.95, vcoord_bot), xycoords=xyc, size=fsize_small, horizontalalignment="right"
         )
 
         # last corner -- current date time.
