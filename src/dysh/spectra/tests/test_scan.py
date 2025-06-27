@@ -544,7 +544,13 @@ class TestScanBlock:
         sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
-        mean = np.nanmean(sb[0]._calibrated)
-        sb[0].smooth()
-        sm_mean = np.nanmean(sb[0]._calibrated)
-        assert mean / sm_mean
+        rdata = np.random.rand(*sb[0]._calibrated.shape)
+        for width in [3, 5]:
+            sb[0]._calibrated = np.ma.masked_array(rdata, sb[0]._calibrated.mask)
+            mean = np.nanmean(sb[0]._calibrated)
+            std = np.std(sb[0]._calibrated)
+            sb[0].smooth(method="box", width=width, decimate=-1)
+            hmean = np.nanmean(sb[0]._calibrated)
+            hstd = np.std(sb[0]._calibrated)
+            assert hmean == pytest.approx(mean, rel=1e-5)
+            assert std / hstd == pytest.approx(np.sqrt(width), abs=1e-2)
