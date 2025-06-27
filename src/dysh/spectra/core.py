@@ -988,7 +988,7 @@ def decimate(data, n, meta=None):
 
     nchan = len(data)
     idx = np.arange(0, nchan, n)
-    new_data = data[idx]
+    new_data = data[idx]  # this will also decimate the mask if data has a mask attribute.
     if meta is not None:
         new_meta = deepcopy(meta)
         new_cdelt1 = meta["CDELT1"] * n
@@ -1077,15 +1077,26 @@ def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False
     # Notes:
     # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
     # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
-    print(f"smoothing the data with {kernel}")
-    new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
+    # 3. However, astropy convolve will not return a masked array even if the input data have a mask.
+    # 4. We create an input mask if the data do not have one and we ensure input NaNs that are smoothed to output Nans get masked.
+    # 5. We then mask any NaN on output by modifying the input mask
+    if hasattr(data, "mask"):
+        mask = data.mask
+    else:
+        mask = np.full(data.shape, False)
+    # print(f"1 core.smooth using {mask=}")
+
+    new_data = convolve(data, kernel, boundary="extend", mask=mask, nan_treatment="fill", fill_value=np.nan)
+    mask[np.where(np.isnan(new_data))] = True
+    new_data = np.ma.masked_array(new_data, mask)
+    # print(f"2 core.smooth {hasattr(new_data,'mask')=}")
     new_meta = deepcopy(meta)
     if new_meta is not None:
         if method == "gaussian":
             width = width * FWHM_TO_STDDEV
         new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
     if ndecimate > 0:
-        print(f"decimating the data by {ndecimate}")
+        # print(f"decimating the data by {ndecimate}")
         new_data, new_meta = decimate(new_data, n=ndecimate, meta=new_meta)
 
     return new_data, new_meta

@@ -101,9 +101,12 @@ class SpectralAverageMixin:
                 print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
         clen, nchan = self._calibrated.shape
         sdata = []
+        smask = []
         meta = []
+        # print(f"0 SCAN.smooth {hasattr(self._calibrated,'mask')=}")
         for i in range(clen):
             c = self._calibrated[i]
+            # print(f"1 scan.smooth {hasattr(c,'mask')=}")
             newdata, newmeta = smooth(
                 data=c,
                 method=method,
@@ -113,10 +116,14 @@ class SpectralAverageMixin:
                 show=False,
                 meta=self.meta[i],
             )
-            print(f"{newdata.shape=}")
+            # print(f"{newdata.shape=}, {type(newdata)=}")
+            # print(f"2 scan.smooth {hasattr(newdata,'mask')=}")
+            if hasattr(newdata, "mask"):
+                smask.append(newdata.mask)
             sdata.append(newdata)
             meta.append(newmeta)
-        self._calibrated = np.array(sdata)
+        # print("CREATING MASKED ARRAY")
+        self._calibrated = np.ma.masked_array(sdata, smask)
         self._meta = meta
         # @todo If decimation occurs we must
         # recompute deltafreq.  This needs the work in #583 completed first.
@@ -922,7 +929,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         None
 
         """
-
+        print("SCANBLOCK SMOOTH")
         for scan in self.data:
             scan.smooth(method, width, decimate, kernel)
 
