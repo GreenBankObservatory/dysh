@@ -25,6 +25,29 @@ from specutils.utils import QuantityModel
 from ..log import logger
 from ..util import grouper, merge_ranges, minimum_string_match, powerof2
 
+# note that these methods always return odd number in the kernel
+_available_smooth_methods = {
+    "boxcar": Box1DKernel,  # (e.g. width=2 gives hanning)
+    "hanning": Trapezoid1DKernel,  # only for width=1
+    "gaussian": Gaussian1DKernel,
+}
+
+
+def available_smooth_methods():
+    """The list of smooth methods that dysh understands. These can be passed to various
+    smooth routines via their `method` keywords.
+
+    Returns
+    -------
+    methods: list
+        The method names allowable to `smooth`
+
+    """
+    return list(_available_smooth_methods.keys())
+
+
+FWHM_TO_STDDEV = np.sqrt(8 * np.log(2.0))
+
 
 # @todo: allow data to be SpectrumList or array of Spectrum
 def average(data, axis=0, weights=None):
@@ -938,9 +961,53 @@ def fft_shift(
     return new_y
 
 
-def smooth(data, method="hanning", width=1, kernel=None, show=False):
+def decimate(data, n, meta=None):
     """
-    Smooth or Convolve a spectrum, optionally decimating it.
+    Decimate a data array` by n pixels.
+
+    Parameters
+    ----------
+
+    data: `~numpy.ndarray` or `~astropy.quantity.Quantity`
+        The data to decimate
+
+    n : int
+        Decimation factor of the spectrum by returning every n-th channel.
+
+    meta: dict
+         metadata dictionary with CDELT1, CRVAL1, NAXIS1, and CRPIX1 which will be recalculated
+
+    Returns
+    -------
+    tuple : (`~numpy.ndarray` or `~astropy.quantity.Quantity`, dict)
+        A tuple of the decimated `data` and updated metadata (or None if no meta given)
+    """
+
+    if not float(n).is_integer():
+        raise ValueError(f"`n` ({n}) must be an integer.")
+
+    nchan = len(data)
+    idx = np.arange(0, nchan, n)
+    new_data = data[idx]
+    if meta is not None:
+        new_meta = deepcopy(meta)
+        new_cdelt1 = meta["CDELT1"] * n
+        cell_shift = 0.5 * (n - 1) * meta["CDELT1"]
+
+        new_meta["CDELT1"] = new_cdelt1
+        new_meta["CRPIX1"] = 1.0 + (meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
+        new_meta["CRVAL1"] += cell_shift
+        new_meta["NAXIS1"] = len(new_data)
+    else:
+        new_meta = None
+
+    return (new_data, new_meta)
+
+
+# @todo it would be nice if this could take a 2-D array of N spectra. astropy.convolve can handle it.
+def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False, meta=None):
+    """
+    Smooth or Convolve spectrum, optionally decimating it.
     A number of methods from astropy.convolution can be selected
     with the method= keyword.
 
@@ -955,16 +1022,18 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         Smoothing method. Valid are: 'hanning', 'boxcar' and
         'gaussian'. Minimum match applies.
         The default is 'hanning'.
-    width : int, optional
+    width : int or float, optional
         Effective width of the convolving kernel.  Should ideally be an
         odd number.
         For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
         For 'boxcar' an even value triggers an odd one with half the
         signal at the edges, and will thus not reproduce GBTIDL.
-        For 'gaussian' this is the FWHM of the final beam. We normally
+        For 'gaussian' this is the FWHM of the final beam in channels (float). We normally
         assume the input beam has FWHM=1, pending resolution on cases
         where CDELT1 is not the same as FREQRES.
         The default is 1.
+    ndecimate : int, optional
+        Decimation factor of the spectrum by returning every `ndecimate`-th channel.
     kernel : numpy array, optional
         A numpy array which is the kernel by which the signal is convolved.
         Use with caution, as it is assumed the kernel is normalized to
@@ -975,6 +1044,8 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
     show : bool, optional
         If set, the kernel is returned, instead of the convolved array.
         The default is False.
+    meta: dict
+         metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
 
     Raises
     ------
@@ -987,25 +1058,37 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         The new convolved spectrum.
 
     """
-    # note that these methods always return odd number in the kernel
-    available_methods = {
-        "boxcar": Box1DKernel,  # (e.g. width=2 gives hanning)
-        "hanning": Trapezoid1DKernel,  # only for width=1
-        "gaussian": Gaussian1DKernel,
-    }
-    method = minimum_string_match(method, list(available_methods.keys()))
-    if method == None:  # noqa: E711
-        raise ValueError(f"Unrecognized input method {method}. Must be one of {list(available_methods.keys())}")
-    kernel = available_methods[method](width)
+    if kernel is not None:
+        raise NotImplementedError("Custom kernels are not yet implemented.")
+
+    asm = available_smooth_methods()
+    method = minimum_string_match(method, asm)
+    if method is None:
+        raise ValueError(f"Unrecognized input method {method}. Must be one of {asm}")
+
+    if not float(ndecimate).is_integer():
+        raise ValueError("`decimate ({ndecimate})` must be an integer.")
+
+    kernel = _available_smooth_methods[method](width)
+
     if show:
         return kernel
-    # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
-    if hasattr(data, "mask"):
-        mask = data.mask
-    else:
-        mask = None  # noqa: F841
+
+    # Notes:
+    # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
+    # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
+    print(f"smoothing the data with {kernel}")
     new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
-    return new_data
+    new_meta = deepcopy(meta)
+    if new_meta is not None:
+        if method == "gaussian":
+            width = width * FWHM_TO_STDDEV
+        new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
+    if ndecimate > 0:
+        print(f"decimating the data by {ndecimate}")
+        new_data, new_meta = decimate(new_data, n=ndecimate, meta=new_meta)
+
+    return new_data, new_meta
 
 
 def data_ishift(y, ishift, axis=-1, remove_wrap=True, fill_value=np.nan):
