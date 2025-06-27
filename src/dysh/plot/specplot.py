@@ -85,6 +85,7 @@ class SpectrumPlot:
     def __init__(self, spectrum, **kwargs):
         self.reset()
         self._spectrum = spectrum
+        self._sa = spectrum._spectral_axis
         self._set_xaxis_info()
         self._plot_kwargs.update(kwargs)
         self._plt = plt
@@ -135,9 +136,10 @@ class SpectrumPlot:
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
+        self.__init__(self._spectrum, **kwargs)
         if interactive:
-            plt.ion()
-        plt.rcParams["font.family"] = "monospace"
+            self._plt.ion()
+        self._plt.rcParams["font.family"] = "monospace"
         # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
 
         # xtype = 'velocity, 'frequency', 'wavelength'
@@ -154,7 +156,6 @@ class SpectrumPlot:
 
         s = self._spectrum
 
-        self._sa = s.spectral_axis
         lw = this_plot_kwargs["linewidth"]
         xunit = this_plot_kwargs["xaxis_unit"]
         yunit = this_plot_kwargs["yaxis_unit"]
@@ -380,22 +381,30 @@ class SpectrumPlot:
         self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # bottom row
+        vcoord_bot = 0.72
+        hcoord_bot = 0.95
         ra, dec = coord_formatter(s)
-        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], 0.71), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], vcoord_bot), xycoords=xyc, size=fsize_small)
         if self._axis.get_title() == "":
             self._axis.annotate(
-                f"{s.meta['OBJECT']}", (0.5, 0.71), xycoords=xyc, size=fsize_large, horizontalalignment="center"
+                f"{s.meta['OBJECT']}", (0.5, vcoord_bot), xycoords=xyc, size=fsize_large, horizontalalignment="center"
             )
         az = np.around(s.meta["AZIMUTH"], 1)
         el = np.around(s.meta["ELEVATIO"], 1)
         ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
         self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}", (0.95, 0.71), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+            f"Az: {az}  El: {el}  HA: {ha}",
+            (hcoord_bot, vcoord_bot),
+            xycoords=xyc,
+            size=fsize_small,
+            horizontalalignment="right",
         )
 
         # last corner -- current date time.
         ts = str(dt.datetime.now())[:19]
-        self._axis.annotate(f"{ts}", (0.85, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right")
+        self._axis.annotate(
+            f"{ts}", (hcoord_bot - 0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+        )
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
@@ -441,6 +450,22 @@ class SpectrumPlot:
         """ """
         regions = self._selector.get_selected_regions()
         return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
+
+    def freex(self):
+        self._freezex = False
+        # This line (and the other in specplot.py) will have to be addressed when we
+        # implement multiple IF windows in the same plot
+        self._axis.set_xlim(self._sa.min.value, self._sa.max.value)
+
+    def freey(self):
+        self._freezey = False
+        self._axis.relim()
+        self._axis.autoscale(axis="y", enable=True)
+        self._axis.autoscale_view()
+
+    def freexy(self):
+        self.freex()
+        self.freey()
 
 
 class InteractiveSpanSelector:
