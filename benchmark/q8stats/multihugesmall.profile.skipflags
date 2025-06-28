@@ -1,0 +1,72 @@
+Using file f1=PosixPath('/lma1/teuben/GBT/dysh_data/acceptance_testing/data/AGBT14B_480_06/AGBT14B_480_06.raw.vegas')
+Loading not more than 5 from /lma1/teuben/GBT/dysh_data/acceptance_testing/data/AGBT14B_480_06/AGBT14B_480_06.raw.vegas
+Will load 5 of 5 files. FITS size per file 3713.27MB, Flag lines 6
+Loaded 5 FITS files
+Found ostype= linux
+Loaded 5 FITS files
+Loaded 5 FITS files
+Loaded 5 FITS files
+# Dysh Benchmark: GBTFITSLoad
+ name  time   VmSize VmRSS  #files file_size totsize  nchan   nrow nIF nFd nPol #flags skipflags
+        ms    Mbyte  Mbyte           Mbyte    Mbyte                                             
+----- ------ ------- ------ ------ --------- -------- ------ ----- --- --- ---- ------ ---------
+load1 6918.1 25427.8 7066.8      5   3713.27 18566.35 131072 35370   5   1    2      0      True
+load2 6866.6 25597.2 7236.3      5   3713.27 18566.35 131072 35370   5   1    2      0      True
+load3 6941.8 25598.2 7237.4      5   3713.27 18566.35 131072 35370   5   1    2      0      True
+load4 6949.1 25598.0 7237.3      5   3713.27 18566.35 131072 35370   5   1    2      0      True
+         44324362 function calls (44129620 primitive calls) in 27.554 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1515 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        4    0.000    0.000   27.071    6.768 /lma1/mpound/dysh/src/dysh/log.py:337(wrapper)
+        4    0.002    0.000   27.069    6.767 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:69(__init__)
+        4    0.052    0.013   16.516    4.129 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:861(_create_index_if_needed)
+        8    0.000    0.000   12.486    1.561 /lma1/mpound/dysh/src/dysh/util/selection.py:55(__init__)
+        8    0.000    0.000   12.387    1.548 /lma1/mpound/dysh/src/dysh/util/selection.py:94(_add_utc_column)
+  968/508    0.005    0.000   12.351    0.024 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/frame.py:4271(__setitem__)
+      948    0.003    0.000   12.316    0.013 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/frame.py:4514(_set_item)
+     3612    0.062    0.000   12.171    0.003 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/construction.py:517(sanitize_array)
+      948    0.003    0.000   12.142    0.013 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/frame.py:5242(_sanitize_column)
+   282968    0.094    0.000   10.527    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:263(self_iter)
+       20    0.000    0.000   10.472    0.524 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:37(__init__)
+   282960    0.233    0.000   10.434    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/shapes.py:243(__getitem__)
+   282960    3.190    0.000   10.201    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:1321(_apply)
+       20    0.011    0.001    8.099    0.405 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:150(create_index)
+   565952    0.920    0.000    4.354    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:156(__init__)
+       20    0.000    0.000    3.695    0.185 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/frame.py:10170(apply)
+       20    0.006    0.000    3.694    0.185 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/apply.py:864(apply)
+      944    0.985    0.001    3.690    0.004 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/object_array.py:46(_str_map)
+       20    0.000    0.000    3.687    0.184 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/apply.py:1061(apply_standard)
+       20    0.002    0.000    3.650    0.183 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/apply.py:1070(apply_series_generator)
+      460    0.002    0.000    3.614    0.008 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:173(<lambda>)
+        4    0.136    0.034    3.199    0.800 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:939(_construct_integration_number)
+       20    0.000    0.000    2.884    0.144 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/lib/recfunctions.py:505(drop_fields)
+       20    0.877    0.044    2.882    0.144 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/lib/recfunctions.py:32(recursive_fill_fields)
+    20156    0.063    0.000    2.771    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/groupby/ops.py:607(get_iterator)
+    20156    0.021    0.000    2.698    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1149(__iter__)
+     1508    0.006    0.000    2.661    0.002 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:506(__getitem__)
+      484    0.006    0.000    2.283    0.005 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/accessor.py:129(wrapper)
+       20    0.001    0.000    2.276    0.114 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:75(_init_flags)
+    19952    1.049    0.000    2.172    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1180(_chop)
+     1484    0.008    0.000    2.002    0.001 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:692(field)
+     1484    0.007    0.000    1.946    0.001 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:883(_convert_other)
+      460    0.002    0.000    1.919    0.004 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/util.py:254(decode_ascii)
+      460    0.021    0.000    1.916    0.004 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/_core/strings.py:509(decode)
+      460    0.003    0.000    1.812    0.004 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/accessor.py:1972(decode)
+     2424    1.725    0.001    1.731    0.001 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/_core/numeric.py:290(full)
+      460    0.001    0.000    1.702    0.004 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/accessor.py:2115(strip)
+      460    0.001    0.000    1.656    0.004 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/object_array.py:450(_str_strip)
+       48    0.001    0.000    1.530    0.032 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/dtypes/cast.py:123(maybe_convert_platform)
+       48    0.403    0.008    1.528    0.032 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/dtypes/cast.py:1579(construct_1d_object_array_from_listlike)
+       88    0.003    0.000    1.449    0.016 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:1467(__init__)
+  1414848    1.432    0.000    1.432    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:1758(__getattr__)
+      460    1.396    0.003    1.396    0.003 {built-in method numpy._core._multiarray_umath._vec_string}
+  1131856    0.704    0.000    1.340    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:2503(_validate_jd_for_storage)
+  3254040    0.631    0.000    1.169    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/accessor.py:2002(<lambda>)
+   565928    0.414    0.000    1.160    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/formats.py:242(jd2)
+1400087/1400015    0.411    0.000    1.101    0.000 {built-in method builtins.getattr}
+     6512    0.107    0.000    1.059    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:561(__init__)
+  3254040    0.617    0.000    1.059    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/object_array.py:451(<lambda>)
+    19952    0.940    0.000    0.983    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/indexes/base.py:5425(_getitem_slice)
