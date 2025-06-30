@@ -497,14 +497,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             kwidth = width
             new_data, new_meta = core.smooth(
-                data=md * self.flux.unit,
+                data=md,
                 method=this_method,
                 width=width,
                 ndecimate=decimate,
                 meta=self.meta,
             )
 
-        s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
+        s = Spectrum.make_spectrum(new_data * self.flux.unit, meta=new_meta, observer_location="from_meta")
         s._baseline_model = self._baseline_model
 
         # Update the spectral resolution in channel units.
