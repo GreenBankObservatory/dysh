@@ -285,7 +285,7 @@ class TestSpectrum:
         for k in spec_pars:
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
-        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs", show=False)
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs", interactive=False)
         # Check that we can write.
         o = tmp_path / "sub"
         o.mkdir()
@@ -308,7 +308,7 @@ class TestSpectrum:
                 assert trimmed_nu.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
-        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", show=False)
+        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", interactive=False)
 
         # km/s.
         spec_ax = self.ps0.spectral_axis.to("km/s")
@@ -320,7 +320,7 @@ class TestSpectrum:
                 assert trimmed_vel.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
-        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", show=False)
+        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", interactive=False)
 
         # m.
         spec_ax = self.ps0.spectral_axis.to("m")
@@ -784,7 +784,7 @@ class TestSpectrum:
         import matplotlib.pyplot as plt
 
         plt.ioff()
-        s.plot(show=False, xaxis_unit="MHz")
+        s.plot(interactive=False, xaxis_unit="MHz")
         s._plotter._selector.onselect(1402.3, 1402.5)
         r = s.get_selected_regions()
         assert r == [(574, 853)]
