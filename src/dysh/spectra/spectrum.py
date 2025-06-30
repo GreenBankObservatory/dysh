@@ -1172,7 +1172,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             )
             obsitrs = None
 
-        if np.ma.is_masked(data):
+        if hasattr(data, "mask"):
             s = cls(
                 flux=data,
                 wcs=wcs,
