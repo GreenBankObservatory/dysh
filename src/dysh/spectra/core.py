@@ -25,6 +25,29 @@ from specutils.utils import QuantityModel
 from ..log import logger
 from ..util import grouper, merge_ranges, minimum_string_match, powerof2
 
+# note that these methods always return odd number in the kernel
+_available_smooth_methods = {
+    "boxcar": Box1DKernel,  # (e.g. width=2 gives hanning)
+    "hanning": Trapezoid1DKernel,  # only for width=1
+    "gaussian": Gaussian1DKernel,
+}
+
+
+def available_smooth_methods():
+    """The list of smooth methods that dysh understands. These can be passed to various
+    smooth routines via their `method` keywords.
+
+    Returns
+    -------
+    methods: list
+        The method names allowable to `smooth`
+
+    """
+    return list(_available_smooth_methods.keys())
+
+
+FWHM_TO_STDDEV = np.sqrt(8 * np.log(2.0))
+
 
 # @todo: allow data to be SpectrumList or array of Spectrum
 def average(data, axis=0, weights=None):
@@ -938,9 +961,66 @@ def fft_shift(
     return new_y
 
 
-def smooth(data, method="hanning", width=1, kernel=None, show=False):
+def decimate(data, n, meta=None):
     """
-    Smooth or Convolve a spectrum, optionally decimating it.
+    Decimate a data array` by n pixels.
+
+    Parameters
+    ----------
+
+    data: `~numpy.ndarray` or `~astropy.quantity.Quantity`
+        The data to decimate
+
+    n : int
+        Decimation factor of the spectrum by returning every n-th channel.
+
+    meta: dict
+         metadata dictionary with CDELT1, CRVAL1, NAXIS1, and CRPIX1 which will be recalculated
+
+    Returns
+    -------
+    tuple : (`~numpy.ndarray` or `~astropy.quantity.Quantity`, dict)
+        A tuple of the decimated `data` and updated metadata (or None if no meta given)
+    """
+
+    if not float(n).is_integer():
+        raise ValueError(f"`n` ({n}) must be an integer.")
+
+    nchan = len(data)
+    idx = np.arange(0, nchan, n)
+    new_data = data[idx]  # this will also decimate the mask if data has a mask attribute.
+    if meta is not None:
+        new_meta = deepcopy(meta)
+        new_cdelt1 = meta["CDELT1"] * n
+        cell_shift = 0.5 * (n - 1) * meta["CDELT1"]
+
+        new_meta["CDELT1"] = new_cdelt1
+        new_meta["CRPIX1"] = 1.0 + (meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
+        new_meta["CRVAL1"] += cell_shift
+        new_meta["NAXIS1"] = len(new_data)
+    else:
+        new_meta = None
+
+    return (new_data, new_meta)
+
+
+# @todo it would be nice if this could take a 2-D array of N spectra. astropy.convolve can handle it.
+def smooth(
+    data,
+    method="hanning",
+    width=1,
+    ndecimate=0,
+    meta=None,
+    kernel=None,
+    mask=None,
+    boundary="extend",
+    nan_treatment="fill",
+    fill_value=np.nan,
+    preserve_nan=True,
+    show=False,
+):
+    """
+    Smooth or Convolve spectrum, optionally decimating it.
     A number of methods from astropy.convolution can be selected
     with the method= keyword.
 
@@ -955,16 +1035,20 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         Smoothing method. Valid are: 'hanning', 'boxcar' and
         'gaussian'. Minimum match applies.
         The default is 'hanning'.
-    width : int, optional
+    width : int or float, optional
         Effective width of the convolving kernel.  Should ideally be an
         odd number.
         For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
         For 'boxcar' an even value triggers an odd one with half the
         signal at the edges, and will thus not reproduce GBTIDL.
-        For 'gaussian' this is the FWHM of the final beam. We normally
+        For 'gaussian' this is the FWHM of the final beam in channels (float). We normally
         assume the input beam has FWHM=1, pending resolution on cases
         where CDELT1 is not the same as FREQRES.
         The default is 1.
+    ndecimate : int, optional
+        Decimation factor of the spectrum by returning every `ndecimate`-th channel.
+    meta: dict
+         metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
     kernel : numpy array, optional
         A numpy array which is the kernel by which the signal is convolved.
         Use with caution, as it is assumed the kernel is normalized to
@@ -972,9 +1056,42 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         should supply an appropriate number manually.
         NOTE: not implemented yet.
         The default is None.
+    mask : None or ndarray, optional
+        A "mask" array.  Shape must match ``array``, and anything that is masked
+        (i.e., not 0/`False`) will be set to NaN for the convolution.  If
+        `None`, no masking will be performed unless ``array`` is a masked array.
+        If ``mask`` is not `None` *and* ``array`` is a masked array, a pixel is
+        masked if it is masked in either ``mask`` *or* ``array.mask``.
+    boundary : str, optional
+        A flag indicating how to handle boundaries:
+            * `None`
+                Set the ``result`` values to zero where the kernel
+                extends beyond the edge of the array.
+            * 'fill'
+                Set values outside the array boundary to ``fill_value`` (default).
+            * 'wrap'
+                Periodic boundary that wrap to the other side of ``array``.
+            * 'extend'
+                Set values outside the array to the nearest ``array``
+                value.
+    fill_value : float, optional
+        The value to use outside the array when using ``boundary='fill'``. Default value is ``NaN``.
+    nan_treatment : {'interpolate', 'fill'}, optional
+        The method used to handle NaNs in the input ``array``:
+            * ``'interpolate'``: ``NaN`` values are replaced with
+              interpolated values using the kernel as an interpolation
+              function. Note that if the kernel has a sum equal to
+              zero, NaN interpolation is not possible and will raise an
+              exception.
+            * ``'fill'``: ``NaN`` values are replaced by ``fill_value``
+              prior to convolution.
+    preserve_nan : bool, optional
+        After performing convolution, should pixels that were originally NaN
+        again become NaN?
     show : bool, optional
         If set, the kernel is returned, instead of the convolved array.
         The default is False.
+
 
     Raises
     ------
@@ -987,25 +1104,56 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         The new convolved spectrum.
 
     """
-    # note that these methods always return odd number in the kernel
-    available_methods = {
-        "boxcar": Box1DKernel,  # (e.g. width=2 gives hanning)
-        "hanning": Trapezoid1DKernel,  # only for width=1
-        "gaussian": Gaussian1DKernel,
-    }
-    method = minimum_string_match(method, list(available_methods.keys()))
-    if method == None:  # noqa: E711
-        raise ValueError(f"Unrecognized input method {method}. Must be one of {list(available_methods.keys())}")
-    kernel = available_methods[method](width)
+    if kernel is not None:
+        raise NotImplementedError("Custom kernels are not yet implemented.")
+
+    asm = available_smooth_methods()
+    method = minimum_string_match(method, asm)
+    if method is None:
+        raise ValueError(f"Unrecognized input method {method}. Must be one of {asm}")
+
+    if not float(ndecimate).is_integer():
+        raise ValueError("`decimate ({ndecimate})` must be an integer.")
+
+    kernel = _available_smooth_methods[method](width)
+
     if show:
         return kernel
-    # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
+
+    # Notes:
+    # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
+    # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
+    # 3. However, astropy convolve will not return a masked array even if the input data have a mask.
+    # 4. We create an input mask if the data do not have one and we ensure input NaNs that are smoothed to output Nans get masked.
+    # 5. We then mask any NaN on output by modifying the input mask
     if hasattr(data, "mask"):
         mask = data.mask
     else:
-        mask = None  # noqa: F841
-    new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
-    return new_data
+        mask = np.full(data.shape, False)
+    # print(f"1 core.smooth using {mask=}")
+
+    new_data = convolve(
+        data,
+        kernel,
+        boundary=boundary,
+        mask=mask,
+        nan_treatment=nan_treatment,
+        fill_value=fill_value,
+        preserve_nan=preserve_nan,
+    )
+    mask[np.where(np.isnan(new_data))] = True
+    new_data = np.ma.masked_array(new_data, mask)
+    # print(f"2 core.smooth {hasattr(new_data,'mask')=}")
+    new_meta = deepcopy(meta)
+    if new_meta is not None:
+        if method == "gaussian":
+            width = width * FWHM_TO_STDDEV
+        new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
+    if ndecimate > 0:
+        # print(f"decimating the data by {ndecimate}")
+        new_data, new_meta = decimate(new_data, n=ndecimate, meta=new_meta)
+
+    return new_data, new_meta
 
 
 def data_ishift(y, ishift, axis=-1, remove_wrap=True, fill_value=np.nan):
