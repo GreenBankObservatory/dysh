@@ -1005,7 +1005,20 @@ def decimate(data, n, meta=None):
 
 
 # @todo it would be nice if this could take a 2-D array of N spectra. astropy.convolve can handle it.
-def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False, meta=None):
+def smooth(
+    data,
+    method="hanning",
+    width=1,
+    ndecimate=0,
+    meta=None,
+    kernel=None,
+    mask=None,
+    boundary="extend",
+    nan_treatment="fill",
+    fill_value=np.nan,
+    preserve_nan=True,
+    show=False,
+):
     """
     Smooth or Convolve spectrum, optionally decimating it.
     A number of methods from astropy.convolution can be selected
@@ -1034,6 +1047,8 @@ def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False
         The default is 1.
     ndecimate : int, optional
         Decimation factor of the spectrum by returning every `ndecimate`-th channel.
+    meta: dict
+         metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
     kernel : numpy array, optional
         A numpy array which is the kernel by which the signal is convolved.
         Use with caution, as it is assumed the kernel is normalized to
@@ -1041,11 +1056,42 @@ def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False
         should supply an appropriate number manually.
         NOTE: not implemented yet.
         The default is None.
+    mask : None or ndarray, optional
+        A "mask" array.  Shape must match ``array``, and anything that is masked
+        (i.e., not 0/`False`) will be set to NaN for the convolution.  If
+        `None`, no masking will be performed unless ``array`` is a masked array.
+        If ``mask`` is not `None` *and* ``array`` is a masked array, a pixel is
+        masked if it is masked in either ``mask`` *or* ``array.mask``.
+    boundary : str, optional
+        A flag indicating how to handle boundaries:
+            * `None`
+                Set the ``result`` values to zero where the kernel
+                extends beyond the edge of the array.
+            * 'fill'
+                Set values outside the array boundary to ``fill_value`` (default).
+            * 'wrap'
+                Periodic boundary that wrap to the other side of ``array``.
+            * 'extend'
+                Set values outside the array to the nearest ``array``
+                value.
+    fill_value : float, optional
+        The value to use outside the array when using ``boundary='fill'``. Default value is ``NaN``.
+    nan_treatment : {'interpolate', 'fill'}, optional
+        The method used to handle NaNs in the input ``array``:
+            * ``'interpolate'``: ``NaN`` values are replaced with
+              interpolated values using the kernel as an interpolation
+              function. Note that if the kernel has a sum equal to
+              zero, NaN interpolation is not possible and will raise an
+              exception.
+            * ``'fill'``: ``NaN`` values are replaced by ``fill_value``
+              prior to convolution.
+    preserve_nan : bool, optional
+        After performing convolution, should pixels that were originally NaN
+        again become NaN?
     show : bool, optional
         If set, the kernel is returned, instead of the convolved array.
         The default is False.
-    meta: dict
-         metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
+
 
     Raises
     ------
@@ -1086,7 +1132,15 @@ def smooth(data, method="hanning", width=1, ndecimate=0, kernel=None, show=False
         mask = np.full(data.shape, False)
     # print(f"1 core.smooth using {mask=}")
 
-    new_data = convolve(data, kernel, boundary="extend", mask=mask, nan_treatment="fill", fill_value=np.nan)
+    new_data = convolve(
+        data,
+        kernel,
+        boundary=boundary,
+        mask=mask,
+        nan_treatment=nan_treatment,
+        fill_value=fill_value,
+        preserve_nan=preserve_nan,
+    )
     mask[np.where(np.isnan(new_data))] = True
     new_data = np.ma.masked_array(new_data, mask)
     # print(f"2 core.smooth {hasattr(new_data,'mask')=}")
