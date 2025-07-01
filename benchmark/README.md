@@ -6,6 +6,21 @@ The purpose of this  benchmarking is to:
 - Identify bottlenecks in memory, I/O, or CPU, especially as compared to GBTIDL performance.  
 - If possible, indicate (but not implement) potential solutions
 
+THe benchmarks created are:
+
+bench_datawrite.py: Test writing of data performance
+
+bench_edge.py: Test performance of data writing using the EDGE data.  This is not a standard benchmark
+
+bench_gbtfitsload.py: Test performance of loading SDFITS files with and without flagging
+
+bench_getps.py:  Test performance of getps, calibration, and averaging.
+bench_otf.py:  Test performance of OTF calibration
+
+bench_sdmath.py: Test performance of numpy equivalent of getps.  Can be used as a baseline of sorts of the fastest we could do these operations.
+
+bench_skel.py:  Skeleton (template) from which new benchmarks can be created.
+
 ## Q9
 - Identify and implement solutions to bottlenecks found in Q8.
 
