@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #
+# Test performance of getps, calibration, and averaging.
 
 import argparse
 import sys

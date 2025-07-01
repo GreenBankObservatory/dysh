@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #
+# Test performance of OTF calibration
 
 import argparse
 import os

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #
+# Test performance of loading SDFITS files with and without flagging
 import argparse
 import os
 import sys

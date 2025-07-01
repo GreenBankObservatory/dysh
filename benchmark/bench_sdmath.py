@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-#
+# Test performance of numpy equivalent of getps.  Can be used
+# as a baseline of sorts of the fastest we could do these operations.
 
 import argparse
 import sys

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #
+# Test writing of data performance
 import argparse
 import os
 import sys

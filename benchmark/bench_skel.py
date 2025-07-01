@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+#
+# Skeleton (template) from which new benchmarks can be created.
 import argparse
 import cProfile
 import os

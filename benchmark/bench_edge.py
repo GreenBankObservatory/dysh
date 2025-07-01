@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-#
+# Test performance of data writing using the EDGE data.  This is not
+# a standard benchmark test.
 import argparse
 import cProfile
 import os
