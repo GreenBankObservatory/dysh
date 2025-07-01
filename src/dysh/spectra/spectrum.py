@@ -414,7 +414,19 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return s
 
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
+    def smooth(
+        self,
+        method="hanning",
+        width=1,
+        decimate=0,
+        meta=None,
+        kernel=None,
+        mask=None,
+        boundary="extend",
+        nan_treatment="fill",
+        fill_value=np.nan,
+        preserve_nan=True,
+    ):
         """
         Smooth or Convolve the `Spectrum`, optionally decimating it.
 
@@ -449,6 +461,38 @@ class Spectrum(Spectrum1D, HistoricalBase):
             should supply an appropriate number manually.
             NOTE: not implemented yet.
             The default is None.
+        mask : None or ndarray, optional
+            A "mask" array.  Shape must match ``array``, and anything that is masked
+            (i.e., not 0/`False`) will be set to NaN for the convolution.  If
+            `None`, no masking will be performed unless ``array`` is a masked array.
+            If ``mask`` is not `None` *and* ``array`` is a masked array, a pixel is
+            masked if it is masked in either ``mask`` *or* ``array.mask``.
+        boundary : str, optional
+            A flag indicating how to handle boundaries:
+                * `None`
+                    Set the ``result`` values to zero where the kernel
+                    extends beyond the edge of the array.
+                * 'fill'
+                    Set values outside the array boundary to ``fill_value`` (default).
+                * 'wrap'
+                    Periodic boundary that wrap to the other side of ``array``.
+                * 'extend'
+                    Set values outside the array to the nearest ``array``
+                    value.
+        fill_value : float, optional
+            The value to use outside the array when using ``boundary='fill'``. Default value is ``NaN``.
+        nan_treatment : {'interpolate', 'fill'}, optional
+            The method used to handle NaNs in the input ``array``:
+                * ``'interpolate'``: ``NaN`` values are replaced with
+                  interpolated values using the kernel as an interpolation
+                  function. Note that if the kernel has a sum equal to
+                  zero, NaN interpolation is not possible and will raise an
+                  exception.
+                * ``'fill'``: ``NaN`` values are replaced by ``fill_value``
+                  prior to convolution.
+        preserve_nan : bool, optional
+            After performing convolution, should pixels that were originally NaN
+            again become NaN?
 
         Raises
         ------
@@ -492,6 +536,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 ndecimate=decimate,
                 width=stddev,
                 meta=self.meta,
+                boundary=boundary,
+                mask=mask,
+                nan_treatment=nan_treatment,
+                fill_value=fill_value,
+                preserve_nan=preserve_nan,
             )
         else:
             kwidth = width
@@ -501,6 +550,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 width=width,
                 ndecimate=decimate,
                 meta=self.meta,
+                boundary=boundary,
+                mask=mask,
+                nan_treatment=nan_treatment,
+                fill_value=fill_value,
+                preserve_nan=preserve_nan,
             )
 
         s = Spectrum.make_spectrum(new_data * self.flux.unit, meta=new_meta, observer_location="from_meta")
