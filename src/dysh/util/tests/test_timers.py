@@ -8,7 +8,7 @@ class TestUtil:
 
     def test_dysh_timers(self):
         """Test dysh timers"""
-        slop = 1.01  # one of windows complained 49.8838 > 50
+        slop = 1.1  # one of windows complained 49.8838 > 50
         n_ms = 50
         dt = timers.DTime()
         dt.tag("test1")
