@@ -1,18 +1,101 @@
-# Notes for benchmarking Dysh
+# Notes for Q8-Q9 benchmarking Dysh
+ 
+The purpose of this  benchmarking is to:
 
-The purpose of  benchmarking is to test performance  of
+## Q8
+- Identify bottlenecks in memory, I/O, or CPU, especially as compared to GBTIDL performance.  
+- If possible, indicate (but not implement) potential solutions
 
-- opening/loading an SDFITS file/hdu
-- optionally creating an index of some sort (GBTIDL or pandas)
-- creating spectra from each DATA row of the SDFITS table.
-- remove baselines of order 1, 2, and 3 from each spectrum.
+THe benchmarks created are:
 
-Timing is 'wall clock time', i.e., it includes and kernel/sleep operations.  In python, we are using  *time.perfcounter_ns()*
+bench_datawrite.py: Test writing of data performance
+
+bench_edge.py: Test performance of data writing using the EDGE data.  This is not a standard benchmark
+
+bench_gbtfitsload.py: Test performance of loading SDFITS files with and without flagging
+
+bench_getps.py:  Test performance of getps, calibration, and averaging.
+bench_otf.py:  Test performance of OTF calibration
+
+bench_sdmath.py: Test performance of numpy equivalent of getps.  Can be used as a baseline of sorts of the fastest we could do these operations.
+
+bench_skel.py:  Skeleton (template) from which new benchmarks can be created.
+
+## Q9
+- Identify and implement solutions to bottlenecks found in Q8.
+
+We wrote a dysh.util.timers.DTime() class that in its simplest form tells us CPU and MEM usage via naming tags:
+
+```
+      dt = DTime()
+      do_work1()
+      dt.tag("work1")
+      do)=_work2()
+      dt.tag("work2")
+      dt.close()
+      dt.report()
+
+```
+for example here is the output of `bench_getps.py -s -d -t`
+
+```
+  name     time VmSize VmRSS  skipflags
+             ms  Mbyte  Mbyte           
+---------- ----- ------ ------ ---------
+      load 101.2 2251.1  311.9      True
+   getps1s 193.0 2263.3  326.4      True
+   getps1t 614.7 2325.2  390.0      True
+   getps2s 298.3 2300.5  365.4      True
+   getps2t 137.7 2300.5  365.4      True
+   getps3s 185.9 2300.5  365.4      True
+   getps3t 132.5 2300.5  365.4      True
+   getps4s 184.6 2300.5  365.4      True
+   getps4t 132.6 2300.5  365.4      True
+```
+
+- Fit benchmarking data to find pain points
+
+We wrote fitbench.py (still under devel) that allows you to do a linear fit plus offset of one column of the benchmark data (default "time") to up to 3 other columns of the data. e.g.
+
+```
+./fitbench.py --files bench*.tab -p nchan nrow nflag
+```
+
+It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
+
+# Overall findings
+
+0. Benchmarking is tricky, you measure CPU and MEM usage that does not always make sense. For example we have a case where repeated
+   calls to getps() showed unreasonable variations.
+
+1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be very large, notably for ARGUS examples. 9sec vs. 9min were seen.  Our implementation of processing Flag files via Selection object, while convenient, is expensive.  
+
+2. Overhead of working on a few scans from a big file, vs. a file containing only those scans seems to suggest that all scans were "used".
+
+More details are in q8stats/README.md.
+
+### Notes
+
+  - Not all operations are one-to-one with GBTIDL. For instance, GBTIDL cannot calibrate multiple scans at once, whereas dysh can.  
+  - dysh always creates the analog of GBTIDL's index file, so GBTIDL comparisons should be run with no index file.
+ - Timing is 'wall clock time', i.e., it includes and kernel/sleep operations.  In python, we are using  *time.perfcounter_ns()*
 
 ## Avoiding File caching
-On linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  Therefore you have to turn off file caching **each time** you run your benchmark with:
+
+On linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  
+Therefore it is best if you turn off file caching **each time** you run your benchmark with:
 
     sudo echo 1 > /proc/sys/vm/drop_caches
+
+if this gives permission denied, open up a root shell, and issue the command in that shell as root:
+
+    sudo su
+    sync;sync;sync
+    echo 1 > /proc/sys/vm/drop_caches
+
+## disk I/O
+
+Although `hdparm -t` will report a typical I/O speed, in real life this is never achieved. Blocksize of reading affects timing. For dysh we mostly care about read time.
 
 ## OMP_NUM_THREADS
 The OMP_NUM_THREADS environment variable sets the number of threads to use for  parallel processing.  Peter has in other benchmarks found that changing this from unset to 1 can affect performance.   So you should try your benchmark with both states, e.g. (csh):
@@ -24,41 +107,75 @@ and
 
 ## SDFITS Files
 
-The standard set of SDFITS files to run the benchmark on are in /lma1/mpound/GBT/examples/ on LMA machines and /home/scratch/mpound/examples in GBO machines.  The files are (in ascending order of size):
+The standard set of SDFITS files to run the benchmark on are:
 
-- rxco-W/data/TSCAL_220105_W.raw.vegas/TSCAL_220105_W.raw.vegas.E.fits
-- misc/IC1481.fits
-- misc/W3OH.fits
-- misc/ngc5291.fits
-- onoff-L/data/TGBT21A_501_11.raw.vegas.fits
-- mapping-L/data/TGBT17A_506_11.raw.vegas/
-TGBT17A_506_11.raw.vegas.A.fits
-- nod-KFPA/data/TGBT22A_503_02.raw.vegas/TGBT22A_503_02.raw.vegas.F.fits
-- mixed-fs-ps/data/AGBT16B_225_05/AGBT16B_225_05.raw.vegas/AGBT16B_225_05.raw.vegas.B.fits
+1. Standard positionswitch example from the notebooks - up to 4 PS on/off scans. Single fits file, 45MB - AGBT05B_047_01
+2. L-band edge data in On/Off/On mode - 8.5GB, 70 scans.   NGC2808 is extracted from this, using 9 "Track" scans in on/off/on mode. - AGBT15B_287_19
+3. ARGUS edge data in OTF mode - 1.3 GB, NGC0001 in AGBT21B_024_01 (or TBD if NGC5954 (2 strong sources) should be used - AGBT21B_024_20)
 
-## Code details
-1. Benchmark code is in the subdirectory *benchmark*
-2. The python benchmark code is *revisedstructure.py* and is invoked with *benchmark_py.csh*
-    -  To run it, you have to have dysh installed.  This is done with hatch and I haven't written up the notes for that yet!
-    - It has various options to turn on/off pieces of the benchmark, see *revisedstructure.py -h*
 
-## Output
-Output should be into a (IPAC-formatted) table with the following columns:
+### DYSH_DATA
 
-- File - file name
-- Size - file size MB
-- N_hdu - number of HDU in the file
-- HDU - number of the HDU for which this row contains the benchmark
-- N_rows - number of rows in this HDU
-- N_chan - number of chan per spectum in this HDU
-- Load - time to load/read the SDFITs file, in ms .  e.g. astropy.io.fits.open()
-- Index - time to create index (e.g. pandas, GBTIDL) in ms
-- Create_Obslocks - time to create Spectrum object for every row of HDU, in ms
-- Baseline_N for N=1,2,3  - time to remove baseline of order N from every row of HDU, in ms
-- Total - total time taken in ms (sum of other columns)
+To make it portable accross machines, data not in the $DYSH/testdata directory can be easily used via the `dysh.util.files.dysh_data()` function. Either placed
+in $DYSH_DATA/sdfits, under $DYSH_DATA/example-data or $DYSH_DATA/acceptance_testing.  
 
-# Plotting
-The python script *makeplots.py* will make some standard  plots given the IPAC formatted table.   *makeplots.py -h* to see the options. e.g.
+### Summary of tests and Results
 
-    ./makeplots.py -f tab_omp=1.out -t "Timing for Load/Obsblocks/Baseline (OMP=1)" -o t1.png
-    ./makeplots.py -f tab_omp_unset.out -t "Timing for Load/Obsblocks/Baseline (OMP unset)" -o t2.png
+The full report is in q8stats/README.me 
+
+
+#### Example: Strange behavior when time-averaging
+
+The first example already showed very bizarre behavior when we repeated various forms of `getps()` in a repeated loop. You would expect
+times to be the same, but it all depended on if we time-averaged or not.  Times are in ms, on the lma machine at UMD.  This may be related to issue #583.
+
+```
+$ OMP_NUM_THREADS=1 /usr/bin/time bench_getps.py -d -l 10 -t
+load     97.532862   Loading this was almost 100ms
+getps1s 190.831522   just a getps() to the PSScan is returned
+getps1t 672.748917   now .timeaverage() is added to return a Spectrum
+getps2s 401.706166
+getps2t 137.061235
+getps3s 186.651159
+getps3t 135.26012
+getps4s 186.649279
+getps4t 151.799951
+getps5s 191.804484
+getps5t 136.399024
+getps6s 186.610638
+getps6t 134.886799
+getps7s 184.546092
+getps7t 135.14739
+getps8s 184.658502
+getps8t 133.752485
+getps9s 183.76686
+getps9t 134.601758
+end 0.00999
+```
+if the -t was not added, only repeated PSScan's were obtained, and all the times was very compatible and about 185ms, especially
+the ``getps2s`` stands out at over 400ms.
+
+
+## NEMO
+
+In NEMO two programs exist that go down to the C level, including an option to use OpenMP, to benchmark a typical 4-phase calibration cycle
+of a PS observation (and perhaps more). The work is very similar to bench_sdmath.py, some care should be taken not to make nscan*nchan too small,
+or else CPU cache will be used and code will look too fast.  A good compromise seems to be:
+
+      /usr/bin/time sdmath nscan=1000 nchan=100000 iter=10
+
+which typically takes 3.5 on lma, depending on the CPU (e.g. 11.5s on fourier)
+
+
+        -t      950          315
+
+
+## TODO
+
+- API args= to **kwargs ?
+- always do CPU and MEM, currently MEM is done via args.memory=True
+- the command
+       python -m cProfile  ./bench_getps.py -s -d -t -l 1 |less
+  gives different results from 
+       ./bench_getps.py -s -d -t -l 1 -p
+  Most notably, it claims in the former that loading gb20mfitsload.py took 2.7sec
