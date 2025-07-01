@@ -42,8 +42,8 @@ class DTime(object):
     args: dict
          This dictionary controls a number of common variables used in dysh benchmarking.
 
-         out        : output filename (astropy Table). Default it none is written.
-         append     : append to previous output file (astropy Table). Default:
+         out        : output filename (astropy Table). Default is no file is written.
+         append     : append to previous output file (astropy Table).
          overwrite  : overwrite a previous output file (astropy Table).
          profile    : run the profiler: Default False
          statslines : number of profiler statistics lines to print. Default 25
