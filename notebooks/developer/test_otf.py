@@ -716,4 +716,3 @@ sb.write("otf-test2.fits", overwrite=True)    #  300 ms
 # gbtgridder --size 32 32  --channels 500:3500 -o test2 --clobber --auto otf-test2.fits
 # pixels:  2.9'  100x100 ->  
 # confirmed the two cubes from sdf1 and sdf2 are identical 
-
