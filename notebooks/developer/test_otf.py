@@ -105,6 +105,8 @@ def skyplot(sdf, scan=None, fdnum=8, size=None, title=None):
         cbar.set_label("scan")
         plt.xlim(size,-size)
         plt.ylim(-size,size)
+        plt.xlabel('dRA (arcsec)')
+        plt.ylabel('dDEC (arcsec)')
         plt.gca().set_aspect('equal')
         #return (xc,yc,s)                
              
@@ -179,7 +181,7 @@ if False:
     sdf1.write('ngc0001/file.fits',scan=scans, overwrite=True)
     sdf3 = GBTFITSLoad("ngc0001")
     sb1 = sdf3.gettp(scan=23,fdnum=0,ifnum=0,plnum=0,calibrate=True,cal=False)
-    # there are 68 integrations in here
+    # there are 68 integrations in each scan
     scans=list(range(23,58)) + list(range(67,102))
     scans=list(range(23,58)) 
     mkdir("ngc0001sky")
@@ -221,28 +223,32 @@ sdf1 = sdf4    # just 23..57
 
 #%%  EDGE + waterfall
 
+sdf = sdf4    # sdf1 is slow here, pick sdf4)
+
 start = 23
 end   = 57
-#end   = 24
+#end  = 24
 scans = list(range(start,end+1))
 nchan = 1024
-fdnum = sdf1.udata("FDNUM")
+fdnum = sdf.udata("FDNUM")
+#fdnum = [6,8,10,12]
 nedge = 8
-ncube = 0
+ncube = 0    # set to -1 if no waterfall needed
 
 sb = ScanBlock()
 sp1 = 0
+waterfall = 0
 
-for j,fd in enumerate(fdnum):    # 7 min in short map
+for j,fd in enumerate(fdnum):    # 7 min in short map without waterfall;  but was 45mins
     print("Loop/Feed",j,fd)
-    tpsb = sdf1.gettp(scan=scans,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False)  # 6.5 sec
+    tpsb = sdf.gettp(scan=scans,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False)  # 6.5 sec
     nrows = tpsb[0].nrows
     nrows2 = nrows - 2  * nedge
     off = np.empty((nedge*2,nchan), dtype=float)
     exp_off = np.empty((nedge*2,nchan), dtype=float)
     on = np.empty((nrows-nedge*2,nchan), dtype=float)
     for i,(t,s) in enumerate(zip(tpsb,scans)):
-        print(" loop/scan",i,s)
+        print(" loop/scan",j,i,s)
         off[:nedge] = t._calibrated[:nedge]
         off[nedge:] = t._calibrated[-nedge:]
         exp_off[:nedge] = t.exposure[:nedge,np.newaxis]
@@ -250,34 +256,41 @@ for j,fd in enumerate(fdnum):    # 7 min in short map
         on = t._calibrated[nedge:-nedge]
         off_avg = np.average(off, axis=0, weights=exp_off**2.)
         ta = (on - off_avg[np.newaxis,:])/(off_avg[np.newaxis,:])
-        sb1 = sdf1.gettp(scan=s,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False,intnum=list(range(nedge,nrows-nedge)))[0]  # 2.2 sec
+        sb1 = sdf.gettp(scan=s,fdnum=fd,ifnum=0,plnum=0,calibrate=True,cal=False,intnum=list(range(nedge,nrows-nedge)))[0]  # 2.2 sec
         sb1._calibrated = ta
-
-        if ncube == 0:
-            # set up waterfall cube
-            nz = len(fdnum)               # feeds:    normally 16
-            ny = ta.shape[0] * len(scans) # time:     nscans*nint, should be nrows-2*nedge
-            nx = ta.shape[1]              # channel:  nchan
-            waterfall = np.zeros( (nz,ny,nx), dtype=float)
-            ncube = 1
-            sp1 = sb1.timeaverage()
-        for k in range(nrows2):
-            l = i*nrows2 + k
-            sp1._data =  ta[k,:]
-            sp1.baseline(5,exclude=[(300,700)], remove=True)
-            sb1._calibrated[j] = sp1._data
-            sp1.undo_baseline()
-            waterfall[fd,l,:] = sp1._data
+        
+        if ncube >= 0:
+            if ncube == 0:
+                # set up waterfall cube
+                nz = len(fdnum)               # feeds:    normally 16
+                nz = 16
+                ny = ta.shape[0] * len(scans) # time:     nscans*nint, should be nrows-2*nedge
+                nx = ta.shape[1]              # channel:  nchan
+                waterfall = np.zeros( (nz,ny,nx), dtype=float)
+                ncube = 1
+                sp1 = sb1.timeaverage()   # placeholder for baseline subtraction
+            for k in range(nrows2):
+                l = i*nrows2 + k
+                sp1._data =  ta[k,:]
+                sp1.baseline(7,exclude=[(350,650)], remove=True)
+                #sp1.baseline(7,include=[(10,350),(650,1000)], remove=True)
+                #sp1._data = sp1._data - sp1._data.mean()
+                sb1._calibrated[j] = sp1._data
+                sp1.undo_baseline()   # not needed
+                waterfall[fd,l,:] = sp1._data
+                
         sb.append(sb1)            
             
 #%% write waterfall
 
 hdu = fits.PrimaryHDU(waterfall*100)    # 100K, pending proper calibration using vane/sky
-hdu.writeto('otf2-waterfall.fits', overwrite=True)
+hdu.writeto('otf2-waterfall7.fits', overwrite=True)
         
 #%% write calibrated spectra
-# Save to SDFITS and then run the gbtgridder on it
-sb.write("otf-test.fits", overwrite=True)
+# Save to SDFITS and then run the gbtgridder on it - this takes too long.....
+sb.write("otf-test.fits", overwrite=True)   # should this not INFO how much will be written?
+
+# gbtgridder --size 32 32  --channels 10:1010 -o test3 --clobber --auto otf-test.fits
 
 #%% bench : one feed  ~ 98sec
 sb = ScanBlock()
@@ -587,6 +600,8 @@ sdf1.write('otf1/file.fits',scan=scans, overwrite=True, fdnum=fdnum, ifnum=ifnum
 sdf2 = GBTFITSLoad('otf1')
 sdf2.summary()
 
+# skyplot(sdf2, scan=list(range(14,27)),  fdnum=0, size=1500, title="NGC6946 DecLatMap")
+
 #  quick test
 sp2 = sdf2.getsigref(scan=sig, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum, intnum=intnum).timeaverage()
 sp2.plot(xaxis_unit="km/s")
@@ -621,6 +636,7 @@ sp1 = 0
 #  mode=0,1   ~5sec
 #  mode=2     ~60 sec
 mode = 2
+
 sb = ScanBlock()
 
 print("Using", sdf.filename, "for", scans)
@@ -694,11 +710,10 @@ sb.write("otf-test2.fits", overwrite=True)    #  300 ms
 
 
 
-#%%
+#%%   gbtgridder example - if you have gbtgridder
 
 #
 # gbtgridder --size 32 32  --channels 500:3500 -o test2 --clobber --auto otf-test2.fits
 # pixels:  2.9'  100x100 ->  
 # confirmed the two cubes from sdf1 and sdf2 are identical 
 
-!gbtgridder --size 32 32  --channels 500:3500 -o test2 --clobber --auto otf-test2.fits
