@@ -8,6 +8,15 @@ from dysh.fits import gbtfitsload
 
 
 class TestPSScan:
+    def check_calc_exposure_implemented(self):
+        try:
+            for s in self.scanblock:
+                s._calc_exposure()
+        except NotImplementedError as nie:
+            print(nie)
+            return False
+        return True
+
     def test_tsys(self, data_dir):
         """
         Test that `getps` results in the same system temperature as GBTIDL.
@@ -16,7 +25,6 @@ class TestPSScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        print("SDF ", type(sdf))
         tps = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
         tsys = tps[0].tsys
 
@@ -26,6 +34,8 @@ class TestPSScan:
         hdu.close()
 
         assert (tsys - gbtidl_tsys)[0] == 0.0
+        self.scanblock = tps
+        assert self.check_calc_exposure_implemented()
 
     def test_compare_with_GBTIDL(self, data_dir):
         """ """
@@ -61,12 +71,10 @@ class TestPSScan:
 
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
-        print(f"{sdf_file=}")
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
-        print(np.shape(ps_scans[0]._calibrated), np.shape(ps_scans[1]._calibrated))
         ta = ps_scans.timeaverage()
 
         hdu = fits.open(gbtidl_file)
@@ -175,6 +183,15 @@ class TestPSScan:
 
 
 class TestSubBeamNod:
+    def check_calc_exposure_implemented(self):
+        try:
+            for s in self.scanblock:
+                s._calc_exposure()
+        except NotImplementedError as nie:
+            print(nie)
+            return False
+        return True
+
     def test_compare_with_GBTIDL(self, data_dir):
         # get filenames
         # We still need a data file with a single scan in it
@@ -208,6 +225,9 @@ class TestSubBeamNod:
         assert np.nanmedian(ratio) <= 0.998
         # make sure call to timeaverage functions
         xx = sbn.timeaverage()  # noqa: F841
+
+        self.scanblock = sbn
+        assert self.check_calc_exposure_implemented()
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
@@ -293,6 +313,15 @@ class TestSubBeamNod:
 
 
 class TestTPScan:
+    def check_calc_exposure_implemented(self):
+        try:
+            for s in self.scanblock:
+                s._calc_exposure()
+        except NotImplementedError as nie:
+            print(nie)
+            return False
+        return True
+
     def test_len(self, data_dir):
         """
         Test that `TPScan` has the proper len.
@@ -342,6 +371,9 @@ class TestTPScan:
 
         for i in range(len(tp[0]._scanrows) // 2):
             assert tp[0].total_power(i).meta["EXPOSURE"] == table["EXPOSURE"][i]
+
+        self.scanblock = tp
+        assert self.check_calc_exposure_implemented()
 
     def test_compare_with_GBTIDL_tsys_weights(self, data_dir):
         """
@@ -425,6 +457,15 @@ class TestTPScan:
 
 
 class TestFScan:
+    def check_calc_exposure_implemented(self):
+        try:
+            for s in self.scanblock:
+                s._calc_exposure()
+        except NotImplementedError as nie:
+            print(nie)
+            return False
+        return True
+
     def test_getfs_with_args(self, data_dir):
         sdf_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         gbtidl_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.cal.vegas.fits"
@@ -432,7 +473,6 @@ class TestFScan:
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
 
-        print("MWP: NO FOLD")
         fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False, debug=True)
         ta = fsscan.timeaverage(weights="tsys")
         #    we're using astropy access here, and use gbtfitsload.GBTFITSLoad() in the other test
@@ -444,7 +484,6 @@ class TestFScan:
         nm = np.nanmean(data[0] - ta.flux.value.astype(np.float32))
         assert abs(nm) <= level
 
-        print("MWP: FOLD")
         fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True)
         ta = fsscan.timeaverage(weights="tsys")
         # We will be using GBTFITSLoad() here instead of astropy.
@@ -471,8 +510,35 @@ class TestFScan:
         nm = np.nanmean(diff2[15000:20000])
         assert abs(nm) <= level
 
+        self.scanblock = fsscan
+        assert self.check_calc_exposure_implemented()
+
     def test_getfs_with_selection(self, data_dir):
         assert True
+
+
+class TestNodScan:
+    def check_calc_exposure_implemented(self):
+        try:
+            for s in self.scanblock:
+                s._calc_exposure()
+        except NotImplementedError as nie:
+            print(nie)
+            return False
+        return True
+
+    def test_nodscan(self):
+        """
+        Test for `getnod` using data with noise diode.
+        """
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        # really there should be some basic tests here!
+
+        self.scanblock = nodsb
+        assert self.check_calc_exposure_implemented()
 
 
 class TestScanBlock:
