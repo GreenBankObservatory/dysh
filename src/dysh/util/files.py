@@ -49,6 +49,7 @@ valid_dysh_example = {
                    #    subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/"   # staff training SBN
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas",    # nodding example (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas      # FS example in data_reduction (scan 64)
+    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas",   # OTF L-band example NGC6946
 }
 
 
