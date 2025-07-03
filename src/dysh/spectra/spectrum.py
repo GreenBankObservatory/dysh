@@ -165,7 +165,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self._baseline_model
 
     @log_call_to_history
-    def baseline(self, degree, exclude=None, include=None, color="k", model="chebyshev", fitter = LinearLSQFitter(calc_uncertainties=True), **kwargs):  # noqa: B008
+    def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):
         # fmt: off
         """
         Compute and optionally remove a baseline.
