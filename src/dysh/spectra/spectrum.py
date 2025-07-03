@@ -165,7 +165,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self._baseline_model
 
     @log_call_to_history
-    def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):
+    def baseline(self, degree, exclude=None, include=None, color="k", model="chebyshev", fitter = LinearLSQFitter(calc_uncertainties=True), **kwargs):  # noqa: B008
         # fmt: off
         """
         Compute and optionally remove a baseline.
@@ -197,6 +197,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
+        color : str
+            The color to plot the baseline model, if not removing from the spectrum. Can be any type accepted by matplotlib.
         model : str
             One of 'polynomial', 'chebyshev', 'legendre', or 'hermite'
             Default: 'chebyshev'
@@ -237,7 +239,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
                 # self._plotter._figure.canvas.flush_events()
             else:
-                lines = self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis), c=color)
+                if self._plotter._xunit == 'chan':
+                    xval = np.arange(len(self.flux))
+                else:
+                    xval = self._plotter._sa
+                lines = self._plotter._axis.plot(xval, self._baseline_model(self.spectral_axis), c=color)
                 self._bline = lines[0]
                 self._plotter.refresh()
 
