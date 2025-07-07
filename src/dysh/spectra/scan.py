@@ -689,12 +689,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         cd = BinTableHDU(data=self._meta_as_table(), name="SINGLE DISH").columns
         form = f"{np.shape(self._calibrated)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
+        logger.debug(f"Writing {len(self._calibrated)} rows for output from ScanBase.")
         b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
         return b
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
-        Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this Scan
+        Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this ScanBase
 
         Parameters
         ----------
@@ -902,16 +903,13 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
         """
-        Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this Scan
+        Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this ScanBlock
 
         Parameters
         ----------
         fileobj : str, file-like or `pathlib.Path`
             File to write to.  If a file object, must be opened in a
             writeable mode.
-        multifile: bool, optional
-            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
-            Otherwise, write to a single SDFITS file.
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
@@ -944,6 +942,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         defaultkeys = set(s0._meta[0].keys())
         datashape = np.shape(s0._calibrated)
         tablelist = [s0._meta_as_table()]
+        nrows = 0
         for scan in self.data:  # [1:]:
             # check data shapes are the same
             thisshape = np.shape(scan._calibrated)
@@ -961,7 +960,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                     f"Scan header keywords are not the same. These keywords were not present in all Scans: {diff}."
                     " Can't combine Scans into single BinTableHDU"
                 )
-            tablelist.append(scan._meta_as_table())
+            if nrows > 0:
+                tablelist.append(scan._meta_as_table())
+            nrows = nrows + thisshape[0]
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
         # astropy Tables can be concatenated with vstack thankfully.
         table = vstack(tablelist, join_type="exact")
@@ -982,6 +983,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for c in self._comments:
             b.header["COMMENT"] = c
 
+        logger.debug(f"Saving {nrows} scans in {fileobj} from ScanBlock.")
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
@@ -1510,7 +1512,7 @@ class PSScan(ScanBase):
                         ref = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
                     self._exposure[i] = self.exposure[i]
-        logger.debug(f"Calibrated {nspect} spectra")
+        logger.debug(f"Calibrated {nspect} PSScan spectra")
 
     @property
     def exposure(self):
@@ -1752,7 +1754,7 @@ class NodScan(ScanBase):
                     ref = core.smooth(ref, "boxcar", self._smoothref)
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._exposure[i] = self.exposure[i]
-        logger.debug(f"Calibrated {nspect} spectra")
+        logger.debug(f"Calibrated {nspect} NODScan spectra")
 
     @property
     def exposure(self):

@@ -216,6 +216,7 @@ def log_function_call(log_level: str = "info"):
             if "kwargs" in sig.parameters:
                 for k, v in kwargs.items():
                     logmsg += f"{k}={v},"
+            logmsg = ensure_ascii(logmsg)
             logger.log(level=ilog_level, msg=logmsg)
             return result
 
@@ -258,7 +259,7 @@ def format_dysh_log_record(record: logging.LogRecord) -> str:
             for k, v in record.kwargs.items():
                 logmsg += f"{k}={v},"
     logmsg += ")"
-    return logmsg
+    return ensure_ascii(logmsg)
 
 
 def log_call_to_result(func: Callable):
