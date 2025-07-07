@@ -198,7 +198,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
         color : str
-            The color to plot the baseline model, if not removing from the spectrum. Can be any type accepted by matplotlib.
+            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
         model : str
             One of 'polynomial', 'chebyshev', 'legendre', or 'hermite'
             Default: 'chebyshev'
@@ -206,7 +206,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The fitter to use. Default: `~astropy.modeling.fitting.LinearLSQFitter` (with `calc_uncertaintes=True`).
             Be careful when choosing a different fitter to be sure it is optimized for this problem.
         remove : bool
-            If True, the baseline is removed from the spectrum. Default: False
+            If True, the baseline is removed from the spectrum.
+            If False, the baseline will be computed and overlaid on the spectrum. Default: False
         """
         # fmt: on
         # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
