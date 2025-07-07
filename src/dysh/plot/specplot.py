@@ -157,7 +157,7 @@ class SpectrumPlot:
         s = self._spectrum
 
         lw = this_plot_kwargs["linewidth"]
-        self._xunit = this_plot_kwargs["xaxis_unit"]# need to kick back a ref to xunit for baseline overlays
+        self._xunit = this_plot_kwargs["xaxis_unit"]  # need to kick back a ref to xunit for baseline overlays
         yunit = this_plot_kwargs["yaxis_unit"]
         if self._xunit is None:
             self._xunit = str(sa.unit)  # noqa: F821

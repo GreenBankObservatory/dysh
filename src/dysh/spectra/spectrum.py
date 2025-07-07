@@ -240,7 +240,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
                 # self._plotter._figure.canvas.flush_events()
             else:
-                if self._plotter._xunit == 'chan':
+                if self._plotter._xunit == "chan":
                     xval = np.arange(len(self.flux))
                 else:
                     xval = self._plotter._sa
