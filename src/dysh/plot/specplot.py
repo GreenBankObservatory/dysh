@@ -95,6 +95,7 @@ class SpectrumPlot:
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
+        self._blines=[]
 
     # def __call__ (see pyspeckit)
 
@@ -182,12 +183,14 @@ class SpectrumPlot:
                 toframe=this_plot_kwargs["vel_frame"],
                 doppler_convention=this_plot_kwargs["doppler_convention"],
             )
+
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
         lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
         self._line = lines[0]
+
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
         else:
@@ -217,6 +220,7 @@ class SpectrumPlot:
 
         if interactive:
             self.refresh()
+
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -466,6 +470,20 @@ class SpectrumPlot:
     def freexy(self):
         self.freex()
         self.freey()
+
+    def clear_overlays(self,blines=True):
+        """Clear Overlays from the plot.
+
+        Parameters
+        ----------
+        blines - bool
+            Remove only baseline models overlaid on the plot. Default: True
+        """
+        #clear baseline models
+        if blines:
+            for bline in self._blines:
+                bline.set_ydata(np.ones(len(bline.get_ydata())) * np.nan)
+
 
 
 class InteractiveSpanSelector:
