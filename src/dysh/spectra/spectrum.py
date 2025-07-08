@@ -230,7 +230,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 self._plotter._line.set_ydata(self._data)
                 if len(self._plotter._blines) > 0:
                     self._plotter.clear_overlays(blines=True)
-                    #self._plotter._blines[-1].set_ydata(np.ones(len(self.flux)) * np.nan)
+                    # self._plotter._blines[-1].set_ydata(np.ones(len(self.flux)) * np.nan)
                 if not self._plotter._freezey:
                     self._plotter.freey()
                 # ydiff = np.max(self._data) - np.min(self._data)

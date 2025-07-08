@@ -95,7 +95,7 @@ class SpectrumPlot:
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
-        self._blines=[]
+        self._blines = []
 
     # def __call__ (see pyspeckit)
 
@@ -220,7 +220,6 @@ class SpectrumPlot:
 
         if interactive:
             self.refresh()
-
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -456,7 +455,7 @@ class SpectrumPlot:
         return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
 
     def freex(self):
-        """"Free the X-axis if limits have been set. Resets the limits to be the span of the spectrum."""
+        """ "Free the X-axis if limits have been set. Resets the limits to be the span of the spectrum."""
         self._freezex = False
         # This line (and the other in specplot.py) will have to be addressed when we
         # implement multiple IF windows in the same plot
@@ -474,7 +473,7 @@ class SpectrumPlot:
         self.freex()
         self.freey()
 
-    def clear_overlays(self,blines=True):
+    def clear_overlays(self, blines=True):
         """Clear Overlays from the plot.
 
         Parameters
@@ -482,11 +481,10 @@ class SpectrumPlot:
         blines - bool
             Remove only baseline models overlaid on the plot. Default: True
         """
-        #clear baseline models
+        # clear baseline models
         if blines:
             for bline in self._blines:
                 bline.set_ydata(np.ones(len(bline.get_ydata())) * np.nan)
-
 
 
 class InteractiveSpanSelector:
