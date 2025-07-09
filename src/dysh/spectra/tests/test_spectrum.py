@@ -20,7 +20,9 @@ def fit_gauss(spectrum):
     from specutils.fitting import fit_lines
 
     g_init = models.Gaussian1D(
-        amplitude=spectrum.flux.max(), mean=spectrum.spectral_axis.mean(), stddev=spectrum.meta["FREQRES"] * u.Hz
+        amplitude=spectrum.flux.max(),
+        mean=spectrum.spectral_axis.mean(),
+        stddev=spectrum.meta["FREQRES"] * u.Hz,
     )
     g_fit = fit_lines(spectrum, g_init)
 
@@ -283,7 +285,7 @@ class TestSpectrum:
         for k in spec_pars:
             assert vars(trimmed)[k] == vars(self.ps0)[k]
         # Check that we can plot.
-        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs", show=False)
+        trimmed.plot(xaxis_unit="km/s", yaxis_unit="mK", vel_frame="itrs", interactive=False)
         # Check that we can write.
         o = tmp_path / "sub"
         o.mkdir()
@@ -306,7 +308,7 @@ class TestSpectrum:
                 assert trimmed_nu.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
-        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", show=False)
+        trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", interactive=False)
 
         # km/s.
         spec_ax = self.ps0.spectral_axis.to("km/s")
@@ -318,7 +320,7 @@ class TestSpectrum:
                 assert trimmed_vel.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
-        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", show=False)
+        trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", interactive=False)
 
         # m.
         spec_ax = self.ps0.spectral_axis.to("m")
@@ -332,6 +334,7 @@ class TestSpectrum:
         ss = self.ps0.smooth("gauss", width)
         assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"] * width
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert ss.meta["NAXIS1"] == len(ss.data)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(1)
         assert ss.velocity_frame == self.ps0.velocity_frame
@@ -358,6 +361,7 @@ class TestSpectrum:
         ss = self.ps0.smooth("gauss", width, decimate)
         assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"] * decimate
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert ss.meta["NAXIS1"] == len(ss.data)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(width / decimate)
 
@@ -365,6 +369,7 @@ class TestSpectrum:
         sss = self.ss.smooth("gauss", width, decimate)
         assert sss.meta["CDELT1"] == self.ss.meta["CDELT1"] * decimate
         assert sss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * width, abs=100)
+        assert sss.meta["NAXIS1"] == len(sss.data)
         assert np.diff(sss.spectral_axis).mean().value == sss.meta["CDELT1"]
         assert sss._resolution == pytest.approx(width / decimate, abs=1e-2)
         # Also check the line properties.
@@ -372,7 +377,8 @@ class TestSpectrum:
         fwhm = g_fit.stddev.value * 2.35482
         assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
-            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"],
+            abs=abs(self.ss.meta["CDELT1"]) / 9.0,
         )
         assert ss.velocity_frame == self.ps0.velocity_frame
         assert ss.doppler_convention == self.ps0.doppler_convention
@@ -385,6 +391,7 @@ class TestSpectrum:
         ss = self.ps0.smooth("gauss", width, decimate)
         assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"]
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert ss.meta["NAXIS1"] == len(ss.data)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(width / abs(decimate))
 
@@ -403,12 +410,15 @@ class TestSpectrum:
         sss = self.ss._copy()
         for w in widths:
             sss = sss.smooth("gauss", w, decimate=decimate)
+
             g_fit = fit_gauss(sss)
             fwhm = g_fit.stddev.value * 2.35482
             assert sss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * w)
             assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
-                abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+                abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"],
+                abs=abs(self.ss.meta["CDELT1"]) / 9.0,
             )
+            assert sss.meta["NAXIS1"] == len(sss.data)
             assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
 
     def test_smooth_and_slice(self):
@@ -422,11 +432,14 @@ class TestSpectrum:
         fwhm = g_fit.stddev.value * 2.35482
         assert ssss.meta["CDELT1"] == self.ss.meta["CDELT1"] * decimate
         assert ssss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * width, abs=100)
+        assert sss.meta["NAXIS1"] == len(sss.data)
+        # NB: Slicing does not correctly changes NAXIS1
         assert np.diff(sss.spectral_axis).mean().value == sss.meta["CDELT1"]
         assert sss._resolution == pytest.approx(width / decimate, abs=1e-2)
         assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
-            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"],
+            abs=abs(self.ss.meta["CDELT1"]) / 9.0,
         )
 
     def test_shift(self):
@@ -614,7 +627,11 @@ class TestSpectrum:
             dysh_spec = sdf.getspec(0)
             temp_bmodel = np.copy(dysh_spec.data)
             dysh_spec.baseline(
-                order, ex_reg, remove=True, model=model, exclude_region_upper_bounds=exclude_region_upper_bounds
+                order,
+                ex_reg,
+                remove=True,
+                model=model,
+                exclude_region_upper_bounds=exclude_region_upper_bounds,
             )
             dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
             diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
@@ -660,7 +677,11 @@ class TestSpectrum:
         kms = u.km / u.s
         ex_reg = [(0 * kms, 4200 * kms), (6000 * kms, 7000 * kms), (8800 * kms, 90000 * kms)]
         dysh_spec.baseline(order, ex_reg, model="chebyshev")
-        ex_reg = [(1 * u.GHz, 1.38 * u.GHz), (1.388 * u.GHz, 1.392 * u.GHz), (1.4 * u.GHz, 2 * u.GHz)]
+        ex_reg = [
+            (1 * u.GHz, 1.38 * u.GHz),
+            (1.388 * u.GHz, 1.392 * u.GHz),
+            (1.4 * u.GHz, 2 * u.GHz),
+        ]
         dysh_spec.baseline(order, ex_reg, model="chebyshev")
         ex_reg = [21 * u.cm, 21.5 * u.cm]
         dysh_spec.baseline(order, ex_reg, model="chebyshev")
@@ -676,7 +697,11 @@ class TestSpectrum:
             dysh_spec = sdf.getspec(0)
             temp_bmodel = np.copy(dysh_spec.data)
             dysh_spec.baseline(
-                order, include=in_reg, remove=True, model=model, exclude_region_upper_bounds=exclude_region_upper_bounds
+                order,
+                include=in_reg,
+                remove=True,
+                model=model,
+                exclude_region_upper_bounds=exclude_region_upper_bounds,
             )
             dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
             diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
@@ -730,7 +755,10 @@ class TestSpectrum:
         }
         with pytest.raises(ValueError) as excinfo:
             s = Spectrum.make_spectrum(
-                data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+                data=np.arange(64) * u.K,
+                meta=meta,
+                use_wcs=True,
+                observer_location=Observatory["GBT"],
             )
         assert excinfo.type is ValueError
         assert excinfo.value.args == ("Header (meta) is missing one or more required keywords: {'RESTFRQ'}",)
@@ -756,7 +784,7 @@ class TestSpectrum:
         import matplotlib.pyplot as plt
 
         plt.ioff()
-        s.plot(show=False, xaxis_unit="MHz")
+        s.plot(interactive=False, xaxis_unit="MHz")
         s._plotter._selector.onselect(1402.3, 1402.5)
         r = s.get_selected_regions()
         assert r == [(574, 853)]
@@ -804,7 +832,11 @@ class TestSpectrum:
         )
         assert rms == pytest.approx(p["rms"].value, abs=1e-3)
 
-        p = ss.cog(width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95], bchan=mean - 3 * fwhm, echan=mean + 3 * fwhm)
+        p = ss.cog(
+            width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95],
+            bchan=mean - 3 * fwhm,
+            echan=mean + 3 * fwhm,
+        )
         flux = p["flux"].value
         flux_err = p["flux_std"].value
         assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
@@ -821,7 +853,10 @@ class TestSpectrum:
         assert p["bchan"] == mean - 3 * fwhm
         assert p["echan"] == mean + 3 * fwhm
 
-        p = ss.cog(vc=ss.spectral_axis.to("km/s").quantity[mean], width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95])
+        p = ss.cog(
+            vc=ss.spectral_axis.to("km/s").quantity[mean],
+            width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95],
+        )
         flux = p["flux"].value
         flux_err = p["flux_std"].value
         assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
