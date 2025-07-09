@@ -20,11 +20,14 @@ from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
+from ..util import minimum_string_match
 from ..util.gaincorrection import GBTGainCorrection
-from .core import (  # fft_shift,; average,
+from .core import (
+    available_smooth_methods,
     find_non_blanks,
     find_nonblank_ints,
     mean_tsys,
+    smooth,
     sq_weighted_avg,
     tsys_weight,
 )
@@ -32,6 +35,120 @@ from .spectrum import Spectrum, average_spectra
 
 
 class SpectralAverageMixin:
+    @log_call_to_history
+    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
+        """
+        Smooth or convolve the underlying calibrated data array, optionally decimating the data.
+
+        A number of methods from astropy.convolution can be selected
+        with the `method` keyword.
+
+        Default smoothing is hanning.
+
+        Note: Any previously computed/removed baseline will remain unchanged.
+
+        Parameters
+        ----------.
+        method : string, optional
+            Smoothing method. Valid are: 'hanning', 'boxcar' and
+            'gaussian'. Minimum match applies.
+            The default is 'hanning'.
+        width : int, optional
+            Effective width of the convolving kernel.  Should ideally be an
+            odd number.
+            For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
+            For 'boxcar' an even value triggers an odd one with half the
+            signal at the edges, and will thus not reproduce GBTIDL.
+            For 'gaussian' this is the FWHM of the final beam. We normally
+            assume the input beam has FWHM=1, pending resolution on cases
+            where CDELT1 is not the same as FREQRES.
+            The default is 1.
+        decimate : int, optional
+            Decimation factor of the spectrum by returning every decimate channel.
+            -1:   no decimation
+            0:    use the width parameter
+            >1:   user supplied decimation (use with caution)
+            The default is 0, meaning decimation is by `width`
+        kernel : `~numpy.ndarray`, optional
+            A numpy array which is the kernel by which the signal is convolved.
+            Use with caution, as it is assumed the kernel is normalized to
+            one, and is symmetric. Since width is ill-defined here, the user
+            should supply an appropriate number manually.
+            NOTE: not implemented yet.
+            The default is None.
+        Raises
+        ------
+        Exception
+            If no valid smoothing method is given.
+
+        Returns
+        -------
+        None
+
+        """
+
+        valid_methods = available_smooth_methods()
+        this_method = minimum_string_match(method, valid_methods)
+        if width < 1:
+            raise ValueError(f"`width` ({width}) must be >=1.")
+
+        if this_method is None:
+            raise Exception(f"smooth({method}): valid methods are {valid_methods}")
+        if decimate == 0:
+            # Take the default decimation by `width`.
+            decimate = int(abs(width))
+            if not float(width).is_integer():
+                print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
+        clen, nchan = self._calibrated.shape
+        sdata = []
+        smask = []
+        meta = []
+        # print(f"0 SCAN.smooth {hasattr(self._calibrated,'mask')=}")
+        for i in range(clen):
+            c = self._calibrated[i]
+            # print(f"1 scan.smooth {hasattr(c,'mask')=}")
+            newdata, newmeta = smooth(
+                data=c,
+                method=method,
+                width=width,
+                ndecimate=decimate,
+                kernel=None,
+                show=False,
+                meta=self.meta[i],
+            )
+            # print(f"{newdata.shape=}, {type(newdata)=}")
+            # print(f"2 scan.smooth {hasattr(newdata,'mask')=}")
+            if hasattr(newdata, "mask"):
+                smask.append(newdata.mask)
+            sdata.append(newdata)
+            meta.append(newmeta)
+        # print("CREATING MASKED ARRAY")
+        self._calibrated = np.ma.masked_array(sdata, smask)
+        self._meta = meta
+        # @todo If decimation occurs we must
+        # recompute deltafreq.  This needs the work in #583 completed first.
+        if decimate > -1:
+            self._calc_delta_freq(use_meta=True)
+
+    @abstractmethod
+    def _calc_delta_freq(self, use_meta: bool = False):
+        """
+
+        Calculate the channel frequency spacing.
+
+        Parameters
+        ----------
+        use_meta : bool optional
+            Use the metadata dictionary value of CRDELT1 to set `delta_freq`.  The default is False, which
+            mean use the SDFITS value(s)
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
+
     @log_call_to_history
     def timeaverage(self, weights=None):
         r"""Compute the time-averaged spectrum for this scan.
@@ -762,6 +879,61 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
+    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):  # ScanBlock
+        """
+        Smooth all scans in this ScanBlock.
+        Smooth or convolve the  calibrated data arrays in contained Scans, optionally decimating the data.
+        A number of methods from astropy.convolution can be selected
+        with the `method` keyword.
+
+        Default smoothing is hanning.
+
+        Note: Any previously computed/removed baseline will remain unchanged.
+
+        Parameters
+        ----------.
+        method : string, optional
+            Smoothing method. Valid are: 'hanning', 'boxcar' and
+            'gaussian'. Minimum match applies.
+            The default is 'hanning'.
+        width : int, optional
+            Effective width of the convolving kernel.  Should ideally be an
+            odd number.
+            For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
+            For 'boxcar' an even value triggers an odd one with half the
+            signal at the edges, and will thus not reproduce GBTIDL.
+            For 'gaussian' this is the FWHM of the final beam. We normally
+            assume the input beam has FWHM=1, pending resolution on cases
+            where CDELT1 is not the same as FREQRES.
+            The default is 1.
+        decimate : int, optional
+            Decimation factor of the spectrum by returning every decimate channel.
+            -1:   no decimation
+            0:    use the width parameter
+            >1:   user supplied decimation (use with caution)
+            The default is 0, meaning decimation is by `width`
+        kernel : `~numpy.ndarray`, optional
+            A numpy array which is the kernel by which the signal is convolved.
+            Use with caution, as it is assumed the kernel is normalized to
+            one, and is symmetric. Since width is ill-defined here, the user
+            should supply an appropriate number manually.
+            NOTE: not implemented yet.
+            The default is None.
+        Raises
+        ------
+        Exception
+            If no valid smoothing method is given.
+
+        Returns
+        -------
+        None
+
+        """
+        print("SCANBLOCK SMOOTH")
+        for scan in self.data:
+            scan.smooth(method, width, decimate, kernel)
+
+    @log_call_to_history
     def timeaverage(self, weights="tsys"):  ## SCANBLOCK
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
@@ -1209,17 +1381,20 @@ class TPScan(ScanBase):
 
         self._exposure = exp_ref_on + exp_ref_off
 
-    def _calc_delta_freq(self):
+    def _calc_delta_freq(self, use_meta=False):  # TPSCAN
         """Calculate the channel width.  See :meth:`delta_freq`"""
-        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        if self.calstate is None:
-            delta_freq = 0.5 * (df_ref_on + df_ref_off)
-        elif self.calstate:
-            delta_freq = df_ref_on
-        elif self.calstate == False:  # noqa: E712
-            delta_freq = df_ref_off
-        self._delta_freq = delta_freq
+        if not use_meta:
+            df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+            df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+            if self.calstate is None:
+                delta_freq = 0.5 * (df_ref_on + df_ref_off)
+            elif self.calstate:
+                delta_freq = df_ref_on
+            elif self.calstate == False:  # noqa: E712
+                delta_freq = df_ref_off
+            self._delta_freq = delta_freq
+        else:
+            raise NotImplementedError("use_meta=True not yet implemented for self.__class__.__name-_")
 
     @property
     def exposure(self):
@@ -1475,7 +1650,7 @@ class PSScan(ScanBase):
 
         if self._has_refspec:
             if self._smoothref > 1:
-                ref = core.smooth(self.refspec.data, "boxcar", self._smoothref)
+                ref, _meta = core.smooth(self.refspec.data, "boxcar", self._smoothref)
             else:
                 ref = self.refspec.data
             for i in range(nspect):
@@ -1499,7 +1674,7 @@ class PSScan(ScanBase):
                     sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                     ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
                     if self._smoothref > 1:
-                        ref = core.smooth(ref, "boxcar", self._smoothref)
+                        ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
                     self._tsys[i] = tsys
                     self._exposure[i] = self.exposure[i]
@@ -1509,7 +1684,7 @@ class PSScan(ScanBase):
                     sig = self._sigcaloff[i]
                     ref = self._refcaloff[i]
                     if self._smoothref > 1:
-                        ref = core.smooth(ref, "boxcar", self._smoothref)
+                        ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
                     self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} PSScan spectra")
@@ -1741,7 +1916,7 @@ class NodScan(ScanBase):
                 sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                 ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
                 if self._smoothref > 1:
-                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                    ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._tsys[i] = tsys
                 self._exposure[i] = self.exposure[i]
@@ -1751,7 +1926,7 @@ class NodScan(ScanBase):
                 sig = self._sigcaloff[i]
                 ref = self._refcaloff[i]
                 if self._smoothref > 1:
-                    ref = core.smooth(ref, "boxcar", self._smoothref)
+                    ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} NODScan spectra")

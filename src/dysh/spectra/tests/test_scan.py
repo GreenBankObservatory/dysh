@@ -538,3 +538,19 @@ class TestScanBlock:
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0, calibrate=False)
         with pytest.raises(ValueError):
             sb.subtract_baseline(ta.baseline_model)
+
+    def test_smooth(self, data_dir):
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        rdata = np.random.rand(*sb[0]._calibrated.shape)
+        for width in [3, 5]:
+            sb[0]._calibrated = np.ma.masked_array(rdata, sb[0]._calibrated.mask)
+            mean = np.nanmean(sb[0]._calibrated)
+            std = np.std(sb[0]._calibrated)
+            sb[0].smooth(method="box", width=width, decimate=-1)
+            hmean = np.nanmean(sb[0]._calibrated)
+            hstd = np.std(sb[0]._calibrated)
+            assert hmean == pytest.approx(mean, rel=1e-5)
+            assert std / hstd == pytest.approx(np.sqrt(width), abs=1e-2)
