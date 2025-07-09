@@ -200,6 +200,7 @@ if False:
 skyplot(sdf2, scan=list(range(23,58)),  size=60, title="NGC0001 DecLatMap")
 skyplot(sdf2, scan=list(range(67,76)),  size=60, title="NGC0001 RALongMap")
 
+skyplot(sdf4,scan=list(range(23,58)),fdnum=0,title="NGC0001sky", size=60)
 
 # UGC01659
 skyplot(sdf1, scan=list(range(117,152)),  size=60, title="UGC01659 DecLatMap")
@@ -272,11 +273,12 @@ for j,fd in enumerate(fdnum):    # 7 min in short map without waterfall;  but wa
             for k in range(nrows2):
                 l = i*nrows2 + k
                 sp1._data =  ta[k,:]
-                sp1.baseline(7,exclude=[(350,650)], remove=True)
+                #sp1.baseline(7, remove=True)
+                #sp1.baseline(7,exclude=[(350,650)], remove=True)
                 #sp1.baseline(7,include=[(10,350),(650,1000)], remove=True)
                 #sp1._data = sp1._data - sp1._data.mean()
                 sb1._calibrated[j] = sp1._data
-                sp1.undo_baseline()   # not needed
+                #sp1.undo_baseline()                # not needed
                 waterfall[fd,l,:] = sp1._data
                 
         sb.append(sb1)            
@@ -284,11 +286,11 @@ for j,fd in enumerate(fdnum):    # 7 min in short map without waterfall;  but wa
 #%% write waterfall
 
 hdu = fits.PrimaryHDU(waterfall*100)    # 100K, pending proper calibration using vane/sky
-hdu.writeto('otf2-waterfall7.fits', overwrite=True)
+hdu.writeto('otf2-waterfall8.fits', overwrite=True)
         
 #%% write calibrated spectra
-# Save to SDFITS and then run the gbtgridder on it - this takes too long.....
-sb.write("otf-test.fits", overwrite=True)   # should this not INFO how much will be written?
+# Save to SDFITS and then run the gbtgridder on it - this takes too long.....1h52m
+sb.write("otf-test8.fits", overwrite=True)   # should this not INFO how much will be written?
 
 # gbtgridder --size 32 32  --channels 10:1010 -o test3 --clobber --auto otf-test.fits
 
@@ -557,6 +559,8 @@ print(f1)
 sdf1 = GBTFITSLoad(f1)   #   ~  5 secs
 sdf1.summary()
 
+
+#%%  testing one scan
 # note INTNUM has odd values for scan=6
 
 if False:
@@ -633,15 +637,15 @@ nx = nchan
 waterfall = np.zeros( (ny,nx), dtype=float)
 sp1 = 0
 
-#  mode=0,1   ~5sec
-#  mode=2     ~60 sec
+#  mode=0,1   ~5sec    - no real baseline subtraction
+#  mode=2     ~60 sec  - baseline subtraction
 mode = 2
 
 sb = ScanBlock()
 
 print("Using", sdf.filename, "for", scans)
 
-# basmk for mode=1
+# bmask for mode=1
 bmask = np.arange(nchan)
 bmask = (bmask>500) & (bmask<1500) | (bmask>2500) & (bmask<3500)
 for i,s in enumerate(scans):
@@ -673,8 +677,10 @@ for i,s in enumerate(scans):
 
 plt.figure(1)
 plt.clf()
-plt.imshow(waterfall, vmin=-0.5, vmax=0.5)
-plt.colorbar()
+plt.imshow(waterfall, vmin=-0.25, vmax=0.25, origin="lower")
+plt.xlabel("Channel")
+plt.ylabel("Scan/Time")
+plt.colorbar(label="Ta*")
 
 
 #%%
@@ -716,3 +722,4 @@ sb.write("otf-test2.fits", overwrite=True)    #  300 ms
 # gbtgridder --size 32 32  --channels 500:3500 -o test2 --clobber --auto otf-test2.fits
 # pixels:  2.9'  100x100 ->  
 # confirmed the two cubes from sdf1 and sdf2 are identical 
+
