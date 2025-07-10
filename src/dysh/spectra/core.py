@@ -963,7 +963,7 @@ def fft_shift(
 
 def decimate(data, n, meta=None):
     """
-    Decimate a data array` by n pixels.
+    Decimate a data array by `n` pixels.
 
     Parameters
     ----------
