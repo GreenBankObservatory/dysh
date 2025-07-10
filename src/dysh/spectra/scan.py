@@ -174,7 +174,7 @@ class SpectralAverageMixin:
     @property
     def exposure(self):
         """The array of exposure (integration) times. How the exposure is calculated
-        varies for different derrived classes.
+        varies for different derived classes.  See `_calc
 
         Returns
         -------
@@ -185,7 +185,14 @@ class SpectralAverageMixin:
 
     @property
     def delta_freq(self):
-        """The array of channel frequency width"""
+        """The array of channel frequency width.  How the channel width is calculated varies for different derived classes.
+
+        Returns
+        -------
+        delta_freq: `~numpy.ndarray`
+            The channel frequency width in units of the CDELT1 keyword in the SDFITS header
+
+        """
         return self._delta_freq
 
     @property
@@ -309,6 +316,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._make_meta(meta_rows)
         self._init_tsys(tsys)
         self._calc_exposure()
+        self._calc_delta_freq()
         if self._calibrate:
             if calibrate_kwargs is not None:
                 self.calibrate(**calibrate_kwargs)
@@ -324,6 +332,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """Method to compute the specific exposure array for the given Scan type"""
         raise NotImplementedError(f"Exposure calculation for {self.__class__.__name__} needs to be implemented.")
         # actually you won't even be able to instantiate the class if the method is not implemented.
+
+    @abstractmethod
+    def _calc_delta_freq(self):
+        """Method to compute the specific channel width array for the given Scan type"""
+        raise NotImplementedError(
+            f"Delta Freq (channel width) calculation for {self.__class__.__name__} needs to be implemented."
+        )
 
     def calibrated(self, i):  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
@@ -1370,7 +1385,19 @@ class TPScan(ScanBase):
                 self._tsys[i] = tsys
 
     def _calc_exposure(self):
-        """Calculate the exposure time. See :meth:`exposure`"""
+        """Calculate the exposure time. See :meth:`exposure`
+
+        The value depends on the cal state:
+
+           =====  ======================================
+           CAL    EXPOSURE
+           =====  ======================================
+           None   :math:`t_{EXP,REFON} + t_{EXP,REFOFF}`
+           True   :math:`t_{EXP,REFON}`
+           False  :math:`t_{EXP,REFOFF}`
+           =====  ======================================
+
+        """
         if self.calstate is None:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = (
@@ -1389,7 +1416,18 @@ class TPScan(ScanBase):
         self._exposure = exp_ref_on + exp_ref_off
 
     def _calc_delta_freq(self, use_meta=False):  # TPSCAN
-        """Calculate the channel width.  See :meth:`delta_freq`"""
+        """Calculate the channel width.
+
+        The value depends on the cal state:
+
+        =====  ================================================================
+        CAL     :math:`\\Delta\nu`
+        =====  ================================================================
+        None    :math:`0.5 * ( \\Delta\nu_{REFON}+ \\Delta\nu_{REFOFF} )`
+        True    :math:`\\Delta\nu_{REFON}`
+        False   :math:`\\Delta\nu_{REFOFF}`
+        =====  ================================================================
+        """
         if not use_meta:
             df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
             df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
@@ -1402,46 +1440,6 @@ class TPScan(ScanBase):
             self._delta_freq = delta_freq
         else:
             raise NotImplementedError("use_meta=True not yet implemented for self.__class__.__name-_")
-
-    @property
-    def exposure(self):
-        """The array of exposure (integration) times.  The value depends on the cal state:
-
-            =====  ======================================
-            CAL    EXPOSURE
-            =====  ======================================
-            None   :math:`t_{EXP,REFON} + t_{EXP,REFOFF}`
-            True   :math:`t_{EXP,REFON}`
-            False  :math:`t_{EXP,REFOFF}`
-            =====  ======================================
-
-        Returns
-        -------
-        exposure : `~numpy.ndarray`
-            The exposure time in units of the EXPOSURE keyword in the SDFITS header
-        """
-        return self._exposure
-
-    @property
-    def delta_freq(self):
-        r"""Get the array of channel frequency width. The value depends on the cal state:
-
-
-        =====  ================================================================
-        CAL     :math:`\Delta\nu`
-        =====  ================================================================
-        None    :math:`0.5 * ( \Delta\nu_{REFON}+ \Delta\nu_{REFOFF} )`
-        True    :math:`\Delta\nu_{REFON}`
-        False   :math:`\Delta\nu_{REFOFF}`
-        =====  ================================================================
-
-
-        Returns
-        -------
-        delta_freq: `~numpy.ndarray`
-            The channel frequency width in units of the CDELT1 keyword in the SDFITS header
-        """
-        return self._delta_freq
 
     def total_power(self, i):
         """Return the i-th total power spectrum in this Scan.
@@ -1693,7 +1691,6 @@ class PSScan(ScanBase):
                     if self._smoothref > 1:
                         ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
-                    # self._exposure[i] = self.exposure[i]
         logger.debug(f"Calibrated {nspect} PSScan spectra")
 
     def _calc_exposure(self):
@@ -1733,33 +1730,32 @@ class PSScan(ScanBase):
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
 
-    @property
-    def delta_freq(self):
-        """Get the array of channel frequency width
+    def _calc_delta_freq(self, use_meta=False):
+        """calculate the channel width
 
         df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
 
-        Returns
-        -------
-             delta_freq: ~numpy.ndarray
-                 The channel frequency width in units of the CDELT1 keyword in the SDFITS header
         """
+        if not use_meta:
+            df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
+            df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
+            if self._has_refspec:
+                df_ref_on = df_ref_off = np.full_like(self._sigoffrows, self.refspec.meta["CDELT1"])
+            else:
+                df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+                df_ref_off = (
+                    self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+                )
+            if not self._nocal:
+                df_ref = 0.5 * (df_ref_on + df_ref_off)
+                df_sig = 0.5 * (df_sig_on + df_sig_off)
+            else:
+                df_ref = df_ref_off
+                df_sig = df_sig_off
+            self._delta_freq = 0.5 * (df_ref + df_sig)
 
-        df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
-        df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
-        if self._has_refspec:
-            df_ref_on = df_ref_off = np.full_like(self._sigoffrows, self.refspec.meta["CDELT1"])
         else:
-            df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-            df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        if not self._nocal:
-            df_ref = 0.5 * (df_ref_on + df_ref_off)
-            df_sig = 0.5 * (df_sig_on + df_sig_off)
-        else:
-            df_ref = df_ref_off
-            df_sig = df_sig_off
-        delta_freq = 0.5 * (df_ref + df_sig)
-        return delta_freq
+            raise NotImplementedError("use_meta=True not yet implemented for self.__class__.__name-_")
 
 
 class NodScan(ScanBase):
@@ -1961,8 +1957,7 @@ class NodScan(ScanBase):
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
 
-    @property
-    def delta_freq(self):
+    def _calc_delta_freq(self, use_meta=False):
         """Get the array of channel frequency width
 
         df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
@@ -1972,18 +1967,21 @@ class NodScan(ScanBase):
              delta_freq: ~numpy.ndarray
                  The channel frequency width in units of the CDELT1 keyword in the SDFITS header
         """
-        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
-        df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
-        if not self._nocal:
-            df_ref = 0.5 * (df_ref_on + df_ref_off)
-            df_sig = 0.5 * (df_sig_on + df_sig_off)
+        if not use_meta:
+            df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+            df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+            df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
+            df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
+            if not self._nocal:
+                df_ref = 0.5 * (df_ref_on + df_ref_off)
+                df_sig = 0.5 * (df_sig_on + df_sig_off)
+            else:
+                df_ref = df_ref_off
+                df_sig = df_sig_off
+            self._delta_freq = 0.5 * (df_ref + df_sig)
+
         else:
-            df_ref = df_ref_off
-            df_sig = df_sig_off
-        delta_freq = 0.5 * (df_ref + df_sig)
-        return delta_freq
+            raise NotImplementedError("use_meta=True not yet implemented for self.__class__.__name-_")
 
 
 class FSScan(ScanBase):
@@ -2317,25 +2315,21 @@ class FSScan(ScanBase):
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
 
-    @property
-    def delta_freq(self):
+    def _calc_delta_freq(self, use_meta=False):
         """Get the array of channel frequency width
 
         df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
-
-        Returns
-        -------
-             delta_freq: ~numpy.ndarray
-                 The channel frequency width in units of the CDELT1 keyword in the SDFITS header
         """
-        df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
-        df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
-        df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
-        df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
-        df_ref = 0.5 * (df_ref_on + df_ref_off)
-        df_sig = 0.5 * (df_sig_on + df_sig_off)
-        self._delta_freq = 0.5 * (df_ref + df_sig)
-        return self._delta_freq
+        if not use_meta:
+            df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
+            df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
+            df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
+            df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
+            df_ref = 0.5 * (df_ref_on + df_ref_off)
+            df_sig = 0.5 * (df_sig_on + df_sig_off)
+            self._delta_freq = 0.5 * (df_ref + df_sig)
+        else:
+            raise NotImplementedError("use_meta=True not yet implemented for self.__class__.__name-_")
 
 
 class SubBeamNodScan(ScanBase):
@@ -2364,7 +2358,7 @@ class SubBeamNodScan(ScanBase):
                 - 'jy'  : flux density in Jansky
         If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
     zenith_opacity: float, optional
-        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:Nodne
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -2409,7 +2403,7 @@ class SubBeamNodScan(ScanBase):
         self._scan = sigtp[0]._scan
         self._sigtp = sigtp
         self._reftp = reftp
-        # self._ifnum = self._sigtp[0].ifnum
+        # This is done in calibrate via assignment.     # self._ifnum = self._sigtp[0].ifnum
         # self._fdnum = self._sigtp[0].fdnum
         # self._plnum = self._sigtp[0].plnum
         self._nchan = len(reftp[0]._calibrated[0])
@@ -2426,6 +2420,10 @@ class SubBeamNodScan(ScanBase):
         self._finish_initialization(calibrate, {"weights": w}, meta_rows, bunit, zenith_opacity)
 
     def _calc_exposure(self):
+        # This is done in calibrate via assignment.
+        pass
+
+    def _calc_delta_freq(self, use_meta=False):
         # This is done in calibrate via assignment.
         pass
 

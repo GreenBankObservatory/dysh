@@ -8,15 +8,6 @@ from dysh.fits import gbtfitsload
 
 
 class TestPSScan:
-    def check_calc_exposure_implemented(self):
-        try:
-            for s in self.scanblock:
-                s._calc_exposure()
-        except NotImplementedError as nie:
-            print(nie)
-            return False
-        return True
-
     def test_tsys(self, data_dir):
         """
         Test that `getps` results in the same system temperature as GBTIDL.
@@ -35,7 +26,6 @@ class TestPSScan:
 
         assert (tsys - gbtidl_tsys)[0] == 0.0
         self.scanblock = tps
-        assert self.check_calc_exposure_implemented()
 
     def test_compare_with_GBTIDL(self, data_dir):
         """ """
@@ -183,15 +173,6 @@ class TestPSScan:
 
 
 class TestSubBeamNod:
-    def check_calc_exposure_implemented(self):
-        try:
-            for s in self.scanblock:
-                s._calc_exposure()
-        except NotImplementedError as nie:
-            print(nie)
-            return False
-        return True
-
     def test_compare_with_GBTIDL(self, data_dir):
         # get filenames
         # We still need a data file with a single scan in it
@@ -227,7 +208,6 @@ class TestSubBeamNod:
         xx = sbn.timeaverage()  # noqa: F841
 
         self.scanblock = sbn
-        assert self.check_calc_exposure_implemented()
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
@@ -313,15 +293,6 @@ class TestSubBeamNod:
 
 
 class TestTPScan:
-    def check_calc_exposure_implemented(self):
-        try:
-            for s in self.scanblock:
-                s._calc_exposure()
-        except NotImplementedError as nie:
-            print(nie)
-            return False
-        return True
-
     def test_len(self, data_dir):
         """
         Test that `TPScan` has the proper len.
@@ -373,7 +344,6 @@ class TestTPScan:
             assert tp[0].total_power(i).meta["EXPOSURE"] == table["EXPOSURE"][i]
 
         self.scanblock = tp
-        assert self.check_calc_exposure_implemented()
 
     def test_compare_with_GBTIDL_tsys_weights(self, data_dir):
         """
@@ -456,7 +426,7 @@ class TestTPScan:
         assert np.all((data[0] - tpavg.flux.value.astype(np.float32)) == 0.0)
 
 
-class TestFScan:
+class TestFSScan:
     def check_calc_exposure_implemented(self):
         try:
             for s in self.scanblock:
