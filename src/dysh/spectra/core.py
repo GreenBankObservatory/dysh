@@ -1117,6 +1117,7 @@ def smooth(
 
     kernel = _available_smooth_methods[method](width)
 
+    # @todo this should be eliminated. We should not return different types depending on the input parameters!
     if show:
         return kernel
 
@@ -1143,14 +1144,12 @@ def smooth(
     )
     mask[np.where(np.isnan(new_data))] = True
     new_data = np.ma.masked_array(new_data, mask)
-    # print(f"2 core.smooth {hasattr(new_data,'mask')=}")
     new_meta = deepcopy(meta)
     if new_meta is not None:
         if method == "gaussian":
             width = width * FWHM_TO_STDDEV
         new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
     if ndecimate > 0:
-        # print(f"decimating the data by {ndecimate}")
         new_data, new_meta = decimate(new_data, n=ndecimate, meta=new_meta)
 
     return new_data, new_meta
