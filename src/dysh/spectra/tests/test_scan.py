@@ -581,8 +581,9 @@ class TestScanBlock:
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
         rdata = np.random.rand(*sb[0]._calibrated.shape)
+        rmask = sb[0]._calibrated.mask
         for width in [3, 5]:
-            sb[0]._calibrated = np.ma.masked_array(rdata, sb[0]._calibrated.mask)
+            sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
             mean = np.nanmean(sb[0]._calibrated)
             std = np.std(sb[0]._calibrated)
             sb[0].smooth(method="box", width=width, decimate=-1)
@@ -590,6 +591,6 @@ class TestScanBlock:
             hstd = np.std(sb[0]._calibrated)
             assert hmean == pytest.approx(mean, rel=1e-5)
             assert std / hstd == pytest.approx(np.sqrt(width), abs=1e-2)
-            sb[0]._calibrated = np.ma.masked_array(rdata, sb[0]._calibrated.mask)
+            sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
             sb[0].smooth(method="box", width=width, decimate=0)
             assert all(sb[0].delta_freq == np.array([x["CDELT1"] for x in sb[0].meta]))
