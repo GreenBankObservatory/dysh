@@ -1159,6 +1159,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
+    def plot(self):
+        pass
+
+
 class TPScan(ScanBase):
     """GBT specific version of Total Power Scan
 
