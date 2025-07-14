@@ -1017,7 +1017,6 @@ def smooth(
     nan_treatment="fill",
     fill_value=np.nan,
     preserve_nan=True,
-    show=False,
 ):
     """
     Smooth or Convolve spectrum, optionally decimating it.
@@ -1088,9 +1087,6 @@ def smooth(
     preserve_nan : bool, optional
         After performing convolution, should pixels that were originally NaN
         again become NaN?
-    show : bool, optional
-        If set, the kernel is returned, instead of the convolved array.
-        The default is False.
 
 
     Raises
@@ -1116,10 +1112,6 @@ def smooth(
         raise ValueError("`decimate ({ndecimate})` must be an integer.")
 
     kernel = _available_smooth_methods[method](width)
-
-    # @todo this should be eliminated. We should not return different types depending on the input parameters!
-    if show:
-        return kernel
 
     # Notes:
     # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method

@@ -111,7 +111,6 @@ class SpectralAverageMixin:
                 width=width,
                 ndecimate=decimate,
                 kernel=None,
-                show=False,
                 meta=self.meta[i],
             )
             if hasattr(newdata, "mask"):
@@ -166,7 +165,7 @@ class SpectralAverageMixin:
     @property
     def exposure(self):
         """The array of exposure (integration) times. How the exposure is calculated
-        varies for different derived classes.  See `_calc
+        varies for different derived classes.  See :meth:`_calc_exposure`,
 
         Returns
         -------
@@ -177,7 +176,8 @@ class SpectralAverageMixin:
 
     @property
     def delta_freq(self):
-        """The array of channel frequency width.  How the channel width is calculated varies for different derived classes.
+        """The array of channel frequency width.  How the channel width is calculated varies for different derived classes. See :meth:`_calc_delta_freq`.
+
 
         Returns
         -------
@@ -1377,18 +1377,19 @@ class TPScan(ScanBase):
                 self._tsys[i] = tsys
 
     def _calc_exposure(self):
-        """Calculate the exposure time. See :meth:`exposure`
+        """Calculate the exposure time for TPScan.
 
         The value depends on the cal state:
 
            =====  ======================================
            CAL    EXPOSURE
            =====  ======================================
-           None   :math:`t_{EXP,REFON} + t_{EXP,REFOFF}`
-           True   :math:`t_{EXP,REFON}`
-           False  :math:`t_{EXP,REFOFF}`
+           None   :math:`t_{EXP,REFCALON} + t_{EXP,REFCALOFF}`
+           True   :math:`t_{EXP,REFCALON}`
+           False  :math:`t_{EXP,REFCALOFF}`
            =====  ======================================
 
+        where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
         """
         if self.calstate is None:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
@@ -1640,7 +1641,6 @@ class PSScan(ScanBase):
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-        # self._exposure = np.empty(nspect, dtype="d")
 
         if self._has_refspec:
             if self._smoothref > 1:
@@ -1671,7 +1671,6 @@ class PSScan(ScanBase):
                         ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                     self._calibrated[i] = tsys * (sig - ref) / ref
                     self._tsys[i] = tsys
-                    # self._exposure[i] = self.exposure[i]
             else:
                 for i in range(nspect):
                     tsys = self._tsys[i]
@@ -1683,9 +1682,13 @@ class PSScan(ScanBase):
         logger.debug(f"Calibrated {nspect} PSScan spectra")
 
     def _calc_exposure(self):
-        """The array of exposure (integration) times
+        """The array of exposure (integration) times for PSScan
 
-        exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
+        exposure = exp_sig * exp_ref * nsmooth/(exp_sig+exp_ref *nsmooth)
+
+        with `nsmooth` the reference spectrum smoothing parameter, `exp_sig` the exposure of the signal
+        spectra, and `exp_ref` the exposure of the reference spectra. If the signal and reference spectra were
+        observed with two noise diode states, then their exposure times are the sum of the exposure times in each state.
 
         Returns
         -------
@@ -1722,7 +1725,17 @@ class PSScan(ScanBase):
     def _calc_delta_freq(self):
         """calculate the channel width
 
+        If the calibration diode has been fired
+
         df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
+
+        otherwise
+
+        df = 0.5 * (df_ref_off + df_sig_off)
+
+        where `df_ref_on` and `df_ref_off` are the channel widths of the reference spectra for cal='F' and cal='T',
+        respectively and `df_sig_on` and `df_sig_off` are the channel widths of the signal spectra for cal='F' and cal='T',
+        respectively.
 
         """
         df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
@@ -1903,7 +1916,6 @@ class NodScan(ScanBase):
                     ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._tsys[i] = tsys
-                self._exposure[i] = self.exposure[i]
         else:
             for i in range(nspect):
                 tsys = self._tsys[i]
@@ -1915,9 +1927,13 @@ class NodScan(ScanBase):
         logger.debug(f"Calibrated {nspect} NODScan spectra")
 
     def _calc_exposure(self):
-        """The array of exposure (integration) times
+        """The array of exposure (integration) times for NodScan
 
-        exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
+        exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+
+        with `nsmooth` the reference spectrum smoothing parameter, `exp_sig` the exposure of the signal
+        spectra, and `exp_ref` the exposure of the reference spectra. If the signal and reference spectra were
+        observed with two noise diode states, then their exposure times are the sum of the exposure times in each state.
 
         Returns
         -------
@@ -1943,7 +1959,17 @@ class NodScan(ScanBase):
     def _calc_delta_freq(self):
         """Get the array of channel frequency width
 
+        If the calibration diode has been fired
+
         df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
+
+        otherwise
+
+        df = 0.5 * (df_ref_off + df_sig_off)
+
+        where `df_ref_on` and `df_ref_off` are the channel widths of the reference spectra for cal='F' and cal='T',
+        respectively and `df_sig_on` and `df_sig_off` are the channel widths of the signal spectra for cal='F' and cal='T',
+        respectively.
 
         Returns
         -------
@@ -2273,9 +2299,13 @@ class FSScan(ScanBase):
         logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     def _calc_exposure(self):
-        """The array of exposure (integration) times for FSscan
+        """Calculate the array of exposure (integration) times for FSscan
 
-        exposure = [ 0.5*(exp_ref_on + exp_ref_off) + 0.5*(exp_sig_on + exp_sig_off) ] / 2
+        exposure = exp_sig * exp_ref * nsmooth/(exp_sig+exp_ref *nsmooth)
+
+        with `nsmooth` the reference spectrum smoothing parameter, `exp_sig` the exposure of the signal
+        spectra, and `exp_ref` the exposure of the reference spectra. If the signal and reference spectra were
+        observed with two noise diode states, then their exposure times are the sum of the exposure times in each state.
 
         Returns
         -------
@@ -2298,6 +2328,12 @@ class FSScan(ScanBase):
         """Get the array of channel frequency width
 
         df = [ 0.5*(df_ref_on + df_ref_off) + 0.5*(df_sig_on + df_sig_off) ] / 2
+
+
+        where `df_ref_on` and `df_ref_off` are the channel widths of the reference spectra for cal='F' and cal='T',
+        respectively and `df_sig_on` and `df_sig_off` are the channel widths of the signal spectra for cal='F' and cal='T',
+        respectively.
+
         """
         df_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["CDELT1"].to_numpy()
         df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
@@ -2334,7 +2370,7 @@ class SubBeamNodScan(ScanBase):
                 - 'jy'  : flux density in Jansky
         If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
     zenith_opacity: float, optional
-        The zenith opacity to use in calculating the scale factors for the integrations.  Default:Nodne
+        The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
@@ -2379,9 +2415,6 @@ class SubBeamNodScan(ScanBase):
         self._scan = sigtp[0]._scan
         self._sigtp = sigtp
         self._reftp = reftp
-        # This is done in calibrate via assignment.     # self._ifnum = self._sigtp[0].ifnum
-        # self._fdnum = self._sigtp[0].fdnum
-        # self._plnum = self._sigtp[0].plnum
         self._nchan = len(reftp[0]._calibrated[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
         self._nint = self._nrows

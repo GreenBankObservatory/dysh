@@ -25,7 +25,6 @@ class TestPSScan:
         hdu.close()
 
         assert (tsys - gbtidl_tsys)[0] == 0.0
-        self.scanblock = tps
 
     def test_compare_with_GBTIDL(self, data_dir):
         """ """
@@ -207,8 +206,6 @@ class TestSubBeamNod:
         # make sure call to timeaverage functions
         xx = sbn.timeaverage()  # noqa: F841
 
-        self.scanblock = sbn
-
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
         """Test subbeamnod using synthithic spectra."""
@@ -343,8 +340,6 @@ class TestTPScan:
         for i in range(len(tp[0]._scanrows) // 2):
             assert tp[0].total_power(i).meta["EXPOSURE"] == table["EXPOSURE"][i]
 
-        self.scanblock = tp
-
     def test_compare_with_GBTIDL_tsys_weights(self, data_dir):
         """
         This test compares `gettp` when using radiometer weights.
@@ -427,15 +422,6 @@ class TestTPScan:
 
 
 class TestFSScan:
-    def check_calc_exposure_implemented(self):
-        try:
-            for s in self.scanblock:
-                s._calc_exposure()
-        except NotImplementedError as nie:
-            print(nie)
-            return False
-        return True
-
     def test_getfs_with_args(self, data_dir):
         sdf_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         gbtidl_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.cal.vegas.fits"
@@ -480,23 +466,11 @@ class TestFSScan:
         nm = np.nanmean(diff2[15000:20000])
         assert abs(nm) <= level
 
-        self.scanblock = fsscan
-        assert self.check_calc_exposure_implemented()
-
     def test_getfs_with_selection(self, data_dir):
         assert True
 
 
 class TestNodScan:
-    def check_calc_exposure_implemented(self):
-        try:
-            for s in self.scanblock:
-                s._calc_exposure()
-        except NotImplementedError as nie:
-            print(nie)
-            return False
-        return True
-
     def test_nodscan(self):
         """
         Test for `getnod` using data with noise diode.
@@ -504,11 +478,8 @@ class TestNodScan:
         # Reduce with dysh.
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
-        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        sdf.getnod(scan=62, ifnum=0, plnum=0)
         # really there should be some basic tests here!
-
-        self.scanblock = nodsb
-        assert self.check_calc_exposure_implemented()
 
 
 class TestScanBlock:
