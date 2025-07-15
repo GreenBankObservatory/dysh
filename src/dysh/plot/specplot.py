@@ -95,7 +95,6 @@ class SpectrumPlot:
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
-        self._blines = []
 
     # def __call__ (see pyspeckit)
 
