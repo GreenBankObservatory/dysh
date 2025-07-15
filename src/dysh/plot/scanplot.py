@@ -8,19 +8,9 @@ from copy import deepcopy
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
-from astropy.coordinates import SkyCoord
-from astropy.time import Time
-from astropy.utils.masked import Masked
-from matplotlib.patches import Rectangle
-from matplotlib.widgets import Button, SpanSelector
 
-from ..coordinates import (
-    Observatory,
-    crval4_to_pol,
-    decode_veldef,
-    frame_to_label,
-    ra2ha,
-)
+
+
 
 _KMS = u.km / u.s
 
@@ -31,19 +21,23 @@ class ScanPlot:
 
     def __init__(self, scanblock_or_scan, **kwargs):
         self.reset()
+        self._scanblock_or_scan = scanblock_or_scan
         self._plot_kwargs.update(kwargs)
+        self._plt = plt
         self._figure = None
+        self._axis = None
+        self._title = self._plot_kwargs["title"]
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
 
         #determine if input is a ScanBlock or a ScanBase (raise exception if neither)
-        self._type = type(scanblock_or_scan).split(".")[-1][-2]
+        self._type = str(type(scanblock_or_scan)).split(".")[-1][:-2]
         if self._type == "ScanBlock":
             self._scanblock = scanblock_or_scan
-            self._num_scans = len(scanblock)
+            self._num_scans = len(self._scanblock)
         elif self._type in acceptable_types:
             self._scan = scanblock_or_scan
         else:
-            raise Exception(f"Plotter input {type(scanblock_or_scan)} does not appear to be a valid input object type")
+            raise Exception(f"Plotter input {self._type} does not appear to be a valid input object type")
 
         # handle scanblocks
         if self._type == "ScanBlock":
@@ -51,7 +45,7 @@ class ScanPlot:
             self._nint_nos = [] # number of integrations in each scan
             self._timestamps = [] # 0-indexed timestamps in sec for every integration
             self._spectral_axis = self._scanblock[0].timeaverage().spectral_axis
-            for i,scan in self._scanblock:
+            for i,scan in enumerate(self._scanblock):
                 if i==0:
                     self.spectrogram = scan._calibrated
                 else:
@@ -71,13 +65,32 @@ class ScanPlot:
 
 
 
-    def plot(self):
+    def plot(self, **kwargs):
         """hi hello"""
 
         self.__init__(self._scanblock_or_scan, **kwargs)
-
+        plt.ion()
 
         #self._set_xaxis_info()
+        this_plot_kwargs = deepcopy(self._plot_kwargs)
+        this_plot_kwargs.update(kwargs)
+
+        if True:
+            self._figure, self._axis = self._plt.subplots(figsize=(10,6))
+        
+        #ax_lw = 3
+        #self._axis.tick_params(axis='both',direction='in',width=2,length=8,top=True,right=True,pad=2)
+        print(self.spectrogram)
+        self._axis.imshow(self.spectrogram)
+    
+
+
+
+
+    def reset(self):
+        self._plot_kwargs = {
+            "title": None,
+        }
 
 
 
