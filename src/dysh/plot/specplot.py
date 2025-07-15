@@ -487,6 +487,7 @@ class SpectrumPlot:
                 bline.set_ydata(np.ones(len(bline.get_ydata())) * np.nan)
 
 
+
 class InteractiveSpanSelector:
     def __init__(self, ax):
         self.ax = ax
