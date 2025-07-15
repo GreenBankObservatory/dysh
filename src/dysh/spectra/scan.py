@@ -1160,13 +1160,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
 
-    def plot(self, **kwargs):
-        if self._plotter is None:
-            self._plotter = sp.ScanPlot(self,**kwargs)
-        self._plotter.plot(**kwargs)
-        return self._plotter
-
-
 class TPScan(ScanBase):
     """GBT specific version of Total Power Scan
 
