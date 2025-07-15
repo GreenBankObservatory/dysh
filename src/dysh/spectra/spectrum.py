@@ -239,11 +239,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # self._plotter._figure.canvas.flush_events()
             else:
                 self._plotter._axis.plot(
-                    self.spectral_axis,
-                    self._baseline_model(self.spectral_axis),
-                    c=color,
-                    gid="baseline"
-                    )
+                    self.spectral_axis, self._baseline_model(self.spectral_axis), c=color, gid="baseline"
+                )
                 # self._plotter._blines.append(lines[0])
                 print(self._plotter._blines)
                 self._plotter.refresh()
