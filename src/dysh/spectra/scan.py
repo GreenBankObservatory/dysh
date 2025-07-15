@@ -129,7 +129,6 @@ class SpectralAverageMixin:
 
     @abstractmethod
     def _calc_delta_freq(self):
-
         """
 
         Calculate the channel frequency spacing.
@@ -1432,7 +1431,6 @@ class TPScan(ScanBase):
         elif self.calstate == False:  # noqa: E712
             delta_freq = df_ref_off
         self._delta_freq = delta_freq
-
 
     def total_power(self, i):
         """Return the i-th total power spectrum in this Scan.
