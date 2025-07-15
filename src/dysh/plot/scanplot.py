@@ -8,9 +8,16 @@ from copy import deepcopy
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
 
-
-
+from ..coordinates import (
+    Observatory,
+    crval4_to_pol,
+    decode_veldef,
+    frame_to_label,
+    ra2ha,
+)
 
 _KMS = u.km / u.s
 
@@ -26,6 +33,7 @@ class ScanPlot:
         self._plt = plt
         self._figure = None
         self._axis = None
+        self._axis2 = None
         self._title = self._plot_kwargs["title"]
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
 
@@ -61,6 +69,8 @@ class ScanPlot:
             self.spectrogram = self._calibrated
             self._scan_nos = self._scan.scan
 
+        self.spectrogram = self.spectrogram.T
+
 
 
 
@@ -71,26 +81,133 @@ class ScanPlot:
         self.__init__(self._scanblock_or_scan, **kwargs)
         plt.ion()
 
+        s = self._scanblock_or_scan
+
         #self._set_xaxis_info()
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
 
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10,6))
-        
-        #ax_lw = 3
-        #self._axis.tick_params(axis='both',direction='in',width=2,length=8,top=True,right=True,pad=2)
-        print(self.spectrogram)
-        self._axis.imshow(self.spectrogram)
-    
 
 
+        self._figure.subplots_adjust(top=0.8, left=0.1, right=0.9)
+        self._set_header(s)
+
+        ax_lw = 3
+        self._axis.tick_params(axis='both',direction='inout',length=8,top=True,right=True,pad=2)
+        # self._axis.spines['bottom'].set_linewidth(ax_lw)
+        # self._axis.spines['top'].set_linewidth(ax_lw)
+        # self._axis.spines['left'].set_linewidth(ax_lw)
+        # self._axis.spines['right'].set_linewidth(ax_lw)
+        #print(self.spectrogram)
+        im = self._axis.imshow(self.spectrogram, aspect='auto',cmap='inferno')
+        self._figure.colorbar(im)
 
 
     def reset(self):
         self._plot_kwargs = {
             "title": None,
         }
+
+    def _set_header(self, scan):
+        fsize_small = 9
+        fsize_large = 14
+        xyc = "figure fraction"
+
+        #get metadata
+        s = scan.timeaverage()
+
+        hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
+        vcoords = np.array([0.94, 0.9, 0.86])
+
+        def time_formatter(time_sec):
+            hh = int(time_sec // 3600)
+            mm = int((time_sec - 3600 * hh) // 60)
+            ss = np.around((time_sec - 3600 * hh - 60 * mm), 1)
+            return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
+
+        def coord_formatter(s):
+            sc = SkyCoord(
+                s.meta["CRVAL2"],
+                s.meta["CRVAL3"],
+                unit="deg",
+                frame=s.meta["RADESYS"].lower(),
+                obstime=Time(s.meta["DATE-OBS"]),
+                location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
+            )
+            out_str = sc.transform_to("fk5").to_string("hmsdms", sep=" ", precision=2)[:-1]
+            out_ra = out_str[:11]
+            out_dec = out_str[12:]
+            return out_ra, out_dec
+
+        # col 1
+        self._axis.annotate(f"Scan     {s.meta['SCAN']}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{s.meta['DATE-OBS'][:10]}", (hcoords[0], vcoords[1]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
+
+        # col 2
+        velo = s.meta["VELOCITY"] * 1e-3  # * u.km / u.s # GBTIDL doesn't say km/s so neither will I (saves space)
+        self._axis.annotate(
+            f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(
+            f"Int : {time_formatter(s.meta['EXPOSURE'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(
+            f"LST : {time_formatter(s.meta['LST'])}", (hcoords[1], vcoords[2]), xycoords=xyc, size=fsize_small
+        )
+
+        # col 3
+        # TODO: need to understand frequencies to assign correct title
+        # instead of just forcing to GHz with 5 decimal points
+        f0 = np.around(s.meta["RESTFREQ"] * 1e-9, 5) * u.GHz
+        self._axis.annotate(f"F0   :  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
+        fsky = np.around(s.meta["OBSFREQ"] * 1e-9, 5) * u.GHz  # or CRVAL1?
+        self._axis.annotate(f"Fsky :  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)
+        bw = np.around(s.meta["BANDWID"] * 1e-6, 4) * u.MHz
+        self._axis.annotate(f"BW   :  {bw}", (hcoords[2], vcoords[2]), xycoords=xyc, size=fsize_small)
+
+        # col 4
+        self._axis.annotate(
+            f"Pol  :   {crval4_to_pol[s.meta['CRVAL4']]}", (hcoords[3], vcoords[0]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(f"IF   :    {s.meta['IFNUM']}", (hcoords[3], vcoords[1]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{s.meta['PROJID']}", (hcoords[3], vcoords[2]), xycoords=xyc, size=fsize_small)
+
+        # col 5
+        _tsys = np.around(s.meta["TSYS"], 2)
+        self._axis.annotate(f"Tsys   :  {_tsys}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(
+            f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
+        )
+        self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
+
+        # bottom row
+        vcoord_bot = 0.82
+        hcoord_bot = 0.95
+        ra, dec = coord_formatter(s)
+        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], vcoord_bot), xycoords=xyc, size=fsize_small)
+        if self._axis.get_title() == "":
+            self._axis.annotate(
+                f"{s.meta['OBJECT']}", (0.5, vcoord_bot), xycoords=xyc, size=fsize_large, horizontalalignment="center"
+            )
+        az = np.around(s.meta["AZIMUTH"], 1)
+        el = np.around(s.meta["ELEVATIO"], 1)
+        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
+        self._axis.annotate(
+            f"Az: {az}  El: {el}  HA: {ha}",
+            (hcoord_bot, vcoord_bot),
+            xycoords=xyc,
+            size=fsize_small,
+            horizontalalignment="right",
+        )
+
+        # last corner -- current date time.
+        ts = str(dt.datetime.now())[:19]
+        self._axis.annotate(
+            f"{ts}", (hcoord_bot - 0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right"
+        )
 
 
 
