@@ -16,7 +16,7 @@ from pandas import DataFrame
 from ..log import logger
 
 # from ..fits import default_sdfits_columns
-from . import ALL_CHANNELS, abbreviate_to, gbt_timestamp_to_time, generate_tag, keycase
+from . import ALL_CHANNELS, abbreviate_to, generate_tag, keycase
 
 default_aliases = {
     "freq": "crval1",
@@ -101,18 +101,6 @@ class SelectionBase(DataFrame):
         self._channel_selection = None
         self._flag_channel_selection = {}  # used in Flag only
         warnings.resetwarnings()
-
-    def _add_utc_column(self):
-        """
-        Add column to the selection/flag dataframe with a
-        representation of the SDFITS UTC timestamp, which is a string,
-        as an ~astropy.time.Time.
-
-        Returns
-        -------
-        None.
-        """
-        self["UTCXX"] = gbt_timestamp_to_time(self.TIMESTAMP)
 
     def _add_datetime_column(self):
         """
