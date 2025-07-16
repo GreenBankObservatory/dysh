@@ -89,28 +89,31 @@ class ScanPlot:
 
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10,6))
-            self._axis2 = self._figure.add_subplot(self._axis)
+            self._axis2 = self._axis.twinx()
 
 
-        self._figure.subplots_adjust(top=0.8, left=0.1, right=0.9)
+        self._figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
         self._set_header(self._s)
 
-        self._axis.tick_params(axis='both',direction='inout',length=8,top=False,right=False,pad=2)
-        self._axis.yaxis.set_label_position('left')
-        self._axis.yaxis.set_ticks_position('left')
+        # self._axis.tick_params(axis='both',direction='inout',length=8,top=False,right=False,pad=2)
+        # self._axis.yaxis.set_label_position('left')
+        # self._axis.yaxis.set_ticks_position('left')
 
         im = self._axis.imshow(self.spectrogram, aspect='auto',cmap='inferno',interpolation='nearest')
 
         #second "plot" to get different scales on x2, y2 axes
-        self._axis2.tick_params(axis='both',direction='inout',
-            length=8,bottom=False,left=False,top=True,right=True,pad=2)
-        self._axis2.yaxis.set_label_position('right')
-        self._axis2.yaxis.set_ticks_position('right')
+        # self._axis2.tick_params(axis='both',direction='inout',
+        #     length=8,bottom=False,left=False,top=True,right=True,pad=2)
+        # self._axis2.yaxis.set_label_position('right')
+        # self._axis2.yaxis.set_ticks_position('right')
         sa = self._s.spectral_axis
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
         # print(stop,step,np.arange(0,stop,step).shape)
-        im2 = self._axis2.plot(np.arange(0,stop,step),sa,linewidth=2)
+        im2 = self._axis2.plot(np.arange(0,stop,step),sa,linewidth=0)
+
+
+        self._axis.set_xlim(0,stop-0.5)
 
 
 
@@ -118,7 +121,7 @@ class ScanPlot:
         z_label = self._set_labels(self._s)
 
 
-        self._figure.colorbar(im,label=z_label)
+        self._figure.colorbar(im,label=z_label,pad=0.1)
 
     def _set_labels(self,s):
         #x1: bottom
@@ -132,6 +135,12 @@ class ScanPlot:
 
         y1_label = "Channel"
         self._axis.set_ylabel(y1_label)
+
+        y2_unit = s.spectral_axis.unit
+        if y2_unit.is_equivalent(u.Hz):
+            nu = r"$\nu$"
+            y2_label = f"{nu} ({y2_unit})"
+        self._axis2.set_ylabel(y2_label)
 
         z_unit = s.unit
         if z_unit.is_equivalent(u.K):
