@@ -201,7 +201,18 @@ class SDFITSLoad(object):
         # T* are in the binary table header
         # NAXIS* have a different meaning in the primary hdu, we want the bintable values
         # BITPIX, GCOUNT,PCOUNT,XTENSION are FITS reserved keywords
-        ignore = ["TUNIT", "TTYPE", "TFORM", "TFIELDS", "NAXIS", "COMMENT", "GCOUNT", "PCOUNT", "XTENSION", "BITPIX"]
+        ignore = [
+            "TUNIT",
+            "TTYPE",
+            "TFORM",
+            "TFIELDS",
+            "NAXIS",
+            "COMMENT",
+            "GCOUNT",
+            "PCOUNT",
+            "XTENSION",
+            "BITPIX",
+        ]
         cols = {}
         for h in self._hdu:
             c = dict(filter(lambda item: not any(sub in item[0] for sub in ignore), h.header.items()))
@@ -495,16 +506,16 @@ class SDFITSLoad(object):
         else:
             bunit = None
             h = self.binheader[0]
-            for k, v, c in h.cards:  # noqa: B007
+            for k, v, _c in h.cards:
                 if k == "BUNIT":
                     bunit = v
             ukey = None
-            for k, v, c in h.cards:  # loop over the (key,val,comment) for all cards in the header  # noqa: B007
+            for k, v, _c in h.cards:  # loop over the (key,val,comment) for all cards in the header
                 if v == "DATA":
                     ukey = "TUNIT" + k[5:]
                     break
             if ukey is not None:  # ukey should almost never be "None" in standard SDFITS
-                for k, v, c in h.cards:  # noqa: B007
+                for k, v, _c in h.cards:
                     if k == ukey:
                         if bunit != v:
                             logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
@@ -693,7 +704,14 @@ class SDFITSLoad(object):
         return outbintable
 
     def write(
-        self, fileobj, rows=None, bintable=None, flags=True, output_verify="exception", overwrite=False, checksum=False
+        self,
+        fileobj,
+        rows=None,
+        bintable=None,
+        flags=True,
+        output_verify="exception",
+        overwrite=False,
+        checksum=False,
     ):
         """
         Write the `SDFITSLoad` to a new file, potentially sub-selecting rows or bintables.
@@ -912,7 +930,10 @@ class SDFITSLoad(object):
                 n = self._nrows[i]
                 if isinstance(value, Column):
                     cut = Column(
-                        name=value.name, format=value.format, dim=value.dim, array=value.array[start : start + n]
+                        name=value.name,
+                        format=value.format,
+                        dim=value.dim,
+                        array=value.array[start : start + n],
                     )
                     self._bintable[i].columns.add_col(cut)
                 else:
@@ -1087,9 +1108,10 @@ class SDFITSLoad(object):
             warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
         try:
             self._update_column(d)
+            print(f"update column succeeded for {items}")
         except Exception as e:
             raise Exception(f"Could not update SDFITS binary table for {items} because {e}")  # noqa: B904
-        # only update the index if the binary table could be updated.
+        # only update the index if the binary table could not be updated.
         # DATA is not in the index.
         if "DATA" not in items:
             self._index[items] = values
