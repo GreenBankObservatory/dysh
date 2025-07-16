@@ -30,6 +30,7 @@ from dysh.util.selection import Selection
 from dysh.util.files import dysh_data
 
 from dysh.spectra import ScanBlock
+from dysh.spectra import Spectrum
 
 from astropy.io import fits
 #%%
@@ -72,19 +73,18 @@ def skyplot(sdf, scan=None, fdnum=8, size=None, title=None):
     @todo  add source and <ra,dec> to title
     @todo  add color bar with scan number as the scale
     """
-    # make a temporary fits file with the selected scans
-    sdf.write('skyplot.fits', scan=scan, overwrite=True, multifile=False)
-    #
-    sdf1 = GBTFITSLoad('skyplot.fits')
-    f=sdf1._index['FDNUM']
-    mask = f==fdnum
+    s0 = min(scan)
+    s1 = max(scan)
+    f=sdf._index['FDNUM']
+    s=sdf._index['SCAN']
+    mask = (f==fdnum) & (s >= s0) & (s <= s1)
     if mask.sum() == 0:
         print(f"no data for scan={scan}, fdnum={fdnum}")
         return
 
-    x=sdf1._index['CRVAL2'][mask]
-    y=sdf1._index['CRVAL3'][mask]
-    s=sdf1._index['SCAN'][mask]
+    x=sdf._index['CRVAL2'][mask]
+    y=sdf._index['CRVAL3'][mask]
+    s=sdf._index['SCAN'][mask]
 
     mz = (x!=0) | (y!=0)
     x = x[mz]
@@ -93,7 +93,8 @@ def skyplot(sdf, scan=None, fdnum=8, size=None, title=None):
     
     if size is None:
         #  this will make RA run the wrong way, see heatmap
-        plt.scatter(x, y, c=s)
+        sc=plt.scatter(x, y, c=s)
+        cbar = plt.colorbar(sc)
         #return (x,y,s)
     else:
         xc = x.mean()
@@ -523,6 +524,7 @@ sp1.stats()         # rms ~ 0.67
 
 
 #%%  OTF1::  L-band
+#    see also:  example/on_the_fly.ipynb
 
 __help__ = """
     SCAN         OBJECT VELOCITY       PROC  ...  # INT # FEED     AZIMUTH   ELEVATIO
@@ -560,36 +562,12 @@ sdf1 = GBTFITSLoad(f1)   #   ~  5 secs
 sdf1.summary()
 
 
-#%%  testing one scan
-# note INTNUM has odd values for scan=6
-
-if False:
-    mkdir("otf1")
-    scans=[20,27]
-    sdf1.write('otf1/file.fits',scan=scans, overwrite=True, ifnum=0, plnum=0)
-
-#  scans 14..26 is the DecLatMap  (procseq=1..13)
-#  scan 27 is a Track on the reference position
-
-# ifnum: 0..4    
-# fdnum: 0
-# plnum: 0..1
-
-sdf1.getsigref(scan=26, ref=27, fdnum=0, ifnum=0, plnum=0)
-# ValueError: cannot reindex on an axis with duplicate labels
-# error gone when fix 425 was merged
-
-
-#%%
-
-
-
 #%%   prepare a smaller sdfits just for NGC6946
 
 ifnum=0        # needs to be 0
 plnum=0        # pick 0 and 1 to average
 fdnum=0        # fixed
-nint = 61      # nunber of integrations per scan  (a.k.a. nrows/2)
+nint = 61      # nunber of integrations per scan  (a.k.a. nrows/2)    @todo    sb.nint
 intnum = 30    # pick something in the middle for a test
 sig = 20
 ref = 27
@@ -612,10 +590,16 @@ sp2.plot(xaxis_unit="km/s")
 
 # region between -2000 and -500   and 500..2000 can be used for baseline
 
-#%% pick sdf1 or sdf2 for speed testing the calibration portion
+#%% calibrate:
+   
+    
+# pick sdf = sdf1 or sdf2 for speed testing the calibration portion
+#    sdf1:  on the big one it takes ~ 1'12"
+#    sdf2:  small one it takes ~      6"
 
-# on the big one it takes ~ 1'12"
-# small one it takes ~      6"
+# sdf = sdf1    # big one (2300MB)
+sdf = sdf2    # just the relevant scans 14..27  (5MB)
+
 
 scans = list(range(14,27))
 nscan = len(scans)
@@ -624,22 +608,20 @@ ifnum = 0
 plnum = 0
 
 # test to get nint, nchan
-sb = sdf1.getsigref(scans[0], ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)[0]
+sb = sdf.getsigref(scans[0], ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)[0]
 nint = sb.nint - 1     # last integration always problematic
 nchan = sb.nchan
 print(f"Using nchan={nchan} and nint={nint}")
 
-# sdf = sdf1    # big one (2300MB)
-sdf = sdf2    # just the relevant scans 14..27  (5MB)
-
+# waterfall plot 
 ny = nscan*nint
 nx = nchan
-waterfall = np.zeros( (ny,nx), dtype=float)
+waterfall = np.zeros( (ny,nx), dtype=np.float32)
 sp1 = 0
 
-#  mode=0,1   ~5sec    - no real baseline subtraction
+#  mode=0,1   ~6sec    - no real baseline subtraction
 #  mode=2     ~60 sec  - baseline subtraction
-mode = 2
+mode = 1
 
 sb = ScanBlock()
 
@@ -683,13 +665,44 @@ plt.ylabel("Scan/Time")
 plt.colorbar(label="Ta*")
 
 
-#%%
+#%% write waterfall plot as fits
 
 hdu = fits.PrimaryHDU(waterfall)
-hdu.writeto('otf1-waterfall.fits', overwrite=True)
+hdu.writeto('otf1-waterfall.fits', overwrite=True)     #  10 ms
     
-sb.timeaverage().plot(xaxis_unit='chan',title='one')
+# sb.timeaverage().plot(xaxis_unit='chan',title='one')
     
+#%% write calibrated spectra
+#
+#    13 scans x 60 int x 4096 chan
+sb.write("otf-test2.fits", overwrite=True)    #  300 ms
+
+#%%   calibration the faster way with no baseline subtraction (pedro)
+
+
+sb0 =  sdf.getsigref(scan=scans, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=0)   # 2.7 sec
+sb0.write("otf-test2.fits", overwrite=True)  # 300 ms  - DATA not in col7
+
+#%% looping baseline subtraction - 63sec
+import math
+
+exclude = [(0,250),
+           (1600,2250),
+           (4095-250,4095)]
+
+
+for i,_s in enumerate(sb0):
+    print("SB ",i)
+    for j,_c in enumerate(_s._calibrated):
+        if math.isnan(_c.data.sum()):
+            # If the sum is NaN, then skip (continue) this item.
+            continue
+        s_i = _s.calibrated(j)
+        s_i.baseline(1, model="poly", exclude=exclude, remove=True)
+        _s._calibrated[j] -= s_i.baseline_model(s_i.spectral_axis).value
+        
+sb0.write("otf-test3.fits", overwrite=True)    # this cibe has slope cf. to Pedro's otf.fits   1e-4
+
 #%%   subtract a good baseline model from all scanblocks
 ta = sb.timeaverage()
 ta.plot(xaxis_unit='chan', title='two')
@@ -710,9 +723,6 @@ else:
     ta2.plot(xaxis_unit='chan', title='three')
     ta2.stats(qac=True)
 
-#%% write calibrated spectra
-sb.write("otf-test2.fits", overwrite=True)    #  300 ms
-
 
 
 
@@ -722,3 +732,105 @@ sb.write("otf-test2.fits", overwrite=True)    #  300 ms
 # gbtgridder --size 32 32  --channels 500:3500 -o test2 --clobber --auto otf-test2.fits
 # pixels:  2.9'  100x100 ->  
 # confirmed the two cubes from sdf1 and sdf2 are identical 
+
+#%%   oft3:  DR21   26GB
+
+#  13212 rows x 16 beams 
+    
+f3 = dysh_data(example='mapping-Argus/data/TGBT22A_603_05.raw.vegas')
+sdf3 = GBTFITSLoad(f3)
+sdf3.summary()
+
+
+scan_map = list(range(37,61))
+skyplot(sdf3,scan_map)
+
+#%%   otf4  Arp91 for EDGE
+
+f4 = dysh_data('/media/teuben/P1-1/teuben/GBT_EDGE/GBTRawdata/AGBT21B_024_20/')
+sdf4 = GBTFITSLoad(f4, skipflags=True)
+sdf4.summary()
+# 22,56 and 66,100
+plt.clf()
+skyplot(sdf4,[22,56],8,60)
+
+skyplot(sdf4,[66,100],8,60)
+
+
+plt.clf()
+skyplot(sdf4,[22,56],8)
+skyplot(sdf4,[66,100],8)
+
+#%% HI EDGE   on-off-on getsigref reduction
+
+f5 = dysh_data('AGBT15B_287_19/AGBT15B_287_19.raw.vegas')
+sdf5 = GBTFITSLoad(f5)
+sdf5.summary()
+
+sp1 = sdf5.getsigref(scan=56, ref=57, fdnum=0, ifnum=1, plnum=0).timeaverage()   # 12sec
+
+# accumulate all 12
+sp = []
+for s in [56, 59, 62]:
+    for plnum in [0,1]:
+        sp.append(sdf5.getsigref(scan=s,   ref=s+1, fdnum=0, ifnum=1, plnum=plnum).timeaverage())
+        sp.append(sdf5.getsigref(scan=s+2, ref=s+1, fdnum=0, ifnum=1, plnum=plnum).timeaverage())
+   
+# average all 12
+sp1 = sp[0].average(sp[1:])
+      
+# isolate the line  
+sp2 = sp1[5500:10000]    
+
+fr = 1.420405751786
+c = 299792.5
+vlsr = 1900
+v0 = vlsr - 500
+v1 = vlsr + 500
+
+
+f0 = fr * (1-v0/c)
+f1 = fr * (1-v1/c)
+
+my_slice = slice(f0 * u.GHz, f1 * u.GHz)
+    
+
+#%%   Performance
+
+def reduce3(sdf, gal, scan0, vlsr):
+    """   12 times a getsigref takes about 200"
+    """
+    sp = []
+    for s in [scan0, scan0+3, scan0+6]:
+        for plnum in [0,1]:
+            print(f"{gal} {s} {plnum}")
+            sp.append(sdf.getsigref(scan=s,   ref=s+1, fdnum=0, ifnum=1, plnum=plnum).timeaverage())
+            if s+2 < 88:   # last one incomplete
+                sp.append(sdf.getsigref(scan=s+2, ref=s+1, fdnum=0, ifnum=1, plnum=plnum).timeaverage())
+            
+    sp1 = sp[0].average(sp[1:])
+
+    meta = sp1.meta.copy()
+    meta["RESTFRQ"] = 1.420405751786e9
+    meta["RESTFREQ"] = 1.420405751786e9
+    sp1a = Spectrum.make_spectrum(sp1.flux, meta, observer=sp1.observer)
+    sp1a.plot(xaxis_unit="km/s", title=gal)
+    return sp1a
+
+g = [
+    ["NGC0528",    8,      4745.5 ],     # nothing ?
+    ["UGC04054",  17,      2130.8 ],     # strong,  peak 0.12 K
+    ["NGC2481",   32,      2172.0 ],     # weak, peak 0.02
+    ["NGC2604",   41,      2067.0 ],     # strong, peak ~ 0.2
+    ["NGC2805",   56,      1809.2 ],     # strong, peak ~ 1.5
+    ["NGC4211N",  65,      6542.7 ],     # weak, peak ~0.04
+    ["NGC3057",   80,      1516.4 ],     # strong, peak ~0.2     rms=0.008
+]
+
+for gal in g:
+    sp = reduce3(sdf5, gal[0], gal[1], gal[2])
+    
+
+    
+    
+    
