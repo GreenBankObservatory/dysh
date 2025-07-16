@@ -72,10 +72,6 @@ class ScanPlot:
         self.spectrogram = self.spectrogram.T
         self._s = self._scanblock_or_scan.timeaverage()
 
-
-
-
-
     def plot(self, **kwargs):
         """hi hello"""
 
@@ -86,6 +82,9 @@ class ScanPlot:
         #self._set_xaxis_info()
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
+
+        cmap = kwargs.get("cmap", "inferno")
+        interpolation = kwargs.get("interpolation", "nearest")
 
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10,6))
@@ -99,7 +98,11 @@ class ScanPlot:
         # self._axis.yaxis.set_label_position('left')
         # self._axis.yaxis.set_ticks_position('left')
 
-        im = self._axis.imshow(self.spectrogram, aspect='auto',cmap='inferno',interpolation='nearest')
+        self.im = self._axis.imshow(self.spectrogram,
+            aspect='auto',
+            cmap=cmap,
+            interpolation=interpolation
+            )
 
         #second "plot" to get different scales on x2, y2 axes
         # self._axis2.tick_params(axis='both',direction='inout',
@@ -112,16 +115,9 @@ class ScanPlot:
         # print(stop,step,np.arange(0,stop,step).shape)
         im2 = self._axis2.plot(np.arange(0,stop,step),sa,linewidth=0)
 
-
         self._axis.set_xlim(0,stop-0.5)
-
-
-
-
         z_label = self._set_labels(self._s)
-
-
-        self._figure.colorbar(im,label=z_label,pad=0.1)
+        self._figure.colorbar(self.im,label=z_label,pad=0.1)
 
     def _set_labels(self,s):
         #x1: bottom
@@ -154,6 +150,8 @@ class ScanPlot:
     def reset(self):
         self._plot_kwargs = {
             "title": None,
+            "cmap": 'inferno',
+            "interpolation": "nearest",
         }
 
     def _set_header(self, s):
@@ -252,6 +250,22 @@ class ScanPlot:
         self._axis.annotate(
             f"{ts}", (hcoord_bot - 0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right"
         )
+
+    def set_clim(self, vmin, vmax):
+        """
+        Set the vmin and vmax parameters of the image.
+
+        Parameters
+        ----------
+        vmin : float
+            The minimum value of the color scale.
+        vmax : float
+            The maximum value of the color scale.
+        """
+        self.im.set_clim(vmin=vmin, vmax=vmax)
+
+    
+
 
 
 
