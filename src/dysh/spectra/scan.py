@@ -250,6 +250,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
+        self._plotter = None
 
     def _validate_defaults(self):
         _required = {
@@ -843,6 +844,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         """
         self._make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+
+    def plot(self, **kwargs):
+        if self._plotter is None:
+            self._plotter = sp.ScanPlot(self,**kwargs)
+        self._plotter.plot(**kwargs)
+        return self._plotter
 
     def __len__(self):
         return self._nint

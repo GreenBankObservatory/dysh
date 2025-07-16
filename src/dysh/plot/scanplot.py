@@ -66,7 +66,7 @@ class ScanPlot:
 
         # handle scans
         elif self._type in acceptable_types:
-            self.spectrogram = self._calibrated
+            self.spectrogram = self._scan._calibrated
             self._scan_nos = self._scan.scan
 
         self.spectrogram = self.spectrogram.T
