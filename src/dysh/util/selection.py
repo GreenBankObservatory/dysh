@@ -1,3 +1,4 @@
+import datetime
 import numbers
 import warnings
 from collections.abc import Sequence
@@ -62,7 +63,8 @@ class SelectionBase(DataFrame):
         # adding attributes that are not columns will result
         # in a UserWarning, which we can safely ignore.
         warnings.simplefilter("ignore", category=UserWarning)
-        self._add_utc_column()
+        # self._add_utc_column()
+        self._add_datetime_column()
         self["CHAN"] = None
         # if we want Selection to replace _index in sdfits
         # construction this will have to change. if hasattr("_index") etc
@@ -83,7 +85,16 @@ class SelectionBase(DataFrame):
         self._defkeys = DEFKEYS
         self._deftypes = dt
         self._make_table()
-        self._valid_coordinates = ["RA", "DEC", "GALLON", "GALLAT", "GLON", "GLAT", "CRVAL2", "CRVAL3"]
+        self._valid_coordinates = [
+            "RA",
+            "DEC",
+            "GALLON",
+            "GALLAT",
+            "GLON",
+            "GLAT",
+            "CRVAL2",
+            "CRVAL3",
+        ]
         self._selection_rules = {}
         self._aliases = {}
         self.alias(aliases)
@@ -101,7 +112,20 @@ class SelectionBase(DataFrame):
         -------
         None.
         """
-        self["UTC"] = gbt_timestamp_to_time(self.TIMESTAMP)
+        self["UTCXX"] = gbt_timestamp_to_time(self.TIMESTAMP)
+
+    def _add_datetime_column(self):
+        """
+        Add column to the selection/flag dataframe with a
+        representation of the SDFITS DATE-OBS which is a string,
+        as an `~np.datetime64`.
+
+        Returns
+        -------
+        None.
+
+        """
+        self["UTC"] = pd.to_datetime(self["DATE-OBS"])  # , utc=True)
 
     def _make_table(self):
         """Create the table for displaying the selection rules"""
@@ -331,7 +355,11 @@ class SelectionBase(DataFrame):
             raise KeyError(f"The following keywords were not recognized: {unrecognized}")
 
     def _check_numbers(self, **kwargs):
-        self._check_type(numbers.Number, "Expected numeric value for these keywords but did not get a number", **kwargs)
+        self._check_type(
+            numbers.Number,
+            "Expected numeric value for these keywords but did not get a number",
+            **kwargs,
+        )
 
     def _check_range(self, **kwargs):
         bad = []
@@ -346,7 +374,7 @@ class SelectionBase(DataFrame):
                         a = self._sanitize_coordinates(ku, a)
                     try:
                         if ku == "UTC":
-                            badtime = self._check_type(Time, "Expected Time", silent=True, **{ku: a})
+                            badtime = self._check_type(np.datetime64, "Expected np.datetime64", silent=True, **{ku: a})
                         else:
                             self._check_numbers(**{ku: a})
                     except ValueError:
@@ -355,7 +383,7 @@ class SelectionBase(DataFrame):
             msg = "Expected"
             a = " "
             if len(badtime) > 0:
-                msg += f" Time object for {badtime}"
+                msg += f" np.datetime64 object for {badtime}"
                 a = " and "
             if len(bad) > 0:
                 msg += a
@@ -486,6 +514,37 @@ class SelectionBase(DataFrame):
         self._table.sort(self._idtag[0])
         # self._last_row_added = row
 
+    def _replace_time(self, **kwargs):
+        """Replace astropy.Time and datetime.datetime objects in a kwargs list with numpy.datetime64 equivalent.
+        This is need because UTC is a datetime64 column but we want users to be able to input Time or datetime if desired
+
+        Parameters
+        ---------
+        kwargs : dict
+            dictionary of keywords/values
+
+        Returns
+        ------
+            dict of updated values.
+        """
+        kc = kwargs.copy()
+        for k, v in kc.items():
+            if isinstance(v, Time):
+                kc[k] = v.datetime64
+            elif isinstance(v, datetime.datetime):
+                kc[k] = np.datetime64(v)
+            # @todo could probably do this with a clever recursive call to _replace_time.
+            elif isinstance(v, (Sequence, np.ndarray)) and not isinstance(v, str):
+                if isinstance(v, tuple):
+                    v = list(v)
+                for i in range(len(v)):
+                    if isinstance(v[i], Time):
+                        v[i] = v[i].datetime64
+                    elif isinstance(v[i], datetime.datetime):
+                        v[i] = np.datetime64(v[i])
+                kc[k] = v
+        return kc
+
     def _base_select(self, tag=None, **kwargs):
         """Add one or more exact selection/flag rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected/flagged.
@@ -531,8 +590,8 @@ class SelectionBase(DataFrame):
                 for vv in v:
                     if ku == "UTC":
                         self._check_type(
-                            Time,
-                            "Expected Time object but got something else.",
+                            np.datetime64,
+                            "Expected np.datetime64 object but got something else.",
                             **{ku: vv},
                         )
                     # if it is a string, then OR them.
@@ -605,6 +664,7 @@ class SelectionBase(DataFrame):
 
         """
         self._check_keys(kwargs.keys())
+        kwargs.update(self._replace_time(**kwargs))
         self._check_range(**kwargs)
         row = {}
         df = self
@@ -1265,7 +1325,17 @@ class Flag(SelectionBase):
         f = open(fileobj, mode="r")
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
-        header = ["RECNUM", "SCAN", "INTNUM", "PLNUM", "IFNUM", "FDNUM", "BCHAN", "ECHAN", "IDSTRING"]
+        header = [
+            "RECNUM",
+            "SCAN",
+            "INTNUM",
+            "PLNUM",
+            "IFNUM",
+            "FDNUM",
+            "BCHAN",
+            "ECHAN",
+            "IDSTRING",
+        ]
         found_header = False
         for l in lines[lines.index("[flags]") + 1 :]:
             vdict = {}
