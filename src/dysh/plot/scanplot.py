@@ -70,6 +70,7 @@ class ScanPlot:
             self._scan_nos = self._scan.scan
 
         self.spectrogram = self.spectrogram.T
+        self._s = self._scanblock_or_scan.timeaverage()
 
 
 
@@ -81,7 +82,6 @@ class ScanPlot:
         self.__init__(self._scanblock_or_scan, **kwargs)
         plt.ion()
 
-        s = self._scanblock_or_scan
 
         #self._set_xaxis_info()
         this_plot_kwargs = deepcopy(self._plot_kwargs)
@@ -92,7 +92,7 @@ class ScanPlot:
 
 
         self._figure.subplots_adjust(top=0.8, left=0.1, right=0.9)
-        self._set_header(s)
+        self._set_header(self._s)
 
         ax_lw = 3
         self._axis.tick_params(axis='both',direction='inout',length=8,top=True,right=True,pad=2)
@@ -101,8 +101,32 @@ class ScanPlot:
         # self._axis.spines['left'].set_linewidth(ax_lw)
         # self._axis.spines['right'].set_linewidth(ax_lw)
         #print(self.spectrogram)
-        im = self._axis.imshow(self.spectrogram, aspect='auto',cmap='inferno')
-        self._figure.colorbar(im)
+        im = self._axis.imshow(self.spectrogram, aspect='auto',cmap='inferno',interpolation='nearest')
+        z_label = self._set_labels(self._s)
+
+
+        self._figure.colorbar(im,label=z_label)
+
+    def _set_labels(self,s):
+        #x1: bottom
+        #x2: top
+        #y1: left
+        #y2: right
+        #z: colorbar
+
+        x1_label = "Integration"
+        self._axis.set_xlabel(x1_label)
+
+        y1_label = "Channel"
+        self._axis.set_ylabel(y1_label)
+
+        z_unit = s.unit
+        if z_unit.is_equivalent(u.K):
+            z_label = f"$T_A$ ({z_unit})"
+        elif z_unit.is_equivalent(u.Jy):
+            snu = r"$S_{\nu}$"
+            z_label = f"{snu} ({z_unit})"
+        return z_label
 
 
     def reset(self):
@@ -110,13 +134,11 @@ class ScanPlot:
             "title": None,
         }
 
-    def _set_header(self, scan):
+    def _set_header(self, s):
         fsize_small = 9
         fsize_large = 14
         xyc = "figure fraction"
 
-        #get metadata
-        s = scan.timeaverage()
 
         hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
         vcoords = np.array([0.94, 0.9, 0.86])
