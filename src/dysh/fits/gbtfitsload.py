@@ -628,6 +628,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
         `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
         limits may also be specified by a one-element tuple `key1 = (v1,)`.
+
+        For time values, :class:`~astropy.time.Time`, :class:`~np.datetime64` and :class:`~datetime.datetime` are supported.
         See `~dysh.util.selection.Selection`.
 
         Parameters
@@ -653,9 +655,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Select a value within a plus or minus for a given key(s).
         e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
         Will select data
+
         `value1-epsilon1 <= data1 <= value1+epsilon1,`
         `value2-epsilon2 <= data2 <= value2+epsilon2,...`
 
+        For time values, :class:`~astropy.time.Time`, :class:`~np.datetime64` and :class:`~datetime.datetime` are supported.
         See `~dysh.util.selection.Selection`.
 
         Parameters
@@ -747,6 +751,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
         `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
         limits may also be specified by a one-element tuple `key1 = (v1,)`.
+
+        For time values, :class:`~astropy.time.Time`, :class:`~np.datetime64` and :class:`~datetime.datetime` are supported.
+
         See `~dysh.util.selection.Flag`.
 
         Parameters
@@ -772,8 +779,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Flag a value within a plus or minus for a given key(s).
         e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
         Will select data
+
         `value1-epsilon1 <= data1 <= value1+epsilon1,`
         `value2-epsilon2 <= data2 <= value2+epsilon2,...`
+
+        For time values, :class:`~astropy.time.Time`, :class:`~np.datetime64` and :class:`~datetime.datetime` are supported.
 
         See `~dysh.util.selection.Flag`.
 
@@ -2855,10 +2865,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             vane_scan = scan - 1
 
         vane = self.gettp(
-            scan=vane_scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True, cal=False, apply_flags=apply_flags
+            scan=vane_scan,
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            calibrate=True,
+            cal=False,
+            apply_flags=apply_flags,
         ).timeaverage()
         sky = self.gettp(
-            scan=sky_scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True, cal=False, apply_flags=apply_flags
+            scan=sky_scan,
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            calibrate=True,
+            cal=False,
+            apply_flags=apply_flags,
         ).timeaverage()
 
         if twarm is None:
@@ -2868,7 +2890,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             try:
                 gbwf = GBTWeatherForecast()
                 _, _, zenith_opacity = gbwf.fetch(
-                    vartype="Opacity", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd
+                    vartype="Opacity",
+                    specval=sky.spectral_axis.quantity.mean(),
+                    mjd=sky.obstime.mjd,
                 )
             except ValueError as e:
                 logger.debug("Could not get forecasted zenith opacity ", e)
