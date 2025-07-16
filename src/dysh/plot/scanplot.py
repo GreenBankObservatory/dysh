@@ -89,19 +89,32 @@ class ScanPlot:
 
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10,6))
+            self._axis2 = self._figure.add_subplot(self._axis)
 
 
         self._figure.subplots_adjust(top=0.8, left=0.1, right=0.9)
         self._set_header(self._s)
 
-        ax_lw = 3
-        self._axis.tick_params(axis='both',direction='inout',length=8,top=True,right=True,pad=2)
-        # self._axis.spines['bottom'].set_linewidth(ax_lw)
-        # self._axis.spines['top'].set_linewidth(ax_lw)
-        # self._axis.spines['left'].set_linewidth(ax_lw)
-        # self._axis.spines['right'].set_linewidth(ax_lw)
-        #print(self.spectrogram)
+        self._axis.tick_params(axis='both',direction='inout',length=8,top=False,right=False,pad=2)
+        self._axis.yaxis.set_label_position('left')
+        self._axis.yaxis.set_ticks_position('left')
+
         im = self._axis.imshow(self.spectrogram, aspect='auto',cmap='inferno',interpolation='nearest')
+
+        #second "plot" to get different scales on x2, y2 axes
+        self._axis2.tick_params(axis='both',direction='inout',
+            length=8,bottom=False,left=False,top=True,right=True,pad=2)
+        self._axis2.yaxis.set_label_position('right')
+        self._axis2.yaxis.set_ticks_position('right')
+        sa = self._s.spectral_axis
+        stop = self.spectrogram.shape[1]
+        step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
+        # print(stop,step,np.arange(0,stop,step).shape)
+        im2 = self._axis2.plot(np.arange(0,stop,step),sa,linewidth=2)
+
+
+
+
         z_label = self._set_labels(self._s)
 
 
