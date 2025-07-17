@@ -482,8 +482,9 @@ class SpectrumPlot:
         """
         # clear baseline models
         if blines:
-            for bline in self._blines:
-                bline.set_ydata(np.ones(len(bline.get_ydata())) * np.nan)
+            for b in self._axis.lines:
+                if b.get_gid() == "baseline":
+                    b.remove()
 
 
 class InteractiveSpanSelector:

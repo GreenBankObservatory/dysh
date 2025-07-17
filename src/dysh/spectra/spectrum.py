@@ -234,15 +234,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 self._plotter.clear_overlays(blines=True)
                 if not self._plotter._freezey:
                     self._plotter.freey()
-                # ydiff = np.max(self._data) - np.min(self._data)
-                # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
-                # self._plotter._figure.canvas.flush_events()
             else:
                 self._plotter._axis.plot(
-                    self.spectral_axis, self._baseline_model(self.spectral_axis), c=color, gid="baseline"
-                )
-                # self._plotter._blines.append(lines[0])
-                print(self._plotter._blines)
+                    self.spectral_axis,
+                    self._baseline_model(self.spectral_axis),
+                    c=color,
+                    gid="baseline"
+                    )
                 self._plotter.refresh()
 
     # baseline
