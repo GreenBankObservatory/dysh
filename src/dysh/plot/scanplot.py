@@ -38,7 +38,7 @@ class ScanPlot:
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
 
         #determine if input is a ScanBlock or a ScanBase (raise exception if neither)
-        self._type = str(type(scanblock_or_scan)).split(".")[-1][:-2]
+        self._type = scanblock_or_scan.__class__.__name__
         if self._type == "ScanBlock":
             self._scanblock = scanblock_or_scan
             self._num_scans = len(self._scanblock)
@@ -264,7 +264,28 @@ class ScanPlot:
         """
         self.im.set_clim(vmin=vmin, vmax=vmax)
 
-    
+    def set_interpolation(self,interpolation = "nearest"):
+        """
+        Set the interpolation of the image.
+
+        Parameters
+        ----------
+        interpolation : str
+            Interpolation method. Default: "nearest".
+        """
+        self.im.set_interpolation(interpolation)
+
+    def set_cmap(self,cmap="inferno"):
+        """
+        Set the cmap of the image.
+
+        Parameters
+        ----------
+        cmap : str
+            cmap used for the color scale. Default: "inferno".
+        """
+        self.im.set_cmap(cmap)
+
 
 
 
