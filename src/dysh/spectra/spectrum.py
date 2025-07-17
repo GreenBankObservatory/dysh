@@ -236,11 +236,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     self._plotter.freey()
             else:
                 self._plotter._axis.plot(
-                    self.spectral_axis,
-                    self._baseline_model(self.spectral_axis),
-                    c=color,
-                    gid="baseline"
-                    )
+                    self.spectral_axis, self._baseline_model(self.spectral_axis), c=color, gid="baseline"
+                )
                 self._plotter.refresh()
 
     # baseline
