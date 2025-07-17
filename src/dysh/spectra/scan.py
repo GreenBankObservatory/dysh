@@ -885,6 +885,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         self._nfeed = 0  # always 1?
         self._nif = 0  # always 1?
         self._timeaveraged = []
+        self._plotter = None
 
     @log_call_to_history
     def calibrate(self, **kwargs):
