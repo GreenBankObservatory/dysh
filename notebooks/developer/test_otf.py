@@ -28,6 +28,7 @@ from dysh.fits.gbtfitsload import GBTFITSLoad
 import dysh.util as util
 from dysh.util.selection import Selection
 from dysh.util.files import dysh_data
+from dysh.util.files import dysh_data as dd
 
 from dysh.spectra import ScanBlock
 from dysh.spectra import Spectrum
@@ -738,7 +739,7 @@ else:
 #  13212 rows x 16 beams 
     
 f3 = dysh_data(example='mapping-Argus/data/TGBT22A_603_05.raw.vegas')
-sdf3 = GBTFITSLoad(f3)
+sdf3 = GBTFITSLoad(f3)   # 
 sdf3.summary()
 
 
@@ -809,6 +810,7 @@ def reduce3(sdf, gal, scan0, vlsr):
                 sp.append(sdf.getsigref(scan=s+2, ref=s+1, fdnum=0, ifnum=1, plnum=plnum).timeaverage())
             
     sp1 = sp[0].average(sp[1:])
+    sp1.radial_velocity.value    # vlsr
 
     meta = sp1.meta.copy()
     meta["RESTFRQ"] = 1.420405751786e9
@@ -816,6 +818,55 @@ def reduce3(sdf, gal, scan0, vlsr):
     sp1a = Spectrum.make_spectrum(sp1.flux, meta, observer=sp1.observer)
     sp1a.plot(xaxis_unit="km/s", title=gal)
     return sp1a
+
+
+def reduce(sdf, gal, ifnum=1):
+    """   Reduce series of ON-OFF-ON for a given galaxy, and co-add then
+          Allows incomplete triples (e.g. sometimes last one is just ON-OFF)
+          Also fix the restfreq
+          Returns the full spectrum
+    """
+    df = sdf.summary()
+    scans = df[df['OBJECT']==gal]['SCAN'].tolist()
+    scan0 = scans[0]
+    n3 = len(scans)//3
+    
+    print(f"{gal} in scans {scans}")
+    
+    sp = []
+    for s in [scan0, scan0+3, scan0+6]:
+        for plnum in [0,1]:
+            print(f"{gal} {s} {plnum} {ifnum}")
+            try:
+                sp.append(sdf.getsigref(scan=s,   ref=s+1, fdnum=0, ifnum=ifnum, plnum=plnum).timeaverage())
+            except:
+                print("no 1st ON scan")                
+                pass
+            print(f"{gal} {s+2} {plnum} {ifnum}")
+            try:
+                sp.append(sdf.getsigref(scan=s+2, ref=s+1, fdnum=0, ifnum=ifnum, plnum=plnum).timeaverage())
+            except:
+                print("no 2nd ON scan")
+                pass
+                
+    if len(sp) == 0:
+        print("no data found ....")
+        return None
+            
+    sp1 = sp[0].average(sp[1:])
+    sp1.radial_velocity.value    # vlsr
+
+    meta = sp1.meta.copy()
+    meta["RESTFRQ"] = 1.420405751786e9
+    meta["RESTFREQ"] = 1.420405751786e9
+    sp1a = Spectrum.make_spectrum(sp1.flux, meta, observer=sp1.observer)
+    sp1a.plot(xaxis_unit="km/s", title=gal)
+    plot_name = f"spectrum_{gal}.png"
+    plt.savefig(plot_name)
+    print(f"Written {plot_name}")
+    return sp1a
+
+#%%
 
 g = [
     ["NGC0528",    8,      4745.5 ],     # nothing ?
@@ -831,6 +882,20 @@ for gal in g:
     sp = reduce3(sdf5, gal[0], gal[1], gal[2])
     
 
+ # sp.radial_velocity.value   
     
     
-    
+#%% selecting galaxies from sdf5
+
+s5 = sdf5.summary()
+s5a = s5[s5['PROC'] == 'Track']
+
+gals = s5a['OBJECT'].unique()
+
+# 
+g = 'NGC2805'
+
+scans = s5a[s5a['OBJECT']==g]['SCAN'].tolist()
+sp={}
+for g in gals:
+  sp[g] = reduce(sdf5, g)  
