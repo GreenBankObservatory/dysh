@@ -73,6 +73,7 @@ def init_shell(
     from astropy.table import Table
 
     from dysh.fits.gbtfitsload import GBTFITSLoad, GBTOffline, GBTOnline
+    from dysh.util.files import dysh_data
 
     user_ns = {
         "pd": pd,
@@ -80,6 +81,7 @@ def init_shell(
         "GBTFITSLoad": GBTFITSLoad,
         "GBTOnline": GBTOnline,
         "GBTOffline": GBTOffline,
+        "dysh_data" : dysh_data,
         "Table": Table,
         "fits": fits,
     }
