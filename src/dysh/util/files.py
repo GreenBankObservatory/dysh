@@ -18,6 +18,7 @@ import dysh.util as util
 from dysh.util.download import from_url
 
 from ..util import minimum_string_match
+from dysh.log import logger
 
 _debug = False
 # _debug = True
@@ -29,17 +30,22 @@ _debug = False
 # fmt:off
 
 # $DYSH/testdata
+# ~300 MB
 valid_dysh_test = {
-    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'
-    "getps"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
-    "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
+    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'      # NGC5291
+    "getps"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415
+    "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits", # W3OH
+    "subbeamnod" : "TRCO_230413_Ka",
+
 }
 
 
 # http://www.gb.nrao.edu/dysh/example_data or /home/dysh/example_data or $DYSH_DATA/example_data
 # @todo   see if we want the staff training datasets in here
+# ~410 GB
 valid_dysh_example = {
-    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",   # staff training PS      same as test='test1'
+    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",
+                   # staff training PS      same as test='test1'
     "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",
                    #    positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/"
     "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",
@@ -49,7 +55,8 @@ valid_dysh_example = {
                    #    subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/"   # staff training SBN
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas",    # nodding example (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas      # FS example in data_reduction (scan 64)
-    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas",   # OTF L-band example NGC6946
+    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas",      # OTF L-band example NGC6946
+    "otf3"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas",  # OTF Argus  DR21
 }
 
 
@@ -59,6 +66,7 @@ valid_dysh_example = {
 # AGBT13A_240_03  AGBT16B_392_01  AGBT18B_014_02  AGBT19B_096_08  TGBT21A_501_10
 # AGBT14B_480_06  AGBT17B_004_14  AGBT18B_354_03  AGBT20B_336_01  TREG_050627
 # AGBT15B_228_08  AGBT17B_319_06  AGBT19A_080_01  AGBT22A_325_15  TSCAL_19Nov2015
+# ~ 33 GB
 valid_dysh_accept = {
     "nod1"       : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas",
     "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated
@@ -79,7 +87,7 @@ valid_dysh_accept = {
 # fmt: on
 
 
-def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None, verbose=False):
+def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None, gui=False):
     r"""
     Resolves the filename within the GBO dysh data system without the need for an absolute path.
 
@@ -90,6 +98,8 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     Only one of the keywords sdfits=, test=, example=, accept= can be given to probe for data. They are
     processed in that order, whichever comes first.
+
+    gui mode is experimental
 
 
     Locations of various dysh_data directory roots:  ($DYSH is the repo root for developers)
@@ -161,6 +171,16 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
         return parents[0]
 
+    def use_gui(my_dir):
+        logger.debug(f"Using the GUI on {my_dir} is totally experimental.")
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        file_path = filedialog.askopenfilename(initialdir=my_dir)
+        # dirname = filedialog.askdirectory()
+        return file_path        
+
     # 1.  find out if there is a dysh_data (or use $DYSH_DATA, or a .dyshrc config?)
     #     - if present, API dysh_data is used
     #     - if present, $DYSH_DATA is used
@@ -169,22 +189,25 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     #     - if that still fails, look at current working directory
     #     - throw!?
     #     ? e.g. dysh_data('foo.fits') ->   sdfits='foo.fits'
-
+    print("PJT testing")
     if dysh_data == None and "DYSH_DATA" in os.environ:  # noqa: E711
         dysh_data = Path(os.environ["DYSH_DATA"])
-    if verbose:
-        print("DYSH_DATA:", dysh_data)
+        logger.info(f"DYSH_DATA: {dysh_data}")
+    logger.debug(f"DYSH_DATA: {dysh_data}")
 
     # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present (in that order)
 
     # sdfits:   the main place where GBO data reside
 
     if sdfits != None:  # noqa: E711
-        if sdfits == "?":
+        if sdfits == '!':
+            return use_gui(dysh_data / Path("sdfits") / sdfits)
+        
+        if sdfits == "?" or sdfits == '*':
             if dysh_data == None:  # noqa: E711
                 dd = Path("/home/sdfits")
             else:
-                dd = dysh_data / "sdfits"
+                dd = Path(dysh_data) / "sdfits"
             # @todo figure out listing of file OS agnostic
             cmd = "ls %s" % dd
             print("# dysh_data::sdfits")
@@ -223,8 +246,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 fn = util.get_project_testdata() / my_test
         else:
             fn = util.get_project_testdata() / my_test
-        if verbose:
-            print("final:", fn)
+        logger.debug(f"final: {fn}")
         if fn.exists():  # @todo this catches files and directories
             return fn
         print("Could not find", fn)
@@ -256,8 +278,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("Odd-2, did not find", fn)
         # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/example_data/" + my_example
-        if verbose:
-            print("url:", url)
+        logger.debug(f"url: {url}")
         filename = url.split("/")[-1]
         if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")
@@ -297,8 +318,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("Odd-2, did not find", fn)
         # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/acceptance_testing/data/" + my_accept
-        if verbose:
-            print("url:", url)
+        logger.debug(f"url: {url}")
         filename = url.split("/")[-1]
         if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")
@@ -314,6 +334,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     print("You have not given one of:   sdfits=, test=, example=, accept=")
     print("or use =? as argument to get a list of valid shortcuts")
+    print(f"DYSH_DATA = {dysh_data}")
     return None
 
 
