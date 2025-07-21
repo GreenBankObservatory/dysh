@@ -16,7 +16,6 @@ class TestPSScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        print("SDF ", type(sdf))
         tps = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
         tsys = tps[0].tsys
 
@@ -61,12 +60,10 @@ class TestPSScan:
 
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
-        print(f"{sdf_file=}")
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
-        print(np.shape(ps_scans[0]._calibrated), np.shape(ps_scans[1]._calibrated))
         ta = ps_scans.timeaverage()
 
         hdu = fits.open(gbtidl_file)
@@ -424,7 +421,7 @@ class TestTPScan:
         assert np.all((data[0] - tpavg.flux.value.astype(np.float32)) == 0.0)
 
 
-class TestFScan:
+class TestFSScan:
     def test_getfs_with_args(self, data_dir):
         sdf_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         gbtidl_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.cal.vegas.fits"
@@ -432,7 +429,6 @@ class TestFScan:
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
 
-        print("MWP: NO FOLD")
         fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False, debug=True)
         ta = fsscan.timeaverage(weights="tsys")
         #    we're using astropy access here, and use gbtfitsload.GBTFITSLoad() in the other test
@@ -444,7 +440,6 @@ class TestFScan:
         nm = np.nanmean(data[0] - ta.flux.value.astype(np.float32))
         assert abs(nm) <= level
 
-        print("MWP: FOLD")
         fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True)
         ta = fsscan.timeaverage(weights="tsys")
         # We will be using GBTFITSLoad() here instead of astropy.
@@ -473,6 +468,18 @@ class TestFScan:
 
     def test_getfs_with_selection(self, data_dir):
         assert True
+
+
+class TestNodScan:
+    def test_nodscan(self):
+        """
+        Test for `getnod` using data with noise diode.
+        """
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf.getnod(scan=62, ifnum=0, plnum=0)
+        # really there should be some basic tests here!
 
 
 class TestScanBlock:
@@ -538,3 +545,24 @@ class TestScanBlock:
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0, calibrate=False)
         with pytest.raises(ValueError):
             sb.subtract_baseline(ta.baseline_model)
+
+    def test_smooth(self, data_dir):
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        rdata = np.random.rand(*sb[0]._calibrated.shape)
+        rmask = sb[0]._calibrated.mask
+        for width in [3, 5]:
+            sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
+
+            mean = np.nanmean(sb[0]._calibrated)
+            std = np.std(sb[0]._calibrated)
+            sb[0].smooth(method="box", width=width, decimate=-1)
+            hmean = np.nanmean(sb[0]._calibrated)
+            hstd = np.std(sb[0]._calibrated)
+            assert hmean == pytest.approx(mean, rel=1e-5)
+            assert std / hstd == pytest.approx(np.sqrt(width), abs=1e-2)
+            sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
+            sb[0].smooth(method="box", width=width, decimate=0)
+            assert all(sb[0].delta_freq == np.array([x["CDELT1"] for x in sb[0].meta]))

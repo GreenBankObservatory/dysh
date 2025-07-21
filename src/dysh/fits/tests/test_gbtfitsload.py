@@ -387,10 +387,22 @@ class TestGBTFITSLoad:
             if v["SIG"] == False:  # noqa: E712
                 with pytest.raises(Exception):
                     tps = sdf.gettp(
-                        scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], fdnum=0, cal=v["CAL"], sig=v["SIG"]
+                        scan=v["SCAN"],
+                        ifnum=v["IFNUM"],
+                        plnum=v["PLNUM"],
+                        fdnum=0,
+                        cal=v["CAL"],
+                        sig=v["SIG"],
                     )
                 continue
-            tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], fdnum=0, cal=v["CAL"], sig=v["SIG"])
+            tps = sdf.gettp(
+                scan=v["SCAN"],
+                ifnum=v["IFNUM"],
+                plnum=v["PLNUM"],
+                fdnum=0,
+                cal=v["CAL"],
+                sig=v["SIG"],
+            )
             if v["CAL"]:
                 assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
             tp = tps.timeaverage(weights=None)
@@ -595,7 +607,7 @@ class TestGBTFITSLoad:
         hdu.close()
         gbtidl_spec = table["DATA"][0]
 
-        diff = ta.flux.to("K").value.astype(np.float32) - gbtidl_spec
+        diff = np.ma.MaskedArray(ta.flux.to("K").value.astype(np.float32) - gbtidl_spec, ta.mask)
 
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
         assert ta.meta["EXPOSURE"] == table["EXPOSURE"][0]
@@ -1486,13 +1498,21 @@ def test_parse_tsys():
     # List of lists case.
     tsys = [[50, 60], [55, 65]]
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
-    expected = {1: np.array([tsys[0], tsys[1]]), 2: np.array([tsys[0], tsys[1]]), 3: np.array([tsys[0], tsys[1]])}
+    expected = {
+        1: np.array([tsys[0], tsys[1]]),
+        2: np.array([tsys[0], tsys[1]]),
+        3: np.array([tsys[0], tsys[1]]),
+    }
     compare_tsys_dicts(_tsys, expected)
 
     # ndarray case.
     tsys = np.array([[50, 60], [55, 65]])
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
-    expected = {1: np.array([tsys[0], tsys[1]]), 2: np.array([tsys[0], tsys[1]]), 3: np.array([tsys[0], tsys[1]])}
+    expected = {
+        1: np.array([tsys[0], tsys[1]]),
+        2: np.array([tsys[0], tsys[1]]),
+        3: np.array([tsys[0], tsys[1]]),
+    }
     compare_tsys_dicts(_tsys, expected)
 
     # dict case.

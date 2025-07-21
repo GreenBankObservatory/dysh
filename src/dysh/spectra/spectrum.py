@@ -40,8 +40,11 @@ from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
 from . import (
+    FWHM_TO_STDDEV,
+    available_smooth_methods,
     baseline,
     curve_of_growth,
+    decimate,
     exclude_to_spectral_region,
     get_spectral_equivalency,
     spectral_region_to_list_of_tuples,
@@ -119,7 +122,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self.mask is None:
             self._mask = np.full(np.shape(self.flux), False)
         self._baseline_model = None
-        self._bline = None
         self._subtracted = False
         self._normalized = False
         self._exclude_regions = None
@@ -229,16 +231,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is not None:
             if kwargs_opts["remove"]:
                 self._plotter._line.set_ydata(self._data)
-                if self._bline is not None:
-                    self._bline.set_ydata(np.ones(len(self.flux)) * np.nan)
+                self._plotter.clear_overlays(blines=True)
                 if not self._plotter._freezey:
                     self._plotter.freey()
-                # ydiff = np.max(self._data) - np.min(self._data)
-                # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
-                # self._plotter._figure.canvas.flush_events()
             else:
-                lines = self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis), c=color)
-                self._bline = lines[0]
+                self._plotter._axis.plot(
+                    self.spectral_axis, self._baseline_model(self.spectral_axis), c=color, gid="baseline"
+                )
                 self._plotter.refresh()
 
     # baseline
@@ -403,29 +402,27 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s : `Spectrum`
             The decimated `Spectrum`.
         """
-
-        if not float(n).is_integer():
-            raise ValueError(f"`n` ({n}) must be an integer.")
-
-        nchan = len(self._data)
-        new_meta = deepcopy(self.meta)
-        idx = np.arange(0, nchan, n)
-        new_cdelt1 = self.meta["CDELT1"] * n
-        cell_shift = 0.5 * (n - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-        new_data = self.data[idx] * self.flux.unit
-        new_meta["CDELT1"] = new_cdelt1
-        new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
-        new_meta["CRVAL1"] += cell_shift
-
+        new_data, new_meta = decimate(self.data * self.flux.unit, n, self.meta)
         s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
-
         if self._baseline_model is not None:
             s._baseline_model = None
 
         return s
 
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
+    def smooth(
+        self,
+        method="hanning",
+        width=1,
+        decimate=0,
+        meta=None,
+        kernel=None,
+        mask=None,
+        boundary="extend",
+        nan_treatment="fill",
+        fill_value=np.nan,
+        preserve_nan=True,
+    ):
         """
         Smooth or Convolve the `Spectrum`, optionally decimating it.
 
@@ -460,6 +457,38 @@ class Spectrum(Spectrum1D, HistoricalBase):
             should supply an appropriate number manually.
             NOTE: not implemented yet.
             The default is None.
+        mask : None or ndarray, optional
+            A "mask" array.  Shape must match ``array``, and anything that is masked
+            (i.e., not 0/`False`) will be set to NaN for the convolution.  If
+            `None`, no masking will be performed unless ``array`` is a masked array.
+            If ``mask`` is not `None` *and* ``array`` is a masked array, a pixel is
+            masked if it is masked in either ``mask`` *or* ``array.mask``.
+        boundary : str, optional
+            A flag indicating how to handle boundaries:
+                * `None`
+                    Set the ``result`` values to zero where the kernel
+                    extends beyond the edge of the array.
+                * 'fill'
+                    Set values outside the array boundary to ``fill_value`` (default).
+                * 'wrap'
+                    Periodic boundary that wrap to the other side of ``array``.
+                * 'extend'
+                    Set values outside the array to the nearest ``array``
+                    value.
+        fill_value : float, optional
+            The value to use outside the array when using ``boundary='fill'``. Default value is ``NaN``.
+        nan_treatment : {'interpolate', 'fill'}, optional
+            The method used to handle NaNs in the input ``array``:
+                * ``'interpolate'``: ``NaN`` values are replaced with
+                  interpolated values using the kernel as an interpolation
+                  function. Note that if the kernel has a sum equal to
+                  zero, NaN interpolation is not possible and will raise an
+                  exception.
+                * ``'fill'``: ``NaN`` values are replaced by ``fill_value``
+                  prior to convolution.
+        preserve_nan : bool, optional
+            After performing convolution, should pixels that were originally NaN
+            again become NaN?
 
         Raises
         ------
@@ -475,59 +504,57 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s : `Spectrum`
             The new, possibly decimated, convolved `Spectrum`.
         """
-        nchan = len(self._data)  # noqa: F841
-        # decimate = int(decimate) # Should we change this value and tell the user, or just error out?
-        # For now, we'll error out if decimate is not an integer..
 
+        valid_methods = available_smooth_methods()
+        this_method = minimum_string_match(method, valid_methods)
         if width < 1:
             raise ValueError(f"`width` ({width}) must be >=1.")
 
-        # @todo  see also core.smooth() for valid_methods
-        valid_methods = ["hanning", "boxcar", "gaussian"]
-        this_method = minimum_string_match(method, valid_methods)
-        if this_method == None:  # noqa: E711
+        if this_method is None:
             raise Exception(f"smooth({method}): valid methods are {valid_methods}")
-
-        if not float(decimate).is_integer():
-            raise ValueError("`decimate` must be an integer.")
-
-        # All checks for smoothing should be completed by this point.
-        # Create a new metadata dictionary to modify by smooth.
-        new_meta = deepcopy(self.meta)
         md = np.ma.masked_array(self._data, self.mask)
+        if decimate == 0:
+            # Take the default decimation by `width`.
+            decimate = int(abs(width))
+            if not float(width).is_integer():
+                print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
         if this_method == "gaussian":
             if width <= self._resolution:
                 raise ValueError(
                     f"`width` ({width} channels) cannot be less than the current resolution ({self._resolution} channels)."
                 )
             kwidth = np.sqrt(width**2 - self._resolution**2)  # Kernel effective width.
-            stddev = kwidth / 2.35482
+            stddev = kwidth / FWHM_TO_STDDEV
 
-            s1 = core.smooth(md, this_method, stddev)
+            new_data, new_meta = core.smooth(
+                data=md * self.flux.unit,
+                method=this_method,
+                ndecimate=decimate,
+                width=stddev,
+                meta=self.meta,
+                boundary=boundary,
+                mask=mask,
+                nan_treatment=nan_treatment,
+                fill_value=fill_value,
+                preserve_nan=preserve_nan,
+            )
         else:
             kwidth = width
-            s1 = core.smooth(md, this_method, width)
-        # mask = np.full(s1.shape, False)
-        # in core.smooth, we fill masked values with np.nan.
-        # astropy.convolve does not return a new mask, so we recreate
-        # a decimated mask where values are nan
-        # mask[np.where(s1 == np.nan)] = True
-        # new_data = Masked(s1 * self.flux.unit, mask)
-        new_data = s1 * self.flux.unit
-        new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
+            new_data, new_meta = core.smooth(
+                data=md,
+                method=this_method,
+                width=width,
+                ndecimate=decimate,
+                meta=self.meta,
+                boundary=boundary,
+                mask=mask,
+                nan_treatment=nan_treatment,
+                fill_value=fill_value,
+                preserve_nan=preserve_nan,
+            )
 
-        s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
+        s = Spectrum.make_spectrum(new_data * self.flux.unit, meta=new_meta, observer_location="from_meta")
         s._baseline_model = self._baseline_model
-
-        # Now decimate if needed.
-        if decimate >= 0:
-            if decimate == 0:
-                # Take the default decimation by `width`.
-                decimate = int(abs(width))
-                if not float(width).is_integer():
-                    print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
-
-            s = s.decimate(decimate)
 
         # Update the spectral resolution in channel units.
         s._resolution = s.meta["FREQRES"] / abs(s.meta["CDELT1"])
@@ -831,19 +858,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         spectrum : `Spectrum`
             A new `Spectrum` object with `doppler_convention` as its Doppler convention.
         """
-        if False:
-            # this doesn't work.
-            # for some reason, the axis velocity
-            # still contains the difference between TOPO and observed frame
-            s = self.__class__(
-                flux=self.flux,
-                wcs=self.wcs,
-                meta=self.meta,
-                velocity_convention=doppler_convention,
-                target=self._target,
-                observer=self._spectral_axis.observer,
-            )
-            s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
         s = self._copy(velocity_convention=doppler_convention)
         s.set_convention(doppler_convention)
         return s
@@ -1207,7 +1221,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             )
             obsitrs = None
 
-        if np.ma.is_masked(data):
+        if hasattr(data, "mask"):
             s = cls(
                 flux=data,
                 wcs=wcs,
