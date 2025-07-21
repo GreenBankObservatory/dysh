@@ -21,18 +21,22 @@ from ..util import minimum_string_match
 from dysh.log import logger
 
 _debug = False
-# _debug = True
 
-# note the examples in https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/gbtidl.html
+# the GBTIDL examples from https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/gbtidl.html
+#         getps:        "data/ngc2415.fits"                NGC2415    test=getps             TGBT21A_501_11
+#         getfs:        "data/TGBT22A_503_02.raw.vegas"    W3_1       test=    example=
+#         getsigref:    "data/TGBT22A_503_02.raw.vegas"    W3_1
+#         getps:        "data/AGBT17A_404_01.raw.vegas"    A123606    test=
+#
 # @todo   convert everything to use Path()
 #         Path() cannot be used on input.... input needs to be a string
 
 # fmt:off
 
-# $DYSH/testdata
+# $DYSH/testdata      @ todo   normalize names with the example= cases
 # ~300 MB
 valid_dysh_test = {
-    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'      # NGC5291
+    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'      # NGC5291 (same as examoke
     "getps"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415
     "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits", # W3OH
     "subbeamnod" : "TRCO_230413_Ka",
@@ -44,19 +48,23 @@ valid_dysh_test = {
 # @todo   see if we want the staff training datasets in here
 # ~410 GB
 valid_dysh_example = {
-    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",
-                   # staff training PS      same as test='test1'
-    "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",
+    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits", #  NGC5291  also test='test1'
+                   # example/dataIO example/metadata_management  example/positionswitch example/smoothing  example/velocity frames
+    "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415
                    #    positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/"
     "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",
+                   #
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
-                   #    frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/"    # staff training FS
-    "subbeamnod" : "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
-                   #    subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/"   # staff training SBN
-    "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas",    # nodding example (scan 62,63)
-                   #              TGBT22A_503_02.raw.vegas      # FS example in data_reduction (scan 64)
-    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas",      # OTF L-band example NGC6946
-    "otf3"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas",  # OTF Argus  DR21
+    "getfs2"     : "frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/",    #  W3OH    # staff training FS
+    "subbeamnod" : "subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/",   #   vIIzw31      example/subbeamnod    staff training SBN -- no signal?
+    "subbeamnod2": "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
+    "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)    
+                   #              TGBT22A_503_02.raw.vegas          # FS example in data_reduction (scan 64)
+    "align"      : "mixed-fs-ps/data/TGBT24B_613_04.raw.vegas.trim.fits",  #   MESSIER32  example/align_spectra
+    "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",   # tar.gz not yet supported?     A123606  example/flagging
+    "survey"     : "hi-survey/data/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.fits",   # example/hi-survey
+    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas/",      # OTF L-band example NGC6946
+    "otf3"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas/",  # OTF Argus  DR21
 }
 
 
@@ -65,12 +73,12 @@ valid_dysh_example = {
 # AGBT05B_047_01  AGBT15B_244_07  AGBT18A_503_02  AGBT19A_473_41  TGBT18A_500_06
 # AGBT13A_240_03  AGBT16B_392_01  AGBT18B_014_02  AGBT19B_096_08  TGBT21A_501_10
 # AGBT14B_480_06  AGBT17B_004_14  AGBT18B_354_03  AGBT20B_336_01  TREG_050627
-# AGBT15B_228_08  AGBT17B_319_06  AGBT19A_080_01  AGBT22A_325_15  TSCAL_19Nov2015
+# AGBT1s5B_228_08  AGBT17B_319_06  AGBT19A_080_01  AGBT22A_325_15  TSCAL_19Nov2015
 # ~ 33 GB
 valid_dysh_accept = {
     "nod1"       : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas",
-    "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated
-    "nod3"       : "AGBT15B_244_07/AGBT15B_244_07.raw.vegas",
+    "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated?   W3OH  example/frequencyswitch
+    "nod3"       : "AGBT15B_244_07/AGBT15B_244_07.raw.vegas",  # M82 examples/calseq
     "nod4"       : "TGBT18A_500_06/TGBT18A_500_06.raw.vegas",
     "nod5"       : "TSCAL_19Nov2015/TSCAL_19Nov2015.raw.acs/TSCAL_19Nov2015.raw.acs.fits",   # deprecated
     "nod6"       : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",
@@ -88,18 +96,24 @@ valid_dysh_accept = {
 
 
 def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None, gui=False):
-    r"""
-    Resolves the filename within the GBO dysh data system without the need for an absolute path.
+    r"""Resolves the filename within the dysh data system without the need
+    for an absolute path by passing mnemonics to any of four entry
+    points (sdfits=, test=, example=, accept=).
+    
+    Currently configured to work at GBO. For other sites users need to
+    configure a $DYSH_DATA directory, properly populated with
+    (symlinks to) directories as described below. Optionally, an
+    explicit dysh_data= can be given, which overrides any possible
+    $DYSH_DATA environment (or configuration) that may exist.
 
-    Currently configured to work at GBO, where for example /home/sdfits exists. For other sites users
-    need to configure a $DYSH_DATA directory, properly populated with (symlinks to) project and test data,
-    as described below. Optionally, an explicit dysh_data= can be given, which overrides any possible $DYSH_DATA
-    environment (or configuration) that may exist.
+    Only one of the keywords sdfits=, test=, example=, accept= can be
+    given to probe for data. 
 
-    Only one of the keywords sdfits=, test=, example=, accept= can be given to probe for data. They are
-    processed in that order, whichever comes first.
+    As an exception, if the first argument (sdfits=) has an absolute
+    filename, it is passed unchecked.
 
-    gui mode is experimental
+    gui mode is experimental and may disappear or re-implemented at a
+    later stage.
 
 
     Locations of various dysh_data directory roots:  ($DYSH is the repo root for developers)
@@ -112,6 +126,11 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     accept=       /home/dysh/acceptance_testing        $DYSH_DATA/acceptance_testing
 
     Note: test= resolves to the same filename as the util.get_project_testdata() function
+          but it otherwise only qvailable for developers.
+
+    If present, the $SDFITS_DATA directory is honored instead of the default for sdfits=
+    and overrides the $DYSH_DATA directory.
+    
 
 
     Examples of use including mnemonics or full paths:
@@ -189,11 +208,10 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     #     - if that still fails, look at current working directory
     #     - throw!?
     #     ? e.g. dysh_data('foo.fits') ->   sdfits='foo.fits'
-    print("PJT testing")
+    print("PJT testing new dysh_data")
     if dysh_data == None and "DYSH_DATA" in os.environ:  # noqa: E711
         dysh_data = Path(os.environ["DYSH_DATA"])
-        logger.info(f"DYSH_DATA: {dysh_data}")
-    logger.debug(f"DYSH_DATA: {dysh_data}")
+    logger.info(f"DYSH_DATA: {dysh_data}")
 
     # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present (in that order)
 
@@ -201,10 +219,13 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     if sdfits != None:  # noqa: E711
         if sdfits == '!':
-            return use_gui(dysh_data / Path("sdfits") / sdfits)
+            logger.warning("The GUI is experimental, it can only select a single fits file, no directories")
+            return use_gui(dysh_data)
         
         if sdfits == "?" or sdfits == '*':
-            if dysh_data == None:  # noqa: E711
+            if "SDFITS_DATA" in os.environ:
+                dd = Path(os.environ["SDFITS_DATA"])
+            elif dysh_data == None:  # noqa: E711
                 dd = Path("/home/sdfits")
             else:
                 dd = Path(dysh_data) / "sdfits"
