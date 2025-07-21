@@ -3017,8 +3017,10 @@ class GBTOffline(GBTFITSLoad):
     Note project directories are assumed to exist in /home/sdfits
     or whereever dysh_data thinks your /home/sdfits lives.
 
-    Also note in GBTIDL one can use SDFITS_DATA instead of DYSH_DATA
+    Also note, as in GBTIDL, one can use SDFITS_DATA instead of DYSH_DATA
 
+    Use dysh_data('?') to display all filenames in the "sdfits" area.
+    
     """
 
     @log_call_to_history
@@ -3036,19 +3038,17 @@ class GBTOnline(GBTFITSLoad):
     Note project directories are assumed to exist in /home/sdfits
     or whereever dysh_data thinks your /home/sdfits lives.
 
-    Also note in GBTIDL one can use SDFITS_DATA instead of DYSH_DATA
+    Also note, as in GBTIDL, one can use SDFITS_DATA instead of DYSH_DATA
 
-    Use dysh_data('?') as a method to get all filenames in SDFITS_DATA
+    Use dysh_data('?') to display all filenames in the "sdfits" area.
 
-    GBTIDL says:  Connecting to file: .....
-                  File has not been updated in xxx.xx minutes.
     """
 
     @log_call_to_history
     def __init__(self, fileobj=None, *args, **kwargs):
         self._online = fileobj
         self._platform = platform.system()  # cannot update in "Windows":
-        # print("GBTOnline not supported on Windows yet, see issue #447")
+        # print("GBTOnline not supported on Windows, see issue #447")
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
@@ -3056,7 +3056,7 @@ class GBTOnline(GBTFITSLoad):
             else:
                 self._online = dysh_data(fileobj)
                 GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
-            print(f"Connecting to explicit file: {self._online} - will be monitoring this")
+            logger.info(f"Connecting to explicit file: {self._online} - will be monitoring this")
 
         else:
             self._online_mode = 2  #  monitor all files?
@@ -3072,13 +3072,13 @@ class GBTOnline(GBTFITSLoad):
             logger.debug(f"Using SDFITS_DATA {sdfits_root}")
 
             if not os.path.isdir(sdfits_root):
-                print("Cannot find ", sdfits_root)
+                logger.info(f"Cannot find {sdfits_root}")
                 return None
 
             # 1. check the status_file ?
             status_file = "sdfitsStatus.txt"
             if os.path.exists(sdfits_root + "/" + status_file):
-                print(f"Warning, found {status_file} but not using it yet")
+                logger.warning(f"Warning, found {status_file} but not using it yet")
 
             # 2. visit each directory where the final leaf contains fits files, and find the most recent one
             n = 0
@@ -3110,14 +3110,14 @@ class GBTOnline(GBTFITSLoad):
         # print("MTIME:",self._mtime)
         delta = (time.time() - self._mtime) / 60.0
 
-        print(f"Connected to file: {self._online}")
-        print(f"File has not been updated in {delta:.2f} minutes.")
+        logger.info(f"Connected to file: {self._online}")
+        logger.info(f"File has not been updated in {delta:.2f} minutes.")
         # end of __init__
 
     def _reload(self, force=False):
         """force a reload of the latest"""
         if self._platform == "Windows":
-            print("warning, cannot reload on Windows, see issue #447")
+            logger.warning(f"Cannot reload on Windows, see issue #447")
             return
         if not force:
             mtime = os.path.getmtime(self.filenames()[0])
