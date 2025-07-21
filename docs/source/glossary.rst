@@ -92,7 +92,8 @@ Commonly used terms.
     OTF Mapping
       On-The-Fly (OTF) mapping is where the telescope is continuesly scanned across the sky
       to sample the emission.
-      The samples are then "gridded" into a map, after calibration.
+      The samples are then "gridded" into a map, after calibration. Calibration schemes can differ,
+      e.g. OnOff in separate scans,  and in-scan definitions.
    
     plnum
       Polarization number (0,1,...). Usually 0 and 1, but of course up to 4 values could be present
@@ -113,6 +114,8 @@ Commonly used terms.
       **resolution/pixel** and a different name for resolution
       alltogether.
 
+    row - often used to refer to a spectrum, technically a row in the fits BINTABLE.
+
     RRL - Radio Recombination Line
 
     Ruze's equation
@@ -120,9 +123,10 @@ Commonly used terms.
       G = G_0 exp(-(4.pi.eps/lambda)^2)
 
     Scan - GBT differentiates between different types of scans
-     (FSScan, PSScan, TPScan, SubBeamNod Scan)
+     (FSScan, PSScan, TPScan, SubBeamNod Scan). They contain a series of
+     calibrated or uncalibrated raw spectra.
    
-    ScanBlock - GBT. A container for a series of **scan**'s
+    ScanBlock - GBT. A container for a series of **scan**'s that looks like a list for the user.
     
     SDFITS
       Single Dish **FITS** format, normally used to store
