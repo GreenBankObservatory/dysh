@@ -540,7 +540,7 @@ def in_notebook() -> bool:
     return True
 
 
-def show_DataFrame(df, show_index=False, max_rows=None, max_cols=None, width=None):
+def show_dataframe(df, show_index=False, max_rows=None, max_cols=None, width=None):
     """
     Function to show a `~pandas.DataFrame` in IPython or Jupyter.
 
