@@ -182,12 +182,14 @@ class SpectrumPlot:
                 toframe=this_plot_kwargs["vel_frame"],
                 doppler_convention=this_plot_kwargs["doppler_convention"],
             )
+
         sf = s.flux
         if yunit is not None:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
         lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
         self._line = lines[0]
+
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
         else:
@@ -452,20 +454,37 @@ class SpectrumPlot:
         return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
 
     def freex(self):
+        """ "Free the X-axis if limits have been set. Resets the limits to be the span of the spectrum."""
         self._freezex = False
         # This line (and the other in specplot.py) will have to be addressed when we
         # implement multiple IF windows in the same plot
         self._axis.set_xlim(self._sa.min.value, self._sa.max.value)
 
     def freey(self):
+        """Free the Y-axis if limits have been set. Autoscales the Y-axis according to your matplotlib configuration."""
         self._freezey = False
         self._axis.relim()
         self._axis.autoscale(axis="y", enable=True)
         self._axis.autoscale_view()
 
     def freexy(self):
+        r"""Free the X and Y axes simultaneously. See `freex` and `freey` for more details."""
         self.freex()
         self.freey()
+
+    def clear_overlays(self, blines=True):
+        """Clear Overlays from the plot.
+
+        Parameters
+        ----------
+        blines : bool
+            Remove only baseline models overlaid on the plot. Default: True
+        """
+        # clear baseline models
+        if blines:
+            for b in self._axis.lines:
+                if b.get_gid() == "baseline":
+                    b.remove()
 
 
 class InteractiveSpanSelector:

@@ -1,0 +1,77 @@
+using Namespace(dobench=True, key='test1', timeaverage=True, nocalibrate=False, loop=4, skipflags=True, out=None, append=False, overwrite=False, profile=True, statslines='50', sortkey='time', memory=True, quit=False)
+Downloading AGBT05B_047_01.raw.acs.fits from http://www.gb.nrao.edu/dysh//example_data/positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits
+Downloading... ---------------------------------------- 100% 0:00:00
+
+Retrieved AGBT05B_047_01.raw.acs.fits
+Loading  AGBT05B_047_01.raw.acs.fits
+STATS: {'nrows': 352, 'nfiles': 1, 'fdnum': 1, 'ifnum': 1, 'plnum': 2, 'intnum': 11, 'sig': 1, 'cal': 2, 'nchan': 32768}
+Found ostype= linux
+# Dysh Benchmark: getps
+  name   time  VmSize VmRSS skipflags
+          ms   Mbyte  Mbyte          
+------- ------ ------ ----- ---------
+   load 1288.6 3232.4 253.3      True
+getps1t 3292.0 3316.5 349.8      True
+getps2t 1521.2 3307.6 340.8      True
+getps3t 1513.9 3307.6 340.8      True
+getps4t 1527.5 3307.6 340.8      True
+ report    0.1 3307.6 340.8      True
+         13231740 function calls (12790585 primitive calls) in 9.145 seconds
+
+   Ordered by: internal time
+   List reduced from 4110 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       96    0.275    0.003    0.275    0.003 {method 'read' of '_io.BufferedReader' objects}
+    42524    0.265    0.000    0.586    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/ascii/fixedwidth.py:36(__call__)
+        2    0.215    0.108    1.471    0.735 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/ascii/core.py:1382(read)
+   174436    0.210    0.000    0.210    0.000 {built-in method builtins.locals}
+1160621/1159515    0.199    0.000    0.240    0.000 {built-in method builtins.isinstance}
+   951297    0.187    0.000    0.321    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/ascii/core.py:407(process_val)
+    11620    0.186    0.000    1.696    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:561(__init__)
+   185920    0.183    0.000    0.766    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:532(__set__)
+     3562    0.170    0.000    0.274    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/time/core.py:1321(_apply)
+     5797    0.166    0.000    0.166    0.000 {method 'read' of '_ssl._SSLSocket' objects}
+686364/628838    0.166    0.000    0.619    0.000 {built-in method builtins.getattr}
+  1094403    0.165    0.000    0.165    0.000 {method 'append' of 'list' objects}
+    56697    0.162    0.000    0.176    0.000 {built-in method numpy.array}
+        2    0.158    0.079    0.180    0.090 {built-in method _socket.getaddrinfo}
+  1020136    0.150    0.000    0.150    0.000 {method 'strip' of 'str' objects}
+398004/223701    0.113    0.000    0.879    0.000 {built-in method builtins.setattr}
+   552167    0.107    0.000    0.107    0.000 {method 'get' of 'dict' objects}
+    37200    0.099    0.000    0.413    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/config/configuration.py:442(__call__)
+86516/8354    0.088    0.000    0.325    0.000 /lma1/mpound/Anaconda3-2024.10-1/lib/python3.12/copy.py:118(deepcopy)
+    21045    0.078    0.000    0.089    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+        5    0.074    0.015    0.076    0.015 {method 'read' of '_io.TextIOWrapper' objects}
+    46360    0.072    0.000    0.140    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/config/configuration.py:547(get_config)
+420226/392064    0.069    0.000    0.082    0.000 {built-in method builtins.len}
+     5453    0.066    0.000    0.066    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/ascii/core.py:912(<genexpr>)
+        5    0.066    0.013    0.066    0.013 {method 'read' of '_io.FileIO' objects}
+65332/45917    0.062    0.000    0.109    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/table/column.py:1270(__setattr__)
+    54690    0.061    0.000    0.169    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/units/quantity.py:565(__array_finalize__)
+50599/49888    0.060    0.000    0.191    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/decorators.py:842(__get__)
+      196    0.059    0.000    0.060    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/ma/core.py:893(__call__)
+     1076    0.053    0.000    0.094    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/ma/core.py:1055(__call__)
+    76018    0.052    0.000    0.052    0.000 {method 'match' of 're.Pattern' objects}
+84036/76143    0.050    0.000    1.557    0.000 {method 'view' of 'numpy.ndarray' objects}
+    18399    0.048    0.000    0.155    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/units/quantity.py:755(_new_view)
+138003/134183    0.044    0.000    0.282    0.000 {built-in method builtins.hasattr}
+    39492    0.043    0.000    0.043    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/_core/records.py:417(__getattribute__)
+     2916    0.043    0.000    0.246    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/coordinates/representation/base.py:150(__init__)
+2002/1979    0.042    0.000    0.084    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/ma/core.py:3293(__getitem__)
+    83545    0.040    0.000    0.057    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/extern/configobj/configobj.py:550(__getitem__)
+    28094    0.040    0.000    0.084    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/units/quantity.py:936(to_value)
+98522/79368    0.040    0.000    0.054    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:486(__getattribute__)
+     5797    0.038    0.000    0.038    0.000 {method 'write' of '_io.BufferedWriter' objects}
+5491/5291    0.037    0.000    0.080    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/units/core.py:2404(_expand_and_gather)
+    11620    0.036    0.000    0.062    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:1366(_convert_to_valid_data_type)
+        1    0.036    0.036    0.036    0.036 {method 'do_handshake' of '_ssl._SSLSocket' objects}
+     6967    0.036    0.000    0.249    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/units/quantity.py:604(__array_ufunc__)
+        1    0.035    0.035    0.035    0.035 {method 'load_verify_locations' of '_ssl._SSLContext' objects}
+       83    0.034    0.000    1.265    0.015 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:1525(_init_from_array)
+       42    0.034    0.001    0.070    0.002 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/header.py:350(fromstring)
+     9803    0.033    0.000    0.058    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/ma/core.py:3024(_update_from)
+    11149    0.033    0.000    0.070    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/units/core.py:1135(_to)
+
+
+final 9.143247093  sec
