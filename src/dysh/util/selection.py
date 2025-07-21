@@ -232,8 +232,6 @@ class SelectionBase(DataFrame):
         if key not in self:
             raise KeyError(f"{key} is not a recognized column name.")
         v = self._sanitize_coordinates(key, value)
-        # deal with Time here or later?
-        self._check_for_disallowed_chars(key, value)
         return v
 
     def _sanitize_coordinates(self, key, value):
@@ -269,11 +267,6 @@ class SelectionBase(DataFrame):
         else:  # it should be a str or Quantity
             a = Angle(value)
         return a.degree
-
-    def _check_for_disallowed_chars(self, key, value):
-        # are there any?  coordinates will already
-        # be transformed to decimal degrees
-        pass
 
     def _generate_tag(self, values, hashlen=9):
         """
