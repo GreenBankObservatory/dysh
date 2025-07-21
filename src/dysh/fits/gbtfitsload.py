@@ -3020,7 +3020,7 @@ class GBTOffline(GBTFITSLoad):
     Also note, as in GBTIDL, one can use SDFITS_DATA instead of DYSH_DATA
 
     Use dysh_data('?') to display all filenames in the "sdfits" area.
-    
+
     """
 
     @log_call_to_history
@@ -3117,7 +3117,7 @@ class GBTOnline(GBTFITSLoad):
     def _reload(self, force=False):
         """force a reload of the latest"""
         if self._platform == "Windows":
-            logger.warning(f"Cannot reload on Windows, see issue #447")
+            logger.warning("Cannot reload on Windows, see issue #447")
             return
         if not force:
             mtime = os.path.getmtime(self.filenames()[0])

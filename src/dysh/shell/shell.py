@@ -81,7 +81,7 @@ def init_shell(
         "GBTFITSLoad": GBTFITSLoad,
         "GBTOnline": GBTOnline,
         "GBTOffline": GBTOffline,
-        "dysh_data" : dysh_data,
+        "dysh_data": dysh_data,
         "Table": Table,
         "fits": fits,
     }

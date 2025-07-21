@@ -15,10 +15,10 @@ import os
 from pathlib import Path
 
 import dysh.util as util
+from dysh.log import logger
 from dysh.util.download import from_url
 
 from ..util import minimum_string_match
-from dysh.log import logger
 
 _debug = False
 
@@ -58,7 +58,7 @@ valid_dysh_example = {
     "getfs2"     : "frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/",    #  W3OH    # staff training FS
     "subbeamnod" : "subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/",   #   vIIzw31      example/subbeamnod    staff training SBN -- no signal?
     "subbeamnod2": "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
-    "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)    
+    "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas          # FS example in data_reduction (scan 64)
     "align"      : "mixed-fs-ps/data/TGBT24B_613_04.raw.vegas.trim.fits",  #   MESSIER32  example/align_spectra
     "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",   # tar.gz not yet supported?     A123606  example/flagging
@@ -99,7 +99,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     r"""Resolves the filename within the dysh data system without the need
     for an absolute path by passing mnemonics to any of four entry
     points (sdfits=, test=, example=, accept=).
-    
+
     Currently configured to work at GBO. For other sites users need to
     configure a $DYSH_DATA directory, properly populated with
     (symlinks to) directories as described below. Optionally, an
@@ -107,7 +107,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     $DYSH_DATA environment (or configuration) that may exist.
 
     Only one of the keywords sdfits=, test=, example=, accept= can be
-    given to probe for data. 
+    given to probe for data.
 
     As an exception, if the first argument (sdfits=) has an absolute
     filename, it is passed unchecked.
@@ -130,7 +130,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     If present, the $SDFITS_DATA directory is honored instead of the default for sdfits=
     and overrides the $DYSH_DATA directory.
-    
+
 
 
     Examples of use including mnemonics or full paths:
@@ -194,11 +194,12 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         logger.debug(f"Using the GUI on {my_dir} is totally experimental.")
         import tkinter as tk
         from tkinter import filedialog
+
         root = tk.Tk()
         root.withdraw()
         file_path = filedialog.askopenfilename(initialdir=my_dir)
         # dirname = filedialog.askdirectory()
-        return file_path        
+        return file_path
 
     # 1.  find out if there is a dysh_data (or use $DYSH_DATA, or a .dyshrc config?)
     #     - if present, API dysh_data is used
@@ -218,11 +219,11 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     # sdfits:   the main place where GBO data reside
 
     if sdfits != None:  # noqa: E711
-        if sdfits == '!':
+        if sdfits == "!":
             logger.warning("The GUI is experimental, it can only select a single fits file, no directories")
             return use_gui(dysh_data)
-        
-        if sdfits == "?" or sdfits == '*':
+
+        if sdfits == "?" or sdfits == "*":
             if "SDFITS_DATA" in os.environ:
                 dd = Path(os.environ["SDFITS_DATA"])
             elif dysh_data == None:  # noqa: E711

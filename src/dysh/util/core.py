@@ -312,7 +312,7 @@ def minimum_string_match(s, valid_strings):
     s : string
         string to use for minimum match
     valid_strings : list of strings
-        list of full strings to min match on. 
+        list of full strings to min match on.
 
     Returns
     -------
