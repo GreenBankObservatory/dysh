@@ -477,7 +477,7 @@ class SpectrumPlot:
 
         Parameters
         ----------
-        blines - bool
+        blines : bool
             Remove only baseline models overlaid on the plot. Default: True
         """
         # clear baseline models
