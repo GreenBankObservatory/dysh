@@ -136,6 +136,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     _accept_data        = "/home/dysh/acceptance_testing/data"      # not in public_html ??
     # fmt:on
 
+    if type(dysh_data) is str:
+        dysh_data = Path(dysh_data)
+
     def sdfits_offline(fn):
         """fn is an sdfits= filename that was shown to exist
         If fn contains only one name
@@ -409,7 +412,13 @@ def main_cli():
     """
 
     p = argparse.ArgumentParser(description=my_help, epilog="And so the search goes on....")
-    p.add_argument("-m", "--maxfiles", type=int, default=None, help="Maximum number of files to return [Default: all]")
+    p.add_argument(
+        "-m",
+        "--maxfiles",
+        type=int,
+        default=None,
+        help="Maximum number of files to return [Default: all]",
+    )
     p.add_argument("-c", "--count", action="store_true", help="add counter to filenames?")
     p.add_argument("-w", "--wildcard", action="store_true", help="fully wildcard the filename embedded")
     p.add_argument("-r", "--recursive", action="store_true", help="resursive?")
