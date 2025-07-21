@@ -555,6 +555,7 @@ class TestScanBlock:
         rmask = sb[0]._calibrated.mask
         for width in [3, 5]:
             sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
+
             mean = np.nanmean(sb[0]._calibrated)
             std = np.std(sb[0]._calibrated)
             sb[0].smooth(method="box", width=width, decimate=-1)
