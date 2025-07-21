@@ -39,7 +39,7 @@ from ..util import (
     eliminate_flagged_rows,
     keycase,
     select_from,
-    show_DataFrame,
+    show_dataframe,
     uniq,
 )
 from ..util.files import dysh_data
@@ -427,17 +427,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         #
         # @todo perhaps return as a astropy.Table then we can have units
         """
-        Create a summary of the input dataset.
-        If `verbose=False` (default), some numeric data
-        (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
-        averaged over the records with the same scan number.
+        Create a summary of the input dataset as a pandas DataFrame.
 
         Parameters
         ----------
         scan : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
         verbose: bool
-            If True, list every record, otherwise return a compact summary.
+            If `verbose=False` (default), some numeric data (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
+            averaged over the records with the same scan number.
+            If True, no averaging is done and additional columns are added to the output.
 
         Returns
         -------
@@ -571,8 +570,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         verbose : bool
             If True, list every record, otherwise return a compact summary.
         max_rows : int or None
-            Maximum number of rows to display. If not provided or -1, it will use the
-            value found in the dysh configuration file for summary_max_rows.
+            Maximum number of rows to display. If less than the total number of rows, then
+            the first `max_rows/2` and last `max_rows/2` rows will be shown, separated
+            by ellipsis. If set to -1 (Default), the
+            value found in the dysh configuration file for `summary_max_rows` will be used.
             Set to `None` for unlimited rows.
         show_index : bool
             Show index of the `~pandas.DataFrame`.
@@ -585,7 +586,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         max_cols = 1500
         width = 1500
 
-        show_DataFrame(compressed_df, show_index=show_index, max_rows=max_rows, max_cols=max_cols, width=width)
+        show_dataframe(compressed_df, show_index=show_index, max_rows=max_rows, max_cols=max_cols, width=width)
 
     def velocity_convention(self, veldef):
         """Given the GBT VELDEF FITS string return the specutils
