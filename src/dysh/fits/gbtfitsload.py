@@ -39,6 +39,7 @@ from ..util import (
     eliminate_flagged_rows,
     keycase,
     select_from,
+    show_DataFrame,
     uniq,
 )
 from ..util.files import dysh_data
@@ -418,7 +419,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def summary(self, scan=None, verbose=False, show_index=True):  # selected=False
+    def get_summary(self, scan=None, verbose=False):
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
@@ -437,8 +438,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
         verbose: bool
             If True, list every record, otherwise return a compact summary.
-        show_index: bool
-            If True, show the DataFrame index column. Default: False
 
         Returns
         -------
@@ -446,14 +445,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Summary of the data as a DataFrame.
 
         """
+
         # @todo allow user to change show list
         # @todo set individual format options on output by
         # changing these to dicts(?)
-        #
-        pd.set_option("display.max_rows", conf.summary_max_rows)
         # 'show' is fragile because anything we might need to query in 'uf' below in
         # order to do a calculation,  whether we want to show it, or not must be in 'show.'
         # (e.g. PROCSIZE is needed to calculate n_integrations).
+
         show = [
             "SCAN",
             "OBJECT",
@@ -474,6 +473,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "CAL",
             "DATE-OBS",
         ]
+
         comp_colnames = [
             "SCAN",
             "OBJECT",
@@ -489,6 +489,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "AZIMUTH",
             "ELEVATIO",
         ]
+
         # In the process, some columns get cast to floats or others. Make sure we cast them
         # back to an appropriate data type before return.
         col_dtypes = {"SCAN": int, "PROCSEQN": int}
@@ -550,11 +551,41 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ser.rename("appended ser")
             compressed_df = pd.concat([compressed_df, ser.to_frame().T], ignore_index=True)
         compressed_df = compressed_df.astype(col_dtypes)
-        if not show_index:
-            print(compressed_df.to_string(index=False))
-            # return compressed_df.style.hide(axis="index")
-        else:
-            return compressed_df
+
+        return compressed_df
+
+    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False):
+        """
+        Create a summary of the `~dysh.fits.GBTFITSLoad` object..
+        If `verbose=False` (default), some numeric data
+        (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
+        averaged over the records with the same scan number.
+        To retrieve the underlying `~pandas.DataFrame` use
+        `~dysh.fits.GBTFITSLoad.get_summary()`.
+
+        Parameters
+        ----------
+        scan : int or 2-tuple
+            The scan(s) to use. A 2-tuple represents (beginning, ending) scans.
+            Default: show all scans
+        verbose : bool
+            If True, list every record, otherwise return a compact summary.
+        max_rows : int or None
+            Maximum number of rows to display. If not provided or -1, it will use the
+            value found in the dysh configuration file for summary_max_rows.
+            Set to `None` for unlimited rows.
+        show_index : bool
+            Show index of the `~pandas.DataFrame`.
+        """
+
+        compressed_df = self.get_summary(scan=scan, verbose=verbose)
+
+        if max_rows == -1:
+            max_rows = conf.summary_max_rows
+        max_cols = 1500
+        width = 1500
+
+        show_DataFrame(compressed_df, show_index=show_index, max_rows=max_rows, max_cols=max_cols, width=width)
 
     def velocity_convention(self, veldef):
         """Given the GBT VELDEF FITS string return the specutils
