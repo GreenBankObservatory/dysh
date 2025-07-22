@@ -575,7 +575,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 continue
         cols = _show + needed  # All columns to fetch.
 
-
         self._create_index_if_needed()
 
         # Define column types.
