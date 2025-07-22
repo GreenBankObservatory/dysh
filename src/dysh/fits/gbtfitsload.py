@@ -575,6 +575,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 continue
         cols = _show + needed  # All columns to fetch.
 
+
         self._create_index_if_needed()
 
         # Define column types.
@@ -617,7 +618,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, show=None):
         """
-        Create a summary of the `~dysh.fits.GBTFITSLoad` object.
+        Show a summary of the `~dysh.fits.GBTFITSLoad` object.
         To retrieve the underlying `~pandas.DataFrame` use
         `~dysh.fits.GBTFITSLoad.get_summary()`.
 
