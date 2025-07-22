@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Union
 
 import numpy as np
-import pandas as pd
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
@@ -540,7 +539,7 @@ def in_notebook() -> bool:
     return True
 
 
-def show_dataframe(df, show_index=False, max_rows=None, max_cols=None, width=None):
+def show_dataframe(df, show_index=False, max_rows=None, max_cols=None):
     """
     Function to show a `~pandas.DataFrame` in IPython or Jupyter.
 
@@ -554,23 +553,10 @@ def show_dataframe(df, show_index=False, max_rows=None, max_cols=None, width=Non
         Maximum number of rows to display.
     max_cols : int or None
         Maximum number of columns to display.
-    width : int or None
-        Display width. Only used if `show_index=True`.
     """
 
-    # If we do not hide the index, not much to be done.
-    # Both IPython and Jupyter can use the same function
-    # and we can display the DataFrame directly.
-    if show_index:
-        with pd.option_context("display.max_rows", max_rows, "display.max_columns", max_cols, "display.width", width):
-            display(df)
+    kwargs = {"max_rows": max_rows, "max_cols": max_cols, "index": show_index}
+    if in_notebook():
+        display(HTML(df.to_html(**kwargs)))
     else:
-        # If we want to hide the index, we have to use a pandas.Styler object.
-        # These are not affected with pd.set_option or pd.option_context,
-        # so we have to create an HTML or string representation and provide
-        # the relevant options directly (e.g., max_rows).
-        # In IPython we cannot display the string, as it would ignore line breaks.
-        if in_notebook():
-            display(HTML(df.style.hide(axis="index").to_html(max_rows=max_rows, max_columns=max_cols)))
-        else:
-            print(df.to_string(index=False, max_rows=max_rows, max_cols=max_cols))
+        print(df.to_string(**kwargs))

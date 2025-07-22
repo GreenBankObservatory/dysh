@@ -427,13 +427,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         #
         # @todo perhaps return as a astropy.Table then we can have units
         """
-        Create a summary of the input dataset as a pandas DataFrame.
+        Create a summary of the input dataset as a `~pandas.DataFrame`.
 
         Parameters
         ----------
         scan : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
-        verbose: bool
+        verbose : bool
             If `verbose=False` (default), some numeric data (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
             averaged over the records with the same scan number.
             If True, no averaging is done and additional columns are added to the output.
@@ -555,7 +555,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False):
         """
-        Create a summary of the `~dysh.fits.GBTFITSLoad` object..
+        Create a summary of the `~dysh.fits.GBTFITSLoad` object.
         If `verbose=False` (default), some numeric data
         (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
         averaged over the records with the same scan number.
@@ -572,9 +572,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         max_rows : int or None
             Maximum number of rows to display. If less than the total number of rows, then
             the first `max_rows/2` and last `max_rows/2` rows will be shown, separated
-            by ellipsis. If set to -1 (Default), the
-            value found in the dysh configuration file for `summary_max_rows` will be used.
-            Set to `None` for unlimited rows.
+            by ellipsis. If set to -1 (Default), the value found in the dysh configuration
+            file for `summary_max_rows` will be used. Set to `None` for unlimited rows.
         show_index : bool
             Show index of the `~pandas.DataFrame`.
         """
@@ -584,9 +583,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if max_rows == -1:
             max_rows = conf.summary_max_rows
         max_cols = 1500
-        width = 1500
 
-        show_dataframe(compressed_df, show_index=show_index, max_rows=max_rows, max_cols=max_cols, width=width)
+        show_dataframe(compressed_df, show_index=show_index, max_rows=max_rows, max_cols=max_cols)
 
     def velocity_convention(self, veldef):
         """Given the GBT VELDEF FITS string return the specutils
