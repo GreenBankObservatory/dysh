@@ -461,6 +461,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             defaults=(None, 1),
         )
 
+        str_col = col_def("first", object)
+
         col_defs = {
             "OBJECT": col_def("first", object),
             "VELOCITY": col_def("mean", float, scale=1e-3),
@@ -481,6 +483,35 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "DATE-OBS": col_def("first", object),
             "FITSINDEX": col_def("mean", int, name="# FITS"),
             "SCAN": col_def("mean", int),
+            "BANDWID": col_def("mean", float, name="BW", scale=1e-6),
+            "DURATION": col_def("mean", float),
+            "EXPOSURE": col_def("mean", float),
+            "TSYS": col_def("mean", float),
+            "CTYPE1": col_def("first", object),
+            "CTYPE2": col_def("first", object),
+            "CTYPE3": col_def("first", object),
+            "CRVAL1": col_def("mean", int),
+            "CRVAL2": col_def("mean", int),
+            "CRVAL3": col_def("mean", int),
+            "CRVAL4": col_def("mean", int),
+            "OBSERVER": str_col,
+            "OBSID": str_col,
+            "OBSMODE": str_col,
+            "FRONTEND": str_col,
+            "TCAL": col_def("mean", float),
+            "VELDEF": str_col,
+            "VFRAME": col_def("mean", float, scale=1e-3),
+            "RVSYS": col_def("mean", float, scale=1e-3),
+            "OBSFREQ": col_def("mean", float, scale=1e-9),
+            "LST": col_def("mean", float),
+            "FREQRES": col_def("mean", float, scale=1e-9),
+            "EQUINOX": str_col,
+            "CALTYPE": str_col,
+            "TWARM": col_def("mean", float),
+            "TCOLD": col_def("mean", float),
+            "TAMBIENT": col_def("mean", float),
+            "OBSTYPE": str_col,
+            "SUBOBSMODE": str_col,
         }
 
         # Deafult columns to show.
