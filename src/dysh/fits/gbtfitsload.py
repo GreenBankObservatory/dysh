@@ -419,7 +419,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def get_summary(self, scan=None, verbose=False):
+    def get_summary(self, scan=None, verbose=False, show=None):
         # From GBTIDL:
         # Intended to work with un-calibrated GBT data and is
         # likely to give confusing results for other data.  For other data,
@@ -437,6 +437,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If `verbose=False` (default), some numeric data (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
             averaged over the records with the same scan number.
             If True, no averaging is done and additional columns are added to the output.
+        show : list
+            List of columns for the output summary. If not set it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN,
+            RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH, and ELEVATIO (ELEVATION).
+            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
+            DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
 
         Returns
         -------
@@ -445,120 +450,143 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
 
-        # @todo allow user to change show list
         # @todo set individual format options on output by
         # changing these to dicts(?)
-        # 'show' is fragile because anything we might need to query in 'uf' below in
-        # order to do a calculation,  whether we want to show it, or not must be in 'show.'
-        # (e.g. PROCSIZE is needed to calculate n_integrations).
 
-        show = [
-            "SCAN",
-            "OBJECT",
-            "VELOCITY",
-            "PROC",
-            "PROCSEQN",
-            "PROCSIZE",
-            "RESTFREQ",
-            "DOPFREQ",
-            "IFNUM",
-            "FEED",
-            "AZIMUTH",
-            "ELEVATIO",
-            "FDNUM",
-            "INTNUM",
-            "PLNUM",
-            "SIG",
-            "CAL",
-            "DATE-OBS",
-        ]
+        from collections import namedtuple
 
-        comp_colnames = [
-            "SCAN",
-            "OBJECT",
-            "VELOCITY",
-            "PROC",
-            "PROCSEQN",
-            "RESTFREQ",
-            "DOPFREQ",
-            "# IF",
-            "# POL",
-            "# INT",
-            "# FEED",
-            "AZIMUTH",
-            "ELEVATIO",
-        ]
+        col_def = namedtuple(
+            "col_def",
+            ["operation", "type", "name", "scale"],
+            defaults=(None, 1),
+        )
 
-        # In the process, some columns get cast to floats or others. Make sure we cast them
-        # back to an appropriate data type before return.
-        col_dtypes = {"SCAN": int, "PROCSEQN": int}
-        uncompressed_df = None
+        col_defs = {
+            "OBJECT": col_def("first", object),
+            "VELOCITY": col_def("mean", float, scale=1e-3),
+            "PROC": col_def("first", object),
+            "PROCSEQN": col_def("mean", int),
+            "PROCSIZE": col_def("mean", int),
+            "RESTFREQ": col_def("mean", float, scale=1e-9),
+            "DOPFREQ": col_def("mean", float, scale=1e-9),
+            "IFNUM": col_def("nunique", int, name="# IF"),
+            "FEED": col_def("nunique", int),
+            "AZIMUTH": col_def("mean", float),
+            "ELEVATIO": col_def("mean", float, name="ELEVATION"),
+            "FDNUM": col_def("nunique", int, name="# FEED"),
+            "INTNUM": col_def("nunique", int, name="# INT"),
+            "PLNUM": col_def("nunique", int, name="# POL"),
+            "SIG": col_def("nunique", object, name="# SIG"),
+            "CAL": col_def("nunique", object, name="# CAL"),
+            "DATE-OBS": col_def("first", object),
+            "FITSINDEX": col_def("mean", int, name="# FITS"),
+            "SCAN": col_def("mean", int),
+        }
+
+        # Deafult columns to show.
+        if show is None:
+            if verbose:
+                show = [
+                    "SCAN",
+                    "OBJECT",
+                    "VELOCITY",
+                    "PROC",
+                    "PROCSEQN",
+                    "PROCSIZE",
+                    "RESTFREQ",
+                    "DOPFREQ",
+                    "IFNUM",
+                    "FEED",
+                    "AZIMUTH",
+                    "ELEVATIO",
+                    "FDNUM",
+                    "INTNUM",
+                    "PLNUM",
+                    "SIG",
+                    "CAL",
+                    "DATE-OBS",
+                ]
+            else:
+                show = [
+                    "SCAN",
+                    "OBJECT",
+                    "VELOCITY",
+                    "PROC",
+                    "PROCSEQN",
+                    "RESTFREQ",
+                    "DOPFREQ",
+                    "IFNUM",
+                    "PLNUM",
+                    "INTNUM",
+                    "FDNUM",
+                    "AZIMUTH",
+                    "ELEVATIO",
+                ]
+        else:
+            # Check that the user input won't break anything.
+            # Selected columns must be defined in col_defs.
+            show_set = set(show)
+            col_defs_set = set(col_defs.keys())
+            if show_set > col_defs_set:
+                diff = show_set - col_defs_set
+                raise ValueError(f"Column(s) {diff} are not handled yet.")
+            # No duplicate columns.
+            if len(show_set) < len(show):
+                logger.warning("show contains duplicated column(s). Removing them. Column order won't be preserved.")
+                show = list(show_set)
+
+        needed = ["PROJID", "SCAN"]
+        _show = show.copy()
+        for n in needed:
+            try:
+                _show.remove(n)
+            except ValueError:
+                continue
+        cols = _show + needed  # All columns to fetch.
+
         self._create_index_if_needed()
+
+        # Define column types.
+        col_dtypes = {k: v.type for k, v in col_defs.items() if k in cols}
+
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-        _df = self[show].copy()
-        _df.loc[:, "VELOCITY"] /= 1e3  # convert to km/s
-        _df["RESTFREQ"] = _df["RESTFREQ"] / 1.0e9  # convert to GHz
-        _df["DOPFREQ"] = _df["DOPFREQ"] / 1.0e9  # convert to GHz
+        df = self[cols].copy().astype(col_dtypes)
+
+        # Scale columns.
+        for cn in show:
+            if col_defs[cn].scale != 1:
+                df[cn] = df[cn].apply(lambda x, cn=cn: x * col_defs[cn].scale)
+
         if scan is not None:
-            if type(scan) == int:  # noqa: E721
+            if isinstance(scan, int):
                 scan = [scan]
             if len(scan) == 1:
-                scan = [scan[0], scan[0]]  # or should this be [scans[0],lastscan]?
-            _df = self._select_scans(scan, _df).filter(show)
-            if uncompressed_df is None:
-                uncompressed_df = _df
-            else:  # no longer used
-                uncompressed_df = pd.concat([uncompressed_df, _df])
+                scan = [scan[0], scan[0]]
+            df = self._select_scans(scan, df)
+
+        if not verbose:
+            # Short summary version.
+            # Set column operations for aggregation.
+            col_ops = {k: v.operation for k, v in col_defs.items() if k in _show}
+            # We have to reset the index and column types.
+            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes)
+            # Order by scan number and project id.
+            df = df.sort_values(by=needed)
+            # Keep only the columns to be shown.
+            df = df[show]
+            # Set column names.
+            col_names = {k: v.name if k in _show and v.name is not None else k for k, v in col_defs.items()}
+            df = df.rename(columns=col_names)
         else:
-            if uncompressed_df is None:
-                uncompressed_df = _df.filter(show)
-            else:  # no longer used
-                uncompressed_df = pd.concat([uncompressed_df, _df.filter(show)])
-        if verbose:
-            uncompressed_df = uncompressed_df.astype(col_dtypes)
-            return uncompressed_df
-        # do the work to compress the info
-        # in the dataframe on a scan basis
-        compressed_df = pd.DataFrame(columns=comp_colnames)
-        scanset = set(uncompressed_df["SCAN"])
-        avg_cols = ["SCAN", "VELOCITY", "PROCSEQN", "RESTFREQ", "DOPFREQ", "AZIMUTH", "ELEVATIO"]
-        for s in scanset:
-            uf = select_from("SCAN", s, uncompressed_df)
-            # for some columns we will display
-            # the mean value
-            ser = uf.filter(avg_cols).mean(numeric_only=True)
-            ser.rename("filtered ser")
-            # for others we will count how many there are
-            nIF = uf["IFNUM"].nunique()
-            nPol = uf["PLNUM"].nunique()
-            nfeed = uf["FEED"].nunique()
-            # For counting integrations, take care of out-of-sync samplers by just
-            # looking at the first instance of FEED, PLNUM, and IFNUM.
-            uf_int = select_from("FEED", uf["FEED"].iloc[0], uf)
-            uf_int = select_from("PLNUM", uf_int["PLNUM"].iloc[0], uf_int)
-            uf_int = select_from("IFNUM", uf_int["IFNUM"].iloc[0], uf_int)
-            nint = len(set(uf_int["DATE-OBS"]))  # see gbtidl io/line_index__define.pro
-            obj = list(set(uf["OBJECT"]))[0]  # We assume they are all the same!  # noqa: RUF015
-            proc = list(set(uf["PROC"]))[0]  # We assume they are all the same!  # noqa: RUF015
-            s2 = pd.Series(
-                [obj, proc, nIF, nPol, nint, nfeed],
-                name="uniqued data",
-                index=["OBJECT", "PROC", "# IF", "# POL", "# INT", "# FEED"],
-            )
-            ser = pd.concat([ser, s2]).reindex(comp_colnames)
-            ser.rename("appended ser")
-            compressed_df = pd.concat([compressed_df, ser.to_frame().T], ignore_index=True)
-        compressed_df = compressed_df.astype(col_dtypes)
+            # Ensure column order is preserved.
+            df = df[show]
 
-        return compressed_df
+        return df
 
-    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False):
+    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, show=None):
         """
         Create a summary of the `~dysh.fits.GBTFITSLoad` object.
-        If `verbose=False` (default), some numeric data
-        (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
-        averaged over the records with the same scan number.
         To retrieve the underlying `~pandas.DataFrame` use
         `~dysh.fits.GBTFITSLoad.get_summary()`.
 
@@ -569,6 +597,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Default: show all scans
         verbose : bool
             If True, list every record, otherwise return a compact summary.
+            The compact summary averages some of the columns over scan number (e.g.,
+            RESTFREQ, AZIMUTH, ELEVATIO), and lists the number of spectral windows (IFs),
+            polarizations (# POL), feeds (# FEED), and integrations (# INT).
         max_rows : int or None
             Maximum number of rows to display. If less than the total number of rows, then
             the first `max_rows/2` and last `max_rows/2` rows will be shown, separated
@@ -576,15 +607,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             file for `summary_max_rows` will be used. Set to `None` for unlimited rows.
         show_index : bool
             Show index of the `~pandas.DataFrame`.
+        show : list
+            List of columns for the output summary. If not set it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN,
+            RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH, and ELEVATIO (ELEVATION).
+            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
+            DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
         """
 
-        compressed_df = self.get_summary(scan=scan, verbose=verbose)
+        df = self.get_summary(scan=scan, verbose=verbose, show=show)
 
         if max_rows == -1:
             max_rows = conf.summary_max_rows
         max_cols = 1500
 
-        show_dataframe(compressed_df, show_index=show_index, max_rows=max_rows, max_cols=max_cols)
+        show_dataframe(df, show_index=show_index, max_rows=max_rows, max_cols=max_cols)
 
     def velocity_convention(self, veldef):
         """Given the GBT VELDEF FITS string return the specutils
