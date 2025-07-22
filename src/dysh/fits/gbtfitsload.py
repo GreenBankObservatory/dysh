@@ -448,6 +448,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         summary : `~pandas.DataFrame`
             Summary of the data as a DataFrame.
 
+
+        Raises
+        ------
+        TypeError
+            If `show` is not a list.
+        ValueError
+            If one of the column names in `show` is not defined.
         """
 
         # @todo set individual format options on output by
@@ -555,16 +562,21 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 ]
         else:
             # Check that the user input won't break anything.
+            if not isinstance(show, list):
+                raise TypeError(f"show must be a list, got a {type(show)} instead.")
             # Selected columns must be defined in col_defs.
             show_set = set(show)
             col_defs_set = set(col_defs.keys())
-            if show_set > col_defs_set:
-                diff = show_set - col_defs_set
+            diff = show_set - col_defs_set
+            if len(diff) > 0:
                 raise ValueError(f"Column(s) {diff} are not handled yet.")
             # No duplicate columns.
             if len(show_set) < len(show):
                 logger.warning("show contains duplicated column(s). Removing them. Column order won't be preserved.")
                 show = list(show_set)
+            # No single SCAN column.
+            if show == ["SCAN"]:
+                raise ValueError("Won't do just the SCAN. Use GBTFITSLoad()['SCAN'] instead.")
 
         needed = ["PROJID", "SCAN"]
         _show = show.copy()
