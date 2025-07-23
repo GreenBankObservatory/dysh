@@ -175,6 +175,10 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     if verbose:
         print("DYSH_DATA:", dysh_data)
 
+    # Override the default _url.
+    if "DYSH_DATA_URL" in os.environ:
+        _url = os.environ["DYSH_DATA_URL"]
+
     # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present (in that order)
 
     # sdfits:   the main place where GBO data reside
