@@ -420,12 +420,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
     def get_summary(self, scan=None, verbose=False, show=None):
-        # From GBTIDL:
-        # Intended to work with un-calibrated GBT data and is
-        # likely to give confusing results for other data.  For other data,
-        # list is usually more useful.   @todo what's the dysh eqv. of list ?
-        #
-        # @todo perhaps return as a astropy.Table then we can have units
         """
         Create a summary of the input dataset as a `~pandas.DataFrame`.
 
@@ -434,12 +428,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scan : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
         verbose : bool
-            If `verbose=False` (default), some numeric data (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
+            If `verbose=False` (default), every record is listed and some numeric data (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
             averaged over the records with the same scan number.
             If True, no averaging is done and additional columns are added to the output.
         show : list
-            List of columns for the output summary. If not set it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN,
-            RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH, and ELEVATIO (ELEVATION).
+            List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN, OBJECT,
+            VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH,
+            and ELEVATIO (ELEVATION).
             If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
 
@@ -562,10 +557,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 ]
         else:
             # Check that the user input won't break anything.
-            if not isinstance(show, list):
-                raise TypeError(f"show must be a list, got a {type(show)} instead.")
+
+            # Check for any kind of list, and rule out str which is a type of Sequence.
+            if isinstance(show, (Sequence, np.ndarray)) and not isinstance(show, str):
+                show_set = set(show)
+            else:
+                raise TypeError(f"show must be list-like, got a {type(show)} instead.")
             # Selected columns must be defined in col_defs.
-            show_set = set(show)
             col_defs_set = set(col_defs.keys())
             diff = show_set - col_defs_set
             if len(diff) > 0:
@@ -573,7 +571,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # No duplicate columns.
             if len(show_set) < len(show):
                 logger.warning("show contains duplicated column(s). Removing them. Column order won't be preserved.")
-                show = list(show_set)
+            show = list(show_set)
             # No single SCAN column.
             if show == ["SCAN"]:
                 raise ValueError("Won't do just the SCAN. Use GBTFITSLoad()['SCAN'] instead.")
@@ -651,8 +649,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         show_index : bool
             Show index of the `~pandas.DataFrame`.
         show : list
-            List of columns for the output summary. If not set it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN,
-            RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH, and ELEVATIO (ELEVATION).
+            List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN,
+            OBJECT, VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED),
+            AZIMUTH, and ELEVATIO (ELEVATION).
             If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
         """

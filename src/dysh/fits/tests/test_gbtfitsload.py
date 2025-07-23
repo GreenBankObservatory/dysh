@@ -557,7 +557,7 @@ class TestGBTFITSLoad:
         path = util.get_project_testdata() / "AGBT05B_047_01"
         sdf_file = path / "AGBT05B_047_01.raw.acs"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        dysh_df = sdf.summary()
+        dysh_df = sdf.get_summary()
 
         gbtidl_summary = read_gbtidl_summary(path / "gbtidl" / "AGBT05B_047_01.summary")
 
