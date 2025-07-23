@@ -8,7 +8,7 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.coordinates import Angle
-from astropy.table import Table
+from astropy.table import Table, vstack
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from pandas import DataFrame
@@ -120,6 +120,9 @@ class SelectionBase(DataFrame):
         self._table = Table(data=None, names=self._defkeys, dtype=self._deftypes)
         for t in self._idtag:
             self._table.add_index(t)
+
+    def _make_table_from_rows(self, rows):
+        pass
 
     @property
     def aliases(self):
@@ -452,7 +455,7 @@ class SelectionBase(DataFrame):
                 return True
         return False
 
-    def _addrow(self, row, dataframe, tag=None):
+    def _addrow(self, row, dataframe, tag=None, check_for_duplicates=False):
         """
         Common code to add a tagged row to the internal table after the selection has been created.
         Should be called in select* methods.
@@ -466,13 +469,16 @@ class SelectionBase(DataFrame):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check_for_duplicates : bool
+            If True, call `_check_for_duplicates()` to see if a dataframe already implements this rule.
         Returns
         -------
         None.
 
         """
-        if self._check_for_duplicates(dataframe):
-            return
+        if check_for_duplicates:
+            if self._check_for_duplicates(dataframe):
+                return
         if tag is not None:
             row["TAG"] = tag
         else:
@@ -488,12 +494,19 @@ class SelectionBase(DataFrame):
         self._selection_rules[row["ID"]] = dataframe
         for k, v in row.items():
             row[k] = abbreviate_to(DEFAULT_COLUMN_WIDTH, v)
-        self._table.add_row(row)
+        if False:
+            print(self._table.colnames)
+            print(f"ADDING ROW {row}")
+            t = Table(rows=row)
+            self._table = vstack([self._table, t])
+            for x in self._idtag:
+                self._table.add_index(x)
+        else:
+            self._table.add_row(row)
         # for some reason the table gets "unsorted" from its index
         # resulting in issue #457
         # so always do a sort (by primary index by default) after adding a rows
         self._table.sort(self._idtag[0])
-        # self._last_row_added = row
 
     def _replace_time(self, **kwargs):
         """Replace astropy.Time and datetime.datetime objects in a kwargs list with numpy.datetime64 equivalent.
@@ -553,6 +566,11 @@ class SelectionBase(DataFrame):
         df = kwargs.pop("startframe", self)
         self._check_keys(kwargs.keys())
         row = {}
+        #  While not necessary for adding a row to a Table, ensuring the dict
+        # has keys for all Table columns improves the performance of Table._addrow.
+        for k in self._table.colnames:
+            row[k] = ""
+        # print(f"{len(row)=}")
 
         single_value_queries = None
         multi_value_queries = None
