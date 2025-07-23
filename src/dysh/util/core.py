@@ -14,6 +14,7 @@ from typing import Union
 import numpy as np
 from astropy.time import Time
 from astropy.units.quantity import Quantity
+from IPython.display import HTML, display
 
 ALL_CHANNELS = "all channels"
 
@@ -96,7 +97,7 @@ def indices_where_value_changes(colname, df):
     # df.shift() shifts the index by one, so we are then comparing df[N] to df[N-1]. This gets us
     # a truth table of where values change.  We filter on colname, then return a list of indices
     # where the value is true. Finally, we squeeze out the empty dimensions of the np array.
-    ary = df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).values
+    ary = df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).to_numpy()
     return np.squeeze(ary, axis=1)
 
 
@@ -524,3 +525,42 @@ def grouper(iterable, n, *, incomplete="fill", fillvalue=None):
             return zip(*iterators, strict=False)
         case _:
             raise ValueError("Expected fill, strict, or ignore")
+
+
+def in_notebook() -> bool:
+    """
+    Check if the code is being run inside a notebook.
+    """
+    try:
+        from IPython import get_ipython
+
+        if "IPKernelApp" not in get_ipython().config:  # pragma: no cover
+            return False
+    except ImportError:
+        return False
+    except AttributeError:
+        return False
+    return True
+
+
+def show_dataframe(df, show_index=False, max_rows=None, max_cols=None):
+    """
+    Function to show a `~pandas.DataFrame` in IPython or Jupyter.
+
+    Parameters
+    ----------
+    df : `~pandas.DataFrame`
+        The `~pandas.DataFrame` to be shown.
+    show_index : bool
+        Show the index of the `~pandas.DataFrame`.
+    max_rows : int or None
+        Maximum number of rows to display.
+    max_cols : int or None
+        Maximum number of columns to display.
+    """
+
+    kwargs = {"max_rows": max_rows, "max_cols": max_cols, "index": show_index}
+    if in_notebook():
+        display(HTML(df.to_html(**kwargs)))
+    else:
+        print(df.to_string(**kwargs))
