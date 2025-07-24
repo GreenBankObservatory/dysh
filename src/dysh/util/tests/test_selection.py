@@ -35,7 +35,7 @@ class TestSelection:
         # also testing that the alias 'pol' is interpreted
         # as plnum.
         with pytest.warns(UserWarning):
-            s.select(object="NGC2415", pol=0, tag="this will warn")
+            s.select(object="NGC2415", pol=0, tag="this will warn", check=True)
         s.select(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
         # the AND of the selection rules becomes the final
@@ -111,7 +111,7 @@ class TestSelection:
         # also testing that the alias 'pol' is interpreted
         # as plnum.
         with pytest.warns(UserWarning):
-            s.flag(object="NGC2415", pol=0, tag="this will warn")
+            s.flag(object="NGC2415", pol=0, tag="this will warn", check=True)
         s.flag(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
         # the AND of the selection rules becomes the final
