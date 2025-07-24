@@ -4,6 +4,7 @@ import os
 import numpy as np
 import pytest
 
+from astropy import units as u
 from dysh import util
 from dysh.fits.sdfitsload import SDFITSLoad
 
@@ -66,6 +67,7 @@ class TestSDFITSLoad:
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = SDFITSLoad(sdf_file)
         spec = sdf.getspec(index)
+        assert spec.flux.unit == u.ct
         assert np.nanmean(spec.data) == pytest.approx(504480960.0)
         assert spec.meta["BACKEND"] == "VEGAS"
         assert spec.meta["ROW"] == index

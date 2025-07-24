@@ -520,7 +520,7 @@ class SDFITSLoad(object):
             # PJT hack: bunit = u.K
         # use from_unmasked so we don't get the astropy INFO level message about replacing a mask
         # (doesn't work -- the INFO message comes from the Spectrum1D constructor)
-        masked_data = Masked.from_unmasked(data.data, data.mask) * u.K
+        masked_data = Masked.from_unmasked(data.data, data.mask) * bunit
         s = Spectrum.make_spectrum(masked_data, meta, observer_location=observer_location)
         return s
 
