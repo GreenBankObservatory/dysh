@@ -8,7 +8,7 @@ import astropy.units as u
 import numpy as np
 import pandas as pd
 from astropy.coordinates import Angle
-from astropy.table import Table, vstack
+from astropy.table import Table
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from pandas import DataFrame
@@ -455,7 +455,7 @@ class SelectionBase(DataFrame):
                 return True
         return False
 
-    def _addrow(self, row, dataframe, tag=None, check_for_duplicates=False):
+    def _addrow(self, row, dataframe, tag=None, check=False):
         """
         Common code to add a tagged row to the internal table after the selection has been created.
         Should be called in select* methods.
@@ -469,14 +469,14 @@ class SelectionBase(DataFrame):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
-        check_for_duplicates : bool
+        check : bool
             If True, call `_check_for_duplicates()` to see if a dataframe already implements this rule.
         Returns
         -------
         None.
 
         """
-        if check_for_duplicates:
+        if check:
             if self._check_for_duplicates(dataframe):
                 return
         if tag is not None:
@@ -494,15 +494,7 @@ class SelectionBase(DataFrame):
         self._selection_rules[row["ID"]] = dataframe
         for k, v in row.items():
             row[k] = abbreviate_to(DEFAULT_COLUMN_WIDTH, v)
-        if False:
-            print(self._table.colnames)
-            print(f"ADDING ROW {row}")
-            t = Table(rows=row)
-            self._table = vstack([self._table, t])
-            for x in self._idtag:
-                self._table.add_index(x)
-        else:
-            self._table.add_row(row)
+        self._table.add_row(row)
         # for some reason the table gets "unsorted" from its index
         # resulting in issue #457
         # so always do a sort (by primary index by default) after adding a rows
@@ -539,7 +531,7 @@ class SelectionBase(DataFrame):
                 kc[k] = v
         return kc
 
-    def _base_select(self, tag=None, **kwargs):
+    def _base_select(self, tag=None, check=False, **kwargs):
         """Add one or more exact selection/flag rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected/flagged.
         Derived classes will call this method with their own specific name, i.e. `select` or `flag`.
@@ -549,6 +541,8 @@ class SelectionBase(DataFrame):
             tag : str
                 An identifying tag by which the rule may be referred to later.
                 If None, a  randomly generated tag will be created.
+            check : bool
+                If True, check that a previous selection does not give an identical result as this one.
             key : str
                 The key  (SDFITS column name or other supported key)
             value : any
@@ -556,7 +550,7 @@ class SelectionBase(DataFrame):
 
         Returns
         -------
-            True if the selection resulted in a new fule, False if not (no data selected)
+            True if the selection resulted in a new rule, False if not (no data selected)
 
         """
         # pop these before check_keys, which is intended to check SDFITS keywords
@@ -565,12 +559,9 @@ class SelectionBase(DataFrame):
         # selections
         df = kwargs.pop("startframe", self)
         self._check_keys(kwargs.keys())
-        row = {}
         #  While not necessary for adding a row to a Table, ensuring the dict
         # has keys for all Table columns improves the performance of Table._addrow.
-        for k in self._table.colnames:
-            row[k] = ""
-        # print(f"{len(row)=}")
+        row = dict.fromkeys(self._table.colnames, "")
 
         single_value_queries = None
         multi_value_queries = None
@@ -634,10 +625,10 @@ class SelectionBase(DataFrame):
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
             return False
         df.loc[:, "CHAN"] = proposed_channel_rule  # this column is normally None so no need to check if None first.
-        self._addrow(row, df, tag)
+        self._addrow(row, df, tag, check=check)
         return True
 
-    def _base_select_range(self, tag=None, **kwargs):
+    def _base_select_range(self, tag=None, check=False, **kwargs):
         """
         Select a range of inclusive values for a given key(s).
         e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
@@ -652,6 +643,8 @@ class SelectionBase(DataFrame):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key (SDFITS column name or other supported key)
         value : array-like
@@ -703,7 +696,7 @@ class SelectionBase(DataFrame):
             return
         self._addrow(row, df, tag)
 
-    def _base_select_within(self, tag=None, **kwargs):
+    def _base_select_within(self, tag=None, check=False, **kwargs):
         """
         Select a value within a plus or minus for a given key(s).
         e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
@@ -716,6 +709,8 @@ class SelectionBase(DataFrame):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key (SDFITS column name or other supported key)
         value : array-like
@@ -760,7 +755,6 @@ class SelectionBase(DataFrame):
         ----------
         channel : number, or array-like
             The channels to select
-
         Returns
         -------
         None.
@@ -778,7 +772,14 @@ class SelectionBase(DataFrame):
         if isinstance(channel, numbers.Number):
             channel = [int(channel)]
         self._channel_selection = channel
-        self._addrow({"CHAN": abbreviate_to(DEFAULT_COLUMN_WIDTH, channel)}, dataframe=self, tag=tag)
+        # we don't care if a selection selects the same channels.  They are all pasted together in numpy later and
+        # never go through a DataFrame (which is why we pass in the dummy self)
+        self._addrow(
+            {"CHAN": abbreviate_to(DEFAULT_COLUMN_WIDTH, channel)},
+            dataframe=self,
+            tag=tag,
+            check=False,
+        )
 
     # NB: using ** in doc here because `id` will make a reference to the
     # python built-in function.  Arguably we should pick a different
@@ -982,7 +983,7 @@ class Selection(SelectionBase):
     Aliases of keywords are supported. The user may add an alias for an existing SDFITS column with :meth:`alias`.   Some default :meth:`aliases` have been defined.
     """
 
-    def select(self, tag=None, **kwargs):
+    def select(self, tag=None, check=False, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
         For instance `select(object=['3C273', 'NGC1234'])` will select data for either of those
@@ -993,13 +994,15 @@ class Selection(SelectionBase):
             tag : str
                 An identifying tag by which the rule may be referred to later.
                 If None, a  randomly generated tag will be created.
+            check : bool
+                If True, check that a previous selection does not give an identical result as this one.
             key : str
                 The key  (SDFITS column name or other supported key)
             value : any
                 The value to select
 
         """
-        self._base_select(tag, **kwargs)
+        self._base_select(tag, check=check, **kwargs)
 
     def select_range(self, tag=None, **kwargs):
         """
@@ -1118,7 +1121,7 @@ class Flag(SelectionBase):
     GBTIDL Flags can be read in with :meth:`read`.
     """
 
-    def flag(self, tag=None, **kwargs):
+    def flag(self, tag=None, check=False, **kwargs):
         """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be flagged.
         For instance `flag(object=['3C273', 'NGC1234'])` will select data for either of those
@@ -1128,13 +1131,15 @@ class Flag(SelectionBase):
 
         Parameters
         ----------
-            tag : str
-                An identifying tag by which the rule may be referred to later.
-                If None, a  randomly generated tag will be created.
-            key : str
-                The key  (SDFITS column name or other supported key)
-            value : any
-                The value to select
+        tag : str
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
+        key : str
+            The key  (SDFITS column name or other supported key)
+        value : any
+            The value to select
 
         """
         chan = kwargs.pop("channel", None)
@@ -1157,7 +1162,7 @@ class Flag(SelectionBase):
                 kwargs["proposed_channel_rule"] = ALL_CHANNELS
             else:
                 kwargs["proposed_channel_rule"] = str(chan)
-            success = self._base_select(tag, **kwargs)  # don't do this unless chan input is good.
+            success = self._base_select(tag, check=check, **kwargs)  # don't do this unless chan input is good.
             if not success:
                 return
             idx = len(self._table) - 1
@@ -1211,7 +1216,7 @@ class Flag(SelectionBase):
         self._selection_rules[idx]["CHAN"] = str(channel)
         self._channel_selection = None  # unused for flagging
 
-    def flag_range(self, tag=None, **kwargs):
+    def flag_range(self, tag=None, check=False, **kwargs):
         """Flag a range of inclusive values for a given key(s).
         e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
         will flag data  `v1 <= data1 <= v2, v3 <= data2 <= v4, ... `
@@ -1225,6 +1230,8 @@ class Flag(SelectionBase):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key (SDFITS column name or other supported key)
         value : array-like
@@ -1234,13 +1241,13 @@ class Flag(SelectionBase):
         -------
         None.
         """
-        self._base_select_range(tag, **kwargs)
+        self._base_select_range(tag, check=check, **kwargs)
         idx = len(self._table) - 1
         self._flag_channel_selection[idx] = ALL_CHANNELS
         self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
         self._channel_selection = None  # unused for flagging
 
-    def flag_within(self, tag=None, **kwargs):
+    def flag_within(self, tag=None, check=False, **kwargs):
         """
         Flag a value within a plus or minus for a given key(s).
         e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
@@ -1253,6 +1260,8 @@ class Flag(SelectionBase):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key (SDFITS column name or other supported key)
         value : array-like
@@ -1263,7 +1272,7 @@ class Flag(SelectionBase):
         None.
 
         """
-        self._base_select_within(tag, **kwargs)
+        self._base_select_within(tag, check=check, **kwargs)
         idx = len(self._table) - 1
         self._flag_channel_selection[idx] = ALL_CHANNELS
         self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
@@ -1397,5 +1406,5 @@ class Flag(SelectionBase):
                 if kwargs is not None:
                     vdict.update(kwargs)
                 logger.debug(f"flag({tag=},{vdict})")
-                self.flag(tag=tag, **vdict)
+                self.flag(tag=tag, check=False, **vdict)
             self._table.sort(self._idtag[0])
