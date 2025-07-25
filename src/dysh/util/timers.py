@@ -57,7 +57,7 @@ class DTime(object):
     dt.tag("test1")
     dt.tag("test2")
     dt.tag("test3")
-    dt.done()
+    dt.report()
 
     By default it simply builds a delta-time of the time it took between the different tags, as
     labeled by their tag name. If DTime() is supplied a number of data items for extra columns,
@@ -67,7 +67,14 @@ class DTime(object):
     """
 
     def __init__(
-        self, benchname="generic", units="ms", active=True, data_cols=None, data_units=None, data_types=None, args=None
+        self,
+        benchname="generic",
+        units="ms",
+        active=True,
+        data_cols=None,
+        data_units=None,
+        data_types=None,
+        args=None,
     ):
         # out = None, overwrite=False, append=False, profile=False, statslines=25,
         self.active = active
@@ -111,7 +118,12 @@ class DTime(object):
             my_unit = my_unit + data_units
             my_type = my_type + data_types
 
-        self.table = Table(meta={"name": f"Dysh Benchmark {benchname}"}, names=my_cols, units=my_unit, dtype=my_type)
+        self.table = Table(
+            meta={"name": f"Dysh Benchmark {benchname}"},
+            names=my_cols,
+            units=my_unit,
+            dtype=my_type,
+        )
         self.stats = []
 
         # prepare for the first row in the table

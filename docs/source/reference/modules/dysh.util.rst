@@ -7,12 +7,22 @@ Utility classes and functions
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: dysh.util.files
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: dysh.util.gaincorrection
    :members:
    :undoc-members:
    :show-inheritance:
 
 .. automodule:: dysh.util.selection
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: dysh.util.timers
    :members:
    :undoc-members:
    :show-inheritance:

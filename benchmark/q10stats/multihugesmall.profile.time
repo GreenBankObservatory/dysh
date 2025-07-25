@@ -1,0 +1,127 @@
+Loading not more than 5 from /lma1/teuben/GBT/dysh_data/acceptance_testing/data/AGBT14B_480_06/AGBT14B_480_06.raw.vegas
+Will load 5 of 5 files. FITS size per file 3713.27MB, Flag lines 6
+Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.
+Loaded 5 FITS files
+Found ostype= linux
+Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.
+Loaded 5 FITS files
+Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.
+Loaded 5 FITS files
+Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.
+Loaded 5 FITS files
+# Dysh Benchmark: GBTFITSLoad
+ name  time   VmSize VmRSS  #files file_size totsize  nchan   nrow nIF nFd nPol #flags skipflags
+        ms    Mbyte  Mbyte           Mbyte    Mbyte                                             
+----- ------ ------- ------ ------ --------- -------- ------ ----- --- --- ---- ------ ---------
+load1 4035.4 23208.0 7117.2      5   3713.27 18566.35 131072 35370   5   1    2      6     False
+load2 8199.0 23339.6 7248.7      5   3713.27 18566.35 131072 35370   5   1    2      6     False
+load3 3948.1 23345.6 7254.1      5   3713.27 18566.35 131072 35370   5   1    2      6     False
+load4 8137.8 23361.9 7270.1      5   3713.27 18566.35 131072 35370   5   1    2      6     False
+         20689884 function calls (20511862 primitive calls) in 24.243 seconds
+
+   Ordered by: internal time
+   List reduced from 1657 to 100 due to restriction <100>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     2424   10.020    0.004   10.026    0.004 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/numeric.py:274(full)
+      464    1.322    0.003    1.322    0.003 {built-in method numpy.core._multiarray_umath._vec_string}
+    19952    1.049    0.000    2.676    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1180(_chop)
+      944    0.979    0.001    3.881    0.004 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:46(_str_map)
+    19952    0.940    0.000    0.984    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/indexes/base.py:5425(_getitem_slice)
+       20    0.804    0.040    2.761    0.138 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/lib/recfunctions.py:35(recursive_fill_fields)
+  3254040    0.635    0.000    1.188    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:2002(<lambda>)
+  3254040    0.622    0.000    1.063    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:451(<lambda>)
+  3254056    0.553    0.000    0.553    0.000 {method 'decode' of 'bytes' objects}
+41116/40144    0.520    0.000    0.522    0.000 {built-in method numpy.asarray}
+  3293677    0.451    0.000    0.451    0.000 {method 'strip' of 'str' objects}
+    19952    0.364    0.000    0.415    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/_mixins.py:278(__getitem__)
+   282960    0.357    0.000    0.420    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:358(<lambda>)
+     1144    0.207    0.000    0.207    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/missing.py:305(_isna_string_dtype)
+    14292    0.173    0.000    0.370    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/array_algos/take.py:120(_take_nd_ndarray)
+        4    0.163    0.041    3.721    0.930 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:958(_construct_integration_number)
+777877/772697    0.132    0.000    0.165    0.000 {built-in method builtins.isinstance}
+    14708    0.123    0.000    0.127    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/cast.py:551(maybe_promote)
+    97680    0.123    0.000    0.123    0.000 {built-in method builtins.locals}
+       15    0.119    0.008    0.124    0.008 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/hdu/base.py:191(data)
+      884    0.118    0.000    0.130    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:2246(_stack_arrays)
+      944    0.114    0.000    0.389    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:255(_wrap_result)
+     6512    0.104    0.000    1.036    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:561(__init__)
+     4756    0.104    0.000    0.106    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/weakref.py:289(update)
+    40214    0.100    0.000    0.420    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/config/configuration.py:442(__call__)
+   104192    0.099    0.000    0.538    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:532(__set__)
+       48    0.095    0.002    0.096    0.002 /lma1/mpound/dysh/src/dysh/util/core.py:334(uniq)
+821058/805978    0.095    0.000    0.117    0.000 {built-in method builtins.len}
+       16    0.084    0.005    0.137    0.009 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/concat.py:94(concatenate_managers)
+      132    0.082    0.001    0.140    0.001 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:2276(_merge_blocks)
+   350655    0.081    0.000    0.081    0.000 {method 'split' of 'str' objects}
+    50825    0.071    0.000    0.150    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/config/configuration.py:547(get_config)
+    20156    0.068    0.000    3.265    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/ops.py:607(get_iterator)
+      944    0.062    0.000    0.069    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:207(_validate)
+    40728    0.062    0.000    0.089    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/indexes/base.py:649(_simple_new)
+    22952    0.062    0.000    0.087    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/generic.py:6236(__finalize__)
+     2020    0.061    0.000    0.061    0.000 {method 'copy' of 'numpy.ndarray' objects}
+214361/116676    0.060    0.000    0.597    0.000 {built-in method builtins.setattr}
+309958/309878    0.056    0.000    0.066    0.000 {built-in method builtins.getattr}
+      128    0.054    0.000    0.055    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/shape_base.py:219(vstack)
+    19952    0.053    0.000    0.491    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/datetimelike.py:373(__getitem__)
+        4    0.050    0.013    5.009    1.252 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:880(_create_index_if_needed)
+   241990    0.050    0.000    0.050    0.000 {method 'get' of 'dict' objects}
+    91034    0.049    0.000    0.066    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/extern/configobj/configobj.py:550(__getitem__)
+    23052    0.047    0.000    0.060    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/generic.py:278(__init__)
+   282960    0.047    0.000    0.047    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:339(cons_row)
+   282984    0.046    0.000    0.070    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:348(<genexpr>)
+    54412    0.046    0.000    0.046    0.000 {method 'match' of 're.Pattern' objects}
+    19972    0.044    0.000    0.145    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/indexes/base.py:1146(take)
+    18688    0.043    0.000    0.043    0.000 {built-in method numpy.empty}
+    50823    0.040    0.000    0.040    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/records.py:441(__getattribute__)
+39645/27778    0.036    0.000    0.061    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/table/column.py:1271(__setattr__)
+30296/15276    0.035    0.000    0.953    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/utils/decorators.py:827(__get__)
+    19960    0.035    0.000    0.038    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/indexers/utils.py:419(check_array_indexer)
+80612/63436    0.033    0.000    0.045    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:483(__getattribute__)
+    24812    0.031    0.000    0.444    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:282(value)
+    40219    0.028    0.000    0.100    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/extern/configobj/validate.py:593(check)
+      242    0.028    0.000    0.098    0.000 {built-in method builtins.max}
+    40219    0.025    0.000    0.025    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/extern/configobj/validate.py:637(_parse_with_caching)
+     7704    0.025    0.000    0.025    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+    40214    0.025    0.000    0.445    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/config/configuration.py:333(__get__)
+       16    0.024    0.002    0.024    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/ops/array_ops.py:113(comp_method_OBJECT_ARRAY)
+    22280    0.023    0.000    0.072    0.000 {method 'take' of 'numpy.ndarray' objects}
+    40219    0.023    0.000    0.047    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/extern/configobj/validate.py:651(_check_value)
+    20156    0.022    0.000    3.185    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1149(__iter__)
+     6512    0.020    0.000    0.034    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:1365(_convert_to_valid_data_type)
+    20184    0.020    0.000    0.061    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/algorithms.py:1131(take)
+     7992    0.020    0.000    0.083    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:832(array)
+      460    0.020    0.000    1.868    0.004 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/defchararray.py:572(decode)
+    14292    0.020    0.000    0.154    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/array_algos/take.py:564(_take_preprocess_indexer_and_fill_value)
+14504/14292    0.019    0.000    0.404    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/array_algos/take.py:59(take_nd)
+       44    0.019    0.000    0.709    0.016 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:1524(_init_from_array)
+    40219    0.019    0.000    0.119    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/config/configuration.py:513(_validate_val)
+    13024    0.019    0.000    0.037    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:2278(_parse_tformat)
+    14080    0.019    0.000    0.435    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/blocks.py:1287(take_nd)
+    77813    0.018    0.000    0.018    0.000 {built-in method __new__ of type object at 0x936bc0}
+     5340    0.018    0.000    0.168    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:749(_parse_value)
+       24    0.018    0.001    0.018    0.001 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/construction.py:849(_list_to_arrays)
+     9776    0.018    0.000    0.196    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:606(_check_if_rvkc)
+    76900    0.018    0.000    0.052    0.000 {built-in method builtins.hasattr}
+    91916    0.017    0.000    0.017    0.000 {function Section.__getitem__ at 0x7f106b388400}
+       88    0.017    0.000    0.168    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:1782(_consolidate_inplace)
+     7240    0.017    0.000    0.030    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/generic.py:6301(__setattr__)
+     4736    0.017    0.000    0.129    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:303(value)
+     3652    0.017    0.000    0.064    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/construction.py:517(sanitize_array)
+       20    0.017    0.001    0.499    0.025 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:1580(_init_from_table)
+    15056    0.017    0.000    0.017    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/blocks.py:292(make_block_same_class)
+    84549    0.016    0.000    0.016    0.000 {method 'append' of 'list' objects}
+    21956    0.015    0.000    0.073    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/generic.py:339(_from_mgr)
+    53696    0.015    0.000    0.022    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:481(field_specifier)
+      460    0.014    0.000    0.014    0.000 {method 'tolist' of 'numpy.ndarray' objects}
+     4736    0.014    0.000    0.113    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:993(_format_image)
+    39389    0.014    0.000    0.022    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/extern/configobj/validate.py:897(is_boolean)
+    20196    0.014    0.000    0.082    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:659(_constructor_from_mgr)
+     7992    0.014    0.000    0.107    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:996(_verify_keywords)
+     6512    0.014    0.000    0.037    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:302(__new__)
+        8    0.014    0.002    0.016    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/algorithms.py:427(unique_with_mask)
+     4900    0.014    0.000    0.241    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/header.py:151(__getitem__)
+    98340    0.013    0.000    0.030    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:219(keyword)
+      208    0.013    0.000    0.473    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:623(reindex_indexer)
+
+
