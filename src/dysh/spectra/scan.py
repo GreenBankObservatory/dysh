@@ -2419,12 +2419,12 @@ class SubBeamNodScan(ScanBase):
         self._nchan = len(reftp[0]._calibrated[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
         self._nint = self._nrows
-        if self._smoothref > 1:
-            raise NotImplementedError(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
-        # take the first reference scan for each sigtp as the row to use for creating metadata.
+        #if self._smoothref > 1:
+        #    raise NotImplementedError(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
+        # Take the first reference scan for each sigtp as the row to use for creating metadata.
         meta_rows = []
         for r in self._sigtp:
-            meta_rows.append(r._refonrows[0])
+            meta_rows.append(r._refoffrows[0])
         meta_rows = list(set(meta_rows))
 
         self._finish_initialization(calibrate, {"weights": w}, meta_rows, bunit, zenith_opacity)
@@ -2450,6 +2450,8 @@ class SubBeamNodScan(ScanBase):
         for i in range(nspect):
             sig = self._sigtp[i].timeaverage(weights=kwargs["weights"])
             ref = self._reftp[i].timeaverage(weights=kwargs["weights"])
+            if self._smoothref > 1:
+                ref = ref.smooth("box", self._smoothref, decimate=-1)
             # Combine sig and ref.
             ta = ((sig - ref) / ref).flux.value * ref.meta["WTTSYS"]
             self._tsys[i] = ref.meta["WTTSYS"]
