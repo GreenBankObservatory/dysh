@@ -126,8 +126,8 @@ def summary_column_definitions():
         For every column this lists the operation to be performed on the column
         when aggregating it by scan number and project id. The data operation is
         stored in the operation attribute. For a description of the operations see
-        `https://pandas.pydata.org/pandas-docs/stable/user_guide/groupby.html#built-in-aggregation-methods`_. 
-        The type attribute is the data type for the column. The name attribute is 
+        `https://pandas.pydata.org/pandas-docs/stable/user_guide/groupby.html#built-in-aggregation-methods`_.
+        The type attribute is the data type for the column. The name attribute is
         the name to be shown if `verbose=False`.
         The scale attribute is the factor by which to scale the column.
     """
