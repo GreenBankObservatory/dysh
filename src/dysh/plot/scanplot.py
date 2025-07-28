@@ -110,7 +110,7 @@ class ScanPlot:
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
         # print(stop,step,np.arange(0,stop,step).shape)
-        im2 = self._axis2.plot(np.arange(0,stop,step),sa,linewidth=0)
+        im2 = self._axis2.plot(np.arange(0,stop,step),sa,linewidth=0)  # noqa: F841
 
         self._axis.set_xlim(0,stop-0.5)
         z_label = self._set_labels(self._s)
