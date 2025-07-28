@@ -812,7 +812,7 @@ requires-dist = [
     { name = "jupyterlab", marker = "extra == 'all'" },
     { name = "jupyterlab", marker = "extra == 'nb'" },
     { name = "matplotlib" },
-    { name = "numpy" },
+    { name = "numpy", specifier = "<2" },
     { name = "pandas" },
     { name = "rich" },
     { name = "scipy" },

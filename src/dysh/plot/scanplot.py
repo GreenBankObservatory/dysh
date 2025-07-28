@@ -14,8 +14,6 @@ from astropy.time import Time
 from ..coordinates import (
     Observatory,
     crval4_to_pol,
-    decode_veldef,
-    frame_to_label,
     ra2ha,
 )
 
@@ -24,7 +22,6 @@ _KMS = u.km / u.s
 
 class ScanPlot:
     """hello"""
-
 
     def __init__(self, scanblock_or_scan, **kwargs):
         self.reset()
