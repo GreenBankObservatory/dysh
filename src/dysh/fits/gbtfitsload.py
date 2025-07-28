@@ -46,7 +46,7 @@ from ..util.files import dysh_data
 from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
 from ..util.weatherforecast import GBTWeatherForecast
-from . import conf
+from . import conf, core
 from .sdfitsload import SDFITSLoad
 
 # from GBT IDL users guide Table 6.7
@@ -419,7 +419,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def get_summary(self, scan=None, verbose=False, show=None):
+    def get_summary(self, scan=None, verbose=False, columns=None):
         """
         Create a summary of the input dataset as a `~pandas.DataFrame`.
 
@@ -428,10 +428,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scan : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
         verbose : bool
-            If `verbose=False` (default), every record is listed and some numeric data (e.g., RESTFREQ, AZIMUTH, ELEVATIO) are
-            averaged over the records with the same scan number.
-            If True, no averaging is done and additional columns are added to the output.
-        show : list
+            If verbose=False (default), the records are grouped by scan number and project id and aggregated 
+            according to the column. For example, the records for columns RESTFREQ, AZIMUTH and ELEVATIO are 
+            averaged for every scan. For columns IFNUM, PLNUM and FDNUM it counts the unique number of records. 
+            For column OBJECT it shows the value of the first record for the scan. For more details and a full 
+            list of the supported columns see `~dysh.fits.core.summary_column_definitions`.
+            If True, list every record.
+        columns : list
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN, OBJECT,
             VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH,
             and ELEVATIO (ELEVATION).
@@ -442,7 +445,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
         summary : `~pandas.DataFrame`
             Summary of the data as a DataFrame.
-
 
         Raises
         ------
@@ -455,71 +457,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # @todo set individual format options on output by
         # changing these to dicts(?)
 
-        from collections import namedtuple
-
-        col_def = namedtuple(
-            "col_def",
-            ["operation", "type", "name", "scale"],
-            defaults=(None, 1),
-        )
-
-        str_col = col_def("first", object)
-
-        col_defs = {
-            "OBJECT": col_def("first", object),
-            "VELOCITY": col_def("mean", float, scale=1e-3),
-            "PROC": col_def("first", object),
-            "PROCSEQN": col_def("mean", int),
-            "PROCSIZE": col_def("mean", int),
-            "RESTFREQ": col_def("mean", float, scale=1e-9),
-            "DOPFREQ": col_def("mean", float, scale=1e-9),
-            "IFNUM": col_def("nunique", int, name="# IF"),
-            "FEED": col_def("nunique", int),
-            "AZIMUTH": col_def("mean", float),
-            "ELEVATIO": col_def("mean", float, name="ELEVATION"),
-            "FDNUM": col_def("nunique", int, name="# FEED"),
-            "INTNUM": col_def("nunique", int, name="# INT"),
-            "PLNUM": col_def("nunique", int, name="# POL"),
-            "SIG": col_def("nunique", object, name="# SIG"),
-            "CAL": col_def("nunique", object, name="# CAL"),
-            "DATE-OBS": col_def("first", object),
-            "FITSINDEX": col_def("mean", int, name="# FITS"),
-            "SCAN": col_def("mean", int),
-            "BANDWID": col_def("mean", float, name="BW", scale=1e-6),
-            "DURATION": col_def("mean", float),
-            "EXPOSURE": col_def("mean", float),
-            "TSYS": col_def("mean", float),
-            "CTYPE1": col_def("first", object),
-            "CTYPE2": col_def("first", object),
-            "CTYPE3": col_def("first", object),
-            "CRVAL1": col_def("mean", int),
-            "CRVAL2": col_def("mean", int),
-            "CRVAL3": col_def("mean", int),
-            "CRVAL4": col_def("mean", int),
-            "OBSERVER": str_col,
-            "OBSID": str_col,
-            "OBSMODE": str_col,
-            "FRONTEND": str_col,
-            "TCAL": col_def("mean", float),
-            "VELDEF": str_col,
-            "VFRAME": col_def("mean", float, scale=1e-3),
-            "RVSYS": col_def("mean", float, scale=1e-3),
-            "OBSFREQ": col_def("mean", float, scale=1e-9),
-            "LST": col_def("mean", float),
-            "FREQRES": col_def("mean", float, scale=1e-9),
-            "EQUINOX": str_col,
-            "CALTYPE": str_col,
-            "TWARM": col_def("mean", float),
-            "TCOLD": col_def("mean", float),
-            "TAMBIENT": col_def("mean", float),
-            "OBSTYPE": str_col,
-            "SUBOBSMODE": str_col,
-        }
+        col_defs = core.summary_column_definitions()
 
         # Deafult columns to show.
-        if show is None:
+        if columns is None:
             if verbose:
-                show = [
+                columns = [
                     "SCAN",
                     "OBJECT",
                     "VELOCITY",
@@ -540,7 +483,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "DATE-OBS",
                 ]
             else:
-                show = [
+                columns = [
                     "SCAN",
                     "OBJECT",
                     "VELOCITY",
@@ -559,31 +502,31 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # Check that the user input won't break anything.
 
             # Check for any kind of list, and rule out str which is a type of Sequence.
-            if isinstance(show, (Sequence, np.ndarray)) and not isinstance(show, str):
-                show_set = set(show)
+            if isinstance(columns, (Sequence, np.ndarray)) and not isinstance(columns, str):
+                cols_set = set(columns)
             else:
-                raise TypeError(f"show must be list-like, got a {type(show)} instead.")
+                raise TypeError(f"show must be list-like, got a {type(columns)} instead.")
             # Selected columns must be defined in col_defs.
             col_defs_set = set(col_defs.keys())
-            diff = show_set - col_defs_set
+            diff = cols_set - col_defs_set
             if len(diff) > 0:
                 raise ValueError(f"Column(s) {diff} are not handled yet.")
             # No duplicate columns.
-            if len(show_set) < len(show):
-                logger.warning("show contains duplicated column(s). Removing them. Column order won't be preserved.")
-            show = list(show_set)
+            if len(cols_set) < len(columns):
+                logger.warning("columns contains duplicated values. Removing them. Column order won't be preserved.")
+            columns = list(cols_set)
             # No single SCAN column.
-            if show == ["SCAN"]:
+            if columns == ["SCAN"]:
                 raise ValueError("Won't do just the SCAN. Use GBTFITSLoad()['SCAN'] instead.")
 
         needed = ["PROJID", "SCAN"]
-        _show = show.copy()
+        _columns = columns.copy()
         for n in needed:
             try:
-                _show.remove(n)
+                _columns.remove(n)
             except ValueError:
                 continue
-        cols = _show + needed  # All columns to fetch.
+        cols = _columns + needed  # All columns to fetch.
 
         self._create_index_if_needed()
 
@@ -595,7 +538,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         df = self[cols].copy().astype(col_dtypes)
 
         # Scale columns.
-        for cn in show:
+        for cn in columns:
             if col_defs[cn].scale != 1:
                 df[cn] = df[cn].apply(lambda x, cn=cn: x * col_defs[cn].scale)
 
@@ -609,23 +552,23 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if not verbose:
             # Short summary version.
             # Set column operations for aggregation.
-            col_ops = {k: v.operation for k, v in col_defs.items() if k in _show}
+            col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns}
             # We have to reset the index and column types.
             df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes)
             # Order by scan number and project id.
             df = df.sort_values(by=needed)
             # Keep only the columns to be shown.
-            df = df[show]
+            df = df[columns]
             # Set column names.
-            col_names = {k: v.name if k in _show and v.name is not None else k for k, v in col_defs.items()}
+            col_names = {k: v.name if k in _columns and v.name is not None else k for k, v in col_defs.items()}
             df = df.rename(columns=col_names)
         else:
             # Ensure column order is preserved.
-            df = df[show]
+            df = df[columns]
 
         return df
 
-    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, show=None):
+    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None):
         """
         Show a summary of the `~dysh.fits.GBTFITSLoad` object.
         To retrieve the underlying `~pandas.DataFrame` use
@@ -648,7 +591,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             file for `summary_max_rows` will be used. Set to `None` for unlimited rows.
         show_index : bool
             Show index of the `~pandas.DataFrame`.
-        show : list
+        columns : list
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN,
             OBJECT, VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED),
             AZIMUTH, and ELEVATIO (ELEVATION).
@@ -656,7 +599,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
         """
 
-        df = self.get_summary(scan=scan, verbose=verbose, show=show)
+        df = self.get_summary(scan=scan, verbose=verbose, columns=columns)
 
         if max_rows == -1:
             max_rows = conf.summary_max_rows
