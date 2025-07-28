@@ -1985,7 +1985,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         smoothref: int = 1,
         apply_flags: bool = True,
         bunit="ta",
-        zenith_opacity: float = None,
+        zenith_opacity=None,
         t_sys=None,
         **kwargs,
     ):
@@ -2062,7 +2062,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 for scan in scans:
                     reftp = []
                     sigtp = []
-                    fulltp = []
                     logger.debug(f"doing scan {scan}")
                     df = select_from("SCAN", scan, _df)
                     if len(df) == 0:
