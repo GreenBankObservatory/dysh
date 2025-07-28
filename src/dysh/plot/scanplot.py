@@ -34,7 +34,7 @@ class ScanPlot:
         self._title = self._plot_kwargs["title"]
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
 
-        #determine if input is a ScanBlock or a ScanBase (raise exception if neither)
+        # determine if input is a ScanBlock or a ScanBase (raise exception if neither)
         self._type = scanblock_or_scan.__class__.__name__
         if self._type == "ScanBlock":
             self._scanblock = scanblock_or_scan
@@ -46,12 +46,12 @@ class ScanPlot:
 
         # handle scanblocks
         if self._type == "ScanBlock":
-            self._scan_nos = [] # scan numbers in the scan block
-            self._nint_nos = [] # number of integrations in each scan
-            self._timestamps = [] # 0-indexed timestamps in sec for every integration
+            self._scan_nos = []  # scan numbers in the scan block
+            self._nint_nos = []  # number of integrations in each scan
+            self._timestamps = []  # 0-indexed timestamps in sec for every integration
             self._spectral_axis = self._scanblock[0].timeaverage().spectral_axis
-            for i,scan in enumerate(self._scanblock):
-                if i==0:
+            for i, scan in enumerate(self._scanblock):
+                if i == 0:
                     self.spectrogram = scan._calibrated
                 else:
                     self.spectrogram = np.append(self.spectrogram, scan._calibrated, axis=0)
@@ -75,8 +75,7 @@ class ScanPlot:
         self.__init__(self._scanblock_or_scan, **kwargs)
         plt.ion()
 
-
-        #self._set_xaxis_info()
+        # self._set_xaxis_info()
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
 
@@ -84,9 +83,8 @@ class ScanPlot:
         interpolation = kwargs.get("interpolation", "nearest")
 
         if True:
-            self._figure, self._axis = self._plt.subplots(figsize=(10,6))
+            self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
             self._axis2 = self._axis.twinx()
-
 
         self._figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
         self._set_header(self._s)
@@ -95,13 +93,9 @@ class ScanPlot:
         # self._axis.yaxis.set_label_position('left')
         # self._axis.yaxis.set_ticks_position('left')
 
-        self.im = self._axis.imshow(self.spectrogram,
-            aspect='auto',
-            cmap=cmap,
-            interpolation=interpolation
-            )
+        self.im = self._axis.imshow(self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation)
 
-        #second "plot" to get different scales on x2, y2 axes
+        # second "plot" to get different scales on x2, y2 axes
         # self._axis2.tick_params(axis='both',direction='inout',
         #     length=8,bottom=False,left=False,top=True,right=True,pad=2)
         # self._axis2.yaxis.set_label_position('right')
@@ -110,18 +104,18 @@ class ScanPlot:
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
         # print(stop,step,np.arange(0,stop,step).shape)
-        im2 = self._axis2.plot(np.arange(0,stop,step),sa,linewidth=0)  # noqa: F841
+        im2 = self._axis2.plot(np.arange(0, stop, step), sa, linewidth=0)  # noqa: F841
 
-        self._axis.set_xlim(0,stop-0.5)
+        self._axis.set_xlim(0, stop - 0.5)
         z_label = self._set_labels(self._s)
-        self._figure.colorbar(self.im,label=z_label,pad=0.1)
+        self._figure.colorbar(self.im, label=z_label, pad=0.1)
 
-    def _set_labels(self,s):
-        #x1: bottom
-        #x2: top
-        #y1: left
-        #y2: right
-        #z: colorbar
+    def _set_labels(self, s):
+        # x1: bottom
+        # x2: top
+        # y1: left
+        # y2: right
+        # z: colorbar
 
         x1_label = "Integration"
         self._axis.set_xlabel(x1_label)
@@ -143,11 +137,10 @@ class ScanPlot:
             z_label = f"{snu} ({z_unit})"
         return z_label
 
-
     def reset(self):
         self._plot_kwargs = {
             "title": None,
-            "cmap": 'inferno',
+            "cmap": "inferno",
             "interpolation": "nearest",
         }
 
@@ -155,7 +148,6 @@ class ScanPlot:
         fsize_small = 9
         fsize_large = 14
         xyc = "figure fraction"
-
 
         hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
         vcoords = np.array([0.94, 0.9, 0.86])
@@ -261,7 +253,7 @@ class ScanPlot:
         """
         self.im.set_clim(vmin=vmin, vmax=vmax)
 
-    def set_interpolation(self,interpolation = "nearest"):
+    def set_interpolation(self, interpolation="nearest"):
         """
         Set the interpolation of the image.
 
@@ -272,7 +264,7 @@ class ScanPlot:
         """
         self.im.set_interpolation(interpolation)
 
-    def set_cmap(self,cmap="inferno"):
+    def set_cmap(self, cmap="inferno"):
         """
         Set the cmap of the image.
 
@@ -282,8 +274,3 @@ class ScanPlot:
             cmap used for the color scale. Default: "inferno".
         """
         self.im.set_cmap(cmap)
-
-
-
-
-

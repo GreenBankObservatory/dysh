@@ -861,7 +861,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     def plot(self, **kwargs):
         if self._plotter is None:
-            self._plotter = sp.ScanPlot(self,**kwargs)
+            self._plotter = sp.ScanPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
         return self._plotter
 
@@ -1183,7 +1183,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
     def plot(self, **kwargs):
         if self._plotter is None:
-            self._plotter = sp.ScanPlot(self,**kwargs)
+            self._plotter = sp.ScanPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
         return self._plotter
 
