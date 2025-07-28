@@ -187,6 +187,7 @@ def summary_column_definitions():
         "TAMBIENT": col_def("mean", float),
         "OBSTYPE": str_col,
         "SUBOBSMODE": str_col,
+        "PROJID": str_col,
     }
 
     return col_defs

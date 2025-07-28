@@ -459,6 +459,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         col_defs = core.summary_column_definitions()
 
+        needed = ["PROJID", "SCAN"]
+
         # Deafult columns to show.
         if columns is None:
             if verbose:
@@ -513,13 +515,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 raise ValueError(f"Column(s) {diff} are not handled yet.")
             # No duplicate columns.
             if len(cols_set) < len(columns):
-                logger.warning("columns contains duplicated values. Removing them. Column order won't be preserved.")
-            columns = list(cols_set)
-            # No single SCAN column.
-            if columns == ["SCAN"]:
-                raise ValueError("Won't do just the SCAN. Use GBTFITSLoad()['SCAN'] instead.")
+                logger.warning("columns contains duplicated values. Removing them.")
+            # Sort the columns back to their input order.
+            columns = sorted(cols_set, key=columns.index)
+            # Can't deal with only the columns used to group the index.
+            if set(needed) >= set(columns):
+                raise ValueError("Can't show only SCAN and/or PROJID columns. Add another column.")
 
-        needed = ["PROJID", "SCAN"]
         _columns = columns.copy()
         for n in needed:
             try:
@@ -561,7 +563,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             df = df[columns]
             # Set column names.
             col_names = {k: v.name if k in _columns and v.name is not None else k for k, v in col_defs.items()}
+            columns = [col_defs[c].name if col_defs[c].name is not None else c for c in columns]
             df = df.rename(columns=col_names)
+            df = df[columns]
         else:
             # Ensure column order is preserved.
             df = df[columns]
