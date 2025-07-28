@@ -428,10 +428,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scan : int or 2-tuple
             The scan(s) to use. A 2-tuple represents (beginning, ending) scans. Default: show all scans
         verbose : bool
-            If verbose=False (default), the records are grouped by scan number and project id and aggregated 
-            according to the column. For example, the records for columns RESTFREQ, AZIMUTH and ELEVATIO are 
-            averaged for every scan. For columns IFNUM, PLNUM and FDNUM it counts the unique number of records. 
-            For column OBJECT it shows the value of the first record for the scan. For more details and a full 
+            If verbose=False (default), the records are grouped by scan number and project id and aggregated
+            according to the column. For example, the records for columns RESTFREQ, AZIMUTH and ELEVATIO are
+            averaged for every scan. For columns IFNUM, PLNUM and FDNUM it counts the unique number of records.
+            For column OBJECT it shows the value of the first record for the scan. For more details and a full
             list of the supported columns see `~dysh.fits.core.summary_column_definitions`.
             If True, list every record.
         columns : list
