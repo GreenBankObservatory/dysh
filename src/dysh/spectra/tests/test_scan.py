@@ -221,11 +221,11 @@ class TestSubBeamNod:
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == 1.0
 
-        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.).timeaverage()
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.0).timeaverage()
 
         assert sbn.meta["EXPOSURE"] == 3.9524324983358383
         assert sbn.meta["SCAN"] == 20
-        assert sbn.meta["TSYS"] == pytest.approx(105.)
+        assert sbn.meta["TSYS"] == pytest.approx(105.0)
 
         # Scan mode.
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan").timeaverage()
@@ -233,22 +233,26 @@ class TestSubBeamNod:
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == 1.0
 
-        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.).timeaverage()
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0).timeaverage()
 
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == pytest.approx(100.0)
 
         # Equal weights.
-        sbn_eq = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100., weights=None).timeaverage()
+        sbn_eq = sdf.subbeamnod(
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, weights=None
+        ).timeaverage()
 
         assert (sbn.data - sbn_eq.data).sum() > 0.15
         assert sbn_eq.meta["SCAN"] == 20
         assert sbn_eq.meta["TSYS"] == pytest.approx(100.0)
 
         # Smooth reference.
-        sbn_smref = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100., smoothref=10).timeaverage()
-        s = slice(2000, 6000) # Clean channels.
-        
+        sbn_smref = sdf.subbeamnod(
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, smoothref=10
+        ).timeaverage()
+        s = slice(2000, 6000)  # Clean channels.
+
         assert (sbn.data - sbn_smref.data)[s].sum() == pytest.approx(-5.375981637276874)
         assert sbn_smref.meta["SCAN"] == 20
         assert sbn_smref.meta["TSYS"] == pytest.approx(100.0)
