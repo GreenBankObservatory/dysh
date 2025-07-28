@@ -541,8 +541,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # Scale columns.
         for cn in columns:
-            if col_defs[cn].scale != 1:
-                df[cn] = df[cn].apply(lambda x, cn=cn: x * col_defs[cn].scale)
+            try:
+                if col_defs[cn].scale != 1:
+                    df[cn] = df[cn].apply(lambda x, cn=cn: x * col_defs[cn].scale)
+            except KeyError:
+                continue
 
         if scan is not None:
             if isinstance(scan, int):
