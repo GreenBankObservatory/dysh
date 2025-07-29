@@ -21,5 +21,19 @@ for k in [q8stats, q10stats]:
 
     t[k].pprint_all()
 
-print(f"DIFF : {(t[q8stats]['mean_load']-t[q10stats]['mean_load'])} {t[q8stats]['skipflags']} {t[q10stats]['skipflags']}")
-print(f"DIFF : {(t[q8stats]['median_load']-t[q10stats]['median_load'])} {t[q8stats]['skipflags']} {t[q10stats]['skipflags']}")
+tabdiff = Table(data=[
+    t[q8stats]['data'], 
+    t[q8stats]['mean_load'], 
+    t[q10stats]['mean_load'], 
+    (t[q8stats]['mean_load']-t[q10stats]['mean_load']),
+    (t[q8stats]['median_load']-t[q10stats]['median_load']),
+    t[q10stats]['skipflags']],
+    names=["File", "Load Time Before", "Load Time After", "Mean Diff", "Median Diff", "skipflags"],
+    units=["",        "ms",               "ms",               "ms",         "ms",             ""])
+#print(f"DIFF : {(t[q8stats]['mean_load']-t[q10stats]['mean_load'])} {t[q8stats]['skipflags']} {t[q10stats]['skipflags']}")
+#print(f"DIFF : {(t[q8stats]['median_load']-t[q10stats]['median_load'])} {t[q8stats]['skipflags']} {t[q10stats]['skipflags']}")
+for c in tabdiff.columns:
+    if tabdiff[c].unit == "ms":
+        tabdiff[c].format='{:.1f}'
+tabdiff.pprint_all()
+tabdiff.write('finaldiff.csv',format='ascii.csv',overwrite=True)
