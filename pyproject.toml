@@ -26,7 +26,7 @@ dependencies = [
   "ipython",
   "jplephem",
   "matplotlib",
-  "numpy",
+  "numpy<2",
   "pandas",
   "rich",
   "scipy",
