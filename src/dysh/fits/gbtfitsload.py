@@ -1382,7 +1382,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 plnum=plnum,
                 bintable=bintable,
                 calibrate=calibrate,
-                smoothref=smoothref,
                 apply_flags=apply_flags,
                 **kwargs,
             ).timeaverage(weights=weights)
