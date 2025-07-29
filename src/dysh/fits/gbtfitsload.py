@@ -419,7 +419,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def get_summary(self, scan=None, verbose=False, columns=None):
+    def get_summary(self, scan=None, verbose=False, columns=None, col_defs=None):
         """
         Create a summary of the input dataset as a `~pandas.DataFrame`.
 
@@ -440,6 +440,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             and ELEVATIO (ELEVATION).
             If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
+        col_defs : dict
+            Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
 
         Returns
         -------
@@ -449,15 +451,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Raises
         ------
         TypeError
-            If `show` is not a list.
+            If `column` is not a list.
         ValueError
-            If one of the column names in `show` is not defined.
+            If one of the column names in `column` is not defined.
+        KeyError
+            If one of the column names in `column` is not part of the index.
         """
 
         # @todo set individual format options on output by
         # changing these to dicts(?)
 
-        col_defs = core.summary_column_definitions()
+        if col_defs is None:
+            col_defs = core.summary_column_definitions()
 
         needed = ["PROJID", "SCAN"]
 
@@ -543,8 +548,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for cn in columns:
             try:
                 if col_defs[cn].scale != 1:
-                    df[cn] = df[cn].apply(lambda x, cn=cn: x * col_defs[cn].scale)
+                    df[cn] *= col_defs[cn].scale
             except KeyError:
+                logger.warning(f"Column {cn} undefined. Please submit an issue.")
                 continue
 
         if scan is not None:
