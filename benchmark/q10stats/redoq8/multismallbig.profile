@@ -123,5 +123,3 @@ load4 12287.4 1767.7 1150.8      8     66.72  533.76 16384 8064   4   2    2    
        32    0.179    0.006    0.723    0.023 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/lib/recfunctions.py:35(recursive_fill_fields)
       448    0.001    0.000    0.705    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/computation/expr.py:796(__init__)
       448    0.001    0.000    0.703    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/computation/expr.py:824(parse)
-
-

@@ -69,5 +69,3 @@ load4 1487.6 1460.1 1048.7      8     66.72  533.76 16384 8064   4   2    2     
     15464    0.028    0.000    0.304    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/card.py:608(_check_if_rvkc)
      1124    0.004    0.000    0.295    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/groupby/ops.py:607(get_iterator)
      1124    0.002    0.000    0.287    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1149(__iter__)
-
-

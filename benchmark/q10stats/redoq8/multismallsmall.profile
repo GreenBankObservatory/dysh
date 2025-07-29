@@ -123,5 +123,3 @@ load4 15487.2 2581.3 1963.4      8     56.18  449.44  1024 95136   4   2    2   
      2800    0.004    0.000    0.642    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/array_algos/take.py:59(take_nd)
      2800    0.522    0.000    0.637    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/array_algos/take.py:120(_take_nd_ndarray)
     10064    0.020    0.000    0.607    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:871(name)
-
-

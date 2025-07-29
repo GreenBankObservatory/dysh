@@ -73,5 +73,3 @@ load4 9835.4 1477.9 1070.1      8     66.72  533.76 16384 8064   4   2    2     
        32    0.002    0.000    1.140    0.036 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/apply.py:864(apply)
        32    0.000    0.000    1.139    0.036 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/apply.py:1061(apply_standard)
     83328    0.241    0.000    1.137    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/ma/core.py:3293(__getitem__)
-
-

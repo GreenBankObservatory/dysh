@@ -119,5 +119,3 @@ load4 9604.4 23392.9 7301.9      5   3713.27 18566.35 131072 35370   5   1    2 
    282960    0.178    0.000    0.248    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:358(<lambda>)
       200    0.001    0.000    0.248    0.001 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/grouper.py:840(groups)
      4900    0.014    0.000    0.243    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/header.py:151(__getitem__)
-
-

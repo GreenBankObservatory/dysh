@@ -119,5 +119,3 @@ load4 1712.7 3800.3 2090.5      3    768.09 2304.27 32768 17496   3   2    2    
      6220    0.008    0.000    0.881    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1149(__iter__)
       764    0.008    0.000    0.053    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/series.py:389(__init__)
       308    0.008    0.000    0.022    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:1066(iset)
-
-

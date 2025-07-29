@@ -123,5 +123,3 @@ load4 35450.2 3852.0 2142.7      3    768.09 2304.27 32768 17496   3   2    2   
      6256    0.234    0.000    0.245    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/numeric.py:274(full)
    812160    0.232    0.000    0.348    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/indexes/base.py:909(__len__)
    338497    0.229    0.000    1.239    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/fromnumeric.py:53(_wrapfunc)
-
-

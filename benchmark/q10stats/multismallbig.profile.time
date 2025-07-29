@@ -123,5 +123,3 @@ load4 11703.1 1751.9 1136.4      8     66.72  533.76 16384 8064   4   2    2    
     25312    0.091    0.000    2.522    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/table/index.py:829(_get_rows)
    158468    0.088    0.000    0.106    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/construction.py:481(ensure_wrapped_if_datetimelike)
     92148    0.088    0.000    0.417    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/_config/config.py:145(_get_option)
-
-

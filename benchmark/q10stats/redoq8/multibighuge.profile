@@ -123,5 +123,3 @@ load4 37031.2 3890.7 2179.6      3    768.09 2304.27 32768 17496   3   2    2   
    519404    1.540    0.000    1.540    0.000 {method 'reduce' of 'numpy.ufunc' objects}
   1035741    0.471    0.000    1.534    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/table/column.py:599(parent_table)
    228856    0.638    0.000    1.528    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/common.py:1596(pandas_dtype)
-
-

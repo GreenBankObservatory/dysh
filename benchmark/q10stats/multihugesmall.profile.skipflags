@@ -69,5 +69,3 @@ load4 4386.5 23096.1 7212.7      5   3713.27 18566.35 131072 35370   5   1    2 
        20    0.000    0.000    0.507    0.025 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/hdu/table.py:395(columns)
       460    0.006    0.000    0.505    0.001 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/numpy/_core/strings.py:98(_to_bytes_or_str_array)
        20    0.016    0.001    0.497    0.025 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/io/fits/column.py:1581(_init_from_table)
-
-

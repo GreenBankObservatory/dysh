@@ -123,5 +123,3 @@ load4 8137.8 23361.9 7270.1      5   3713.27 18566.35 131072 35370   5   1    2 
      4900    0.014    0.000    0.241    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/header.py:151(__getitem__)
     98340    0.013    0.000    0.030    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:219(keyword)
       208    0.013    0.000    0.473    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:623(reindex_indexer)
-
-

@@ -119,5 +119,3 @@ load4 1586.8 1735.2 1117.8      8     66.72  533.76 16384 8064   4   2    2     
     34176    0.010    0.000    0.015    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/generic.py:37(_check)
     40844    0.010    0.000    0.010    0.000 {method 'rstrip' of 'str' objects}
       816    0.010    0.000    0.025    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/lib/function_base.py:5369(insert)
-
-

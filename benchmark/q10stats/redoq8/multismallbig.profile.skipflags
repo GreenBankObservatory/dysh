@@ -119,5 +119,3 @@ load4 2157.4 1742.5 1125.8      8     66.72  533.76 16384 8064   4   2    2     
       736    0.002    0.000    0.122    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/defchararray.py:60(_to_bytes_or_str_array)
        36    0.000    0.000    0.120    0.003 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:834(split)
        32    0.001    0.000    0.118    0.004 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:4320(_setitem_array)
-
-

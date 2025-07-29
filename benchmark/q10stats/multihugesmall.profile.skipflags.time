@@ -119,5 +119,3 @@ load4 8082.7 23361.2 7269.5      5   3713.27 18566.35 131072 35370   5   1    2 
    104192    0.014    0.000    0.014    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/util.py:101(_notify)
      4900    0.014    0.000    0.242    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/header.py:151(__getitem__)
         8    0.014    0.002    0.016    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/algorithms.py:427(unique_with_mask)
-
-

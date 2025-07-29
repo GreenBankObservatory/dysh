@@ -123,5 +123,3 @@ load4 7336.4 2445.7 1828.3      8     56.18  449.44  1024 95136   4   2    2    
     11928    0.024    0.000    0.092    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/datetimelike.py:373(__getitem__)
     84848    0.024    0.000    0.035    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:481(field_specifier)
       772    0.023    0.000    6.446    0.008 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:129(wrapper)
-
-

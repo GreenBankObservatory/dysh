@@ -119,5 +119,3 @@ load4 3197.7 3818.5 2109.0      3    768.09 2304.27 32768 17496   3   2    2    
       192    0.000    0.000    0.122    0.001 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/groupby.py:805(groups)
       192    0.000    0.000    0.122    0.001 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/ops.py:713(groups)
       192    0.001    0.000    0.122    0.001 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/grouper.py:840(groups)
-
-

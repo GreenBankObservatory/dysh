@@ -73,5 +73,3 @@ load4 21356.3 3569.6 2065.8      3    768.09 2304.27 32768 17496   3   2    2   
   2567305    1.519    0.000    2.004    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/data_info.py:340(__get__)
    671389    1.246    0.000    1.985    0.000 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/astropy/utils/data_info.py:355(__set__)
      1184    0.004    0.000    1.851    0.002 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/indexing.py:1176(__getitem__)
-
-

@@ -69,5 +69,3 @@ load4 6744.2 2163.0 1755.0      8     56.18  449.44  1024 95136   4   2    2    
      1508    0.302    0.000    0.971    0.001 /lma1/mpound/.local/share/hatch/env/virtual/dysh/rN9ljKHD/dysh/lib/python3.12/site-packages/pandas/core/strings/accessor.py:255(_wrap_result)
        32    0.001    0.000    0.901    0.028 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:75(_init_flags)
 316233/165268    0.090    0.000    0.901    0.000 {built-in method builtins.setattr}
-
-

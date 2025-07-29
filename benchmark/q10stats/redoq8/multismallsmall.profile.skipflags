@@ -119,5 +119,3 @@ load4 14820.8 2546.4 1929.6      8     56.18  449.44  1024 95136   4   2    2   
   3805544    0.463    0.000    0.463    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:227(jd1)
        28    0.000    0.000    0.444    0.016 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/reshape/concat.py:157(concat)
        28    0.002    0.000    0.443    0.016 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/reshape/concat.py:622(get_result)
-
-
