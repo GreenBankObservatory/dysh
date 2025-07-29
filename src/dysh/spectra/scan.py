@@ -2419,8 +2419,6 @@ class SubBeamNodScan(ScanBase):
         self._nchan = len(reftp[0]._calibrated[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
         self._nint = self._nrows
-        # if self._smoothref > 1:
-        #    raise NotImplementedError(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
         # Take the first reference scan for each sigtp as the row to use for creating metadata.
         meta_rows = []
         for r in self._sigtp:
