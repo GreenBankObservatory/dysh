@@ -23,7 +23,7 @@ from ..util import minimum_string_match
 _debug = False
 
 # the GBTIDL examples from https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/gbtidl.html
-#         getps:        "data/ngc2415.fits"                NGC2415    test=getps             TGBT21A_501_11
+#         getps:        "data/ngc2415.fits"                NGC2415    example=getps2    (TGBT21A_501_11)
 #         getfs:        "data/TGBT22A_503_02.raw.vegas"    W3_1       test=    example=
 #         getsigref:    "data/TGBT22A_503_02.raw.vegas"    W3_1
 #         getps:        "data/AGBT17A_404_01.raw.vegas"    A123606    test=
@@ -36,8 +36,8 @@ _debug = False
 # $DYSH/testdata      @ todo   normalize names with the example= cases
 # ~300 MB
 valid_dysh_test = {
-    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'      # NGC5291 (same as examoke
-    "getps"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415
+    "getps"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",                                  # NGC5291   old test1
+    "getps2"     : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415   one int, 540k
     "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits", # W3OH
     "subbeamnod" : "TRCO_230413_Ka",
 
@@ -48,23 +48,30 @@ valid_dysh_test = {
 # @todo   see if we want the staff training datasets in here
 # ~410 GB
 valid_dysh_example = {
-    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits", #  NGC5291  also test='test1'
-                   # example/dataIO example/metadata_management  example/positionswitch example/smoothing  example/velocity frames
-    "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415
-                   #    positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/"
-    "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",
+    "getps0"     : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs",                             #  NGC5291  old test1
+    "getps"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits", #  NGC5291  old test1
+                   # Used in a lot of example notebooks:
+                   #   example/dataIO
+                   #   example/metadata_management
+                   #   example/positionswitch
+                   #   example/smoothing
+                   #   example/velocity frames
+    "getps2"     : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415   - old getps
+    "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",        #  NGC2415, NGC2782 etc. - total 15GB
                    #
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
     "getfs2"     : "frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/",    #  W3OH    # staff training FS
-    "subbeamnod" : "subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/",   #   vIIzw31      example/subbeamnod    staff training SBN -- no signal?
+    "subbeamnod" : "subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/",   #  vIIzw31      example/subbeamnod    staff training SBN -- no signal?
     "subbeamnod2": "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas          # FS example in data_reduction (scan 64)
     "align"      : "mixed-fs-ps/data/TGBT24B_613_04.raw.vegas.trim.fits",  #   MESSIER32  example/align_spectra
-    "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",   # tar.gz not yet supported?     A123606  example/flagging
+    "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",                     # tar.gz not yet supported?     A123606  example/flagging
     "survey"     : "hi-survey/data/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.fits",   # example/hi-survey
-    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas/",      # OTF L-band example NGC6946
-    "otf3"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas/",  # OTF Argus  DR21
+    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas/",      # OTF L-band NGC6946
+    "otf2"       : "AGBT21B_024_01",                                # OTF Argus  NGC0001 (EDGE)
+    "otf3"       : "AGBT21B_024_20",                                # OTF Argus  NGC5954 (EDGE)
+    "otf4"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas/",  # OTF Argus  DR21
 }
 
 
@@ -76,19 +83,19 @@ valid_dysh_example = {
 # AGBT1s5B_228_08  AGBT17B_319_06  AGBT19A_080_01  AGBT22A_325_15  TSCAL_19Nov2015
 # ~ 33 GB
 valid_dysh_accept = {
-    "nod1"       : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas",
-    "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated?   W3OH  example/frequencyswitch
-    "nod3"       : "AGBT15B_244_07/AGBT15B_244_07.raw.vegas",  # M82 examples/calseq
-    "nod4"       : "TGBT18A_500_06/TGBT18A_500_06.raw.vegas",
-    "nod5"       : "TSCAL_19Nov2015/TSCAL_19Nov2015.raw.acs/TSCAL_19Nov2015.raw.acs.fits",   # deprecated
-    "nod6"       : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",
-    "nod7"       : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
-    "nod8"       : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
-    "nod9"       : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
+    "nod1"            : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas",
+    "nod2"            : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated?   W3OH  example/frequencyswitch
+    "nod3"            : "AGBT15B_244_07/AGBT15B_244_07.raw.vegas",                                # M82 examples/calseq
+    "nod4"            : "TGBT18A_500_06/TGBT18A_500_06.raw.vegas",
+    "nod5"            : "TSCAL_19Nov2015/TSCAL_19Nov2015.raw.acs/TSCAL_19Nov2015.raw.acs.fits",   # deprecated
+    "nod6"            : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",
+    "nod7"            : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
+    "nod8"            : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
+    "nod9"            : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
     "multismallsmall" : "AGBT20B_336_01/AGBT20B_336_01.raw.vegas",  # multiple small FITS files (54M each), small flags files (7 lines)
     "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5GM each), small flags files (6 lines)
-    "multismallbig" : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas", # multiple small FITS files (64M each), large flag files (20 lines)
-    "multibighuge"  : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines)
+    "multismallbig"   : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas",  # multiple small FITS files (64M each), large flag files (20 lines)
+    "multibighuge"    : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines)
 
 }
 
@@ -165,12 +172,16 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     _accept_data        = "/home/dysh/acceptance_testing/data"      # not in public_html ??
     # fmt:on
 
+    print("PJT testing new dysh_data 2")
+
     def sdfits_offline(fn):
-        """fn is an sdfits= filename that was shown to exist
+        """fn is an sdfits= file or directory that was shown to exist
         If fn contains only one name
         See also GBTOffline()
         """
+        print("PJT fn=",fn)
         if fn.is_file():
+            print(f"PJT {fn} is a file")            
             return fn
         if not fn.is_dir():
             print(f"{fn} is not a file nor a directory, dunno how to proceed")
@@ -178,6 +189,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         # find all fits files one level deep
         ff = list(fn.glob("*/*.fits"))
         if len(ff) == 0:
+            print("PJT ff=0")
             return fn
         # ensure there is only a single parent
         parents = []
@@ -209,7 +221,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     #     - if that still fails, look at current working directory
     #     - throw!?
     #     ? e.g. dysh_data('foo.fits') ->   sdfits='foo.fits'
-    print("PJT testing new dysh_data")
+
     if dysh_data == None and "DYSH_DATA" in os.environ:  # noqa: E711
         dysh_data = Path(os.environ["DYSH_DATA"])
     logger.info(f"DYSH_DATA: {dysh_data}")
@@ -241,6 +253,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             fn = dysh_data / Path("sdfits") / sdfits  # normally user is using a private sdfits
             if fn.exists():
                 return sdfits_offline(fn)
+        if "SDFITS_DATA" in os.environ:
+            fn = Path(os.environ["SDFITS_DATA"]) / sdfits
+            return sdfits_offline(fn)
         fn = Path("/home/sdfits/") / sdfits  # expected at GBO
         if fn.exists():
             return sdfits_offline(fn)
