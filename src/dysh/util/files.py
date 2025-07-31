@@ -93,7 +93,7 @@ valid_dysh_accept = {
     "nod8"            : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
     "nod9"            : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
     "multismallsmall" : "AGBT20B_336_01/AGBT20B_336_01.raw.vegas",  # multiple small FITS files (54M each), small flags files (7 lines)
-    "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5GM each), small flags files (6 lines)
+    "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5G each), small flags files (6 lines)
     "multismallbig"   : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas",  # multiple small FITS files (64M each), large flag files (20 lines)
     "multibighuge"    : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines)
 
@@ -210,7 +210,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         root = tk.Tk()
         root.withdraw()
         file_path = filedialog.askopenfilename(initialdir=my_dir)
-        # dirname = filedialog.askdirectory()
+        # can currently only ask for files, use askdirectory() otherwise
         return file_path
 
     # 1.  find out if there is a dysh_data (or use $DYSH_DATA, or a .dyshrc config?)
@@ -315,7 +315,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("Odd-2, did not find", fn)
         # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/example_data/" + my_example
-        logger.debug(f"url: {url}")
+        logger.info(f"url: {url}")
         filename = url.split("/")[-1]
         if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")

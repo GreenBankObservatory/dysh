@@ -3102,8 +3102,7 @@ class GBTOnline(GBTFITSLoad):
     @log_call_to_history
     def __init__(self, fileobj=None, *args, **kwargs):
         self._online = fileobj
-        self._platform = platform.system()  # cannot update in "Windows":
-        # print("GBTOnline not supported on Windows, see issue #447")
+        self._platform = platform.system()  # cannot update in "Windows", see #447
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
@@ -3162,7 +3161,6 @@ class GBTOnline(GBTFITSLoad):
         # we only test the first filename in the list, assuming they're all being written
 
         self._mtime = os.path.getmtime(self.filenames()[0])
-        # print("MTIME:",self._mtime)
         delta = (time.time() - self._mtime) / 60.0
 
         logger.info(f"Connected to file: {self._online}")
