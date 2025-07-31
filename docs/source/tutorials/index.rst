@@ -95,7 +95,7 @@ Most useful when you want to get started reducing your data.
 
         **Selecting Data**
 
-        .. button-link:: examples/calseq.html
+        .. button-link:: examples/selection.html
             :color: primary
             :outline:
             :click-parent:
