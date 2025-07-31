@@ -79,6 +79,7 @@ class TestSelection:
         t2 = Time("2021-02-10T09:00", scale="utc")
         s.select_range(utc=(t1, t2))
         assert len(s.final) == 10
+
         # test that an invalid  object for utc raise exception
         with pytest.raises(ValueError):
             s.select_range(utc=["asdad", 123])
@@ -157,15 +158,18 @@ class TestSelection:
         t1 = Time("2021-02-10T08:00", scale="utc")
         t2 = Time("2021-02-10T09:00", scale="utc")
         s.flag_range(utc=(t1, t2))
+        assert len(s.final) == 10
         # test that an invalid  object for utc raise exception
         with pytest.raises(ValueError):
             s.flag_range(utc=["asdad", 123])
         # np.datetime64 should also work
         s.clear()
         s.flag_range(utc=(t1.datetime64, t2.datetime64))
+        assert len(s.final) == 10
         # as should datetime
         s.clear()
         s.flag_range(utc=(t1.datetime, t2.datetime))
+        assert len(s.final) == 10
         # test that a invalid object for utc raise exception
         with pytest.raises(ValueError):
             s.flag_range(utc=["asdad", 123])
