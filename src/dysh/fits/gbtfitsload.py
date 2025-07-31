@@ -662,7 +662,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     # @todo maybe write a Delegator class to autopass to Selection.
     # See, e.g., https://michaelcho.me/article/method-delegation-in-python/
     @log_call_to_history
-    def select(self, tag=None, **kwargs):
+    def select(self, tag=None, check=False, **kwargs):
         """Add one or more exact selection rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be selected.
         For instance `select(object=['3C273', 'NGC1234'])` will select data for either of those
@@ -671,19 +671,21 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-            tag : str
-                An identifying tag by which the rule may be referred to later.
-                If None, a  randomly generated tag will be created.
-            key : str
-                The key  (SDFITS column name or other supported key)
-            value : any
-                The value to select
+        tag : str
+            An identifying tag by which the rule may be referred to later.
+            If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
+        key : str
+            The key  (SDFITS column name or other supported key)
+        value : any
+            The value to select
 
         """
-        self._selection.select(tag=tag, **kwargs)
+        self._selection.select(tag=tag, check=check, **kwargs)
 
     @log_call_to_history
-    def select_range(self, tag=None, **kwargs):
+    def select_range(self, tag=None, check=False, **kwargs):
         """
         Select a range of inclusive values for a given key(s).
         e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
@@ -692,6 +694,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
         `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
         limits may also be specified by a one-element tuple `key1 = (v1,)`.
+
+        For time values, :class:`~astropy.time.Time`, :class:`~np.datetime64` and :class:`~datetime.datetime` are supported.
         See `~dysh.util.selection.Selection`.
 
         Parameters
@@ -699,6 +703,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key (SDFITS column name or other supported key)
         value : array-like
@@ -709,17 +715,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
-        self._selection.select_range(tag=tag, **kwargs)
+        self._selection.select_range(tag=tag, check=check, **kwargs)
 
     @log_call_to_history
-    def select_within(self, tag=None, **kwargs):
+    def select_within(self, tag=None, check=False, **kwargs):
         """
         Select a value within a plus or minus for a given key(s).
         e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
         Will select data
+
         `value1-epsilon1 <= data1 <= value1+epsilon1,`
         `value2-epsilon2 <= data2 <= value2+epsilon2,...`
 
+        For time values, :class:`~astropy.time.Time`, :class:`~np.datetime64` and :class:`~datetime.datetime` are supported.
         See `~dysh.util.selection.Selection`.
 
         Parameters
@@ -727,6 +735,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key (SDFITS column name or other supported key)
         value : array-like
@@ -737,7 +747,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
-        self._selection.select_within(tag=tag, **kwargs)
+        self._selection.select_within(tag=tag, check=check, **kwargs)
 
     @log_call_to_history
     def select_channel(self, channel, tag=None):
@@ -778,7 +788,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._selection.clear()
 
     @log_call_to_history
-    def flag(self, tag=None, **kwargs):
+    def flag(self, tag=None, check=False, **kwargs):
         """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
         If `value` is array-like then a match to any of the array members will be flagged.
         For instance `flag(object=['3C273', 'NGC1234'])` will select data for either of those
@@ -792,16 +802,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tag : str
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key  (SDFITS column name or other supported key)
         value : any
             The value to select
 
         """
-        self._flag.flag(tag=tag, **kwargs)
+        self._flag.flag(tag=tag, check=check, **kwargs)
 
     @log_call_to_history
-    def flag_range(self, tag=None, **kwargs):
+    def flag_range(self, tag=None, check=False, **kwargs):
         """
         Flag a range of inclusive values for a given key(s).
         e.g., `key1 = (v1,v2), key2 = (v3,v4), ...`
@@ -811,6 +823,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         to None. e.g., `key1 = (None,v1)` for an upper limit `data1 <= v1` and
         `key1 = (v1,None)` for a lower limit `data >=v1`.  Lower
         limits may also be specified by a one-element tuple `key1 = (v1,)`.
+
+        For time values, :class:`~astropy.time.Time`, :class:`~np.datetime64` and :class:`~datetime.datetime` are supported.
+
         See `~dysh.util.selection.Flag`.
 
         Parameters
@@ -818,6 +833,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key (SDFITS column name or other supported key)
         value : array-like
@@ -828,16 +845,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
-        self._flag.flag_range(tag=tag, **kwargs)
+        self._flag.flag_range(tag=tag, check=check, **kwargs)
 
     @log_call_to_history
-    def flag_within(self, tag=None, **kwargs):
+    def flag_within(self, tag=None, check=False, **kwargs):
         """
         Flag a value within a plus or minus for a given key(s).
         e.g. `key1 = [value1,epsilon1], key2 = [value2,epsilon2], ...`
         Will select data
+
         `value1-epsilon1 <= data1 <= value1+epsilon1,`
         `value2-epsilon2 <= data2 <= value2+epsilon2,...`
+
+        For time values, :class:`~astropy.time.Time`, :class:`~np.datetime64` and :class:`~datetime.datetime` are supported.
 
         See `~dysh.util.selection.Flag`.
 
@@ -846,6 +866,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tag : str, optional
             An identifying tag by which the rule may be referred to later.
             If None, a  randomly generated tag will be created.
+        check : bool
+            If True, check that a previous selection does not give an identical result as this one.
         key : str
             The key (SDFITS column name or other supported key)
         value : array-like
@@ -856,7 +878,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
-        self._flag.flag_within(tag=tag, **kwargs)
+        self._flag.flag_within(tag=tag, check=check, **kwargs)
 
     @log_call_to_history
     def flag_channel(self, channel, tag=None):
@@ -2896,10 +2918,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             vane_scan = scan - 1
 
         vane = self.gettp(
-            scan=vane_scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True, cal=False, apply_flags=apply_flags
+            scan=vane_scan,
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            calibrate=True,
+            cal=False,
+            apply_flags=apply_flags,
         ).timeaverage()
         sky = self.gettp(
-            scan=sky_scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True, cal=False, apply_flags=apply_flags
+            scan=sky_scan,
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            calibrate=True,
+            cal=False,
+            apply_flags=apply_flags,
         ).timeaverage()
 
         if twarm is None:
@@ -2909,7 +2943,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             try:
                 gbwf = GBTWeatherForecast()
                 _, _, zenith_opacity = gbwf.fetch(
-                    vartype="Opacity", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd
+                    vartype="Opacity",
+                    specval=sky.spectral_axis.quantity.mean(),
+                    mjd=sky.obstime.mjd,
                 )
             except ValueError as e:
                 logger.debug("Could not get forecasted zenith opacity ", e)
