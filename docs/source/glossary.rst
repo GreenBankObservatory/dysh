@@ -343,6 +343,33 @@ assuming there is only sky in the *OFF*:
 All of these have values for each channel. How exactly the :math:`T_{sys}` is computed (scalar, vector,
 mean/median) is something we generally leave open.
 
+.. math::
+
+
+is the effective beam (see also GBT memo 296, and gbtpipe/Gridding.py)
+
+.. code-block::
+
+    1.18 * (c / nu0 / 100.0) * 180 / np.pi  # in degrees
+
+Reduction of noise with smoothref=N:
+
+.. math::
+
+     \sigma_N = \sigma_1 \sqrt{   {N+1} \over  {2N}  }
+
+Weight factors
+
+.. math::
+
+      \frac{\Delta t \Delta\nu}{T_{\rm{sys}}^{2}}      \tag{4}
+
+Effective exposure time
+
+.. math::
+  { t_{ON} * t_{OFF} } \over {  t_{ON} + t_{OFF}  }
+
+   
 
 Observing: ObsNum / SubObsNum / ScanNum
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
