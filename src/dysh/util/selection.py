@@ -66,12 +66,13 @@ class SelectionBase(DataFrame):
         # if we want Selection to replace _index in sdfits
         # construction this will have to change. if hasattr("_index") etc
         self._idtag = ["ID", "TAG"]
+        # Add channel, timestamp, and number rows selected.
         DEFKEYS.extend(["FITSINDEX", "CHAN", "UTC", "# SELECTED"])
-        # add ID and TAG as the first columns
-        for i in range(len(self._idtag)):
-            DEFKEYS.insert(i, self._idtag[i])
-        # add channel, astropy-based timestamp, and number rows selected
-        DEFKEYS = np.array(DEFKEYS)
+        # Add ID and TAG as the first columns.
+        DEFKEYS = self._idtag + DEFKEYS
+        # Remove duplicates.
+        DEFKEYS = sorted(set(DEFKEYS), key=DEFKEYS.index)
+        self._defkeys = DEFKEYS
         # set up object types for the np.array
         dt = np.full(len(DEFKEYS) - 1, np.dtype(DEFAULT_COLUMN_TYPE))
         dt[0] = np.int32
@@ -79,7 +80,6 @@ class SelectionBase(DataFrame):
         dt = np.insert(dt, len(dt), np.int32)
         # ID is also an int
         dt[0] = np.int32
-        self._defkeys = DEFKEYS
         self._deftypes = dt
         self._make_table()
         self._valid_coordinates = [
@@ -111,6 +111,7 @@ class SelectionBase(DataFrame):
 
         """
         # Do not add utc=True to this call, as later comparisons will not work.
+
         self["UTC"] = pd.to_datetime(self["DATE-OBS"])
 
     def _make_table(self):
@@ -554,7 +555,7 @@ class SelectionBase(DataFrame):
         # selections
         df = kwargs.pop("startframe", self)
         self._check_keys(kwargs.keys())
-        #  While not necessary for adding a row to a Table, ensuring the dict
+        # While not necessary for adding a row to a Table, ensuring the dict
         # has keys for all Table columns improves the performance of Table._addrow.
         row = dict.fromkeys(self._table.colnames, "")
 
