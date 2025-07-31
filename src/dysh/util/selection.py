@@ -32,8 +32,6 @@ default_aliases = {
     "subref": "subref_state",  # subreflector state
 }
 
-# pd.options.mode.copy_on_write = True
-
 
 # workaround to avoid circular import error in sphinx (and only sphinx)
 def _default_sdfits_columns():
@@ -112,6 +110,7 @@ class SelectionBase(DataFrame):
         None.
 
         """
+        # Do not add utc=True to this call, as later comparisons will not work.
         self["UTC"] = pd.to_datetime(self["DATE-OBS"])
 
     def _make_table(self):
@@ -119,9 +118,6 @@ class SelectionBase(DataFrame):
         self._table = Table(data=None, names=self._defkeys, dtype=self._deftypes)
         for t in self._idtag:
             self._table.add_index(t)
-
-    def _make_table_from_rows(self, rows):
-        pass
 
     @property
     def aliases(self):
