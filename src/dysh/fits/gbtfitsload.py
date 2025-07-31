@@ -419,7 +419,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def get_summary(self, scan=None, verbose=False, columns=None):
+    def get_summary(self, scan=None, verbose=False, columns=None, col_defs=None):
         """
         Create a summary of the input dataset as a `~pandas.DataFrame`.
 
@@ -440,6 +440,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             and ELEVATIO (ELEVATION).
             If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
+        col_defs : dict
+            Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
 
         Returns
         -------
@@ -449,15 +451,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Raises
         ------
         TypeError
-            If `show` is not a list.
+            If `column` is not a list.
         ValueError
-            If one of the column names in `show` is not defined.
+            If one of the column names in `column` is not defined.
+        KeyError
+            If one of the column names in `column` is not part of the index.
         """
 
         # @todo set individual format options on output by
         # changing these to dicts(?)
 
-        col_defs = core.summary_column_definitions()
+        if col_defs is None:
+            col_defs = core.summary_column_definitions()
 
         needed = ["PROJID", "SCAN"]
 
@@ -511,7 +516,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # Selected columns must be defined in col_defs.
             col_defs_set = set(col_defs.keys())
             diff = cols_set - col_defs_set
-            if len(diff) > 0:
+            if len(diff) > 0 and not verbose:
                 raise ValueError(f"Column(s) {diff} are not handled yet.")
             # No duplicate columns.
             if len(cols_set) < len(columns):
@@ -541,8 +546,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # Scale columns.
         for cn in columns:
-            if col_defs[cn].scale != 1:
-                df[cn] = df[cn].apply(lambda x, cn=cn: x * col_defs[cn].scale)
+            try:
+                if col_defs[cn].scale != 1:
+                    df[cn] *= col_defs[cn].scale
+            except KeyError:
+                logger.warning(f"Column {cn} undefined. Please submit an issue.")
+                continue
 
         if scan is not None:
             if isinstance(scan, int):
@@ -1142,7 +1151,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         cal=None,
         calibrate: bool = True,
         bintable: int = None,  # noqa: RUF013
-        smoothref: int = 1,
         apply_flags: bool = True,
         t_sys=None,
         nocal: bool = False,
@@ -1169,8 +1177,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Default:True
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
         **kwargs : dict
@@ -1241,7 +1247,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     plnum=plnum,
                     bintable=_bintable,
                     calibrate=calibrate,
-                    smoothref=smoothref,
                     apply_flags=apply_flags,
                     tsys=_tsys,
                 )
@@ -1377,7 +1382,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 plnum=plnum,
                 bintable=bintable,
                 calibrate=calibrate,
-                smoothref=smoothref,
                 apply_flags=apply_flags,
                 **kwargs,
             ).timeaverage(weights=weights)
@@ -1981,60 +1985,56 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         sig=None,
         cal=None,
         calibrate: bool = True,
-        timeaverage=True,
-        polaverage=False,
         weights="tsys",
         bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
         bunit="ta",
         zenith_opacity=None,
-        observer_location=Observatory["GBT"],
+        t_sys=None,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
 
         Parameters
         ----------
-        fdnum: int
-            The feed number
+        fdnum : int
+            The feed number.
         ifnum : int
-            The intermediate frequency (IF) number
+            The intermediate frequency (IF) number.
         plnum : int
-            The polarization number
-        method: str
-            Method to use when processing. One of 'cycle' or 'scan'.  'cycle' is more accurate and averages data in each SUBREF_STATE cycle. 'scan' reproduces GBTIDL's snodka function which has been shown to be less accurate.  Default:'cycle'
+            The polarization number.
+        method : str
+            Method to use when processing. One of 'cycle' or 'scan'.
+            'cycle' (default) treats each SUBREF_STATE independently, resulting in multiple signal and reference states per scan..
+            'scan' averages the SUBREF_STATE rows resulting in one signal and reference state per scan.
         sig : bool
-            True to indicate if this is the signal scan, False if reference
-        cal: bool
+            True to indicate if this is the signal scan, False if reference.
+        cal : bool
             True if calibration (diode) is on, False if off.
-        calibrate: bool
-            whether or not to calibrate the data.  If `True`, the data will be (calon - caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-        timeaverage : boolean, optional
-            Average the scans in time. The default is True.
-        polaverage : boolean, optional
-            Average the scans in polarization. The default is False.
-        weights: str or None
-            None to indicate equal weighting or 'tsys' to indicate tsys weighting to use in time averaging. Default: 'tsys'
+        calibrate : bool
+            Whether or not to calibrate the data.
+        weights : str or None
+            Weights to use for the time averaging of the sub reflector states.
+            None to indicate equal weighting or 'tsys' to indicate inverse variance weights.
         bintable : int, optional
             Limit to the input binary table index. The default is None which means use all binary tables.
-        smooth_ref: int, optional
-            the number of channels in the reference to boxcar smooth prior to calibration
-        apply_flags : boolean, optional.  If True, apply flags before calibration.
-            See :meth:`apply_flags`. Default: True
+        smooth_ref : int, optional
+            The boxcar kernel width to smooth the reference spectra prior to calibration.
+        apply_flags : boolean, optional.
+            If True, apply flags before calibration.
+            See :meth:`apply_flags`.
         bunit : str, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
                     - 'ta'  : Antenna Temperature
                     - 'ta*' : Antenna temperature corrected to above the atmosphere
                     - 'jy'  : flux density in Jansky
-            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
-        zenith_opacity: float, optional
-                The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
-        observer_location : `~astropy.coordinates.EarthLocation`
-            Location of the observatory. See `~dysh.coordinates.Observatory`.
-            This will be transformed to `~astropy.coordinates.ITRS` using the time of
-            observation DATE-OBS or MJD-OBS in
-            the SDFITS header.  The default is the location of the GBT.
+            If 'ta*' or 'jy' the zenith opacity must also be given.
+        zenith_opacity : float, optional
+            The zenith opacity to use to correct the data for atmospheric opacity.
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2053,6 +2053,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _bintable = bintable
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+
         scanblock = ScanBlock()
 
         if method == "cycle":
@@ -2063,7 +2067,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 for scan in scans:
                     reftp = []
                     sigtp = []
-                    fulltp = []
                     logger.debug(f"doing scan {scan}")
                     df = select_from("SCAN", scan, _df)
                     if len(df) == 0:
@@ -2110,27 +2113,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     # Loop over cycles, calibrating each independently.
                     groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups, strict=False)
 
-                    for i, (rgon, sgon, rgoff, sgoff) in enumerate(groups_zip):  # noqa: B007
+                    for rgon, sgon, rgoff, sgoff in groups_zip:
                         # Do it the dysh way.
+                        # TODO: use gettp instead of TPScan.
                         calrows = {"ON": rgon, "OFF": rgoff}
                         tprows = np.sort(np.hstack((rgon, rgoff)))
-                        reftp.append(
-                            TPScan(
-                                self._sdf[sdfi],
-                                scan,
-                                None,
-                                None,
-                                tprows,
-                                calrows,
-                                fdnum=fdnum,
-                                ifnum=ifnum,
-                                plnum=plnum,
-                                bintable=_bintable,
-                                calibrate=calibrate,
-                                smoothref=smoothref,
-                                apply_flags=apply_flags,
-                            )
+                        _reftp = TPScan(
+                            self._sdf[sdfi],
+                            scan,
+                            None,
+                            None,
+                            tprows,
+                            calrows,
+                            fdnum=fdnum,
+                            ifnum=ifnum,
+                            plnum=plnum,
+                            bintable=_bintable,
+                            calibrate=calibrate,
+                            apply_flags=apply_flags,
                         )
+                        if tsys is not None:
+                            _reftp._tsys[:] = tsys[scan][0]
+                        reftp.append(_reftp)
                         calrows = {"ON": sgon, "OFF": sgoff}
                         tprows = np.sort(np.hstack((sgon, sgoff)))
                         sigtp.append(
@@ -2146,7 +2150,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 plnum=plnum,
                                 bintable=_bintable,
                                 calibrate=calibrate,
-                                smoothref=smoothref,
                                 apply_flags=apply_flags,
                             )
                         )
@@ -2157,67 +2160,50 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         ifnum=ifnum,
                         plnum=plnum,
                         calibrate=calibrate,
-                        weights=weights,
                         smoothref=smoothref,
                         apply_flags=apply_flags,
                         bunit=bunit,
                         zenith_opacity=zenith_opacity,
+                        weights=weights,
                     )
+                    sb.merge_commentary(self)
                     scanblock.append(sb)
                     _bintable = bintable
         elif method == "scan":
-            for sdfi in range(len(self._sdf)):  # noqa: B007
-                # Process the whole scan as a single block.
-                # This is less accurate, but might be needed if
-                # the scan was aborted and there are not enough
-                # sig/ref cycles to do a per cycle calibration.
-                for scan in scans:
-                    reftp = []
-                    sigtp = []
-                    fulltp = []
-                    tpon = self.gettp(
-                        fdnum=fdnum,
-                        ifnum=ifnum,
-                        plnum=plnum,
-                        scan=scan,
-                        sig=None,
-                        cal=None,
-                        bintable=bintable,
-                        subref=-1,
-                        calibrate=calibrate,
-                        smoothref=smoothref,
-                        apply_flags=apply_flags,
-                    )
-                    sigtp.append(tpon[0])
-                    tpoff = self.gettp(
-                        fdnum=fdnum,
-                        ifnum=ifnum,
-                        plnum=plnum,
-                        scan=scan,
-                        sig=None,
-                        cal=None,
-                        bintable=bintable,
-                        subref=1,
-                        calibrate=calibrate,
-                        smoothref=smoothref,
-                        apply_flags=apply_flags,
-                    )
-                    reftp.append(tpoff[0])
-                    # in order to reproduce gbtidl tsys, we need to do a normal
-                    # total power scan
-                    ftp = self.gettp(
-                        fdnum=fdnum,
-                        ifnum=ifnum,
-                        plnum=plnum,
-                        scan=scan,
-                        sig=None,
-                        cal=None,
-                        bintable=bintable,
-                        calibrate=calibrate,
-                        smoothref=smoothref,
-                        apply_flags=apply_flags,
-                    )
-                    fulltp.append(ftp[0])
+            # Process the whole scan as a single block.
+            # This allows calibrating the data if the scan
+            # was aborted and there are not enough sig/ref
+            # cycles to do a per cycle calibration.
+            for scan in scans:
+                reftp = []
+                sigtp = []
+                tpon = self.gettp(
+                    fdnum=fdnum,
+                    ifnum=ifnum,
+                    plnum=plnum,
+                    scan=scan,
+                    sig=None,
+                    cal=None,
+                    bintable=bintable,
+                    subref=-1,
+                    calibrate=calibrate,
+                    apply_flags=apply_flags,
+                )
+                sigtp.append(tpon[0])
+                tpoff = self.gettp(
+                    fdnum=fdnum,
+                    ifnum=ifnum,
+                    plnum=plnum,
+                    scan=scan,
+                    sig=None,
+                    cal=None,
+                    bintable=bintable,
+                    subref=1,
+                    calibrate=calibrate,
+                    apply_flags=apply_flags,
+                    t_sys=t_sys,
+                )
+                reftp.append(tpoff[0])
                 sb = SubBeamNodScan(
                     sigtp,
                     reftp,
@@ -2225,11 +2211,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     ifnum=ifnum,
                     plnum=plnum,
                     calibrate=calibrate,
-                    weights=weights,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
+                    weights=weights,
                 )
                 sb.merge_commentary(self)
                 scanblock.append(sb)

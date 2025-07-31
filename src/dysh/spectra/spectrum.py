@@ -242,9 +242,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     xval = np.arange(len(self.flux))
                 else:
                     xval = self._plotter._sa
-                lines = self._plotter._axis.plot(
-                    xval, self._baseline_model(self.spectral_axis), c=color, gid="baseline"
-                )
+                self._plotter._axis.plot(xval, self._baseline_model(self.spectral_axis), c=color, gid="baseline")
                 self._plotter.refresh()
 
     # baseline

@@ -570,6 +570,66 @@ class TestGBTFITSLoad:
                 check_index=False,
             )
 
+    def test_get_summary(self):
+        """Test for get_summary"""
+
+        path = util.get_project_testdata() / "AGBT05B_047_01"
+        sdf_file = path / "AGBT05B_047_01.raw.acs"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        with fits.open(sdf_file / "AGBT05B_047_01.raw.acs.fits") as hdu:
+            table = hdu[1].data
+
+        # Plain call.
+        df = sdf.get_summary()
+        assert np.all(df["SCAN" == np.r_[51:59]])
+
+        # Verbose mode.
+        df = sdf.get_summary(verbose=True)
+        assert np.all(df["SCAN"] == table["SCAN"])
+
+        # With scan range.
+        scan = [51, 52]
+        df = sdf.get_summary(scan=scan)
+        assert np.all(df["SCAN"] == scan)
+
+        # With columns.
+        columns = ["SCAN", "PROJID", "OBJECT"]
+        df = sdf.get_summary(columns=columns)
+        assert np.all(df["OBJECT"] == "NGC5291")
+        assert np.all(df["PROJID"] == "AGBT05B_047_01")
+        assert np.all(df["SCAN" == np.r_[51:59]])
+        assert np.all(df.columns == columns)
+        c = list(set(columns))  # Change column order.
+        df = sdf.get_summary(columns=c)
+        assert np.all(df.columns == c)
+
+        # Undefined column.
+        columns += ["NOTTHERE"]
+        with pytest.raises(ValueError):
+            df = sdf.get_summary(columns=columns)
+        with pytest.raises(KeyError):
+            df = sdf.get_summary(columns=columns, verbose=True)
+
+        # User defined column.
+        sdf["MYCOL"] = 100.0
+        from collections import namedtuple
+
+        from dysh.fits.core import summary_column_definitions
+
+        cd = summary_column_definitions()
+        col_def = namedtuple(
+            "col_def",
+            ["operation", "type", "name", "scale"],
+            defaults=(None, 1),
+        )
+        cd["MYCOL"] = col_def("mean", float, name="M", scale=1e-2)
+        df = sdf.get_summary(columns=["MYCOL"], col_defs=cd)
+        assert np.all(df["M"] == 100.0 * cd["MYCOL"].scale)
+        df = sdf.get_summary(columns=["MYCOL"], col_defs=cd, verbose=True)
+        assert np.all(df["MYCOL"] == 100.0 * cd["MYCOL"].scale)
+        with pytest.raises(ValueError):
+            df = sdf.get_summary(columns=["MYCOL"])
+
     def test_contruct_integration_number(self, tmp_path):
         """
         Tests for _construct_integration_number.
