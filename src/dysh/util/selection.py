@@ -111,6 +111,7 @@ class SelectionBase(DataFrame):
 
         """
         # Do not add utc=True to this call, as later comparisons will not work.
+
         self["UTC"] = pd.to_datetime(self["DATE-OBS"])
 
     def _make_table(self):
