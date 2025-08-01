@@ -22,5 +22,5 @@ class TestUtil:
         # dysh_data=
         assert duf.dysh_data("foo.fits", dysh_data="/tmp") == None  # noqa: E711
         #   this assume DYSH_DATA is not present
-        f2 = duf.dysh_data(example="test1")
+        f2 = duf.dysh_data(example="getps")
         assert f2.name == Path("AGBT05B_047_01.raw.acs.fits").name
