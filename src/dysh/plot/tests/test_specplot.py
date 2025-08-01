@@ -32,8 +32,7 @@ class TestSpecplot:
 
 
 class TestScanplot:
-
-    def test_savefig(self,tmp_path):
+    def test_savefig(self, tmp_path):
         """
         Test that waterfall plots are saved.
         """
@@ -50,4 +49,3 @@ class TestScanplot:
         of = tmp_path / "test_savefig.png"
         tpplot.savefig(of)
         assert of.is_file()
-

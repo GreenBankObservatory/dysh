@@ -49,7 +49,7 @@ class ScanPlot:
         self._figure = None
         self._axis = None
         self._axis2 = None
-        #self._title = self._plot_kwargs["title"]# todo: deal with when refactoring
+        # self._title = self._plot_kwargs["title"]# todo: deal with when refactoring
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
         self._s = self._scanblock_or_scan.timeaverage()
         self._sa = self._s.spectral_axis
@@ -139,7 +139,7 @@ class ScanPlot:
         print(self._sa)
         # print(stop,step,np.arange(0,stop,step).shape)
         im2 = self._axis2.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
-        self._axis2.set_ylim((np.min(self._sa).value,np.max(self._sa).value))
+        self._axis2.set_ylim((np.min(self._sa).value, np.max(self._sa).value))
 
         self._axis.set_xlim(0, stop - 0.5)
         z_label = self._set_labels()
@@ -327,4 +327,3 @@ class ScanPlot:
 
         """
         self._figure.savefig(file, *kwargs)
-
