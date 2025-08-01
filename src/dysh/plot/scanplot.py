@@ -1,8 +1,8 @@
 """
 Plot spectrograms from a ScanBlock using matplotlib
 """
-
 import datetime as dt
+import warnings
 from copy import deepcopy
 
 import astropy.units as u
@@ -21,7 +21,24 @@ _KMS = u.km / u.s
 
 
 class ScanPlot:
-    """hello"""
+    r"""
+    The ScanPlot class is for simple plotting of a `~scan.Scan` or `~scan.ScanBlock`
+    using matplotlib functions. Plots attributes are modified using keywords
+    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    choices for the plot if no additional keywords are given.
+
+    Parameters
+    ----------
+    scanblock_or_scan : `~spectra.scan.Scan` or `~spectra.scan.ScanBlock`
+        The scan or scanblock to plot.
+    **kwargs : dict
+        Plot attribute keyword arguments, see below.
+
+    Other Parameters
+    ----------------
+    spectral_unit : str
+        The units to use on the frequency axis. Can be 'MHz' or 'GHz'.
+    """
 
     def __init__(self, scanblock_or_scan, **kwargs):
         self.reset()
@@ -68,9 +85,19 @@ class ScanPlot:
 
         self.spectrogram = self.spectrogram.T
         self._s = self._scanblock_or_scan.timeaverage()
+        self._sa = self._s.spectral_axis
 
-    def plot(self, **kwargs):
-        """hi hello"""
+    def plot(self, spectral_unit = None, **kwargs):
+        r"""
+        Plot the scan.
+
+        Parameters
+        ----------
+            spectral_unit : `~astropy.unit.Unit`
+        The units to use on the frequency axis. Default: MHz if below 1 GHz, GHz if above.
+        **kwargs : various
+            keyword=value arguments (need to describe these in a central place)
+        """
 
         self.__init__(self._scanblock_or_scan, **kwargs)
         plt.ion()
@@ -100,15 +127,21 @@ class ScanPlot:
         #     length=8,bottom=False,left=False,top=True,right=True,pad=2)
         # self._axis2.yaxis.set_label_position('right')
         # self._axis2.yaxis.set_ticks_position('right')
-        sa = self._s.spectral_axis
+        if spectral_unit is not None:
+            self._sa = self._sa.to(spectral_unit)
+        else:
+            if self._sa[0].value/1e9 < 1:
+                self._sa = self._sa.to(u.MHz)
+            else:
+                self._sa = self._sa.to(u.GHz)
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
         # print(stop,step,np.arange(0,stop,step).shape)
-        im2 = self._axis2.plot(np.arange(0, stop, step), sa, linewidth=0)  # noqa: F841
+        im2 = self._axis2.plot(np.arange(0,stop,step),self._sa,linewidth=0)  # noqa: F841
 
-        self._axis.set_xlim(0, stop - 0.5)
-        z_label = self._set_labels(self._s)
-        self._figure.colorbar(self.im, label=z_label, pad=0.1)
+        self._axis.set_xlim(0,stop-0.5)
+        z_label = self._set_labels()
+        self._figure.colorbar(self.im,label=z_label,pad=0.1)
 
     def _set_labels(self, s):
         # x1: bottom
@@ -123,18 +156,23 @@ class ScanPlot:
         y1_label = "Channel"
         self._axis.set_ylabel(y1_label)
 
-        y2_unit = s.spectral_axis.unit
+        y2_unit = self._sa.unit
         if y2_unit.is_equivalent(u.Hz):
             nu = r"$\nu$"
             y2_label = f"{nu} ({y2_unit})"
         self._axis2.set_ylabel(y2_label)
 
-        z_unit = s.unit
+        z_unit = self._s.unit
         if z_unit.is_equivalent(u.K):
             z_label = f"$T_A$ ({z_unit})"
         elif z_unit.is_equivalent(u.Jy):
             snu = r"$S_{\nu}$"
             z_label = f"{snu} ({z_unit})"
+        elif z_unit.is_equivalent(u.ct):
+            z_label = "Counts"
+        else:
+            warnings.warn("Flux units are unknown", stacklevel=2)
+            z_label = ""
         return z_label
 
     def reset(self):
