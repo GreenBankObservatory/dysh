@@ -143,7 +143,7 @@ class ScanPlot:
         z_label = self._set_labels()
         self._figure.colorbar(self.im, label=z_label, pad=0.1)
 
-    def _set_labels(self, s):
+    def _set_labels(self):
         # x1: bottom
         # x2: top
         # y1: left
@@ -312,3 +312,17 @@ class ScanPlot:
             cmap used for the color scale. Default: "inferno".
         """
         self.im.set_cmap(cmap)
+
+    def savefig(self, file, **kwargs):
+        r"""Save the plot
+
+        Parameters
+        ----------
+        file - str
+            The output file name
+        **kwargs : dict or key=value pairs
+            Other arguments to pass to `~matplotlib.pyplot.savefig`
+
+        """
+        self._figure.savefig(file, *kwargs)
+

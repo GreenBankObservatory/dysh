@@ -29,3 +29,25 @@ class TestSpecplot:
         of = tmp_path / "test_savefig_noheader.png"
         tpplot.savefig(of)
         assert of.is_file()
+
+
+class TestScanplot:
+
+    def test_savefig(self,tmp_path):
+        """
+        Test that waterfall plots are saved.
+        """
+
+        # Disable interactive plotting.
+        import matplotlib.pyplot as plt
+
+        plt.ioff()
+
+        p = get_project_testdata()
+        sdf = GBTFITSLoad(p / "AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A6.fits")
+        tp = sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)
+        tpplot = tp.plot()
+        of = tmp_path / "test_savefig.png"
+        tpplot.savefig(of)
+        assert of.is_file()
+
