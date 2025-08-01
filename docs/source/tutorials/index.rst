@@ -103,6 +103,18 @@ Most useful when you want to get started reducing your data.
 
             Calibration sequence and beam nodding with GBT W-Band
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Selecting Data**
+
+        .. button-link:: examples/selection.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            How to select data
 
     .. grid-item-card::
         :shadow: md
@@ -130,3 +142,5 @@ Most useful when you want to get started reducing your data.
    examples/hi_survey
    examples/calseq
    examples/on_the_fly
+   examples/selection
+   iplotter

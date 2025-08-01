@@ -199,6 +199,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
+        color : str
+            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
         model : str
             One of 'polynomial', 'chebyshev', 'legendre', or 'hermite'
             Default: 'chebyshev'
@@ -206,7 +208,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The fitter to use. Default: `~astropy.modeling.fitting.LinearLSQFitter` (with `calc_uncertaintes=True`).
             Be careful when choosing a different fitter to be sure it is optimized for this problem.
         remove : bool
-            If True, the baseline is removed from the spectrum. Default: False
+            If True, the baseline is removed from the spectrum.
+            If False, the baseline will be computed and overlaid on the spectrum. Default: False
         """
         # fmt: on
         # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
@@ -235,9 +238,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 if not self._plotter._freezey:
                     self._plotter.freey()
             else:
-                self._plotter._axis.plot(
-                    self.spectral_axis, self._baseline_model(self.spectral_axis), c=color, gid="baseline"
-                )
+                if self._plotter._xunit == "chan":
+                    xval = np.arange(len(self.flux))
+                else:
+                    xval = self._plotter._sa
+                self._plotter._axis.plot(xval, self._baseline_model(self.spectral_axis), c=color, gid="baseline")
                 self._plotter.refresh()
 
     # baseline
