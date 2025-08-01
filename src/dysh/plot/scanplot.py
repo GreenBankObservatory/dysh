@@ -49,8 +49,10 @@ class ScanPlot:
         self._figure = None
         self._axis = None
         self._axis2 = None
-        self._title = self._plot_kwargs["title"]
+        #self._title = self._plot_kwargs["title"]# todo: deal with when refactoring
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
+        self._s = self._scanblock_or_scan.timeaverage()
+        self._sa = self._s.spectral_axis
 
         # determine if input is a ScanBlock or a ScanBase (raise exception if neither)
         self._type = scanblock_or_scan.__class__.__name__
@@ -67,7 +69,6 @@ class ScanPlot:
             self._scan_nos = []  # scan numbers in the scan block
             self._nint_nos = []  # number of integrations in each scan
             self._timestamps = []  # 0-indexed timestamps in sec for every integration
-            self._spectral_axis = self._scanblock[0].timeaverage().spectral_axis
             for i, scan in enumerate(self._scanblock):
                 if i == 0:
                     self.spectrogram = scan._calibrated
@@ -85,8 +86,6 @@ class ScanPlot:
             self._scan_nos = self._scan.scan
 
         self.spectrogram = self.spectrogram.T
-        self._s = self._scanblock_or_scan.timeaverage()
-        self._sa = self._s.spectral_axis
 
     def plot(self, spectral_unit=None, **kwargs):
         r"""
