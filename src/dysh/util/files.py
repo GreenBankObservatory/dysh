@@ -177,13 +177,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         If fn contains only one name
         See also GBTOffline()
         """
-<<<<<<< HEAD
         if fn.is_file():
-=======
-        print("PJT fn=", fn)
-        if fn.is_file():
-            print(f"PJT {fn} is a file")
->>>>>>> 27cb73d5e2ced78cca1673a31649060a496739da
             return fn
         if not fn.is_dir():
             print(f"{fn} is not a file nor a directory, dunno how to proceed")
