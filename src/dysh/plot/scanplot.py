@@ -136,8 +136,10 @@ class ScanPlot:
                 self._sa = self._sa.to(u.GHz)
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
+        print(self._sa)
         # print(stop,step,np.arange(0,stop,step).shape)
         im2 = self._axis2.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
+        self._axis2.set_ylim((np.min(self._sa).value,np.max(self._sa).value))
 
         self._axis.set_xlim(0, stop - 0.5)
         z_label = self._set_labels()
