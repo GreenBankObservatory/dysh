@@ -1,6 +1,7 @@
 """
 Plot spectrograms from a ScanBlock using matplotlib
 """
+
 import datetime as dt
 import warnings
 from copy import deepcopy
@@ -87,7 +88,7 @@ class ScanPlot:
         self._s = self._scanblock_or_scan.timeaverage()
         self._sa = self._s.spectral_axis
 
-    def plot(self, spectral_unit = None, **kwargs):
+    def plot(self, spectral_unit=None, **kwargs):
         r"""
         Plot the scan.
 
@@ -130,18 +131,18 @@ class ScanPlot:
         if spectral_unit is not None:
             self._sa = self._sa.to(spectral_unit)
         else:
-            if self._sa[0].value/1e9 < 1:
+            if self._sa[0].value / 1e9 < 1:
                 self._sa = self._sa.to(u.MHz)
             else:
                 self._sa = self._sa.to(u.GHz)
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
         # print(stop,step,np.arange(0,stop,step).shape)
-        im2 = self._axis2.plot(np.arange(0,stop,step),self._sa,linewidth=0)  # noqa: F841
+        im2 = self._axis2.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
 
-        self._axis.set_xlim(0,stop-0.5)
+        self._axis.set_xlim(0, stop - 0.5)
         z_label = self._set_labels()
-        self._figure.colorbar(self.im,label=z_label,pad=0.1)
+        self._figure.colorbar(self.im, label=z_label, pad=0.1)
 
     def _set_labels(self, s):
         # x1: bottom
