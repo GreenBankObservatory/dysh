@@ -172,16 +172,12 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     _accept_data        = "/home/dysh/acceptance_testing/data"      # not in public_html ??
     # fmt:on
 
-    print("PJT testing new dysh_data 2")
-
     def sdfits_offline(fn):
         """fn is an sdfits= file or directory that was shown to exist
         If fn contains only one name
         See also GBTOffline()
         """
-        print("PJT fn=",fn)
         if fn.is_file():
-            print(f"PJT {fn} is a file")            
             return fn
         if not fn.is_dir():
             print(f"{fn} is not a file nor a directory, dunno how to proceed")
@@ -189,7 +185,6 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         # find all fits files one level deep
         ff = list(fn.glob("*/*.fits"))
         if len(ff) == 0:
-            print("PJT ff=0")
             return fn
         # ensure there is only a single parent
         parents = []
