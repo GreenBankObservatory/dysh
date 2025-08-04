@@ -20,6 +20,7 @@ from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
+from ..plot import scanplot as sp
 from ..util import minimum_string_match
 from ..util.gaincorrection import GBTGainCorrection
 from .core import (
@@ -248,6 +249,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
+        self._plotter = None
 
     def _validate_defaults(self):
         _required = {
@@ -857,6 +859,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         self._make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
+    def plot(self, **kwargs):
+        if self._plotter is None:
+            self._plotter = sp.ScanPlot(self, **kwargs)
+        self._plotter.plot(**kwargs)
+        return self._plotter
+
     def __len__(self):
         return self._nint
 
@@ -1172,6 +1180,12 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         logger.debug(f"Saving {nrows} scans in {fileobj} from ScanBlock.")
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+
+    def plot(self, **kwargs):
+        if self._plotter is None:
+            self._plotter = sp.ScanPlot(self, **kwargs)
+        self._plotter.plot(**kwargs)
+        return self._plotter
 
 
 class TPScan(ScanBase):
@@ -2419,12 +2433,10 @@ class SubBeamNodScan(ScanBase):
         self._nchan = len(reftp[0]._calibrated[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
         self._nint = self._nrows
-        if self._smoothref > 1:
-            raise NotImplementedError(f"SubBeamNodScan smoothref={self._smoothref} not implemented yet")
-        # take the first reference scan for each sigtp as the row to use for creating metadata.
+        # Take the first reference scan for each sigtp as the row to use for creating metadata.
         meta_rows = []
         for r in self._sigtp:
-            meta_rows.append(r._refonrows[0])
+            meta_rows.append(r._refoffrows[0])
         meta_rows = list(set(meta_rows))
 
         self._finish_initialization(calibrate, {"weights": w}, meta_rows, bunit, zenith_opacity)
@@ -2450,6 +2462,8 @@ class SubBeamNodScan(ScanBase):
         for i in range(nspect):
             sig = self._sigtp[i].timeaverage(weights=kwargs["weights"])
             ref = self._reftp[i].timeaverage(weights=kwargs["weights"])
+            if self._smoothref > 1:
+                ref = ref.smooth("box", self._smoothref, decimate=-1)
             # Combine sig and ref.
             ta = ((sig - ref) / ref).flux.value * ref.meta["WTTSYS"]
             self._tsys[i] = ref.meta["WTTSYS"]

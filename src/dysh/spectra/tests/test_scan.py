@@ -204,7 +204,59 @@ class TestSubBeamNod:
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
         # make sure call to timeaverage functions
-        xx = sbn.timeaverage()  # noqa: F841
+        sbn.timeaverage()
+
+    def test_nodiode(self, data_dir):
+        """
+        Test for SubBeamNodScan without noise diodes.
+        """
+        sdf_file = f"{data_dir}/AGBT17B_456_03/AGBT17B_456_03.raw.vegas.testtrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Cycle mode.
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0).timeaverage()
+
+        assert sbn.data.std() == pytest.approx(0.00222391)
+        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["SCAN"] == 20
+        assert sbn.meta["TSYS"] == 1.0
+
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.0).timeaverage()
+
+        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["SCAN"] == 20
+        assert sbn.meta["TSYS"] == pytest.approx(105.0)
+
+        # Scan mode.
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan").timeaverage()
+
+        assert sbn.meta["SCAN"] == 20
+        assert sbn.meta["TSYS"] == 1.0
+
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0).timeaverage()
+
+        assert sbn.meta["SCAN"] == 20
+        assert sbn.meta["TSYS"] == pytest.approx(100.0)
+
+        # Equal weights.
+        sbn_eq = sdf.subbeamnod(
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, weights=None
+        ).timeaverage()
+
+        assert (sbn.data - sbn_eq.data).sum() > 0.15
+        assert sbn_eq.meta["SCAN"] == 20
+        assert sbn_eq.meta["TSYS"] == pytest.approx(100.0)
+
+        # Smooth reference.
+        sbn_smref = sdf.subbeamnod(
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, smoothref=10
+        ).timeaverage()
+        s = slice(2000, 6000)  # Clean channels.
+
+        assert (sbn.data - sbn_smref.data)[s].sum() == pytest.approx(-5.375981637276874)
+        assert sbn_smref.meta["SCAN"] == 20
+        assert sbn_smref.meta["TSYS"] == pytest.approx(100.0)
+        assert sbn_smref[s].stats()["rms"].value == pytest.approx(0.17440979)
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
@@ -301,7 +353,7 @@ class TestTPScan:
         scan = 153
         tpsb = sdf.gettp(scan=153, ifnum=0, plnum=0, fdnum=0)
 
-        assert len(tpsb[0]) == sdf.summary(scan=scan)["# INT"][0]
+        assert len(tpsb[0]) == sdf.get_summary(scan=scan)["# INT"][0]
 
     def test_tsys(self, data_dir):
         """
@@ -551,7 +603,8 @@ class TestScanBlock:
         sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
-        rdata = np.random.rand(*sb[0]._calibrated.shape)
+        rng = np.random.default_rng(12345)
+        rdata = rng.random(sb[0]._calibrated.shape)
         rmask = sb[0]._calibrated.mask
         for width in [3, 5]:
             sb[0]._calibrated = np.ma.masked_array(rdata, rmask)

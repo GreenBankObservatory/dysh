@@ -35,7 +35,7 @@ class TestSelection:
         # also testing that the alias 'pol' is interpreted
         # as plnum.
         with pytest.warns(UserWarning):
-            s.select(object="NGC2415", pol=0, tag="this will warn")
+            s.select(object="NGC2415", pol=0, tag="this will warn", check=True)
         s.select(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
         # the AND of the selection rules becomes the final
@@ -75,10 +75,22 @@ class TestSelection:
 
         # test selecting with a Time object.
         s.clear()
-        s.select_range(utc=(Time("2021-02-10T08:00", scale="utc"), Time("2021-02-10T09:00", scale="utc")))
-        # test that a non-Time object for utc raise exception
+        t1 = Time("2021-02-10T08:00", scale="utc")
+        t2 = Time("2021-02-10T09:00", scale="utc")
+        s.select_range(utc=(t1, t2))
+        assert len(s.final) == 10
+
+        # test that an invalid  object for utc raise exception
         with pytest.raises(ValueError):
             s.select_range(utc=["asdad", 123])
+        # np.datetime64 should also work
+        s.clear()
+        s.select_range(utc=(t1.datetime64, t2.datetime64))
+        assert len(s.final) == 10
+        # as should datetime
+        s.clear()
+        s.select_range(utc=(t1.datetime, t2.datetime))
+        assert len(s.final) == 10
         # test select_channel
         a = [1, 4, (30, 40)]
         s.clear()
@@ -103,7 +115,7 @@ class TestSelection:
         # also testing that the alias 'pol' is interpreted
         # as plnum.
         with pytest.warns(UserWarning):
-            s.flag(object="NGC2415", pol=0, tag="this will warn")
+            s.flag(object="NGC2415", pol=0, tag="this will warn", check=True)
         s.flag(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
         # the AND of the selection rules becomes the final
@@ -143,8 +155,22 @@ class TestSelection:
 
         # test selecting with a Time object.
         s.clear()
-        s.flag_range(utc=(Time("2021-02-10T08:00", scale="utc"), Time("2021-02-10T09:00", scale="utc")))
-        # test that a non-Time object for utc raise exception
+        t1 = Time("2021-02-10T08:00", scale="utc")
+        t2 = Time("2021-02-10T09:00", scale="utc")
+        s.flag_range(utc=(t1, t2))
+        assert len(s.final) == 10
+        # test that an invalid  object for utc raise exception
+        with pytest.raises(ValueError):
+            s.flag_range(utc=["asdad", 123])
+        # np.datetime64 should also work
+        s.clear()
+        s.flag_range(utc=(t1.datetime64, t2.datetime64))
+        assert len(s.final) == 10
+        # as should datetime
+        s.clear()
+        s.flag_range(utc=(t1.datetime, t2.datetime))
+        assert len(s.final) == 10
+        # test that a invalid object for utc raise exception
         with pytest.raises(ValueError):
             s.flag_range(utc=["asdad", 123])
         # test select_channel
