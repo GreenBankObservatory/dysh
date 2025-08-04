@@ -11,6 +11,20 @@ Most useful when you want to get started reducing your data.
 
 .. grid:: 1 2 2 2
 
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Interactive Plotter**
+
+        .. button-link:: iplotter.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Interactive Plotter
+
     .. grid-item-card::
         :shadow: md
         :margin: 2 2 0 0
@@ -106,25 +120,27 @@ Most useful when you want to get started reducing your data.
         :shadow: md
         :margin: 2 2 0 0
 
-        **Interactive Plotter**
+        **On-The-Fly Observations**
 
-        .. button-link:: iplotter.html
+        .. button-link:: examples/on_the_fly.html
             :color: primary
             :outline:
             :click-parent:
 
-            Interactive Plotter
+            On-The-Fly (OTF) observations
 
 
 .. toctree::
    :maxdepth: 4
    :hidden:
 
+   iplotter
    examples/positionswitch
    examples/frequencyswitch
    examples/subbeamnod
    examples/nodding
    examples/hi_survey
    examples/calseq
+   examples/on_the_fly
    examples/selection
    iplotter

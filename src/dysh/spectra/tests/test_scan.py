@@ -603,7 +603,8 @@ class TestScanBlock:
         sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
-        rdata = np.random.rand(*sb[0]._calibrated.shape)
+        rng = np.random.default_rng(12345)
+        rdata = rng.random(sb[0]._calibrated.shape)
         rmask = sb[0]._calibrated.mask
         for width in [3, 5]:
             sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
