@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Testing dysh_data  ( a full test is not possible in CI's pytest)
-
+Testing dysh_data  ( a full test is not possible in CI's pytest)\
 """
 
 import os
@@ -41,12 +40,15 @@ else:
 
 os.environ["DYSH_DATA"] = os.environ["DYSH_DATA_ORIG"] 
 
+#%% SDFITS_DATA
+
+os.environ["SDFITS_DATA"] = '/tmp/sdfits'
+
 #%%  debugging
 
 import dysh
 dysh.log.init_logging(3)   # 0=ERROR 1=WARNING 2=INFO 3=DEBUG
 dysh.log.init_logging(0)
-dysh.log.init_logging(2)
 
 #%%  helper functions
 
@@ -106,6 +108,7 @@ dysh_data('?')
 dysh_data()
 
 #
+f = dysh_data(example="nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits")
 cmd=f"cp {f} /tmp"
 os.system(cmd)
 dysh_data("/tmp/TGBT22A_503_02.raw.vegas.trim.fits")
@@ -185,10 +188,31 @@ sdf.summary()
 
 #%%
 
-my_size(dysh_data(test="test1"))        # 46 MB
+my_size(dysh_data(test="test1"))        # 46 MB --
 my_size(dysh_data(example="test1"))     # 46 MB
 my_size(dysh_data(test="getps"))        # 0.55 MB  
-my_size(dysh_data(test="getpslarge"))   # 7.8 MB
+my_size(dysh_data(test="getpslarge"))   # 7.8 MB --
+
+#%% i/o bench
+
+# TGBT21A_501_11: pick something
+scans = np.arange(152,154)   # NGC2415
+scans = np.arange(156,160)   # NGC2782
+scans = np.arange(171,197)   # Sco-X
+
+sdf = GBTFITSLoad(dysh_data(example="getpslarge"))              # 7.26 s => 4.2s          2 x 7238 MB 
+sb = sdf.getps(scan=scans, ifnum=0, plnum=0, fdnum=0)           # 1min 58s  => 4.5s
+sdf.write('NGC2782.fits',scan=scans, overwrite=True, flags=False)           # 6min 38s - 2min 30s  2min 42s  => 3min 48s
+
+sdf1 = GBTFITSLoad("NGC2782.fits")                              # 377 ms       976MB  - linear by size
+sb1 = sdf1.getps(scan=scans, ifnum=0, plnum=0, fdnum=0)         # 6.78s   => 425ms    also about linear by size
+sdf1.write("NGC2782a.fits", overwrite=True)                         # 13.9 s
+
+#%%
+sdf = GBTFITSLoad(dysh_data(example="getpslarge"))   
+sdf.getps(scan=[152], ifnum=0, plnum=0, fdnum=0).timeaverage().plot()
+sdf.getps(scan=[152,156,158], ifnum=0, plnum=0, fdnum=0).timeaverage().plot()
+
 
 
 #%%
