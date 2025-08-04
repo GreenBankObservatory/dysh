@@ -120,7 +120,7 @@ class SpectrumPlot:
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def plot(self, show_header=True, select=True, interactive=True, **kwargs):
+    def plot(self, show_header=True, select=True, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
@@ -131,14 +131,10 @@ class SpectrumPlot:
             Show informational header in the style of GBTIDL, default: True.
         select : bool
             Allow selecting regions via click and drag for baseline computation, default: True
-        interactive : bool
-            Allow interactive plots, default: True
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
         self.__init__(self._spectrum, **kwargs)
-        if interactive:
-            self._plt.ion()
         self._plt.rcParams["font.family"] = "monospace"
         # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
 
@@ -216,9 +212,6 @@ class SpectrumPlot:
         if select:
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
-
-        if interactive:
-            self.refresh()
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""

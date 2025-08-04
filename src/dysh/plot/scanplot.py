@@ -93,14 +93,11 @@ class ScanPlot:
 
         Parameters
         ----------
-            spectral_unit : `~astropy.unit.Unit`
-        The units to use on the frequency axis. Default: MHz if below 1 GHz, GHz if above.
+        spectral_unit : `~astropy.unit.Unit`
+            The units to use on the frequency axis. Default: MHz if below 1 GHz, GHz if above.
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
-
-        self.__init__(self._scanblock_or_scan, **kwargs)
-        plt.ion()
 
         # self._set_xaxis_info()
         this_plot_kwargs = deepcopy(self._plot_kwargs)
@@ -136,14 +133,11 @@ class ScanPlot:
                 self._sa = self._sa.to(u.GHz)
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
-        print(self._sa)
-        # print(stop,step,np.arange(0,stop,step).shape)
         im2 = self._axis2.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
         self._axis2.set_ylim((np.min(self._sa).value, np.max(self._sa).value))
 
         self._axis.set_xlim(0, stop - 0.5)
-        z_label = self._set_labels()
-        self._figure.colorbar(self.im, label=z_label, pad=0.1)
+        self._set_labels()
 
     def _set_labels(self):
         # x1: bottom
@@ -175,7 +169,7 @@ class ScanPlot:
         else:
             warnings.warn("Flux units are unknown", stacklevel=2)
             z_label = ""
-        return z_label
+        self._figure.colorbar(self.im, label=z_label, pad=0.1)
 
     def reset(self):
         self._plot_kwargs = {
