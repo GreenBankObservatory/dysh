@@ -2851,6 +2851,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def vanecal(
         self,
         scan,
+        sky_scan=None,
         ifnum=0,
         plnum=0,
         fdnum=0,
@@ -2910,12 +2911,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t = set(self._index["OBJECT"][self._index["SCAN"] == scan])
         if len(t) > 1:
             raise TypeError(f"More than one OBJECT for scan {scan}")
-        if t == {"VANE"}:
-            vane_scan = scan
-            sky_scan = scan + 1
-        elif t == {"SKY"}:
-            sky_scan = scan
-            vane_scan = scan - 1
+        # quick fix for Argus subbeamnodding - that function will call vanecal with an off scan
+        vane_scan = scan - (t == {"SKY"})
+        if sky_scan is None:
+            sky_scan = scan + (t == {"VANE"})
 
         vane = self.gettp(
             scan=vane_scan,
