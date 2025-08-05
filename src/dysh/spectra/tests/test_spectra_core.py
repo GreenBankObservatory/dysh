@@ -6,7 +6,7 @@ from astropy import units as u
 from astropy.io import fits
 
 from dysh import util
-from dysh.spectra import core
+from dysh.spectra import Spectrum, core
 
 LOCALDIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -112,3 +112,74 @@ class TestDecimate:
             assert _meta["FREQRES"] == meta["FREQRES"]  # should not change since no smoothing
             assert _meta["CRPIX1"] == 1.0 + (meta["CRPIX1"] - 1) / i + 0.5 * (i - 1) / i
             assert _meta["CRVAL1"] == meta["CRVAL1"] + 0.5 * (i - 1) * meta["CDELT1"]
+
+
+class TestBaseline:
+    """
+    Tests for baseline related functions.
+    """
+
+    def test_exclude_to_region_list(self):
+        """
+        Test that exclude to region list always removes the same portion of a Spectrum.
+        """
+
+        s = Spectrum.fake_spectrum()
+        idx_low = 100
+        idx_upp = 200
+        saq = s.spectral_axis.quantity
+        e = [saq[idx_low], saq[idx_upp]]
+        rl = core.exclude_to_region_list(e, s)
+
+        # Baseline uses this method to remove excluded regions,
+        # so we test against it.
+        from specutils.manipulation.utils import true_exciser
+
+        s_e = true_exciser(s, rl, inclusive_upper=True)
+
+        # Check that the gap is the same.
+        # The +- 1 is required since the true_exciser
+        # removes the values inclusive.
+        gap = saq[idx_low - 1] - saq[idx_upp + 1]
+        assert gap == np.max(abs(np.diff(s_e.spectral_axis)))
+
+        # Now invert the exclusion region.
+        # The result should be the same.
+        e = [saq[idx_upp], saq[idx_low]]
+        rl = core.exclude_to_region_list(e, s)
+        s_e = true_exciser(s, rl, inclusive_upper=True)
+        gap = saq[idx_low - 1] - saq[idx_upp + 1]
+        assert gap == np.max(abs(np.diff(s_e.spectral_axis)))
+
+        # Now flip the spectral_axis.
+        s_f = Spectrum.fake_spectrum()
+        s_f._spectral_axis = s_f._spectral_axis[::-1]
+        saq_f = s_f.spectral_axis.quantity
+        rl = core.exclude_to_region_list(e, s_f)
+        s_e = true_exciser(s_f, rl, inclusive_upper=True)
+        gap = saq_f[idx_upp + 1] - saq_f[idx_low - 1]  # Gap is also inverted.
+        assert gap == np.max(abs(np.diff(s_e.spectral_axis)))
+
+        # Now change the spectral_axis units to velocity.
+        s_v = Spectrum.fake_spectrum()
+        s_v._spectral_axis = s_v.axis_velocity()
+        saq_v = s_v.spectral_axis.quantity
+        rl = core.exclude_to_region_list(e, s_v)
+        s_e = true_exciser(s_v, rl, inclusive_upper=True)
+        gap = abs(saq_v[idx_low - 1] - saq_v[idx_upp + 1])
+        assert gap == np.max(abs(np.diff(s_e.spectral_axis)))
+
+        # Using channels.
+        e = [idx_low, idx_upp]
+        rl = core.exclude_to_region_list(e, s)
+        s_e = true_exciser(s, rl, inclusive_upper=True)
+        gap = saq[idx_low - 1] - saq[idx_upp + 1]
+        assert gap == np.max(abs(np.diff(s_e.spectral_axis)))
+
+        # Outside of the range.
+        e = [idx_low, idx_upp + len(s.data)]
+        rl = core.exclude_to_region_list(e, s)
+        s_e = true_exciser(s, rl, inclusive_upper=True)
+        assert len(s_e.data) == idx_low
+        assert s_e.spectral_axis.quantity[0] == s.spectral_axis.quantity[0]
+        assert s_e.spectral_axis.quantity[-1] == s.spectral_axis.quantity[idx_low - 1]
