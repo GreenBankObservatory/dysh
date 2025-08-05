@@ -63,6 +63,22 @@ class TestMeanTsys:
 
         assert tsys_dysh == gbtidl_tsys
 
+    def test_tsys_weight(self):
+        """Test that `dysh.spectra.core.tsys_weight` works."""
+
+        # Keys are the expected values, the rest the inputs.
+        pairs = {
+            1: {"exposure": 1, "delta_freq": 1, "tsys": 1},
+            1: {"exposure": 1 * u.s, "delta_freq": 1 * u.Hz, "tsys": 1 * u.K},  # noqa: F601
+            1: {"exposure": 1, "delta_freq": -1, "tsys": 1},  # noqa: F601
+            2: {"exposure": 1, "delta_freq": -1, "tsys": 0.5**0.5},
+        }
+
+        for k, v in pairs.items():
+            assert k == pytest.approx(core.tsys_weight(v["exposure"], v["delta_freq"], v["tsys"]))
+
+
+class TestSmooth:
     def test_smooth(self):
         data0 = np.array([0, 0, 0, 1, 0, 0, 0])
         data0h = np.array([0, 0, 0.25, 0.5, 0.25, 0, 0])
@@ -76,6 +92,8 @@ class TestMeanTsys:
 
         assert data1g.data == pytest.approx(data0g.data)
 
+
+class TestDecimate:
     def test_decimate(self):
         a1 = np.arange(100)
         a2, _meta = core.decimate(a1, 2, None)
@@ -94,17 +112,3 @@ class TestMeanTsys:
             assert _meta["FREQRES"] == meta["FREQRES"]  # should not change since no smoothing
             assert _meta["CRPIX1"] == 1.0 + (meta["CRPIX1"] - 1) / i + 0.5 * (i - 1) / i
             assert _meta["CRVAL1"] == meta["CRVAL1"] + 0.5 * (i - 1) * meta["CDELT1"]
-
-    def test_tsys_weight(self):
-        """Test that `dysh.spectra.core.tsys_weight` works."""
-
-        # Keys are the expected values, the rest the inputs.
-        pairs = {
-            1: {"exposure": 1, "delta_freq": 1, "tsys": 1},
-            1: {"exposure": 1 * u.s, "delta_freq": 1 * u.Hz, "tsys": 1 * u.K},  # noqa: F601
-            1: {"exposure": 1, "delta_freq": -1, "tsys": 1},  # noqa: F601
-            2: {"exposure": 1, "delta_freq": -1, "tsys": 0.5**0.5},
-        }
-
-        for k, v in pairs.items():
-            assert k == pytest.approx(core.tsys_weight(v["exposure"], v["delta_freq"], v["tsys"]))
