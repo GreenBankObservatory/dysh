@@ -317,3 +317,25 @@ class TestSDFITSLoad:
         f = util.get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
         g = SDFITSLoad(f)
         g.ushow("SCAN")
+
+    def test_column_mask(self):
+        """
+        Check that _column_mask behaves.
+        """
+
+        f = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
+        g = SDFITSLoad(f)
+
+        expect = len(g.udata("IFNUM")) * len(g.udata("PLNUM")) * len(g.udata("FDNUM")) / len(g.udata("CAL"))
+        mask = g._column_mask(
+            {"OBJECT": "1256-0547", "DATE-OBS": "2023-04-13T04:10:30.25", "TUNIT7": "Counts", "CAL": "T"}
+        )
+        assert mask.sum() == expect
+        assert list(mask[0:4]) == [False, True, False, True]
+        _mask = (
+            (g["OBJECT"] == "1256-0547")
+            & (g["DATE-OBS"] == "2023-04-13T04:10:30.25")
+            & (g["TUNIT7"] == "Counts")
+            & (g["CAL"] == "T")
+        )
+        assert np.all(mask == _mask)

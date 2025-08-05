@@ -664,7 +664,7 @@ class SDFITSLoad(object):
         for i, (k, v) in enumerate(column_dict.items()):
             _mask[i, :] = self[k] == v
         if _mask.shape[0] > 1:
-            _mask = np.logical_and(*_mask)
+            _mask = np.logical_and.reduce(_mask)
         return _mask.ravel()
 
     def __repr__(self):
