@@ -1819,15 +1819,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        fold=True,
-        shift_method="fft",
-        use_sig=True,
+        fold: bool = True,
+        shift_method: str = "fft",
+        use_sig: bool = True,
         bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
-        bunit="ta",
-        zenith_opacity=None,
-        observer_location=Observatory["GBT"],
+        bunit: str = "ta",
+        zenith_opacity: float | None = None,
+        t_sys=None,
+        nocal: bool = False,
         **kwargs,
     ):
         """
@@ -1866,11 +1867,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
         zenith_opacity: float, optional
                 The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
-        observer_location : `~astropy.coordinates.EarthLocation`
-            Location of the observatory. See `~dysh.coordinates.Observatory`.
-            This will be transformed to `~astropy.coordinates.ITRS` using the time of
-            observation DATE-OBS or MJD-OBS in
-            the SDFITS header.  The default is the location of the GBT.
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1887,16 +1890,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more`~dysh.spectra.scan.FSScan`.
 
         """
-        debug = kwargs.pop("debug", False)
-        logger.debug(kwargs)
-
-        _bintable = bintable
 
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _nocal = nocal
+        _bintable = bintable
 
         scanblock = ScanBlock()
 
@@ -1926,6 +1930,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows["OFF"] = list(dfcalF["ROW"])
                 sigrows["ON"] = list(dfsigT["ROW"])
                 sigrows["OFF"] = list(dfsigF["ROW"])
+
+                # Is there a noise diode?
+                if len(calrows["ON"]) == 0 or nocal:
+                    _nocal = True
+                    # User did not provide a system temperature.
+                    if tsys is None:
+                        _tsys = dfcalF["TSYS"].to_numpy()
+                        logger.info("Using TSYS column")
+                # User provided a system temperature.
+                if tsys is not None:
+                    _tsys = tsys[scan][0]
+
                 g = FSScan(
                     self._sdf[i],
                     scan=scan,
@@ -1939,15 +1955,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fold=fold,
                     shift_method=shift_method,
                     use_sig=use_sig,
-                    observer_location=observer_location,
                     smoothref=1,
                     apply_flags=apply_flags,
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
-                    debug=debug,
+                    tsys=_tsys,
+                    nocal=_nocal,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                # Reset these variables in case they change for the next scan.
+                _nocal = nocal
+                _tsys = None
                 _bintable = bintable
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
