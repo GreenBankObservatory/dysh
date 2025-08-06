@@ -521,10 +521,10 @@ class TestFSScan:
         # Test with reference smoothing.
         fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256)
         fs = fs_sb.timeaverage()
-        assert fs.meta["EXPOSURE"] == pytest.approx(28.003819018773953)
-        assert fs.meta["TSYS"] == pytest.approx(26.832818055569504)
-        assert fs.stats()["mean"].value == pytest.approx(0.24291440843497836)
-        assert fs.stats()["rms"].value == pytest.approx(10.117805043602344)
+        assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
+        assert fs.meta["TSYS"] == pytest.approx(26.83285745447353)
+        assert fs.stats()["mean"].value == pytest.approx(0.19299398411039015)
+        assert fs.stats()["rms"].value == pytest.approx(5.4871938402480795)
 
     def test_getfs_nocal(self):
         """
