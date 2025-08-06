@@ -2089,8 +2089,6 @@ class FSScan(ScanBase):
         self._use_sig = use_sig
         self._nocal = nocal
         self._smoothref = smoothref
-        if self._smoothref > 1:
-            raise NotImplementedError(f"FS smoothref={self._smoothref} not implemented yet")
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
@@ -2302,10 +2300,13 @@ class FSScan(ScanBase):
                     logger.debug(f"Tsys(sig/ref)[0]={tsys_sig} / {tsys_ref}")
                 tp_sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                 tp_ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
-                #
+                if self._smoothref > 1:
+                    if self._use_sig:
+                        tp_ref, _meta = core.smooth(tp_ref, "boxcar", self._smoothref)
+                    else:
+                        tp_sig, _meta = core.smooth(tp_sig, "boxcar", self._smoothref)
                 cal_sig = do_sig_ref(tp_sig, tp_ref, tsys_ref)
                 cal_ref = do_sig_ref(tp_ref, tp_sig, tsys_sig)
-                #
                 if _fold:
                     cal_sig_fold = do_fold(
                         cal_sig, cal_ref, sig_freq[i], ref_freq[i], shift_method=kwargs["shift_method"]
@@ -2333,6 +2334,11 @@ class FSScan(ScanBase):
                 tsys = self._tsys[i]
                 tp_sig = self._sigcaloff[i]
                 tp_ref = self._refcaloff[i]
+                if self._smoothref > 1:
+                    if self._use_sig:
+                        tp_ref, _meta = core.smooth(tp_ref, "boxcar", self._smoothref)
+                    else:
+                        tp_sig, _meta = core.smooth(tp_sig, "boxcar", self._smoothref)
                 cal_sig = do_sig_ref(tp_sig, tp_ref, tsys)
                 cal_ref = do_sig_ref(tp_ref, tp_sig, tsys)
                 if _fold:

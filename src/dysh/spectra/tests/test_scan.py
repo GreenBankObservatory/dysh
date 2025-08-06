@@ -505,7 +505,7 @@ class TestFSScan:
             hdu.close()
             sp = data[1]
         # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
-        level = 0.02
+        level = 5e-3
         print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
         diff1 = sp - ta.flux.value.astype(np.float32)
         nm = np.nanmean(diff1[15000:20000])  # Use channel range around the line.
@@ -517,6 +517,14 @@ class TestFSScan:
         diff2 = sp - ta.flux.value.astype(np.float32)
         nm = np.nanmean(diff2[15000:20000])
         assert abs(nm) <= level
+
+        # Test with reference smoothing.
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(28.003819018773953)
+        assert fs.meta["TSYS"] == pytest.approx(26.832818055569504)
+        assert fs.stats()["mean"].value == pytest.approx(0.24291440843497836)
+        assert fs.stats()["rms"].value == pytest.approx(10.117805043602344)
 
     def test_getfs_nocal(self):
         """
@@ -543,6 +551,15 @@ class TestFSScan:
         assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
         assert fs.stats()["mean"].value == pytest.approx(0.2336313)
         assert fs.stats()["rms"].value == pytest.approx(2.3957242)
+
+        # Test with reference smoothing.
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, smoothref=256)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == 1.0
+        assert fs.meta["EXPOSURE"] == pytest.approx(2.115174908755242)
+        assert fs.stats()["mean"].value == pytest.approx(0.0007359185384744827)
+        assert fs.stats()["rms"].value == pytest.approx(0.010173690896161902)
 
 
 class TestNodScan:

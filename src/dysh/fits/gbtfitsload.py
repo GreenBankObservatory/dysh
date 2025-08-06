@@ -1955,7 +1955,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fold=fold,
                     shift_method=shift_method,
                     use_sig=use_sig,
-                    smoothref=1,
+                    smoothref=smoothref,
                     apply_flags=apply_flags,
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
