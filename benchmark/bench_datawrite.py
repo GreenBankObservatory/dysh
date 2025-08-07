@@ -70,13 +70,11 @@ if __name__ == "__main__":
     # )
     parser.add_argument("--loop", "-l",      action="store",      help="number of times to loop", default=4)
     parser.add_argument("--skipflags", "-s", action="store_true", help="skip reading/writing flags")
-    parser.add_argument("--source", "-S",    action="store",      help="pick a source  1=NGC2415 2=NGC2782 3=Sco-X", default=3)
-    parser.add_argument("--writedata",       action="store",      help="One of 'sdf' or 'sb' to write SDFITS or ScanBlock data", default="sdf")
-    parser.add_argument("--rows", "-r",      action="store",      help="If `writedata` is sdf, the number of rows to write.")
+    parser.add_argument("--source", "-S",    action="store",      help="pick a source  1=NGC2415 2=NGC2782 3=Sco-X", default=1)
+    parser.add_argument("--writedata",       action="store",      help="One of 'sdf', 'sb' or 'sp' to write SDFITS/ScanBlock/Spectrum", default="sdf")
+    parser.add_argument("--rows", "-r",      action="store",      help="If `writedata` is sdf, the number of rows to write. 0=all", default=0)
     parser.add_argument("--out", "-o",       action="store",      help="output filename (astropy Table)", required=False)
-    parser.add_argument(
-        "--append", "-a", action="store_true", help="append to previous output file (astropy Table)", required=False
-    )
+    parser.add_argument("--append", "-a",    action="store_true", help="append to previous output file (astropy Table)", required=False)
     parser.add_argument(
         "--overwrite",
         "-w",
@@ -105,6 +103,7 @@ if __name__ == "__main__":
         raise ValueError(f"writedata must be one of {valid_write}")
 
     if args.writedata == "sdf" and args.rows is None:
+        # @todo we are actually not using rows, but source, being a proxy for all rows for that source
         raise ValueError("You must supply number of rows to write (-r)  for SDFITS write test.")
 
     if args.quit:
@@ -141,6 +140,7 @@ if __name__ == "__main__":
         nf = 0
     else:
         nf = nflags
+    dt.tag("init", [0,0,0,0,0,0,0,0,0,0,0])        
     sdf = GBTFITSLoad(f1, skipflags=args.skipflags)  # , nfiles=nfiles)
     s = sdf.stats()
     dt.tag(
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     elif args.source == "3":
         scans = np.arange(171,197)   # Sco-X
     else:
-        scans = np.arange(171,197)   # Sco-X
+        scans = np.arange(171,173)   # Sco-X (just the first ones)
         
     print(f"Doing getps for source {args.source} scans={scans}")
     sb = sdf.getps(scan=scans, ifnum=0, plnum=0, fdnum=0)  # selected OnOffs
