@@ -49,6 +49,7 @@ if __name__ == "__main__":
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
     sk = str(args.skipflags)
+    dt.tag("init", [sk])
 
     # reading dataset-1
 
@@ -109,3 +110,7 @@ if __name__ == "__main__":
     dt.report()
 
     print("final", dt.total() / 1000, " sec")
+    
+    if args.timeaverage:
+        print(ps.stats(qac=True))
+        print("0.2860249723380094 0.061633088250851426 -1.472356798889697 1.034036888111091")
