@@ -30,32 +30,32 @@ We wrote a dysh.util.timers.DTime() class that in its simplest form tells us CPU
       dt = DTime()
       do_work1()
       dt.tag("work1")
-      do)=_work2()
+      do_work2()
       dt.tag("work2")
       dt.close()
       dt.report()
 
 ```
-for example here is the output of `bench_getps.py -s -d -t`
+for example here is the output of `./bench_getps.py -s -d -t` on our favorite `lma` machine:
 
 ```
   name     time VmSize VmRSS  skipflags
              ms  Mbyte  Mbyte           
 ---------- ----- ------ ------ ---------
-      load 101.2 2251.1  311.9      True
-   getps1s 193.0 2263.3  326.4      True
-   getps1t 614.7 2325.2  390.0      True
-   getps2s 298.3 2300.5  365.4      True
-   getps2t 137.7 2300.5  365.4      True
-   getps3s 185.9 2300.5  365.4      True
-   getps3t 132.5 2300.5  365.4      True
-   getps4s 184.6 2300.5  365.4      True
-   getps4t 132.6 2300.5  365.4      True
+   load 398.1 1684.7 315.5      True
+getps1t 763.2 1795.8 438.5      True
+getps2t 414.7 1790.9 433.6      True
+getps3t 510.4 1764.9 408.0      True
+getps4t 439.4 1764.9 408.0      True
+ report   0.0 1764.9 408.0      True
+final 2.525809781  sec
+
 ```
 
 - Fit benchmarking data to find pain points
 
-We wrote fitbench.py (still under devel) that allows you to do a linear fit plus offset of one column of the benchmark data (default "time") to up to 3 other columns of the data. e.g.
+We wrote fitbench.py (still under devel) that allows you to do a linear fit plus offset of one column of
+the benchmark data (default "time") to up to 3 other columns of the data. e.g.
 
 ```
 ./fitbench.py --files bench*.tab -p nchan nrow nflag
@@ -65,12 +65,22 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
 
 # Overall findings
 
-0. Benchmarking is tricky, you measure CPU and MEM usage that does not always make sense. For example we have a case where repeated
-   calls to getps() showed unreasonable variations.
+0. Benchmarking is tricky, you measure CPU and MEM usage that does not
+   always make sense. For example we have a case where repeated calls
+   to getps() showed unreasonable variations.
 
-1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be very large, notably for ARGUS examples. 9sec vs. 9min were seen.  Our implementation of processing Flag files via Selection object, while convenient, is expensive.  
+1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be
+   very large, notably for ARGUS examples. 9sec vs. 9min were seen.
+   Our implementation of processing Flag files via Selection object,
+   while convenient, is expensive.
 
-2. Overhead of working on a few scans from a big file, vs. a file containing only those scans seems to suggest that all scans were "used".
+2. Overhead of working on a few scans from a big file, vs. a file
+   containing only those scans seems to suggest that all scans were
+   "used".
+
+3. There is sometimes an extra overhead on the first of many loops, as
+   the `getps` shows above. It is unclear where this "setup" times comes
+   from possibly.  Possibly python learning how to set up a class.
 
 More details are in q8stats/README.md.
 
@@ -78,7 +88,7 @@ More details are in q8stats/README.md.
 
   - Not all operations are one-to-one with GBTIDL. For instance, GBTIDL cannot calibrate multiple scans at once, whereas dysh can.  
   - dysh always creates the analog of GBTIDL's index file, so GBTIDL comparisons should be run with no index file.
- - Timing is 'wall clock time', i.e., it includes and kernel/sleep operations.  In python, we are using  *time.perfcounter_ns()*
+  - Timing is 'wall clock time', i.e., it includes and kernel/sleep operations.  In python, we are using  *time.perfcounter_ns()*
 
 ## Avoiding File caching
 
@@ -92,13 +102,20 @@ if this gives permission denied, open up a root shell, and issue the command in 
     sudo su
     sync;sync;sync
     echo 1 > /proc/sys/vm/drop_caches
+or
+    echo 1 | sudo tee /proc/sys/vm/drop_caches
 
 ## disk I/O
 
-Although `hdparm -t` will report a typical I/O speed, in real life this is never achieved. Blocksize of reading affects timing. For dysh we mostly care about read time.
+Although `hdparm -t` will report a typical I/O speed, in real life this is never achieved.
+Blocksize of reading affects timing. For dysh we mostly care about read time.
 
 ## OMP_NUM_THREADS
-The OMP_NUM_THREADS environment variable sets the number of threads to use for  parallel processing.  Peter has in other benchmarks found that changing this from unset to 1 can affect performance.   So you should try your benchmark with both states, e.g. (csh):
+
+The OMP_NUM_THREADS environment variable sets the number of threads to
+use for parallel processing.  Peter has in other benchmarks found that
+changing this from unset to 1 can affect performance.  So you should
+try your benchmark with both states, e.g. (csh):
 
     unsetenv OMP_NUM_THREADS
 
@@ -109,9 +126,14 @@ and
 
 The standard set of SDFITS files to run the benchmark on are:
 
-1. Standard positionswitch example from the notebooks - up to 4 PS on/off scans. Single fits file, 45MB - AGBT05B_047_01
-2. L-band edge data in On/Off/On mode - 8.5GB, 70 scans.   NGC2808 is extracted from this, using 9 "Track" scans in on/off/on mode. - AGBT15B_287_19
-3. ARGUS edge data in OTF mode - 1.3 GB, NGC0001 in AGBT21B_024_01 (or TBD if NGC5954 (2 strong sources) should be used - AGBT21B_024_20)
+1. Standard L-band positionswitch example from the notebooks - up to 4 PS on/off scans. Single fits file, 45MB - AGBT05B_047_01.
+   This is **example=*getps"**
+
+2. L-band edge data in On/Off/On mode - 8.5GB, 70 scans.   NGC2808 is extracted from this, using 9 "Track" scans in on/off/on mode. - AGBT15B_287_19.
+   This should be **example=*getps3"**   ???
+
+3. ARGUS edge data in OTF mode - 1.3 GB, NGC0001 in AGBT21B_024_01 (or TBD if NGC5954 (2 strong sources) should be used - AGBT21B_024_20).
+   This is **example=*otf1"**
 
 
 ### DYSH_DATA
@@ -119,9 +141,13 @@ The standard set of SDFITS files to run the benchmark on are:
 To make it portable accross machines, data not in the $DYSH/testdata directory can be easily used via the `dysh.util.files.dysh_data()` function. Either placed
 in $DYSH_DATA/sdfits, under $DYSH_DATA/example-data or $DYSH_DATA/acceptance_testing.  
 
+
+            "getps3"     : "AGBT15B_287_19/AGBT15B_287_19.raw.vegas",      #  on/off/on  EDGE L-band data
+
+
 ### Summary of tests and Results
 
-The full report is in q8stats/README.me 
+The full report is in q8stats/README.md
 
 
 #### Example: Strange behavior when time-averaging
@@ -131,29 +157,94 @@ times to be the same, but it all depended on if we time-averaged or not.  Times 
 
 ```
 $ OMP_NUM_THREADS=1 /usr/bin/time bench_getps.py -d -l 10 -t
-load     97.532862   Loading this was almost 100ms
-getps1s 190.831522   just a getps() to the PSScan is returned
-getps1t 672.748917   now .timeaverage() is added to return a Spectrum
-getps2s 401.706166
-getps2t 137.061235
-getps3s 186.651159
-getps3t 135.26012
-getps4s 186.649279
-getps4t 151.799951
-getps5s 191.804484
-getps5t 136.399024
-getps6s 186.610638
-getps6t 134.886799
-getps7s 184.546092
-getps7t 135.14739
-getps8s 184.658502
-getps8t 133.752485
-getps9s 183.76686
-getps9t 134.601758
-end 0.00999
+...
+  name    time  VmSize VmRSS skipflags
+           ms   Mbyte  Mbyte          
+-------- ------ ------ ----- ---------
+    load  220.0  964.8 325.9     False
+ getps1t 1163.6 1066.3 439.2     False
+ getps2t  673.6 1063.9 436.8     False
+ getps3t  683.1 1064.6 437.5     False
+ getps4t  671.7 1064.6 437.5     False
+ getps5t  674.5 1065.5 438.5     False
+ getps6t  674.5 1065.2 438.0     False
+ getps7t  681.0 1064.2 437.0     False
+ getps8t  675.9 1064.6 437.5     False
+ getps9t  674.0 1064.6 437.5     False
+getps10t  675.8 1064.6 437.5     False
+  report    0.1 1064.6 437.5     False
+
 ```
-if the -t was not added, only repeated PSScan's were obtained, and all the times was very compatible and about 185ms, especially
-the ``getps2s`` stands out at over 400ms.
+if the -t was not added, the first measurment did not stand out as much. x
+
+## Disk I/O
+
+There are three types of disk I/O:  the sdfits, the scanblock and the spectrum.
+
+Few comments here:
+
+1. Disk caching clearly plays a role, especially on machines with modest memory.
+2. Python 
+
+
+```
+# writing sp and sb have similar properties
+
+
+  name    time   VmSize VmRSS  #files file_size totsize nchan  nrow nIF nFd nPol #flags skipflags nwrite
+           ms    Mbyte  Mbyte           Mbyte    Mbyte                                                  
+------- ------- ------- ------ ------ --------- ------- ----- ----- --- --- ---- ------ --------- ------
+   load 43578.5 11879.2 6137.1      2   3963.61 7927.22 32768 60192   8   1    2     28     False     -1
+  getps  2402.2 12047.3 6345.0      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+spwrite   483.3 12126.5 6424.4      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+spwrite   275.8 12070.5 6369.1      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+spwrite   154.4 12070.5 6369.1      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+
+------- ------ ------- ------ ------ --------- ------- ----- ----- --- --- ---- ------ --------- ------
+   load 2754.4 11878.2 6140.7      2   3963.61 7927.22 32768 60192   8   1    2     28     False     -1
+  getps 2331.0 12042.6 6342.6      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+spwrite  444.2 12126.5 6426.8      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+spwrite  282.4 12070.5 6371.6      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+spwrite  156.8 12070.5 6371.6      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+
+--------- ------- ------- ------- ------ --------- ------- ----- ----- --- --- ---- ------ --------- ------
+     load  2856.7 11879.2  6248.8      2   3963.61 7927.22 32768 60192   8   1    2     28     False     -1
+    getps  2404.9 12047.3  6455.5      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+sdfwrite1  6871.7 26296.3 24184.7      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+sdfwrite2 79575.9 40552.5 16230.8      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+
+```
+
+       a.   First time `load` was about 43sec (the SDFITS file is 7GB), after that more like 3 sec.
+            This is bad for science, as only there the first one counts.
+       b.   The `spwrite` stage seems to also suffer from a speedup as it was re-executed for the benchmark.
+            This is again bad for science, as only there the first one counts. In fact, only on the 3rd
+            execution did it flatten out as about 155 ms.
+       c.   As already seen in the `getps` benchark, there was also a modest re-execution penalty for `getps`,
+            but quite noticable when time-averaging was added. (80%)
+       d.   During `sdfwrite` a large block of memory was not freed (issue #678) and as a result all subsequent
+            runs on a 32GB machine got slowed down.   On a 512 GB machine this was not noticable until 100 loops.
+
+
+```
+
+
+
+For science, we would count the benchmark as 43.6 + 2.4 + 0.5  = 46.5, taking the first-time values,
+but if one would take the repeated benchmark values this would count as 2.8 + 2.4 + 0.2 = 5.4 sec. Quite a difference!
+
+## Math
+
+The math is relatively simple, and very parallizable:
+
+       Tsys = Tc  <cold> / <hot-cold>       (1)
+       Ta   = Tsys  (on-off)/off            (2)
+
+First of all, this implies a Tsys for the ON and one for the OFF.   Which one to use in (2) ?
+
+Secondly, what is the ON and the OFF really? Can one use the calon + caloff average as in:
+
+       (on_calon+on_caloff) / (off_calon+off_caloff) -1
 
 
 ## NEMO
