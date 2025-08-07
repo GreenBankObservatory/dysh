@@ -526,6 +526,32 @@ class TestFSScan:
         assert fs.stats()["mean"].value == pytest.approx(0.19299398411039015)
         assert fs.stats()["rms"].value == pytest.approx(5.4871938402480795)
 
+        # nocal.
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
+        assert fs.meta["TSYS"] == pytest.approx(1.0)
+        assert fs.stats()["mean"].value == pytest.approx(0.007543638921500274)
+        assert fs.stats()["rms"].value == pytest.approx(0.20901151397310902)
+
+        # t_sys.
+        t_sys = 124.0
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, t_sys=t_sys)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
+        assert fs.meta["TSYS"] == pytest.approx(t_sys)
+        assert fs.stats()["mean"].value == pytest.approx(0.878913979866379)
+        assert fs.stats()["rms"].value == pytest.approx(25.31681410111804)
+
+        # nocal and t_sys.
+        t_sys = 120.0
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True, t_sys=t_sys)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
+        assert fs.meta["TSYS"] == pytest.approx(t_sys)
+        assert fs.stats()["mean"].value == pytest.approx(0.9052366705561161)
+        assert fs.stats()["rms"].value == pytest.approx(25.081381667649197)
+
     def test_getfs_nocal(self):
         """
         Test for getfs without noise diode.
