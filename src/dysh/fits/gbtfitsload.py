@@ -1992,6 +1992,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bunit="ta",
         zenith_opacity=None,
         t_sys=None,
+        vane=None,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -2035,6 +2036,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys : float, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        vane: int, optional
+            Corresponding vane scan for Argus observations. If provided, will use the given vane scan to
+            compute t_sys. Otherwise, it will follow the usage of `t_sys`.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2053,6 +2057,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _bintable = bintable
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+
+        # #Argus quickfix
+        # #very inefficient, computes off scan gettp twice for every scan
+        # #but best way to have it outside of the "method" if statements
+        # if vane is not None:
+        #     for scan in scans:
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
@@ -2190,6 +2200,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     apply_flags=apply_flags,
                 )
                 sigtp.append(tpon[0])
+                if vane is not None:
+                    tpoff = self.gettp(
+                        fdnum=fdnum,
+                        ifnum=ifnum,
+                        plnum=plnum,
+                        scan=scan,
+                        sig=None,
+                        cal=None,
+                        bintable=bintable,
+                        subref=1,
+                        calibrate=calibrate,
+                        apply_flags=apply_flags,
+                    )
+                    t_sys = self.vanecal(vane,sky=tpoff)
                 tpoff = self.gettp(
                     fdnum=fdnum,
                     ifnum=ifnum,
@@ -2851,7 +2875,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def vanecal(
         self,
         scan,
-        sky_scan=None,
+        sky=None,
         ifnum=0,
         plnum=0,
         fdnum=0,
@@ -2913,7 +2937,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise TypeError(f"More than one OBJECT for scan {scan}")
         # quick fix for Argus subbeamnodding - that function will call vanecal with an off scan
         vane_scan = scan - (t == {"SKY"})
-        if sky_scan is None:
+        if sky is None:
             sky_scan = scan + (t == {"VANE"})
 
         vane = self.gettp(
@@ -2925,15 +2949,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             cal=False,
             apply_flags=apply_flags,
         ).timeaverage()
-        sky = self.gettp(
-            scan=sky_scan,
-            fdnum=fdnum,
-            ifnum=ifnum,
-            plnum=plnum,
-            calibrate=True,
-            cal=False,
-            apply_flags=apply_flags,
-        ).timeaverage()
+        if sky is None:
+            sky = self.gettp(
+                scan=sky_scan,
+                fdnum=fdnum,
+                ifnum=ifnum,
+                plnum=plnum,
+                calibrate=True,
+                cal=False,
+                apply_flags=apply_flags,
+            ).timeaverage()
+        else:
+            sky = sky.timeaverage()
 
         if twarm is None:
             twarm = sky.meta["TWARM"] + 273.15  # TWARM is recorded in Celsius when using RcvrArray75_115 (Argus).
@@ -2975,7 +3002,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             case 1:
                 tsys = tcal / mean_data((vane.data - sky.data) / sky.data)
             case 2:
-                tsys = tcal / np.nanmedian((vane.data - sky.data) / sky.data)
+                # tsys = tcal / np.nanmedian((vane.data - sky.data) / sky.data)
+                tsys = np.nanmedian( tcal / ((vane.data - sky.data) / sky.data))
 
         logger.debug(f"TCAL={tcal} K")
         logger.debug(f"mode={mode}")
