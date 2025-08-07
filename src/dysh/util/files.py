@@ -20,8 +20,6 @@ from dysh.util.download import from_url
 
 from ..util import minimum_string_match
 
-_debug = False
-
 # the GBTIDL examples from https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/gbtidl.html
 #         getps:        "data/ngc2415.fits"                NGC2415    example=getps2    (TGBT21A_501_11)
 #         getfs:        "data/TGBT22A_503_02.raw.vegas"    W3_1       test=    example=
@@ -133,7 +131,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     accept=       /home/dysh/acceptance_testing        $DYSH_DATA/acceptance_testing
 
     Note: test= resolves to the same filename as the util.get_project_testdata() function
-          but it otherwise only qvailable for developers.
+          but it otherwise only available for developers.
 
     If present, the $SDFITS_DATA directory is honored instead of the default for sdfits=
     and overrides the $DYSH_DATA directory.
@@ -142,14 +140,24 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     Examples of use including mnemonics or full paths:
     --------------------------------------------------
+
+    Using mnemonics
+
     fn = dysh_data(test='getps')
     fn = dysh_data(example='getfs')
+
+    Using full paths
+
     fn = dysh_data(example='onoff-L/data/TGBT21A_501_11.raw.vegas')
+
+    Using a project id
+
     fn = dysh_data('AGBT21B_024_54')         ->  /home/sdfits/AGBT21B_024_54
-                                        or:  -   /lma1/teuben/GBT-EDGE/rawdata/AGBT21B_024_54 with $DYSH_DATA
+                                        or:  ->  ${DYSH_DATA}/sdfits/AGBT21B_024_54 with $DYSH_DATA
 
 
-    Notes:
+    Notes
+    -----
 
     1) if $DYSH_DATA exist (and this is a new proposal), it will prepend
        that to the argument of get_dysh_data() and check for existence
@@ -228,7 +236,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # sdfits:   the main place where GBO data reside
 
-    if sdfits != None:  # noqa: E711
+    if sdfits is not None:
         if sdfits == "!":
             logger.warning("The GUI is experimental, it can only select a single fits file, no directories")
             return use_gui(dysh_data)
@@ -247,7 +255,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("# -----------------")
             os.system(cmd)
             return None
-        if dysh_data != None:  # noqa: E711
+        if dysh_data is not None:
             fn = dysh_data / Path("sdfits") / sdfits  # normally user is using a private sdfits
             if fn.exists():
                 return sdfits_offline(fn)
@@ -262,7 +270,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # test:   this should also be allowed to use util.get_project_testdata() as well
 
-    if test != None:  # noqa: E711
+    if test is not None:
         if test == "?":
             print("# dysh_data::test")
             print("# ---------------")
@@ -270,12 +278,12 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_test[k])
             return None
         my_test = minimum_string_match(test, list(valid_dysh_test.keys()))
-        if my_test != None:  # noqa: E711
+        if my_test is not None:
             my_test = valid_dysh_test[my_test]
         else:
             my_test = test
         #
-        if dysh_data != None:  # noqa: E711
+        if dysh_data is not None:
             fn = dysh_data / "testdata" / my_test
             if not fn.exists():
                 fn = util.get_project_testdata() / my_test
@@ -289,7 +297,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # example:  these can also obtain data via from_url (or perhaps astropy caching???)
 
-    if example != None:  # noqa: E711
+    if example is not None:
         if example == "?":
             print("# dysh_data::example")
             print("# ------------------")
@@ -297,16 +305,16 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_example[k])
             return None
         my_example = minimum_string_match(example, list(valid_dysh_example.keys()))
-        if my_example != None:  # noqa: E711
+        if my_example is not None:
             my_example = valid_dysh_example[my_example]
         else:
             my_example = example
-        if dysh_data != None:  # noqa: E711
+        if dysh_data is not None:
             fn = dysh_data / "example_data" / my_example
             if fn.exists():
                 return fn
             print("Odd-1, did not find", fn)
-        if dysh_data == None and os.path.exists(_example_data):  # noqa: E711
+        if dysh_data is None and os.path.exists(_example_data):
             fn = Path(_example_data) / my_example
             if fn.exists():
                 return fn
@@ -320,8 +328,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             try:
                 filename = from_url(url)
                 print(f"\nRetrieved {filename}")
-            except:  # noqa: E722
+            except Exception as e:
                 print(f"\nFailing to retrieve example {filename} ")
+                print(e)
                 return None
         else:
             print(f"{filename} already downloaded")
@@ -329,7 +338,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # accept:   acceptance_testing/data - from_url not recommended (does not work on multifile fits)
 
-    if accept != None:  # noqa: E711
+    if accept is not None:
         if accept == "?":
             print("# dysh_data::accept")
             print("# -----------------")
@@ -337,16 +346,16 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_accept[k])
             return None
         my_accept = minimum_string_match(accept, list(valid_dysh_accept.keys()))
-        if my_accept != None:  # noqa: E711
+        if my_accept is not None:
             my_accept = valid_dysh_accept[my_accept]
         else:
             my_accept = accept
-        if dysh_data != None:  # noqa: E711
+        if dysh_data is not None:
             fn = dysh_data / "acceptance_testing/data" / my_accept
             if fn.exists():
                 return fn
             print("Odd-1, did not find", fn)
-        if dysh_data == None and os.path.exists(_accept_data):  # noqa: E711
+        if dysh_data is None and os.path.exists(_accept_data):
             fn = Path(_accept_data) / my_accept
             if fn.exists():
                 return fn
@@ -360,8 +369,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             try:
                 filename = from_url(url)
                 print(f"\nRetrieved {filename}")
-            except:  # noqa: E722
+            except Exception as e:
                 print(f"\nFailing to retrieve accept {filename}")
+                print(e)
                 return None
         else:
             print(f"{filename} already downloaded")
@@ -412,8 +422,7 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
             fname = filename
         if recursive:
             fname = "**/" + fname
-        if _debug:
-            print("# FNAME:", fname)
+        logger.debug("# FNAME:", fname)
 
         fn = glob.glob(fname, recursive=recursive)
 
@@ -479,8 +488,7 @@ def main_cli():
     p.add_argument("filename", nargs="+", help="Filename(s) to search for")
 
     args = p.parse_args()
-    if _debug:
-        print("#", args)
+    logger.debug("#", args)
 
     filename = args.filename
     maxfiles = args.maxfiles
