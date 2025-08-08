@@ -7,5 +7,6 @@ plt.ion()
 
 __all__ = ["specplot"]
 from .specplot import *
-#from .scanplot import *
+
+# from .scanplot import *
 from .vegasplot import *

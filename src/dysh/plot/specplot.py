@@ -28,14 +28,14 @@ _KMS = u.km / u.s
 
 class PlotBase:
     """This class describes describes the common interface to all Plot classes."""
+
     def __init__(self, **kwargs):
         print("super init")
         self.reset()
         self._figure = None
         self._axis = None
         self._plt = plt
-        #self._plot_kwargs.update(kwargs)
-
+        # self._plot_kwargs.update(kwargs)
 
     def _plot_type(self):
         """The plot object"""
@@ -53,7 +53,7 @@ class PlotBase:
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
-        if (self._plot_type() == "SpectrumPlot"):
+        if self._plot_type() == "SpectrumPlot":
             self._plot_kwargs = {
                 "xmin": None,
                 "xmax": None,
@@ -80,14 +80,12 @@ class PlotBase:
                 "show_baseline": True,
                 "test": False,
             }
-        elif (self._plot_type() == "ScanPlot"):
+        elif self._plot_type() == "ScanPlot":
             self._plot_kwargs = {
                 "title": None,
                 "cmap": "inferno",
                 "interpolation": "nearest",
             }
-
-
 
     def _set_header(self, s):
         move_vcoords_bool = 0.1 * (self._plot_type() == "ScanPlot")
@@ -191,7 +189,6 @@ class PlotBase:
         if self.axis is not None:
             self.axis.figure.canvas.draw_idle()
 
-
     def savefig(self, file, **kwargs):
         r"""Save the plot
 
@@ -216,8 +213,6 @@ class PlotBase:
         self.figure.savefig(file, *kwargs)
         for button in self.figure._localaxes[1:]:
             button.set_visible(True)
-
-
 
 
 class SpectrumPlot(PlotBase):
@@ -395,7 +390,6 @@ class SpectrumPlot(PlotBase):
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
 
-
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
@@ -459,8 +453,6 @@ class SpectrumPlot(PlotBase):
             snu = r"$S_{\nu}$"
             self.axis.set_ylabel(f"{snu} ({yunit})")
 
-
-
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
         kwargs_opts = {
@@ -470,7 +462,6 @@ class SpectrumPlot(PlotBase):
         kwargs_opts.update(kwargs)
         # if kwargs_opts['loc'] == 'bottom':
         #    self._ax.axhline
-
 
     def savefig(self, file, **kwargs):
         r"""Save the plot
@@ -667,8 +658,6 @@ class InteractiveSpanSelector:
         return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]
 
 
-
-
 class ScanPlot(PlotBase):
     r"""
     The ScanPlot class is for simple plotting of a `~scan.Scan` or `~scan.ScanBlock`
@@ -745,7 +734,7 @@ class ScanPlot(PlotBase):
         """
 
         # self._set_xaxis_info()
-        #self.__init__(self._scanblock_or_scan, **kwargs)
+        # self.__init__(self._scanblock_or_scan, **kwargs)
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
 
@@ -816,7 +805,6 @@ class ScanPlot(PlotBase):
             warnings.warn("Flux units are unknown", stacklevel=2)
             z_label = ""
         self._figure.colorbar(self.im, label=z_label, pad=0.1)
-
 
     def set_clim(self, vmin, vmax):
         """
