@@ -2,7 +2,6 @@
 Core functions for spectral data.
 """
 
-import warnings
 from copy import deepcopy
 from functools import reduce
 
@@ -182,29 +181,6 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     return goodrows
 
 
-def sort_spectral_region(spectral_region):
-    """
-    Sort the elements of a `~specutils.SpectralRegion`.
-
-    Parameters
-    ----------
-    spectral_region : `~specutils.SpectralRegion`
-        `~specutils.SpectralRegion` to be sorted.
-
-    Returns
-    -------
-    sorted_spectral_region : `~specutils.SpectralRegion`
-        Sorted `~specutils.SpectralRegion`.
-    """
-
-    unit = spectral_region.lower.unit
-    bound_list = np.sort([srb.value for sr in spectral_region.subregions for srb in sr]) * unit
-    it = iter(bound_list)
-    sorted_spectral_region = SpectralRegion(list(zip(it, it, strict=False)))
-
-    return sorted_spectral_region
-
-
 def sort_spectral_region_subregions(spectral_region):
     """ """
 
@@ -316,44 +292,30 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
         A `~specutils.SpectralRegion` corresponding to `exclude`.
     """
 
-    p = refspec  # noqa: F841
     sa = refspec.spectral_axis
-    lastchan = len(sa) - 1
 
-    o = 1
-    # If the spectral axis is inverted, flip the order of the elements.
-    if refspec.spectral_axis_direction == "decreasing":
-        o = -1
+    # A single SpectralRegion was given.
+    if isinstance(exclude, SpectralRegion):
+        sr = exclude
+    # `list` of `int` or `Quantity` or `SpectralRegion` was given.
+    else:
+        # If user provided a single list, we have to
+        # turn it into a list of tuples. If SpectralRegion
+        # took a list argument, we wouldn't have to do this.
+        if type(exclude[0]) is not tuple:
+            it = iter(exclude)
+            exclude = list(zip(it, it, strict=False))
+        try:
+            sr = SpectralRegion(exclude)
+            # The above will error if the elements are not quantities.
+            # In that case use the spectral axis to define the exclusion regions.
+        except ValueError:
+            # Make sure all the channels are within bounds.
+            exclude = np.array(exclude)
+            exclude[exclude >= len(sa)] = len(sa) - 1
+            sr = SpectralRegion(sa.quantity[exclude])
 
-    if exclude is not None:
-        # A single SpectralRegion was given.
-        if isinstance(exclude, SpectralRegion):
-            sr = exclude
-        # `list` of `int` or `Quantity` or `SpectralRegion` was given.
-        else:
-            # If user provided a single list, we have to
-            # turn it into a list of tuples. If SpectralRegion
-            # took a list argument, we wouldn't have to do this.
-            if type(exclude[0]) is not tuple:
-                it = iter(exclude)
-                exclude = list(zip(it, it, strict=False))
-            try:
-                sr = SpectralRegion(exclude)
-                # The above will error if the elements are not quantities.
-                # In that case use the spectral axis to define the exclusion regions.
-            except ValueError:
-                # If the user requested to fix the exclude range.
-                if fix_exclude:
-                    exclude = np.array(exclude)
-                    mask = exclude >= len(sa)
-                    if mask.sum() > 0:
-                        msg = f"Setting upper limit to {lastchan}."
-                        exclude[exclude >= len(sa)] = lastchan
-                        warnings.warn(msg, stacklevel=2)
-                # If the spectral_axis is decreasing, flip it.
-                sr = SpectralRegion(sa[exclude][:, ::o])
-
-        return sr
+    return sr
 
 
 def spectral_region_to_unit(spectral_region, refspec, unit=None, append_doppler=True):
@@ -435,7 +397,8 @@ def spectral_region_to_list(spectral_region):
 
     # The continuum fitting routines use a list of `SpectralRegion` as input.
     for r in spectral_region.subregions:
-        region_list.append(SpectralRegion([r]))
+        if r[0] != r[1]:
+            region_list.append(SpectralRegion([r]))
 
     return region_list
 
@@ -453,7 +416,7 @@ def spectral_region_to_list_of_tuples(spectral_region):
     """
     o = []
     for sr in spectral_region.subregions:
-        o.append((sr[0].quantity, sr[1].quantity))
+        o.append((sr[0], sr[1]))
     return o
 
 
@@ -482,13 +445,7 @@ def region_to_axis_indices(region, refspec):
     return indices
 
 
-def exclude_to_mask(exclude, refspec):
-    # set a mask based on an exclude region
-    # mask ~ exclude_to_indices(exclude_to_region())
-    pass
-
-
-def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
+def exclude_to_region_list(exclude, spectrum, clip_exclude=True):
     """
     Convert an exclusion region, `exclude`, to a list of `~specutils.SpectralRegion`.
     This is used for baseline fitting.
@@ -518,9 +475,9 @@ def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
     spectrum : `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
         when converting between `exclude` and axis units (e.g. channels to GHz).
-    fix_exclude : bool
-        See `~spectra.core.exclude_to_spectral_region` for details.
-        Default: True
+    clip_exclude : bool
+        Whether to clip the edges of the exclude regions when they are outside
+        `spectrum.spectral_axis`.
 
     Returns
     -------
@@ -528,11 +485,30 @@ def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
         Regions defined in `exclude` as a list of `~specutils.SpectralRegion`.
     """
 
-    spectral_region = exclude_to_spectral_region(exclude, spectrum, fix_exclude=fix_exclude)
+    spectral_region = exclude_to_spectral_region(exclude, spectrum)
     spectral_region = spectral_region_to_unit(spectral_region, spectrum)
+    sort_spectral_region_subregions(spectral_region)
+    if clip_exclude:
+        clip_spectral_region_subregions(spectral_region, spectrum)
     region_list = spectral_region_to_list(spectral_region)
 
     return region_list
+
+
+def clip_spectral_region_subregions(spectral_region, spectrum):
+    """
+    Clip the values of the `spectral_region.subregions` if they extend
+    outside the `spectrum.spectral_axis`.
+    """
+    sa_max = spectrum.spectral_axis.quantity.max()
+    sa_min = spectrum.spectral_axis.quantity.min()
+    for i, s in enumerate(spectral_region.subregions):
+        if s[0] < sa_min:
+            logger.info(f"{s[0]} is below the minimum spectral axis {sa_min}. Replacing.")
+            spectral_region._subregions[i] = (sa_min, s[1])
+        if s[1] > sa_max:
+            logger.info(f"{s[1]} is above the maximum spectral axis {sa_max}. Replacing.")
+            spectral_region._subregions[i] = (s[0], sa_max)
 
 
 def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
@@ -576,6 +552,8 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     exclude_region_upper_bounds : bool
         Makes the upper bound of any excision region(s) inclusive.
         Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
+    clip_exclude : bool
+        Whether to clip the exclude or include regions when they extend outside the `spectrum.spectral_axis`.
 
     Returns
     -------
@@ -584,11 +562,10 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         See `~specutils.fitting.fit_continuum`.
     """
     kwargs_opts = {
-        #'show': False,
         "model": "chebyshev",
         "fitter": LinearLSQFitter(calc_uncertainties=True),
-        "fix_exclude": True,
-        "exclude_action": "replace",  # {'replace','append', None}
+        "clip_exclude": True,
+        "exclude_action": "replace",
     }
     kwargs_opts.update(kwargs)
 
@@ -616,7 +593,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         # @todo handle masks
         return None  # or raise exception
     if exclude is not None:
-        regionlist = exclude_to_region_list(exclude, spectrum, fix_exclude=kwargs_opts["fix_exclude"])
+        regionlist = exclude_to_region_list(exclude, spectrum, clip_exclude=kwargs_opts["clip_exclude"])
         if kwargs_opts["exclude_action"] == "replace":
             p._exclude_regions = regionlist
         elif kwargs_opts["exclude_action"] == "append":
@@ -1124,7 +1101,6 @@ def smooth(
         mask = data.mask
     else:
         mask = np.full(data.shape, False)
-    # print(f"1 core.smooth using {mask=}")
 
     new_data = convolve(
         data,
