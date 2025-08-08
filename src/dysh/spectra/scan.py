@@ -20,7 +20,7 @@ from dysh.spectra import core
 
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
-from ..plot import scanplot as sp
+from ..plot import specplot as sp
 from ..util import minimum_string_match
 from ..util.gaincorrection import GBTGainCorrection
 from .core import (
