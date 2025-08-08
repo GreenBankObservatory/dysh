@@ -99,7 +99,7 @@ class SpectralAverageMixin:
             # Take the default decimation by `width`.
             decimate = int(abs(width))
             if not float(width).is_integer():
-                print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
+                logger.info(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
         clen, nchan = self._calibrated.shape
         sdata = []
         smask = []
@@ -239,7 +239,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._meta = {}
         self._bscale = 1.0
         self._bunit = "ta"
-        self._tsys = None
+        self._tsys = tsys
         self._exposure = None
         self._calibrated = None
         self._smoothref = smoothref
@@ -952,7 +952,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         None
 
         """
-        print("SCANBLOCK SMOOTH")
         for scan in self.data:
             scan.smooth(method, width, decimate, kernel)
 
@@ -2052,6 +2051,11 @@ class FSScan(ScanBase):
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in the SDFITS header.  The default is the location of the GBT.
+    tsys : float or `~np.ndarray`
+        If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
+        If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
+        scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+        in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
     """
 
     def __init__(
@@ -2073,32 +2077,29 @@ class FSScan(ScanBase):
         bunit="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
-        debug=False,
+        tsys=None,
+        nocal: bool = False,
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys=tsys)
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
         self._calrows = calrows  # dict with "ON" and "OFF"
         self._folded = False
         self._use_sig = use_sig
+        self._nocal = nocal
         self._smoothref = smoothref
-        if self._smoothref > 1:
-            raise NotImplementedError(f"FS smoothref={self._smoothref} not implemented yet")
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["OFF"]))))
 
-        self._debug = debug
-
-        if self._debug:
-            logger.debug("---------------------------------------------------")
-            logger.debug("FSSCAN: ")
-            logger.debug(f"SigOff {self._sigoffrows}")
-            logger.debug(f"SigOn {self._sigonrows}")
-            logger.debug(f"RefOff {self._refoffrows}")
-            logger.debug(f"RefOn {self._refonrows}")
+        logger.debug("---------------------------------------------------")
+        logger.debug("FSSCAN: ")
+        logger.debug(f"SigOff {self._sigoffrows}")
+        logger.debug(f"SigOn {self._sigonrows}")
+        logger.debug(f"RefOff {self._refoffrows}")
+        logger.debug(f"RefOn {self._refonrows}")
 
         nsigrows = len(self._sigonrows) + len(self._sigoffrows)
         nrefrows = len(self._refonrows) + len(self._refoffrows)
@@ -2107,15 +2108,13 @@ class FSScan(ScanBase):
         logger.debug(f"sigonrows {nsigrows}, {self._sigonrows}")
         self._nrows = nsigrows
 
-        a_scanrow = self._sigonrows[0]
-
         # @todo deal with data that crosses bintables
         if bintable is None:
-            self._bintable_index = gbtfits._find_bintable_and_row(a_scanrow)[0]
+            self._bintable_index = gbtfits._find_bintable_and_row(self._sigoffrows[0])[0]
         else:
             self._bintable_index = bintable
-        if self._debug:
-            logger.debug(f"bintable index is {self._bintable_index}")
+        logger.debug(f"bintable index is {self._bintable_index}")
+
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
         self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
         self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
@@ -2123,26 +2122,36 @@ class FSScan(ScanBase):
         self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
 
         # Catch blank integrations.
-        goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
-        self._refcalon = self._refcalon[goodrows]
-        self._refcaloff = self._refcaloff[goodrows]
-        self._refonrows = [self._refonrows[i] for i in goodrows]
-        self._refoffrows = [self._refoffrows[i] for i in goodrows]
-        self._sigcalon = self._sigcalon[goodrows]
-        self._sigcaloff = self._sigcaloff[goodrows]
-        self._sigonrows = [self._sigonrows[i] for i in goodrows]
-        self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+        if not self._nocal:
+            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff, self._sigcalon, self._refcalon)
+            self._refcalon = self._refcalon[goodrows]
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refonrows = [self._refonrows[i] for i in goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._sigcalon = self._sigcalon[goodrows]
+            self._sigcaloff = self._sigcaloff[goodrows]
+            self._sigonrows = [self._sigonrows[i] for i in goodrows]
+            self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            nsigrows = len(self._sigonrows) + len(self._sigoffrows)
+        else:
+            goodrows = find_nonblank_ints(self._sigcaloff, self._refcaloff)
+            self._refcaloff = self._refcaloff[goodrows]
+            self._refoffrows = [self._refoffrows[i] for i in goodrows]
+            self._sigcaloff = self._sigcaloff[goodrows]
+            self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            nsigrows = len(self._sigoffrows)
+
         # Update number of rows after removing blanks.
-        nsigrows = len(self._sigonrows) + len(self._sigoffrows)
         self._nrows = nsigrows
 
-        self._nchan = len(self._sigcalon[0])
+        self._nchan = gbtfits.nchan(self._bintable_index)
         self._finish_initialization(
             calibrate,
             {"fold": fold, "shift_method": shift_method},
-            self._sigonrows,
+            self._sigoffrows,
             bunit,
             zenith_opacity,
+            tsys=tsys,
         )
 
     @property
@@ -2168,9 +2177,8 @@ class FSScan(ScanBase):
             Fold the spectrum or not. Required keyword.
         """
         # @todo upgrade fold from kwarg to arg
-        if self._debug:
-            logger.debug(f"FOLD={kwargs['fold']}")
-            logger.debug(f"METHOD={kwargs['shift_method']}")
+        logger.debug(f"FOLD={kwargs['fold']}")
+        logger.debug(f"METHOD={kwargs['shift_method']}")
         if self._calibrated is not None:
             logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
 
@@ -2259,15 +2267,13 @@ class FSScan(ScanBase):
         kwargs_opts = {"verbose": False}
         kwargs_opts.update(kwargs)
         _fold = kwargs.get("fold", False)
-        # _mode = 1  # 1: keep the sig    else: keep the ref     (not externally supported)
-        nspect = self.nrows // 2
+        nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-        self._tsys = np.empty(nspect, dtype="d")
         self._calc_exposure()
         #
-        sig_freq = self._sigcalon[0]
-        df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]
-        df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]
+        sig_freq = self._sigcaloff[0]
+        df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]
+        df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]
         logger.debug(f"df_sig {type(df_sig)} len(df_sig)")
         sig_freq = index_frequency(df_sig)
         ref_freq = index_frequency(df_ref)
@@ -2275,42 +2281,85 @@ class FSScan(ScanBase):
         logger.debug(f"FS: shift={chan_shift:g}  nchan={self._nchan:g}")
 
         #  tcal is the same for REF and SIG, and the same for all integrations actually.
-        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["TCAL"].to_numpy()
+        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["TCAL"].to_numpy()
         logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
-        # @todo   the nspect loop could be replaced with clever numpy?
-        for i in range(nspect):
-            tsys_sig = mean_tsys(calon=self._sigcalon[i], caloff=self._sigcaloff[i], tcal=tcal[i])
-            tsys_ref = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
-            if i == 0:
-                logger.debug(f"Tsys(sig/ref)[0]={tsys_sig} / {tsys_ref}")
-            tp_sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
-            tp_ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
-            #
-            cal_sig = do_sig_ref(tp_sig, tp_ref, tsys_ref)
-            cal_ref = do_sig_ref(tp_ref, tp_sig, tsys_sig)
-            #
-            if _fold:
-                cal_sig_fold = do_fold(cal_sig, cal_ref, sig_freq[i], ref_freq[i], shift_method=kwargs["shift_method"])
-                cal_ref_fold = do_fold(cal_ref, cal_sig, ref_freq[i], sig_freq[i], shift_method=kwargs["shift_method"])
-                self._folded = True
-                if self._use_sig:
-                    self._calibrated[i] = cal_sig_fold
-                    self._tsys[i] = tsys_ref
-                else:
-                    self._calibrated[i] = cal_ref_fold
-                    self._tsys[i] = tsys_sig
 
-            else:
-                if self._use_sig:
-                    self._calibrated[i] = cal_sig
-                    self._tsys[i] = tsys_ref
+        # @todo   the nspect loop could be replaced with clever numpy?
+        if not self._nocal:
+            for i in range(nspect):
+                if not np.isnan(self._tsys[i]):
+                    tsys = self._tsys[i]
+                    tsys_ref = tsys
+                    tsys_sig = tsys
                 else:
-                    self._calibrated[i] = cal_ref
-                    self._tsys[i] = tsys_sig
+                    tsys_sig = mean_tsys(calon=self._sigcalon[i], caloff=self._sigcaloff[i], tcal=tcal[i])
+                    tsys_ref = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=tcal[i])
+                if i == 0:
+                    logger.debug(f"Tsys(sig/ref)[0]={tsys_sig} / {tsys_ref}")
+                tp_sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
+                tp_ref = 0.5 * (self._refcalon[i] + self._refcaloff[i])
+                if self._smoothref > 1:
+                    if self._use_sig:
+                        tp_ref, _meta = core.smooth(tp_ref, "boxcar", self._smoothref)
+                    else:
+                        tp_sig, _meta = core.smooth(tp_sig, "boxcar", self._smoothref)
+                cal_sig = do_sig_ref(tp_sig, tp_ref, tsys_ref)
+                cal_ref = do_sig_ref(tp_ref, tp_sig, tsys_sig)
+                if _fold:
+                    cal_sig_fold = do_fold(
+                        cal_sig, cal_ref, sig_freq[i], ref_freq[i], shift_method=kwargs["shift_method"]
+                    )
+                    cal_ref_fold = do_fold(
+                        cal_ref, cal_sig, ref_freq[i], sig_freq[i], shift_method=kwargs["shift_method"]
+                    )
+                    self._folded = True
+                    if self._use_sig:
+                        self._calibrated[i] = cal_sig_fold
+                        self._tsys[i] = tsys_ref
+                    else:
+                        self._calibrated[i] = cal_ref_fold
+                        self._tsys[i] = tsys_sig
+
+                else:
+                    if self._use_sig:
+                        self._calibrated[i] = cal_sig
+                        self._tsys[i] = tsys_ref
+                    else:
+                        self._calibrated[i] = cal_ref
+                        self._tsys[i] = tsys_sig
+        else:
+            for i in range(nspect):
+                tsys = self._tsys[i]
+                tp_sig = self._sigcaloff[i]
+                tp_ref = self._refcaloff[i]
+                if self._smoothref > 1:
+                    if self._use_sig:
+                        tp_ref, _meta = core.smooth(tp_ref, "boxcar", self._smoothref)
+                    else:
+                        tp_sig, _meta = core.smooth(tp_sig, "boxcar", self._smoothref)
+                cal_sig = do_sig_ref(tp_sig, tp_ref, tsys)
+                cal_ref = do_sig_ref(tp_ref, tp_sig, tsys)
+                if _fold:
+                    cal_sig_fold = do_fold(
+                        cal_sig, cal_ref, sig_freq[i], ref_freq[i], shift_method=kwargs["shift_method"]
+                    )
+                    cal_ref_fold = do_fold(
+                        cal_ref, cal_sig, ref_freq[i], sig_freq[i], shift_method=kwargs["shift_method"]
+                    )
+                    if self._use_sig:
+                        self._calibrated[i] = cal_sig_fold
+                    else:
+                        self._calibrated[i] = cal_ref_fold
+                else:
+                    if self._use_sig:
+                        self._calibrated[i] = cal_sig
+                    else:
+                        self._calibrated[i] = cal_ref
+
         if _fold:
-            self._exposure = 2 * self.exposure  # @todo -- why todo?
+            self._exposure = 2 * self.exposure
         logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     def _calc_exposure(self):
@@ -2331,8 +2380,12 @@ class FSScan(ScanBase):
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
-        exp_ref = exp_ref_on + exp_ref_off
-        exp_sig = exp_sig_on + exp_sig_off
+        if not self._nocal:
+            exp_ref = exp_ref_on + exp_ref_off
+            exp_sig = exp_sig_on + exp_sig_off
+        else:
+            exp_ref = exp_ref_off
+            exp_sig = exp_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
@@ -2354,8 +2407,12 @@ class FSScan(ScanBase):
         df_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["CDELT1"].to_numpy()
         df_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["CDELT1"].to_numpy()
         df_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["CDELT1"].to_numpy()
-        df_ref = 0.5 * (df_ref_on + df_ref_off)
-        df_sig = 0.5 * (df_sig_on + df_sig_off)
+        if not self._nocal:
+            df_ref = 0.5 * (df_ref_on + df_ref_off)
+            df_sig = 0.5 * (df_sig_on + df_sig_off)
+        else:
+            df_ref = df_ref_off
+            df_sig = df_sig_off
         self._delta_freq = 0.5 * (df_ref + df_sig)
 
 
