@@ -30,12 +30,11 @@ class PlotBase:
     """This class describes describes the common interface to all Plot classes."""
 
     def __init__(self, **kwargs):
-        print("super init")
         self.reset()
         self._figure = None
         self._axis = None
         self._plt = plt
-        # self._plot_kwargs.update(kwargs)
+        self._plt.rcParams["font.family"] = "monospace"
 
     def _plot_type(self):
         """The plot object"""
@@ -122,32 +121,46 @@ class PlotBase:
         self._axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # col 2
+        ljust = 4  # Left justify the column names by this amount.
         velo = s.meta["VELOCITY"] * 1e-3  # * u.km / u.s # GBTIDL doesn't say km/s so neither will I (saves space)
         self._axis.annotate(
-            f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
+            f"{'V':<{ljust}}: {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
         )
         self._axis.annotate(
-            f"Int : {time_formatter(s.meta['EXPOSURE'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
+            f"{'Int':<{ljust}}: {time_formatter(s.meta['EXPOSURE'])}",
+            (hcoords[1], vcoords[1]),
+            xycoords=xyc,
+            size=fsize_small,
         )
         self._axis.annotate(
-            f"LST : {time_formatter(s.meta['LST'])}", (hcoords[1], vcoords[2]), xycoords=xyc, size=fsize_small
+            f"{'LST':<{ljust}}: {time_formatter(s.meta['LST'])}",
+            (hcoords[1], vcoords[2]),
+            xycoords=xyc,
+            size=fsize_small,
         )
 
         # col 3
         # TODO: need to understand frequencies to assign correct title
         # instead of just forcing to GHz with 5 decimal points
+        ljust = 5
         f0 = np.around(s.meta["RESTFREQ"] * 1e-9, 5) * u.GHz
-        self._axis.annotate(f"F0   :  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{'F0':<{ljust}}:  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
         fsky = np.around(s.meta["OBSFREQ"] * 1e-9, 5) * u.GHz  # or CRVAL1?
-        self._axis.annotate(f"Fsky :  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{'Fsky':<{ljust}}:  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)
         bw = np.around(s.meta["BANDWID"] * 1e-6, 4) * u.MHz
-        self._axis.annotate(f"BW   :  {bw}", (hcoords[2], vcoords[2]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{'BW':<{ljust}}:  {bw}", (hcoords[2], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # col 4
+        ljust = 4
         self._axis.annotate(
-            f"Pol  :   {crval4_to_pol[s.meta['CRVAL4']]}", (hcoords[3], vcoords[0]), xycoords=xyc, size=fsize_small
+            f"{'Pol':<{ljust}}:   {crval4_to_pol[s.meta['CRVAL4']]}",
+            (hcoords[3], vcoords[0]),
+            xycoords=xyc,
+            size=fsize_small,
         )
-        self._axis.annotate(f"IF   :    {s.meta['IFNUM']}", (hcoords[3], vcoords[1]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(
+            f"{'IF':<{ljust}}:    {s.meta['IFNUM']}", (hcoords[3], vcoords[1]), xycoords=xyc, size=fsize_small
+        )
         self._axis.annotate(f"{s.meta['PROJID']}", (hcoords[3], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # col 5
@@ -311,9 +324,6 @@ class SpectrumPlot(PlotBase):
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
-        # self.__init__(self._spectrum, **kwargs)
-        self._plt.rcParams["font.family"] = "monospace"
-        # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
 
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:
@@ -733,8 +743,6 @@ class ScanPlot(PlotBase):
             keyword=value arguments (need to describe these in a central place)
         """
 
-        # self._set_xaxis_info()
-        # self.__init__(self._scanblock_or_scan, **kwargs)
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
 
@@ -762,7 +770,7 @@ class ScanPlot(PlotBase):
         if spectral_unit is not None:
             self._sa = self._sa.to(spectral_unit)
         else:
-            if self._sa[0].value / 1e9 < 1:
+            if self._sa[0] / (u.GHz) < 1:
                 self._sa = self._sa.to(u.MHz)
             else:
                 self._sa = self._sa.to(u.GHz)
@@ -804,7 +812,15 @@ class ScanPlot(PlotBase):
         else:
             warnings.warn("Flux units are unknown", stacklevel=2)
             z_label = ""
-        self._figure.colorbar(self.im, label=z_label, pad=0.1)
+        self._colorbar = self._figure.colorbar(self.im, label=z_label, pad=0.1)
+        # matplotlib won't set this before the Figure is drawn.
+        self._figure.draw_without_rendering()
+        # If there's an offset, add it to the label and make the offset invisible.
+        if self._colorbar.ax.yaxis.offsetText.get_text() != "":
+            off = self._colorbar.ax.yaxis.offsetText.get_text()
+            e = off.split("e")[1]
+            self._colorbar.set_label(z_label + rf"($\times10^{{{e}}}$)")
+            self._colorbar.ax.yaxis.offsetText.set_visible(False)
 
     def set_clim(self, vmin, vmax):
         """
