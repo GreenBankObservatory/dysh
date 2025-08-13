@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+#   takes ~10 mins on lma,   ~7 mins on peter's laptop
+#
+#   Don't forget:     sync;sync;sync; echo 1 | sudo tee /proc/sys/vm/drop_caches
 
 # Script to run various benchmarks
 export OMP_NUM_THREADS=1
