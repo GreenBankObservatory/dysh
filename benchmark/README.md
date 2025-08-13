@@ -1,6 +1,6 @@
-# Notes for Q8-Q9 benchmarking Dysh
+# Notes for benchmarking Dysh
  
-The purpose of this  benchmarking is to:
+The purpose of this benchmarking is to:
 
 ## Q8
 - Identify bottlenecks in memory, I/O, or CPU, especially as compared to GBTIDL performance.  
@@ -9,27 +9,34 @@ The purpose of this  benchmarking is to:
 THe benchmarks created are:
 
 
-* bench_datawrite.py: Test writing of data performance
+1. bench_gbtfitsload.py: Test performance of loading SDFITS files with and without flagging
 
-* bench_edge.py: Test performance of data writing using the EDGE data.  This is not a standard benchmark
+2. bench_getps.py:  Test performance of getps, calibration, and averaging.
 
-* bench_gbtfitsload.py: Test performance of loading SDFITS files with and without flagging
+3. bench_sdmath.py: Test performance of numpy equivalent of getps.  Can be used as a baseline of sorts of the fastest we could do these operations.
 
-* bench_getps.py:  Test performance of getps, calibration, and averaging.
+4. bench_datawrite.py: Test writing of data performance on a large SDFITS file.
 
-* bench_otf.py:  Test performance of OTF calibration
+5. bench_edge.py: Test performance of data writing using the EDGE data.  This is not a standard benchmark
 
-* bench_sdmath.py: Test performance of numpy equivalent of getps.  Can be used as a baseline of sorts of the fastest we could do these operations.
+6. bench_otf.py:  Test performance of OTF calibration
 
-* bench_skel.py:  Skeleton (template) from which new benchmarks can be created.
+9. bench_skel.py:  Skeleton (template) from which new benchmarks can be created.
 
 ## Q9
+
 - Identify and implement solutions to bottlenecks found in Q8.
+
+## Q10
+
+- ...
 
 
 # Methodology
 
-We wrote a `dysh.util.timers.DTime()` class that in its simplest form tells us CPU and MEM usage via naming tags:
+We wrote a `dysh.util.timers.DTime()` class that in its simplest form tells us CPU and MEM usage via naming tags.
+This does not give the fine grained results such as some memory profiler such as XXX supply, but give a relatively
+low intrusive easy to use API for any application.  Here is the typical calling sequence:
 
 ```
       dt = DTime()
@@ -47,14 +54,14 @@ for example here is the output of `./bench_getps.py -s -d -t` on our favorite `l
   name     time VmSize VmRSS  skipflags
              ms  Mbyte  Mbyte           
 ---------- ----- ------ ------ ---------
-   load 398.1 1684.7 315.5      True
-getps1t 763.2 1795.8 438.5      True
-getps2t 414.7 1790.9 433.6      True
-getps3t 510.4 1764.9 408.0      True
-getps4t 439.4 1764.9 408.0      True
- report   0.0 1764.9 408.0      True
-final 2.525809781  sec
-
+   init    4.0 2213.0 294.3      True
+   load  353.5 2270.2 330.3      True   <-- higher than when repeating test due to I/O caching
+getps1t 1339.5 2374.4 446.0      True   <-- higher than other loops due to some python thing
+getps2t  701.3 2369.9 441.3      True
+getps3t  705.8 2369.9 441.6      True
+getps4t  689.1 2369.9 441.6      True
+ report    0.0 2369.9 441.6      True
+final 3.793320576  sec
 ```
 
 - Fit benchmarking data to find pain points
@@ -88,7 +95,10 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
    from possibly.  Possibly python learning how to set up a class. But
    not something we can work around. Same with I/O, on the second
    benchmark run, the I/O overhead in the `load` step can be significantly
-   smaller. 
+   smaller.
+
+5. Overhead of profiling is typicall factor 1.5 - 2.5 in our code. The .log
+   files (if present) have been run to avoid profiling.
 
 
 More details are in `q8stats/README.md`.
@@ -101,17 +111,10 @@ More details are in `q8stats/README.md`.
 
 ## Avoiding File caching
 
-On linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  
+On Linux files are caching so repeatedly running a benchmark on the same file will improve performance the 2nd time.  
 Therefore it is best if you turn off file caching **each time** you run your benchmark with:
 
-    sudo echo 1 > /proc/sys/vm/drop_caches
-
-if this gives permission denied, open up a root shell, and issue the command in that shell as root:
-
-    sudo su
     sync;sync;sync
-    echo 1 > /proc/sys/vm/drop_caches
-or
     echo 1 | sudo tee /proc/sys/vm/drop_caches
 
 Example  reading a 8GB file on a laptop:
@@ -257,29 +260,53 @@ sdfwrite2 79575.9 40552.5 16230.8      2   3963.61 7927.22 32768 60192   8   1  
 For science, we would count the benchmark as 43.6 + 2.4 + 0.5  = 46.5, taking the first-time values,
 but if one would take the repeated benchmark values this would count as 2.8 + 2.4 + 0.2 = 5.4 sec. Quite a difference!
 
-## Math and sdmath
+## 3. Math 
 
 The math is relatively simple, and very parallizable:
 
        Tsys = Tc  <cold> / <hot-cold>       (1)
        Ta   = Tsys  (on-off)/off            (2)
 
-First of all, this implies a Tsys for the ON and one for the OFF.   Which one to use in (2) ?
+First of all, this implies a Tsys for the ON and one for the OFF.   We use the "ON" for eq. (2).
 
 Secondly, what is the ON and the OFF really? Can one use the calon + caloff average as in:
 
        (on_calon+on_caloff) / (off_calon+off_caloff) -1
 
 
-### NEMO
+### sdmath
 
-In NEMO two programs exist that go down to the C level, including an option to use OpenMP, to benchmark a typical 4-phase calibration cycle
-of a PS observation (and perhaps more). The work is very similar to bench_sdmath.py, some care should be taken not to make nscan*nchan too small,
-or else CPU cache will be used and code will look too fast.  A good compromise seems to be:
+Here we compare the typical 4-phase calibration cycle as described in the previous section, which the bench_getps.py code
+uses for `example='getps'`. This seems a really simple vectorizable problem, though one has to take care of the
+CPU caching trap: small values of Nchan and/or Nscan can speed things up non-linearly.
 
-      /usr/bin/time sdmath nscan=1000 nchan=100000 iter=10
 
-which typically takes 3.5 on lma, depending on the CPU (e.g. 11.5s on fourier)
+Here is a comparison between dysh getps(), pure numpy math and a simple C version of the same math. All without timeaveraging,
+but with the calibration step:
+
+
+      ./bench_getps.py -d 
+      getps1s 208.8 1727.7 367.9     False
+      getps2s 207.0 1756.6 397.0     False
+      getps3s 192.4 1757.3 397.7     False
+      getps4s 195.2 1768.3 408.7     False
+
+      ./bench_sdmath.py -d --loop 4 --nchan 32768 --nscan 44 --mode 0
+      math2_1  9.6  619.8 202.6    44 32768    0
+      math2_2  4.5  625.3 208.1    44 32768    0
+      math2_3  3.4  625.3 208.1    44 32768    0
+      math2_4  3.4  625.3 208.1    44 32768    0
+
+      /usr/bin/time sdmath nscan=44 nchan=32768 iter=1000 np=1
+      3.24user 0.01system 0:03.26elapsed 99%CPU
+
+Summarizing these numbers, getps takes about 200 ms, numpy 10ms (we can only count the first one), and the C code in single core mode 3 ms.
+The C code is OpenMP enabled, but it seems the maximum performance is around 4-6 cores, with a speed up of nearly 4, still this gives
+a benchmark time of just under 1ms.
+
+It should be noted again that we left out timeaveraging. This has little to no impact on the pure numpy and C routine, but
+has a large impact on getps(): about factor 2, plus this mode has a large overhead on the first loop.
+    
 
 ## TODO
 
