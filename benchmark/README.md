@@ -21,7 +21,6 @@ THe benchmarks created are:
 
 6. bench_otf.py:  Test performance of OTF calibration
 
-9. bench_skel.py:  Skeleton (template) from which new benchmarks can be created.
 
 ## Q9
 
