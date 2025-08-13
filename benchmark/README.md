@@ -8,23 +8,28 @@ The purpose of this  benchmarking is to:
 
 THe benchmarks created are:
 
-bench_datawrite.py: Test writing of data performance
 
-bench_edge.py: Test performance of data writing using the EDGE data.  This is not a standard benchmark
+* bench_datawrite.py: Test writing of data performance
 
-bench_gbtfitsload.py: Test performance of loading SDFITS files with and without flagging
+* bench_edge.py: Test performance of data writing using the EDGE data.  This is not a standard benchmark
 
-bench_getps.py:  Test performance of getps, calibration, and averaging.
-bench_otf.py:  Test performance of OTF calibration
+* bench_gbtfitsload.py: Test performance of loading SDFITS files with and without flagging
 
-bench_sdmath.py: Test performance of numpy equivalent of getps.  Can be used as a baseline of sorts of the fastest we could do these operations.
+* bench_getps.py:  Test performance of getps, calibration, and averaging.
 
-bench_skel.py:  Skeleton (template) from which new benchmarks can be created.
+* bench_otf.py:  Test performance of OTF calibration
+
+* bench_sdmath.py: Test performance of numpy equivalent of getps.  Can be used as a baseline of sorts of the fastest we could do these operations.
+
+* bench_skel.py:  Skeleton (template) from which new benchmarks can be created.
 
 ## Q9
 - Identify and implement solutions to bottlenecks found in Q8.
 
-We wrote a dysh.util.timers.DTime() class that in its simplest form tells us CPU and MEM usage via naming tags:
+
+# Methodology
+
+We wrote a `dysh.util.timers.DTime()` class that in its simplest form tells us CPU and MEM usage via naming tags:
 
 ```
       dt = DTime()
@@ -65,24 +70,28 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
 
 # Overall findings
 
-0. Benchmarking is tricky, you measure CPU and MEM usage that does not
+1. Benchmarking is tricky, you measure CPU and MEM usage that does not
    always make sense. For example we have a case where repeated calls
    to getps() showed unreasonable variations.
-
-1. Overhead in GBTFITSLoad(skipflags=False) - the default - can be
+   
+2. Overhead in `GBTFITSLoad(skipflags=False)` - the default - can be
    very large, notably for ARGUS examples. 9sec vs. 9min were seen.
    Our implementation of processing Flag files via Selection object,
    while convenient, is expensive.
 
-2. Overhead of working on a few scans from a big file, vs. a file
+3. Overhead of working on a few scans from a big file, vs. a file
    containing only those scans seems to suggest that all scans were
-   "used".
+   "used".  (#678 memory leak)
 
-3. There is sometimes an extra overhead on the first of many loops, as
+4. There is sometimes an extra overhead on the first of many loops, as
    the `getps` shows above. It is unclear where this "setup" times comes
-   from possibly.  Possibly python learning how to set up a class.
+   from possibly.  Possibly python learning how to set up a class. But
+   not something we can work around. Same with I/O, on the second
+   benchmark run, the I/O overhead in the `load` step can be significantly
+   smaller. 
 
-More details are in q8stats/README.md.
+
+More details are in `q8stats/README.md`.
 
 ### Notes
 
@@ -105,6 +114,19 @@ if this gives permission denied, open up a root shell, and issue the command in 
 or
     echo 1 | sudo tee /proc/sys/vm/drop_caches
 
+Example  reading a 8GB file on a laptop:
+
+    ./bench_datawrite.py --source 1 --writedata sb
+    -------- ------- ------- ------ ------ --------- ------- ----- ----- --- --- ---- ------ --------- ------
+    init     4.8  1627.2  276.4      0       0.0     0.0     0     0   0   0    0      0     False      0
+    load 44366.5 11879.2 6138.2      2   3963.61 7927.22 32768 60192   8   1    2     28     False     -1
+    getps 2337.1 12042.6 6341.4      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+    -------- ------ ------- ------ ------ --------- ------- ----- ----- --- --- ---- ------ --------- ------
+    init     2.1  1627.2  277.7      0       0.0     0.0     0     0   0   0    0      0     False      0
+    load  2752.3 11879.2 6140.8      2   3963.61 7927.22 32768 60192   8   1    2     28     False     -1
+    getps 2350.3 12042.6 6342.1      2   3963.61 7927.22 32768 60192   8   1    2     28     False      1
+
+
 ## disk I/O
 
 Although `hdparm -t` will report a typical I/O speed, in real life this is never achieved.
@@ -122,6 +144,9 @@ try your benchmark with both states, e.g. (csh):
 and
     setenv OMP_NUM_THREADS 1
 
+In the future this may be resolved when the GIL (Global Interpreter Lock) has been
+resolved.
+
 ## SDFITS Files
 
 The standard set of SDFITS files to run the benchmark on are:
@@ -138,16 +163,15 @@ The standard set of SDFITS files to run the benchmark on are:
 
 ### DYSH_DATA
 
-To make it portable accross machines, data not in the $DYSH/testdata directory can be easily used via the `dysh.util.files.dysh_data()` function. Either placed
-in $DYSH_DATA/sdfits, under $DYSH_DATA/example-data or $DYSH_DATA/acceptance_testing.  
-
-
-            "getps3"     : "AGBT15B_287_19/AGBT15B_287_19.raw.vegas",      #  on/off/on  EDGE L-band data
+To make it portable accross machines, data not in the $DYSH/testdata
+directory can be easily used via the `dysh.util.files.dysh_data()`
+function. Either placed in $DYSH_DATA/sdfits, under
+$DYSH_DATA/example-data or $DYSH_DATA/acceptance_testing.
 
 
 ### Summary of tests and Results
 
-The full report is in q8stats/README.md
+The full report is in `q8stats/README.md`.
 
 
 #### Example: Strange behavior when time-averaging
@@ -233,7 +257,7 @@ sdfwrite2 79575.9 40552.5 16230.8      2   3963.61 7927.22 32768 60192   8   1  
 For science, we would count the benchmark as 43.6 + 2.4 + 0.5  = 46.5, taking the first-time values,
 but if one would take the repeated benchmark values this would count as 2.8 + 2.4 + 0.2 = 5.4 sec. Quite a difference!
 
-## Math
+## Math and sdmath
 
 The math is relatively simple, and very parallizable:
 
@@ -247,7 +271,7 @@ Secondly, what is the ON and the OFF really? Can one use the calon + caloff aver
        (on_calon+on_caloff) / (off_calon+off_caloff) -1
 
 
-## NEMO
+### NEMO
 
 In NEMO two programs exist that go down to the C level, including an option to use OpenMP, to benchmark a typical 4-phase calibration cycle
 of a PS observation (and perhaps more). The work is very similar to bench_sdmath.py, some care should be taken not to make nscan*nchan too small,
@@ -256,10 +280,6 @@ or else CPU cache will be used and code will look too fast.  A good compromise s
       /usr/bin/time sdmath nscan=1000 nchan=100000 iter=10
 
 which typically takes 3.5 on lma, depending on the CPU (e.g. 11.5s on fourier)
-
-
-        -t      950          315
-
 
 ## TODO
 
