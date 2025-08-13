@@ -41,6 +41,15 @@ echo "doing GETPS bench..."
 ../bench_getps.py -d -s    --statslines 50 -m -p         > getps_bench.profile
 
 #####################
+# SDMATH
+#####################
+echo "doing SDMATH bench..."
+../bench_sdmath.py -d --loop 10 --nchan 32768 --nscan 44   --mode 0    > sdmath_bench_0.log
+../bench_sdmath.py -d --loop 10 --nchan 32768 --nscan 440  --mode 0    > sdmath_bench_1.log
+../bench_sdmath.py -d --loop 10 --nchan 32768 --nscan 4400 --mode 0    > sdmath_bench_2.log
+../bench_sdmath.py -d --loop 10 --nchan 32768 --nscan 4400 --mode 0 -p > sdmath_bench.profile
+
+#####################
 # SCAN WRITE
 #####################
 echo "doing SDF, SB, PS write bench..."
