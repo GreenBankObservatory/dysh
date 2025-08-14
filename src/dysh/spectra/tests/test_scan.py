@@ -481,7 +481,7 @@ class TestFSScan:
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
 
-        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False, debug=True)
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False)
         ta = fsscan.timeaverage(weights="tsys")
         #    we're using astropy access here, and use gbtfitsload.GBTFITSLoad() in the other test
         hdu = fits.open(gbtidl_file_nofold)
@@ -505,7 +505,7 @@ class TestFSScan:
             hdu.close()
             sp = data[1]
         # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
-        level = 0.02
+        level = 5e-3
         print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
         diff1 = sp - ta.flux.value.astype(np.float32)
         nm = np.nanmean(diff1[15000:20000])  # Use channel range around the line.
@@ -518,8 +518,74 @@ class TestFSScan:
         nm = np.nanmean(diff2[15000:20000])
         assert abs(nm) <= level
 
-    def test_getfs_with_selection(self, data_dir):
-        assert True
+        # Test with reference smoothing.
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
+        assert fs.meta["TSYS"] == pytest.approx(26.83285745447353)
+        assert fs.stats()["mean"].value == pytest.approx(0.19299398411039015)
+        assert fs.stats()["rms"].value == pytest.approx(5.4871938402480795)
+
+        # nocal.
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
+        assert fs.meta["TSYS"] == pytest.approx(1.0)
+        assert fs.stats()["mean"].value == pytest.approx(0.007543638921500274)
+        assert fs.stats()["rms"].value == pytest.approx(0.20901151397310902)
+
+        # t_sys.
+        t_sys = 124.0
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, t_sys=t_sys)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
+        assert fs.meta["TSYS"] == pytest.approx(t_sys)
+        assert fs.stats()["mean"].value == pytest.approx(0.878913979866379)
+        assert fs.stats()["rms"].value == pytest.approx(25.31681410111804)
+
+        # nocal and t_sys.
+        t_sys = 120.0
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True, t_sys=t_sys)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
+        assert fs.meta["TSYS"] == pytest.approx(t_sys)
+        assert fs.stats()["mean"].value == pytest.approx(0.9052366705561161)
+        assert fs.stats()["rms"].value == pytest.approx(25.081381667649197)
+
+    def test_getfs_nocal(self):
+        """
+        Test for getfs without noise diode.
+        """
+        sdf_file = util.get_project_testdata() / "AGBT20B_295_02/AGBT20B_295_02.raw.vegas.testtrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Test without system temperature.
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == 1.0
+        assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
+        assert fs.stats()["mean"].value == pytest.approx(0.0011396648555837365)
+        assert fs.stats()["rms"].value == pytest.approx(0.01168646)
+
+        # Test with system temperature.
+        t_sys = 205.0
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, t_sys=t_sys)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == pytest.approx(t_sys)
+        assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
+        assert fs.stats()["mean"].value == pytest.approx(0.2336313)
+        assert fs.stats()["rms"].value == pytest.approx(2.3957242)
+
+        # Test with reference smoothing.
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, smoothref=256)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == 1.0
+        assert fs.meta["EXPOSURE"] == pytest.approx(2.115174908755242)
+        assert fs.stats()["mean"].value == pytest.approx(0.0007359185384744827)
+        assert fs.stats()["rms"].value == pytest.approx(0.010173690896161902)
 
 
 class TestNodScan:

@@ -106,6 +106,8 @@ Header
 Data
 ^^^^
 
+These are the fields (columns) of the BINTABLE.
+
 .. list-table::
    :widths: 20 20 20 40
    :header-rows: 1
@@ -141,11 +143,11 @@ Data
    * - DATA
      -
      - 131072E
-     - Actual data
+     - Actual data (needs to be field 7)
    * - TDIM7
      -
      - 16A
-     - Data dimensions of the array
+     - Data dimensions of the array in field 7
    * - TUNIT7
      -
      - 6A

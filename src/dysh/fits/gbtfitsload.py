@@ -1819,15 +1819,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        fold=True,
-        shift_method="fft",
-        use_sig=True,
+        fold: bool = True,
+        shift_method: str = "fft",
+        use_sig: bool = True,
         bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
-        bunit="ta",
-        zenith_opacity=None,
-        observer_location=Observatory["GBT"],
+        bunit: str = "ta",
+        zenith_opacity: float | None = None,
+        t_sys=None,
+        nocal: bool = False,
         **kwargs,
     ):
         """
@@ -1866,11 +1867,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
         zenith_opacity: float, optional
                 The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
-        observer_location : `~astropy.coordinates.EarthLocation`
-            Location of the observatory. See `~dysh.coordinates.Observatory`.
-            This will be transformed to `~astropy.coordinates.ITRS` using the time of
-            observation DATE-OBS or MJD-OBS in
-            the SDFITS header.  The default is the location of the GBT.
+        t_sys : float, optional
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1887,16 +1890,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more`~dysh.spectra.scan.FSScan`.
 
         """
-        debug = kwargs.pop("debug", False)
-        logger.debug(kwargs)
-
-        _bintable = bintable
 
         ScanBase._check_bunit(bunit)
         if bunit.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+
+        tsys = _parse_tsys(t_sys, scans)
+        _tsys = None
+        _nocal = nocal
+        _bintable = bintable
 
         scanblock = ScanBlock()
 
@@ -1926,6 +1930,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows["OFF"] = list(dfcalF["ROW"])
                 sigrows["ON"] = list(dfsigT["ROW"])
                 sigrows["OFF"] = list(dfsigF["ROW"])
+
+                # Is there a noise diode?
+                if len(calrows["ON"]) == 0 or nocal:
+                    _nocal = True
+                    # User did not provide a system temperature.
+                    if tsys is None:
+                        _tsys = dfcalF["TSYS"].to_numpy()
+                        logger.info("Using TSYS column")
+                # User provided a system temperature.
+                if tsys is not None:
+                    _tsys = tsys[scan][0]
+
                 g = FSScan(
                     self._sdf[i],
                     scan=scan,
@@ -1939,15 +1955,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     fold=fold,
                     shift_method=shift_method,
                     use_sig=use_sig,
-                    observer_location=observer_location,
-                    smoothref=1,
+                    smoothref=smoothref,
                     apply_flags=apply_flags,
                     bunit=bunit,
                     zenith_opacity=zenith_opacity,
-                    debug=debug,
+                    tsys=_tsys,
+                    nocal=_nocal,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                # Reset these variables in case they change for the next scan.
+                _nocal = nocal
+                _tsys = None
                 _bintable = bintable
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
@@ -3094,7 +3113,9 @@ class GBTOffline(GBTFITSLoad):
     Note project directories are assumed to exist in /home/sdfits
     or whereever dysh_data thinks your /home/sdfits lives.
 
-    Also note in GBTIDL one can use SDFITS_DATA instead of DYSH_DATA
+    Also note, as in GBTIDL, one can use SDFITS_DATA instead of DYSH_DATA
+
+    Use dysh_data('?') to display all filenames in the "sdfits" area.
 
     """
 
@@ -3113,19 +3134,16 @@ class GBTOnline(GBTFITSLoad):
     Note project directories are assumed to exist in /home/sdfits
     or whereever dysh_data thinks your /home/sdfits lives.
 
-    Also note in GBTIDL one can use SDFITS_DATA instead of DYSH_DATA
+    Also note, as in GBTIDL, one can use SDFITS_DATA instead of DYSH_DATA
 
-    Use dysh_data('?') as a method to get all filenames in SDFITS_DATA
+    Use dysh_data('?') to display all filenames in the "sdfits" area.
 
-    GBTIDL says:  Connecting to file: .....
-                  File has not been updated in xxx.xx minutes.
     """
 
     @log_call_to_history
     def __init__(self, fileobj=None, *args, **kwargs):
         self._online = fileobj
-        self._platform = platform.system()  # cannot update in "Windows":
-        # print("GBTOnline not supported on Windows yet, see issue #447")
+        self._platform = platform.system()  # cannot update in "Windows", see #447
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
@@ -3133,7 +3151,7 @@ class GBTOnline(GBTFITSLoad):
             else:
                 self._online = dysh_data(fileobj)
                 GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
-            print(f"Connecting to explicit file: {self._online} - will be monitoring this")
+            logger.info(f"Connecting to explicit file: {self._online} - will be monitoring this")
 
         else:
             self._online_mode = 2  #  monitor all files?
@@ -3149,13 +3167,13 @@ class GBTOnline(GBTFITSLoad):
             logger.debug(f"Using SDFITS_DATA {sdfits_root}")
 
             if not os.path.isdir(sdfits_root):
-                print("Cannot find ", sdfits_root)
+                logger.info(f"Cannot find {sdfits_root}")
                 return None
 
             # 1. check the status_file ?
             status_file = "sdfitsStatus.txt"
             if os.path.exists(sdfits_root + "/" + status_file):
-                print(f"Warning, found {status_file} but not using it yet")
+                logger.warning(f"Warning, found {status_file} but not using it yet")
 
             # 2. visit each directory where the final leaf contains fits files, and find the most recent one
             n = 0
@@ -3184,17 +3202,16 @@ class GBTOnline(GBTFITSLoad):
         # we only test the first filename in the list, assuming they're all being written
 
         self._mtime = os.path.getmtime(self.filenames()[0])
-        # print("MTIME:",self._mtime)
         delta = (time.time() - self._mtime) / 60.0
 
-        print(f"Connected to file: {self._online}")
-        print(f"File has not been updated in {delta:.2f} minutes.")
+        logger.info(f"Connected to file: {self._online}")
+        logger.info(f"File has not been updated in {delta:.2f} minutes.")
         # end of __init__
 
     def _reload(self, force=False):
         """force a reload of the latest"""
         if self._platform == "Windows":
-            print("warning, cannot reload on Windows, see issue #447")
+            logger.warning("Cannot reload on Windows, see issue #447")
             return
         if not force:
             mtime = os.path.getmtime(self.filenames()[0])
