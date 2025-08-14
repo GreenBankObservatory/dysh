@@ -43,6 +43,8 @@ echo "doing GETPS bench..."
 ../bench_getps.py -d -s -t --statslines 50 -m -p         > getps_bench_ta.profile
 ../bench_getps.py -d -s    --statslines 50 -m -p -x time > getps_bench.profile.time
 ../bench_getps.py -d -s    --statslines 50 -m -p         > getps_bench.profile
+../bench_getps.py -d -s -t -l 9 > getps_bench_ta.log
+../bench_getps.py -d -s    -l 9 > getps_bench.log
 
 #####################
 # SDMATH
