@@ -13,6 +13,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
+from matplotlib.ticker import AutoLocator
 from matplotlib.widgets import Button, SpanSelector
 
 from ..coordinates import (
@@ -713,13 +714,15 @@ class ScanPlot(PlotBase):
             self._scan_nos = []  # scan numbers in the scan block
             self._nint_nos = []  # number of integrations in each scan
             self._timestamps = []  # 0-indexed timestamps in sec for every integration
+            xtick_labels = []  # intnum labels for multiple-scan scanblocks
             for i, scan in enumerate(self._scanblock):
                 if i == 0:
                     self.spectrogram = scan._calibrated
                 else:
                     self.spectrogram = np.append(self.spectrogram, scan._calibrated, axis=0)
                 self._scan_nos.append(scan.scan)
-                self._nint_nos.append(scan.nint)
+                # self._nint_nos.append(scan.nint) # not sure if I need this
+                xtick_labels.append(np.arange(scan.nint))
                 # TODO: figure out how to deal with generating a "time" axis
                 # agnostic of scan proctype (pos sw, etc will have gaps between scans due to OFF)
                 # self._timestamps.append(scan.)
@@ -728,8 +731,11 @@ class ScanPlot(PlotBase):
         elif self._type in acceptable_types:
             self.spectrogram = self._scan._calibrated
             self._scan_nos = self._scan.scan
+            xtick_labels = np.arange(self._scan.nint-1)
 
+        self._xtick_labels = np.concatenate(xtick_labels,axis=0)
         self.spectrogram = self.spectrogram.T
+
 
     def plot(self, spectral_unit=None, **kwargs):
         r"""
@@ -761,6 +767,10 @@ class ScanPlot(PlotBase):
         # self._axis.yaxis.set_ticks_position('left')
 
         self.im = self._axis.imshow(self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation)
+
+        # address intnum labelling for len(scanblock) > 1
+        self._axis.set_xticks(np.arange(self.spectrogram.shape[1]),self._xtick_labels)
+        self._axis.xaxis.set_major_locator(AutoLocator())
 
         # second "plot" to get different scales on x2, y2 axes
         # self._axis2.tick_params(axis='both',direction='inout',
