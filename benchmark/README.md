@@ -1,6 +1,7 @@
 # Notes for benchmarking Dysh
  
-The purpose of this benchmarking is to:
+The purpose of this benchmarking is to find and address the various
+CPU and I/O bottlenecks in dysh. We have done this in stages:
 
 ## Q8
 - Identify bottlenecks in memory, I/O, or CPU, especially as compared to GBTIDL performance.  
@@ -28,7 +29,8 @@ THe benchmarks created are:
 
 ## Q10
 
-- ...
+- disk I/O bottlenecks.
+- compare one case (getps) with the theoretical maximum in terms of simple math
 
 
 # Methodology
@@ -38,6 +40,8 @@ This does not give the fine grained results such as some memory profiler such as
 low intrusive easy to use API for any application.  Here is the typical calling sequence:
 
 ```
+      from dysh.util.timers import DTime
+
       dt = DTime()
       do_work1()
       dt.tag("work1")
@@ -55,13 +59,15 @@ for example here is the output of `./bench_getps.py -s -d -t` on our favorite `l
 ---------- ----- ------ ------ ---------
    init    4.0 2213.0 294.3      True
    load  353.5 2270.2 330.3      True   <-- higher than when repeating test due to I/O caching
-getps1t 1339.5 2374.4 446.0      True   <-- higher than other loops due to some python thing
+getps1t 1339.5 2374.4 446.0      True   <-- higher than remaining loops due to something TBD
 getps2t  701.3 2369.9 441.3      True
 getps3t  705.8 2369.9 441.6      True
 getps4t  689.1 2369.9 441.6      True
  report    0.0 2369.9 441.6      True
 final 3.793320576  sec
 ```
+
+In this output the first four columns are fixed, the remainder can be picked by the application
 
 - Fit benchmarking data to find pain points
 
@@ -76,9 +82,10 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
 
 # Overall findings
 
-1. Benchmarking is tricky, you measure CPU and MEM usage that does not
+1. Benchmarking remains tricky, the measured CPU and MEM usage that does not
    always make sense. For example we have a case where repeated calls
-   to getps() showed unreasonable variations.
+   to getps() showed unreasonable variations, hinting python is controlling
+   something behind the scenes.
    
 2. Overhead in `GBTFITSLoad(skipflags=False)` - the default - can be
    very large, notably for ARGUS examples. 9sec vs. 9min were seen.
@@ -96,8 +103,9 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
    benchmark run, the I/O overhead in the `load` step can be significantly
    smaller.
 
-5. Overhead of profiling is typicall factor 1.5 - 2.5 in our code. The .log
-   files (if present) have been run to avoid profiling.
+5. Overhead of profiling is typically factor 1.5 - 2.5 in our code. The .log
+   files (if present) have been run without profiling,
+   and show these better timings.
 
 
 More details are in `q8stats/README.md`.
@@ -153,22 +161,20 @@ resolved.
 
 The standard set of SDFITS files to run the benchmark on are:
 
-1. Standard L-band positionswitch example from the notebooks - up to 4 PS on/off scans. Single fits file, 45MB - AGBT05B_047_01.
-   This is **example=*getps"**
+```
+AGBT05B_047_01.raw.acs.fits - 45 MB - example="getps" ; L-band positionswitch example from the notebooks   
+AGBT14B_480_06.raw.vegas - 28 GB  - accept="multihugesmall"
+AGBT17B_319_06.raw.vegas - 2.3 GB - accept="multibighuge"
+AGBT20B_336_01.raw.vegas - 544 MB - accept="multismallsmall"
+TGBT21A_501_11.raw.vegas - 7.5 GB - example="getpslarge";  3 sources
+AGBT23A_432_03.raw.vegas - 519 MB - accept="multismallbig"
+TGBT17A_506_11.raw.vegas - 2.3 GB - example="otf1" ; L-band NGC6946 OTF (needs work)
+```
+multismallsmall
+"multismallsmall" "multismallbig" "multihugesmall" "multibighuge
 
-2. L-band edge data in On/Off/On mode - 8.5GB, 70 scans.   NGC2808 is extracted from this, using 9 "Track" scans in on/off/on mode. - AGBT15B_287_19.
-   This should be **example=*getps3"**   ???
+they are typically obtained via their `dysh_data` alias, as listed.
 
-3. ARGUS edge data in OTF mode - 1.3 GB, NGC0001 in AGBT21B_024_01 (or TBD if NGC5954 (2 strong sources) should be used - AGBT21B_024_20).
-   This is **example=*otf1"**
-
-
-### DYSH_DATA
-
-To make it portable accross machines, data not in the $DYSH/testdata
-directory can be easily used via the `dysh.util.files.dysh_data()`
-function. Either placed in $DYSH_DATA/sdfits, under
-$DYSH_DATA/example-data or $DYSH_DATA/acceptance_testing.
 
 
 ### Summary of tests and Results
@@ -201,7 +207,8 @@ getps10t  675.8 1064.6 437.5     False
   report    0.1 1064.6 437.5     False
 
 ```
-if the -t was not added, the first measurment did not stand out as much. x
+if the -t was not added, the first measurement did not stand out as much, it is the time averaging that made a huge
+difference between first and second loop.
 
 ## Disk I/O
 
@@ -305,6 +312,33 @@ a benchmark time of just under 1ms.
 
 It should be noted again that we left out timeaveraging. This has little to no impact on the pure numpy and C routine, but
 has a large impact on getps(): about factor 2, plus this mode has a large overhead on the first loop.
+
+### gbtidl
+
+In order to get a decent comparison with GBTIDL, the `tic/toc` IDL procedure can be used.
+
+```
+      ln -s $DATA_DYSH/example_data/positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits
+      cat bench_getps.pro
+      
+      offline,'AGBT05B_047_01.raw.acs.fits'
+      freeze
+      TIC
+      for i=51,57,2 do begin getps, i & accum & end
+      ave
+      dt = TOC()
+      PRINT, 'Elapsed time in sec: ',dt
+
+      gbtidl bench_getps.pro
+      Scan:    51 (IF:0 FD:0 PL:0)   units: Ta (K)  Tsys:  19.35    19.73
+      Scan:    53 (IF:0 FD:0 PL:0)   units: Ta (K)  Tsys:  19.43    19.74
+      Scan:    55 (IF:0 FD:0 PL:0)   units: Ta (K)  Tsys:  19.49    19.87
+      Scan:    57 (IF:0 FD:0 PL:0)   units: Ta (K)  Tsys:  19.84    20.07
+      Elapsed time in sec:       0.18014598
+      
+```
+compared to 400ms and 200ms for with and without time averaging, this seems like GBTIDL might be a little bit faster,
+but that the `timeaverage()` in dysh adds more than we would like.
     
 
 ## TODO
