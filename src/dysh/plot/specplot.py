@@ -20,7 +20,6 @@ from . import PlotBase
 _KMS = u.km / u.s
 
 
-
 class SpectrumPlot(PlotBase):
     # @todo make xaxis_unit='chan[nel]' work
     r"""
@@ -463,6 +462,3 @@ class InteractiveSpanSelector:
 
     def get_selected_regions(self):
         return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]
-
-
-

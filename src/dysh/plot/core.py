@@ -1,5 +1,3 @@
-
-
 """
 Plot a spectrum using matplotlib
 """

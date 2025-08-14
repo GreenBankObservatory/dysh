@@ -76,11 +76,10 @@ class ScanPlot(PlotBase):
         elif self._type in acceptable_types:
             self.spectrogram = self._scan._calibrated
             self._scan_nos = self._scan.scan
-            xtick_labels = np.arange(self._scan.nint-1)
+            xtick_labels = np.arange(self._scan.nint - 1)
 
-        self._xtick_labels = np.concatenate(xtick_labels,axis=0)
+        self._xtick_labels = np.concatenate(xtick_labels, axis=0)
         self.spectrogram = self.spectrogram.T
-
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -89,7 +88,6 @@ class ScanPlot(PlotBase):
             "cmap": "inferno",
             "interpolation": "nearest",
         }
-
 
     def plot(self, spectral_unit=None, **kwargs):
         r"""
@@ -123,7 +121,7 @@ class ScanPlot(PlotBase):
         self.im = self._axis.imshow(self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation)
 
         # address intnum labelling for len(scanblock) > 1
-        self._axis.set_xticks(np.arange(self.spectrogram.shape[1]),self._xtick_labels)
+        self._axis.set_xticks(np.arange(self.spectrogram.shape[1]), self._xtick_labels)
         self._axis.xaxis.set_major_locator(AutoLocator())
 
         # second "plot" to get different scales on x2, y2 axes
