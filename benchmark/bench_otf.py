@@ -68,11 +68,11 @@ if __name__ == "__main__":
     do_L = True  # hardcoded for now
     if do_L:
         # NGC6946 in L-band
-        f1 = dysh_data(example="mapping-L/data/TGBT17A_506_11.raw.vegas")
+        f1 = dysh_data(example="otf1")    # mapping-L/data/TGBT17A_506_11.raw.vegas
         scans = list(range(14, 28))
     else:
         # NGC5954 double galaxy in EDGE survey
-        # too slow?
+        # too slow? 
         f1 = dysh_data(accept="AGBT21B_024_20/AGBT21B_024_20.raw.vegas")  # @todo why does just AGBT21B_024_20  not work
         scans = list(range(22, 57))  # just one DecLatMap of 35 scans, no Vane/Sky
     print("Loading ", f1)
