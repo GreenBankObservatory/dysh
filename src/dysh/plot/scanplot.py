@@ -82,6 +82,15 @@ class ScanPlot(PlotBase):
         self.spectrogram = self.spectrogram.T
 
 
+    def reset(self):
+        """Reset the plot keyword arguments to their defaults."""
+        self._plot_kwargs = {
+            "title": None,
+            "cmap": "inferno",
+            "interpolation": "nearest",
+        }
+
+
     def plot(self, spectral_unit=None, **kwargs):
         r"""
         Plot the scan.

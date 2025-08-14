@@ -103,6 +103,35 @@ class SpectrumPlot(PlotBase):
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
 
+    def reset(self):
+        """Reset the plot keyword arguments to their defaults."""
+        self._plot_kwargs = {
+            "xmin": None,
+            "xmax": None,
+            "ymin": None,
+            "ymax": None,
+            "xlabel": None,
+            "ylabel": None,
+            "xaxis_unit": None,
+            "yaxis_unit": None,
+            "grid": False,
+            "figsize": None,
+            #'capsize':3,
+            "linewidth": 2.0,
+            "linestyle": "steps-mid",
+            "markersize": 8,
+            "color": None,
+            "title": None,
+            #'axis':None,
+            #'label':None,
+            "aspect": "auto",
+            "bbox_to_anchor": None,
+            "loc": "best",
+            "legend": None,
+            "show_baseline": True,
+            "test": False,
+        }
+
     def plot(self, show_header=True, select=True, **kwargs):
         # @todo document kwargs here
         r"""
@@ -265,31 +294,6 @@ class SpectrumPlot(PlotBase):
         kwargs_opts.update(kwargs)
         # if kwargs_opts['loc'] == 'bottom':
         #    self._ax.axhline
-
-    def savefig(self, file, **kwargs):
-        r"""Save the plot
-
-        Parameters
-        ----------
-        file - str
-            The output file name
-        **kwargs : dict or key=value pairs
-            Other arguments to pass to `~matplotlib.pyplot.savefig`
-
-        """
-        # TODO: add clause about cutting off the top of the figure where the interactive buttons are
-        # bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
-        # or, set_visible to False
-        # buttons are currently listed in the _localaxes, but this includes the plot window at index 0
-        # so if the plot window ever goes missing, check the order in this list
-        # there has to be a better way to do this
-        # TODO: put buttons in a sub/different axes so we only have to hide the axes object instead of
-        # a list of all the buttons and plots
-        for button in self.figure._localaxes[1:]:
-            button.set_visible(False)
-        self.figure.savefig(file, *kwargs)
-        for button in self.figure._localaxes[1:]:
-            button.set_visible(True)
 
     def get_selected_regions(self):
         """ """

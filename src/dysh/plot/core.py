@@ -5,30 +5,20 @@ Plot a spectrum using matplotlib
 """
 
 import datetime as dt
-import warnings
-from copy import deepcopy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
-from astropy.utils.masked import Masked
-from matplotlib.patches import Rectangle
-from matplotlib.ticker import AutoLocator
-from matplotlib.widgets import Button, SpanSelector
 
 from ..coordinates import (
     Observatory,
     crval4_to_pol,
-    decode_veldef,
-    frame_to_label,
     ra2ha,
 )
 
 _KMS = u.km / u.s
-
-
 
 
 class PlotBase:
@@ -54,42 +44,6 @@ class PlotBase:
     def figure(self):
         """The underlying :class:`~matplotlib.Figure` object"""
         return self._figure
-
-    def reset(self):
-        """Reset the plot keyword arguments to their defaults."""
-        if self._plot_type() == "SpectrumPlot":
-            self._plot_kwargs = {
-                "xmin": None,
-                "xmax": None,
-                "ymin": None,
-                "ymax": None,
-                "xlabel": None,
-                "ylabel": None,
-                "xaxis_unit": None,
-                "yaxis_unit": None,
-                "grid": False,
-                "figsize": None,
-                #'capsize':3,
-                "linewidth": 2.0,
-                "linestyle": "steps-mid",
-                "markersize": 8,
-                "color": None,
-                "title": None,
-                #'axis':None,
-                #'label':None,
-                "aspect": "auto",
-                "bbox_to_anchor": None,
-                "loc": "best",
-                "legend": None,
-                "show_baseline": True,
-                "test": False,
-            }
-        elif self._plot_type() == "ScanPlot":
-            self._plot_kwargs = {
-                "title": None,
-                "cmap": "inferno",
-                "interpolation": "nearest",
-            }
 
     def _set_header(self, s):
         move_vcoords_bool = 0.1 * (self._plot_type() == "ScanPlot")
