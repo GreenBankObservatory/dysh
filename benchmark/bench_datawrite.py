@@ -77,9 +77,6 @@ if __name__ == "__main__":
         help="One of 'sdf', 'sb' or 'sp' to write SDFITS/ScanBlock/Spectrum",
         default="sdf",
     )
-    parser.add_argument(
-        "--rows", "-r", action="store", help="If `writedata` is sdf, the number of rows to write. 0=all", default=0
-    )
     parser.add_argument("--out", "-o", action="store", help="output filename (astropy Table)", required=False)
     parser.add_argument(
         "--append", "-a", action="store_true", help="append to previous output file (astropy Table)", required=False
@@ -111,10 +108,6 @@ if __name__ == "__main__":
     if args.writedata not in valid_write:
         raise ValueError(f"writedata must be one of {valid_write}")
 
-    if args.writedata == "sdf" and args.rows is None:
-        # @todo we are actually not using rows, but source, being a proxy for all rows for that source
-        raise ValueError("You must supply number of rows to write (-r)  for SDFITS write test.")
-
     if args.quit:
         sys.exit(0)
 
@@ -141,7 +134,6 @@ if __name__ == "__main__":
 
     # f1 = dysh_data(example="getps2")   # for new dysh_data()
     f1 = dysh_data(example="getpslarge")  # use 'getps2' for just source=1
-    print("FILE:", f1)
     trueNfiles, size_b, nflags = filestats(f1)
     nload = trueNfiles
     size_mb = np.round(size_b, 2)
@@ -217,7 +209,7 @@ if __name__ == "__main__":
                     s["plnum"],
                     nf,
                     args.skipflags,
-                    args.rows,
+                    0,
                 ],
             )
         elif args.writedata == "sb":
