@@ -844,7 +844,12 @@ class TestSpectrum:
         * Test that the returned selection is in the expected format.
         """
 
+        ch_low = 574
+        ch_upp = 853
+
         s = Spectrum.fake_spectrum()
+        saq = s.spectral_axis.quantity
+        saq_v = s.axis_velocity().quantity
         with pytest.raises(TypeError) as excinfo:
             s.get_selected_regions()
         assert excinfo.type is TypeError
@@ -853,18 +858,20 @@ class TestSpectrum:
         import matplotlib.pyplot as plt
 
         plt.ioff()
-        s.plot(interactive=False, xaxis_unit="MHz")
-        s._plotter._selector.onselect(1402.3, 1402.5)
+        s.plot(xaxis_unit="MHz")
+        s._plotter._selector.onselect(saq[ch_low].to("MHz").value, saq[ch_upp].to("MHz").value)
         r = s.get_selected_regions()
-        assert r == [(574, 853)]
+        assert r == [(ch_low, ch_upp)]
 
         # Now with units.
         r_nu = s.get_selected_regions(unit="MHz")
-        assert r_nu[0][0].value == pytest.approx(1402.3)
-        assert r_nu[0][1].value == pytest.approx(1402.5)
+        assert r_nu[0][0].value == pytest.approx(saq[ch_low].to("MHz").value)
+        assert r_nu[0][1].value == pytest.approx(saq[ch_upp].to("MHz").value)
+        assert r_nu[0][1].unit == u.MHz
         r_v = s.get_selected_regions(unit="km/s")
-        assert r_v[0][0].value == pytest.approx(3870.69160846)
-        assert r_v[0][1].value == pytest.approx(3827.48453869)
+        assert r_v[0][0].value == pytest.approx(saq_v[ch_low].value)
+        assert r_v[0][1].value == pytest.approx(saq_v[ch_upp].value)
+        assert r_v[0][0].unit == u.km / u.s
 
     def test_cog(self):
         """
