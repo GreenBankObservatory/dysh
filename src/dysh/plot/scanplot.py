@@ -66,7 +66,7 @@ class ScanPlot(PlotBase):
                 else:
                     self.spectrogram = np.append(self.spectrogram, scan._calibrated, axis=0)
                 self._scan_nos.append(scan.scan)
-                # self._nint_nos.append(scan.nint) # not sure if I need this
+                self._nint_nos.append(scan.nint) # not sure if I need this
                 xtick_labels.append(np.arange(scan.nint))
                 # TODO: figure out how to deal with generating a "time" axis
                 # agnostic of scan proctype (pos sw, etc will have gaps between scans due to OFF)
@@ -110,6 +110,7 @@ class ScanPlot(PlotBase):
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
             self._axis2 = self._axis.twinx()
+            self._axis3 = self._axis.twiny()
 
         self._figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
         self._set_header(self._spectrum)
@@ -141,8 +142,26 @@ class ScanPlot(PlotBase):
         im2 = self._axis2.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
         self._axis2.set_ylim((np.min(self._sa).value, np.max(self._sa).value))
 
+
+        #third axis to plot the scan numbers
+        im3 = self._axis3.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
+        #determine tick locations and labels
+        tick_locs = []
+        acc = 0
+        for numints in self._nint_nos:
+            tick_locs.append(acc)
+            acc += numints
+        self._axis3.set_xticks(tick_locs)
+        self._axis3.set_xticklabels(self._scan_nos)
+        fsize=14
+        x1_alt_padding = self._plt.rcParams["axes.labelpad"]+fsize
+        self._axis3.tick_params(axis='x', width=0, pad=x1_alt_padding+9, labelsize=fsize,bottom=True,top=False,labelbottom=True,labeltop=False)
+
+
         self._axis.set_xlim(0, stop - 0.5)
         self._set_labels()
+
+
 
     def _set_labels(self):
         # x1: bottom
@@ -153,6 +172,12 @@ class ScanPlot(PlotBase):
 
         x1_label = "Integration"
         self._axis.set_xlabel(x1_label)
+
+        x1_alt_label = "Scan"
+        self._axis3.set_xlabel(x1_alt_label,fontsize=14,loc="left")
+        self._axis3.xaxis.set_label_position("bottom")
+        #self._axis3.xaxis.label.set_position((-0.1,0))
+        self._axis3.xaxis.set_label_coords(-0.1,-0.1)
 
         y1_label = "Channel"
         self._axis.set_ylabel(y1_label)
