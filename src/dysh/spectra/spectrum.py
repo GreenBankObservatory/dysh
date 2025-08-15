@@ -1411,6 +1411,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             raise NotImplementedError("Use a slice for slicing.")
 
+        # WCS slicing does not do well if the start is negative.
+        if start is not None and not isinstance(start, u.Quantity) and start < 0:
+            start_idx = len(self.data) + start
+
+        # Sort the start and stop indices if they are not None nor
+        # negative integers.
+        if (
+            start is not None
+            and stop is not None
+            and not (
+                (not isinstance(start, u.Quantity) and start < 0) or (not isinstance(stop, u.Quantity) and stop < 0)
+            )
+        ):
+            start_idx, stop_idx = np.sort([start_idx, stop_idx])
+
         # Slicing uses NumPY ordering by default.
         sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
 
