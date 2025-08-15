@@ -3,7 +3,8 @@
 # Script to run various benchmarks
 export OMP_NUM_THREADS=1
 
-export DYSH_DATA="/lma1/teuben/GBT/dysh_data"
+#   meant to run on "lma", you still need to set DYSH_DATA
+#export DYSH_DATA="/lma1/teuben/GBT/dysh_data"
 
 dd=("multismallsmall" "multismallbig" "multihugesmall" "multibighuge")
 nfile=(8 8 5 3)
@@ -20,8 +21,8 @@ do
     #for j in $(seq 1 ${nfile[$i]})
     j=${nfile[$i]}
     #do
-        ../bench_gbtfitsload.py -d -l 4 -n $j  -k ${dd[$i]} --statslines 50 -m -p  -x time > $opr
-        ../bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]}  --statslines 50 -m  -p  -x time > $oprs
+        ../bench_gbtfitsload.py -d -l 4 -n $j    -k ${dd[$i]} --statslines 50 -m -p  -x time > $opr
+        ../bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]} --statslines 50 -m -p  -x time > $oprs
         echo "done ${dd[$i]}"
     #done
 done
@@ -31,9 +32,9 @@ done
 #####################
 echo "doing GETPS bench..."
 ../bench_getps.py -d -s -t --statslines 50 -m -p -x time > getps_bench_ta.profile.time
-../bench_getps.py -d -s -t --statslines 50 -m -p > getps_bench_ta.profile
-../bench_getps.py -d -s --statslines 50 -m -p -x time > getps_bench.profile.time
-../bench_getps.py -d -s --statslines 50 -m -p > getps_bench.profile
+../bench_getps.py -d -s -t --statslines 50 -m -p         > getps_bench_ta.profile
+../bench_getps.py -d -s    --statslines 50 -m -p -x time > getps_bench.profile.time
+../bench_getps.py -d -s    --statslines 50 -m -p         > getps_bench.profile
 
 #####################
 # SCAN WRITE
