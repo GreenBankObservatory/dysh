@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
         s = Spectrum.fake_spectrum()
         dt.tag("fake", [sk])
-    
+
     # reading dataset-1
 
     f1 = dysh_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
