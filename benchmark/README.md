@@ -59,7 +59,7 @@ for example here is the output of `./bench_getps.py -s -d -t` on our favorite `l
 ---------- ----- ------ ------ ---------
    init    4.0 2213.0 294.3      True
    load  353.5 2270.2 330.3      True   <-- higher than when repeating test due to I/O caching
-getps1t 1339.5 2374.4 446.0      True   <-- higher than remaining loops due to something TBD
+getps1t 1339.5 2374.4 446.0      True   <-- higher than remaining loops due to lazy loading
 getps2t  701.3 2369.9 441.3      True
 getps3t  705.8 2369.9 441.6      True
 getps4t  689.1 2369.9 441.6      True
@@ -83,9 +83,7 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
 # Overall findings
 
 1. Benchmarking remains tricky, the measured CPU and MEM usage that does not
-   always make sense. For example we have a case where repeated calls
-   to getps() showed unreasonable variations, hinting python is controlling
-   something behind the scenes.
+   always make sense.  Lazy loading is a known examples.
    
 2. Overhead in `GBTFITSLoad(skipflags=False)` - the default - can be
    very large, notably for ARGUS examples. 9sec vs. 9min were seen.
@@ -96,14 +94,7 @@ It returns the popt, pcov, and np.diag(pcov) from scipy.optimize.curve_fit
    containing only those scans seems to suggest that all scans were
    "used".  (#678 memory leak)
 
-4. There is sometimes an extra overhead on the first of many loops, as
-   the `getps` shows above. It is unclear where this "setup" times comes
-   from possibly.  Possibly python learning how to set up a class. But
-   not something we can work around. Same with I/O, on the second
-   benchmark run, the I/O overhead in the `load` step can be significantly
-   smaller.
-
-5. Overhead of profiling is typically factor 1.5 - 2.5 in our code. The .log
+4. Overhead of profiling is typically factor 1.5 - 2.5 in our code. The .log
    files (if present) have been run without profiling,
    and show these better timings.
 
