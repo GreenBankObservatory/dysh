@@ -166,6 +166,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Returns the computed baseline model or None if it has not yet been computed."""
         return self._baseline_model
 
+    @property
+    def flux(self):
+        """
+        Converts the stored data, unit and mask into a `~astropy.utils.masked.Masked` object.
+
+        Returns
+        -------
+        `~astropy.utils.masked.Masked`
+            Spectral data as a masked quantity.
+        """
+        return Masked(self.data * self.unit, mask=self.mask)
+
     @log_call_to_history
     def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):
         # fmt: off
