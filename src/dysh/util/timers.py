@@ -50,14 +50,14 @@ class DTime(object):
          sortkey    : how to sort the profiler statistics, "cumulative" or "time". Default "cumulative" (SortKey.CUMULATIVE).
 
 
-    Example
-    -------
+    Examples
+    --------
 
-    dt = DTime()
-    dt.tag("test1")
-    dt.tag("test2")
-    dt.tag("test3")
-    dt.report()
+    >>> dt = DTime()
+    >>> dt.tag("test1")
+    >>> dt.tag("test2")
+    >>> dt.tag("test3")
+    >>> dt.report()
 
     By default it simply builds a delta-time of the time it took between the different tags, as
     labeled by their tag name. If DTime() is supplied a number of data items for extra columns,
