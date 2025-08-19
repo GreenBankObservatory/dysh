@@ -1,27 +1,21 @@
 """
-Plot spectrograms from a ScanBlock using matplotlib
+Plot a spectrum using matplotlib
 """
 
-import datetime as dt
 import warnings
 from copy import deepcopy
 
 import astropy.units as u
-import matplotlib.pyplot as plt
 import numpy as np
-from astropy.coordinates import SkyCoord
-from astropy.time import Time
+from matplotlib.text import OffsetFrom
+from matplotlib.ticker import AutoLocator, MaxNLocator
 
-from ..coordinates import (
-    Observatory,
-    crval4_to_pol,
-    ra2ha,
-)
+from . import PlotBase
 
 _KMS = u.km / u.s
 
 
-class ScanPlot:
+class ScanPlot(PlotBase):
     r"""
     The ScanPlot class is for simple plotting of a `~scan.Scan` or `~scan.ScanBlock`
     using matplotlib functions. Plots attributes are modified using keywords
@@ -42,17 +36,14 @@ class ScanPlot:
     """
 
     def __init__(self, scanblock_or_scan, **kwargs):
-        self.reset()
+        super().__init__()
         self._scanblock_or_scan = scanblock_or_scan
         self._plot_kwargs.update(kwargs)
-        self._plt = plt
-        self._figure = None
-        self._axis = None
         self._axis2 = None
         # self._title = self._plot_kwargs["title"]# todo: deal with when refactoring
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
-        self._s = self._scanblock_or_scan.timeaverage()
-        self._sa = self._s.spectral_axis
+        self._spectrum = self._scanblock_or_scan.timeaverage()
+        self._sa = self._spectrum.spectral_axis
 
         # determine if input is a ScanBlock or a ScanBase (raise exception if neither)
         self._type = scanblock_or_scan.__class__.__name__
@@ -69,23 +60,37 @@ class ScanPlot:
             self._scan_nos = []  # scan numbers in the scan block
             self._nint_nos = []  # number of integrations in each scan
             self._timestamps = []  # 0-indexed timestamps in sec for every integration
+            xtick_labels = []  # intnum labels for multiple-scan scanblocks
             for i, scan in enumerate(self._scanblock):
                 if i == 0:
                     self.spectrogram = scan._calibrated
                 else:
                     self.spectrogram = np.append(self.spectrogram, scan._calibrated, axis=0)
                 self._scan_nos.append(scan.scan)
-                self._nint_nos.append(scan.nint)
+                self._nint_nos.append(scan.nint)  # not sure if I need this
+                xtick_labels.append(np.r_[0 : scan.nint])
                 # TODO: figure out how to deal with generating a "time" axis
                 # agnostic of scan proctype (pos sw, etc will have gaps between scans due to OFF)
                 # self._timestamps.append(scan.)
+            xtick_labels = np.concatenate(xtick_labels, axis=0)
 
         # handle scans
         elif self._type in acceptable_types:
             self.spectrogram = self._scan._calibrated
-            self._scan_nos = self._scan.scan
+            self._scan_nos = [self._scan.scan]
+            self._nint_nos = [self._scan.nint]
+            xtick_labels = np.r_[0 : self._scan.nint]
 
+        self._xtick_labels = xtick_labels
         self.spectrogram = self.spectrogram.T
+
+    def reset(self):
+        """Reset the plot keyword arguments to their defaults."""
+        self._plot_kwargs = {
+            "title": None,
+            "cmap": "inferno",
+            "interpolation": "nearest",
+        }
 
     def plot(self, spectral_unit=None, **kwargs):
         r"""
@@ -99,7 +104,6 @@ class ScanPlot:
             keyword=value arguments (need to describe these in a central place)
         """
 
-        # self._set_xaxis_info()
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
 
@@ -109,25 +113,26 @@ class ScanPlot:
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
             self._axis2 = self._axis.twinx()
+            self._axis3 = self._axis.twiny()
 
         self._figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
-        self._set_header(self._s)
-
-        # self._axis.tick_params(axis='both',direction='inout',length=8,top=False,right=False,pad=2)
-        # self._axis.yaxis.set_label_position('left')
-        # self._axis.yaxis.set_ticks_position('left')
+        self._set_header(self._spectrum)
 
         self.im = self._axis.imshow(self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation)
 
+        # address intnum labelling for len(scanblock) > 1
+        self._axis.set_xticks(np.arange(self.spectrogram.shape[1]), self._xtick_labels)
+        if len(self._xtick_labels) == 1:
+            locator = MaxNLocator(nbins=len(self._xtick_labels), integer=True, min_n_ticks=1)
+        else:
+            locator = AutoLocator()
+        self._axis.xaxis.set_major_locator(locator)
+
         # second "plot" to get different scales on x2, y2 axes
-        # self._axis2.tick_params(axis='both',direction='inout',
-        #     length=8,bottom=False,left=False,top=True,right=True,pad=2)
-        # self._axis2.yaxis.set_label_position('right')
-        # self._axis2.yaxis.set_ticks_position('right')
         if spectral_unit is not None:
             self._sa = self._sa.to(spectral_unit)
         else:
-            if self._sa[0].value / 1e9 < 1:
+            if self._sa[0] / (u.GHz) < 1:
                 self._sa = self._sa.to(u.MHz)
             else:
                 self._sa = self._sa.to(u.GHz)
@@ -135,6 +140,29 @@ class ScanPlot:
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
         im2 = self._axis2.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
         self._axis2.set_ylim((np.min(self._sa).value, np.max(self._sa).value))
+
+        # third axis to plot the scan numbers
+        im3 = self._axis3.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
+        # determine tick locations and labels
+        tick_locs = []
+        acc = 0
+        for numints in self._nint_nos:
+            tick_locs.append(acc)
+            acc += numints
+        self._axis3.set_xticks(tick_locs)
+        self._axis3.set_xticklabels(self._scan_nos)
+        fsize = 15
+        x1_alt_padding = self._plt.rcParams["axes.labelpad"] + fsize
+        self._axis3.tick_params(
+            axis="x",
+            width=0,
+            pad=x1_alt_padding + 9,
+            # labelsize=fsize,
+            bottom=True,
+            top=False,
+            labelbottom=True,
+            labeltop=False,
+        )
 
         self._axis.set_xlim(0, stop - 0.5)
         self._set_labels()
@@ -149,6 +177,10 @@ class ScanPlot:
         x1_label = "Integration"
         self._axis.set_xlabel(x1_label)
 
+        x1_alt_label = "Scan"
+        off = OffsetFrom(self._axis3.get_xticklabels()[0], (0.0, 0.0))
+        self._axis3.annotate(x1_alt_label, xy=(0.5, 0.5), xytext=(-10, 0.0), textcoords=off, va="bottom", ha="right")
+
         y1_label = "Channel"
         self._axis.set_ylabel(y1_label)
 
@@ -158,7 +190,7 @@ class ScanPlot:
             y2_label = f"{nu} ({y2_unit})"
         self._axis2.set_ylabel(y2_label)
 
-        z_unit = self._s.unit
+        z_unit = self._spectrum.unit
         if z_unit.is_equivalent(u.K):
             z_label = f"$T_A$ ({z_unit})"
         elif z_unit.is_equivalent(u.Jy):
@@ -169,110 +201,15 @@ class ScanPlot:
         else:
             warnings.warn("Flux units are unknown", stacklevel=2)
             z_label = ""
-        self._figure.colorbar(self.im, label=z_label, pad=0.1)
-
-    def reset(self):
-        self._plot_kwargs = {
-            "title": None,
-            "cmap": "inferno",
-            "interpolation": "nearest",
-        }
-
-    def _set_header(self, s):
-        fsize_small = 9
-        fsize_large = 14
-        xyc = "figure fraction"
-
-        hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
-        vcoords = np.array([0.94, 0.9, 0.86])
-
-        def time_formatter(time_sec):
-            hh = int(time_sec // 3600)
-            mm = int((time_sec - 3600 * hh) // 60)
-            ss = np.around((time_sec - 3600 * hh - 60 * mm), 1)
-            return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
-
-        def coord_formatter(s):
-            sc = SkyCoord(
-                s.meta["CRVAL2"],
-                s.meta["CRVAL3"],
-                unit="deg",
-                frame=s.meta["RADESYS"].lower(),
-                obstime=Time(s.meta["DATE-OBS"]),
-                location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
-            )
-            out_str = sc.transform_to("fk5").to_string("hmsdms", sep=" ", precision=2)[:-1]
-            out_ra = out_str[:11]
-            out_dec = out_str[12:]
-            return out_ra, out_dec
-
-        # col 1
-        self._axis.annotate(f"Scan     {s.meta['SCAN']}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['DATE-OBS'][:10]}", (hcoords[0], vcoords[1]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 2
-        velo = s.meta["VELOCITY"] * 1e-3  # * u.km / u.s # GBTIDL doesn't say km/s so neither will I (saves space)
-        self._axis.annotate(
-            f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(
-            f"Int : {time_formatter(s.meta['EXPOSURE'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(
-            f"LST : {time_formatter(s.meta['LST'])}", (hcoords[1], vcoords[2]), xycoords=xyc, size=fsize_small
-        )
-
-        # col 3
-        # TODO: need to understand frequencies to assign correct title
-        # instead of just forcing to GHz with 5 decimal points
-        f0 = np.around(s.meta["RESTFREQ"] * 1e-9, 5) * u.GHz
-        self._axis.annotate(f"F0   :  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
-        fsky = np.around(s.meta["OBSFREQ"] * 1e-9, 5) * u.GHz  # or CRVAL1?
-        self._axis.annotate(f"Fsky :  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)
-        bw = np.around(s.meta["BANDWID"] * 1e-6, 4) * u.MHz
-        self._axis.annotate(f"BW   :  {bw}", (hcoords[2], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 4
-        self._axis.annotate(
-            f"Pol  :   {crval4_to_pol[s.meta['CRVAL4']]}", (hcoords[3], vcoords[0]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(f"IF   :    {s.meta['IFNUM']}", (hcoords[3], vcoords[1]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['PROJID']}", (hcoords[3], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 5
-        _tsys = np.around(s.meta["TSYS"], 2)
-        self._axis.annotate(f"Tsys   :  {_tsys}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(
-            f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # bottom row
-        vcoord_bot = 0.82
-        hcoord_bot = 0.95
-        ra, dec = coord_formatter(s)
-        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], vcoord_bot), xycoords=xyc, size=fsize_small)
-        if self._axis.get_title() == "":
-            self._axis.annotate(
-                f"{s.meta['OBJECT']}", (0.5, vcoord_bot), xycoords=xyc, size=fsize_large, horizontalalignment="center"
-            )
-        az = np.around(s.meta["AZIMUTH"], 1)
-        el = np.around(s.meta["ELEVATIO"], 1)
-        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
-        self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}",
-            (hcoord_bot, vcoord_bot),
-            xycoords=xyc,
-            size=fsize_small,
-            horizontalalignment="right",
-        )
-
-        # last corner -- current date time.
-        ts = str(dt.datetime.now())[:19]
-        self._axis.annotate(
-            f"{ts}", (hcoord_bot - 0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right"
-        )
+        self._colorbar = self._figure.colorbar(self.im, label=z_label, pad=0.1)
+        # matplotlib won't set this before the Figure is drawn.
+        self._figure.draw_without_rendering()
+        # If there's an offset, add it to the label and make the offset invisible.
+        if self._colorbar.ax.yaxis.offsetText.get_text() != "":
+            off = self._colorbar.ax.yaxis.offsetText.get_text()
+            e = off.split("e")[1]
+            self._colorbar.set_label(z_label + rf"($\times10^{{{e}}}$)")
+            self._colorbar.ax.yaxis.offsetText.set_visible(False)
 
     def set_clim(self, vmin, vmax):
         """
@@ -308,16 +245,3 @@ class ScanPlot:
             cmap used for the color scale. Default: "inferno".
         """
         self.im.set_cmap(cmap)
-
-    def savefig(self, file, **kwargs):
-        r"""Save the plot
-
-        Parameters
-        ----------
-        file - str
-            The output file name
-        **kwargs : dict or key=value pairs
-            Other arguments to pass to `~matplotlib.pyplot.savefig`
-
-        """
-        self._figure.savefig(file, *kwargs)
