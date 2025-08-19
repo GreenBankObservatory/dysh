@@ -227,11 +227,11 @@ class SpectrumPlot(PlotBase):
         if xlabel is not None:
             return xlabel
         if kwargs["doppler_convention"] == "radio":
-            subscript = "_{rad}$"
+            subscript = "_{rad}"
         elif kwargs["doppler_convention"] == "optical":
-            subscript = "_{opt}$"
+            subscript = "_{opt}"
         elif kwargs["doppler_convention"] == "relativistic":
-            subscript = "_{rel}$"
+            subscript = "_{rel}"
         else:  # should never happen
             subscript = ""
         if kwargs.get("xaxis_unit", None) is not None:
@@ -239,15 +239,16 @@ class SpectrumPlot(PlotBase):
         else:
             xunit = self.spectrum.spectral_axis.unit
         if xunit.is_equivalent(u.Hz):
-            xname = r"$\nu" + subscript
+            xname = r"\nu"
         elif xunit.is_equivalent(_KMS):
-            xname = r"V$" + subscript
+            xname = r"V" + subscript
         elif xunit.is_equivalent(u.angstrom):
-            xname = r"$\lambda" + subscript
+            xname = r"\lambda"
         # Channel is handled in plot() with kwargs['xlabel']
         else:
             raise ValueError(f"Unrecognized spectral axis unit: {xunit}")
-        xlabel = f"{frame_to_label[kwargs['vel_frame']]} {xname} ({xunit})"
+        _xunit = xunit.to_string(format="latex_inline")
+        xlabel = f"{frame_to_label[kwargs['vel_frame']]} ${xname}$ ({_xunit})"
         return xlabel
 
     def _set_labels(self, **kwargs):
