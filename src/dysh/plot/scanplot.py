@@ -7,7 +7,8 @@ from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
-from matplotlib.ticker import AutoLocator
+from matplotlib.text import OffsetFrom
+from matplotlib.ticker import AutoLocator, MaxNLocator
 
 from . import PlotBase
 
@@ -67,18 +68,20 @@ class ScanPlot(PlotBase):
                     self.spectrogram = np.append(self.spectrogram, scan._calibrated, axis=0)
                 self._scan_nos.append(scan.scan)
                 self._nint_nos.append(scan.nint)  # not sure if I need this
-                xtick_labels.append(np.arange(scan.nint))
+                xtick_labels.append(np.r_[0 : scan.nint])
                 # TODO: figure out how to deal with generating a "time" axis
                 # agnostic of scan proctype (pos sw, etc will have gaps between scans due to OFF)
                 # self._timestamps.append(scan.)
+            xtick_labels = np.concatenate(xtick_labels, axis=0)
 
         # handle scans
         elif self._type in acceptable_types:
             self.spectrogram = self._scan._calibrated
-            self._scan_nos = self._scan.scan
-            xtick_labels = np.arange(self._scan.nint - 1)
+            self._scan_nos = [self._scan.scan]
+            self._nint_nos = [self._scan.nint]
+            xtick_labels = np.r_[0 : self._scan.nint]
 
-        self._xtick_labels = np.concatenate(xtick_labels, axis=0)
+        self._xtick_labels = xtick_labels
         self.spectrogram = self.spectrogram.T
 
     def reset(self):
@@ -115,21 +118,17 @@ class ScanPlot(PlotBase):
         self._figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
         self._set_header(self._spectrum)
 
-        # self._axis.tick_params(axis='both',direction='inout',length=8,top=False,right=False,pad=2)
-        # self._axis.yaxis.set_label_position('left')
-        # self._axis.yaxis.set_ticks_position('left')
-
         self.im = self._axis.imshow(self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation)
 
         # address intnum labelling for len(scanblock) > 1
         self._axis.set_xticks(np.arange(self.spectrogram.shape[1]), self._xtick_labels)
-        self._axis.xaxis.set_major_locator(AutoLocator())
+        if len(self._xtick_labels) == 1:
+            locator = MaxNLocator(nbins=len(self._xtick_labels), integer=True, min_n_ticks=1)
+        else:
+            locator = AutoLocator()
+        self._axis.xaxis.set_major_locator(locator)
 
         # second "plot" to get different scales on x2, y2 axes
-        # self._axis2.tick_params(axis='both',direction='inout',
-        #     length=8,bottom=False,left=False,top=True,right=True,pad=2)
-        # self._axis2.yaxis.set_label_position('right')
-        # self._axis2.yaxis.set_ticks_position('right')
         if spectral_unit is not None:
             self._sa = self._sa.to(spectral_unit)
         else:
@@ -152,13 +151,13 @@ class ScanPlot(PlotBase):
             acc += numints
         self._axis3.set_xticks(tick_locs)
         self._axis3.set_xticklabels(self._scan_nos)
-        fsize = 14
+        fsize = 15
         x1_alt_padding = self._plt.rcParams["axes.labelpad"] + fsize
         self._axis3.tick_params(
             axis="x",
             width=0,
             pad=x1_alt_padding + 9,
-            labelsize=fsize,
+            # labelsize=fsize,
             bottom=True,
             top=False,
             labelbottom=True,
@@ -179,10 +178,8 @@ class ScanPlot(PlotBase):
         self._axis.set_xlabel(x1_label)
 
         x1_alt_label = "Scan"
-        self._axis3.set_xlabel(x1_alt_label, fontsize=14, loc="left")
-        self._axis3.xaxis.set_label_position("bottom")
-        # self._axis3.xaxis.label.set_position((-0.1,0))
-        self._axis3.xaxis.set_label_coords(-0.1, -0.1)
+        off = OffsetFrom(self._axis3.get_xticklabels()[0], (0.0, 0.0))
+        self._axis3.annotate(x1_alt_label, xy=(0.5, 0.5), xytext=(-10, 0.0), textcoords=off, va="bottom", ha="right")
 
         y1_label = "Channel"
         self._axis.set_ylabel(y1_label)
