@@ -7,6 +7,11 @@ Utility classes and functions
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: dysh.util.calibrator
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: dysh.util.files
    :members:
    :undoc-members:

@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser.add_argument("--loop",        "-l", action="store",       help="number of times to loop", default=4)
     parser.add_argument("--nchan",       "-n", action="store",       help="number of channels", default=100000)
     parser.add_argument("--nscan",       "-s", action="store",       help="number of scans", default=1000)
-    parser.add_argument("--mode",        "-m", action="store",       help="initialization mode", default=1)
+    parser.add_argument("--mode",        "-m", action="store",       help="initialization mode", default=0)
     parser.add_argument("--timeaverage", "-t", action="store_true",  help="time average as well")
 
     parser.add_argument("--out",         "-o", action="store",       help="output filename (astropy Table)", required=False)

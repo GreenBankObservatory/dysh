@@ -673,7 +673,7 @@ class SDFITSLoad(object):
     def __str__(self):
         return str(self._filename)
 
-    def _bintable_from_rows(self, rows=None, bintable=None):
+    def _bintable_from_rows(self, rows, bintable):
         """
         Extract a bintable from an existing
         bintable in this SDFITSLoad object
@@ -698,9 +698,9 @@ class SDFITSLoad(object):
             rows = [rows]
         # ensure rows are sorted
         rows.sort()
-        outbintable = self._bintable[bintable].copy()
-        outbintable.data = outbintable.data[rows]
-        outbintable.update_header()
+        header = self._bintable[bintable].header
+        data = self._bintable[bintable].data[rows]
+        outbintable = BinTableHDU(data, header)
         return outbintable
 
     def write(
