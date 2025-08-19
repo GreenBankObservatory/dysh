@@ -169,14 +169,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @property
     def flux(self):
         """
-        Converts the stored data, unit and mask into a `~astropy.utils.masked.Masked` object.
+        Converts the stored data and unit and mask into a `~astropy.units.Quantity` object.
 
         Returns
         -------
-        `~astropy.utils.masked.Masked`
-            Spectral data as a masked quantity.
+        `~astropy.units.Quantity`
+            Spectral data as a quantity. Masked values are filled with NaN.
         """
-        return Masked(self.data * self.unit, mask=self.mask)
+        return Masked(self.data * self.unit, mask=self.mask).filled(np.nan)
 
     @log_call_to_history
     def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):

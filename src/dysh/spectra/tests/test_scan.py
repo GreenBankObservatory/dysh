@@ -256,7 +256,7 @@ class TestSubBeamNod:
         assert (sbn.data - sbn_smref.data)[s].sum() == pytest.approx(-5.375981637276874)
         assert sbn_smref.meta["SCAN"] == 20
         assert sbn_smref.meta["TSYS"] == pytest.approx(100.0)
-        assert sbn_smref[s].stats()["rms"].value == pytest.approx(0.17440979)
+        assert sbn_smref[s].stats()["rms"].value == pytest.approx(0.17582152178367458)
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
@@ -566,7 +566,7 @@ class TestFSScan:
         assert fs.meta["TSYS"] == 1.0
         assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
         assert fs.stats()["mean"].value == pytest.approx(0.0011396648555837365)
-        assert fs.stats()["rms"].value == pytest.approx(0.01168646)
+        assert fs.stats()["rms"].value == pytest.approx(0.011687166084964482)
 
         # Test with system temperature.
         t_sys = 205.0
@@ -576,7 +576,7 @@ class TestFSScan:
         assert fs.meta["TSYS"] == pytest.approx(t_sys)
         assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
         assert fs.stats()["mean"].value == pytest.approx(0.2336313)
-        assert fs.stats()["rms"].value == pytest.approx(2.3957242)
+        assert fs.stats()["rms"].value == pytest.approx(2.395869046975605)
 
         # Test with reference smoothing.
         fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, smoothref=256)
@@ -585,7 +585,7 @@ class TestFSScan:
         assert fs.meta["TSYS"] == 1.0
         assert fs.meta["EXPOSURE"] == pytest.approx(2.115174908755242)
         assert fs.stats()["mean"].value == pytest.approx(0.0007359185384744827)
-        assert fs.stats()["rms"].value == pytest.approx(0.010173690896161902)
+        assert fs.stats()["rms"].value == pytest.approx(0.010336309743526804)
 
 
 class TestNodScan:
