@@ -49,32 +49,42 @@ class CalibratorTable:
         }
 
     Where "name" is the object name. It should match under the "Objects" and "Scale name" "objects".
+
     "cal" is a boolean indicating if the object is suitable as a flux calibrator. This is
     mainly used to issue warnings.
+
     "alias" is a list of alises for the object name.
+
     "LAS" is the largest angular extent of the object in degrees.
+
     "Scale name" is the name of the scale, for example "Ott 1994".
+
     "fluxscale" is a repeat of "Scale name".
+
     "coefs" are the cofficients that define the spectral energy distribution of the object.
     The order and the meaning of the coefficients depends on the function defined by "method".
+
     "nu_min" is the minimum frequency, in GHz, where the coeffcients are valid.
+
     "nu_max" is the maximum frequency, in GHz, where the coeffcients are valid.
+
     "method" is the method used to compute the spectral energy distribution given the list of
     coefficients provided for each object. The method should be defined in this file, calibrators.py.
 
     Parameters
     ----------
-    calibrator_table_file : Path
+    calibrator_table_file : `~pathlib.Path` or `str` or `None`
         Path to the json table with calibrator information.
         The contents of the file are defined above.
+        If `None`, it will use dysh/data/calibrators.json
 
     """
 
-    def __init__(self, calibrator_table_file: Path | None = None):
+    def __init__(self, calibrator_table_file: Path | str | None = None):
         if calibrator_table_file is None:
             self.calibrator_table_file = get_project_data() / "calibrators.json"
         else:
-            self.calibrator_table_file = calibrator_table_file
+            self.calibrator_table_file = Path(calibrator_table_file)
         self.load()
         self._make_aliases()
 
