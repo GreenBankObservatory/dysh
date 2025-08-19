@@ -1,9 +1,14 @@
 #!/bin/bash
+#
+#   takes ~10 mins on lma,   ~7 mins on peter's laptop
+#
+#   Don't forget:     sync;sync;sync; echo 1 | sudo tee /proc/sys/vm/drop_caches
 
 # Script to run various benchmarks
 export OMP_NUM_THREADS=1
 
-export DYSH_DATA="/lma1/teuben/GBT/dysh_data"
+#   meant to run on "lma", you need to set DYSH_DATA in your shell
+#export DYSH_DATA="/lma1/teuben/GBT/dysh_data"
 #export DYSH_DATA="/bigdisk/data/gbt/dysh_data"
 
 dd=("multismallsmall" "multismallbig" "multihugesmall" "multibighuge")
@@ -24,26 +29,43 @@ do
     j=${nfile[$i]}
     #do
         ../bench_gbtfitsload.py -d -l 4 -n $j    -k ${dd[$i]} --statslines 50 -m -p  > $opr
-        ../bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]} --statslines 50 -m -p   > $oprs
+        ../bench_gbtfitsload.py -d -l 4 -n $j -s -k ${dd[$i]} --statslines 50 -m -p  > $oprs
         echo "done ${dd[$i]}"
     #done
 done
-exit 0
+#exit 0
 
 #####################
 # GETPS
 #####################
 echo "doing GETPS bench..."
 ../bench_getps.py -d -s -t --statslines 50 -m -p -x time > getps_bench_ta.profile.time
-../bench_getps.py -d -s -t --statslines 50 -m -p > getps_bench_ta.profile
-../bench_getps.py -d -s --statslines 50 -m -p -x time > getps_bench.profile.time
-../bench_getps.py -d -s --statslines 50 -m -p > getps_bench.profile
+../bench_getps.py -d -s -t --statslines 50 -m -p         > getps_bench_ta.profile
+../bench_getps.py -d -s    --statslines 50 -m -p -x time > getps_bench.profile.time
+../bench_getps.py -d -s    --statslines 50 -m -p         > getps_bench.profile
+../bench_getps.py -d -s -t -l 9 > getps_bench_ta.log
+../bench_getps.py -d -s    -l 9 > getps_bench.log
+
+#####################
+# SDMATH
+#####################
+echo "doing SDMATH bench..."
+../bench_sdmath.py -d --loop 10 --nchan 32768 --nscan 44   --mode 0    > sdmath_bench_0.log
+../bench_sdmath.py -d --loop 10 --nchan 32768 --nscan 440  --mode 0    > sdmath_bench_1.log
+../bench_sdmath.py -d --loop 10 --nchan 32768 --nscan 4400 --mode 0    > sdmath_bench_2.log
+../bench_sdmath.py -d --loop 10 --nchan 32768 --nscan 4400 --mode 0 -p > sdmath_bench.profile
 
 #####################
 # SCAN WRITE
 #####################
-echo "doing Scanblock write bench..."
-../bench_datawrite.py --writedata sb -l 10 --statslines 25 -m -p > sbwrite_bench.profile
+echo "doing SDF, SB, PS write bench..."
+../bench_datawrite.py --writedata sdf -l 10 --statslines 25       > sdfwrite_bench.log
+../bench_datawrite.py --writedata sb  -l 10 --statslines 25       > sbwrite_bench.log
+../bench_datawrite.py --writedata sp  -l 10 --statslines 25       > spwrite_bench.log
+
+../bench_datawrite.py --writedata sdf -l 10 --statslines 25 -m -p > sdfwrite_bench.profile
+../bench_datawrite.py --writedata sb  -l 10 --statslines 25 -m -p > sbwrite_bench.profile
+../bench_datawrite.py --writedata sp  -l 10 --statslines 25 -m -p > spwrite_bench.profile
 
 
 
