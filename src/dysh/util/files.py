@@ -103,58 +103,62 @@ valid_dysh_accept = {
 def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None, gui=False):
     r"""Resolves the filename within the dysh data system without the need
     for an absolute path by passing mnemonics to any of four entry
-    points (sdfits=, test=, example=, accept=).
+    points (`sdfits`, `!test`, `example`, `accept`).
 
     Currently configured to work at GBO. For other sites users need to
     configure a $DYSH_DATA directory, properly populated with
     (symlinks to) directories as described below. Optionally, an
-    explicit dysh_data= can be given, which overrides any possible
+    explicit `dysh_data` can be given, which overrides any possible
     $DYSH_DATA environment (or configuration) that may exist.
 
-    Only one of the keywords sdfits=, test=, example=, accept= can be
+    Only one of the keywords `sdfits`, `!test`, `example`, `accept` can be
     given to probe for data.
 
-    As an exception, if the first argument (sdfits=) has an absolute
+    As an exception, if the first argument (`sdfits`) has an absolute
     filename, it is passed unchecked.
 
     gui mode is experimental and may disappear or re-implemented at a
     later stage.
 
 
-    Locations of various dysh_data directory roots:  ($DYSH is the repo root for developers)
-    -----------------------------------------------
+    The locations of various dysh_data directory roots are presented in the following
+    Table, where $DYSH is the repo root for developers (this can be found using
+    `dysh.util.get_project_root`).
+
+    ========      =============================        =============================
     keyword       location at GBO                      $DYSH_DATA root
-    -------       ---------------                      ---------------
+    ========      =============================        =============================
     sdfits=       /home/sdfits                         $DYSH_DATA/sdfits
     test=         $DYSH/testdata                       $DYSH_DATA/testdata
     example=      /home/dysh/example_data              $DYSH_DATA/example_data
     accept=       /home/dysh/acceptance_testing        $DYSH_DATA/acceptance_testing
+    ========      =============================        =============================
 
-    Note: test= resolves to the same filename as the util.get_project_testdata() function
-          but it otherwise only available for developers.
+    `!test` resolves to the same filename as the `util.get_project_testdata()` function
+    but it is otherwise only available for developers (the testdata directory is not available
+    if you `pip install dysh`).
 
-    If present, the $SDFITS_DATA directory is honored instead of the default for sdfits=
+    If present, the $SDFITS_DATA directory is honored instead of the default for `sdfits`
     and overrides the $DYSH_DATA directory.
 
-
-
-    Examples of use including mnemonics or full paths:
-    --------------------------------------------------
+    Examples
+    --------
 
     Using mnemonics
 
-    fn = dysh_data(test='getps')
-    fn = dysh_data(example='getfs')
+    >>> fn = dysh_data(test='getps')
+    >>> fn = dysh_data(example='getfs')
 
     Using full paths
 
-    fn = dysh_data(example='onoff-L/data/TGBT21A_501_11.raw.vegas')
+    >>> fn = dysh_data(example='onoff-L/data/TGBT21A_501_11.raw.vegas')
 
     Using a project id
 
-    fn = dysh_data('AGBT21B_024_54')         ->  /home/sdfits/AGBT21B_024_54
-                                        or:  ->  ${DYSH_DATA}/sdfits/AGBT21B_024_54 with $DYSH_DATA
+    >>> fn = dysh_data('AGBT21B_024_54')
 
+    This will return `/home/sdfits/AGBT21B_024_54` at GBO, or `${DYSH_DATA}/sdfits/AGBT21B_024_54`
+    if the $DYSH_DATA environment variable is set.
 
     Notes
     -----
