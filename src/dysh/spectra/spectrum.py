@@ -20,7 +20,7 @@ from astropy.time import Time
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
-from specutils import Spectrum1D
+from specutils import Spectrum as Spectrum1D
 
 from dysh.spectra import core
 
@@ -70,11 +70,11 @@ IGNORE_ON_COPY = [
 class Spectrum(Spectrum1D, HistoricalBase):
     """
     This class contains a spectrum and its attributes. It is built on
-    `~specutils.Spectrum1D` with added attributes like baseline model.
-    Note that `~specutils.Spectrum1D` can contain multiple spectra but
+    `~specutils.Spectrum` with added attributes like baseline model.
+    Note that `~specutils.Spectrum` can contain multiple spectra but
     we probably will not use that because the restriction that it can
     have only one spectral axis conflicts with slight Doppler shifts.
-    See `~specutils.Spectrum1D` for the instantiation arguments.
+    See `~specutils.Spectrum` for the instantiation arguments.
     """
 
     @log_call_to_history
@@ -949,7 +949,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         Perform deep copy operations on each attribute of the ``Spectrum``
         object.
-        This overrides the ``specutils.Spectrum1D`` method so that
+        This overrides the ``specutils.Spectrum`` method so that
         target and observer attributes get copied.
         """
         alt_kwargs = dict(
@@ -1113,7 +1113,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Parameters
         ----------
         data :  `~numpy.ndarray`
-            The data array. See `~specutils.Spectrum1D`
+            The data array. See `~specutils.Spectrum`
         meta : dict
             The metadata, typically derived from an SDFITS header.
             Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
@@ -1249,7 +1249,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 observer=obsitrs,
                 target=target,
             )
-        # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
+        # For some reason, Spectrum.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
         if observer_location is None and observer is None:

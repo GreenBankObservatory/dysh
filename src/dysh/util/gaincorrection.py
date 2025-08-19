@@ -323,23 +323,27 @@ class GBTGainCorrection(BaseGainCorrection):
         Compute the aperture efficiency, as a float between zero and 1. The aperture
         efficiency :math:`\eta_a`, is determined by:
 
-                :math:`\eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon_0/\lambda)^2)`
+        .. math::
+
+            \eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon/\lambda)^2)
 
         where :math:`\eta_0` is the long wavelength aperture efficiency, :math:`G(ZD)` is the gain correction factor
-        at a zenith distance :math:`ZD, \epsilon_0` is the surface error, and :math:`\lambda` is the wavelength.
+        at a zenith distance :math:`ZD` (`zd`), :math:`\epsilon` (`eps0`) is the surface error, and :math:`\lambda` is the wavelength.
 
         **Rules for input of multiple dates, spectral values, and angles**
 
         For a single date:
-        - If one spectral value and multiple angles, then the aperture efficiency at each angle is returned.
-        - If multiple spectral values and one angle, then the aperture efficiency at each spectral value is returned
-        - If multiple spectral values and multiple angles, then it is assumed they are to be paired
-          and the aperture efficiency at each pair will be returned.  Therefore the lengths must be equal.
+
+            - If one spectral value and multiple angles, then the aperture efficiency at each angle is returned.
+            - If multiple spectral values and one angle, then the aperture efficiency at each spectral value is returned
+            - If multiple spectral values and multiple angles, then it is assumed they are to be paired
+              and the aperture efficiency at each pair will be returned.  Therefore the lengths must be equal.
 
         For mutiple dates:
-        - For one spectral value and one angle, the aperture efficiency at each date is returned.
-        - For multiple spectral values and multiple angles, it is assumed they go together, so the lengths must match
-          the number of dates. The aperture efficiency for each (spectral value, angle, date) tuple will be returned.
+
+            - For one spectral value and one angle, the aperture efficiency at each date is returned.
+            - For multiple spectral values and multiple angles, it is assumed they go together, so the lengths must match
+              the number of dates. The aperture efficiency for each (spectral value, angle, date) tuple will be returned.
 
         Parameters
         ----------
@@ -356,7 +360,7 @@ class GBTGainCorrection(BaseGainCorrection):
             True if the input value is zenith distance, False if it is elevation. Default: False
 
         eps0 : `~astropy.units.quantity.Quantity` or None
-            The value of :math:`\epsilon_0` to use, the surface rms error. If given, must have units of length (typically microns).
+            The value of :math:`\epsilon` to use, the surface rms error. If given, must have units of length (typically microns).
             If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
 
         Returns
@@ -416,9 +420,10 @@ class GBTGainCorrection(BaseGainCorrection):
 
         bunit : str
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'  : Antenna Temperature
-                    - 'ta*' : Antenna temperature corrected to above the atmosphere
-                    - 'jy'  : flux density in Jansky
+                - 'ta'  : Antenna Temperature
+                - 'ta*' : Antenna temperature corrected to above the atmosphere
+                - 'jy'  : flux density in Jansky
+
             If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
 
         specval : `~astropy.units.quantity.Quantity`
@@ -534,7 +539,7 @@ class GBTGainCorrection(BaseGainCorrection):
             polynomial coefficients to fit opacity as a function of frequency for each MJD.
         use_script : bool
             If at GBO, use the `getForecastValues` script to determine the opacity. This argument is
-            ignore if the user is not on the GBO network.
+            ignored if the user is not on the GBO network.
 
         Returns
         -------

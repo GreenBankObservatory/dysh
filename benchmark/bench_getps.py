@@ -49,6 +49,14 @@ if __name__ == "__main__":
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
     sk = str(args.skipflags)
+    dt.tag("init", [sk])
+
+    if False:
+        # lazy loading. By adding this section, first getps w/ timeaver loop is as fast as next ones
+        from dysh.spectra.spectrum import Spectrum
+
+        s = Spectrum.fake_spectrum()
+        dt.tag("fake", [sk])
 
     # reading dataset-1
 
