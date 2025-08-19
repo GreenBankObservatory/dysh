@@ -68,7 +68,7 @@ if __name__ == "__main__":
     do_L = True  # hardcoded for now
     if do_L:
         # NGC6946 in L-band
-        f1 = dysh_data(example="mapping-L/data/TGBT17A_506_11.raw.vegas")
+        f1 = dysh_data(example="otf1")  # mapping-L/data/TGBT17A_506_11.raw.vegas
         scans = list(range(14, 28))
     else:
         # NGC5954 double galaxy in EDGE survey
