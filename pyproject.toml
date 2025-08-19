@@ -30,9 +30,9 @@ dependencies = [
   "pandas",
   "rich",
   "scipy",
-  "specutils>1.16",
+  "specutils>=2",
   "tenacity",
- ]
+]
 
 [project.optional-dependencies]
 nb = [
