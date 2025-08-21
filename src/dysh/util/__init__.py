@@ -5,7 +5,6 @@ isort:skip_file
 
 __all__ = ["core", "selection", "download", "gaincorrection", "timers", "weatherforecast"]
 from .core import *  # this needs to be first to avoid circular imports
-from .docstring_manip import docstring_parameter
-from astroquery.utils import prepend_docstring_nosections
+from .docstring_manip import docstring_parameter, append_docstr_nosections
 from dysh.util.selection import Flag  # noqa:F401
 from dysh.util.selection import Selection  # noqa:F401
