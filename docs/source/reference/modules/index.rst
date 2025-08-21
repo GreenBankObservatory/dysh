@@ -91,4 +91,5 @@ Modules and APIs
    dysh.plot
    dysh.coordinates
    dysh.util
+   dysh.line
    dysh.log
