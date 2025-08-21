@@ -301,7 +301,7 @@ def get_size(obj, seen=None):
     return size
 
 
-def minimum_string_match(s, valid_strings):
+def minimum_string_match(s, valid_strings, casefold=False):
     """
     return the valid string from a list, given a minimum string input
 
@@ -323,9 +323,14 @@ def minimum_string_match(s, valid_strings):
 
     """
     n = len(valid_strings)
+    if casefold:
+        vsfold = [a.casefold() for a in valid_strings]
+        s = s.casefold()
+    else:
+        vsfold = valid_strings
     m = []
     for i in range(n):
-        if valid_strings[i].find(s) == 0:
+        if vsfold[i].find(s) == 0:
             m.append(i)
     if len(m) == 1:
         return valid_strings[m[0]]

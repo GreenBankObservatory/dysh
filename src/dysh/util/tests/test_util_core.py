@@ -27,11 +27,13 @@ class TestUtil:
         assert du.minimum_string_match("g", s) == None  # noqa: E711
         assert du.minimum_string_match("ga", s) == "gamma"
         assert du.minimum_string_match("am", s) == None  # noqa: E711
+        assert du.minimum_string_match("BEt", s, casefold=True) == "beta"
+        assert du.minimum_string_match("gem", s, casefold=True) == "gemma"
+        assert du.minimum_string_match("gem", list(map(str.upper, s)), casefold=True) == "GEMMA"
 
     def test_powerof2(self):
         """Test powerof2 function"""
         inout = {2**0: 0, 2**15: 15, 2**15.49: 15, 2**15.5: 16}
-
         for k, v in inout.items():
             assert du.powerof2(k) == v
 
