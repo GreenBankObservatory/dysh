@@ -73,6 +73,19 @@ Modules and APIs
         :shadow: md
         :margin: 2 2 0 0
 
+        **line**
+
+        .. button-link:: dysh.line.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Go to dysh.line
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
         **log**
 
         .. button-link:: dysh.log.html
