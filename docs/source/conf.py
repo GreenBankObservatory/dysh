@@ -131,7 +131,7 @@ html_theme_options = {
     # "show_toc_level": 2,
     "use_source_button": True,
     "use_issues_button": True,
-    "use_download_button": True,
+    "use_download_button": False,
     "use_sidenotes": True,
     "show_toc_level": 2,
     "icon_links": [
