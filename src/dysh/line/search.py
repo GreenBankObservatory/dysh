@@ -299,6 +299,13 @@ class SpectralLineSearchClass:
         for line in ["H", "He", "C"]:
             for k, v in unicode_map.items():
                 self._recomb_dict[f"{line}{k}"] = f"{line}{v}"
+        self._altrecomb = {
+            "H": "Hydrogen",
+            "C": "Carbon",
+            "hydrogen": "Hydrogen",
+            "carbon": "Carbon",
+            "helium": "Helium",
+        }
 
     def recomb(
         self,
@@ -320,7 +327,7 @@ class SpectralLineSearchClass:
         max_frequency : `~astropy.units.quantity.Quantity`
             The maximum frequency to search
         line : str
-            A string describing the line or series to search for, e.g. "H", "Halpha", "Hebeta", "C"
+            A string describing the line or series to search for, e.g. "Hydrogen", "Halpha", "Hebeta", "C", "carbon"
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
@@ -334,9 +341,12 @@ class SpectralLineSearchClass:
             An astropy table containing the results of the search
 
         """
-        for k in self._recomb_dict:
-            if k in line:
-                line = line.replace(k, self._recomb_dict(k))
+        if line in self._altrecomb:
+            line = self._altrecomb[line]
+        else:
+            for k in self._recomb_dict:
+                if k in line:
+                    line = line.replace(k, self._recomb_dict[k])
 
         return self.query_lines(
             min_frequency,
