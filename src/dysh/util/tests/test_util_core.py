@@ -31,6 +31,9 @@ class TestUtil:
         assert du.minimum_string_match("gem", s, casefold=True) == "gemma"
         assert du.minimum_string_match("gem", list(map(str.upper, s)), casefold=True) == "GEMMA"
 
+        assert du.minimum_list_match(["b", "al"], s, casefold=False) == ["beta", "alpha"]
+        assert du.minimum_list_match(["bE", "ALP"], s, casefold=True) == ["beta", "alpha"]
+
     def test_powerof2(self):
         """Test powerof2 function"""
         inout = {2**0: 0, 2**15: 15, 2**15.49: 15, 2**15.5: 16}
