@@ -314,7 +314,8 @@ def minimum_string_match(s, valid_strings, casefold=False):
         string to use for minimum match
     valid_strings : list of strings
         list of full strings to min match on
-
+    casefold: bool
+        If True, do a case insensitive match
     Returns
     -------
     string
@@ -335,6 +336,36 @@ def minimum_string_match(s, valid_strings, casefold=False):
     if len(m) == 1:
         return valid_strings[m[0]]
     return None
+
+
+def minimum_list_match(strings, valid_strings, casefold=False):
+    """
+    Return the list of valid strings given a list of minimum string inputs.
+
+    Parameters
+    ----------
+    strings : str or list of str
+        The strings to compare for minimum match
+    valid_strings : list of str
+        list of full strings to min match on.
+    casefold: bool
+        If True, do a case insensitive match
+
+    Returns
+    -------
+    list
+        List of all minimum matches or None if no matches found
+
+    """
+    valid = []
+    for s in list(strings):  # if user passes in a string instead of a list, it should act like minimum_string_match
+        p = minimum_string_match(s, valid_strings, casefold)
+        if p is not None:
+            valid.append(p)
+    if len(valid) == 0:
+        return None
+    else:
+        return valid
 
 
 def uniq(seq):
