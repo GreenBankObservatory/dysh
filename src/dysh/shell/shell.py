@@ -32,7 +32,7 @@ BANNER = f"""-------------------------------------------------------------------
 """
 
 DEFAULT_PROFILE = "dysh"
-DEFAULT_COLORS = "LightBG"
+DEFAULT_COLORS = "Linux"
 
 
 def parse_args():
