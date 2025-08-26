@@ -59,7 +59,8 @@ _default_columns_to_return = [
 
 _allowable_remote_cats = ["splatalogue"]
 _allowable_local_cats = [
-    "gbtlines",
+    "gbtlines",  # note gbtlines does not include recombination lines
+    "gbtrecomb",
     # we don't have any of the below until splatalogue is fixed or Tony R. provides.
     "top20",
     "planetaryatmosphere",
@@ -105,6 +106,18 @@ class SpectralLineSearchClass:
         else:
             raise ValueError(f"Unrecognized catalog {cat}. Valid catalogs are {_all_cats} or a valid path name.")
 
+    def _patch_line_lists(self, line_lists: list) -> list:
+        # This is to fix an inconsistency in splatalogue data.
+        # Although the keyword to trigger recombination line search is 'Recombination', the
+        # returned value in the Table is 'Recomb'.  So you can't search the database and the
+        # result table with the same keyword! Ugh!
+        # We are guaranteed by minimum_list_match that line_lists will contain the full word
+        # if it refers to recombination.
+        lowerlist = list(map(str.lower, line_lists))
+        if "recombination" in lowerlist:
+            lowerlist[lowerlist.index("recombination")] = "Recomb"
+        return lowerlist
+
     # order of these decorators matters!
     @append_docstr_nosections(__splatdoc__, sections=[])
     @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
@@ -120,6 +133,7 @@ class SpectralLineSearchClass:
         asynchronous: bool = False,
         cache: bool = True,
         format: str = "ascii.ecsv",
+        only_NRAO_recommended=True,
         **kwargs,
     ) -> Table:  # @todo should we return pandas DataFrame instead?
         """Query the locally or remotely for lines and return a table object. The query returns lines
@@ -139,7 +153,10 @@ class SpectralLineSearchClass:
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter.
 
-        columns: str or list
+                - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
+
+                - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+            columns: str or list
             The query result columns to include in the returned table.  Any of {1}. The default is all columns.
         cache: bool
             For a local file query, make an in-memory copy of the input catalog to be used in subsequent queries to this catalog.
@@ -149,7 +166,8 @@ class SpectralLineSearchClass:
             The astropy IO format string for a local input table.  Default is ECSV format.
         """
         mc = self._process_cat(cat)
-
+        # we are overlaying this kwarg with a parameter to expose that we are changing the default.
+        kwargs.update({"only_NRAO_recommended": only_NRAO_recommended})
         # user-friendly keywords
         if "line_lists" in kwargs:
             kwargs["line_lists"] = minimum_list_match(kwargs["line_lists"], Splatalogue.ALL_LINE_LISTS, casefold=True)
@@ -163,7 +181,13 @@ class SpectralLineSearchClass:
             )
         if mc == "splatalogue":
             if asynchronous:
-                table = Splatalogue._parse_result(Splatalogue.query_lines_async(min_frequency, max_frequency, **kwargs))
+                table = Splatalogue._parse_result(
+                    Splatalogue.query_lines_async(
+                        min_frequency,
+                        max_frequency,
+                        **kwargs,
+                    )
+                )
             else:
                 table = Splatalogue.query_lines(min_frequency, max_frequency, **kwargs)
         else:
@@ -199,7 +223,9 @@ class SpectralLineSearchClass:
         """Query a local file for lines and return a table object. The query returns lines
         with rest frequencies in the range [`min_frequency`,`max_frequency`].
 
-        **Note:** If the search parameters result no matches, a zero-length Table will be returned.
+        **Note:**
+         - If the search parameters result no matches, a zero-length Table will be returned.
+         - Many of the keywords are only supported if `cat='splatalogue'` because local tables do not have all the columns that the Splatalogue database has.
 
         Parameters
         ----------
@@ -246,7 +272,7 @@ class SpectralLineSearchClass:
             Options:
             Lovas, SLAIM, JPL, CDMS, ToyaMA, OSU, Recombination, RFI
         cache: bool
-            Make an in-memory copy of the input catalog to be used in subsequent queries to this catalog.
+            Make an in-memory copy of the input table to be used in subsequent queries to this catalog.
         format: str
             The astropy IO format string for the input table.  Default is ECSV format.
         """
@@ -299,8 +325,9 @@ class SpectralLineSearchClass:
             df = df[(df[k] >= energy_min & df[k] <= energy_max)]
         # line lists
         if line_lists is not None:
-            if line_lists := minimum_list_match(line_lists, Splatalogue.ALL_LINE_LISTS, casefold=True) is None:
+            if (line_lists := minimum_list_match(line_lists, Splatalogue.ALL_LINE_LISTS, casefold=True)) is None:
                 raise ValueError(f"list_lists must be one or more of {Splatalogue.ALL_LINE_LISTS} (case insensitive).")
+            line_lists = self._patch_line_lists(line_lists)
             df = df[df["linelist"].isin(line_lists)]
         # line strengths
         if intensity_lower_limit is not None:
@@ -310,8 +337,7 @@ class SpectralLineSearchClass:
                 )
             elif (
                 intensity_type := minimum_string_match(intensity_type, Splatalogue.VALID_INTENSITY_TYPES, casefold=True)
-                is None
-            ):
+            ) is None:
                 raise ValueError(
                     f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
                 )
@@ -409,10 +435,11 @@ class SpectralLineSearchClass:
         self,
         min_frequency: Quantity,
         max_frequency: Quantity,
-        line: str,
+        line: str,  # @todo let this be a list? simillar to 'recomball"
         # cat: Literal[*_all_cats] | Path = "splatalogue",  # allowed in Python 3.11+
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
         convert_to_unicode: bool = True,
+        only_NRAO_recommended: bool = True,
         **kwargs,
     ) -> Table:
         """
@@ -432,6 +459,10 @@ class SpectralLineSearchClass:
         convert_to_unicode : bool, optional
             Splatalogue stores line names using the unicode characters for Greek symbols, e.g. `\u03b1` for 'alpha'.  dysh will convert for you, if you put in e.g., 'Halpha'.
             You should only change this if a) you are inputing unicode or b) you are searching a local file that you know doesn't use unicode. The default is True.
+        only_NRAO_recommended : bool
+            Return only NRAO recommended frequency.  Default: True
+        \\*\\*kwargs : dict
+            Other keyword arguments supported by :meth:`query_lines` if `cat` is 'splatalogue'.
 
         Returns
         -------
@@ -441,18 +472,57 @@ class SpectralLineSearchClass:
         """
         if line in self._altrecomb:
             line = self._altrecomb[line]
-        else:
+        elif line is not None:
             for k in self._recomb_dict:
                 if k in line:
                     line = line.replace(k, self._recomb_dict[k])
-
         return self.query_lines(
             min_frequency,
             max_frequency,
             chemical_name=line,
             cat=cat,
-            line_lists=["Recombination"],
+            line_lists=["Recomb"],
+            only_NRAO_recommended=only_NRAO_recommended,
             **kwargs,
+        )
+
+    def recomball(
+        self,
+        min_frequency: Quantity,
+        max_frequency: Quantity,
+        cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
+        cache: bool = False,
+        only_NRAO_recommended: bool = True,
+    ) -> Table:
+        """
+        Fetch all recombination lines of H, He, C in the given frequency range from the catalog.
+
+        Parameters
+        ----------
+        min_frequency : `~astropy.units.quantity.Quantity`
+            The minimum frequency to search
+        max_frequency : `~astropy.units.quantity.Quantity`
+            The maximum frequency to search
+        cat : str or Path
+            The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
+            must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
+        cache: bool
+            For a local file query, make an in-memory copy of the input table to be used in subsequent queries to this catalog.
+        only_NRAO_recommended : bool
+            Return only NRAO recommended frequency.  Default: True
+        Returns
+        -------
+        Table
+            An astropy table containing the results of the search.
+
+        """
+        return self.recomb(
+            min_frequency=min_frequency,
+            max_frequency=max_frequency,
+            cat=cat,
+            line=None,
+            cache=cache,
+            only_NRAO_recommended=only_NRAO_recommended,
         )
 
 
