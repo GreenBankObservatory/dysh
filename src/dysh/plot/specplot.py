@@ -87,6 +87,7 @@ class SpectrumPlot(PlotBase):
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
+        self._oshows = []
 
     # def __call__ (see pyspeckit)
 
@@ -191,6 +192,7 @@ class SpectrumPlot(PlotBase):
         if yunit is not None:
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
+
         lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
         self._line = lines[0]
 
@@ -199,15 +201,16 @@ class SpectrumPlot(PlotBase):
         else:
             self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
         self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
+
         if self._freezey:
             self._axis.autoscale(enable=False)
         else:
             self._axis.autoscale(axis="y", enable=True)
+
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
         if this_plot_kwargs["grid"]:
             self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
             self._axis.grid(visible=True, which="minor", axis="both", lw=lw / 2, color="k", alpha=0.22, linestyle="--")
-
         self._set_labels(**this_plot_kwargs)
         # self._axis.axhline(y=0,color='red',lw=2)
         if self._title is not None:
@@ -216,10 +219,10 @@ class SpectrumPlot(PlotBase):
         if show_header:
             self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
             self._set_header(s)
-
         if select:
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
+
 
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
@@ -305,7 +308,13 @@ class SpectrumPlot(PlotBase):
         self._freezex = False
         # This line (and the other in specplot.py) will have to be addressed when we
         # implement multiple IF windows in the same plot
-        self._axis.set_xlim(self._sa.min.value, self._sa.max.value)
+        mins = []
+        maxs = []
+        for line in self._axis.lines:
+            mins.append(line._x.min())
+            maxs.append(line._x.max())
+        #elf._axis.set_xlim(self._sa.min().value, self._sa.max().value)
+        self._axis.set_xlim((min(mins),max(maxs)))
 
     def freey(self):
         """Free the Y-axis if limits have been set. Autoscales the Y-axis according to your matplotlib configuration."""
@@ -319,7 +328,7 @@ class SpectrumPlot(PlotBase):
         self.freex()
         self.freey()
 
-    def clear_overlays(self, blines=True):
+    def clear_overlays(self, blines=True, oshows=True):
         """Clear Overlays from the plot.
 
         Parameters
@@ -327,11 +336,28 @@ class SpectrumPlot(PlotBase):
         blines : bool
             Remove only baseline models overlaid on the plot. Default: True
         """
-        # clear baseline models
-        if blines:
-            for b in self._axis.lines:
+        for b in self._axis.lines:
+            if blines:
                 if b.get_gid() == "baseline":
                     b.remove()
+            if oshows:
+                if b.get_gid() == "oshow":
+                    b.remove()
+
+    def oshow(self, oshow_spectrum, color=None, linestyle=None):
+        this_plot_kwargs = deepcopy(self._plot_kwargs)
+        sf = oshow_spectrum.flux.to(self._spectrum.unit)
+        sa = oshow_spectrum.velocity_axis_to(
+            unit=self._xunit,
+            toframe=this_plot_kwargs["vel_frame"],
+            doppler_convention = this_plot_kwargs["doppler_convention"]
+        )
+
+        lines = self._axis.plot(sa, sf, color=color, linestyle=linestyle, gid="oshow")
+
+        self.freexy()
+        self._oshows.append(lines[0])
+
 
 
 class InteractiveSpanSelector:
