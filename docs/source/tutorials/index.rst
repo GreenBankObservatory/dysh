@@ -143,4 +143,3 @@ Most useful when you want to get started reducing your data.
    examples/calseq
    examples/on_the_fly
    examples/selection
-   iplotter
