@@ -12,6 +12,7 @@ from ..util import (
     append_docstr_nosections,
     docstring_parameter,
     get_project_data,
+    minimum_list_match,
     minimum_string_match,
 )
 
@@ -58,6 +59,8 @@ _default_columns_to_return = [
 
 _allowable_remote_cats = ["splatalogue"]
 _allowable_local_cats = [
+    "gbtlines",
+    # we don't have any of the below until splatalogue is fixed or Tony R. provides.
     "top20",
     "planetaryatmosphere",
     "hotcores",
@@ -72,6 +75,8 @@ _all_cats = _allowable_remote_cats + _allowable_local_cats
 # Grab splatalogue keywords from its query method so we are always in sync with it.
 # Remove description and first two frequency parameters since we have our own.
 __splatdoc__ = Splatalogue.query_lines.__doc__
+
+
 i = __splatdoc__.index("chemical_name")
 __splatdoc__ = __splatdoc__.replace(__splatdoc__[0:i], "")
 
@@ -81,8 +86,26 @@ class SpectralLineSearchClass:
         self._tables = {}
         self._create_recomb_lines()
 
-    # order of these decorators matters!
+    def _process_cat(self, cat: str | Path) -> str:
+        """The input catalog can be a string or a Path.  If it is a string, first check
+        if is one of the special strings indicating a local dysh catalog. Otherwise check
+        that it is a valid path to a file.
 
+        Returns
+        -------
+            string to a valid path or a special strings
+        """
+        if isinstance(cat, Path):
+            return str(cat)
+        if (mc := minimum_string_match(cat.lower(), _all_cats)) is not None:
+            return mc
+        cp = Path(cat)
+        if cp.is_file():
+            return str(cp)
+        else:
+            raise ValueError(f"Unrecognized catalog {cat}. Valid catalogs are {_all_cats} or a valid path name.")
+
+    # order of these decorators matters!
     @append_docstr_nosections(__splatdoc__, sections=[])
     @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
     @u.quantity_input(min_frequency=u.GHz, equivalencies=u.spectral())
@@ -95,10 +118,14 @@ class SpectralLineSearchClass:
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
         columns: str | list = _default_columns_to_return,
         asynchronous: bool = False,
+        cache: bool = True,
+        format: str = "ascii.ecsv",
         **kwargs,
     ) -> Table:  # @todo should we return pandas DataFrame instead?
         """Query the locally or remotely for lines and return a table object. The query returns lines
         with rest frequencies in the range [`min_frequency`,`max_frequency`].
+
+        **Note:** If the search parameters result no matches, a zero-length Table will be returned.
 
         Parameters
         ----------
@@ -114,29 +141,26 @@ class SpectralLineSearchClass:
 
         columns: str or list
             The query result columns to include in the returned table.  Any of {1}. The default is all columns.
-
+        cache: bool
+            For a local file query, make an in-memory copy of the input catalog to be used in subsequent queries to this catalog.
         asynchronous: bool
             Use asynchronous query
-
-        cache: bool
-            Search the latest cache instead of doing a new remote query.
-            See https://astroquery.readthedocs.io/en/latest/index.html#caching
-
+        format: str
+            The astropy IO format string for a local input table.  Default is ECSV format.
         """
-        if isinstance(cat, Path):
-            mc = cat
-        else:
-            mc = minimum_string_match(cat.lower(), _all_cats)
-        if mc is None:
-            raise ValueError(f"Unrecognized catalog {cat}. Valid catalogs are {_all_cats}.")
+        mc = self._process_cat(cat)
+
         # user-friendly keywords
-        if False:
-            if "line_lists" in kwargs:
-                kwargs["line_lists"] = list(minimum_string_match(kwargs["line_lists"], Splatalogue.ALL_LINE_LISTS))
-            if "line_strengths" in kwargs:
-                kwargs["line_strengths"] = list(
-                    minimum_string_match(kwargs["line_strengths"], Splatalogue.VALID_LINE_STRENGTHS)
-                )
+        if "line_lists" in kwargs:
+            kwargs["line_lists"] = minimum_list_match(kwargs["line_lists"], Splatalogue.ALL_LINE_LISTS, casefold=True)
+        if "line_strengths" in kwargs:
+            kwargs["line_strengths"] = minimum_list_match(
+                kwargs["line_strengths"], Splatalogue.VALID_LINE_STRENGTHS, casefold=True
+            )
+        if "intensity_type" in kwargs:
+            kwargs["intensity_type"] = minimum_string_match(
+                kwargs["intensity_type"], Splatalogue.VALID_INTENSITY_TYPES, casefold=True
+            )
         if mc == "splatalogue":
             if asynchronous:
                 table = Splatalogue._parse_result(Splatalogue.query_lines_async(min_frequency, max_frequency, **kwargs))
@@ -144,20 +168,21 @@ class SpectralLineSearchClass:
                 table = Splatalogue.query_lines(min_frequency, max_frequency, **kwargs)
         else:
             # search a local table
-            return self.localquery(min_frequency, max_frequency, cat=mc, columns=columns, **kwargs)
+            return self.localquery(min_frequency, max_frequency, cat=mc, columns=columns, cache=cache, **kwargs)
 
-        if columns is not None:
+        if columns is not None and len(table) != 0:
             return table[columns]
         else:
             return table
 
+    @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
     @u.quantity_input(min_frequency=u.GHz, equivalencies=u.spectral())
     @u.quantity_input(max_frequency=u.GHz, equivalencies=u.spectral())
     def localquery(
         self,
         min_frequency: Quantity,
         max_frequency: Quantity,
-        cat: Literal[(x for x in _allowable_local_cats)] | Path = "top20",
+        cat: Literal[(x for x in _allowable_local_cats)] | Path = "gbtlines",
         columns: str | list = _default_columns_to_return,
         chemical_name: Optional[str] = None,
         chem_re_flags: int = 0,
@@ -167,42 +192,98 @@ class SpectralLineSearchClass:
         intensity_lower_limit=None,
         intensity_type: Literal[(x for x in Splatalogue.VALID_INTENSITY_TYPES)] | None = None,
         line_lists: Literal[(x for x in Splatalogue.ALL_LINE_LISTS)] | None = None,
-        line_strengths: Literal[(x for x in Splatalogue.VALID_LINE_STRENGTHS)] | None = None,
         cache: bool = False,
+        format: str = "ascii.ecsv",
         **kwargs,  # ignore the rest!
     ) -> Table:
-        if isinstance(cat, str) and cat not in _allowable_local_cats:
-            raise ValueError(f"Unrecognized catalog {cat}. Must be one of {_allowable_local_cats}")
-        if not isinstance(cat, Path):
-            _cat = get_project_data / (cat + ".tab.gz")
-        else:
-            _cat = cat
+        """Query a local file for lines and return a table object. The query returns lines
+        with rest frequencies in the range [`min_frequency`,`max_frequency`].
+
+        **Note:** If the search parameters result no matches, a zero-length Table will be returned.
+
+        Parameters
+        ----------
+        min_frequency : `~astropy.units.quantity.Quantity`
+            The minimum frequency to search (or any :meth:`u.spectral` equivalent)
+        max_frequency : `~astropy.units.quantity.Quantity`
+            The maximum frequency to search (or any :meth:`u.spectral` equivalent)
+        cat : str
+            The catalog to use.  One of: {0}  (minimum string match) or a valid local astropy-compatible table.  The local table
+            must have all the columns listed in the `columns` parameter.  The default is a GBT-specific line catalog, 'gbtlines'.
+        columns: str or list
+            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
+        chemical_name : str
+            Name of the chemical to search for. Treated as a regular
+            expression.  An empty set will match *any*
+            species. Examples:
+
+            ``'H2CO'`` - 13 species have H2CO somewhere in their formula.
+
+            ``'Formaldehyde'`` - There are 8 isotopologues of Formaldehyde
+                                 (e.g., H213CO).
+
+            ``'formaldehyde'`` - Thioformaldehyde,Cyanoformaldehyde.
+
+            ``'formaldehyde',chem_re_flags=re.I`` - Formaldehyde,thioformaldehyde,
+                                                    and Cyanoformaldehyde.
+
+            ``' H2CO '`` - Just 1 species, H2CO. The spaces prevent including
+                           others.
+        chem_re_flags : int
+            See the `~re` module
+        energy_min : `None` or float
+            Energy range to include.  See `energy_type`
+        energy_max : `None` or float
+            Energy range to include.  See `energy_type`
+        energy_type : ``'el_cm1'``, ``'eu_cm1'``, ``'eu_k'``, ``'el_k'``
+            Type of energy to restrict.  L/U for lower/upper state energy,
+            cm/K for *inverse* cm, i.e. wavenumber, or K for Kelvin
+        intensity_lower_limit : `None` or float
+            Lower limit on the intensity.  See `intensity_type`
+        intensity_type : `None`, ``'CDMS/JPL (log)'``, ``'Sij-mu2'``, ``'Aij (log)'``
+            The type of intensity on which to place a lower limit
+        line_lists : list
+            Options:
+            Lovas, SLAIM, JPL, CDMS, ToyaMA, OSU, Recombination, RFI
+        cache: bool
+            Make an in-memory copy of the input catalog to be used in subsequent queries to this catalog.
+        format: str
+            The astropy IO format string for the input table.  Default is ECSV format.
+        """
+        _cat = self._process_cat(cat)
+        if _cat in _allowable_local_cats:
+            _cat = str(get_project_data() / (_cat + ".csv.gz"))
+        # using the cache is about 10x faster for gbtlines
         if _cat in self._tables:
-            _table = self._tables[cat]
+            _table = self._tables[_cat]
         else:
-            _table = Table.read(_cat)
+            _table = Table.read(_cat, format=format)
         if cache:
-            self._cache_local_table(str(_cat), _table)
+            self._cache_local_table(_cat, _table)
         # now do the work of downselecting the table.
         # The easiest way to do this through pandas; using the Table interface
         # is too cumbersome.
-        species = self.get_species_ids(chemical_name)
-        splist = list(species.values())
+        if chemical_name is not None:
+            species = self.get_species_ids(species_regex=chemical_name)
+            if len(species) == 0:
+                raise ValueError(f"Unable to find species matching {chemical_name}")
+            # get species id returns string but 'species_id' column in tables returned by splatalogue is int!
+            splist = list(map(int, species.values()))
         df = _table.to_pandas()
 
         # Select the frequency range
         # fmt: off
         df = df[
             (
-                df["orderedfreq"] >= min_frequency.to("MHz").value &
-                df["orderedfreq"] <= max_frequency.to("MHz").value
+                (df["orderedfreq"] >= min_frequency.to("MHz").value) &
+                (df["orderedfreq"] <= max_frequency.to("MHz").value)
             )
         ]
         # fmt: on
 
         # chemical name and re_flags via species_id
-        df = df[df["species_id"].isin(splist)]
-
+        if chemical_name is not None:
+            df = df[df["species_id"].isin(splist)]
         # energies
         if energy_type == "el_cm1":
             k = "lower_state_energy"
@@ -216,12 +297,26 @@ class SpectralLineSearchClass:
         elif energy_type == "eu_k":
             k = "upper_state_energy_k"
             df = df[(df[k] >= energy_min & df[k] <= energy_max)]
-
         # line lists
-        df = df[df["linelist"].isin(list(line_lists))]
+        if line_lists is not None:
+            if line_lists := minimum_list_match(line_lists, Splatalogue.ALL_LINE_LISTS, casefold=True) is None:
+                raise ValueError(f"list_lists must be one or more of {Splatalogue.ALL_LINE_LISTS} (case insensitive).")
+            df = df[df["linelist"].isin(line_lists)]
         # line strengths
-        df = df[df["intensity_type"] >= intensity_lower_limit]
-
+        if intensity_lower_limit is not None:
+            if intensity_type is None:
+                raise ValueError(
+                    "If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                )
+            elif (
+                intensity_type := minimum_string_match(intensity_type, Splatalogue.VALID_INTENSITY_TYPES, casefold=True)
+                is None
+            ):
+                raise ValueError(
+                    f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                )
+            else:
+                df = df[df["intensity_type"] >= intensity_lower_limit]
         table = Table.from_pandas(df)
         # @todo Should we add units to the table?
         if columns is not None:
@@ -230,12 +325,12 @@ class SpectralLineSearchClass:
             return table
 
     @docstring_parameter(Splatalogue.get_species_ids.__doc__)
-    def get_species_ids(self, species_regex=None, *, reflags=0, recache=False):
+    def get_species_ids(self, species_regex, reflags=0, recache=False):
         """
         Convenience call-through to :meth:`~astroquery.splatalogue.SplatalogueClass.get_species_id`.
         {0}
         """
-        return Splatalogue.get_species_ids(species_regex, reflags, recache)
+        return Splatalogue.get_species_ids(species_regex, reflags=reflags, recache=recache)
 
     def clear_cache(self):
         """
@@ -282,7 +377,7 @@ class SpectralLineSearchClass:
 
     def _create_recomb_lines(self):
         """
-        make the recombination line ascii to unicode map
+        Make the recombination line ascii to unicode map.  Also add some convenient aliases for users.
         """
         # Splatalogue wants the unicode Greek characters in recombination lines.
         # Create a mapping to allow users to type in e.g. Halpha instead of H\u03B1 or Hα # noqa
@@ -299,9 +394,12 @@ class SpectralLineSearchClass:
         for line in ["H", "He", "C"]:
             for k, v in unicode_map.items():
                 self._recomb_dict[f"{line}{k}"] = f"{line}{v}"
+
+        # aliases since Splatalogue is picky about Case.
         self._altrecomb = {
             "H": "Hydrogen",
             "C": "Carbon",
+            # "He" already works
             "hydrogen": "Hydrogen",
             "carbon": "Carbon",
             "helium": "Helium",
