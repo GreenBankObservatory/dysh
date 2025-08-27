@@ -132,7 +132,7 @@ class SpectrumPlot(PlotBase):
             "test": False,
         }
 
-    def plot(self, show_header=True, select=True, **kwargs):
+    def plot(self, show_header=True, select=True, oshow=None, **kwargs):
         # @todo document kwargs here
         r"""
         Plot the spectrum.
@@ -222,6 +222,11 @@ class SpectrumPlot(PlotBase):
         if select:
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
+        if oshow is not None:
+            if type(oshow) != list:
+                raise Exception(f"oshow({oshow}): must be of type list")
+            for sp in oshow:
+                self.oshow(sp)
 
 
     def _compose_xlabel(self, **kwargs):
