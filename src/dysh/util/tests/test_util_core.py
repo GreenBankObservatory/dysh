@@ -33,6 +33,9 @@ class TestUtil:
 
         assert du.minimum_list_match(["b", "al"], s, casefold=False) == ["beta", "alpha"]
         assert du.minimum_list_match(["bE", "ALP"], s, casefold=True) == ["beta", "alpha"]
+        # ensure single string is treated correctly
+        assert du.minimum_list_match("bag", s, casefold=False) is None
+        assert du.minimum_list_match("be", s, casefold=False) == ["beta"]
 
     def test_powerof2(self):
         """Test powerof2 function"""
