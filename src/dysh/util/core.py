@@ -358,7 +358,11 @@ def minimum_list_match(strings, valid_strings, casefold=False):
 
     """
     valid = []
-    for s in list(strings):  # if user passes in a string instead of a list, it should act like minimum_string_match
+    # if user passes in a string instead of a list, it should act like minimum_string_match
+    # Note: strings=list(strings) is not the same as [strings]!
+    if isinstance(strings, str):
+        strings = [strings]
+    for s in strings:
         p = minimum_string_match(s, valid_strings, casefold)
         if p is not None:
             valid.append(p)
