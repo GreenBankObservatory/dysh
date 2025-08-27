@@ -34,8 +34,8 @@ from ..util import minimum_string_match
 # $DYSH/testdata      @ todo   normalize names with the example= cases
 # ~300 MB
 valid_dysh_test = {
-    "getps"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",                                  # NGC5291   old test1
-    "getps2"     : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415   one int, 540k
+    "getps"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",                                  # NGC5291   old test1     8x1x2x11x1
+    "getps2"     : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415   one int, 540k 2x1x1x1x1
     "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits", # W3OH
     "subbeamnod" : "TRCO_230413_Ka",
 
@@ -46,15 +46,15 @@ valid_dysh_test = {
 # @todo   see if we want the staff training datasets in here
 # ~410 GB
 valid_dysh_example = {
-    "getps0"     : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs",                             #  NGC5291  old test1
-    "getps"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits", #  NGC5291  old test1
+    "getps0"     : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs",                             #  NGC5291  old test1 8x1x2x11x1
+    "getps"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits", #  NGC5291  old test1 8x1x2x11x1
                    # Used in a lot of example notebooks:
                    #   example/dataIO
                    #   example/metadata_management
                    #   example/positionswitch
                    #   example/smoothing
                    #   example/velocity frames
-    "getps2"     : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415   - old getps
+    "getps2"     : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415   - old getps                # NGC2415  2x5x2x151x1
     "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",        #  NGC2415, NGC2782 etc. - total 15GB
                    #
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
