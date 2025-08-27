@@ -1,6 +1,6 @@
 import astropy.units as u
 
-from dysh.line.search import SpectralLineSearch
+from dysh.line import SpectralLineSearch
 
 
 class TestSearch:

@@ -361,7 +361,7 @@ class SpectralLineSearchClass:
     def clear_cache(self):
         """
         Clear the local caches. This will clear the Splatalogue cache and any local tables
-        that have been cached.Splatalogue.ALL_LINE_LISTS
+        that have been cached.
 
         See https://astroquery.readthedocs.io/en/stable/splatalogue/splatalogue.html#troubleshooting
 
@@ -397,7 +397,7 @@ class SpectralLineSearchClass:
         -------
         colname : list
             The list of column names present in the default returned table.
-            You can choose a subset of these when performing a :meth:`search`.
+            You can choose a subset of these when performing a search.
         """
         return _default_columns_to_return
 
@@ -438,6 +438,7 @@ class SpectralLineSearchClass:
         line: str,  # @todo let this be a list? simillar to 'recomball"
         # cat: Literal[*_all_cats] | Path = "splatalogue",  # allowed in Python 3.11+
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
+        columns: str | list = _default_columns_to_return,
         convert_to_unicode: bool = True,
         only_NRAO_recommended: bool = True,
         **kwargs,
@@ -456,11 +457,11 @@ class SpectralLineSearchClass:
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
+        columns: str or list
+            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
         convert_to_unicode : bool, optional
             Splatalogue stores line names using the unicode characters for Greek symbols, e.g. `\u03b1` for 'alpha'.  dysh will convert for you, if you put in e.g., 'Halpha'.
             You should only change this if a) you are inputing unicode or b) you are searching a local file that you know doesn't use unicode. The default is True.
-        only_NRAO_recommended : bool
-            Return only NRAO recommended frequency.  Default: True
         \\*\\*kwargs : dict
             Other keyword arguments supported by :meth:`query_lines` if `cat` is 'splatalogue'.
 
@@ -482,6 +483,7 @@ class SpectralLineSearchClass:
             chemical_name=line,
             cat=cat,
             line_lists=["Recomb"],
+            columns=columns,
             only_NRAO_recommended=only_NRAO_recommended,
             **kwargs,
         )
@@ -491,8 +493,10 @@ class SpectralLineSearchClass:
         min_frequency: Quantity,
         max_frequency: Quantity,
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
+        columns: str | list = _default_columns_to_return,
         cache: bool = False,
         only_NRAO_recommended: bool = True,
+        **kwargs,
     ) -> Table:
         """
         Fetch all recombination lines of H, He, C in the given frequency range from the catalog.
@@ -506,10 +510,12 @@ class SpectralLineSearchClass:
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
+        columns: str or list
+            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
         cache: bool
             For a local file query, make an in-memory copy of the input table to be used in subsequent queries to this catalog.
-        only_NRAO_recommended : bool
-            Return only NRAO recommended frequency.  Default: True
+        \\*\\*kwargs : dict
+            Other keyword arguments supported by :meth:`query_lines` if `cat` is 'splatalogue'.
         Returns
         -------
         Table
@@ -522,8 +528,7 @@ class SpectralLineSearchClass:
             cat=cat,
             line=None,
             cache=cache,
+            columns=columns,
             only_NRAO_recommended=only_NRAO_recommended,
+            **kwargs,
         )
-
-
-SpectralLineSearch = SpectralLineSearchClass()
