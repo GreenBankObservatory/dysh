@@ -87,12 +87,8 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = [".rst", ".md"]
-# source_suffix = {
-#    '.rst': 'restructuredtext',
-#    '.txt': 'markdown',
-#    '.md': 'markdown',
-# }
+# source_suffix = [".rst", ".md"]
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # The master toctree document.
 master_doc = "index"
@@ -135,7 +131,7 @@ html_theme_options = {
     # "show_toc_level": 2,
     "use_source_button": True,
     "use_issues_button": True,
-    "use_download_button": True,
+    "use_download_button": False,
     "use_sidenotes": True,
     "show_toc_level": 2,
     "icon_links": [

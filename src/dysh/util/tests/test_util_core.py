@@ -21,12 +21,13 @@ class TestUtil:
 
     def test_match(self):
         """Test minimum_string_match function"""
-        s = ["alpha", "beta", "gamma", "gemma"]
+        s = ["alpha", "beta", "gamma", "gemma", "beta2"]
         assert du.minimum_string_match("a", s) == "alpha"
         assert du.minimum_string_match("A", s) == None  # noqa: E711
-        assert du.minimum_string_match("g", s) == None  # noqa: E711
+        assert du.minimum_string_match("g", s) == "gamma"
         assert du.minimum_string_match("ga", s) == "gamma"
         assert du.minimum_string_match("am", s) == None  # noqa: E711
+        assert du.minimum_string_match("beta", s) == "beta"
         assert du.minimum_string_match("BEt", s, casefold=True) == "beta"
         assert du.minimum_string_match("gem", s, casefold=True) == "gemma"
         assert du.minimum_string_match("gem", list(map(str.upper, s)), casefold=True) == "GEMMA"

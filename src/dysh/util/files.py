@@ -15,41 +15,61 @@ import os
 from pathlib import Path
 
 import dysh.util as util
+from dysh.log import logger
 from dysh.util.download import from_url
 
 from ..util import minimum_string_match
 
-_debug = False
-# _debug = True
-
-# note the examples in https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/gbtidl.html
+# the GBTIDL examples from https://gbtdocs.readthedocs.io/en/latest/how-tos/data_reduction/gbtidl.html
+#         getps:        "data/ngc2415.fits"                NGC2415    example=getps2    (TGBT21A_501_11)
+#         getfs:        "data/TGBT22A_503_02.raw.vegas"    W3_1       test=    example=
+#         getsigref:    "data/TGBT22A_503_02.raw.vegas"    W3_1
+#         getps:        "data/AGBT17A_404_01.raw.vegas"    A123606    test=
+#
 # @todo   convert everything to use Path()
 #         Path() cannot be used on input.... input needs to be a string
 
 # fmt:off
 
-# $DYSH/testdata
+# $DYSH/testdata      @ todo   normalize names with the example= cases
+# ~300 MB
 valid_dysh_test = {
-    "test1"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",   # same as example='test1'
-    "getps"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",
-    "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits",
+    "getps"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",                                  # NGC5291   old test1
+    "getps2"     : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415   one int, 540k
+    "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits", # W3OH
+    "subbeamnod" : "TRCO_230413_Ka",
+
 }
 
 
 # http://www.gb.nrao.edu/dysh/example_data or /home/dysh/example_data or $DYSH_DATA/example_data
 # @todo   see if we want the staff training datasets in here
+# ~410 GB
 valid_dysh_example = {
-    "test1"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits",   # staff training PS      same as test='test1'
-    "getps"      : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",
-                   #    positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/"
-    "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",
+    "getps0"     : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs",                             #  NGC5291  old test1
+    "getps"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits", #  NGC5291  old test1
+                   # Used in a lot of example notebooks:
+                   #   example/dataIO
+                   #   example/metadata_management
+                   #   example/positionswitch
+                   #   example/smoothing
+                   #   example/velocity frames
+    "getps2"     : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415   - old getps
+    "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",        #  NGC2415, NGC2782 etc. - total 15GB
+                   #
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
-                   #    frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/"    # staff training FS
-    "subbeamnod" : "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
-                   #    subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/"   # staff training SBN
-    "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas",    # nodding example (scan 62,63)
-                   #              TGBT22A_503_02.raw.vegas      # FS example in data_reduction (scan 64)
-    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas",   # OTF L-band example NGC6946
+    "getfs2"     : "frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/",    #  W3OH    # staff training FS
+    "subbeamnod" : "subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/",   #  vIIzw31      example/subbeamnod    staff training SBN -- no signal?
+    "subbeamnod2": "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
+    "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)
+                   #              TGBT22A_503_02.raw.vegas          # FS example in data_reduction (scan 64)
+    "align"      : "mixed-fs-ps/data/TGBT24B_613_04.raw.vegas.trim.fits",  #   MESSIER32  example/align_spectra
+    "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",                     # tar.gz not yet supported?     A123606  example/flagging
+    "survey"     : "hi-survey/data/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.fits",   # example/hi-survey
+    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas/",      # OTF L-band NGC6946
+    "otf2"       : "AGBT21B_024_01",                                # OTF Argus  NGC0001 (EDGE)
+    "otf3"       : "AGBT21B_024_20",                                # OTF Argus  NGC5954 (EDGE)
+    "otf4"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas/",  # OTF Argus  DR21
 }
 
 
@@ -58,62 +78,90 @@ valid_dysh_example = {
 # AGBT05B_047_01  AGBT15B_244_07  AGBT18A_503_02  AGBT19A_473_41  TGBT18A_500_06
 # AGBT13A_240_03  AGBT16B_392_01  AGBT18B_014_02  AGBT19B_096_08  TGBT21A_501_10
 # AGBT14B_480_06  AGBT17B_004_14  AGBT18B_354_03  AGBT20B_336_01  TREG_050627
-# AGBT15B_228_08  AGBT17B_319_06  AGBT19A_080_01  AGBT22A_325_15  TSCAL_19Nov2015
+# AGBT1s5B_228_08  AGBT17B_319_06  AGBT19A_080_01  AGBT22A_325_15  TSCAL_19Nov2015
+# ~ 33 GB
 valid_dysh_accept = {
-    "nod1"       : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas",
-    "nod2"       : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated
-    "nod3"       : "AGBT15B_244_07/AGBT15B_244_07.raw.vegas",
-    "nod4"       : "TGBT18A_500_06/TGBT18A_500_06.raw.vegas",
-    "nod5"       : "TSCAL_19Nov2015/TSCAL_19Nov2015.raw.acs/TSCAL_19Nov2015.raw.acs.fits",   # deprecated
-    "nod6"       : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",
-    "nod7"       : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
-    "nod8"       : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
-    "nod9"       : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
+    "nod1"            : "AGBT22A_325_15/AGBT22A_325_15.raw.vegas",
+    "nod2"            : "TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",               # deprecated?   W3OH  example/frequencyswitch
+    "nod3"            : "AGBT15B_244_07/AGBT15B_244_07.raw.vegas",                                # M82 examples/calseq
+    "nod4"            : "TGBT18A_500_06/TGBT18A_500_06.raw.vegas",
+    "nod5"            : "TSCAL_19Nov2015/TSCAL_19Nov2015.raw.acs/TSCAL_19Nov2015.raw.acs.fits",   # deprecated
+    "nod6"            : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",
+    "nod7"            : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
+    "nod8"            : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
+    "nod9"            : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
     "multismallsmall" : "AGBT20B_336_01/AGBT20B_336_01.raw.vegas",  # multiple small FITS files (54M each), small flags files (7 lines)
-    "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5GM each), small flags files (6 lines)
-    "multismallbig" : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas", # multiple small FITS files (64M each), large flag files (20 lines)
-    "multibighuge"  : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines)
+    "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5G each), small flags files (6 lines)
+    "multismallbig"   : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas",  # multiple small FITS files (64M each), large flag files (20 lines)
+    "multibighuge"    : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines)
 
 }
 
 # fmt: on
 
 
-def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None, verbose=False):
-    r"""
-    Resolves the filename within the GBO dysh data system without the need for an absolute path.
+def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None, gui=False):
+    r"""Resolves the filename within the dysh data system without the need
+    for an absolute path by passing mnemonics to any of four entry
+    points (`sdfits`, `!test`, `example`, `accept`).
 
-    Currently configured to work at GBO, where for example /home/sdfits exists. For other sites users
-    need to configure a $DYSH_DATA directory, properly populated with (symlinks to) project and test data,
-    as described below. Optionally, an explicit dysh_data= can be given, which overrides any possible $DYSH_DATA
-    environment (or configuration) that may exist.
+    Currently configured to work at GBO. For other sites users need to
+    configure a $DYSH_DATA directory, properly populated with
+    (symlinks to) directories as described below. Optionally, an
+    explicit `dysh_data` can be given, which overrides any possible
+    $DYSH_DATA environment (or configuration) that may exist.
 
-    Only one of the keywords sdfits=, test=, example=, accept= can be given to probe for data. They are
-    processed in that order, whichever comes first.
+    Only one of the keywords `sdfits`, `!test`, `example`, `accept` can be
+    given to probe for data.
+
+    As an exception, if the first argument (`sdfits`) has an absolute
+    filename, it is passed unchecked.
+
+    gui mode is experimental and may disappear or re-implemented at a
+    later stage.
 
 
-    Locations of various dysh_data directory roots:  ($DYSH is the repo root for developers)
-    -----------------------------------------------
+    The locations of various dysh_data directory roots are presented in the following
+    Table, where $DYSH is the repo root for developers (this can be found using
+    `dysh.util.get_project_root`).
+
+    ========      =============================        =============================
     keyword       location at GBO                      $DYSH_DATA root
-    -------       ---------------                      ---------------
+    ========      =============================        =============================
     sdfits=       /home/sdfits                         $DYSH_DATA/sdfits
     test=         $DYSH/testdata                       $DYSH_DATA/testdata
     example=      /home/dysh/example_data              $DYSH_DATA/example_data
     accept=       /home/dysh/acceptance_testing        $DYSH_DATA/acceptance_testing
+    ========      =============================        =============================
 
-    Note: test= resolves to the same filename as the util.get_project_testdata() function
+    `!test` resolves to the same filename as the `util.get_project_testdata()` function
+    but it is otherwise only available for developers (the testdata directory is not available
+    if you `pip install dysh`).
 
+    If present, the $SDFITS_DATA directory is honored instead of the default for `sdfits`
+    and overrides the $DYSH_DATA directory.
 
-    Examples of use including mnemonics or full paths:
-    --------------------------------------------------
-    fn = dysh_data(test='getps')
-    fn = dysh_data(example='getfs')
-    fn = dysh_data(example='onoff-L/data/TGBT21A_501_11.raw.vegas')
-    fn = dysh_data('AGBT21B_024_54')         ->  /home/sdfits/AGBT21B_024_54
-                                        or:  -   /lma1/teuben/GBT-EDGE/rawdata/AGBT21B_024_54 with $DYSH_DATA
+    Examples
+    --------
 
+    Using mnemonics
 
-    Notes:
+    >>> fn = dysh_data(test='getps')
+    >>> fn = dysh_data(example='getfs')
+
+    Using full paths
+
+    >>> fn = dysh_data(example='onoff-L/data/TGBT21A_501_11.raw.vegas')
+
+    Using a project id
+
+    >>> fn = dysh_data('AGBT21B_024_54')
+
+    This will return `/home/sdfits/AGBT21B_024_54` at GBO, or `${DYSH_DATA}/sdfits/AGBT21B_024_54`
+    if the $DYSH_DATA environment variable is set.
+
+    Notes
+    -----
 
     1) if $DYSH_DATA exist (and this is a new proposal), it will prepend
        that to the argument of get_dysh_data() and check for existence
@@ -140,7 +188,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         dysh_data = Path(dysh_data)
 
     def sdfits_offline(fn):
-        """fn is an sdfits= filename that was shown to exist
+        """fn is an sdfits= file or directory that was shown to exist
         If fn contains only one name
         See also GBTOffline()
         """
@@ -164,6 +212,17 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
         return parents[0]
 
+    def use_gui(my_dir):
+        logger.debug(f"Using the GUI on {my_dir} is totally experimental.")
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        file_path = filedialog.askopenfilename(initialdir=my_dir)
+        # can currently only ask for files, use askdirectory() otherwise
+        return file_path
+
     # 1.  find out if there is a dysh_data (or use $DYSH_DATA, or a .dyshrc config?)
     #     - if present, API dysh_data is used
     #     - if present, $DYSH_DATA is used
@@ -175,19 +234,24 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     if dysh_data == None and "DYSH_DATA" in os.environ:  # noqa: E711
         dysh_data = Path(os.environ["DYSH_DATA"])
-    if verbose:
-        print("DYSH_DATA:", dysh_data)
+    logger.info(f"DYSH_DATA: {dysh_data}")
 
     # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present (in that order)
 
     # sdfits:   the main place where GBO data reside
 
-    if sdfits != None:  # noqa: E711
-        if sdfits == "?":
-            if dysh_data == None:  # noqa: E711
+    if sdfits is not None:
+        if sdfits == "!":
+            logger.warning("The GUI is experimental, it can only select a single fits file, no directories")
+            return use_gui(dysh_data)
+
+        if sdfits == "?" or sdfits == "*":
+            if "SDFITS_DATA" in os.environ:
+                dd = Path(os.environ["SDFITS_DATA"])
+            elif dysh_data == None:  # noqa: E711
                 dd = Path("/home/sdfits")
             else:
-                dd = dysh_data / "sdfits"
+                dd = Path(dysh_data) / "sdfits"
             # @todo figure out listing of file OS agnostic
             cmd = "ls %s" % dd
             print("# dysh_data::sdfits")
@@ -195,10 +259,13 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             print("# -----------------")
             os.system(cmd)
             return None
-        if dysh_data != None:  # noqa: E711
+        if dysh_data is not None:
             fn = dysh_data / Path("sdfits") / sdfits  # normally user is using a private sdfits
             if fn.exists():
                 return sdfits_offline(fn)
+        if "SDFITS_DATA" in os.environ:
+            fn = Path(os.environ["SDFITS_DATA"]) / sdfits
+            return sdfits_offline(fn)
         fn = Path("/home/sdfits/") / sdfits  # expected at GBO
         if fn.exists():
             return sdfits_offline(fn)
@@ -207,7 +274,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # test:   this should also be allowed to use util.get_project_testdata() as well
 
-    if test != None:  # noqa: E711
+    if test is not None:
         if test == "?":
             print("# dysh_data::test")
             print("# ---------------")
@@ -215,19 +282,18 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_test[k])
             return None
         my_test = minimum_string_match(test, list(valid_dysh_test.keys()))
-        if my_test != None:  # noqa: E711
+        if my_test is not None:
             my_test = valid_dysh_test[my_test]
         else:
             my_test = test
         #
-        if dysh_data != None:  # noqa: E711
+        if dysh_data is not None:
             fn = dysh_data / "testdata" / my_test
             if not fn.exists():
                 fn = util.get_project_testdata() / my_test
         else:
             fn = util.get_project_testdata() / my_test
-        if verbose:
-            print("final:", fn)
+        logger.debug(f"final: {fn}")
         if fn.exists():  # @todo this catches files and directories
             return fn
         print("Could not find", fn)
@@ -235,7 +301,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # example:  these can also obtain data via from_url (or perhaps astropy caching???)
 
-    if example != None:  # noqa: E711
+    if example is not None:
         if example == "?":
             print("# dysh_data::example")
             print("# ------------------")
@@ -243,32 +309,32 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_example[k])
             return None
         my_example = minimum_string_match(example, list(valid_dysh_example.keys()))
-        if my_example != None:  # noqa: E711
+        if my_example is not None:
             my_example = valid_dysh_example[my_example]
         else:
             my_example = example
-        if dysh_data != None:  # noqa: E711
+        if dysh_data is not None:
             fn = dysh_data / "example_data" / my_example
             if fn.exists():
                 return fn
             print("Odd-1, did not find", fn)
-        if dysh_data == None and os.path.exists(_example_data):  # noqa: E711
+        if dysh_data is None and os.path.exists(_example_data):
             fn = Path(_example_data) / my_example
             if fn.exists():
                 return fn
             print("Odd-2, did not find", fn)
         # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/example_data/" + my_example
-        if verbose:
-            print("url:", url)
+        logger.info(f"url: {url}")
         filename = url.split("/")[-1]
         if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")
             try:
                 filename = from_url(url)
                 print(f"\nRetrieved {filename}")
-            except:  # noqa: E722
+            except Exception as e:
                 print(f"\nFailing to retrieve example {filename} ")
+                print(e)
                 return None
         else:
             print(f"{filename} already downloaded")
@@ -276,7 +342,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     # accept:   acceptance_testing/data - from_url not recommended (does not work on multifile fits)
 
-    if accept != None:  # noqa: E711
+    if accept is not None:
         if accept == "?":
             print("# dysh_data::accept")
             print("# -----------------")
@@ -284,32 +350,32 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
                 print(k, valid_dysh_accept[k])
             return None
         my_accept = minimum_string_match(accept, list(valid_dysh_accept.keys()))
-        if my_accept != None:  # noqa: E711
+        if my_accept is not None:
             my_accept = valid_dysh_accept[my_accept]
         else:
             my_accept = accept
-        if dysh_data != None:  # noqa: E711
+        if dysh_data is not None:
             fn = dysh_data / "acceptance_testing/data" / my_accept
             if fn.exists():
                 return fn
             print("Odd-1, did not find", fn)
-        if dysh_data == None and os.path.exists(_accept_data):  # noqa: E711
+        if dysh_data is None and os.path.exists(_accept_data):
             fn = Path(_accept_data) / my_accept
             if fn.exists():
                 return fn
             print("Odd-2, did not find", fn)
         # last resort, try getting it via from_url, but it will then be a local file in the current directory
         url = _url + "/acceptance_testing/data/" + my_accept
-        if verbose:
-            print("url:", url)
+        logger.debug(f"url: {url}")
         filename = url.split("/")[-1]
         if not os.path.exists(filename):
             print(f"Downloading {filename} from {url}")
             try:
                 filename = from_url(url)
                 print(f"\nRetrieved {filename}")
-            except:  # noqa: E722
+            except Exception as e:
                 print(f"\nFailing to retrieve accept {filename}")
+                print(e)
                 return None
         else:
             print(f"{filename} already downloaded")
@@ -317,6 +383,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     print("You have not given one of:   sdfits=, test=, example=, accept=")
     print("or use =? as argument to get a list of valid shortcuts")
+    print(f"DYSH_DATA = {dysh_data}")
     return None
 
 
@@ -359,8 +426,7 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
             fname = filename
         if recursive:
             fname = "**/" + fname
-        if _debug:
-            print("# FNAME:", fname)
+        logger.debug("# FNAME:", fname)
 
         fn = glob.glob(fname, recursive=recursive)
 
@@ -426,8 +492,7 @@ def main_cli():
     p.add_argument("filename", nargs="+", help="Filename(s) to search for")
 
     args = p.parse_args()
-    if _debug:
-        print("#", args)
+    logger.debug("#", args)
 
     filename = args.filename
     maxfiles = args.maxfiles

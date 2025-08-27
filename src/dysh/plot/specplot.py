@@ -2,30 +2,25 @@
 Plot a spectrum using matplotlib
 """
 
-import datetime as dt
 from copy import deepcopy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
-from astropy.coordinates import SkyCoord
-from astropy.time import Time
 from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, SpanSelector
 
 from ..coordinates import (
-    Observatory,
-    crval4_to_pol,
     decode_veldef,
     frame_to_label,
-    ra2ha,
 )
+from . import PlotBase
 
 _KMS = u.km / u.s
 
 
-class SpectrumPlot:
+class SpectrumPlot(PlotBase):
     # @todo make xaxis_unit='chan[nel]' work
     r"""
     The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
@@ -83,14 +78,11 @@ class SpectrumPlot:
     # loc, legend, bbox_to_anchor
 
     def __init__(self, spectrum, **kwargs):
-        self.reset()
+        super().__init__()
         self._spectrum = spectrum
         self._sa = spectrum._spectral_axis
         self._set_xaxis_info()
         self._plot_kwargs.update(kwargs)
-        self._plt = plt
-        self._figure = None
-        self._axis = None
         self._title = self._plot_kwargs["title"]
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
@@ -106,19 +98,38 @@ class SpectrumPlot:
         self._plot_kwargs["yaxis_unit"] = self._spectrum.unit
 
     @property
-    def axis(self):
-        """The underlying :class:`~matplotlib.Axes` object"""
-        return self._axis
-
-    @property
-    def figure(self):
-        """The underlying :class:`~matplotlib.Figure` object"""
-        return self._figure
-
-    @property
     def spectrum(self):
         """The underlying `~spectra.spectrum.Spectrum`"""
         return self._spectrum
+
+    def reset(self):
+        """Reset the plot keyword arguments to their defaults."""
+        self._plot_kwargs = {
+            "xmin": None,
+            "xmax": None,
+            "ymin": None,
+            "ymax": None,
+            "xlabel": None,
+            "ylabel": None,
+            "xaxis_unit": None,
+            "yaxis_unit": None,
+            "grid": False,
+            "figsize": None,
+            #'capsize':3,
+            "linewidth": 2.0,
+            "linestyle": "steps-mid",
+            "markersize": 8,
+            "color": None,
+            "title": None,
+            #'axis':None,
+            #'label':None,
+            "aspect": "auto",
+            "bbox_to_anchor": None,
+            "loc": "best",
+            "legend": None,
+            "show_baseline": True,
+            "test": False,
+        }
 
     def plot(self, show_header=True, select=True, **kwargs):
         # @todo document kwargs here
@@ -134,9 +145,6 @@ class SpectrumPlot:
         **kwargs : various
             keyword=value arguments (need to describe these in a central place)
         """
-        self.__init__(self._spectrum, **kwargs)
-        self._plt.rcParams["font.family"] = "monospace"
-        # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
 
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:
@@ -213,46 +221,17 @@ class SpectrumPlot:
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
 
-    def reset(self):
-        """Reset the plot keyword arguments to their defaults."""
-        self._plot_kwargs = {
-            "xmin": None,
-            "xmax": None,
-            "ymin": None,
-            "ymax": None,
-            "xlabel": None,
-            "ylabel": None,
-            "xaxis_unit": None,
-            "yaxis_unit": None,
-            "grid": False,
-            "figsize": None,
-            #'capsize':3,
-            "linewidth": 2.0,
-            "linestyle": "steps-mid",
-            "markersize": 8,
-            "color": None,
-            "title": None,
-            #'axis':None,
-            #'label':None,
-            "aspect": "auto",
-            "bbox_to_anchor": None,
-            "loc": "best",
-            "legend": None,
-            "show_baseline": True,
-            "test": False,
-        }
-
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
         if xlabel is not None:
             return xlabel
         if kwargs["doppler_convention"] == "radio":
-            subscript = "_{rad}$"
+            subscript = "_{rad}"
         elif kwargs["doppler_convention"] == "optical":
-            subscript = "_{opt}$"
+            subscript = "_{opt}"
         elif kwargs["doppler_convention"] == "relativistic":
-            subscript = "_{rel}$"
+            subscript = "_{rel}"
         else:  # should never happen
             subscript = ""
         if kwargs.get("xaxis_unit", None) is not None:
@@ -260,15 +239,16 @@ class SpectrumPlot:
         else:
             xunit = self.spectrum.spectral_axis.unit
         if xunit.is_equivalent(u.Hz):
-            xname = r"$\nu" + subscript
+            xname = r"\nu"
         elif xunit.is_equivalent(_KMS):
-            xname = r"V$" + subscript
+            xname = r"V" + subscript
         elif xunit.is_equivalent(u.angstrom):
-            xname = r"$\lambda" + subscript
+            xname = r"\lambda"
         # Channel is handled in plot() with kwargs['xlabel']
         else:
             raise ValueError(f"Unrecognized spectral axis unit: {xunit}")
-        xlabel = f"{frame_to_label[kwargs['vel_frame']]} {xname} ({xunit})"
+        _xunit = xunit.to_string(format="latex_inline")
+        xlabel = f"{frame_to_label[kwargs['vel_frame']]} ${xname}$ ({_xunit})"
         return xlabel
 
     def _set_labels(self, **kwargs):
@@ -305,102 +285,6 @@ class SpectrumPlot:
             snu = r"$S_{\nu}$"
             self.axis.set_ylabel(f"{snu} ({yunit})")
 
-    def _set_header(self, s):
-        fsize_small = 9
-        fsize_large = 14
-        xyc = "figure fraction"
-
-        hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
-        vcoords = np.array([0.84, 0.8, 0.76])
-
-        def time_formatter(time_sec):
-            hh = int(time_sec // 3600)
-            mm = int((time_sec - 3600 * hh) // 60)
-            ss = np.around((time_sec - 3600 * hh - 60 * mm), 1)
-            return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
-
-        def coord_formatter(s):
-            sc = SkyCoord(
-                s.meta["CRVAL2"],
-                s.meta["CRVAL3"],
-                unit="deg",
-                frame=s.meta["RADESYS"].lower(),
-                obstime=Time(s.meta["DATE-OBS"]),
-                location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
-            )
-            out_str = sc.transform_to("fk5").to_string("hmsdms", sep=" ", precision=2)[:-1]
-            out_ra = out_str[:11]
-            out_dec = out_str[12:]
-            return out_ra, out_dec
-
-        # col 1
-        self._axis.annotate(f"Scan     {s.meta['SCAN']}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['DATE-OBS'][:10]}", (hcoords[0], vcoords[1]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 2
-        velo = s.meta["VELOCITY"] * 1e-3  # * u.km / u.s # GBTIDL doesn't say km/s so neither will I (saves space)
-        self._axis.annotate(
-            f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(
-            f"Int : {time_formatter(s.meta['EXPOSURE'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(
-            f"LST : {time_formatter(s.meta['LST'])}", (hcoords[1], vcoords[2]), xycoords=xyc, size=fsize_small
-        )
-
-        # col 3
-        # TODO: need to understand frequencies to assign correct title
-        # instead of just forcing to GHz with 5 decimal points
-        f0 = np.around(s.meta["RESTFREQ"] * 1e-9, 5) * u.GHz
-        self._axis.annotate(f"F0   :  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
-        fsky = np.around(s.meta["OBSFREQ"] * 1e-9, 5) * u.GHz  # or CRVAL1?
-        self._axis.annotate(f"Fsky :  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)
-        bw = np.around(s.meta["BANDWID"] * 1e-6, 4) * u.MHz
-        self._axis.annotate(f"BW   :  {bw}", (hcoords[2], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 4
-        self._axis.annotate(
-            f"Pol  :   {crval4_to_pol[s.meta['CRVAL4']]}", (hcoords[3], vcoords[0]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(f"IF   :    {s.meta['IFNUM']}", (hcoords[3], vcoords[1]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['PROJID']}", (hcoords[3], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 5
-        _tsys = np.around(s.meta["TSYS"], 2)
-        self._axis.annotate(f"Tsys   :  {_tsys}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(
-            f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # bottom row
-        vcoord_bot = 0.72
-        hcoord_bot = 0.95
-        ra, dec = coord_formatter(s)
-        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], vcoord_bot), xycoords=xyc, size=fsize_small)
-        if self._axis.get_title() == "":
-            self._axis.annotate(
-                f"{s.meta['OBJECT']}", (0.5, vcoord_bot), xycoords=xyc, size=fsize_large, horizontalalignment="center"
-            )
-        az = np.around(s.meta["AZIMUTH"], 1)
-        el = np.around(s.meta["ELEVATIO"], 1)
-        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
-        self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}",
-            (hcoord_bot, vcoord_bot),
-            xycoords=xyc,
-            size=fsize_small,
-            horizontalalignment="right",
-        )
-
-        # last corner -- current date time.
-        ts = str(dt.datetime.now())[:19]
-        self._axis.annotate(
-            f"{ts}", (hcoord_bot - 0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right"
-        )
-
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
         kwargs_opts = {
@@ -410,36 +294,6 @@ class SpectrumPlot:
         kwargs_opts.update(kwargs)
         # if kwargs_opts['loc'] == 'bottom':
         #    self._ax.axhline
-
-    def refresh(self):
-        """Refresh the plot"""
-        if self.axis is not None:
-            self.axis.figure.canvas.draw_idle()
-
-    def savefig(self, file, **kwargs):
-        r"""Save the plot
-
-        Parameters
-        ----------
-        file - str
-            The output file name
-        **kwargs : dict or key=value pairs
-            Other arguments to pass to `~matplotlib.pyplot.savefig`
-
-        """
-        # TODO: add clause about cutting off the top of the figure where the interactive buttons are
-        # bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
-        # or, set_visible to False
-        # buttons are currently listed in the _localaxes, but this includes the plot window at index 0
-        # so if the plot window ever goes missing, check the order in this list
-        # there has to be a better way to do this
-        # TODO: put buttons in a sub/different axes so we only have to hide the axes object instead of
-        # a list of all the buttons and plots
-        for button in self.figure._localaxes[1:]:
-            button.set_visible(False)
-        self.figure.savefig(file, *kwargs)
-        for button in self.figure._localaxes[1:]:
-            button.set_visible(True)
 
     def get_selected_regions(self):
         """ """

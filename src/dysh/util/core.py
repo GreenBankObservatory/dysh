@@ -313,13 +313,16 @@ def minimum_string_match(s, valid_strings, casefold=False):
     s : string
         string to use for minimum match
     valid_strings : list of strings
-        list of full strings to min match on
+        list of full strings to minimum match on.
     casefold: bool
         If True, do a case insensitive match
+
     Returns
     -------
     string
-        matched string, if one is found.
+        matched string, if one is found.  An exact match will
+        also count as a match, even if others are present with
+        longer match.
         Otherwise "None" is returned.
 
     """
@@ -333,7 +336,7 @@ def minimum_string_match(s, valid_strings, casefold=False):
     for i in range(n):
         if vsfold[i].find(s) == 0:
             m.append(i)
-    if len(m) == 1:
+    if len(m) >= 1:
         return valid_strings[m[0]]
     return None
 

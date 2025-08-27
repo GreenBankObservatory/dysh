@@ -266,15 +266,18 @@ class TestSpectrum:
 
         plt.ioff()
 
+        # General variables.
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
         s = slice(1000, 1100, 1)
+        tol = 1e-5  # Tolerance to compare spectral axes.
+
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
         assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
         assert np.all(trimmed.flux == self.ps0.flux[s])
         # The slicing changes the values at the micro Hz level.
-        assert np.all(trimmed.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        assert np.all(trimmed.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         # Check meta values. The trimmed spectrum has an additional
         # key: 'original_wcs'.
         for k, v in self.ps0.meta.items():
@@ -302,7 +305,7 @@ class TestSpectrum:
         spec_ax = self.ps0.spectral_axis
         trimmed_nu = self.ps0[spec_ax[s.start].to("Hz") : spec_ax[s.stop].to("Hz")]
         assert np.all(trimmed_nu.flux == self.ps0.flux[s])
-        assert np.all(trimmed_nu.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        assert np.all(trimmed_nu.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
                 assert trimmed_nu.meta[k] == v
@@ -314,7 +317,7 @@ class TestSpectrum:
         spec_ax = self.ps0.spectral_axis.to("km/s")
         trimmed_vel = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
         assert np.all(trimmed_vel.flux == self.ps0.flux[s])
-        assert np.all(trimmed_vel.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        assert np.all(trimmed_vel.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
                 assert trimmed_vel.meta[k] == v
@@ -326,7 +329,73 @@ class TestSpectrum:
         spec_ax = self.ps0.spectral_axis.to("m")
         trimmed_wav = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
         assert np.all(trimmed_wav.flux == self.ps0.flux[s])
-        assert np.all(trimmed_wav.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        assert np.all(trimmed_wav.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
+
+        # Slice in any order.
+        # int.
+        trimmed_sp = self.ps0[s]
+        trimmed_sp_inv = self.ps0[s.stop : s.start]
+        assert np.all(trimmed_sp.flux == trimmed_sp_inv.flux)
+        assert np.all(trimmed_sp.spectral_axis.value - trimmed_sp_inv.spectral_axis.value < tol)
+
+        # Hz.
+        spec_ax = self.ps0.spectral_axis
+        trimmed_nu = self.ps0[spec_ax[s.start].to("Hz") : spec_ax[s.stop].to("Hz")]
+        trimmed_nu_inv = self.ps0[spec_ax[s.stop].to("Hz") : spec_ax[s.start].to("Hz")]
+        assert np.all(trimmed_nu.flux == trimmed_nu_inv.flux)
+        assert np.all(trimmed_nu.spectral_axis.value - trimmed_nu_inv.spectral_axis.value < tol)
+
+        # km/s.
+        spec_ax = self.ps0.spectral_axis.to("km/s")
+        trimmed_vel = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
+        trimmed_vel_inv = self.ps0[spec_ax[s.stop] : spec_ax[s.start]]
+        assert np.all(trimmed_vel.flux == trimmed_vel_inv.flux)
+        assert np.all(trimmed_vel.spectral_axis.value - trimmed_vel_inv.spectral_axis.value < tol)
+
+        # m.
+        spec_ax = self.ps0.spectral_axis.to("m")
+        trimmed_wav = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
+        trimmed_wav_inv = self.ps0[spec_ax[s.stop] : spec_ax[s.start]]
+        assert np.all(trimmed_wav.flux == trimmed_wav_inv.flux)
+        assert np.all(trimmed_wav.spectral_axis.value - trimmed_wav_inv.spectral_axis.value < tol)
+
+        # Slice using negative values.
+        ns = slice(10, -10)
+        trimmed_sp = self.ps0[ns]
+        assert np.all(trimmed_sp.flux == self.ps0.flux[ns])
+        assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[ns]).value < tol)
+
+        # km/s.
+        spec_ax = self.ps0.spectral_axis.to("km/s")
+        trimmed_vel = self.ps0[spec_ax[ns.start] : ns.stop]
+        assert np.all(trimmed_vel.flux == self.ps0.flux[ns])
+        assert np.all((trimmed_vel.spectral_axis.quantity - self.ps0.spectral_axis.quantity[ns]).value < tol)
+
+        # Both start and stop are negative values.
+        ns = slice(-100, -10)
+        trimmed_sp = self.ps0[ns]
+        assert np.all(trimmed_sp.flux == self.ps0.flux[ns])
+        assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[ns]).value < tol)
+
+        # km/s.
+        spec_ax = self.ps0.spectral_axis.to("km/s")
+        trimmed_vel = self.ps0[spec_ax[ns.start] : ns.stop]
+        assert np.all(trimmed_vel.flux == self.ps0.flux[ns])
+        assert np.all((trimmed_vel.spectral_axis.quantity - self.ps0.spectral_axis.quantity[ns]).value < tol)
+
+        # Negative start and no stop.
+        s = slice(-100, None)
+        trimmed_sp = self.ps0[s]
+        assert len(trimmed_sp.data) == 100
+        assert np.all(trimmed_sp.flux == self.ps0.flux[s])
+        assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
+
+        # Negative stop and no start.
+        s = slice(None, -100)
+        trimmed_sp = self.ps0[s]
+        assert len(trimmed_sp.data) == len(self.ps0.data) - 100
+        assert np.all(trimmed_sp.flux == self.ps0.flux[s])
+        assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
 
     def test_smooth(self):
         """Test for smooth with `decimate=0`"""
@@ -775,7 +844,12 @@ class TestSpectrum:
         * Test that the returned selection is in the expected format.
         """
 
+        ch_low = 574
+        ch_upp = 853
+
         s = Spectrum.fake_spectrum()
+        saq = s.spectral_axis.quantity
+        saq_v = s.axis_velocity().quantity
         with pytest.raises(TypeError) as excinfo:
             s.get_selected_regions()
         assert excinfo.type is TypeError
@@ -784,18 +858,20 @@ class TestSpectrum:
         import matplotlib.pyplot as plt
 
         plt.ioff()
-        s.plot(interactive=False, xaxis_unit="MHz")
-        s._plotter._selector.onselect(1402.3, 1402.5)
+        s.plot(xaxis_unit="MHz")
+        s._plotter._selector.onselect(saq[ch_low].to("MHz").value, saq[ch_upp].to("MHz").value)
         r = s.get_selected_regions()
-        assert r == [(574, 853)]
+        assert r == [(ch_low, ch_upp)]
 
         # Now with units.
         r_nu = s.get_selected_regions(unit="MHz")
-        assert r_nu[0][0].value == pytest.approx(1402.3)
-        assert r_nu[0][1].value == pytest.approx(1402.5)
+        assert r_nu[0][0].value == pytest.approx(saq[ch_low].to("MHz").value)
+        assert r_nu[0][1].value == pytest.approx(saq[ch_upp].to("MHz").value)
+        assert r_nu[0][1].unit == u.MHz
         r_v = s.get_selected_regions(unit="km/s")
-        assert r_v[0][0].value == pytest.approx(3870.69160846)
-        assert r_v[0][1].value == pytest.approx(3827.48453869)
+        assert r_v[0][0].value == pytest.approx(saq_v[ch_low].value)
+        assert r_v[0][1].value == pytest.approx(saq_v[ch_upp].value)
+        assert r_v[0][0].unit == u.km / u.s
 
     def test_cog(self):
         """

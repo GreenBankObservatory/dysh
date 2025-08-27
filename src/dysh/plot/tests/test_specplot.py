@@ -67,6 +67,6 @@ class TestScanplot:
         """
 
         units = self.tpplot._axis2.get_ylabel()[-4:-1]
-        assert self.tpplot._s.spectral_axis.quantity.to(units).value.min() == pytest.approx(
+        assert self.tpplot._spectrum.spectral_axis.quantity.to(units).value.min() == pytest.approx(
             min(self.tpplot._axis2.get_ylim())
         )

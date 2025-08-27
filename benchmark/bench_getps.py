@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # fmt: off
     # parser.add_argument("--file",        "-f", action="store",       help="input filename", required=True)
     parser.add_argument("--dobench",     "-d", action="store_true",  help="do the benchmark test")
-    parser.add_argument("--key",         "-k", action="store",       help="input dysh_data key", default="test1")
+    parser.add_argument("--key",         "-k", action="store",       help="input dysh_data key", default="getps")
     parser.add_argument("--timeaverage", "-t", action="store_true",  help="time average the Scanblocks to make a Spectrum")
     parser.add_argument("--nocalibrate", "-n", action="store_true",  help="DON'T calibrate the data", default=False)
     parser.add_argument("--loop",        "-l", action="store",       help="number of times to loop", default=4)
@@ -49,10 +49,18 @@ if __name__ == "__main__":
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
     sk = str(args.skipflags)
+    dt.tag("init", [sk])
+
+    if False:
+        # lazy loading. By adding this section, first getps w/ timeaver loop is as fast as next ones
+        from dysh.spectra.spectrum import Spectrum
+
+        s = Spectrum.fake_spectrum()
+        dt.tag("fake", [sk])
 
     # reading dataset-1
 
-    f1 = dysh_data(example=args.key)  # 'test1' = position switch example from notebooks/examples
+    f1 = dysh_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
     print("Loading ", f1)
     sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
     print("STATS:", sdf1.stats())
@@ -86,7 +94,7 @@ if __name__ == "__main__":
 
         # read it one more time
 
-        f1 = dysh_data(example=args.key)  # 'test1' = position switch example from notebooks/examples
+        f1 = dysh_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
         print("Loading ", f1)
         sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
         dt.tag("load", [sk])

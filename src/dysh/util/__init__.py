@@ -1,7 +1,4 @@
-"""This subpackage contains general utility classes and functions
-
-isort:skip_file
-"""
+"""This subpackage contains general utility classes and functions"""
 
 __all__ = ["core", "selection", "download", "gaincorrection", "timers", "weatherforecast"]
 from .core import *  # this needs to be first to avoid circular imports
