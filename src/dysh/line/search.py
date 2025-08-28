@@ -62,14 +62,14 @@ _allowable_local_cats = [
     "gbtlines",  # note gbtlines does not include recombination lines
     "gbtrecomb",
     # we don't have any of the below until splatalogue is fixed or Tony R. provides.
-    "top20",
-    "planetaryatmosphere",
-    "hotcores",
-    "darkclouds",
-    "diffuseclouds",
-    "comets",
-    "agb/ppn/pn",
-    "extragalactic",
+    #    "top20",
+    #    "planetaryatmosphere",
+    #    "hotcores",
+    #    "darkclouds",
+    #    "diffuseclouds",
+    #    "comets",
+    #    "agb/ppn/pn",
+    #    "extragalactic",
 ]
 
 _all_cats = _allowable_remote_cats + _allowable_local_cats
@@ -77,9 +77,13 @@ _all_cats = _allowable_remote_cats + _allowable_local_cats
 # Remove description and first two frequency parameters since we have our own.
 __splatdoc__ = Splatalogue.query_lines.__doc__
 
-
+# Remove the first part of splatalogue doc in favor of our own
 i = __splatdoc__.index("chemical_name")
 __splatdoc__ = __splatdoc__.replace(__splatdoc__[0:i], "")
+# Replace how splatalogue displays the ReEturn object with our typical format.
+ours = "\tReturns\n\t-------\n\tTable\n\t\tAn astropy table containing the results of the search"
+i = __splatdoc__.index("Returns")
+__splatdoc__ = __splatdoc__.replace(__splatdoc__[i:], ours)
 
 
 class SpectralLineSearchClass:
@@ -163,7 +167,7 @@ class SpectralLineSearchClass:
         asynchronous: bool
             Use asynchronous query
         format: str
-            The astropy IO format string for a local input table.  Default is ECSV format.
+            Stringe describing the format of a local input table. Must be a valid `astropy.io.ascii <https://docs.astropy.org/en/latest/io/ascii/index.html>`_ format string.  Default is 'ascii.ecsv'
         """
         mc = self._process_cat(cat)
         # we are overlaying this kwarg with a parameter to expose that we are changing the default.
@@ -230,9 +234,9 @@ class SpectralLineSearchClass:
         Parameters
         ----------
         min_frequency : `~astropy.units.quantity.Quantity`
-            The minimum frequency to search (or any :meth:`u.spectral` equivalent)
+            The minimum frequency to search (or any :meth:`u.spectral` equivalent). No default.
         max_frequency : `~astropy.units.quantity.Quantity`
-            The maximum frequency to search (or any :meth:`u.spectral` equivalent)
+            The maximum frequency to search (or any :meth:`u.spectral` equivalent). No default.
         cat : str
             The catalog to use.  One of: {0}  (minimum string match) or a valid local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter.  The default is a GBT-specific line catalog, 'gbtlines'.
@@ -275,6 +279,11 @@ class SpectralLineSearchClass:
             Make an in-memory copy of the input table to be used in subsequent queries to this catalog.
         format: str
             The astropy IO format string for the input table.  Default is ECSV format.
+
+        Returns
+        -------
+        Table
+            An astropy table containing the results of the search
         """
         _cat = self._process_cat(cat)
         if _cat in _allowable_local_cats:
@@ -449,11 +458,11 @@ class SpectralLineSearchClass:
         Parameters
         ----------
         min_frequency : `~astropy.units.quantity.Quantity`
-            The minimum frequency to search
+            The minimum frequency to search (or any :meth:`u.spectral` equivalent). No default.
         max_frequency : `~astropy.units.quantity.Quantity`
-            The maximum frequency to search
+            The maximum frequency to search (or any :meth:`u.spectral` equivalent). No default.
         line : str
-            A string describing the line or series to search for, e.g. "Hydrogen", "Halpha", "Hebeta", "C", "carbon"
+            A string describing the line or series to search for, e.g. "Hydrogen", "Halpha", "Hebeta", "C", "carbon". No default.
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
@@ -504,9 +513,9 @@ class SpectralLineSearchClass:
         Parameters
         ----------
         min_frequency : `~astropy.units.quantity.Quantity`
-            The minimum frequency to search
+            The minimum frequency to search (or any :meth:`u.spectral` equivalent). No default.
         max_frequency : `~astropy.units.quantity.Quantity`
-            The maximum frequency to search
+            The maximum frequency to search (or any :meth:`u.spectral` equivalent). No default.
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
@@ -516,6 +525,7 @@ class SpectralLineSearchClass:
             For a local file query, make an in-memory copy of the input table to be used in subsequent queries to this catalog.
         \\*\\*kwargs : dict
             Other keyword arguments supported by :meth:`query_lines` if `cat` is 'splatalogue'.
+
         Returns
         -------
         Table
