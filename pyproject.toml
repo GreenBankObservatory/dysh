@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
   "httpx",
   "astropy>=6.1",
+  "astroquery",
   "ipython",
   "jplephem",
   "matplotlib",
