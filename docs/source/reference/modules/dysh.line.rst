@@ -11,4 +11,5 @@ Spectral line search classes and functions
 .. automodule:: dysh.line.search
    :members:
    :undoc-members:
+   :exclude-members: SpectralLineSearchClass
    :show-inheritance:
