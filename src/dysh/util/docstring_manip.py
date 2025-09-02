@@ -8,7 +8,7 @@ def docstring_parameter(*args):
 
     Example
     -------
-    @docstring_parameter('Ocean', Sea'')
+    @docstring_parameter('Ocean', Sea')
     def foo():
         \"\"\"My Docstring Lies Over The {0}.
         My Docstring Lies Over The {1}.\"\"\"
