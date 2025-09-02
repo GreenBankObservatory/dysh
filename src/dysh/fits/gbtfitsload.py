@@ -31,6 +31,7 @@ from ..spectra.scan import (
     SubBeamNodScan,
     TPScan,
 )
+from ..spectra.tcal import TCal
 from ..util import (
     Flag,
     Selection,
@@ -42,6 +43,7 @@ from ..util import (
     show_dataframe,
     uniq,
 )
+from ..util.calibrator import Calibrator
 from ..util.files import dysh_data
 from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
@@ -2023,6 +2025,96 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         logger.info("Fixing FDNUM mislabel for Rcvr26_40. FDNUM 0 changed to 1")
         self._fix_column("FDNUM", 0, {"FRONTEND": "Rcvr26_40", "PLNUM": 0})
         logger.info("Fixing FDNUM mislabel for Rcvr26_40. FDNUM 1 changed to 0")
+
+    @log_call_to_result
+    def gettcal(
+        self,
+        scan: int,
+        ifnum: int,
+        plnum: int,
+        zenith_opacity: float,
+        ref: None | int | Spectrum = None,
+        fdnum: None | int = None,
+        bintable: None | int = None,
+        apply_flags: bool = True,
+        method=None,
+        name=None,
+        fluxscale=None,
+        method_kwargs: None | dict = None,
+        **kwargs,
+    ):
+        """
+        Derive the noise diode temperature from observations of a flux calibrator.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        tcal : `dysh.spectra.tcal.TCal`
+        """
+
+        valid_procs = {
+            "Track": self.getsigref,
+            "OnOff": self.getps,
+            "OffOn": self.getps,
+            "Nod": self.getnod,
+            "SubBeamNod": self.subbeamnod,
+        }
+
+        if method_kwargs is None:
+            method_kwargs = {}
+
+        if not isinstance(scan, int):
+            raise TypeError(f"Only a single integer value allowed for `scan`. Got {scan}")
+
+        if method is not None:
+            if method not in valid_procs.values():
+                valid_methods = [m.__qualname__ for m in valid_procs.values()]
+                raise TypeError(f"Unrecognized method ({method}). It should be one of {valid_methods}")
+
+        (scans, _sf) = self._common_selection(
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            apply_flags=apply_flags,
+            scan=scan,
+            **kwargs,
+        )
+
+        if name is None:
+            name = next(iter(set(_sf["OBJECT"])))
+        target = Calibrator.from_name(name, scale=fluxscale)
+
+        proc = next(iter(set(_sf["PROC"])))
+
+        if method is None:
+            method = valid_procs[proc]
+        logger.info(f"Will use {method.__name__} to calibrate the data.")
+
+        method_args = {
+            "scan": scans,
+            "fdnum": fdnum,
+            "ifnum": ifnum,
+            "plnum": plnum,
+            "apply_flags": apply_flags,
+            "zenith_opacity": zenith_opacity,
+            "t_cal": 1.0,
+            "bunit": "Jy",
+        }
+        if ref is not None:
+            method_args["ref"] = ref
+
+        obs_ta = method(**method_args, **method_kwargs).timeaverage()
+
+        nu = obs_ta.spectral_axis
+        snu = target.compute_sed(nu.quantity)
+
+        tcal_values = (snu / obs_ta.flux).value * u.K
+
+        tcal = TCal.from_spectrum(obs_ta, data=tcal_values, snu=snu, name=name)
+
+        return tcal
 
     # @todo sig/cal no longer needed?
     @log_call_to_result
