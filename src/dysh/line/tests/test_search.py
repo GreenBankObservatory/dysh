@@ -1,4 +1,5 @@
 import astropy.units as u
+from astroquery.splatalogue import Splatalogue
 
 from dysh.line import SpectralLineSearch
 
@@ -16,6 +17,7 @@ class TestSearch:
         assert len(z) == 2
 
     def test_remote_query(self):
+        Splatalogue.TIMEOUT = 90  # increase default from 60
         z = SpectralLineSearch.query_lines(
             min_frequency=115 * u.GHz,
             max_frequency=116 * u.GHz,
