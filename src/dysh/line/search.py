@@ -140,10 +140,10 @@ class SpectralLineSearchClass:
         only_NRAO_recommended=True,
         **kwargs,
     ) -> Table:  # @todo should we return pandas DataFrame instead?
-        """Query the locally or remotely for lines and return a table object. The query returns lines
+        """Query locally or remotely for lines and return a table object. The query returns lines
         with rest frequencies in the range [`min_frequency`,`max_frequency`].
 
-        **Note:** If the search parameters result no matches, a zero-length Table will be returned.
+        **Note:** If the search parameters result in no matches, a zero-length Table will be returned.
 
         Parameters
         ----------
