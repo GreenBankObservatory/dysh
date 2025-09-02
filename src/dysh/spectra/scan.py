@@ -895,6 +895,53 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         self._timeaveraged = []
         self._plotter = None
 
+    @property
+    def tsys(self):
+        """
+        Returns
+        -------
+        tsys :  `~numpy.ndarray`
+            The system temperatures for all scans in this ScanBlock
+        """
+        # There is no guarantee that each scan in the scanblock has the same number
+        # of integrations, so we can't create a conventional numpy array of [nscan,nintegration]
+        value = np.empty(len(self.data), dtype=np.ndarray)
+        i = 0
+        for scan in self.data:
+            value[i] = scan.tsys
+            i += 1
+        return value
+
+    @property
+    def delta_freq(self):
+        """
+        Returns
+        -------
+        delta_freq : `~numpy.ndarray`
+            The channel frequency spacings for all scans in this ScanBlock
+        """
+        value = np.empty(len(self.data), dtype=np.ndarray)
+        i = 0
+        for scan in self.data:
+            value[i] = scan.delta_freq
+            i += 1
+        return value
+
+    @property
+    def exposure(self):
+        """
+        Returns
+        -------
+        exposure : `~numpy.ndarray`
+            The exposure times for all scans in this ScanBlock
+        """
+        value = np.empty(len(self.data), dtype=np.ndarray)
+        i = 0
+        for scan in self.data:
+            value[i] = scan.exposure
+            i += 1
+        return value
+
     @log_call_to_history
     def calibrate(self, **kwargs):
         """Calibrate all scans in this ScanBlock"""
