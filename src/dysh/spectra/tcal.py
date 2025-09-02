@@ -1,0 +1,98 @@
+"""
+TCal class
+"""
+
+import numpy as np
+
+from .spectrum import Spectrum
+
+# from ..util import append_docstr_nosections
+
+
+class TCal(Spectrum):
+    """
+    Noise diode temperature.
+    """
+
+    def __init__(self, name, snu, *args, **kwargs):
+        Spectrum.__init__(self, *args, **kwargs)
+        self.name = name
+        self.snu = snu
+
+    @classmethod
+    def from_spectrum(cls, spectrum, name, snu, data=None):
+        """
+        Returns a `~dysh.spectra.tcal.TCal` object
+        given a `~dysh.spectra.spectrum.Spectrum` object.
+
+        Parameters
+        ----------
+        spectrum : `~dysh.spectra.spectrum.Spectrum`
+            Spectrum object. Its attributes will be copied into the
+            `~dysh.spectra.tcal.TCal` object, except for the `data` and `flux` attributes
+            which can be defined by the `data` parameter.
+        name : str
+            Name of the calibrator used to derive the noise diode temperature.
+        snu : `~numpy.ndarray`
+            The flux values of the calibrator source.
+        data : None or `~numpy.ndarray`
+            Noise diode temperature values. If None, then it will use the `flux` attribute of `spectrum`.
+            If set, the values will define the `flux` attribute of the `~dysh.spectra.tcal.TCal` object.
+
+        Returns
+        -------
+        `~dysh.spectra.tcal.TCal`
+            The `~dysh.spectra.tcal.TCal` object.
+        """
+        if data is None:
+            data = spectrum.flux
+
+        return cls(
+            name,
+            snu,
+            flux=data,
+            wcs=spectrum.wcs,
+            meta=spectrum.meta,
+            velocity_convention=spectrum.velocity_convention,
+            radial_velocity=spectrum.radial_velocity,
+            rest_value=spectrum.rest_value,
+            observer=spectrum.observer,
+            target=spectrum.target,
+            mask=spectrum.mask,
+        )
+
+    #    @append_docstr_nosections(Spectrum.smooth.__doc__, sections=["Returns"])
+    def smooth(self, *args, **kwargs):
+        kwargs.setdefault("decimate", -1)
+        tcal_smo = super().smooth(*args, **kwargs)
+        return TCal.from_spectrum(tcal_smo, self.name, self.snu)
+
+    def get_tcal(self, frac=0.1, method=np.nanmean):
+        """
+        Reduce the temperature of the noise diode to a single value.
+
+        Parameters
+        ----------
+        frac : float
+            The fraction of the channels to discard on both ends of the spectrum.
+            Default: 0.1
+        method : callable
+            The function used to reduce the values.
+            Default : `numpy.nanmean`
+
+        Returns
+        -------
+        tcal : float
+            The noise diode temperature reduced using `method` over the channel range defined by `frac`.
+        """
+
+        ch0 = int(self.nchan * frac)
+        chf = int(self.nchan * (1 - frac))
+        s = slice(ch0, chf)
+        self.tcal = method(self.data[s])
+
+        return self.tcal
+
+    @property
+    def nchan(self):
+        return len(self.data)
