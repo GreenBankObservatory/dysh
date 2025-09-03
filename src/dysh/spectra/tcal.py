@@ -4,9 +4,8 @@ TCal class
 
 import numpy as np
 
+from ..util.docstring_manip import insert_docstr_section
 from .spectrum import Spectrum
-
-# from ..util import append_docstr_nosections
 
 
 class TCal(Spectrum):
@@ -61,8 +60,20 @@ class TCal(Spectrum):
             mask=spectrum.mask,
         )
 
-    #    @append_docstr_nosections(Spectrum.smooth.__doc__, sections=["Returns"])
+    @insert_docstr_section(Spectrum.smooth.__doc__, section="Parameters")
     def smooth(self, *args, **kwargs):
+        """
+        Smooth or convolve `TCal`, optionally decimating it.
+
+        Parameters
+        ----------
+        {0}
+
+        Returns
+        -------
+        `~dysh.spectra.tcal.TCal`
+            Smoothed noise diode temperature.
+        """
         kwargs.setdefault("decimate", -1)
         tcal_smo = super().smooth(*args, **kwargs)
         return TCal.from_spectrum(tcal_smo, self.name, self.snu)
