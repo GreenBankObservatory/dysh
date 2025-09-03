@@ -499,7 +499,7 @@ class SDFITSLoad(object):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        print("PJT meta",meta)
+        print("PJT meta", meta)
 
         # @todo   could we safely store it in meta['BUNIT']
         #  for now, loop over the binheader keywords to find the matching TUNITxx that belongs to TTYPExx='DATA'
@@ -525,13 +525,13 @@ class SDFITSLoad(object):
                         if bunit != v:
                             logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
                         if len(v) == 0:
-                            logger.info(f"Blank....overriding unit as 'ct' - not ")
+                            logger.info("Blank....overriding unit as 'ct' - not ")
                             bunit = u.ct
                         else:
                             bunit = v
                         break
             if bunit is None:
-                logger.info(f"no bunit yet")
+                logger.info("no bunit yet")
         if bunit is not None:
             bunit = u.Unit(bunit)
         else:
