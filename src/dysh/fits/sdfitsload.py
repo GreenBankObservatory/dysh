@@ -499,7 +499,6 @@ class SDFITSLoad(object):
         rfq = restfrq * u.Unit(meta["CUNIT1"])
         restfreq = rfq.to("Hz").value
         meta["RESTFRQ"] = restfreq  # WCS wants no E
-        print("PJT meta",meta)
 
         # @todo   could we safely store it in meta['BUNIT']
         #  for now, loop over the binheader keywords to find the matching TUNITxx that belongs to TTYPExx='DATA'
@@ -537,8 +536,6 @@ class SDFITSLoad(object):
         else:
             bunit = u.ct
         logger.debug(f"BUNIT = {bunit}")
-        if bunit == "ct":
-            logger.info("Your data have no units, 'ct' was selected")
         # use from_unmasked so we don't get the astropy INFO level message about replacing a mask
         # (doesn't work -- the INFO message comes from the Spectrum1D constructor)
         masked_data = Masked.from_unmasked(data.data, data.mask) * bunit
