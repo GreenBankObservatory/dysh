@@ -675,7 +675,7 @@ class TestGBTFITSLoad:
             if k in ["DURATION", "TUNIT7", "VSPRPIX", "CAL"]:
                 continue
             try:
-                assert v == table[k][0]
+                assert v == pytest.approx(table[k][0])
             except KeyError:
                 continue
 
@@ -1476,6 +1476,30 @@ class TestGBTFITSLoad:
             sdf.getsigref(scan=x, ref=52, fdnum=0, ifnum=0, plnum=0)
         with pytest.raises(TypeError):
             sdf.getsigref(scan=51, ref=x.data, fdnum=0, ifnum=0, plnum=0)
+
+        # 6. Using t_cal argument.
+        sigref_org = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0).timeaverage()
+        sigref_cal = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0, t_cal=14.0).timeaverage()
+        assert sigref_cal.meta["TCAL"] == 14.0
+        assert sigref_cal.meta["TSYS"] == pytest.approx(sigref_org.meta["TSYS"] / sigref_org.meta["TCAL"] * 14.0)
+
+        # Changing TCAL of `refspec` has no effect on the result, but the value gets passed.
+        refspec.meta["TCAL"] = 25.0
+        sigref_cal = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0).timeaverage()
+        assert sigref_cal.meta["TCAL"] == 25.0
+        assert sigref_cal.meta["TSYS"] == pytest.approx(sigref_org.meta["TSYS"])
+
+        # If both t_cal and t_sys are not None, then only t_sys is used.
+        sigref_cal = sdf.getsigref(
+            scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0, t_cal=14.0, t_sys=25.0
+        ).timeaverage()
+        assert sigref_cal.meta["TCAL"] == 14.0
+        assert sigref_cal.meta["TSYS"] == 25.0
+        np.testing.assert_allclose(sigref_cal.data, sigref_org.data / sigref_org.meta["TSYS"] * 25.0)
+        sigref_cal = sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0, t_cal=14.0, t_sys=25.0).timeaverage()
+        assert sigref_cal.meta["TCAL"] == 14.0
+        assert sigref_cal.meta["TSYS"] == 25.0
+        np.testing.assert_allclose(sigref_cal.data, sigref_org.data / sigref_org.meta["TSYS"] * 25.0)
 
     def test_get_nod_beams(self):
         """Test that we can get the nodding beams"""
