@@ -524,13 +524,13 @@ class SDFITSLoad(object):
                         if bunit != v:
                             logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
                         if len(v) == 0:
-                            logger.info(f"Blank....overriding unit as 'ct' - not ")
+                            logger.info("Blank....overriding unit as 'ct' - not ")
                             bunit = u.ct
                         else:
                             bunit = v
                         break
             if bunit is None:
-                logger.info(f"no bunit yet")
+                logger.info("no bunit yet")
         if bunit is not None:
             bunit = u.Unit(bunit)
         else:
