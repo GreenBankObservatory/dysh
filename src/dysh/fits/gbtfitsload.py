@@ -1152,7 +1152,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         sig=None,
         cal=None,
         calibrate: bool = True,
-        bintable: int = None,  # noqa: RUF013
+        bintable: None | int = None,
         apply_flags: bool = True,
         t_sys=None,
         t_cal=None,
@@ -1233,6 +1233,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if tsys is None:
                         _tsys = dfcalF["TSYS"].to_numpy()
                         logger.info("Using TSYS column")
+                        logger.debug(f"Scan: {scan}")
                 # Use user provided system temperature.
                 if tsys is not None:
                     _tsys = tsys[scan][0]
@@ -1261,6 +1262,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                # Reset these variables for the next scan.
+                _tsys = tsys
+                _tcal = t_cal
+                _bintable = bintable
+                _nocal = nocal
+
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1276,11 +1283,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        bintable: int = None,  # noqa: RUF013
+        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: str = True,
         bunit: str = "ta",
-        zenith_opacity: float = None,  # noqa: RUF013
+        zenith_opacity: None | float = None,
         weights="tsys",
         t_sys=None,
         t_cal=None,
@@ -1427,8 +1434,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     _bintable = self._get_bintable(_ondf)
                 rows["ON"] = list(_ondf["ROW"])
                 rows["OFF"] = list(_offdf["ROW"])
-                # if len(rows["ON"]) > len(rows["OFF"]):
-                #    warnings.warn("Fewer reference integrations than signal integrations.  Will use average reference for all")
                 for key in rows:
                     if len(rows[key]) == 0 and off is not None:
                         raise Exception(f"{key} scans not found in scan list {scans}")
@@ -1474,6 +1479,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 g._refscan = ref
                 g.merge_commentary(self)
                 scanblock.append(g)
+                # Reset these variables for the next scan.
+                # Do not reset variables that are set outside the scan loop.
+                _tsys = tsys
+                _bintable = bintable
+                _nocal = nocal
 
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1488,11 +1498,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        bintable: int = None,  # noqa: RUF013
+        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: str = True,
         bunit: str = "ta",
-        zenith_opacity: float = None,  # noqa: RUF013
+        zenith_opacity: None | float = None,
         t_sys=None,
         nocal=False,
         t_cal=None,
@@ -1588,8 +1598,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
                 _ondf = select_from("SCAN", on, _df)
                 _offdf = select_from("SCAN", off, _df)
-                # rows["ON"] = list(_ondf.index)
-                # rows["OFF"] = list(_offdf.index)
                 rows["ON"] = list(_ondf["ROW"])
                 rows["OFF"] = list(_offdf["ROW"])
                 for key in rows:
@@ -1643,6 +1651,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                # Reset these variables for the next scan.
+                _tsys = tsys
+                _tcal = t_cal
+                _bintable = bintable
+                _nocal = nocal
+
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1654,9 +1668,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self,
         ifnum: int,
         plnum: int,
-        fdnum: int = None,  # noqa: RUF013
+        fdnum: None | int = None,
         calibrate: bool = True,
-        bintable: int = None,  # noqa: RUF013
+        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: bool = True,
         t_sys=None,
@@ -1829,9 +1843,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
-                    _nocal = nocal
-                    _tsys = None
+                    # Reset these variables for the next scan.
+                    _tsys = tsys
+                    _tcal = t_cal
                     _bintable = bintable
+                    _nocal = nocal
+
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
@@ -2001,6 +2018,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
+                # Reset these variables for the next scan.
+                _tsys = tsys
+                _tcal = t_cal
+                _bintable = bintable
+                _nocal = nocal
+
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
