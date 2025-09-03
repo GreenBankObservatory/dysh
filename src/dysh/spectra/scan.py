@@ -1352,8 +1352,6 @@ class TPScan(ScanBase):
         """Calibrate the total power data according to the CAL/SIG table above"""
         # the way the data are formed depend only on cal state
         # since we have downselected based on sig state in the constructor
-        if self._calibrated is not None:
-            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         if self.calstate is None:
             self._calibrated = (0.5 * (self._refcalon + self._refcaloff)).astype(float)
         elif self.calstate:
@@ -1667,8 +1665,6 @@ class PSScan(ScanBase):
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
             logger.debug(f"PSScan smoothref={self._smoothref}")
-        if self._calibrated is not None:
-            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
 
@@ -1929,8 +1925,6 @@ class NodScan(ScanBase):
         kwargs_opts.update(kwargs)
         if self._smoothref > 1 and kwargs_opts["verbose"]:
             logger.debug(f"NodScan smoothref={self._smoothref}")
-        if self._calibrated is not None:
-            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._calc_exposure()
@@ -2202,8 +2196,6 @@ class FSScan(ScanBase):
         # @todo upgrade fold from kwarg to arg
         logger.debug(f"FOLD={kwargs['fold']}")
         logger.debug(f"METHOD={kwargs['shift_method']}")
-        if self._calibrated is not None:
-            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
 
         # some helper functions, courtesy proto_getfs.py
         def channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan, nint, ndim=1):
@@ -2534,8 +2526,6 @@ class SubBeamNodScan(ScanBase):
 
     def calibrate(self, **kwargs):  ##SUBBEAMNOD
         """Calibrate the SubBeamNodScan data"""
-        if self._calibrated is not None:
-            logger.warning(f"Scan {self.scan} was previously calibrated. Calibrating again.")
         nspect = len(self._reftp)
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)

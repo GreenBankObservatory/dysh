@@ -46,7 +46,6 @@ valid_dysh_test = {
 # @todo   see if we want the staff training datasets in here
 # ~410 GB
 valid_dysh_example = {
-    "getps0"     : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs",                             #  NGC5291  old test1
     "getps"      : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits", #  NGC5291  old test1
                    # Used in a lot of example notebooks:
                    #   example/dataIO
@@ -54,6 +53,7 @@ valid_dysh_example = {
                    #   example/positionswitch
                    #   example/smoothing
                    #   example/velocity frames
+    "getps0"     : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs",                             #  NGC5291  old test1
     "getps2"     : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415   - old getps
     "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",        #  NGC2415, NGC2782 etc. - total 15GB
                    #

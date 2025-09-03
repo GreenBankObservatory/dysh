@@ -301,7 +301,7 @@ def get_size(obj, seen=None):
     return size
 
 
-def minimum_string_match(s, valid_strings):
+def minimum_string_match(s, valid_strings, casefold=False):
     """
     return the valid string from a list, given a minimum string input
 
@@ -313,7 +313,9 @@ def minimum_string_match(s, valid_strings):
     s : string
         string to use for minimum match
     valid_strings : list of strings
-        list of full strings to min match on.
+        list of full strings to minimum match on.
+    casefold: bool
+        If True, do a case insensitive match
 
     Returns
     -------
@@ -325,15 +327,52 @@ def minimum_string_match(s, valid_strings):
 
     """
     n = len(valid_strings)
+    if casefold:
+        vsfold = [a.casefold() for a in valid_strings]
+        s = s.casefold()
+    else:
+        vsfold = valid_strings
     m = []
     for i in range(n):
-        if s == valid_strings[i]:
-            return s
-        if valid_strings[i].find(s) == 0:
+        if vsfold[i].find(s) == 0:
             m.append(i)
-    if len(m) == 1:
+    if len(m) >= 1:
         return valid_strings[m[0]]
     return None
+
+
+def minimum_list_match(strings, valid_strings, casefold=False):
+    """
+    Return the list of valid strings given a list of minimum string inputs.
+
+    Parameters
+    ----------
+    strings : str or list of str
+        The strings to compare for minimum match
+    valid_strings : list of str
+        list of full strings to min match on.
+    casefold: bool
+        If True, do a case insensitive match
+
+    Returns
+    -------
+    list
+        List of all minimum matches or None if no matches found
+
+    """
+    valid = []
+    # if user passes in a string instead of a list, it should act like minimum_string_match
+    # Note: strings=list(strings) is not the same as [strings]!
+    if isinstance(strings, str):
+        strings = [strings]
+    for s in strings:
+        p = minimum_string_match(s, valid_strings, casefold)
+        if p is not None:
+            valid.append(p)
+    if len(valid) == 0:
+        return None
+    else:
+        return valid
 
 
 def uniq(seq):
