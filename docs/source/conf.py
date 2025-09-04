@@ -70,6 +70,11 @@ autodoc_default_options = {"members": None, "undoc-members": None}
 # Make sure the targets are unique
 autosectionlabel_prefix_document = True
 
+# type hints
+# autodoc_typehints = 'description'
+autodoc_typehints_format = "short"
+autodoc_preserve_defaults = False
+
 # TODO: These appear to have no effect
 mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:false});"
 
@@ -131,7 +136,7 @@ html_theme_options = {
     # "show_toc_level": 2,
     "use_source_button": True,
     "use_issues_button": True,
-    "use_download_button": True,
+    "use_download_button": False,
     "use_sidenotes": True,
     "show_toc_level": 2,
     "icon_links": [

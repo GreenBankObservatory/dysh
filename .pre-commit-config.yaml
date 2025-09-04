@@ -6,7 +6,7 @@ default_language_version:
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: 'https://github.com/pre-commit/pre-commit-hooks'
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         exclude: '(notebooks|attic|benchmark|testdata)/.*'
@@ -25,7 +25,7 @@ repos:
       - id: check-docstring-first
       - id: check-case-conflict # Check for files with names that would conflict on a case-insensitive filesystem
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.7
+    rev: v0.12.11
     hooks:
     - id: ruff-format
     - id: ruff
