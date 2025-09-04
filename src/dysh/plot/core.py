@@ -25,7 +25,7 @@ class PlotBase:
     def __init__(self, **kwargs):
         self.reset()
         self._figure = None
-        #self._axis = None
+        # self._axis = None
         self._plt = plt
         self._plt.rcParams["font.family"] = "monospace"
 
@@ -154,7 +154,6 @@ class PlotBase:
         self._axis.annotate(
             f"{ts}", (hcoord_bot - 0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right"
         )
-
 
     def refresh(self):
         """Refresh the plot"""

@@ -228,7 +228,6 @@ class SpectrumPlot(PlotBase):
             for sp in oshow:
                 self.oshow(sp)
 
-
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
@@ -318,8 +317,8 @@ class SpectrumPlot(PlotBase):
         for line in self._axis.lines:
             mins.append(line._x.min())
             maxs.append(line._x.max())
-        #elf._axis.set_xlim(self._sa.min().value, self._sa.max().value)
-        self._axis.set_xlim((min(mins),max(maxs)))
+        # elf._axis.set_xlim(self._sa.min().value, self._sa.max().value)
+        self._axis.set_xlim((min(mins), max(maxs)))
 
     def freey(self):
         """Free the Y-axis if limits have been set. Autoscales the Y-axis according to your matplotlib configuration."""
@@ -355,14 +354,13 @@ class SpectrumPlot(PlotBase):
         sa = oshow_spectrum.velocity_axis_to(
             unit=self._xunit,
             toframe=this_plot_kwargs["vel_frame"],
-            doppler_convention = this_plot_kwargs["doppler_convention"]
+            doppler_convention=this_plot_kwargs["doppler_convention"],
         )
 
         lines = self._axis.plot(sa, sf, color=color, linestyle=linestyle, gid="oshow")
 
         self.freexy()
         self._oshows.append(lines[0])
-
 
 
 class InteractiveSpanSelector:
