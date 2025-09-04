@@ -1037,7 +1037,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zero when the scan number changes.
         """
         if self._index is None:
-            warnings.warn("Couldn't construct integration number: index is not yet created.")  # noqa: B028
+            warnings.warn("Couldn't construct integration number: index is not yet created.", stacklevel=2)
             return
 
         # check it hasn't been constructed before.
@@ -1045,21 +1045,24 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return
         # check that GBTIDL didn't write it out at some point.
         if "INT" in self._index:
-            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)  # noqa: PD002
+            self._selection = Selection(self._selection.rename(columns={"INT": "INTNUM"}))
             for s in self._sdf:
                 s._rename_binary_table_column("int", "intnum")
             return
 
-        intnumarray = np.empty(len(self._index), dtype=int)
+        intnumarray = np.empty(len(self._selection), dtype=int)
         # Leverage pandas to group things by scan and observing time.
-        dfs = self._index.groupby(["SCAN"])
-        for name, group in dfs:  # noqa: B007
-            dfst = group.groupby("DATE-OBS")
-            intnums = np.arange(0, len(dfst.groups))
-            for i, (n, g) in enumerate(dfst):  # noqa: B007
-                idx = g.index
-                intnumarray[idx] = intnums[i]
-        self._index["INTNUM"] = intnumarray
+        dfs = self._selection.groupby(["SCAN"])
+        for _, group in dfs:
+            # Group by FITSINDEX since different banks can have different time stamps.
+            dfsf = group.groupby("FITSINDEX")
+            for _, fg in dfsf:
+                dfsft = fg.groupby("DATE-OBS")
+                intnums = np.arange(0, len(dfsft.groups))
+                for i, (_, g) in enumerate(dfsft):
+                    idx = g.index
+                    intnumarray[idx] = intnums[i]
+        self._selection["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
 
     def info(self):
