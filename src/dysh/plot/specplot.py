@@ -223,7 +223,7 @@ class SpectrumPlot(PlotBase):
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
         if oshow is not None:
-            if type(oshow) != list:
+            if type(oshow) is not list:
                 raise Exception(f"oshow({oshow}): must be of type list")
             for sp in oshow:
                 self.oshow(sp)
