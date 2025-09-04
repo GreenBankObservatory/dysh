@@ -1,16 +1,51 @@
-Version 0.7.0
+***********
+What's New?
+***********
+
+
+Version 0.8.0
 =============
 
-.. _0.7.0-functionality:
+.. _v0-8-0-functionality:
 
 Functionality & Enhancements
 ----------------------------
-- Scan/ScanBlock baseline subtraction
-  - It is now possible to subtract a baseline model from all the integrations in a `Scan` or `ScanBlock` using the `subtract_baseline` method.
-- Curve of Growth
-  - `Spectrum` objects now have a `cog` method that computes the curve of growth.
 
-.. _0.7.0-bugfixes:
+- Spectral line query interface
+- Waterfall plots
+- Improved performance (loading and writing data)
+- Custom column selection for `~dysh.fits.GBTFITSLoad.summary`
+- On-the-fly calibration `tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/on_the_fly.html>`_
+- Data selection `tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/selection.html>`_
+- `~dysh.fits.GBTFITSLoad.getfs` works on data without noise diode(s)
+- Adds `~dysh.util.calibrator` submodule
+
+.. _v0-8-0-bugfixes:
+
+Bug Fixes
+---------
+
+- `~dysh.fits.GBTFITSLoad.summary` is sorted by scan number (`Issue #648 <https://github.com/GreenBankObservatory/dysh/issues/648>`_)
+- `~dysh.fits.GBTFITSLoad.summary` works with repeated scan numbers (`Issue #638 <https://github.com/GreenBankObservatory/dysh/issues/638>`_)
+- `~dysh.spectra.scan.ScanBlock` no longer writes the first Scan twice (`Issue #617 <https://github.com/GreenBankObservatory/dysh/issues/617>`_)
+- `~dysh.spectra.spectrum.Spectrum` can be sliced in any order (`Issue #360 <https://github.com/GreenBankObservatory/dysh/issues/360>`_)
+- baseline exclusion regions should work regardless of order of spectral axis and units (`Issue #654 <https://github.com/GreenBankObservatory/dysh/issues/654>`_)
+- `~dysh.spectra.spectrum.Spectrum.flux` attribute now contains NaN values for masked channels (`Issue #575 <https://github.com/GreenBankObservatory/dysh/issues/575>`_)
+
+Version 0.7.0
+=============
+
+.. _v0-7-0-functionality:
+
+Functionality & Enhancements
+----------------------------
+- Scan/ScanBlock smoothing
+- Scan/ScanBlock baseline subtraction
+    - It is now possible to subtract a baseline model from all the integrations in a `Scan` or `ScanBlock` using the `subtract_baseline` method.
+- Curve of Growth
+    - `~dysh.spectra.spectrum.Spectrum` objects now have a `~dysh.spectra.spectrum.Spectrum.cog` method that computes the curve of growth.
+
+.. _v0-7-0-bugfixes:
 
 Bug Fixes
 ---------
@@ -21,7 +56,7 @@ Bug Fixes
 Version 0.6.2
 =============
 
-.. _0.6.2-bugfixes:
+.. _v0-6-2-bugfixes:
 
 Bug Fixes
 ---------
@@ -32,7 +67,7 @@ Bug Fixes
 Version 0.6.1
 =============
 
-.. _0.6.1-bugfixes:
+.. _v0-6-1-bugfixes:
 
 Bug Fixes
 ---------
@@ -42,17 +77,18 @@ Bug Fixes
 Version 0.6.0
 =============
 
-.. _0.6.0-functionality:
+.. _v0-6-0-functionality:
 
 Functionality & Enhancements
 ----------------------------
 - Baseline plotting
-  - `Spectrum.plot` will now update when using `Spectrum.baseline`. If `remove=False` the plot will show the baseline solution, if `remove=True` the plot will update to show the baseline subtracted data.
+    - `dysh.spectra.spectrum.Spectrum.plot` will now update when using `dysh.spectra.spectrum.Spectrum.baseline`.
+      If `remove=False` the plot will show the baseline solution, if `remove=True` the plot will update to show the baseline subtracted data.
 
 Version 0.5.0
 =============
 
-.. _0.5.0-functionality:
+.. _v0-5-0-functionality:
 
 Functionality & Enhancements
 ----------------------------
@@ -64,7 +100,7 @@ Functionality & Enhancements
 Version 0.4.0
 =============
 
-.. _0.4.0-functionality:
+.. _v0-4-0-functionality:
 
 Functionality & Enhancements
 ----------------------------
@@ -94,7 +130,7 @@ Functionality & Enhancements
 - Gain correction classes
     - Gain correction classes for computing gain correction as a function of elevation, aperture efficiency, surface error, and airmass. (See `GBTGainCorrection <https://dysh.readthedocs.io/en/release-0.4.0/reference/modules/dysh.util.html#dysh.util.gaincorrection.GBTGainCorrection>`_).
 
-.. _0.4.0-bugfixes:
+.. _v0-4-0-bugfixes:
 
 Bug Fixes
 ---------
@@ -114,7 +150,7 @@ Bug Fixes
 Version 0.3.0
 ==============
 
-.. _0.3.0-functionality:
+.. _v0-3-0-functionality:
 
 Functionality & Enhancements
 ----------------------------
@@ -131,7 +167,7 @@ Functionality & Enhancements
 - `ScanBlock <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock>`_  API change
     - `timeaverage() <https://dysh.readthedocs.io/en/release-0.3.0/modules/dysh.spectra.html#dysh.spectra.scan.ScanBlock.timeaverage>`_ now returns a Spectrum instead of a list.  Previously the list contained the time average of each Scan within the ScanBlock.   Now the time average across all Scans in the ScanBlock is returned.
 
-.. _0.3.0-bugfixes:
+.. _v0-3-0-bugfixes:
 
 Bug Fixes
 ---------
