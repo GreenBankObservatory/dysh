@@ -630,7 +630,7 @@ class TestGBTFITSLoad:
         with pytest.raises(ValueError):
             df = sdf.get_summary(columns=["MYCOL"])
 
-    def test_contruct_integration_number(self, tmp_path):
+    def test_contruct_integration_number(self, tmp_path, tmp_path_factory):
         """
         Tests for _construct_integration_number.
         * Test that construction of integration number (intnum) during FITS load matches
@@ -650,6 +650,36 @@ class TestGBTFITSLoad:
         sdf.write(tmp_path / "write_test_intnum.fits", plnum=0, overwrite=True, multifile=False)
         sdf2 = gbtfitsload.GBTFITSLoad(tmp_path / "write_test_intnum.fits")
         assert set(sdf2["INTNUM"]) == set((0, 1, 2, 3))  # There should be only four integration numbers.
+
+        # Based on issue #713.
+        # First, create a dummy fits file with the time stamps shifted.
+        fn0 = util.get_project_testdata() / "AGBT15B_244_07/AGBT15B_244_07_test/file0.fits"
+        fn1 = util.get_project_testdata() / "AGBT15B_244_07/AGBT15B_244_07_test/file1.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fn0)
+        t = sdf["DATE-OBS"].to_numpy(dtype="datetime64")
+        # Add 10 ms shift.
+        td = t + np.timedelta64(10, "ms")
+        with pytest.warns(UserWarning):
+            sdf["DATE-OBS"] = np.datetime_as_string(td)
+        odir = tmp_path_factory.mktemp("dummy-data")
+        sdf.write(odir / "file0.fits")
+        # Copy the other file to the new location.
+        dest = odir / "file1.fits"
+        dest.write_bytes(fn1.read_bytes())
+        # Now load and check that there are only 3 integrations.
+        sdf_mod = gbtfitsload.GBTFITSLoad(odir)
+        # Sanity checks. Did the data get writen with updated DATE-OBS values?
+        assert len(sdf_mod.files) == 2
+        s = sdf_mod.get_summary(scan=130, verbose=True, columns=["DATE-OBS"])
+        assert len(s["DATE-OBS"].unique()) == 6  # They should not be all equal.
+        # Actual tests now.
+        assert set(sdf_mod["INTNUM"]) == set(sdf["INTNUM"])  # These should be equal.
+        # This should work.
+        sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=1)
+        sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=2)
+        # This should fail.
+        with pytest.raises(Exception), pytest.warns(UserWarning):
+            sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=3)
 
     def test_getps_smoothref(self):
         """ """
