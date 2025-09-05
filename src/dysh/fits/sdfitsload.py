@@ -1108,7 +1108,6 @@ class SDFITSLoad(object):
             warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
         try:
             self._update_column(d)
-            print(f"update column succeeded for {items}")
         except Exception as e:
             raise Exception(f"Could not update SDFITS binary table for {items} because {e}")  # noqa: B904
         # only update the index if the binary table could not be updated.
