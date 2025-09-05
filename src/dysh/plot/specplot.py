@@ -15,6 +15,7 @@ from ..coordinates import (
     decode_veldef,
     frame_to_label,
 )
+from ..spectra.spectrum import Spectrum
 from . import PlotBase
 
 _KMS = u.km / u.s
@@ -223,10 +224,12 @@ class SpectrumPlot(PlotBase):
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
         if oshow is not None:
+            if isinstance(oshow, Spectrum):
+                oshow = [oshow]
             if type(oshow) is not list:
-                raise Exception(f"oshow({oshow}): must be of type list")
+                raise TypeError(f"oshow ({oshow}) must be of type list or Spectrum")
             for sp in oshow:
-                self.oshow(sp)
+                self._oshow(sp)
 
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
@@ -348,7 +351,49 @@ class SpectrumPlot(PlotBase):
                 if b.get_gid() == "oshow":
                     b.remove()
 
-    def oshow(self, oshow_spectrum, color=None, linestyle=None):
+    def oshow(self, spectra, color=None, linestyle=None):
+        """
+        Add `spectra` to the current plot.
+
+        Parameters
+        ----------
+        spectra : list of `dysh.spectra.spectrum.Spectrum` or `dysh.spectra.spectrum.Spectrum`
+            Spectra to add to the plot.
+        color : list of valid `matplotlib` colors or `matplotlib` color
+            Colors for the spectra. There must be one element per spectra.
+        linestyle : list of valid `matplotlib` linestyles or `matplotlib` linestyle
+            Linestyles for the spectra. There must be one element per spectra.
+        """
+
+        # If a single Spectrum is the input, make everything a list.
+        if isinstance(spectra, Spectrum):
+            spectra = [spectra]
+            if color is not None:
+                color = [color]
+            if linestyle is not None:
+                linestyle = [linestyle]
+
+        # Pack args together, and check that we have enough of each.
+        zargs = (spectra,)
+        if color is not None:
+            # Check that we have enough colors.
+            if len(color) != len(spectra):
+                raise ValueError(f"How do I color {len(spectra)} spectra with {len(color)} colors?")
+            zargs += (color,)
+        else:
+            zargs += ([None] * len(spectra),)
+        if linestyle is not None:
+            # Check that we have enough linestyles.
+            if len(linestyle) != len(spectra):
+                raise ValueError(f"How do I style {len(spectra)} spectra with {len(linestyle)} linestyles?")
+            zargs += (linestyle,)
+        else:
+            zargs += ([None] * len(spectra),)
+
+        for s, c, ls in zip(*zargs, strict=True):
+            self._oshow(s, color=c, linestyle=ls)
+
+    def _oshow(self, oshow_spectrum, color=None, linestyle=None):
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         sf = oshow_spectrum.flux.to(self._spectrum.unit)
         sa = oshow_spectrum.velocity_axis_to(
