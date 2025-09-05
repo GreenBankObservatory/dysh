@@ -419,7 +419,46 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
 
-    def get_summary(self, scan=None, verbose=False, columns=None, col_defs=None):
+    def _validate_summary_columns(self, columns, col_defs, needed=None, verbose=False):
+        """
+        Sanitize `columns` for `~dysh.fits.gbtfitsload.GBTFITSLoad.get_summary`.
+
+        Parameters
+        ----------
+        columns : list
+            Columns to sanitize.
+        col_defs : dict
+            Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
+        needed : list
+            List of columns needed to build the index.
+        verbose : bool
+            `~dysh.fits.gbtfitsload.GBTFITSLoad.get_summary` verbose mode.
+        """
+        # Check for any kind of list, and rule out str which is a type of Sequence.
+        if isinstance(columns, (Sequence, np.ndarray)) and not isinstance(columns, str):
+            cols_set = set(columns)
+            if len(cols_set) == 0:
+                raise ValueError("Empty 'columns'.")
+        else:
+            raise TypeError(f"show must be list-like, got a {type(columns)} instead.")
+        # Selected columns must be defined in col_defs.
+        col_defs_set = set(col_defs.keys())
+        diff = cols_set - col_defs_set
+        if len(diff) > 0 and not verbose:
+            raise ValueError(f"Column(s) {diff} are not handled yet.")
+        # No duplicate columns.
+        if len(cols_set) < len(columns):
+            logger.warning("columns contains duplicated values. Removing them.")
+        # Sort the columns back to their input order.
+        columns = sorted(cols_set, key=columns.index)
+        # Can't deal with only the columns used to group the index.
+        if needed is not None:
+            if set(needed) >= set(columns):
+                raise ValueError(f"Can't show only {' and/or '.join(needed)} columns. Add another column.")
+
+        return columns
+
+    def get_summary(self, scan=None, verbose=False, columns=None, add_columns=None, col_defs=None):
         """
         Create a summary of the input dataset as a `~pandas.DataFrame`.
 
@@ -440,6 +479,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             and ELEVATIO (ELEVATION).
             If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
+        add_columns : list
+            List of columns to be added to the default `columns`.
+            If `columns` is not None, then this will be ignored.
         col_defs : dict
             Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
 
@@ -464,7 +506,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if col_defs is None:
             col_defs = core.summary_column_definitions()
 
-        needed = ["PROJID", "SCAN"]
+        needed = ["PROJID", "BINTABLE", "SCAN"]
+
+        # Initial handling of `add_columns` keyword.
+        if add_columns is not None and columns is not None:
+            logger.warning("Both 'columns' and 'add_columns' set. Will ignore 'add_columns'.")
+            add_columns = []
+        elif add_columns is None:
+            add_columns = []
+        else:
+            add_columns = self._validate_summary_columns(add_columns, col_defs, verbose=verbose)
 
         # Deafult columns to show.
         if columns is None:
@@ -479,14 +530,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "RESTFREQ",
                     "DOPFREQ",
                     "IFNUM",
-                    "FEED",
-                    "AZIMUTH",
-                    "ELEVATIO",
-                    "FDNUM",
-                    "INTNUM",
                     "PLNUM",
+                    "FDNUM",
+                    "FEED",
                     "SIG",
                     "CAL",
+                    "INTNUM",
+                    "AZIMUTH",
+                    "ELEVATIO",
                     "DATE-OBS",
                 ]
             else:
@@ -507,27 +558,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 ]
         else:
             # Check that the user input won't break anything.
+            self._validate_summary_columns(columns, col_defs, needed, verbose)
 
-            # Check for any kind of list, and rule out str which is a type of Sequence.
-            if isinstance(columns, (Sequence, np.ndarray)) and not isinstance(columns, str):
-                cols_set = set(columns)
-            else:
-                raise TypeError(f"show must be list-like, got a {type(columns)} instead.")
-            # Selected columns must be defined in col_defs.
-            col_defs_set = set(col_defs.keys())
-            diff = cols_set - col_defs_set
-            if len(diff) > 0 and not verbose:
-                raise ValueError(f"Column(s) {diff} are not handled yet.")
-            # No duplicate columns.
-            if len(cols_set) < len(columns):
-                logger.warning("columns contains duplicated values. Removing them.")
-            # Sort the columns back to their input order.
-            columns = sorted(cols_set, key=columns.index)
-            # Can't deal with only the columns used to group the index.
-            if set(needed) >= set(columns):
-                raise ValueError("Can't show only SCAN and/or PROJID columns. Add another column.")
-
-        _columns = columns.copy()
+        ocols = columns + add_columns  # Output columns.
+        ocols = sorted(set(ocols), key=ocols.index)  # Remove duplicates preserving order.
+        _columns = ocols.copy()
         for n in needed:
             try:
                 _columns.remove(n)
@@ -566,22 +601,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns}
             # We have to reset the index and column types.
             df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes)
-            # Order by scan number and project id.
+            # Sort rows.
             df = df.sort_values(by=needed)
             # Keep only the columns to be shown.
-            df = df[columns]
+            df = df[ocols]
             # Set column names.
             col_names = {k: v.name if k in _columns and v.name is not None else k for k, v in col_defs.items()}
-            columns = [col_defs[c].name if col_defs[c].name is not None else c for c in columns]
+            new_columns = [col_defs[c].name if col_defs[c].name is not None else c for c in ocols]
             df = df.rename(columns=col_names)
-            df = df[columns]
+            df = df[new_columns]
         else:
             # Ensure column order is preserved.
-            df = df[columns]
+            df = df[ocols]
 
         return df
 
-    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None):
+    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None):
         """
         Show a summary of the `~dysh.fits.GBTFITSLoad` object.
         To retrieve the underlying `~pandas.DataFrame` use
@@ -610,9 +645,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             AZIMUTH, and ELEVATIO (ELEVATION).
             If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
+        add_columns : list
+            List of columns to be added to the default `columns`.
+            If `columns` is not None, then this will be ignored.
         """
 
-        df = self.get_summary(scan=scan, verbose=verbose, columns=columns)
+        df = self.get_summary(scan=scan, verbose=verbose, columns=columns, add_columns=add_columns)
 
         if max_rows == -1:
             max_rows = conf.summary_max_rows

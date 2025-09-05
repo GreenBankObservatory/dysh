@@ -191,6 +191,7 @@ def summary_column_definitions():
         "SUBOBSMODE": str_col,
         "PROJID": str_col,
         "SUBREF_STATE": col_def("nunique", int, name="# SUBREF"),
+        "BINTABLE": col_def("mean", int),
     }
 
     return col_defs
