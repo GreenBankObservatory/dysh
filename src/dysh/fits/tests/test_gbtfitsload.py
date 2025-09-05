@@ -80,6 +80,7 @@ class TestGBTFITSLoad:
         sdf.apply_flags()
         spec = sdf.getspec(0, setmask=False)
         spec2 = sdf.getspec(0, setmask=True)
+        assert spec.flux.unit == "ct"
         assert any(spec.mask != spec2.mask)
         assert all(spec2.mask[0:101])
         assert all(spec2.mask[102:] == False)  # noqa: E712
@@ -106,6 +107,7 @@ class TestGBTFITSLoad:
         )
         assert len(psscan) == 1
         psscan.calibrate()
+        assert psscan[0].calibrated(0).flux.unit == "K"
         dysh_getps = psscan[0].calibrated(0).flux.to("K").value
 
         diff = gbtidl_getps - dysh_getps
@@ -703,6 +705,7 @@ class TestGBTFITSLoad:
         assert set(t._index["PLNUM"]) == set([1])
         # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
         assert set(t._index["INTNUM"]) == set([2])
+        # assert t.gettp(plnum=1, fdnum=0, ifnum=0).timeaverage().flux.unit == "K" # @todo fix ?
 
     def test_write_multi_file(self, tmp_path):
         "Test that writing multiple SDFITS files works, including subselection of data"
@@ -1053,6 +1056,7 @@ class TestGBTFITSLoad:
         spec2 = psscan2.timeaverage()
         exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
         assert exp2 < exp1
+        assert spec.flux.unit == "K"
 
     def test_getnod_wcal(self):
         """
