@@ -603,6 +603,22 @@ class TestGBTFITSLoad:
         df = sdf.get_summary(columns=c)
         assert np.all(df.columns == c)
 
+        # With added columns.
+        add_columns = ["BINTABLE", "PROJID"]
+        expected_columns = list(sdf.get_summary().columns) + add_columns
+        df = sdf.get_summary(add_columns=add_columns)
+        assert np.all(df.columns == expected_columns)
+
+        # Repeated added columns.
+        add_columns = ["IFNUM", "SCAN"]
+        expected_columns = sdf.get_summary().columns
+        df = sdf.get_summary(add_columns=add_columns)
+        assert np.all(df.columns == expected_columns)
+
+        # Empty columns.
+        with pytest.raises(ValueError):
+            sdf.get_summary(columns=[])
+
         # Undefined column.
         columns += ["NOTTHERE"]
         with pytest.raises(ValueError):
