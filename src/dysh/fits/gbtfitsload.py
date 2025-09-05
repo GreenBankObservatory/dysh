@@ -1045,7 +1045,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return
         # check that GBTIDL didn't write it out at some point.
         if "INT" in self._index:
-            self._selection = Selection(self._selection.rename(columns={"INT": "INTNUM"}))
+            # This is faster than using
+            # self._selection = Selection(self._selection.rename(columns={"INT": "INTNUM"}))
+            # Keep, unless we find a faster way.
+            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)  # noqa: PD002
             for s in self._sdf:
                 s._rename_binary_table_column("int", "intnum")
             return
