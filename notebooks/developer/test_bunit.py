@@ -160,7 +160,7 @@ sdf = GBTFITSLoad(fnm)
 sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0).timeaverage()
 sba.plot()
 
-sba.flux.
+sba.flux.unit
 
 #%%   707
 
