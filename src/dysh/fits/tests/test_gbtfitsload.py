@@ -92,10 +92,10 @@ class TestGBTFITSLoad:
         fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(fnm)
         pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
-        pssb.write("getspec_units.fits",overwrite=True)
+        pssb.write("getspec_units.fits", overwrite=True)
         sdf_load = gbtfitsload.GBTFITSLoad("getspec_units.fits")
         pss = sdf_load.getspec(0)
-        assert pss.flux.unit  == "K"
+        assert pss.flux.unit == "K"
 
     def test_getps_single_int(self):
         """
