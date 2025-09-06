@@ -85,6 +85,18 @@ class TestGBTFITSLoad:
         assert all(spec2.mask[0:101])
         assert all(spec2.mask[102:] == False)  # noqa: E712
 
+    def test_getspec_units(self):
+        """
+        Test that the units of a file written as PS has units "K"
+        """
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
+        pssb.write("getspec_units.fits",overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad("getspec_units.fits")
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit  == "K"
+
     def test_getps_single_int(self):
         """
         Compare gbtidl result to dysh for a getps spectrum from a single integration/pol/feed.
