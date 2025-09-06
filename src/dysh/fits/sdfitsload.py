@@ -506,7 +506,7 @@ class SDFITSLoad(object):
         #  NOTE: sdfits file from sdf.write() currently have
         if "BUNIT" in meta:
             bunit = meta["BUNIT"]
-            logger.info(f"BUNIT {bunit} already")
+            logger.debug(f"BUNIT {bunit} already set")
         else:
             bunit = None
             h = self.binheader[0]
@@ -522,15 +522,15 @@ class SDFITSLoad(object):
                 for k, v, _c in h.cards:
                     if k == ukey:
                         if bunit != v:
-                            logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
+                            logger.debug(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
                         if len(v) == 0:
-                            logger.info("Blank....overriding unit as 'ct' - not ")
+                            logger.debug("Blank BUNIT; overriding unit as 'ct'")
                             bunit = u.ct
                         else:
                             bunit = v
                         break
             if bunit is None:
-                logger.info("no bunit yet")
+                logger.debug("no bunit yet")
         if bunit is not None:
             bunit = u.Unit(bunit)
         else:
