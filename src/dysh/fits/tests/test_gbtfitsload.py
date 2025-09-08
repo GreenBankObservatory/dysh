@@ -85,15 +85,34 @@ class TestGBTFITSLoad:
         assert all(spec2.mask[0:101])
         assert all(spec2.mask[102:] == False)  # noqa: E712
 
-    def test_getspec_units(self):
+    def test_getspec_units(self, tmp_path):
         """
-        Test that the units of a file written as PS has units "K"
+        Test that the units of a file written as PS has units "K" or "Jy"
         """
         fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(fnm)
+
+        # K
         pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
-        pssb.write("getspec_units.fits", overwrite=True)
-        sdf_load = gbtfitsload.GBTFITSLoad("getspec_units.fits")
+        out_file = tmp_path / "getspec_units.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "K"
+
+        # Jy
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, bunit="Jy")
+        out_file = tmp_path / "getspec_units_Jy.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "Jy"
+
+        # Ta*
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, bunit="Ta*")
+        out_file = tmp_path / "getspec_units_Tastar.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
         pss = sdf_load.getspec(0)
         assert pss.flux.unit == "K"
 
