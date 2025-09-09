@@ -88,7 +88,6 @@ class SpectrumPlot(PlotBase):
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
-        self._oshows = []
 
     # def __call__ (see pyspeckit)
 
@@ -402,10 +401,9 @@ class SpectrumPlot(PlotBase):
             doppler_convention=this_plot_kwargs["doppler_convention"],
         )
 
-        lines = self._axis.plot(sa, sf, color=color, linestyle=linestyle, gid="oshow")
+        self._axis.plot(sa, sf, color=color, linestyle=linestyle, gid="oshow")
 
         self.freexy()
-        self._oshows.append(lines[0])
 
 
 class InteractiveSpanSelector:
