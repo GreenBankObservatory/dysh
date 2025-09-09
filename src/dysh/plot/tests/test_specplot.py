@@ -43,7 +43,7 @@ class TestSpecplot:
         tp1 = self.sdf.gettp(scan=6, plnum=0, ifnum=1, fdnum=0).timeaverage()
         tp2 = self.sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage()
         self.tpplot = self.tp.plot(oshow=tp1)
-        self.tpplot.oshow(tp2, color='r', linestyle='--')
+        self.tpplot.oshow(tp2, color="r", linestyle="--")
 
 
 class TestScanplot:
