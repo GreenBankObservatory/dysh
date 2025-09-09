@@ -6,7 +6,7 @@ ScanBlock
 
 A `~dysh.spectra.scan.ScanBlock` is a `list` of `~dysh.spectra.scan.ScanBase` objects.
 As illustrated by the diagram below, it serves to hold together a series of scans.
-One of its purposes is to facilitate working with groups of scans, as it allows time averaging them together, or subtracting a baseline from the integrations in a group of scans.
+One of its purposes is to facilitate working with groups of scans, as it allows time averaging them together (using :py:meth:`ScanBlock.timeaverage <dysh.spectra.scan.ScanBlock.timeaverage>`), or subtracting a baseline from the integrations in a group of scans (using :py:meth:`ScanBlock.subtract_baseline <dysh.spectra.scan.ScanBlock.subtract_baseline>`).
 
 .. mermaid::
     :caption: The contents of a `~dysh.spectra.scan.ScanBlock` are a series of `~dysh.spectra.scan.ScanBase` objects. `~dysh.spectra.scan.ScanBlock` are the return of the calibration routines (e.g., `~dysh.fits.gbtfitsload.GBTFITSLoad.getps`, `~dysh.fits.gbtfitsload.GBTFITSLoad.getfs` or `~dysh.fits.gbtfitsload.GBTFITSLoad.gettp`)
