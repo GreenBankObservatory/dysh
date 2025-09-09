@@ -13,7 +13,7 @@ from astropy.io import fits
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 from dysh import util
-from dysh.fits import gbtfitsload
+from dysh.fits import gbtfitsload, sdfitsload
 
 
 class TestGBTFITSLoad:
@@ -80,9 +80,58 @@ class TestGBTFITSLoad:
         sdf.apply_flags()
         spec = sdf.getspec(0, setmask=False)
         spec2 = sdf.getspec(0, setmask=True)
+        assert spec.flux.unit == "ct"
         assert any(spec.mask != spec2.mask)
         assert all(spec2.mask[0:101])
         assert all(spec2.mask[102:] == False)  # noqa: E712
+
+    def test_getspec_units(self, tmp_path):
+        """
+        Test that the units of a file written as PS has units "K" or "Jy"
+        """
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+
+        # K
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
+        out_file = tmp_path / "getspec_units.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "K"
+
+        # Jy
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, bunit="Jy")
+        out_file = tmp_path / "getspec_units_Jy.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "Jy"
+
+        # Ta*
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, bunit="Ta*")
+        out_file = tmp_path / "getspec_units_Tastar.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "K"
+
+    def test_data_column(self):
+        """
+        Test that the DATA column in in column 7 for 3 types of SDFITS files:
+        1. original sdfits
+        2. sdf.write()
+        3. sdf.getps().write()
+        """
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf.write("test_data_1.fits", overwrite=True)
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
+        pssb.write("test_data_2.fits", overwrite=True)
+        # there is a bugthat the binheader in gbtfitsload doesn't exist, so we use sdfitsload
+        for f in [fnm, "test_data_1.fits", "test_data_2.fits"]:
+            sdf = sdfitsload.SDFITSLoad(f)
+            assert sdf.binheader[0]["TTYPE7"] == "DATA"
 
     def test_getps_single_int(self):
         """
@@ -106,6 +155,7 @@ class TestGBTFITSLoad:
         )
         assert len(psscan) == 1
         psscan.calibrate()
+        assert psscan[0].calibrated(0).flux.unit == "K"
         dysh_getps = psscan[0].calibrated(0).flux.to("K").value
 
         diff = gbtidl_getps - dysh_getps
@@ -630,7 +680,7 @@ class TestGBTFITSLoad:
         with pytest.raises(ValueError):
             df = sdf.get_summary(columns=["MYCOL"])
 
-    def test_contruct_integration_number(self, tmp_path):
+    def test_contruct_integration_number(self, tmp_path, tmp_path_factory):
         """
         Tests for _construct_integration_number.
         * Test that construction of integration number (intnum) during FITS load matches
@@ -650,6 +700,36 @@ class TestGBTFITSLoad:
         sdf.write(tmp_path / "write_test_intnum.fits", plnum=0, overwrite=True, multifile=False)
         sdf2 = gbtfitsload.GBTFITSLoad(tmp_path / "write_test_intnum.fits")
         assert set(sdf2["INTNUM"]) == set((0, 1, 2, 3))  # There should be only four integration numbers.
+
+        # Based on issue #713.
+        # First, create a dummy fits file with the time stamps shifted.
+        fn0 = util.get_project_testdata() / "AGBT15B_244_07/AGBT15B_244_07_test/file0.fits"
+        fn1 = util.get_project_testdata() / "AGBT15B_244_07/AGBT15B_244_07_test/file1.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fn0)
+        t = sdf["DATE-OBS"].to_numpy(dtype="datetime64")
+        # Add 10 ms shift.
+        td = t + np.timedelta64(10, "ms")
+        with pytest.warns(UserWarning):
+            sdf["DATE-OBS"] = np.datetime_as_string(td)
+        odir = tmp_path_factory.mktemp("dummy-data")
+        sdf.write(odir / "file0.fits")
+        # Copy the other file to the new location.
+        dest = odir / "file1.fits"
+        dest.write_bytes(fn1.read_bytes())
+        # Now load and check that there are only 3 integrations.
+        sdf_mod = gbtfitsload.GBTFITSLoad(odir)
+        # Sanity checks. Did the data get writen with updated DATE-OBS values?
+        assert len(sdf_mod.files) == 2
+        s = sdf_mod.get_summary(scan=130, verbose=True, columns=["DATE-OBS"])
+        assert len(s["DATE-OBS"].unique()) == 6  # They should not be all equal.
+        # Actual tests now.
+        assert set(sdf_mod["INTNUM"]) == set(sdf["INTNUM"])  # These should be equal.
+        # This should work.
+        sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=1)
+        sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=2)
+        # This should fail.
+        with pytest.raises(Exception), pytest.warns(UserWarning):
+            sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=3)
 
     def test_getps_smoothref(self):
         """ """
@@ -703,6 +783,7 @@ class TestGBTFITSLoad:
         assert set(t._index["PLNUM"]) == set([1])
         # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
         assert set(t._index["INTNUM"]) == set([2])
+        # assert t.gettp(plnum=1, fdnum=0, ifnum=0).timeaverage().flux.unit == "K" # @todo fix ?
 
     def test_write_multi_file(self, tmp_path):
         "Test that writing multiple SDFITS files works, including subselection of data"
@@ -1053,6 +1134,7 @@ class TestGBTFITSLoad:
         spec2 = psscan2.timeaverage()
         exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
         assert exp2 < exp1
+        assert spec.flux.unit == "K"
 
     def test_getnod_wcal(self):
         """

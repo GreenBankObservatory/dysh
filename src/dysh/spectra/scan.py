@@ -823,7 +823,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         form = f"{np.shape(self._calibrated)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=self._calibrated))
         logger.debug(f"Writing {len(self._calibrated)} rows for output from ScanBase.")
-        b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
+        # re-arrange so DATA is column 7
+        cd1 = cd[:6] + cd[-1] + cd[6:-1]
+        b = BinTableHDU.from_columns(cd1, name="SINGLE DISH")
         return b
 
     def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
@@ -1213,7 +1215,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         data = np.concatenate([c._calibrated for c in self.data])
         form = f"{np.shape(data)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=data))
-        b = BinTableHDU.from_columns(cd, name="SINGLE DISH")
+        # re-arrange so DATA is column 7
+        cd1 = cd[:6] + cd[-1] + cd[6:-1]
+        b = BinTableHDU.from_columns(cd1, name="SINGLE DISH")
+
         # preserve any meta
         for k, v in table_meta.items():
             if k == "HISTORY" or k == "COMMENT":
