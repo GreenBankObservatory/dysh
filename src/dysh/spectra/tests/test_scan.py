@@ -160,7 +160,7 @@ class TestPSScan:
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, bunit="jy", zenith_opacity=0.08)
+        ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, units="Flux", zenith_opacity=0.08)
         ps_jy = ps_sb.timeaverage()
         assert ps_jy.meta["BUNIT"] == "Jy"
         assert ps_jy.meta["TUNIT7"] == "Jy"
