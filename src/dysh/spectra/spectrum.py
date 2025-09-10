@@ -1110,6 +1110,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "RESTFRQ": 1420405751.7,
             "MEANTSYS": 17.16746070048293,
             "WTTSYS": 17.16574907094451,
+            "TSCALE": "Ta*",
+            "TUNIT7": "K",
+            "BUNIT": "K",
         }
         for k, v in kwargs.items():
             meta[k.upper()] = v
