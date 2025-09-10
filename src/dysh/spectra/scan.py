@@ -400,7 +400,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        `~np.array`
+        `~np.ndarray`
             An array of floats, one per integration in the scan.
 
         """
@@ -422,7 +422,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Parameters
         ----------
-            factor - `~np.array` or float
+            factor - `~np.ndarray` or float
 
             The factor to scale the spectral data by
 
@@ -1047,13 +1047,15 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
             Default: 'tsys'
 
+        .. note::
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
+
         Returns
         -------
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
 
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
+
         """
         # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
@@ -1148,7 +1150,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        `~np.array`
+        `~np.ndarray`
             An array of floats, one per integration in the ScanBlock.
 
         """
