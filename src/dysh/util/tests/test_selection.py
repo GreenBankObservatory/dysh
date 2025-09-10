@@ -44,12 +44,37 @@ class TestSelection:
 
         # test s.remove by both id and tag
         s.remove(0)
+        assert len(s._selection_rules) == 1
         s.remove(tag="ifnums")
         assert len(s._selection_rules) == 0
 
         # This has the same final result than selections on separate lines
         s.select(object="NGC2415", plnum=0, ifnum=[0, 2])
         assert len(s.final) == 3
+        s.clear()
+
+        # Test using bool or char for CAL and SIG columns.
+        s.select(cal="T")
+        assert len(s.final) == 20
+        assert set(s.final["CAL"]) == {"T"}
+        s.clear()
+        s.select(cal=True)
+        assert len(s.final) == 20
+        assert set(s.final["CAL"]) == {"T"}
+        s.clear()
+        s.select(sig="T")
+        assert len(s.final) == 50
+        s.clear()
+        s.select(sig=True)
+        assert len(s.final) == 50
+        s.clear()
+        with pytest.warns(UserWarning):  # There's no sig=F data.
+            s.select(sig=False)
+        assert len(s.final) == 0
+        s.clear()
+        with pytest.warns(UserWarning):  # There's no sig=F data.
+            s.select(sig="F")
+        assert len(s.final) == 0
         s.clear()
 
         # test select_range
@@ -130,6 +155,30 @@ class TestSelection:
         # This has the same final result than selections on separate lines
         s.flag(object="NGC2415", plnum=0, ifnum=[0, 2])
         assert len(s.final) == 3
+        s.clear()
+
+        # Test using bool or char for CAL and SIG columns.
+        s.flag(cal="T")
+        assert len(s.final) == 20
+        assert set(s.final["CAL"]) == {"T"}
+        s.clear()
+        s.flag(cal=True)
+        assert len(s.final) == 20
+        assert set(s.final["CAL"]) == {"T"}
+        s.clear()
+        s.flag(sig="T")
+        assert len(s.final) == 50
+        s.clear()
+        s.flag(sig=True)
+        assert len(s.final) == 50
+        s.clear()
+        with pytest.warns(UserWarning):  # There's no sig=F data.
+            s.flag(sig=False)
+        assert len(s.final) == 0
+        s.clear()
+        with pytest.warns(UserWarning):  # There's no sig=F data.
+            s.flag(sig="F")
+        assert len(s.final) == 0
         s.clear()
 
         # test select_range

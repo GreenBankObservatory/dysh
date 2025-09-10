@@ -210,15 +210,15 @@ class SelectionBase(DataFrame):
 
     def _sanitize_input(self, key, value):
         """
-        Sanitize a key-value pair for. Coordinate types are checked for.
+        Sanitize a key-value pair for.
+        Coordinate and boolean types are checked for.
 
         Parameters
         ----------
         key : str
-            upper case key value
-
+            Upper case key value.
         value : any
-            The value for the key
+            The value for the key.
 
         Returns
         -------
@@ -230,8 +230,34 @@ class SelectionBase(DataFrame):
             key = self._aliases[key]
         if key not in self:
             raise KeyError(f"{key} is not a recognized column name.")
-        v = self._sanitize_coordinates(key, value)
+        v = self._sanitize_boolean(key, value)
+        v = self._sanitize_coordinates(key, v)
         return v
+
+    def _sanitize_boolean(self, key, value):
+        """
+        Sanitize a boolean selection key-value pair. Boolean values
+        will be converted to "T" or "F" characters if the key is
+        "SIG" or "CAL".
+
+        Parameters
+        ----------
+        key : str
+            Upper case key value.
+        value : bool or any
+            The value for the key.
+
+        Returns
+        -------
+        sanitized_value : str
+            The sanitized value. Either "T" or "F" if `value` is True or False, respectively.
+            Otherwise, return the input `value`.
+        """
+        TF = {True: "T", False: "F"}
+        bool_char_cols = ["SIG", "CAL"]
+        if key in bool_char_cols and isinstance(value, bool):
+            value = TF[value]
+        return value
 
     def _sanitize_coordinates(self, key, value):
         """
@@ -241,17 +267,17 @@ class SelectionBase(DataFrame):
         Parameters
         ----------
         key : str
-            upper case key value
-
-        value : any
-            The value for the key.  It can be a single float,
+            Upper case key value.
+        value : float or `~astropy.coordinates.Angle` or str or any
+            The value for the key. It can be a single float,
             a single Angle (Quantity), a tuple of Angles
             (a1,a2,a3) or an Angle tuple, e.g., (n1,n2)*u.degree
 
         Returns
         -------
-        sanitized_value : str
-            The sanitized value.
+        sanitized_value : float or `~astropy.coordinates.Angle` or `value` type
+            The sanitized value if it is a number, `~astropy.coordinates.Angle` or str.
+            If it is not any of those, then return the input `value`.
         """
         if key not in self._valid_coordinates and key not in self.aliases:
             return value
