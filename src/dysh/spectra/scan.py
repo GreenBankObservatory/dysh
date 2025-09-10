@@ -400,18 +400,29 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        np.array
+        `~np.array`
             An array of floats, one per integration in the scan.
 
         """
         return self._tscale_fac
+
+    @property
+    def tunit(self):
+        """The tempurature unit of this Scan's data
+
+        Returns
+        -------
+        str
+            The string representation of the unit
+        """
+        return self._tscale_to_unit[self._tscale.lower()]
 
     def _scaleby(self, factor):
         """Scale the calibrated data array by a factor. This is an NxM * N multiplication
 
         Parameters
         ----------
-            factor - np.array or float
+            factor - `~np.array` or float
 
             The factor to scale the spectral data by
 
@@ -1099,6 +1110,16 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:
             scan.scale(tscale, zenith_opacity)
 
+    # cute but requires an _prop for every prop, which isn't always the case
+    # def _scanblock_property(self,prop:str, desc:str):
+    #    if not hasattr(self.data[0],prop):
+    #        raise AttributeError("'ScanBlock' object has no attribute '{prop}'")
+    #     _prop = set(scan.__dict__[f'_{prop}'] for scan in self.data)
+    #    if len(_prop) > 1:
+    #        logger.warning(f"The Scans in this ScanBlock have {desc} units {_prop}")
+    #        return list(_prop)
+    #    return list(_prop)[0]
+
     @property
     def tscale(self):
         """
@@ -1118,6 +1139,35 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             logger.warning(f"The Scans in this ScanBlock have differing brightness units {tscale}")
             return list(tscale)
         return list(tscale)[0]  # noqa: RUF015
+
+    @property
+    def tscale_fac(self):
+        """
+        The factor(s) by which the data have been scale from antenna temperature to corrected antenna temperature
+        or flux density.
+
+        Returns
+        -------
+        `~np.array`
+            An array of floats, one per integration in the ScanBlock.
+
+        """
+        return np.squeeze(np.array([scan.tscale_fac for scan in self.data]))
+
+    @property
+    def tunit(self):
+        """The tempurature unit of this ScanBlocks's data
+
+        Returns
+        -------
+        str
+            The string representation of the unit
+        """
+        tunit = set([scan.tunit for scan in self.data])
+        if len(tunit) > 1:
+            logger.warning(f"The Scans in this ScanBlock have differing temperature units {tunit}")
+            return list(tunit)
+        return list(tunit)[0]  # noqa: RUF015
 
     # possible @todo:  We could have a baseline() method with same signature as Spectrum.baseline, which would compute
     # timeaverage for each Scan in a ScanBlock, and for each Scan calculate and remove that baseline from t

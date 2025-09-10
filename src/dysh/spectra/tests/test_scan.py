@@ -160,15 +160,23 @@ class TestPSScan:
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, units="Flux", zenith_opacity=0.08)
+        tscale = "Flux"
+        tunit = "Jy"
+        ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, units=tscale, zenith_opacity=0.08)
+        assert ps_sb.tunit == tunit
+        assert ps_sb.tscale == tscale
+        assert ps_sb.tscale_fac == pytest.approx(0.55117614)
+        assert ps_sb[0].tunit == tunit
+        assert ps_sb[0].tscale == tscale
+
         ps_jy = ps_sb.timeaverage()
-        assert ps_jy.meta["BUNIT"] == "Jy"
-        assert ps_jy.meta["TUNIT7"] == "Jy"
-        assert ps_jy.flux.unit.to_string() == "Jy"
+        assert ps_jy.meta["BUNIT"] == tunit
+        assert ps_jy.meta["TUNIT7"] == tunit
+        assert ps_jy.flux.unit.to_string() == tunit
         ps_jy_i = ps_sb[0].calibrated(0)
-        assert ps_jy_i.meta["BUNIT"] == "Jy"
-        assert ps_jy_i.meta["TUNIT7"] == "Jy"
-        assert ps_jy_i.flux.unit.to_string() == "Jy"
+        assert ps_jy_i.meta["BUNIT"] == tunit
+        assert ps_jy_i.meta["TUNIT7"] == tunit
+        assert ps_jy_i.flux.unit.to_string() == tunit
 
 
 class TestSubBeamNod:
@@ -627,6 +635,11 @@ class TestScanBlock:
 
         # Single scan test.
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        # check some properties while we're here
+        assert sb.tunit == "K"
+        assert sb.tscale == "Ta"
+        assert np.all(sb.tscale_fac == 1)
+
         ta = sb.timeaverage()
         ta.baseline(exclude=[3000, 5000] * u.km / u.s, degree=1, remove=True)
         sb.subtract_baseline(ta.baseline_model)
