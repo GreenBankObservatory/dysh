@@ -56,8 +56,8 @@ For example, you can do the following:
     from dysh.spectra import ScanBlock
     scan_block = ScanBlock()
     # Calibrate some data. For example:
-    # ps_sb = sdfits.getps(scan=1, ifnum=0, plnum=0, fdnum=0)
-    # fs_sb = sdfits.getfs(scan=2, ifnum=0, plnum=0, fdnum=0)
+    ps_sb = sdfits.getps(scan=1, ifnum=0, plnum=0, fdnum=0)
+    fs_sb = sdfits.getfs(scan=2, ifnum=0, plnum=0, fdnum=0)
     scan_block.append(ps_sb)
     scan_block.append(fs_sb)
 
