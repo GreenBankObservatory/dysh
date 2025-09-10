@@ -487,7 +487,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if s == "ta":
             self._tscale_fac = np.array([1.0])
             self._tscale = s
-            self._set_all_meta("TSCALE_FAC", 1.0)
+            self._set_all_meta("TSCALFAC", 1.0)
             self._set_all_meta("TSCALE", self.tscale)
             self._set_all_meta("BUNIT", ntscale)
             self._set_all_meta("TUNIT7", ntscale)
@@ -505,7 +505,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._set_all_meta("TUNIT7", ntscale)
         self._set_all_meta("TSCALE", self._tscale)
         for i in range(len(self._meta)):
-            self._meta[i]["TSCALE_FAC"] = self.tscale_fac[i]
+            self._meta[i]["TSCALFAC"] = self.tscale_fac[i]
 
     def _set_all_meta(self, key, value):
         for i in range(len(self._meta)):
@@ -788,7 +788,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         for i in range(len(self._meta)):
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
             self._meta[i]["TSCALE"] = self.tscale
-            self._meta[i]["TSCALE_FAC"] = self.tscale_fac[i]
+            self._meta[i]["TSCALFAC"] = self.tscale_fac[i]
 
     @abstractmethod
     def calibrate(self, **kwargs):  ## SCANBASE

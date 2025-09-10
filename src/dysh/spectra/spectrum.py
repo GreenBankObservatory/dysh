@@ -1111,6 +1111,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "MEANTSYS": 17.16746070048293,
             "WTTSYS": 17.16574907094451,
             "TSCALE": "Ta*",
+            "TSCALFAC": 0.54321,
             "TUNIT7": "K",
             "BUNIT": "K",
         }
