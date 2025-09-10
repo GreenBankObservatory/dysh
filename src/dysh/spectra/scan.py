@@ -153,13 +153,18 @@ class SpectralAverageMixin:
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
+
+
         Returns
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
 
         .. note::
+
            Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
+
+
         """
         pass
 
@@ -802,13 +807,17 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
+
+
         Returns
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
             The time-averaged spectrum
 
         .. note::
+
            Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
+
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
@@ -1049,15 +1058,15 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
             Default: 'tsys'
 
-        .. note::
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
 
         Returns
         -------
         timeaverage: list of `~spectra.spectrum.Spectrum`
             List of all the time-averaged spectra
 
+        .. note::
 
+           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
         """
         # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
