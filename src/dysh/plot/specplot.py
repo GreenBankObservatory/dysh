@@ -289,6 +289,7 @@ class SpectrumPlot(PlotBase):
         if ylabel is not None:
             self.axis.set_ylabel(ylabel)
         else:
+            # @todo It would be nice if yunit could be latex. e.g. T_A^* instead of Ta*
             self.axis.set_ylabel(f"{self.spectrum.meta['TSCALE']} ({yunit})")
 
     def _show_exclude(self, **kwargs):
