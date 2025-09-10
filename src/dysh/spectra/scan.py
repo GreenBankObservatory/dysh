@@ -237,8 +237,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._sdfits = sdfits
         self._nocal = False
         self._meta = {}
-        self._tscale_fac = 1.0
-        self._tscale = "Ta"
+        self._tscale_fac = np.array([1.0])
+        self._tscale = "ta"
         self._tsys = tsys
         self._exposure = None
         self._calibrated = None
@@ -285,7 +285,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         ----------
         tscale : str
             Strings representing valid options for scaling spectral data, specifically
-                - 'Raw'
+                - 'Raw' : raw value, e.g., count
                 - 'Ta'  : Antenna Temperature
                 - 'Ta*' : Antenna temperature corrected to above the atmosphere
                 - 'Flux'  : flux density in Jansky
@@ -318,8 +318,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             else:
                 self.calibrate()
             self._add_calibration_meta()
-        if tscale.lower() != "ta":  # at instantiation we will (normally) already be in T_A so no need to scale to that.
+        if zenith_opacity is not None:
             self.scale(tscale, zenith_opacity)
+        else:
+            self._tscale_fac = np.ones(self._nint)
+        self._update_scale_meta()
         self._validate_defaults()
 
     @abstractmethod
@@ -387,7 +390,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             Brightness unit string.
 
         """
-        return self._tscale
+        return self._tscale[0].upper() + self._tscale[1:]
 
     @property
     def tscale_fac(self):
@@ -455,18 +458,21 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if zenith_opacity < 0:
             raise ValueError("Zenith opacity cannot be negative.")
         s = tscale.lower()
-        if s == self._tscale:
+        if s == self._tscale.lower():
             return
         if s != "ta" and zenith_opacity is None:
-            raise ValueError("Zenith opacity must be provided when scaling to Ta* or Jy.")
+            raise ValueError("Zenith opacity must be provided when scaling to Ta* or Flux.")
         ntscale = self._tscale_to_unit[s].to_string()
         # unscale the data if it was already scaled.
         if self.is_scaled:
             self._scaleby(1.0 / self._tscale_fac)
+
         # if scaling back to antenna temperature, reset the scale factor to one and return.
         if s == "ta":
-            self._tscale_fac = np.ones_like(self._tscale_fac)
+            self._tscale_fac = np.array([1.0])
             self._tscale = s
+            self._set_all_meta("TSCALE_FAC", 1.0)
+            self._set_all_meta("TSCALE", self.tscale)
             self._set_all_meta("BUNIT", ntscale)
             self._set_all_meta("TUNIT7", ntscale)
             return
@@ -481,6 +487,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._tscale = s
         self._set_all_meta("BUNIT", ntscale)
         self._set_all_meta("TUNIT7", ntscale)
+        self._set_all_meta("TSCALE", self._tscale)
+        for i in range(len(self._meta)):
+            self._meta[i]["TSCALE_FAC"] = self.tscale_fac[i]
 
     def _set_all_meta(self, key, value):
         for i in range(len(self._meta)):
@@ -746,6 +755,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             restfreq = rfq.to("Hz").value
             self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
+            self._meta[i]["TSCALE"] = self.tscale
 
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
@@ -757,6 +767,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["NAXIS1"] = len(self._calibrated[i])
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
+
+    def _update_scale_meta(self):
+        for i in range(len(self._meta)):
+            self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
+            self._meta[i]["TSCALE"] = self.tscale
+            self._meta[i]["TSCALE_FAC"] = self.tscale_fac[i]
 
     @abstractmethod
     def calibrate(self, **kwargs):  ## SCANBASE
@@ -1060,9 +1076,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         ----------
         tscale : str
             Strings representing valid options for scaling spectral data, specifically
-                - 'ta'  : Antenna Temperature
-                - 'ta*' : Antenna temperature corrected to above the atmosphere
-                - 'jy'  : flux density in Jansky
+                - 'Ta'  : Antenna Temperature
+                - 'Ta*' : Antenna temperature corrected to above the atmosphere
+                - 'Flux'  : flux density in Jansky
             This parameter is case-insensitive.
 
         zenith_opacity : float
@@ -1087,9 +1103,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     def tscale(self):
         """
         The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
-                - 'ta'  : Antenna Temperature
-                - 'ta*' : Antenna temperature corrected to above the atmosphere
-                - 'jy'  : flux density in Jansky
+                - 'Raw' : raw value, e.g., count
+                - 'Ta'  : Antenna Temperature
+                - 'Ta*' : Antenna temperature corrected to above the atmosphere
+                - 'Flux'  : flux density in Jansky
 
         Returns
         -------
@@ -1549,10 +1566,10 @@ class PSScan(ScanBase):
         the SDFITS header.  The default is the location of the GBT.
     tscale : str, optional
         The brightess unit scale for the output scan, must be one of (case-insensitive)
-                - 'ta'  : Antenna Temperature
-                - 'ta*' : Antenna temperature corrected to above the atmosphere
-                - 'jy'  : flux density in Jansky
-        If 'ta*' or 'jy' the zenith opacity must also be given. Default: 'ta'
+                - 'Ta'  : Antenna Temperature
+                - 'Ta*' : Antenna temperature corrected to above the atmosphere
+                - 'Flux'  : flux density in Jansky
+        If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations. Default: None
     refspec : int or `~spectra.spectrum.Spectrum`, optional
@@ -1858,10 +1875,10 @@ class NodScan(ScanBase):
         True if the noise diode was not fired. False if it was fired.
     tscale : str, optional
         The brightness scale unit for the output scan, must be one of (case-insensitive)
-                - 'ta'  : Antenna Temperature
-                - 'ta*' : Antenna temperature corrected to above the atmosphere
-                - 'jy'  : flux density in Jansky
-        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+                - 'Ta'  : Antenna Temperature
+                - 'Ta*' : Antenna temperature corrected to above the atmosphere
+                - 'Flux'  : flux density in Jansky
+        If 'ta*' or 'flux' the zenith opacity must also be given. Default:'ta'
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
@@ -2090,10 +2107,10 @@ class FSScan(ScanBase):
     apply_flags : boolean, optional.  If True, apply flags before calibration.
     tscale : str, optional
         The brightness scale unit for the output scan, must be one of (case-insensitive)
-                - 'ta'  : Antenna Temperature
-                - 'ta*' : Antenna temperature corrected to above the atmosphere
-                - 'jy'  : flux density in Jansky
-        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+                - 'Ta'  : Antenna Temperature
+                - 'Ta*' : Antenna temperature corrected to above the atmosphere
+                - 'Flux'  : flux density in Jansky
+        If 'ta*' or 'flux' the zenith opacity must also be given. Default:'ta'
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
@@ -2484,10 +2501,10 @@ class SubBeamNodScan(ScanBase):
     apply_flags : boolean, optional.  If True, apply flags before calibration.
     tscale : str, optional
         The brightness scale unit for the output scan, must be one of (case-insensitive)
-                - 'ta'  : Antenna Temperature
-                - 'ta*' : Antenna temperature corrected to above the atmosphere
-                - 'jy'  : flux density in Jansky
-        If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+                - 'Ta'  : Antenna Temperature
+                - 'Ta*' : Antenna temperature corrected to above the atmosphere
+                - 'Flux'  : flux density in Jansky
+        If 'ta*' or 'flux' the zenith opacity must also be given. Default:'ta'
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
