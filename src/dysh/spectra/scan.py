@@ -930,6 +930,8 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @property
     def tsys(self):
         """
+        The system temperatures for all scans in this ScanBlock
+
         Returns
         -------
         tsys :  `~numpy.ndarray`
