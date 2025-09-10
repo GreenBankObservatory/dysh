@@ -942,8 +942,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
-                # print(f"Applying {chan} to {rows=}")
-                # print(f"{np.where(chan_mask)}")
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
 
     @log_call_to_history
@@ -3191,19 +3189,15 @@ class GBTOnline(GBTFITSLoad):
             n = 0
             mtime_max = 0
             for dirname, subdirs, files in os.walk(sdfits_root):
-                # print("dirname",dirname,"subdirs",subdirs)
                 if len(subdirs) == 0:
                     n = n + 1
-                    # print("===dirname",dirname)
                     for fname in files:
                         if fname.split(".")[-1] == "fits":
                             mtime = os.path.getmtime(dirname + "/" + fname)
-                            # print(mtime,fname)
                             if mtime > mtime_max:
                                 mtime_max = mtime
                                 project = dirname
                             break
-            # print(f"Found {n} under {sdfits_root}")
             if n == 0:
                 return None
 
