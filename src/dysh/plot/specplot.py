@@ -288,11 +288,8 @@ class SpectrumPlot(PlotBase):
         self.axis.set_xlabel(self._compose_xlabel(**kwargs))
         if ylabel is not None:
             self.axis.set_ylabel(ylabel)
-        elif yunit.is_equivalent(u.K):
-            self.axis.set_ylabel(f"$T_A$ ({yunit})")
-        elif self.spectrum.unit.is_equivalent(u.Jy):
-            snu = r"$S_{\nu}$"
-            self.axis.set_ylabel(f"{snu} ({yunit})")
+        else:
+            self.axis.set_ylabel(f"{self.spectrum.meta['TSCALE']} ({yunit})")
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
