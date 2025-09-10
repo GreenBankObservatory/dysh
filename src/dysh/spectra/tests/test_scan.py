@@ -350,9 +350,9 @@ class TestSubBeamNod:
 
 
 class TestTPScan:
-    def test_len(self, data_dir):
+    def test_len_and_units(self, data_dir):
         """
-        Test that `TPScan` has the proper len.
+        Test that `TPScan` has the proper length and units.
         """
 
         sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
@@ -362,6 +362,9 @@ class TestTPScan:
         tpsb = sdf.gettp(scan=153, ifnum=0, plnum=0, fdnum=0)
 
         assert len(tpsb[0]) == sdf.get_summary(scan=scan)["# INT"][0]
+        assert tpsb.tscale == "Raw"
+        assert tpsb.tunit == u.ct
+        assert np.all(tpsb.tscale_fac == 1)
 
     def test_tsys(self, data_dir):
         """

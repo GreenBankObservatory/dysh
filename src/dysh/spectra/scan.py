@@ -348,7 +348,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        spectrum : `~spectra.spectrum.Spectrum`
+        spectrum : `~dysh.spectra.spectrum.Spectrum`
         """
         s = Spectrum.make_spectrum(
             Masked(
@@ -370,7 +370,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        bool
+        is_scaled : bool
             True if scale is e.g :math:`T_A^*` or Flux (:math:`S_\nu`).
         """
         return self._tscale.lower() != "ta"
@@ -386,7 +386,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        str
+        tscale : str
             Brightness unit string.
 
         """
@@ -400,7 +400,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        `~np.ndarray`
+        tscale_fac : `~numpy.ndarray`
             An array of floats, one per integration in the scan.
 
         """
@@ -412,8 +412,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        str
-            The string representation of the unit
+        tunit : `~astropy.units.Unit`
+            The temperature unit
         """
         return self._tscale_to_unit[self._tscale.lower()]
 
@@ -422,7 +422,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         Parameters
         ----------
-            factor - `~np.ndarray` or float
+            factor - `~numpy.ndarray` or float
 
             The factor to scale the spectral data by
 
@@ -1133,7 +1133,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        str
+        tscale : str
             brightness unit string
         """
         tscale = set([scan.tscale for scan in self.data])
@@ -1150,7 +1150,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        `~np.ndarray`
+        tscale_fac : `~numpy.ndarray`
             An array of floats, one per integration in the ScanBlock.
 
         """
@@ -1162,8 +1162,8 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         Returns
         -------
-        str
-            The string representation of the unit
+        tunit : `~astropy.units.Unit`
+            The temperature unit
         """
         tunit = set([scan.tunit for scan in self.data])
         if len(tunit) > 1:
@@ -1626,7 +1626,7 @@ class PSScan(ScanBase):
         The zenith opacity to use in calculating the scale factors for the integrations. Default: None
     refspec : int or `~spectra.spectrum.Spectrum`, optional
         If given, the Spectrum will be used as the reference rather than using scan data.
-    tsys : float or `~np.ndarray`
+    tsys : float or `~numpy.ndarray`
         If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
         scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
@@ -2169,7 +2169,7 @@ class FSScan(ScanBase):
         Location of the observatory. See `~dysh.coordinates.Observatory`.
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in the SDFITS header.  The default is the location of the GBT.
-    tsys : float or `~np.ndarray`
+    tsys : float or `~numpy.ndarray`
         If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
         scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
