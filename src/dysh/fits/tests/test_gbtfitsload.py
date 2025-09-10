@@ -1273,14 +1273,14 @@ class TestGBTFITSLoad:
         jyperk = sbb[0].tscale_fac / sba[0].tscale_fac
         gc = util.gaincorrection.GBTGainCorrection()
         assert jyperk == pytest.approx(gc.jyperk.value, 1e-6)
-        assert sba[0].tscale == "ta*"
-        assert sbb[0].tscale == "flux"
+        assert sba[0].tscale == "Ta*"
+        assert sbb[0].tscale == "Flux"
         assert sba[0].is_scaled
         assert sbb[0].is_scaled
         # Now test scaling after the fact
         sbd = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
         sbd[0].scale("flux", zenith_opacity=0.1)
-        assert sbd[0].tscale == "flux"
+        assert sbd[0].tscale == "Flux"
         assert sbd[0].is_scaled
 
         # try a bad scale type
@@ -1292,7 +1292,7 @@ class TestGBTFITSLoad:
 
         # test that scaling a ScanBlock works, also case insensitivity
         sb = sdf.getps(scan=152, units="Ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
-        assert sb.tscale == "ta*"
+        assert sb.tscale == "Ta*"
         with pytest.raises(ValueError):
             sb.scale("not a valid scale unit", zenith_opacity=0.2)
 
