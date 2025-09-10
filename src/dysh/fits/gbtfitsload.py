@@ -601,6 +601,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns}
             # We have to reset the index and column types.
             df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes)
+            # Post operations.
+            col_post_ops = {k: v.post for k, v in col_defs.items() if k in _columns and v.post is not None}
+            if len(col_post_ops) > 0:
+                df[list(col_post_ops.keys())] = df.apply(col_post_ops)
             # Sort rows.
             df = df.sort_values(by=needed)
             # Keep only the columns to be shown.

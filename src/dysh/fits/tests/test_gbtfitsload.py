@@ -627,18 +627,14 @@ class TestGBTFITSLoad:
             df = sdf.get_summary(columns=columns, verbose=True)
 
         # User defined column.
+        # Add MYCOL to the GBTFITSLoad object.
         sdf["MYCOL"] = 100.0
-        from collections import namedtuple
-
-        from dysh.fits.core import summary_column_definitions
+        from dysh.fits.core import ColDef, summary_column_definitions
 
         cd = summary_column_definitions()
-        col_def = namedtuple(
-            "col_def",
-            ["operation", "type", "name", "scale"],
-            defaults=(None, 1),
-        )
-        cd["MYCOL"] = col_def("mean", float, name="M", scale=1e-2)
+        # Add MYCOL to the dictionary of column definitions.
+        cd["MYCOL"] = ColDef("mean", float, name="M", scale=1e-2)
+        # Get summary and start testing.
         df = sdf.get_summary(columns=["MYCOL"], col_defs=cd)
         assert np.all(df["M"] == 100.0 * cd["MYCOL"].scale)
         df = sdf.get_summary(columns=["MYCOL"], col_defs=cd, verbose=True)
