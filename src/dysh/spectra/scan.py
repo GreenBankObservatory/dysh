@@ -936,9 +936,38 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         self._timeaveraged = []
         self._plotter = None
 
+    def _scanblock_property(self, prop: str, desc: str):
+        """
+        Utility method to return a property which should have only one value
+
+        Parameters
+        ----------
+        prop : str
+            The property name
+        desc : str
+            A descriptive string for the warning message if needed
+
+        Raises
+        ------
+        AttributeError
+            If the ScanBlock doesn't have the property
+
+        Returns
+        -------
+        value : Any
+            The property value.
+        """
+        if not hasattr(self.data[0], prop):
+            raise AttributeError("'ScanBlock' object has no attribute '{prop}'")
+        _prop = set([getattr(scan, prop) for scan in self.data])
+        if len(_prop) > 1:
+            logger.warning(f"The Scans in this ScanBlock have differing {desc} {_prop}")
+            return list(_prop)
+        return list(_prop)[0]  # noqa: RUF015
+
     def _aggregate_scan_property(self, prop: str) -> np.ndarray:
         """
-        Utility method to collect  values of a particular property of all
+        Utility method to collect values of a particular property of all
         Scans in this ScanBlock
 
         Parameters
@@ -1125,16 +1154,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:
             scan.scale(tscale, zenith_opacity)
 
-    # cute but requires an _prop for every prop, which isn't always the case
-    # def _scanblock_property(self,prop:str, desc:str):
-    #    if not hasattr(self.data[0],prop):
-    #        raise AttributeError("'ScanBlock' object has no attribute '{prop}'")
-    #     _prop = set(scan.__dict__[f'_{prop}'] for scan in self.data)
-    #    if len(_prop) > 1:
-    #        logger.warning(f"The Scans in this ScanBlock have {desc} units {_prop}")
-    #        return list(_prop)
-    #    return list(_prop)[0]
-
     @property
     def tscale(self):
         """
@@ -1149,11 +1168,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         tscale : str
             brightness unit string
         """
-        tscale = set([scan.tscale for scan in self.data])
-        if len(tscale) > 1:
-            logger.warning(f"The Scans in this ScanBlock have differing brightness units {tscale}")
-            return list(tscale)
-        return list(tscale)[0]  # noqa: RUF015
+        return self._scanblock_property("tscale", "brightness scales")
 
     @property
     def tscale_fac(self):
@@ -1178,11 +1193,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         tunit : `~astropy.units.Unit`
             The brightness unit
         """
-        tunit = set([scan.tunit for scan in self.data])
-        if len(tunit) > 1:
-            logger.warning(f"The Scans in this ScanBlock have differing temperature units {tunit}")
-            return list(tunit)
-        return list(tunit)[0]  # noqa: RUF015
+        return self._scanblock_property("tunit", "brightness units")
 
     # possible @todo:  We could have a baseline() method with same signature as Spectrum.baseline, which would compute
     # timeaverage for each Scan in a ScanBlock, and for each Scan calculate and remove that baseline from t
