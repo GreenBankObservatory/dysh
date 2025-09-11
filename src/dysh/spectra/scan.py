@@ -413,12 +413,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     @property
     def tunit(self):
-        """The tempurature unit of this Scan's data
+        """The brightness unit (temperature or flux density)  of this Scan's data
 
         Returns
         -------
         tunit : `~astropy.units.Unit`
-            The temperature unit
+            The brightness unit
         """
         return self._tscale_to_unit[self._tscale.lower()]
 
@@ -441,7 +441,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @log_call_to_history
     def scale(self, tscale, zenith_opacity=None):
         """
-        Scale the data to the given brightness temperature scale and zenith opacity. If data are already
+        Scale the data to the given brightness scale (temperature of flux density) and zenith opacity. If data are already
         scaled, they will be unscaled first.
 
         Parameters
@@ -463,13 +463,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         Raises
         ------
         TypeError
-            If scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+            If scaling to the `tscale` unit is not applicable to the scan type, e.g., a total power scan.
         ValueError
             If `tscale` is unrecognized or `zenith_opacity` is negative.
 
         """
         if self.__class__ == TPScan:
-            raise TypeError("Total power data cannot be directly scaled to temperature.")
+            raise TypeError("Total power data cannot be directly scaled to temperature or flux density.")
         self._check_tscale(tscale)
         if zenith_opacity < 0:
             raise ValueError("Zenith opacity cannot be negative.")
@@ -936,6 +936,38 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         self._timeaveraged = []
         self._plotter = None
 
+    def _aggregate_scan_property(self, prop: str) -> np.ndarray:
+        """
+        Utility method to collect  values of a particular property of all
+        Scans in this ScanBlock
+
+        Parameters
+        ----------
+        prop : str
+            The property name.
+
+        Raises
+        ------
+        AttributeError
+            If a Scan of the ScanBlock does not have the property.
+
+        Returns
+        -------
+        value : `~numpy.ndarray`
+            The values of the Scan property
+        """
+        # check the first scan
+        if not hasattr(self.data[0], prop):
+            raise AttributeError(f"Contained scans have no attribute '{prop}'")
+        # There is no guarantee that each scan in the scanblock has the same number
+        # of integrations, so we can't create a conventional numpy array of [nscan,nintegration]
+        value = np.empty(len(self.data), dtype=np.ndarray)
+        for i, scan in enumerate(self.data):
+            # Will raise AttributeError if scan does not have prop
+            value[i] = getattr(scan, prop)
+            i += 1
+        return value
+
     @property
     def tsys(self):
         """
@@ -946,14 +978,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         tsys :  `~numpy.ndarray`
             The system temperatures for all scans in this ScanBlock
         """
-        # There is no guarantee that each scan in the scanblock has the same number
-        # of integrations, so we can't create a conventional numpy array of [nscan,nintegration]
-        value = np.empty(len(self.data), dtype=np.ndarray)
-        i = 0
-        for scan in self.data:
-            value[i] = scan.tsys
-            i += 1
-        return value
+        return self._aggregate_scan_property("tsys")
 
     @property
     def delta_freq(self):
@@ -963,12 +988,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         delta_freq : `~numpy.ndarray`
             The channel frequency spacings for all scans in this ScanBlock
         """
-        value = np.empty(len(self.data), dtype=np.ndarray)
-        i = 0
-        for scan in self.data:
-            value[i] = scan.delta_freq
-            i += 1
-        return value
+        return self._aggregate_scan_property("delta_freq")
 
     @property
     def exposure(self):
@@ -978,12 +998,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         exposure : `~numpy.ndarray`
             The exposure times for all scans in this ScanBlock
         """
-        value = np.empty(len(self.data), dtype=np.ndarray)
-        i = 0
-        for scan in self.data:
-            value[i] = scan.exposure
-            i += 1
-        return value
+        return self._aggregate_scan_property("exposure")
 
     @log_call_to_history
     def calibrate(self, **kwargs):
@@ -1077,19 +1092,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         s.merge_commentary(self)
         return s
 
-    def timevariance(self, weights="tsys"):
-        """
-        trying variance
-        """
-        logger.warning("PJT testing time variance, do not rely on this function")
-
-        self._timevariance = []
-        for scan in self.data:
-            self._timeaveraged.append(scan.timeaverage(weights))
-        s = average_spectra(self._timeaveraged, weights=weights)
-        s.merge_commentary(self)
-        return s
-
     @log_call_to_history
     def scale(self, tscale, zenith_opacity):
         """
@@ -1169,12 +1171,12 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
     @property
     def tunit(self):
-        """The tempurature unit of this ScanBlocks's data
+        """The brightness unit (temperature or flux density) of this ScanBlocks's data
 
         Returns
         -------
         tunit : `~astropy.units.Unit`
-            The temperature unit
+            The brightness unit
         """
         tunit = set([scan.tunit for scan in self.data])
         if len(tunit) > 1:

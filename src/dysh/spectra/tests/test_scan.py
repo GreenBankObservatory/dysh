@@ -366,6 +366,12 @@ class TestTPScan:
         assert tpsb.tunit == u.ct
         assert np.all(tpsb.tscale_fac == 1)
 
+    def test_units_preserved(self, data_dir):
+        """
+        Test that TPScan preserves brightness units of calibrated data that was written out
+        """
+        pass
+
     def test_tsys(self, data_dir):
         """
         Test that `gettp` produces the same system temperature as GBTDIL.
