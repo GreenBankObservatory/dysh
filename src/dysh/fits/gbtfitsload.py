@@ -1225,7 +1225,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if _bintable is None:
                     _bintable = self._get_bintable(_sifdf)
                 if len(calrows["ON"]) == 0 or nocal:
-                    _nocal = True
                     if tsys is None:
                         _tsys = dfcalF["TSYS"].to_numpy()
                         logger.info("Using TSYS column")
@@ -1239,9 +1238,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"fitsindex={i}")
                 if len(tprows) == 0:
                     continue
-                tscale = list(set(_sifdf.get("TSCALE", "count")))
+                if "TSCALE" in _sifdf:
+                    tscale = list(set(_sifdf["TSCALE"]))
+                else:
+                    tscale = ["Raw"]
                 if len(tscale) > 1:
-                    raise ValueError(f"More than one TSCALE value in the input file {tscale}; can't create a TPScan.")
+                    raise ValueError(
+                        f"More than one TSCALE value in the previously-calibrated input file {tscale}; can't create a TPScan."
+                    )
                 g = TPScan(
                     self._sdf[i],
                     scan,
