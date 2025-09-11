@@ -1138,7 +1138,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @property
     def tscale(self):
         """
-        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+        The descriptive brightness unit of the data.  One of
                 - 'Raw' : raw value, e.g., count
                 - 'Ta'  : Antenna Temperature
                 - 'Ta*' : Antenna temperature corrected to above the atmosphere
@@ -1158,7 +1158,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @property
     def tscale_fac(self):
         """
-        The factor(s) by which the data have been scale from antenna temperature to corrected antenna temperature
+        The factor(s) by which the data have been scaled from antenna temperature to corrected antenna temperature
         or flux density.
 
         Returns
