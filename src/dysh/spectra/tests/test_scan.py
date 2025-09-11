@@ -366,11 +366,23 @@ class TestTPScan:
         assert tpsb.tunit == u.ct
         assert np.all(tpsb.tscale_fac == 1)
 
-    def test_units_preserved(self, data_dir):
+    def test_units_preserved(self, data_dir, tmp_path):
         """
         Test that TPScan preserves brightness units of calibrated data that was written out
         """
-        pass
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0, units="flux", zenith_opacity=0.1)
+        o = tmp_path / "tpsub"
+        o.mkdir()
+        testfile = o / "test_scanblock_write.fits"
+        sb.write(fileobj=testfile, overwrite=True)
+        sdf = gbtfitsload.GBTFITSLoad(testfile)
+        tpsb = sdf.gettp(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        assert tpsb.tunit == sb.tunit
+        assert tpsb.tscale == sb.tscale
+        assert np.all(tpsb.tscale_fac == sb.tscale_fac)
 
     def test_tsys(self, data_dir):
         """

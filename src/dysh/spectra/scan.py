@@ -1158,10 +1158,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     def tscale(self):
         """
         The descriptive brightness unit of the data.  One of
-                - 'Raw' : raw value, e.g., count
-                - 'Ta'  : Antenna Temperature
-                - 'Ta*' : Antenna temperature corrected to above the atmosphere
-                - 'Flux'  : flux density in Jansky
+            - 'Raw' : raw value, e.g., count
+            - 'Ta'  : Antenna Temperature
+            - 'Ta*' : Antenna temperature corrected to above the atmosphere
+            - 'Flux'  : flux density in Jansky
 
         Returns
         -------
@@ -1338,62 +1338,67 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 class TPScan(ScanBase):
     """GBT specific version of Total Power Scan
 
-        Parameters
-        ----------
-        gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
-            input GBTFITSLoad object
-        scan: int
-            scan number
-        sigstate : bool
-            Select the signal state used to form the data.  True means select sig='T', False to select sig='F'.
-            None means select both.  See table below for explanation.
-        calstate : bool
-            Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
-            None means select both. See table below for explanation.
-        scanrows : list-like
-            the list of rows in `sdfits` corresponding to sigstate integrations
-        calrows : dict
-            dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
-        fdnum: int
-            The feed number
-        ifnum : int
-            The IF number
-        plnum : int
-            The polarization number
-        bintable : int
-            the index for BINTABLE in `sdfits` containing the scans
-        calibrate: bool
-            whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
-        smoothref: int
-            the number of channels in the reference to boxcar smooth prior to calibration
-        apply_flags : boolean, optional.  If True, apply flags before calibration.
-        observer_location : `~astropy.coordinates.EarthLocation`
-            Location of the observatory. See `~dysh.coordinates.Observatory`.
-            This will be transformed to `~astropy.coordinates.ITRS` using the time of
-            observation DATE-OBS or MJD-OBS in
-            the SDFITS header.  The default is the location of the GBT.
-    r
+    Parameters
+    ----------
+    gbtfits : `~dysh.fits.gbtfitsload.GBTFITSLoad`
+        input GBTFITSLoad object
+    scan: int
+        scan number
+    sigstate : bool
+        Select the signal state used to form the data.  True means select sig='T', False to select sig='F'.
+        None means select both.  See table below for explanation.
+    calstate : bool
+        Select the calibration state used to form the data.  True means select cal='T', False to select cal='F'.
+        None means select both. See table below for explanation.
+    scanrows : list-like
+        the list of rows in `sdfits` corresponding to sigstate integrations
+    calrows : dict
+        dictionary containing with keys 'ON' and 'OFF' containing list of rows in `sdfits` corresponding to cal=T (ON) and cal=F (OFF) integrations for `scan`
+    fdnum: int
+        The feed number
+    ifnum : int
+        The IF number
+    plnum : int
+        The polarization number
+    bintable : int
+        the index for BINTABLE in `sdfits` containing the scans
+    calibrate: bool
+        whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data. Default:True
+    smoothref: int
+        the number of channels in the reference to boxcar smooth prior to calibration
+    apply_flags : boolean, optional.  If True, apply flags before calibration.
+    observer_location : `~astropy.coordinates.EarthLocation`
+        Location of the observatory. See `~dysh.coordinates.Observatory`.
+        This will be transformed to `~astropy.coordinates.ITRS` using the time of
+        observation DATE-OBS or MJD-OBS in
+        the SDFITS header.  The default is the location of the GBT.
+    tscale : str, optional
+        The brightess unit scale for the output scan, must be one of (case-insensitive)
+            - 'Raw' : raw value, e.g., count
+            - 'Ta'  : Antenna Temperature
+            - 'Ta*' : Antenna temperature corrected to above the atmosphere
+            - 'Flux'  : flux density in Jansky
+        Default: 'Raw'
+    Notes
+    -----
+    How the total power and system temperature are calculated, depending on signal and reference state parameters:
 
-        Notes
-        -----
-        How the total power and system temperature are calculated, depending on signal and reference state parameters:
 
+     ======   =====   ===================================================================       ==================================
+     CAL      SIG     RESULT                                                                    TSYS
+     ======   =====   ===================================================================       ==================================
+     None     None    data = 0.5* (REFCALON + REFCALOFF), regardless of sig state               use all CAL states, all SIG states
+     None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'                       use all CAL states, SIG='T'
+     None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'                       use all CAL states, SIG='F'
+     True     None    data = REFCALON, regardless of sig state                                  use all CAL states, all SIG states
+     False    None    data = REFCALOFF, regardless of sig state                                 use all CAL states, all SIG states
+     True     True    data = REFCALON, where sig='T'                                            use all CAL states, SIG='T'
+     True     False   data = REFCALON, where sig='F'                                            use all CAL states, SIG='F'
+     False    True    data = REFCALOFF  where sig='T'                                           use all CAL states, SIG='T'
+     False    False   data = REFCALOFF, where sig='F'                                           use all CAL states, SIG='F'
+     ======   =====   ===================================================================       ==================================
 
-         ======   =====   ===================================================================       ==================================
-         CAL      SIG     RESULT                                                                    TSYS
-         ======   =====   ===================================================================       ==================================
-         None     None    data = 0.5* (REFCALON + REFCALOFF), regardless of sig state               use all CAL states, all SIG states
-         None     True    data = 0.5* (REFCALON + REFCALOFF), where sig = 'T'                       use all CAL states, SIG='T'
-         None     False   data = 0.5* (REFCALON + REFCALOFF), where sig = 'F'                       use all CAL states, SIG='F'
-         True     None    data = REFCALON, regardless of sig state                                  use all CAL states, all SIG states
-         False    None    data = REFCALOFF, regardless of sig state                                 use all CAL states, all SIG states
-         True     True    data = REFCALON, where sig='T'                                            use all CAL states, SIG='T'
-         True     False   data = REFCALON, where sig='F'                                            use all CAL states, SIG='F'
-         False    True    data = REFCALOFF  where sig='T'                                           use all CAL states, SIG='T'
-         False    False   data = REFCALOFF, where sig='F'                                           use all CAL states, SIG='F'
-         ======   =====   ===================================================================       ==================================
-
-        where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
+    where `REFCALON` = integrations with `cal=T` and  `REFCALOFF` = integrations with `cal=F`.
 
     """
 
@@ -1414,6 +1419,7 @@ class TPScan(ScanBase):
         apply_flags=False,
         tsys=None,
         observer_location=Observatory["GBT"],
+        tscale="Raw",
     ):
         ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
         self._sdfits = gbtfits  # parent class
@@ -1424,7 +1430,8 @@ class TPScan(ScanBase):
         self._smoothref = smoothref
         self._apply_flags = apply_flags
         self._observer_location = observer_location
-        self._tscale = "Raw"  # default, not to be changed whimsically
+        self._tscale = tscale
+        self._tunit = self._tscale_to_unit[self._tscale.lower()]
         if self._smoothref > 1:
             raise NotImplementedError(f"TP smoothref={self._smoothref} not implemented yet")
 

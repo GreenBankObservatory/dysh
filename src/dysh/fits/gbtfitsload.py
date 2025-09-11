@@ -1239,6 +1239,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"fitsindex={i}")
                 if len(tprows) == 0:
                     continue
+                tscale = list(set(_sifdf.get("TSCALE", "count")))
+                if len(tscale) > 1:
+                    raise ValueError(f"More than one TSCALE value in the input file {tscale}; can't create a TPScan.")
                 g = TPScan(
                     self._sdf[i],
                     scan,
@@ -1253,13 +1256,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     apply_flags=apply_flags,
                     tsys=_tsys,
+                    tscale=tscale[0],
                 )
+                tscalefac = _sifdf.get("TSCALFAC", None)
+                if tscalefac is not None:
+                    # the data were previously calibrated, preserve the scale factor
+                    g._tscale_fac = np.array(tscalefac)
                 g.merge_commentary(self)
                 scanblock.append(g)
                 # Reset variables in case they change between scans.
                 _tsys = None
                 _bintable = bintable
-                _nocal = nocal
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
