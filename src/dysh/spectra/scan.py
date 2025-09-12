@@ -202,7 +202,7 @@ class SpectralAverageMixin:
     @property
     def tsys_weight(self):
         r"""The system temperature weighting array computed from current
-        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
+        :math:`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
         """
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
 
@@ -278,7 +278,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @classmethod
     def _check_bunit(self, bunit):
         """
-        Check that the requested brightness unit is valid.
+        Check that the requested brightness scale is valid.
         This allows us to not import `GBTGainCorretion` into `GBTFITSLoad`.
 
         Parameters
@@ -297,7 +297,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if not GBTGainCorrection.is_valid_scale(bunit):
             raise ValueError(
-                f"Unrecognized brightness temperature unit {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+                f"Unrecognized brightness scale {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
     def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, bunit, zenith_opacity, tsys=None):
@@ -373,7 +373,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @property
     def bunit(self):
         """
-        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+        The descriptive brightness scale of the data. One of
             - 'ta'  : Antenna Temperature
             - 'ta*' : Antenna temperature corrected to above the atmosphere
             - 'jy'  : flux density in Jansky
@@ -381,7 +381,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         Returns
         -------
         str
-            Brightness unit string.
+            Brightness scale string.
 
         """
         return self._bunit
@@ -390,7 +390,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def bscale(self):
         """
         The factor(s) by which the data have been scale from antenna temperature to corrected antenna temperature
-        or flux density.  Analogous to FITS `BSCALE` keyword.
+        or flux density.
 
         Returns
         -------
@@ -1003,7 +1003,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @log_call_to_history
     def scale(self, bunit, zenith_opacity):
         """
-        Scale all the data in this `ScanBlock` to the given brightness temperature scale and zenith opacity. If data are already
+        Scale all the data in this `ScanBlock` to the given brightness scale and zenith opacity. If data are already
         scaled, they will be unscaled first.
 
         Parameters
@@ -1025,9 +1025,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         Raises
         ------
         TypeError
-            if scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+            If scaling to temperature is not applicable to the scan type, e.g., a total power scan.
         ValueError
-            if `bunit` is unrecognized or `zenith_opacity` is negative.
+            If `bunit` is unrecognized or `zenith_opacity` is negative.
 
         """
         for scan in self.data:
@@ -1036,7 +1036,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @property
     def bunit(self):
         """
-        The descriptive brightness unit of the data. Analogous to FITS `BUNIT` keyword.  One of
+        The descriptive brightness scale of the data. One of
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -1044,7 +1044,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         Returns
         -------
         str
-            brightness unit string
+            Brightness scale string.
         """
         bunit = set([scan.bunit for scan in self.data])
         if len(bunit) > 1:
@@ -1807,7 +1807,7 @@ class NodScan(ScanBase):
     nocal : bool
         True if the noise diode was not fired. False if it was fired.
     bunit : str, optional
-        The brightness scale unit for the output scan, must be one of (case-insensitive)
+        The brightness scale for the output scan, must be one of (case-insensitive)
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -2039,7 +2039,7 @@ class FSScan(ScanBase):
         The number of channels in the reference to boxcar smooth prior to calibration.
     apply_flags : boolean, optional.  If True, apply flags before calibration.
     bunit : str, optional
-        The brightness scale unit for the output scan, must be one of (case-insensitive)
+        The brightness scale for the output scan, must be one of (case-insensitive)
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
@@ -2433,7 +2433,7 @@ class SubBeamNodScan(ScanBase):
         the number of channels in the reference to boxcar smooth prior to calibration
     apply_flags : boolean, optional.  If True, apply flags before calibration.
     bunit : str, optional
-        The brightness scale unit for the output scan, must be one of (case-insensitive)
+        The brightness scale for the output scan, must be one of (case-insensitive)
                 - 'ta'  : Antenna Temperature
                 - 'ta*' : Antenna temperature corrected to above the atmosphere
                 - 'jy'  : flux density in Jansky
