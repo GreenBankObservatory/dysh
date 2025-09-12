@@ -303,7 +303,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if not GBTGainCorrection.is_valid_scale(tscale):
             raise ValueError(
-                f"Unrecognized brightness scale {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+                f"Unrecognized brightness scale {tscale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
     def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, tscale, zenith_opacity, tsys=None):
@@ -368,7 +368,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         s._subtracted = self._subtracted
         return s
 
-    # @todo what about 'count' for e.g. TPScan?
     @property
     def is_scaled(self):
         r"""Is this Scan scaled to something other than antenna temperature :math:`T_A`.
