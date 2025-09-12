@@ -1223,7 +1223,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if t_cal is not None:
                     _tcal = t_cal
                 else:
-                    _tcal = next(iter(set(dfcalF["TCAL"])))
+                    _tcal = self._get_tcal(dfcalF["TCAL"])
                 if len(calrows["ON"]) == 0:
                     if tsys is None:
                         _tsys = dfcalF["TSYS"].to_numpy()
@@ -1609,7 +1609,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if t_cal is not None:
                     _tcal = t_cal
                 else:
-                    _tcal = next(iter(set(_offdf["TCAL"])))
+                    _tcal = self._get_tcal(_offdf["TCAL"])
                 if len(calrows["ON"]) == 0 or nocal:
                     _nocal = True
                     if tsys is None:
@@ -1802,7 +1802,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if t_cal is not None:
                         _tcal = t_cal
                     else:
-                        _tcal = next(iter(set(_offdf["TCAL"])))
+                        _tcal = self._get_tcal(_offdf["TCAL"])
                     # Check if there is a noise diode.
                     if len(calrows["ON"]) == 0 or nocal:
                         _nocal = True
@@ -1976,7 +1976,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if t_cal is not None:
                     _tcal = t_cal
                 else:
-                    _tcal = next(iter(set(dfcalF["TCAL"])))
+                    _tcal = self._get_tcal(dfcalF["TCAL"])
 
                 # Is there a noise diode?
                 if len(calrows["ON"]) == 0 or nocal:
@@ -2322,7 +2322,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if t_cal is not None:
                         _tcal = t_cal
                     else:
-                        _tcal = next(iter(set(df_off["TCAL"])))
+                        _tcal = self._get_tcal(df_off["TCAL"])
 
                     # Loop over cycles, calibrating each independently.
                     groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups, strict=False)
@@ -3247,6 +3247,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 "Reference spectrum has no system temperature in its metadata.  Solve with refspec.meta['TSYS']=value or add parameter `t_sys` to getps/getsigref."
             )
         return tsys
+
+    def _get_tcal(self, tcal):
+        """
+        Retrieve the value of TCAL.
+
+        Raises
+        ------
+        ValueError
+            If there's more than one value for TCAL.
+        """
+        tcal_set = set(tcal)
+        if len(tcal_set) > 1:
+            raise ValueError(f"More than one value for TCAL: {tcal_set}")
+        return next(iter(tcal_set))
 
 
 class GBTOffline(GBTFITSLoad):
