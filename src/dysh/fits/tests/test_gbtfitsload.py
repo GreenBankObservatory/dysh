@@ -101,7 +101,7 @@ class TestGBTFITSLoad:
         assert pss.flux.unit == "K"
 
         # Jy
-        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, bunit="Jy")
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, units="Flux")
         out_file = tmp_path / "getspec_units_Jy.fits"
         pssb.write(out_file, overwrite=True)
         sdf_load = gbtfitsload.GBTFITSLoad(out_file)
@@ -109,7 +109,7 @@ class TestGBTFITSLoad:
         assert pss.flux.unit == "Jy"
 
         # Ta*
-        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, bunit="Ta*")
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, units="Ta*")
         out_file = tmp_path / "getspec_units_Tastar.fits"
         pssb.write(out_file, overwrite=True)
         sdf_load = gbtfitsload.GBTFITSLoad(out_file)
@@ -1267,34 +1267,34 @@ class TestGBTFITSLoad:
         # PSScan
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
-        sbb = sdf.getps(scan=152, bunit="jy", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        sbb = sdf.getps(scan=152, units="flux", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         # The ratio of these scale factors should be the Jy/K of the telescope
-        jyperk = sbb[0].bscale / sba[0].bscale
+        jyperk = sbb[0].tscale_fac / sba[0].tscale_fac
         gc = util.gaincorrection.GBTGainCorrection()
         assert jyperk == pytest.approx(gc.jyperk.value, 1e-6)
-        assert sba[0].bunit == "ta*"
-        assert sbb[0].bunit == "jy"
+        assert sba[0].tscale == "Ta*"
+        assert sbb[0].tscale == "Flux"
         assert sba[0].is_scaled
         assert sbb[0].is_scaled
         # Now test scaling after the fact
         sbd = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
-        sbd[0].scale("jy", zenith_opacity=0.1)
-        assert sbd[0].bunit == "jy"
+        sbd[0].scale("flux", zenith_opacity=0.1)
+        assert sbd[0].tscale == "Flux"
         assert sbd[0].is_scaled
 
         # try a bad scale type
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="foobar", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="foobar", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         # try a bad tau
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="jy", zenith_opacity=-1, ifnum=0, plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="flux", zenith_opacity=-1, ifnum=0, plnum=0, fdnum=0)
 
         # test that scaling a ScanBlock works, also case insensitivity
-        sb = sdf.getps(scan=152, bunit="Ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
-        assert sb.bunit == "ta*"
+        sb = sdf.getps(scan=152, units="Ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        assert sb.tscale == "Ta*"
         with pytest.raises(ValueError):
-            sb.scale("not a valid bunit", zenith_opacity=0.2)
+            sb.scale("not a valid scale unit", zenith_opacity=0.2)
 
     def test_qd_check(self, caplog):
         """
@@ -1418,11 +1418,11 @@ class TestGBTFITSLoad:
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=[0, 1], plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=[0, 1], plnum=0, fdnum=0)
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)  # noqa: F841
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)  # noqa: F841
 
     def test_fix_ka(self):
         """

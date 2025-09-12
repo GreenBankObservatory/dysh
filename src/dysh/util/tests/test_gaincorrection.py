@@ -176,15 +176,15 @@ class TestGainCorrection:
         angles = Angle([0.0, 25.0, 40.0, 45.0, 50, 65.0, 90.0], unit=u.degree)
         freqs = np.array([10.0, 30.0, 43.0, 80.0, 110.0]) * u.GHz
         x = self.gbtgc.scale_ta_to(
-            bunit="jy", specval=10 * u.GHz, angle=angles, date=self.dates[0], zenith_opacity=0.05, zd=False
+            tscale="flux", specval=10 * u.GHz, angle=angles, date=self.dates[0], zenith_opacity=0.05, zd=False
         )
         assert len(x) == len(angles)
         x = self.gbtgc.scale_ta_to(
-            bunit="jy", specval=freqs, angle=angles[0], date=self.dates[0], zenith_opacity=0.05, zd=False
+            tscale="flux", specval=freqs, angle=angles[0], date=self.dates[0], zenith_opacity=0.05, zd=False
         )
         assert len(x) == len(freqs)
         x = self.gbtgc.scale_ta_to(
-            bunit="jy", specval=freqs, angle=angles[2:], date=self.dates[3:], zenith_opacity=0.05, zd=False
+            tscale="flux", specval=freqs, angle=angles[2:], date=self.dates[3:], zenith_opacity=0.05, zd=False
         )
         assert len(x) == len(freqs)
 
@@ -197,5 +197,7 @@ class TestGainCorrection:
         jyk = (2 * k_B / self.gbtgc.physical_aperture).to("Jy/K")
         self.gbtgc.app_eff_0 = 1
         self.gbtgc.loss_eff_0 = 1
-        a = self.gbtgc.scale_ta_to("jy", 1.0 * u.GHz, 45 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False)
+        a = self.gbtgc.scale_ta_to(
+            "flux", 1.0 * u.GHz, 45 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False
+        )
         assert jyk.value == pytest.approx(a, abs=1e-4)
