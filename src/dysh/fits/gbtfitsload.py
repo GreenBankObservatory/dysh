@@ -3232,7 +3232,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     def _get_refspec_tsys(self, refspec):
         """
-        Find the system temperature in a ~dysh.spectra.spectrum.Spectrum`.
+        Find the system temperature in a `~dysh.spectra.spectrum.Spectrum`.
         It checks the meta attribute keys in the following order:
         "TSYS", "MEANTSYS", "WTTSYS"
         and returns the first not None value.
