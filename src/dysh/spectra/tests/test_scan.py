@@ -503,6 +503,28 @@ class TestTPScan:
         assert abs(table["TSYS"][0] - tpavg.meta["TSYS"]) < 2**-32
         assert np.all((data[0] - tpavg.flux.value.astype(np.float32)) == 0.0)
 
+    def test_t_sys_arg(self, data_dir):
+        """
+        Test for gettp with t_sys arg.
+        """
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        t_sys = 10.0
+        tpsb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0, t_sys=t_sys)
+        assert np.all(tpsb[0].tsys == 10.0)
+
+    def test_t_cal_arg(self, data_dir):
+        """
+        Test for gettp with t_cal arg.
+        """
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        t_cal = 10.0
+        tpsb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0, t_cal=t_cal)
+        assert np.all(tpsb[0]._tcal == t_cal)
+        tpsb_org = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+        assert np.all(tpsb_org[0].tsys / tpsb_org[0]._tcal * t_cal == tpsb[0].tsys)
+
 
 class TestFSScan:
     def test_getfs_with_args(self, data_dir):

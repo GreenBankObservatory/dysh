@@ -96,7 +96,8 @@ class TestCalibrator:
         assert c.nu_max == 1 * u.m
         with pytest.warns(UserWarning):
             snu = c.compute_sed(100 * u.GHz)
-        assert snu == 1e31 * u.Jy
+        assert snu.value == pytest.approx(1e31)
+        assert snu.unit == u.Jy
 
         with pytest.raises(TypeError):
             calibrator.Calibrator("3", "l", [1, 1, 1], calibrator.poly_ott, nu_max=1)

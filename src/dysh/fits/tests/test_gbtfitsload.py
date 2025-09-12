@@ -1494,11 +1494,11 @@ class TestGBTFITSLoad:
             scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0, t_cal=14.0, t_sys=25.0
         ).timeaverage()
         assert sigref_cal.meta["TCAL"] == 14.0
-        assert sigref_cal.meta["TSYS"] == 25.0
+        assert sigref_cal.meta["TSYS"] == pytest.approx(25.0)
         np.testing.assert_allclose(sigref_cal.data, sigref_org.data / sigref_org.meta["TSYS"] * 25.0)
         sigref_cal = sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0, t_cal=14.0, t_sys=25.0).timeaverage()
         assert sigref_cal.meta["TCAL"] == 14.0
-        assert sigref_cal.meta["TSYS"] == 25.0
+        assert sigref_cal.meta["TSYS"] == pytest.approx(25.0)
         np.testing.assert_allclose(sigref_cal.data, sigref_org.data / sigref_org.meta["TSYS"] * 25.0)
 
     def test_get_nod_beams(self):

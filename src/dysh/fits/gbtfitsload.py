@@ -944,8 +944,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
-                # print(f"Applying {chan} to {rows=}")
-                # print(f"{np.where(chan_mask)}")
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
 
     @log_call_to_history
@@ -1149,14 +1147,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int,
         ifnum: int,
         plnum: int,
-        sig=None,
-        cal=None,
+        sig: bool | None = None,
+        cal: bool | None = None,
         calibrate: bool = True,
         bintable: None | int = None,
         apply_flags: bool = True,
         t_sys=None,
         t_cal=None,
-        nocal: bool = False,
         **kwargs,
     ):
         """
@@ -1198,7 +1195,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _tsys = None
         _tcal = t_cal
         _bintable = bintable
-        _nocal = nocal
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
@@ -1228,8 +1224,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     _tcal = t_cal
                 else:
                     _tcal = next(iter(set(dfcalF["TCAL"])))
-                if len(calrows["ON"]) == 0 or nocal:
-                    _nocal = True
+                if len(calrows["ON"]) == 0:
                     if tsys is None:
                         _tsys = dfcalF["TSYS"].to_numpy()
                         logger.info("Using TSYS column")
@@ -1266,7 +1261,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 _tsys = tsys
                 _tcal = t_cal
                 _bintable = bintable
-                _nocal = nocal
 
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -2324,6 +2318,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 bintable=_bintable,
                                 calibrate=calibrate,
                                 apply_flags=apply_flags,
+                                tcal=_tcal,
                             )
                         )
                     sb = SubBeamNodScan(
@@ -2362,6 +2357,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     subref=-1,
                     calibrate=calibrate,
                     apply_flags=apply_flags,
+                    t_cal=t_cal,
                 )
                 sigtp.append(tpon[0])
                 tpoff = self.gettp(
@@ -2376,7 +2372,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     apply_flags=apply_flags,
                     t_sys=t_sys,
-                    t_cal=_tcal,
+                    t_cal=t_cal,
                 )
                 reftp.append(tpoff[0])
                 sb = SubBeamNodScan(
