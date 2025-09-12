@@ -602,6 +602,17 @@ class TestGBTFITSLoad:
         c = list(set(columns))  # Change column order.
         df = sdf.get_summary(columns=c)
         assert np.all(df.columns == c)
+        # Now as a comma separated list.
+        df = sdf.get_summary(columns=",".join(columns))
+        assert np.all(df["OBJECT"] == "NGC5291")
+        assert np.all(df["PROJID"] == "AGBT05B_047_01")
+        assert np.all(df["SCAN" == np.r_[51:59]])
+        assert np.all(df.columns == columns)
+        c = list(set(columns))  # Change column order.
+        df = sdf.get_summary(columns=c)
+        assert np.all(df.columns == c)
+        # With spaces.
+        sdf.get_summary(columns=" IFNUM , PLNUM ")
 
         # With added columns.
         add_columns = ["BINTABLE", "PROJID"]

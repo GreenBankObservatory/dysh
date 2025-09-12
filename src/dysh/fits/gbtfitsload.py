@@ -425,8 +425,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        columns : list
-            Columns to sanitize.
+        columns : list or str
+            Columns to sanitize. If a string, multiple column names must be comma separated.
         col_defs : dict
             Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
         needed : list
@@ -434,18 +434,21 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         verbose : bool
             `~dysh.fits.gbtfitsload.GBTFITSLoad.get_summary` verbose mode.
         """
+        if isinstance(columns, str):
+            # Remove spaces and split by commas.
+            columns = "".join(columns.split()).split(",")
         # Check for any kind of list, and rule out str which is a type of Sequence.
         if isinstance(columns, (Sequence, np.ndarray)) and not isinstance(columns, str):
             cols_set = set(columns)
             if len(cols_set) == 0:
                 raise ValueError("Empty 'columns'.")
         else:
-            raise TypeError(f"show must be list-like, got a {type(columns)} instead.")
+            raise TypeError(f"columns must be list-like, got a {type(columns)} instead.")
         # Selected columns must be defined in col_defs.
         col_defs_set = set(col_defs.keys())
         diff = cols_set - col_defs_set
         if len(diff) > 0 and not verbose:
-            raise ValueError(f"Column(s) {diff} are not handled yet.")
+            raise ValueError(f"Column(s) {diff} are not handled yet. Known columns are: {', '.join(col_defs_set)}")
         # No duplicate columns.
         if len(cols_set) < len(columns):
             logger.warning("columns contains duplicated values. Removing them.")
@@ -473,15 +476,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             For column OBJECT it shows the value of the first record for the scan. For more details and a full
             list of the supported columns see `~dysh.fits.core.summary_column_definitions`.
             If True, list every record.
-        columns : list
+        columns : list or str
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN, OBJECT,
             VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH,
             and ELEVATIO (ELEVATION).
             If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
+            If a string, multiple column names must be comma separated.
         add_columns : list
             List of columns to be added to the default `columns`.
             If `columns` is not None, then this will be ignored.
+            If a string, multiple column names must be comma separated.
         col_defs : dict
             Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
 
@@ -558,7 +563,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 ]
         else:
             # Check that the user input won't break anything.
-            self._validate_summary_columns(columns, col_defs, needed, verbose)
+            columns = self._validate_summary_columns(columns, col_defs, needed, verbose)
 
         ocols = columns + add_columns  # Output columns.
         ocols = sorted(set(ocols), key=ocols.index)  # Remove duplicates preserving order.
@@ -643,15 +648,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             file for `summary_max_rows` will be used. Set to `None` for unlimited rows.
         show_index : bool
             Show index of the `~pandas.DataFrame`.
-        columns : list
+        columns : list or str
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN,
             OBJECT, VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED),
             AZIMUTH, and ELEVATIO (ELEVATION).
             If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
-        add_columns : list
+            If a string, multiple column names must be comma separated.
+        add_columns : list or str
             List of columns to be added to the default `columns`.
             If `columns` is not None, then this will be ignored.
+            If a string, multiple column names must be comma separated.
         """
 
         df = self.get_summary(scan=scan, verbose=verbose, columns=columns, add_columns=add_columns)
@@ -3136,7 +3143,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable = set(df["BINTABLE"])
         # I do not know if this is possible, but just in case.
         if len(bintable) > 1:
-            raise TypeError("Selection crosses binary tables.")
+            raise TypeError(
+                "Selection crosses binary tables. Please provide more details during data selection (e.g., bintable=x)."
+            )
         bintable = next(iter(bintable))  # Get the first element of the set.
         return bintable
 
