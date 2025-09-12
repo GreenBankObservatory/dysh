@@ -2188,7 +2188,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "apply_flags": apply_flags,
             "zenith_opacity": zenith_opacity,
             "t_cal": 1.0,
-            "bunit": "Jy",
+            "units": "flux",
         }
         if ref is not None:
             method_args["ref"] = ref
@@ -3324,6 +3324,8 @@ class GBTOnline(GBTFITSLoad):
     @log_call_to_history
     def __init__(self, fileobj=None, *args, **kwargs):
         self._online = fileobj
+        self._args = args
+        self._kwargs = kwargs
         self._platform = platform.system()  # cannot update in "Windows", see #447
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
@@ -3373,16 +3375,18 @@ class GBTOnline(GBTFITSLoad):
                 return None
 
             self._online = project
-            GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
+            GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
             self._mtime = os.path.getmtime(self.filenames()[0])
 
         # we only test the first filename in the list, assuming they're all being written
 
         self._mtime = os.path.getmtime(self.filenames()[0])
+        for f in self.filenames():
+            self._mtime = max(self._mtime, os.path.getmtime(f))
         delta = (time.time() - self._mtime) / 60.0
 
-        logger.info(f"Connected to file: {self._online}")
-        logger.info(f"File has not been updated in {delta:.2f} minutes.")
+        logger.info(f"Connected to: {self._online}")
+        logger.info(f"Data has not been updated in {delta:.2f} minutes.")
         # end of __init__
 
     def _reload(self, force=False):
@@ -3391,50 +3395,58 @@ class GBTOnline(GBTFITSLoad):
             logger.warning("Cannot reload on Windows, see issue #447")
             return
         if not force:
-            mtime = os.path.getmtime(self.filenames()[0])
+            for f in self.filenames():
+                mtime = max(self._mtime, os.path.getmtime(f))
             if mtime > self._mtime:
                 self._mtime = mtime
-                print("NEW MTIME:", self._mtime)
+                logger.debug("NEW MTIME:", self._mtime)
                 force = True
         if force:
             print(f"Reload {self._online}")
-            GBTFITSLoad.__init__(self, self._online)
+            GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
         return force
 
     # examples of catchers for reloading
 
-    def summary(self, **kwargs):
-        """reload, if need be"""
+    def summary(self, *args, **kwargs):
         self._reload()
-        return super().summary(**kwargs)
+        return super().summary(*args, **kwargs)
 
-    def gettp(self, **kwargs):
+    def gettp(self, *args, **kwargs):
         self._reload()
-        return super().gettp(**kwargs)
+        return super().gettp(*args, **kwargs)
 
-    def getsigref(self, **kwargs):
+    def getsigref(self, *args, **kwargs):
         self._reload()
-        return super().getsigref(**kwargs)
+        return super().getsigref(*args, **kwargs)
 
-    def getps(self, **kwargs):
+    def getps(self, *args, **kwargs):
         self._reload()
-        return super().getps(**kwargs)
+        return super().getps(*args, **kwargs)
 
-    def getnod(self, **kwargs):
+    def getnod(self, *args, **kwargs):
         self._reload()
-        return super().getnod(**kwargs)
+        return super().getnod(*args, **kwargs)
 
-    def getfs(self, **kwargs):
+    def getfs(self, *args, **kwargs):
         self._reload()
-        return super().getfs(**kwargs)
+        return super().getfs(*args, **kwargs)
 
-    def subbeamnod(self, **kwargs):
+    def subbeamnod(self, *args, **kwargs):
         self._reload()
-        return super().subbeamnod(**kwargs)
+        return super().subbeamnod(*args, **kwargs)
 
-    def vanecal(self, **kwargs):
+    def vanecal(self, *args, **kwargs):
         self._reload()
-        return super().vanecal(**kwargs)
+        return super().vanecal(*args, **kwargs)
+
+    def calseq(self, *args, **kwargs):
+        self._reload()
+        return super().calseq(*args, **kwargs)
+
+    def gettcal(self, *args, **kwargs):
+        self._reload()
+        return super().gettcal(*args, **kwargs)
 
 
 def _parse_tsys(tsys, scans):
