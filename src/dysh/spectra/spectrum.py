@@ -140,6 +140,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         return len(self.frequency)
 
+    def _spectrum_property(self, prop: str):
+        """
+        Utility method to return a header value as a property.
+
+        Parameters
+        ----------
+        prop : str
+            The property name, _case-sensitive_
+
+        Returns
+        -------
+        value : Any or Non
+            The property value or None if `prop` is not in the header.
+
+        """
+        return self.meta.get(prop, None)
+
     @property
     def weights(self):
         """The channel weights of this spectrum"""
@@ -153,13 +170,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def exclude_regions(self):
         """The baseline exclusion region(s) of this spectrum"""
         return self._exclude_regions
-
-    ##@todo
-    # def exclude_region(self,region):
-    # where region is SpectralRegion, channels, velocity, etc.  See core.py baseline method.
-    #
-    # def region_to_mask():
-    #  set spectrum mask to True inside exclude_regions. normally we don't do this for baselining
 
     @property
     def baseline_model(self):
@@ -702,7 +712,46 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @property
     def target(self):
+        """
+        The target object of this spectrum.
+
+        Returns
+        -------
+        target : `~astropy.coordinates.sky_coordinate.SkyCoord`
+            The sky coordinate object
+        """
         return self._target
+
+    @property
+    def tscale(self):
+        """
+        The descriptive brightness unit of the data. One of
+            - 'Raw' : raw value, e.g., count
+            - 'Ta'  : Antenna Temperature in K
+            - 'Ta*' : Antenna temperature corrected to above the atmosphere in K
+            - 'Flux': flux density in Jansky
+
+        Returns
+        -------
+        tscale : str or None
+            Brightness unit string. If there is no TSCALE in the header, None is returned.
+
+        """
+        return self._spectrum_property("TSCALE")
+
+    @property
+    def tscale_fac(self):
+        """
+        The factor by which the data have been scale from antenna temperature to corrected antenna temperature
+        or flux density. This is the average of the values by which the integrations in the spectrum have been scaled.
+
+        Returns
+        -------
+        tscale_fac : float or None
+            The scale factor. If there is no TSCALFAC in the header, None is returned.
+
+        """
+        return self._spectrum_property("TSCALFAC")
 
     @property
     def observer(self):
@@ -1100,6 +1149,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "RESTFRQ": 1420405751.7,
             "MEANTSYS": 17.16746070048293,
             "WTTSYS": 17.16574907094451,
+            "TSCALE": "Ta*",
+            "TSCALFAC": 0.54321,
+            "TUNIT7": "K",
+            "BUNIT": "K",
         }
         for k, v in kwargs.items():
             meta[k.upper()] = v
