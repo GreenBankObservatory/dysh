@@ -991,8 +991,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
-                # print(f"Applying {chan} to {rows=}")
-                # print(f"{np.where(chan_mask)}")
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
 
     @log_call_to_history
@@ -1276,7 +1274,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if _bintable is None:
                     _bintable = self._get_bintable(_sifdf)
                 if len(calrows["ON"]) == 0 or nocal:
-                    _nocal = True
                     if tsys is None:
                         _tsys = dfcalF["TSYS"].to_numpy()
                         logger.info("Using TSYS column")
@@ -1290,6 +1287,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"fitsindex={i}")
                 if len(tprows) == 0:
                     continue
+                if "TSCALE" in _sifdf:
+                    tscale = list(set(_sifdf["TSCALE"]))
+                else:
+                    tscale = ["Raw"]
+                if len(tscale) > 1:
+                    raise ValueError(
+                        f"More than one TSCALE value in the previously-calibrated input file {tscale}; can't create a TPScan."
+                    )
                 g = TPScan(
                     self._sdf[i],
                     scan,
@@ -1304,13 +1309,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     apply_flags=apply_flags,
                     tsys=_tsys,
+                    tscale=tscale[0],
                 )
+                tscalefac = _sifdf.get("TSCALFAC", None)
+                if tscalefac is not None:
+                    # the data were previously calibrated, preserve the scale factor
+                    g._tscale_fac = np.array(tscalefac)
                 g.merge_commentary(self)
                 scanblock.append(g)
                 # Reset variables in case they change between scans.
                 _tsys = None
                 _bintable = bintable
-                _nocal = nocal
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1329,7 +1338,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: str = True,
-        bunit: str = "ta",
+        units: str = "ta",
         zenith_opacity: float = None,  # noqa: RUF013
         weights="tsys",
         t_sys=None,
@@ -1362,12 +1371,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags : boolean, optional
             If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        bunit : str, optional
+        units : str, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'  : Antenna Temperature
-                    - 'ta*' : Antenna temperature corrected to above the atmosphere
-                    - 'jy'  : flux density in Jansky
-            If 'ta*' or 'jy' the zenith opacity must also be given. Default: 'ta'
+                    - 'ta'   : Antenna Temperature
+                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                    - 'flux' : flux density in Jansky
+            If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity : float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default: None
         t_sys : float, optional
@@ -1398,8 +1407,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
 
         """
-        ScanBase._check_bunit(bunit)
-        if bunit.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_tscale(units)
+        if units.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
         if type(ref) != int and not isinstance(ref, Spectrum):  # noqa: E721
             raise TypeError("Reference scan ('ref') must be either an integer scan number or a Spectrum object")
@@ -1501,7 +1510,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
-                    bunit=bunit,
+                    tscale=units,
                     zenith_opacity=zenith_opacity,
                     refspec=refspec,
                     nocal=_nocal,
@@ -1531,7 +1540,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: str = True,
-        bunit: str = "ta",
+        units: str = "ta",
         zenith_opacity: float = None,  # noqa: RUF013
         t_sys=None,
         nocal=False,
@@ -1557,12 +1566,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The number of channels in the reference to boxcar smooth prior to calibration.
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        bunit : str, optional
+        units : str, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'  : Antenna Temperature
-                    - 'ta*' : Antenna temperature corrected to above the atmosphere
-                    - 'jy'  : flux density in Jansky
-            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+                    - 'ta'   : Antenna Temperature
+                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                    - 'flux' : flux density in Jansky
+            If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity: float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
         t_sys : float, optional
@@ -1587,8 +1596,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scanblock : `~dysh.spectra.scan.ScanBlock`
             ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
         """
-        ScanBase._check_bunit(bunit)
-        if bunit.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_tscale(units)
+        if units.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         prockey = "OBSTYPE"
@@ -1665,7 +1674,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
-                    bunit=bunit,
+                    tscale=units,
                     zenith_opacity=zenith_opacity,
                     nocal=_nocal,
                     tsys=_tsys,
@@ -1694,7 +1703,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags: bool = True,
         t_sys=None,
         nocal=False,
-        bunit="ta",
+        units="ta",
         zenith_opacity=None,
         **kwargs,
     ):
@@ -1720,6 +1729,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags : boolean, optional.
             If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
+        units : str, optional
+            The brightness scale unit for the output scan, must be one of (case-insensitive)
+                    - 'ta'   : Antenna Temperature
+                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                    - 'flux' : flux density in Jansky
+            If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         t_sys : float or list or list of lists or dict, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
@@ -1749,8 +1764,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
 
-        ScanBase._check_bunit(bunit)
-        if bunit.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_tscale(units)
+        if units.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
@@ -1850,7 +1865,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         apply_flags=apply_flags,
                         nocal=_nocal,
                         tsys=_tsys,
-                        bunit=bunit,
+                        tscale=units,
                         zenith_opacity=zenith_opacity,
                     )
                     g.merge_commentary(self)
@@ -1880,7 +1895,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
-        bunit: str = "ta",
+        units: str = "ta",
         zenith_opacity: float | None = None,
         t_sys=None,
         nocal: bool = False,
@@ -1914,12 +1929,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
-        bunit : str, optional
+        units : str, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'  : Antenna Temperature
-                    - 'ta*' : Antenna temperature corrected to above the atmosphere
-                    - 'jy'  : flux density in Jansky
-            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+                    - 'ta'   : Antenna Temperature
+                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                    - 'flux' : flux density in Jansky
+            If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity: float, optional
                 The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
         t_sys : float, optional
@@ -1946,8 +1961,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
 
-        ScanBase._check_bunit(bunit)
-        if bunit.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_tscale(units)
+        if units.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
@@ -2012,7 +2027,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     use_sig=use_sig,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
-                    bunit=bunit,
+                    tscale=units,
                     zenith_opacity=zenith_opacity,
                     tsys=_tsys,
                     nocal=_nocal,
@@ -2063,7 +2078,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
-        bunit="ta",
+        units="ta",
         zenith_opacity=None,
         t_sys=None,
         **kwargs,
@@ -2098,12 +2113,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags : boolean, optional.
             If True, apply flags before calibration.
             See :meth:`apply_flags`.
-        bunit : str, optional
+        units : str, optional
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'  : Antenna Temperature
-                    - 'ta*' : Antenna temperature corrected to above the atmosphere
-                    - 'jy'  : flux density in Jansky
-            If 'ta*' or 'jy' the zenith opacity must also be given.
+                    - 'ta'   : Antenna Temperature
+                    - 'ta*'  : Antenna temperature corrected to above the atmosphere
+                    - 'flux' : flux density in Jansky
+            If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity : float, optional
             The zenith opacity to use to correct the data for atmospheric opacity.
         t_sys : float, optional
@@ -2120,8 +2135,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             A ScanBlock containing one or more `~dysh.spectra.scan.SubBeamNodScan`
         """
 
-        ScanBase._check_bunit(bunit)
-        if bunit.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_tscale(units)
+        if units.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         _bintable = bintable
@@ -2236,7 +2251,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         calibrate=calibrate,
                         smoothref=smoothref,
                         apply_flags=apply_flags,
-                        bunit=bunit,
+                        tscale=units,
                         zenith_opacity=zenith_opacity,
                         weights=weights,
                     )
@@ -2287,7 +2302,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     smoothref=smoothref,
                     apply_flags=apply_flags,
-                    bunit=bunit,
+                    tscale=units,
                     zenith_opacity=zenith_opacity,
                     weights=weights,
                 )
@@ -3236,19 +3251,15 @@ class GBTOnline(GBTFITSLoad):
             n = 0
             mtime_max = 0
             for dirname, subdirs, files in os.walk(sdfits_root):
-                # print("dirname",dirname,"subdirs",subdirs)
                 if len(subdirs) == 0:
                     n = n + 1
-                    # print("===dirname",dirname)
                     for fname in files:
                         if fname.split(".")[-1] == "fits":
                             mtime = os.path.getmtime(dirname + "/" + fname)
-                            # print(mtime,fname)
                             if mtime > mtime_max:
                                 mtime_max = mtime
                                 project = dirname
                             break
-            # print(f"Found {n} under {sdfits_root}")
             if n == 0:
                 return None
 

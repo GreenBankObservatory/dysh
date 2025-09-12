@@ -13,7 +13,7 @@ from astropy.io import fits
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 from dysh import util
-from dysh.fits import gbtfitsload
+from dysh.fits import gbtfitsload, sdfitsload
 
 
 class TestGBTFITSLoad:
@@ -80,9 +80,58 @@ class TestGBTFITSLoad:
         sdf.apply_flags()
         spec = sdf.getspec(0, setmask=False)
         spec2 = sdf.getspec(0, setmask=True)
+        assert spec.flux.unit == "ct"
         assert any(spec.mask != spec2.mask)
         assert all(spec2.mask[0:101])
         assert all(spec2.mask[102:] == False)  # noqa: E712
+
+    def test_getspec_units(self, tmp_path):
+        """
+        Test that the units of a file written as PS has units "K" or "Jy"
+        """
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+
+        # K
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
+        out_file = tmp_path / "getspec_units.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "K"
+
+        # Jy
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, units="Flux")
+        out_file = tmp_path / "getspec_units_Jy.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "Jy"
+
+        # Ta*
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, units="Ta*")
+        out_file = tmp_path / "getspec_units_Tastar.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "K"
+
+    def test_data_column(self):
+        """
+        Test that the DATA column in in column 7 for 3 types of SDFITS files:
+        1. original sdfits
+        2. sdf.write()
+        3. sdf.getps().write()
+        """
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf.write("test_data_1.fits", overwrite=True)
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
+        pssb.write("test_data_2.fits", overwrite=True)
+        # there is a bugthat the binheader in gbtfitsload doesn't exist, so we use sdfitsload
+        for f in [fnm, "test_data_1.fits", "test_data_2.fits"]:
+            sdf = sdfitsload.SDFITSLoad(f)
+            assert sdf.binheader[0]["TTYPE7"] == "DATA"
 
     def test_getps_single_int(self):
         """
@@ -106,6 +155,7 @@ class TestGBTFITSLoad:
         )
         assert len(psscan) == 1
         psscan.calibrate()
+        assert psscan[0].calibrated(0).flux.unit == "K"
         dysh_getps = psscan[0].calibrated(0).flux.to("K").value
 
         diff = gbtidl_getps - dysh_getps
@@ -756,6 +806,7 @@ class TestGBTFITSLoad:
         assert set(t._index["PLNUM"]) == set([1])
         # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
         assert set(t._index["INTNUM"]) == set([2])
+        # assert t.gettp(plnum=1, fdnum=0, ifnum=0).timeaverage().flux.unit == "K" # @todo fix ?
 
     def test_write_multi_file(self, tmp_path):
         "Test that writing multiple SDFITS files works, including subselection of data"
@@ -1106,6 +1157,7 @@ class TestGBTFITSLoad:
         spec2 = psscan2.timeaverage()
         exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
         assert exp2 < exp1
+        assert spec.flux.unit == "K"
 
     def test_getnod_wcal(self):
         """
@@ -1238,34 +1290,34 @@ class TestGBTFITSLoad:
         # PSScan
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
-        sbb = sdf.getps(scan=152, bunit="jy", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        sbb = sdf.getps(scan=152, units="flux", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         # The ratio of these scale factors should be the Jy/K of the telescope
-        jyperk = sbb[0].bscale / sba[0].bscale
+        jyperk = sbb[0].tscale_fac / sba[0].tscale_fac
         gc = util.gaincorrection.GBTGainCorrection()
         assert jyperk == pytest.approx(gc.jyperk.value, 1e-6)
-        assert sba[0].bunit == "ta*"
-        assert sbb[0].bunit == "jy"
+        assert sba[0].tscale == "Ta*"
+        assert sbb[0].tscale == "Flux"
         assert sba[0].is_scaled
         assert sbb[0].is_scaled
         # Now test scaling after the fact
         sbd = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
-        sbd[0].scale("jy", zenith_opacity=0.1)
-        assert sbd[0].bunit == "jy"
+        sbd[0].scale("flux", zenith_opacity=0.1)
+        assert sbd[0].tscale == "Flux"
         assert sbd[0].is_scaled
 
         # try a bad scale type
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="foobar", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="foobar", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         # try a bad tau
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="jy", zenith_opacity=-1, ifnum=0, plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="flux", zenith_opacity=-1, ifnum=0, plnum=0, fdnum=0)
 
         # test that scaling a ScanBlock works, also case insensitivity
-        sb = sdf.getps(scan=152, bunit="Ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
-        assert sb.bunit == "ta*"
+        sb = sdf.getps(scan=152, units="Ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        assert sb.tscale == "Ta*"
         with pytest.raises(ValueError):
-            sb.scale("not a valid bunit", zenith_opacity=0.2)
+            sb.scale("not a valid scale unit", zenith_opacity=0.2)
 
     def test_qd_check(self, caplog):
         """
@@ -1389,11 +1441,11 @@ class TestGBTFITSLoad:
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=[0, 1], plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=[0, 1], plnum=0, fdnum=0)
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)  # noqa: F841
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)  # noqa: F841
 
     def test_fix_ka(self):
         """

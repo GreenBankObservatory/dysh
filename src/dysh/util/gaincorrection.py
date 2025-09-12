@@ -132,7 +132,7 @@ class GBTGainCorrection(BaseGainCorrection):
          Default None will use dysh's internal GBT gain correction table.
     """
 
-    _valid_scales = ["ta", "ta*", "jy"]
+    _valid_scales = ["ta", "ta*", "flux"]
 
     def __init__(self, gain_correction_table: Path = None):  # noqa: RUF013
         if gain_correction_table is None:
@@ -150,9 +150,9 @@ class GBTGainCorrection(BaseGainCorrection):
     def valid_scales(cls):
         """
         Strings representing valid options for scaling spectral data, specifically
-            - 'ta'  : Antenna Temperature
-            - 'ta*' : Antenna temperature corrected to above the atmosphere
-            - 'jy'  : flux density in Jansky
+            - 'ta'  : Antenna Temperature in K
+            - 'ta*' : Antenna temperature corrected to above the atmosphere in K
+            - 'flux'  : flux density in Jansky
 
         Returns
         -------
@@ -407,7 +407,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
     def scale_ta_to(
         self,
-        bunit: str,
+        tscale: str,
         specval: Quantity,
         angle: Union[Angle, Quantity],
         date: Time,
@@ -418,13 +418,13 @@ class GBTGainCorrection(BaseGainCorrection):
         r"""
         Scale the antenna temperature to a different brightness temperature unit.
 
-        bunit : str
+        tscale : str
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                - 'ta'  : Antenna Temperature
-                - 'ta*' : Antenna temperature corrected to above the atmosphere
-                - 'jy'  : flux density in Jansky
+                - 'Ta'  : Antenna Temperature in K
+                - 'Ta*' : Antenna temperature corrected to above the atmosphere in K
+                - 'Flux'  : flux density in Jansky
 
-            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+            If 'Ta*' or 'Flux' the zenith opacity must also be given. Default:'Fa'
 
         specval : `~astropy.units.quantity.Quantity`
             The spectral value(s) -- frequency or wavelength -- at which to compute the efficiency
@@ -444,11 +444,11 @@ class GBTGainCorrection(BaseGainCorrection):
             The value of :math:`\epsilon_0` to use, the surface rms error. If given, must have units of length (typically microns).
             If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
         """
-        if not GBTGainCorrection.is_valid_scale(bunit):
+        if not GBTGainCorrection.is_valid_scale(tscale):
             raise ValueError(
-                f"Unrecognized temperature scale {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+                f"Unrecognized temperature scale {tscale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
-        s = bunit.lower()
+        s = tscale.lower()
         if s == "ta":
             return 1.0
         am = self.airmass(angle, zd)
