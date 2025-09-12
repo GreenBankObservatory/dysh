@@ -228,6 +228,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         ifnum=-1,
         plnum=-1,
         tsys=None,
+        tcal=None,
     ):
         HistoricalBase.__init__(self)
         self._fdnum = fdnum
@@ -245,6 +246,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._tscale_fac = np.array([1.0])
         self._tscale = "ta"
         self._tsys = tsys
+        self._tcal = tcal
         self._exposure = None
         self._calibrated = None
         self._smoothref = smoothref
@@ -306,7 +308,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 f"Unrecognized brightness scale {tscale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
-    def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, tscale, zenith_opacity, tsys=None):
+    def _finish_initialization(
+        self, calibrate, calibrate_kwargs, meta_rows, tscale, zenith_opacity, tsys=None, tcal=None
+    ):
         if len(meta_rows) == 0:
             raise Exception(
                 f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
@@ -315,6 +319,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._nint = len(meta_rows)
         self._make_meta(meta_rows)
         self._init_tsys(tsys)
+        self._init_tcal(tcal)
         self._calc_exposure()
         self._calc_delta_freq()
         if self._calibrate:
@@ -778,7 +783,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             raise Exception("Data have to be calibrated first to add calibration metadata")
         for i in range(len(self._meta)):
             self._meta[i]["TSYS"] = self._tsys[i]
-            self._meta[i]["EXPOSURE"] = self._exposure[i]
+            self._meta[i]["TCAL"] = self._tcal[i]
+            # self._meta[i]["EXPOSURE"] = self._exposure[i]
             self._meta[i]["NAXIS1"] = len(self._calibrated[i])
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
@@ -921,6 +927,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # User provided tsys or TSYS column.
         elif tsys is not None:
             self._tsys = np.ones(self._nint, dtype=float) * tsys[: self._nint]
+
+    def _init_tcal(self, tcal=None):
+        """
+        Initialize the array of noise diode temperatures.
+        """
+
+        self._tcal = np.empty((self._nint), dtype=float)
+        self._tcal[:] = tcal
 
 
 class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
@@ -1378,6 +1392,7 @@ class TPScan(ScanBase):
             - 'Ta*' : Antenna temperature corrected to above the atmosphere
             - 'Flux'  : flux density in Jansky
         Default: 'Raw'
+
     Notes
     -----
     How the total power and system temperature are calculated, depending on signal and reference state parameters:
@@ -1417,10 +1432,11 @@ class TPScan(ScanBase):
         smoothref=1,
         apply_flags=False,
         tsys=None,
+        tcal=None,
         observer_location=Observatory["GBT"],
         tscale="Raw",
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tcal=tcal)
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -1470,9 +1486,6 @@ class TPScan(ScanBase):
                 self._refoffrows[i] for i in goodrows
             ]  # why not self._refoffrows[goodrows] ?? -> because it is a list.
             self._nchan = len(self._refcaloff[0])  # PJT
-            self._calc_exposure()
-            self._calc_delta_freq()
-            self._validate_defaults()
         else:
             # Tell the user about blank integration(s) that will be ignored.
             if len(goodrows) != len(self._refcalon):
@@ -1484,10 +1497,11 @@ class TPScan(ScanBase):
             self._refoffrows = [self._refoffrows[i] for i in goodrows]
             self._nrows = len(self._refonrows) + len(self._refoffrows)  # ??
             self._nchan = len(self._refcalon[0])
-            self._calc_exposure()
-            self._calc_delta_freq()
+        self._calc_exposure()
+        self._calc_delta_freq()
+        self._validate_defaults()
         # Use 'ta' as tscale in this call so that scaling is not attempted.
-        self._finish_initialization(calibrate, None, self._refoffrows, "ta", None, tsys=tsys)
+        self._finish_initialization(calibrate, None, self._refoffrows, "ta", None, tsys=tsys, tcal=tcal)
 
     def calibrate(self, **kwargs):  ## TPSCAN
         """Calibrate the total power data according to the CAL/SIG table above"""
@@ -1501,7 +1515,8 @@ class TPScan(ScanBase):
             self._calibrated = self._refcaloff.astype(float)
         else:
             raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
-        self._calc_tsys()
+        if np.all(np.isnan(self._tsys)):
+            self._calc_tsys()
 
     @property
     def sigstate(self):
@@ -1529,7 +1544,7 @@ class TPScan(ScanBase):
         """
         Calculate the system temperature array, according to table above.
         """
-        self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
+        # self._tcal = list(self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"])
         if len(self._calrows["ON"]) == 0:
             if np.all(np.isnan(self._tsys)):
                 self._tsys = np.ones(self._nint, dtype=float)
@@ -1681,9 +1696,12 @@ class PSScan(ScanBase):
         zenith_opacity=0.0,
         refspec=None,
         tsys=None,
+        tcal=None,
         nocal=False,
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys)
+        ScanBase.__init__(
+            self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys, tcal=tcal
+        )
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         # self._history = deepcopy(gbtfits._history)
         self._scan = scan["ON"]
@@ -1755,7 +1773,7 @@ class PSScan(ScanBase):
                 self._nrows = nsigrows
 
         self._nchan = gbtfits.nchan(self._bintable_index)
-        self._finish_initialization(calibrate, None, self._sigoffrows, tscale, zenith_opacity, tsys=tsys)
+        self._finish_initialization(calibrate, None, self._sigoffrows, tscale, zenith_opacity, tsys=tsys, tcal=tcal)
 
     @property
     def sigscan(self) -> int:
@@ -1820,7 +1838,9 @@ class PSScan(ScanBase):
                 self._calibrated[i] = tsys * (sig - ref) / ref
                 self._tsys[i] = tsys
         else:
-            tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
+            tcal = (
+                self._tcal
+            )  # self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
             if len(tcal) != nspect:
                 raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
             if not self._nocal:
@@ -1985,12 +2005,13 @@ class NodScan(ScanBase):
         smoothref=1,
         apply_flags=False,
         tsys=None,
+        tcal=None,
         nocal=False,
         tscale="ta",
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
+        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tcal=tcal)
         self._scan = scan["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
@@ -2050,7 +2071,7 @@ class NodScan(ScanBase):
             self._nrows = nsigrows
 
         self._nchan = len(self._sigcaloff[0])
-        self._finish_initialization(calibrate, None, self._sigoffrows, tscale, zenith_opacity, tsys=tsys)
+        self._finish_initialization(calibrate, None, self._sigoffrows, tscale, zenith_opacity, tsys=tsys, tcal=tcal)
 
     def calibrate(self, **kwargs):  ##NODSCAN
         """
@@ -2063,7 +2084,7 @@ class NodScan(ScanBase):
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._calc_exposure()
-        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
+        tcal = self._tcal
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         if not self._nocal:
@@ -2226,9 +2247,12 @@ class FSScan(ScanBase):
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
         tsys=None,
+        tcal=None,
         nocal: bool = False,
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys=tsys)
+        ScanBase.__init__(
+            self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys=tsys, tcal=tcal
+        )
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
         self._sigrows = sigrows  # dict with "ON" and "OFF"
@@ -2300,6 +2324,7 @@ class FSScan(ScanBase):
             tscale,
             zenith_opacity,
             tsys=tsys,
+            tcal=tcal,
         )
 
     @property
@@ -2427,7 +2452,7 @@ class FSScan(ScanBase):
         logger.debug(f"FS: shift={chan_shift:g}  nchan={self._nchan:g}")
 
         #  tcal is the same for REF and SIG, and the same for all integrations actually.
-        tcal = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["TCAL"].to_numpy()
+        tcal = self._tcal
         logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
@@ -2615,10 +2640,13 @@ class SubBeamNodScan(ScanBase):
         apply_flags=False,
         tscale="ta",
         zenith_opacity=None,
+        tcal=None,
         observer_location=Observatory["GBT"],
         **kwargs,
     ):
-        ScanBase.__init__(self, sigtp[0]._sdfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum)
+        ScanBase.__init__(
+            self, sigtp[0]._sdfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tcal=tcal
+        )
         kwargs_opts = {
             "weights": "tsys",  # or None or ndarray
             "debug": False,
@@ -2642,7 +2670,7 @@ class SubBeamNodScan(ScanBase):
             meta_rows.append(r._refoffrows[0])
         meta_rows = list(set(meta_rows))
 
-        self._finish_initialization(calibrate, {"weights": w}, meta_rows, tscale, zenith_opacity)
+        self._finish_initialization(calibrate, {"weights": w}, meta_rows, tscale, zenith_opacity, tcal=tcal)
 
     def _calc_exposure(self):
         # This is done in calibrate() via assignment.

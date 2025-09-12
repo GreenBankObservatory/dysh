@@ -22,6 +22,14 @@ gettp,221,cal=1
 keep
 gettp,221,cal=0
 keep
+gettp,226,cal=1
+keep
+gettp,226,cal=0
+keep
+gettp,227,cal=1
+keep
+gettp,227,cal=0
+keep
 gettp,263,cal=1
 keep
 gettp,263,cal=0
