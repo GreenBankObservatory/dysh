@@ -2065,10 +2065,57 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
+        scan : int
+            The scan number.
+        fdnum : int
+            The feed number.
+        ifnum : int
+            The intermediate frequency (IF) number.
+        plnum : int
+            The polarization number.
+        bintable : None or int
+            Limit to the input binary table index. The default is None which means search all binary tables.
+        ref : int or `~dysh.spectra.spectrum.Spectrum`
+            The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.  If an integer is given,
+            the reference spectrum will be the total power time-averaged spectrum using the weights given.
+            This is only used if `method=GBTFITSLoad.getsigref`.
+        apply_flags : boolean, optional
+            If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
+        zenith_opacity : float
+            The zenith opacity to use in calculating the scale factors for the integrations. Default: None
+        method : callable
+            Method to use for calibrating the data.
+            It can be one of `GBTFITSLoad.getsigref`, `GBTFITSLoad.getps`, `GBTFITSLoad.getnod` or `GBTFITSLoad.subbeamnod`.
+            If None, the default, it will use `GBTFITSLoad.getsigref` for Track observations,
+            `GBTFITSLoad.getps` for OnOff or OffOn observations,
+            `GBTFITSLoad.getnod` for Nod observations, and
+            `GBTFITSLoad.subbeamnod` for SubBeamNod observations.
+        name : str
+            Alternative name for the calibrator source.
+            This will override the value found in the "OBJECT" column of the SDFITS.
+            Useful when the "OBJECT" column contains a value not present in the calibrator catalog.
+        fluxscale : str
+            Name of the flux scale to use to compute the flux of the calibrator.
+            "Perley-Butler 2017" and "Ott 1994" are known to dysh, although the user can provide other scales.
+        method_kwargs : dict
+            Dictionary with additional keywords to pass to the calibration `method`.
+        **kwargs : dict
+            Optional additional selection keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `object='NGC123'`.
 
         Returns
         -------
-        tcal : `dysh.spectra.tcal.TCal`
+        tcal : `~dysh.spectra.tcal.TCal`
+            Object that contains the noise diode temperature in its flux attribute.
+
+        Raises
+        ------
+        TypeError
+            If more than one scan is provided.
+        TypeError
+            If `method` is not recognized.
         """
 
         valid_procs = {
