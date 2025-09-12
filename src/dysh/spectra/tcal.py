@@ -11,6 +11,9 @@ from .spectrum import Spectrum
 class TCal(Spectrum):
     """
     Noise diode temperature.
+    This behaves as a `~dysh.spectra.spectrum.Spectrum` with the addition of
+    the `name` and `snu` attributes, which hold the name of the source used to derive
+    the noise diode temperature and its flux density.
     """
 
     def __init__(self, name, snu, *args, **kwargs):

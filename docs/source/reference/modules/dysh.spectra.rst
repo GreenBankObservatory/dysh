@@ -27,3 +27,10 @@ Scan
    :members:
    :undoc-members:
    :show-inheritance:
+
+TCal
+----
+.. automodule:: dysh.spectra.tcal
+   :members:
+   :undoc-members:
+   :show-inheritance:
