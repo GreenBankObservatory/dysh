@@ -207,7 +207,7 @@ class SpectralAverageMixin:
     @property
     def tsys_weight(self):
         r"""The system temperature weighting array computed from current
-        :math`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
+        :math:`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
         """
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
 
@@ -283,7 +283,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @classmethod
     def _check_tscale(self, tscale):
         """
-        Check that the requested brightness unit is valid.
+        Check that the requested brightness scale is valid.
         This allows us to not import `GBTGainCorretion` into `GBTFITSLoad`.
 
         Parameters
@@ -303,7 +303,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if not GBTGainCorrection.is_valid_scale(tscale):
             raise ValueError(
-                f"Unrecognized brightness temperature unit {tscale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+                f"Unrecognized brightness scale {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
     def _finish_initialization(self, calibrate, calibrate_kwargs, meta_rows, tscale, zenith_opacity, tsys=None):
@@ -1124,7 +1124,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @log_call_to_history
     def scale(self, tscale, zenith_opacity):
         """
-        Scale all the data in this `ScanBlock` to the given brightness temperature scale and zenith opacity. If data are already
+        Scale all the data in this `ScanBlock` to the given brightness scale and zenith opacity. If data are already
         scaled, they will be unscaled first.
 
         Parameters
@@ -1146,7 +1146,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         Raises
         ------
         TypeError
-            if scaling to temperature is not applicable to the scan type, e.g., a total power scan.
+            If scaling to temperature is not applicable to the scan type, e.g., a total power scan.
         ValueError
             if `tscale` is unrecognized or `zenith_opacity` is negative.
 
