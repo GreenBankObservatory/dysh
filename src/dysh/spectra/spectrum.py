@@ -474,7 +474,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-        mask : None or `np.ndarray`
+        mask : None or `numpy.ndarray`
             A "mask" array.  Shape must match ``array``, and anything that is masked
             (i.e., not 0/`False`) will be set to NaN for the convolution.  If
             `None`, no masking will be performed unless ``array`` is a masked array.

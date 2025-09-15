@@ -1181,10 +1181,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         calibrate: bool
             whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data.
             Default:True
-        bintable : int, optional
+        bintable : int
             Limit to the input binary table index. The default is None which means use all binary tables.
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
+        t_sys : float
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1345,6 +1352,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
             scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
             in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used. If `t_sys` is provided, `t_cal` will be ignored.
         weights: str
             Weighting scheme to use when averaging the signal and reference scans
             'tsys' or None.  If 'tsys' the weight will be calculated as:
@@ -1726,6 +1737,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             For example, `t_sys = np.array([[30], [50]])` would use a system temperature of 30 K for
             the first feed and 50 K for the second feed. Another example, `t_sys = {1: [[50, 60]], 2: [[45],[65]], 3: [[60],[70]]}`
             would use a system temperature of 50 K for the first feed in scan 1, 60 K for the second feed in scan 1, 45 K for the first feed in scan 2, 65 K for the second feed in scan 2, 60 K for the first feed in scan 3, and 70 K for the second feed in scan 3. If passing a dict it should contain an item for every scan.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
@@ -1935,6 +1950,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys : float, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
@@ -2266,6 +2285,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys : float, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.

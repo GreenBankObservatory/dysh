@@ -18,8 +18,18 @@ class TCal(Spectrum):
 
     def __init__(self, name, snu, *args, **kwargs):
         Spectrum.__init__(self, *args, **kwargs)
-        self.name = name
-        self.snu = snu
+        self._name = name
+        self._snu = snu
+
+    @property
+    def name(self):
+        """Calibration source name."""
+        return self._name
+
+    @property
+    def snu(self):
+        """Calibration source flux density."""
+        return self._snu
 
     @classmethod
     def from_spectrum(cls, spectrum, name, snu, data=None):
