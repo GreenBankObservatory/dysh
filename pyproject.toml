@@ -48,7 +48,7 @@ all = ["dysh[nb]"]
 dev = [
   "coverage[toml]",
   "ipdb",
-  "myst_nb",
+  "myst-nb",
   "nbclient",
   "nbformat",
   "numpydoc",
