@@ -31,6 +31,7 @@ from ..spectra.scan import (
     SubBeamNodScan,
     TPScan,
 )
+from ..spectra.tcal import TCal
 from ..util import (
     Flag,
     Selection,
@@ -42,6 +43,7 @@ from ..util import (
     show_dataframe,
     uniq,
 )
+from ..util.calibrator import Calibrator
 from ..util.files import dysh_data
 from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
@@ -1200,13 +1202,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int,
         ifnum: int,
         plnum: int,
-        sig=None,
-        cal=None,
+        sig: bool | None = None,
+        cal: bool | None = None,
         calibrate: bool = True,
-        bintable: int = None,  # noqa: RUF013
+        bintable: None | int = None,
         apply_flags: bool = True,
         t_sys=None,
-        nocal: bool = False,
+        t_cal=None,
         **kwargs,
     ):
         """
@@ -1228,10 +1230,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         calibrate: bool
             whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data.
             Default:True
-        bintable : int, optional
+        bintable : int
             Limit to the input binary table index. The default is None which means use all binary tables.
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
+        t_sys : float
+            System temperature. If provided, it overrides the value computed using the noise diode.
+            If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1246,8 +1255,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
+        _tcal = t_cal
         _bintable = bintable
-        _nocal = nocal
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
@@ -1273,10 +1282,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     _sifdf = select_from("SIG", TF[sig], _sifdf)
                 if _bintable is None:
                     _bintable = self._get_bintable(_sifdf)
-                if len(calrows["ON"]) == 0 or nocal:
+                if t_cal is not None:
+                    _tcal = t_cal
+                else:
+                    _tcal = self._get_tcal(dfcalF["TCAL"])
+                if len(calrows["ON"]) == 0:
                     if tsys is None:
                         _tsys = dfcalF["TSYS"].to_numpy()
                         logger.info("Using TSYS column")
+                        logger.debug(f"Scan: {scan}")
                 # Use user provided system temperature.
                 if tsys is not None:
                     _tsys = tsys[scan][0]
@@ -1309,6 +1323,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     apply_flags=apply_flags,
                     tsys=_tsys,
+                    tcal=_tcal,
                     tscale=tscale[0],
                 )
                 tscalefac = _sifdf.get("TSCALFAC", None)
@@ -1317,8 +1332,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     g._tscale_fac = np.array(tscalefac)
                 g.merge_commentary(self)
                 scanblock.append(g)
-                # Reset variables in case they change between scans.
-                _tsys = None
+                # Reset these variables for the next scan.
+                _tsys = tsys
+                _tcal = t_cal
                 _bintable = bintable
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1335,13 +1351,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        bintable: int = None,  # noqa: RUF013
+        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: str = True,
         units: str = "ta",
-        zenith_opacity: float = None,  # noqa: RUF013
+        zenith_opacity: float | None = None,
         weights="tsys",
         t_sys=None,
+        t_cal=None,
         nocal: bool = False,
         **kwargs,
     ) -> ScanBlock:
@@ -1384,6 +1401,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
             scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
             in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used. If `t_sys` is provided, `t_cal` will be ignored.
         weights: str
             Weighting scheme to use when averaging the signal and reference scans
             'tsys' or None.  If 'tsys' the weight will be calculated as:
@@ -1410,12 +1431,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ScanBase._check_tscale(units)
         if units.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
-        if type(ref) != int and not isinstance(ref, Spectrum):  # noqa: E721
+        if not isinstance(ref, int) and not isinstance(ref, Spectrum):
             raise TypeError("Reference scan ('ref') must be either an integer scan number or a Spectrum object")
         if isinstance(scan, Spectrum):
             raise TypeError(
                 "Spectrum object not allowed for 'scan'.  You can use Spectrum arithmetic if both 'scan' and 'ref' are Spectrum objects"
             )
+        if t_sys is not None and t_cal is not None:
+            warnings.warn("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
 
         scanlist = {}
         if type(scan) == int:  # noqa: E721
@@ -1432,13 +1455,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
+        _tcal = t_cal
         _nocal = nocal
         _bintable = bintable
         scanlist["ON"] = scans
         scanlist["OFF"] = [None] * len(scans)
-        if type(ref) == int:  # noqa: E721
+        if isinstance(ref, int):
             # make an average reference spectrum
-            # @todo when tsys is addted to gettp, pass it on.
             refspec = self.gettp(
                 scan=ref,
                 fdnum=fdnum,
@@ -1447,10 +1470,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 bintable=bintable,
                 calibrate=calibrate,
                 apply_flags=apply_flags,
+                t_cal=t_cal,
                 **kwargs,
             ).timeaverage(weights=weights)
         else:
-            refspec = ref
+            refspec = ref._copy()  # Needs to be a copy since we will change it afterwards.
+
+        if t_cal is not None:
+            _tcal = t_cal
+            # Scale the system temperature.
+            refspec.meta["TSYS"] *= _tcal / refspec.meta["TCAL"]
+            refspec.meta["TCAL"] = _tcal
+        else:
+            _tcal = refspec.meta["TCAL"]
+
         # Check if `refspec` has a system temperature.
         if tsys is None:
             tsys = self._get_refspec_tsys(refspec)
@@ -1473,8 +1506,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     _bintable = self._get_bintable(_ondf)
                 rows["ON"] = list(_ondf["ROW"])
                 rows["OFF"] = list(_offdf["ROW"])
-                # if len(rows["ON"]) > len(rows["OFF"]):
-                #    warnings.warn("Fewer reference integrations than signal integrations.  Will use average reference for all")
                 for key in rows:
                     if len(rows[key]) == 0 and off is not None:
                         raise Exception(f"{key} scans not found in scan list {scans}")
@@ -1515,14 +1546,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     refspec=refspec,
                     nocal=_nocal,
                     tsys=_tsys,
+                    tcal=_tcal,
                 )
                 g._refscan = ref
                 g.merge_commentary(self)
                 scanblock.append(g)
-                # Reset these variables in case they change for the next scan.
-                _nocal = nocal
-                _tsys = None
+                # Reset these variables for the next scan.
+                # Do not reset variables that are set outside the scan loop.
+                _tsys = tsys
                 _bintable = bintable
+                _nocal = nocal
 
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1537,13 +1570,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        bintable: int = None,  # noqa: RUF013
+        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: str = True,
         units: str = "ta",
-        zenith_opacity: float = None,  # noqa: RUF013
+        zenith_opacity: float | None = None,
         t_sys=None,
         nocal=False,
+        t_cal=None,
         **kwargs,
     ) -> ScanBlock:
         """
@@ -1574,9 +1608,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
         zenith_opacity: float, optional
             The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
-        t_sys : float, optional
+        t_sys : float
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
@@ -1613,7 +1651,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
 
         tsys = _parse_tsys(t_sys, scans)
-        _tsys = None
+        _tsys = tsys
+        _tcal = t_cal
         _nocal = nocal
         _bintable = bintable
 
@@ -1631,8 +1670,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for on, off in zip(scanlist["ON"], scanlist["OFF"], strict=False):
                 _ondf = select_from("SCAN", on, _df)
                 _offdf = select_from("SCAN", off, _df)
-                # rows["ON"] = list(_ondf.index)
-                # rows["OFF"] = list(_offdf.index)
                 rows["ON"] = list(_ondf["ROW"])
                 rows["OFF"] = list(_offdf["ROW"])
                 for key in rows:
@@ -1647,6 +1684,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calrows["OFF"] = list(select_from("CAL", "F", _ondf)["ROW"]) + list(
                     select_from("CAL", "F", _offdf)["ROW"]
                 )
+                if t_cal is not None:
+                    _tcal = t_cal
+                else:
+                    _tcal = self._get_tcal(_offdf["TCAL"])
                 if len(calrows["ON"]) == 0 or nocal:
                     _nocal = True
                     if tsys is None:
@@ -1660,7 +1701,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     except KeyError:
                         _tsys = tsys[off][0]
                 d = {"ON": on, "OFF": off}
-                if _bintable is None:
+                if bintable is None:
                     _bintable = self._get_bintable(_ondf)
                 g = PSScan(
                     self._sdf[i],
@@ -1678,13 +1719,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     zenith_opacity=zenith_opacity,
                     nocal=_nocal,
                     tsys=_tsys,
+                    tcal=_tcal,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
-                # Reset these variables in case they change for the next scan.
-                _nocal = nocal
-                _tsys = None
+                # Reset these variables for the next scan.
+                _tsys = tsys
+                _tcal = t_cal
                 _bintable = bintable
+                _nocal = nocal
+
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1696,12 +1740,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self,
         ifnum: int,
         plnum: int,
-        fdnum: int = None,  # noqa: RUF013
+        fdnum: None | int = None,
         calibrate: bool = True,
-        bintable: int = None,  # noqa: RUF013
+        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: bool = True,
         t_sys=None,
+        t_cal=None,
         nocal=False,
         units="ta",
         zenith_opacity=None,
@@ -1741,6 +1786,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             For example, `t_sys = np.array([[30], [50]])` would use a system temperature of 30 K for
             the first feed and 50 K for the second feed. Another example, `t_sys = {1: [[50, 60]], 2: [[45],[65]], 3: [[60],[70]]}`
             would use a system temperature of 50 K for the first feed in scan 1, 60 K for the second feed in scan 1, 45 K for the first feed in scan 2, 65 K for the second feed in scan 2, 60 K for the first feed in scan 3, and 70 K for the second feed in scan 3. If passing a dict it should contain an item for every scan.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
@@ -1785,6 +1834,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
+        _tcal = t_cal
         _nocal = nocal
         _bintable = bintable
 
@@ -1837,6 +1887,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calrows["OFF"] = list(dfcalF["ROW"])
                     d = {"ON": on, "OFF": off}
 
+                    if t_cal is not None:
+                        _tcal = t_cal
+                    else:
+                        _tcal = self._get_tcal(_offdf["TCAL"])
                     # Check if there is a noise diode.
                     if len(calrows["ON"]) == 0 or nocal:
                         _nocal = True
@@ -1865,14 +1919,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         apply_flags=apply_flags,
                         nocal=_nocal,
                         tsys=_tsys,
+                        tcal=_tcal,
                         tscale=units,
                         zenith_opacity=zenith_opacity,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
-                    _nocal = nocal
-                    _tsys = None
+                    # Reset these variables for the next scan.
+                    _tsys = tsys
+                    _tcal = t_cal
                     _bintable = bintable
+                    _nocal = nocal
+
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
@@ -1898,6 +1956,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         units: str = "ta",
         zenith_opacity: float | None = None,
         t_sys=None,
+        t_cal=None,
         nocal: bool = False,
         **kwargs,
     ):
@@ -1940,6 +1999,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys : float, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         nocal : bool, optional
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
@@ -1969,6 +2032,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
+        _tcal = t_cal
         _nocal = nocal
         _bintable = bintable
 
@@ -2001,6 +2065,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 sigrows["ON"] = list(dfsigT["ROW"])
                 sigrows["OFF"] = list(dfsigF["ROW"])
 
+                if t_cal is not None:
+                    _tcal = t_cal
+                else:
+                    _tcal = self._get_tcal(dfcalF["TCAL"])
+
                 # Is there a noise diode?
                 if len(calrows["ON"]) == 0 or nocal:
                     _nocal = True
@@ -2030,14 +2099,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tscale=units,
                     zenith_opacity=zenith_opacity,
                     tsys=_tsys,
+                    tcal=_tcal,
                     nocal=_nocal,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
-                # Reset these variables in case they change for the next scan.
-                _nocal = nocal
-                _tsys = None
+                # Reset these variables for the next scan.
+                _tsys = tsys
+                _tcal = t_cal
                 _bintable = bintable
+                _nocal = nocal
+
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -2063,6 +2135,143 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._fix_column("FDNUM", 0, {"FRONTEND": "Rcvr26_40", "PLNUM": 0})
         logger.info("Fixing FDNUM mislabel for Rcvr26_40. FDNUM 1 changed to 0")
 
+    @log_call_to_result
+    def gettcal(
+        self,
+        scan: int,
+        ifnum: int,
+        plnum: int,
+        zenith_opacity: float,
+        ref: None | int | Spectrum = None,
+        fdnum: None | int = None,
+        bintable: None | int = None,
+        apply_flags: bool = True,
+        method=None,
+        name=None,
+        fluxscale=None,
+        method_kwargs: None | dict = None,
+        **kwargs,
+    ):
+        """
+        Derive the noise diode temperature from observations of a flux calibrator.
+
+        Parameters
+        ----------
+        scan : int
+            The scan number.
+        fdnum : int
+            The feed number.
+        ifnum : int
+            The intermediate frequency (IF) number.
+        plnum : int
+            The polarization number.
+        bintable : None or int
+            Limit to the input binary table index. The default is None which means search all binary tables.
+        ref : int or `~dysh.spectra.spectrum.Spectrum`
+            The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.  If an integer is given,
+            the reference spectrum will be the total power time-averaged spectrum using the weights given.
+            This is only used if `method=GBTFITSLoad.getsigref`.
+        apply_flags : boolean, optional
+            If True, apply flags before calibration.
+            See :meth:`apply_flags`. Default: True
+        zenith_opacity : float
+            The zenith opacity to use in calculating the scale factors for the integrations. Default: None
+        method : callable
+            Method to use for calibrating the data.
+            It can be one of `GBTFITSLoad.getsigref`, `GBTFITSLoad.getps`, `GBTFITSLoad.getnod` or `GBTFITSLoad.subbeamnod`.
+            If None, the default, it will use `GBTFITSLoad.getsigref` for Track observations,
+            `GBTFITSLoad.getps` for OnOff or OffOn observations,
+            `GBTFITSLoad.getnod` for Nod observations, and
+            `GBTFITSLoad.subbeamnod` for SubBeamNod observations.
+        name : str
+            Alternative name for the calibrator source.
+            This will override the value found in the "OBJECT" column of the SDFITS.
+            Useful when the "OBJECT" column contains a value not present in the calibrator catalog.
+        fluxscale : str
+            Name of the flux scale to use to compute the flux of the calibrator.
+            "Perley-Butler 2017" and "Ott 1994" are known to dysh, although the user can provide other scales.
+        method_kwargs : dict
+            Dictionary with additional keywords to pass to the calibration `method`.
+        **kwargs : dict
+            Optional additional selection keyword arguments, typically
+            given as key=value, though a dictionary works too.
+            e.g., `object='NGC123'`.
+
+        Returns
+        -------
+        tcal : `~dysh.spectra.tcal.TCal`
+            Object that contains the noise diode temperature in its flux attribute.
+
+        Raises
+        ------
+        TypeError
+            If more than one scan is provided.
+        TypeError
+            If `method` is not recognized.
+        """
+
+        valid_procs = {
+            "Track": self.getsigref,
+            "OnOff": self.getps,
+            "OffOn": self.getps,
+            "Nod": self.getnod,
+            "SubBeamNod": self.subbeamnod,
+        }
+
+        if method_kwargs is None:
+            method_kwargs = {}
+
+        if not isinstance(scan, int):
+            raise TypeError(f"Only a single integer value allowed for `scan`. Got {scan}")
+
+        if method is not None:
+            if method not in valid_procs.values():
+                valid_methods = [m.__qualname__ for m in valid_procs.values()]
+                raise TypeError(f"Unrecognized method ({method}). It should be one of {valid_methods}")
+
+        (scans, _sf) = self._common_selection(
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            apply_flags=apply_flags,
+            scan=scan,
+            **kwargs,
+        )
+
+        if name is None:
+            name = next(iter(set(_sf["OBJECT"])))
+        target = Calibrator.from_name(name, scale=fluxscale)
+
+        proc = next(iter(set(_sf["PROC"])))
+
+        if method is None:
+            method = valid_procs[proc]
+        logger.info(f"Will use {method.__name__} to calibrate the data.")
+
+        method_args = {
+            "scan": scans,
+            "fdnum": fdnum,
+            "ifnum": ifnum,
+            "plnum": plnum,
+            "apply_flags": apply_flags,
+            "zenith_opacity": zenith_opacity,
+            "t_cal": 1.0,
+            "units": "flux",
+        }
+        if ref is not None:
+            method_args["ref"] = ref
+
+        obs_ta = method(**method_args, **method_kwargs).timeaverage()
+
+        nu = obs_ta.spectral_axis
+        snu = target.compute_sed(nu.quantity)
+
+        tcal_values = (snu / obs_ta.flux).value * u.K
+
+        tcal = TCal.from_spectrum(obs_ta, data=tcal_values, snu=snu, name=name)
+
+        return tcal
+
     # @todo sig/cal no longer needed?
     @log_call_to_result
     def subbeamnod(
@@ -2081,6 +2290,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         units="ta",
         zenith_opacity=None,
         t_sys=None,
+        t_cal=None,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -2124,6 +2334,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys : float, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+        t_cal : None or float
+            Noise diode temperature. If provided, this value is used instead of the value found in the
+            TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
+            used.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2145,6 +2359,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
+        _tcal = t_cal
 
         scanblock = ScanBlock()
 
@@ -2199,9 +2414,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         e = f"""There are {len(sig_on_groups)} and {len(ref_on_groups)} signal and reference cycles.
                                 Try using method='scan'."""
                         raise ValueError(e)
+
+                    if t_cal is not None:
+                        _tcal = t_cal
+                    else:
+                        _tcal = self._get_tcal(df_off["TCAL"])
+
                     # Loop over cycles, calibrating each independently.
                     groups_zip = zip(ref_on_groups, sig_on_groups, ref_off_groups, sig_off_groups, strict=False)
-
                     for rgon, sgon, rgoff, sgoff in groups_zip:
                         # Do it the dysh way.
                         # TODO: use gettp instead of TPScan.
@@ -2220,6 +2440,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             bintable=_bintable,
                             calibrate=calibrate,
                             apply_flags=apply_flags,
+                            tcal=_tcal,
                         )
                         if tsys is not None:
                             _reftp._tsys[:] = tsys[scan][0]
@@ -2240,6 +2461,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 bintable=_bintable,
                                 calibrate=calibrate,
                                 apply_flags=apply_flags,
+                                tcal=_tcal,
                             )
                         )
                     sb = SubBeamNodScan(
@@ -2254,6 +2476,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         tscale=units,
                         zenith_opacity=zenith_opacity,
                         weights=weights,
+                        tcal=_tcal,
                     )
                     sb.merge_commentary(self)
                     scanblock.append(sb)
@@ -2277,6 +2500,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     subref=-1,
                     calibrate=calibrate,
                     apply_flags=apply_flags,
+                    t_cal=t_cal,
                 )
                 sigtp.append(tpon[0])
                 tpoff = self.gettp(
@@ -2291,6 +2515,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     apply_flags=apply_flags,
                     t_sys=t_sys,
+                    t_cal=t_cal,
                 )
                 reftp.append(tpoff[0])
                 sb = SubBeamNodScan(
@@ -2305,6 +2530,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tscale=units,
                     zenith_opacity=zenith_opacity,
                     weights=weights,
+                    tcal=tpoff[0].calibrated(0).meta["TCAL"],
                 )
                 sb.merge_commentary(self)
                 scanblock.append(sb)
@@ -3073,68 +3299,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return tsys
 
-    def _getnod(self, scans, beams, ifnum=0, plnum=0, tsys=None):
-        """
-        fake getnod() based on alternating gettp() with averaging done internally
-        use the real sdf.getnod() for final analysis.
-        @todo   this should be replaced by an improved proper getnod()
-        sdf:   the sdfits handle
-        scans: list of two scans for the nodding
-        beams: list of two beams for the nodding
-        ifnum: the ifnum to use
-        plnum: the plnum to use
-        Returns the two nodding spectra, caller is responsible for averaging them, e.g.
-             sp1.average(sp2)
-
-        Parameters
-        ----------
-        sdf : GBTFITSLoad`
-            data handle, containing one or more SDFITS files specific to GBT
-        scans : list of 2 ints
-            list of two scans for the nodding
-        beams : list of 2 ints
-            list of two beams for the nodding
-        ifnum : int, optional
-            IF number. The default is 0.
-        plnum : int, optional
-            Polarization number. The default is 0.
-        tsys : float or list of two floats, optional
-            Sytem temperature in K. The default is None.
-
-        Returns
-        -------
-        (sp1, sp2) : tuple of `~dysh.spectra.spectrum.Spectrum`
-            the two nodding spectra, caller is responsible for averaging them, e.g. `sp1.average(sp2)`
-        """
-
-        if tsys is None:
-            tsys = np.array([1.0, 1.0])
-        if np.isscalar(tsys):
-            tsys = np.array([tsys, tsys])
-        if len(tsys) == 1:
-            tsys = np.array([tsys, tsys])  # because np.isscalar(np.array([1])) is False !
-
-        ps1_on = self.gettp(
-            scan=scans[0], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
-        ).timeaverage()
-        ps1_off = self.gettp(
-            scan=scans[1], fdnum=beams[0], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
-        ).timeaverage()
-        sp1 = (ps1_on - ps1_off) / ps1_off * tsys[0]
-
-        ps2_on = self.gettp(
-            scan=scans[1], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
-        ).timeaverage()
-        ps2_off = self.gettp(
-            scan=scans[0], fdnum=beams[1], ifnum=ifnum, plnum=plnum, calibrate=True, cal=False
-        ).timeaverage()
-        sp2 = (ps2_on - ps2_off) / ps2_off * tsys[1]
-
-        sp1.meta["TSYS"] = tsys[0]
-        sp2.meta["TSYS"] = tsys[1]
-
-        return (sp1, sp2)
-
     def _get_bintable(self, df: pd.DataFrame) -> int:
         """
         Extracts the binary table from `df`.
@@ -3165,17 +3329,36 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return bintable
 
     def _get_refspec_tsys(self, refspec):
-        """ """
+        """
+        Find the system temperature in a `~dysh.spectra.spectrum.Spectrum`.
+        It checks the meta attribute keys in the following order:
+        "TSYS", "MEANTSYS", "WTTSYS"
+        and returns the first not None value.
+        """
         tsyskw = ["TSYS", "MEANTSYS", "WTTSYS"]
         for kw in tsyskw:
             tsys = refspec.meta.get(kw, None)
-            if tsys is None:
-                continue
+            if tsys is not None:
+                break
         if tsys is None:
             raise ValueError(
                 "Reference spectrum has no system temperature in its metadata.  Solve with refspec.meta['TSYS']=value or add parameter `t_sys` to getps/getsigref."
             )
         return tsys
+
+    def _get_tcal(self, tcal):
+        """
+        Retrieve the value of TCAL.
+
+        Raises
+        ------
+        ValueError
+            If there's more than one value for TCAL.
+        """
+        tcal_set = set(tcal)
+        if len(tcal_set) > 1:
+            raise ValueError(f"More than one value for TCAL: {tcal_set}")
+        return next(iter(tcal_set))
 
 
 class GBTOffline(GBTFITSLoad):
@@ -3215,6 +3398,8 @@ class GBTOnline(GBTFITSLoad):
     @log_call_to_history
     def __init__(self, fileobj=None, *args, **kwargs):
         self._online = fileobj
+        self._args = args
+        self._kwargs = kwargs
         self._platform = platform.system()  # cannot update in "Windows", see #447
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
@@ -3264,16 +3449,18 @@ class GBTOnline(GBTFITSLoad):
                 return None
 
             self._online = project
-            GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
+            GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
             self._mtime = os.path.getmtime(self.filenames()[0])
 
         # we only test the first filename in the list, assuming they're all being written
 
         self._mtime = os.path.getmtime(self.filenames()[0])
+        for f in self.filenames():
+            self._mtime = max(self._mtime, os.path.getmtime(f))
         delta = (time.time() - self._mtime) / 60.0
 
-        logger.info(f"Connected to file: {self._online}")
-        logger.info(f"File has not been updated in {delta:.2f} minutes.")
+        logger.info(f"Connected to: {self._online}")
+        logger.info(f"Data has not been updated in {delta:.2f} minutes.")
         # end of __init__
 
     def _reload(self, force=False):
@@ -3282,50 +3469,58 @@ class GBTOnline(GBTFITSLoad):
             logger.warning("Cannot reload on Windows, see issue #447")
             return
         if not force:
-            mtime = os.path.getmtime(self.filenames()[0])
+            for f in self.filenames():
+                mtime = max(self._mtime, os.path.getmtime(f))
             if mtime > self._mtime:
                 self._mtime = mtime
-                print("NEW MTIME:", self._mtime)
+                logger.debug("NEW MTIME:", self._mtime)
                 force = True
         if force:
             print(f"Reload {self._online}")
-            GBTFITSLoad.__init__(self, self._online)
+            GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
         return force
 
     # examples of catchers for reloading
 
-    def summary(self, **kwargs):
-        """reload, if need be"""
+    def summary(self, *args, **kwargs):
         self._reload()
-        return super().summary(**kwargs)
+        return super().summary(*args, **kwargs)
 
-    def gettp(self, **kwargs):
+    def gettp(self, *args, **kwargs):
         self._reload()
-        return super().gettp(**kwargs)
+        return super().gettp(*args, **kwargs)
 
-    def getsigref(self, **kwargs):
+    def getsigref(self, *args, **kwargs):
         self._reload()
-        return super().getsigref(**kwargs)
+        return super().getsigref(*args, **kwargs)
 
-    def getps(self, **kwargs):
+    def getps(self, *args, **kwargs):
         self._reload()
-        return super().getps(**kwargs)
+        return super().getps(*args, **kwargs)
 
-    def getnod(self, **kwargs):
+    def getnod(self, *args, **kwargs):
         self._reload()
-        return super().getnod(**kwargs)
+        return super().getnod(*args, **kwargs)
 
-    def getfs(self, **kwargs):
+    def getfs(self, *args, **kwargs):
         self._reload()
-        return super().getfs(**kwargs)
+        return super().getfs(*args, **kwargs)
 
-    def subbeamnod(self, **kwargs):
+    def subbeamnod(self, *args, **kwargs):
         self._reload()
-        return super().subbeamnod(**kwargs)
+        return super().subbeamnod(*args, **kwargs)
 
-    def vanecal(self, **kwargs):
+    def vanecal(self, *args, **kwargs):
         self._reload()
-        return super().vanecal(**kwargs)
+        return super().vanecal(*args, **kwargs)
+
+    def calseq(self, *args, **kwargs):
+        self._reload()
+        return super().calseq(*args, **kwargs)
+
+    def gettcal(self, *args, **kwargs):
+        self._reload()
+        return super().gettcal(*args, **kwargs)
 
 
 def _parse_tsys(tsys, scans):
