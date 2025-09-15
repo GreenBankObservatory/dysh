@@ -1205,7 +1205,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         sig: bool | None = None,
         cal: bool | None = None,
         calibrate: bool = True,
-        bintable: None | int = None,
         apply_flags: bool = True,
         t_sys=None,
         t_cal=None,
@@ -1230,8 +1229,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         calibrate: bool
             whether or not to calibrate the data.  If `True`, the data will be (calon + caloff)*0.5, otherwise it will be SDFITS row data.
             Default:True
-        bintable : int
-            Limit to the input binary table index. The default is None which means use all binary tables.
         apply_flags : boolean, optional.  If True, apply flags before calibration.
             See :meth:`apply_flags`. Default: True
         t_sys : float
@@ -1256,7 +1253,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
-        _bintable = bintable
+        _bintable = kwargs.get("bintable", None)
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
@@ -1335,7 +1332,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # Reset these variables for the next scan.
                 _tsys = tsys
                 _tcal = t_cal
-                _bintable = bintable
+                _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1351,7 +1348,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: str = True,
         units: str = "ta",
@@ -1380,9 +1376,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The polarization number.
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
-        bintable : int, optional
-            Limit to the input binary table index. The default is None which means use all binary tables.
-            (This keyword should eventually go away)
         smooth_ref : int, optional
             If >1 smooth the reference with a boxcar kernel with a width of `smooth_ref` channels. The default is to not smooth the reference.
         apply_flags : boolean, optional
@@ -1457,7 +1450,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _tsys = None
         _tcal = t_cal
         _nocal = nocal
-        _bintable = bintable
+        _bintable = kwargs.get("bintable", None)
         scanlist["ON"] = scans
         scanlist["OFF"] = [None] * len(scans)
         if isinstance(ref, int):
@@ -1467,7 +1460,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 fdnum=fdnum,
                 ifnum=ifnum,
                 plnum=plnum,
-                bintable=bintable,
                 calibrate=calibrate,
                 apply_flags=apply_flags,
                 t_cal=t_cal,
@@ -1551,11 +1543,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 g._refscan = ref
                 g.merge_commentary(self)
                 scanblock.append(g)
-                # Reset these variables for the next scan.
-                # Do not reset variables that are set outside the scan loop.
-                _tsys = tsys
-                _bintable = bintable
+                # Reset these variables in case they change for the next scan.
                 _nocal = nocal
+                _tsys = None
+                _bintable = kwargs.get("bintable", None)
 
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
@@ -1570,7 +1561,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         calibrate: bool = True,
-        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: str = True,
         units: str = "ta",
@@ -1593,9 +1583,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The polarization number.
         calibrate : boolean, optional
             Calibrate the scans. The default is True.
-        bintable : int, optional
-            Limit to the input binary table index. The default is None which means use all binary tables.
-            (This keyword should eventually go away)
         smooth_ref : int, optional
             The number of channels in the reference to boxcar smooth prior to calibration.
         apply_flags : boolean, optional.  If True, apply flags before calibration.
@@ -1654,7 +1641,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _tsys = tsys
         _tcal = t_cal
         _nocal = nocal
-        _bintable = bintable
+        _bintable = kwargs.get("bintable", None)
 
         scanblock = ScanBlock()
         for i in range(len(self._sdf)):
@@ -1701,7 +1688,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     except KeyError:
                         _tsys = tsys[off][0]
                 d = {"ON": on, "OFF": off}
-                if bintable is None:
+                if _bintable is None:
                     _bintable = self._get_bintable(_ondf)
                 g = PSScan(
                     self._sdf[i],
@@ -1726,9 +1713,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # Reset these variables for the next scan.
                 _tsys = tsys
                 _tcal = t_cal
-                _bintable = bintable
                 _nocal = nocal
-
+                _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -1742,7 +1728,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         plnum: int,
         fdnum: None | int = None,
         calibrate: bool = True,
-        bintable: None | int = None,
         smoothref: int = 1,
         apply_flags: bool = True,
         t_sys=None,
@@ -1766,8 +1751,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         calibrate : boolean, optional
             Calibrate the scans.
             The default is True.
-        bintable : int, optional
-            Limit to the input binary table index. The default is None which means use all binary tables.
         smooth_ref : int, optional
             Smooth the reference spectra using a boxcar kernel with a width of `smooth_ref` channels.
             The default is to not smooth the reference spectra.
@@ -1836,7 +1819,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _tsys = None
         _tcal = t_cal
         _nocal = nocal
-        _bintable = bintable
+        _bintable = kwargs.get("bintable", None)
 
         beam1_selected = True
         scanblock = ScanBlock()
@@ -1928,9 +1911,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     # Reset these variables for the next scan.
                     _tsys = tsys
                     _tcal = t_cal
-                    _bintable = bintable
                     _nocal = nocal
-
+                    _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
@@ -1950,7 +1932,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fold: bool = True,
         shift_method: str = "fft",
         use_sig: bool = True,
-        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
         units: str = "ta",
@@ -1982,8 +1963,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Return the sig or ref based spectrum. This applies to both the folded
             and unfolded option.  The default is True.
             NOT IMPLEMENTED YET
-        bintable : int, optional
-            Limit to the input binary table index. The default is None which means use all binary tables.
         smooth_ref: int, optional
             the number of channels in the reference to boxcar smooth prior to calibration
         apply_flags : boolean, optional.  If True, apply flags before calibration.
@@ -2034,7 +2013,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _tsys = None
         _tcal = t_cal
         _nocal = nocal
-        _bintable = bintable
+        _bintable = kwargs.get("bintable", None)
 
         scanblock = ScanBlock()
 
@@ -2107,9 +2086,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # Reset these variables for the next scan.
                 _tsys = tsys
                 _tcal = t_cal
-                _bintable = bintable
                 _nocal = nocal
-
+                _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
             raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -2144,7 +2122,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zenith_opacity: float,
         ref: None | int | Spectrum = None,
         fdnum: None | int = None,
-        bintable: None | int = None,
         apply_flags: bool = True,
         method=None,
         name=None,
@@ -2165,8 +2142,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The intermediate frequency (IF) number.
         plnum : int
             The polarization number.
-        bintable : None or int
-            Limit to the input binary table index. The default is None which means search all binary tables.
         ref : int or `~dysh.spectra.spectrum.Spectrum`
             The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.  If an integer is given,
             the reference spectrum will be the total power time-averaged spectrum using the weights given.
@@ -2261,6 +2236,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if ref is not None:
             method_args["ref"] = ref
 
+        # Merge kwargs.
+        # Merging in this order implies that kwargs will supersede method_kwargs.
+        method_kwargs.update(kwargs)
+
         obs_ta = method(**method_args, **method_kwargs).timeaverage()
 
         nu = obs_ta.spectral_axis
@@ -2284,7 +2263,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         cal=None,
         calibrate: bool = True,
         weights="tsys",
-        bintable: int = None,  # noqa: RUF013
         smoothref: int = 1,
         apply_flags: bool = True,
         units="ta",
@@ -2316,8 +2294,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         weights : str or None
             Weights to use for the time averaging of the sub reflector states.
             None to indicate equal weighting or 'tsys' to indicate inverse variance weights.
-        bintable : int, optional
-            Limit to the input binary table index. The default is None which means use all binary tables.
         smooth_ref : int, optional
             The boxcar kernel width to smooth the reference spectra prior to calibration.
         apply_flags : boolean, optional.
@@ -2353,7 +2329,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if units.lower() != "ta" and zenith_opacity is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
-        _bintable = bintable
+        _bintable = kwargs.get("bintable", None)
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
 
@@ -2480,42 +2456,41 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     )
                     sb.merge_commentary(self)
                     scanblock.append(sb)
-                    _bintable = bintable
+                    _bintable = kwargs.get("bintable", None)
         elif method == "scan":
             # Process the whole scan as a single block.
             # This allows calibrating the data if the scan
             # was aborted and there are not enough sig/ref
             # cycles to do a per cycle calibration.
             for scan in scans:
+                kwargs["scan"] = scan
                 reftp = []
                 sigtp = []
                 tpon = self.gettp(
                     fdnum=fdnum,
                     ifnum=ifnum,
                     plnum=plnum,
-                    scan=scan,
                     sig=None,
                     cal=None,
-                    bintable=bintable,
                     subref=-1,
                     calibrate=calibrate,
                     apply_flags=apply_flags,
                     t_cal=t_cal,
+                    **kwargs,
                 )
                 sigtp.append(tpon[0])
                 tpoff = self.gettp(
                     fdnum=fdnum,
                     ifnum=ifnum,
                     plnum=plnum,
-                    scan=scan,
                     sig=None,
                     cal=None,
-                    bintable=bintable,
                     subref=1,
                     calibrate=calibrate,
                     apply_flags=apply_flags,
                     t_sys=t_sys,
                     t_cal=t_cal,
+                    **kwargs,
                 )
                 reftp.append(tpoff[0])
                 sb = SubBeamNodScan(
