@@ -489,7 +489,9 @@ class SDFITSLoad(object):
         data = self.rawspectrum(i, bintable, setmask=setmask)
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            # @todo this is in gbtfits.hdu[0].header['TUNIT11'] or whereever CRVAL1 is stored
+            # for good measure CTYPE1 and CDELT1 also store this unit, and better be the same
+            meta["CUNIT1"] = "Hz"
             logger.debug("Fixing CUNIT1 to Hz")
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
@@ -501,8 +503,10 @@ class SDFITSLoad(object):
         # @todo   could we safely store it in meta['BUNIT']
         #  for now, loop over the binheader keywords to find the matching TUNITxx that belongs to TTYPExx='DATA'
         #  if BUNIT was also found, a comparison is made, but TUNIT wins
+        #  NOTE: sdfits file from sdf.write() currently have
         if "BUNIT" in meta:
             bunit = meta["BUNIT"]
+            logger.debug(f"BUNIT {bunit} already set")
         else:
             bunit = None
             h = self.binheader[0]
@@ -518,20 +522,23 @@ class SDFITSLoad(object):
                 for k, v, _c in h.cards:
                     if k == ukey:
                         if bunit != v:
-                            logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
-                        bunit = v
+                            logger.debug(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
+                        if len(v) == 0:
+                            logger.debug("Blank BUNIT; overriding unit as 'ct'")
+                            bunit = u.ct
+                        else:
+                            bunit = v
                         break
+            if bunit is None:
+                logger.debug("no bunit yet")
         if bunit is not None:
             bunit = u.Unit(bunit)
         else:
             bunit = u.ct
         logger.debug(f"BUNIT = {bunit}")
-        if bunit == "ct":
-            logger.info("Your data have no units, 'ct' was selected")
-            # PJT hack: bunit = u.K
         # use from_unmasked so we don't get the astropy INFO level message about replacing a mask
         # (doesn't work -- the INFO message comes from the Spectrum1D constructor)
-        masked_data = Masked.from_unmasked(data.data, data.mask) * u.K
+        masked_data = Masked.from_unmasked(data.data, data.mask) * bunit
         s = Spectrum.make_spectrum(masked_data, meta, observer_location=observer_location)
         return s
 
@@ -1108,7 +1115,6 @@ class SDFITSLoad(object):
             warnings.warn(f"Changing an existing SDFITS column {items}")  # noqa: B028
         try:
             self._update_column(d)
-            print(f"update column succeeded for {items}")
         except Exception as e:
             raise Exception(f"Could not update SDFITS binary table for {items} because {e}")  # noqa: B904
         # only update the index if the binary table could not be updated.

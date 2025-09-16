@@ -76,16 +76,11 @@ autosectionlabel_maxdepth = 1
 autodoc_typehints_format = "short"
 autodoc_preserve_defaults = False
 
-# TODO: These appear to have no effect
-mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:false});"
-
-# TODO: These appear to have no effect
-mermaid_verbose = True
-
-# Mermaid configuration
-# https://github.com/mgaitan/sphinxcontrib-mermaid
-mermaid_version = "11.2.0"
-mermaid_params = ["--theme", "dark"]
+## Mermaid configuration
+## https://github.com/mgaitan/sphinxcontrib-mermaid
+mermaid_version = "11.11.0"
+mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:true});"
+# mermaid_verbose = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

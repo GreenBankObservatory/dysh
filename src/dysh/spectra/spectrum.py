@@ -140,6 +140,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         return len(self.frequency)
 
+    def _spectrum_property(self, prop: str):
+        """
+        Utility method to return a header value as a property.
+
+        Parameters
+        ----------
+        prop : str
+            The property name, _case-sensitive_
+
+        Returns
+        -------
+        value : Any or Non
+            The property value or None if `prop` is not in the header.
+
+        """
+        return self.meta.get(prop, None)
+
     @property
     def weights(self):
         """The channel weights of this spectrum"""
@@ -153,13 +170,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def exclude_regions(self):
         """The baseline exclusion region(s) of this spectrum"""
         return self._exclude_regions
-
-    ##@todo
-    # def exclude_region(self,region):
-    # where region is SpectralRegion, channels, velocity, etc.  See core.py baseline method.
-    #
-    # def region_to_mask():
-    #  set spectrum mask to True inside exclude_regions. normally we don't do this for baselining
 
     @property
     def baseline_model(self):
@@ -433,7 +443,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         width=1,
         decimate=0,
         meta=None,
-        kernel=None,
         mask=None,
         boundary="extend",
         nan_treatment="fill",
@@ -447,13 +456,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        method : string, optional
+        method : string
             Smoothing method. Valid are: 'hanning', 'boxcar' and
             'gaussian'. Minimum match applies.
             The default is 'hanning'.
-        width : int, optional
-            Effective width of the convolving kernel.  Should ideally be an
-            odd number.
+        width : int
+            Effective width of the convolving kernel.
             For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
             signal at the edges, and will thus not reproduce GBTIDL.
@@ -461,26 +469,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
             That is, the smoothed `Spectrum` will have an effective frequency resolution
             equal to CDELT1*`width`.
             The default is 1.
-        decimate : int, optional
+        decimate : int
             Decimation factor of the spectrum by returning every decimate channel.
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-            The default is 0, meaning decimation is by `width`
-        kernel : `~numpy.ndarray`, optional
-            A numpy array which is the kernel by which the signal is convolved.
-            Use with caution, as it is assumed the kernel is normalized to
-            one, and is symmetric. Since width is ill-defined here, the user
-            should supply an appropriate number manually.
-            NOTE: not implemented yet.
-            The default is None.
-        mask : None or ndarray, optional
+        mask : None or `numpy.ndarray`
             A "mask" array.  Shape must match ``array``, and anything that is masked
             (i.e., not 0/`False`) will be set to NaN for the convolution.  If
             `None`, no masking will be performed unless ``array`` is a masked array.
             If ``mask`` is not `None` *and* ``array`` is a masked array, a pixel is
             masked if it is masked in either ``mask`` *or* ``array.mask``.
-        boundary : str, optional
+        boundary : str
             A flag indicating how to handle boundaries:
                 * `None`
                     Set the ``result`` values to zero where the kernel
@@ -492,9 +492,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 * 'extend'
                     Set values outside the array to the nearest ``array``
                     value.
-        fill_value : float, optional
+        fill_value : float
             The value to use outside the array when using ``boundary='fill'``. Default value is ``NaN``.
-        nan_treatment : {'interpolate', 'fill'}, optional
+        nan_treatment : {'interpolate', 'fill'}
             The method used to handle NaNs in the input ``array``:
                 * ``'interpolate'``: ``NaN`` values are replaced with
                   interpolated values using the kernel as an interpolation
@@ -503,7 +503,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                   exception.
                 * ``'fill'``: ``NaN`` values are replaced by ``fill_value``
                   prior to convolution.
-        preserve_nan : bool, optional
+        preserve_nan : bool
             After performing convolution, should pixels that were originally NaN
             again become NaN?
 
@@ -712,7 +712,46 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @property
     def target(self):
+        """
+        The target object of this spectrum.
+
+        Returns
+        -------
+        target : `~astropy.coordinates.sky_coordinate.SkyCoord`
+            The sky coordinate object
+        """
         return self._target
+
+    @property
+    def tscale(self):
+        """
+        The descriptive brightness unit of the data. One of
+            - 'Raw' : raw value, e.g., count
+            - 'Ta'  : Antenna Temperature in K
+            - 'Ta*' : Antenna temperature corrected to above the atmosphere in K
+            - 'Flux': flux density in Jansky
+
+        Returns
+        -------
+        tscale : str or None
+            Brightness unit string. If there is no TSCALE in the header, None is returned.
+
+        """
+        return self._spectrum_property("TSCALE")
+
+    @property
+    def tscale_fac(self):
+        """
+        The factor by which the data have been scale from antenna temperature to corrected antenna temperature
+        or flux density. This is the average of the values by which the integrations in the spectrum have been scaled.
+
+        Returns
+        -------
+        tscale_fac : float or None
+            The scale factor. If there is no TSCALFAC in the header, None is returned.
+
+        """
+        return self._spectrum_property("TSCALFAC")
 
     @property
     def observer(self):
@@ -1110,6 +1149,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "RESTFRQ": 1420405751.7,
             "MEANTSYS": 17.16746070048293,
             "WTTSYS": 17.16574907094451,
+            "TSCALE": "Ta*",
+            "TSCALFAC": 0.54321,
+            "TUNIT7": "K",
+            "BUNIT": "K",
         }
         for k, v in kwargs.items():
             meta[k.upper()] = v

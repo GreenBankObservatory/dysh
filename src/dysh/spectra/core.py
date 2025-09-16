@@ -518,7 +518,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
 
     Parameters
     ----------
-    spectrum : `~spectra.spectrum.Spectrum`
+    spectrum : `~dysh.spectra.spectrum.Spectrum`
         The input spectrum.
     order : int
         The order of the polynomial series, a.k.a. baseline order.
@@ -736,12 +736,12 @@ def tsys_weight(exposure, delta_freq, tsys):
 
     Parameters
     ----------
-         exposure : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The exposure time, typically given in seconds
-         delta_freq : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The channel width in frequency units
-         tsys : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The system temperature, typically in K
+     exposure : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+         The exposure time, typically given in seconds.
+     delta_freq : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+         The channel width in frequency units.
+     tsys : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+         The system temperature, typically in K.
 
     Returns
     -------
@@ -762,7 +762,7 @@ def tsys_weight(exposure, delta_freq, tsys):
 
 def mean_data(data, fedge=0.1, nedge=None, median=False):
     """
-    special mean of data to exclude the edges like mean_tsys(), with
+    Special mean of data to exclude the edges like mean_tsys(), with
     an option to use the median instead of the mean.
 
     Parameters
@@ -772,10 +772,10 @@ def mean_data(data, fedge=0.1, nedge=None, median=False):
     fedge : float, optional
         Fraction of edge channels to exclude at each end, a number between 0 and 1.
         If `nedge` is used, this parameter is not used.
-        Default: 0.1, meaning the central 80% bandwidth is used
+        Default: 0.1, meaning the central 80% bandwidth is used.
     nedge : int, optional
         Number of edge channels to exclude. nedge cannot be 0.
-        Default: None, meaning use `fedge`
+        Default: None, meaning use `fedge`.
     median : boolean, optional
         Use the median instead of the mean.
         The default is False.
@@ -942,23 +942,19 @@ def decimate(data, n, meta=None):
     """
     Decimate a data array by `n` pixels.
 
-
     Parameters
     ----------
-
-    data: `~numpy.ndarray` or `~astropy.quantity.Quantity`
-        The data to decimate
-
+    data : `~numpy.ndarray` or `~astropy.quantity.Quantity`
+        The data to decimate.
     n : int
         Decimation factor of the spectrum by returning every n-th channel.
-
-    meta: dict
-         metadata dictionary with CDELT1, CRVAL1, NAXIS1, and CRPIX1 which will be recalculated
+    meta : dict
+        Metadata dictionary with CDELT1, CRVAL1, NAXIS1, and CRPIX1 which will be recalculated.
 
     Returns
     -------
-    tuple : (`~numpy.ndarray` or `~astropy.quantity.Quantity`, dict)
-        A tuple of the decimated `data` and updated metadata (or None if no meta given)
+    tuple : `~numpy.ndarray` or `~astropy.quantity.Quantity` and dict
+        A tuple of the decimated `data` and updated metadata (or None if no `meta` given).
     """
 
     if not float(n).is_integer():
@@ -1026,14 +1022,14 @@ def smooth(
         Decimation factor of the spectrum by returning every `ndecimate`-th channel.
     meta: dict
          metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
-    kernel : numpy array, optional
+    kernel : `~numpy.ndarray`, optional
         A numpy array which is the kernel by which the signal is convolved.
         Use with caution, as it is assumed the kernel is normalized to
         one, and is symmetric. Since width is ill-defined here, the user
         should supply an appropriate number manually.
         NOTE: not implemented yet.
         The default is None.
-    mask : None or ndarray, optional
+    mask : None or `~numpy.ndarray`, optional
         A "mask" array.  Shape must match ``array``, and anything that is masked
         (i.e., not 0/`False`) will be set to NaN for the convolution.  If
         `None`, no masking will be performed unless ``array`` is a masked array.
@@ -1065,8 +1061,6 @@ def smooth(
     preserve_nan : bool, optional
         After performing convolution, should pixels that were originally NaN
         again become NaN?
-
-
 
     Raises
     ------
