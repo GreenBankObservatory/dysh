@@ -1358,7 +1358,6 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     if _vc is None:
         _vc = (_x * _y).sum() / _y.sum()
     vc_idx = np.argmin(abs(_x - _vc))
-    xr = _x[vc_idx:] - _vc
 
     # Compute curve of growth.
     b = np.cumsum(ydx[:vc_idx][::-1])  # Blue.
@@ -1366,6 +1365,12 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     s = min(len(b), len(r))
     t = b[:s] + r[:s]
     dx = dx[:s]
+    xr = (_x[vc_idx:] - _vc)[:s]
+    xb = abs(_x[:vc_idx] - _vc)[::-1][:s]
+    xt = xr + xb
+    # todo: use these to give widths in each direction.
+    # vb = x[:vc_idx][::-1]
+    # vr = x[vc_idx - 1 :]
 
     # Find flux.
     flux, flux_std, slope = cog_flux(t, flat_tol)
@@ -1382,7 +1387,7 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     nt = t[:flat_idx0] / flux
     for f in width_frac:
         idx = np.argmin(abs(nt - f))
-        widths[f] = xr[idx]
+        widths[f] = xt[idx]
 
     # Estimate rms from line-free channels.
     if bchan is None:
