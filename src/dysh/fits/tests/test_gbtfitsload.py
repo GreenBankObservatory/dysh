@@ -516,6 +516,18 @@ class TestGBTFITSLoad:
         tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
         assert tp_nnd.meta["TSYS"] == tsys[295]
 
+    def test_repeated_scan_number(self):
+        """
+        Test for data with repeated scan numbers.
+        """
+        fnm = f"{self.data_dir}/TRFI_090125_S1/TRFI_090125_S1.raw.vegas/TRFI_090125_S1.raw.vegas.testtrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+
+        assert len(sdf._sdf[0].bintable) == 2
+        assert np.all(sdf.get_summary()["SCAN"] == [2, 2])
+        assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=0).timeaverage().flux) == 2**14
+        assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=1).timeaverage().flux) == 2**17
+
     def test_load_multifits(self):
         """
         Loading multiple SDFITS files under a directory.
