@@ -1539,7 +1539,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         bchan=None,
         echan=None,
         flat_tol=0.1,
-        fw=2,
+        fw=1,
         xunit="km/s",
     ):
         """

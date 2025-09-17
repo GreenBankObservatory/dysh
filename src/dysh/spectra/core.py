@@ -1295,7 +1295,7 @@ def cog_flux(c, flat_tol=0.1):
     return flux, flux_std, slope
 
 
-def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=2):
+def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=1):
     """
     Curve of growth analysis based on Yu et al. (2020) [1]_.
 
@@ -1351,7 +1351,7 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         _x = _x[bchan:]
         _y = _y[bchan:]
     dx = np.diff(_x)
-    ydx = _y[1:] * dx
+    ydx = _y[:-1] * dx
 
     # Find initial guess for central velocity.
     _vc = vc
@@ -1361,21 +1361,26 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
 
     # Compute curve of growth.
     b = np.cumsum(ydx[:vc_idx][::-1])  # Blue.
-    r = np.cumsum(ydx[vc_idx - 1 :])  # Red.
+    r = np.cumsum(ydx[vc_idx:])  # Red.
     s = min(len(b), len(r))
     t = b[:s] + r[:s]
     dx = dx[:s]
-    xr = (_x[vc_idx:] - _vc)[:s]
-    xb = abs(_x[:vc_idx] - _vc)[::-1][:s]
-    xt = xr + xb
+    xr = _x[vc_idx:] - _vc
+    xb = abs(_x[:vc_idx] - _vc)[::-1]
+    s = min(len(xb), len(xr))
+    xt = xr[:s] + xb[:s]
     # todo: use these to give widths in each direction.
     # vb = x[:vc_idx][::-1]
     # vr = x[vc_idx - 1 :]
 
     # Find flux.
+    # Empirically, fluxes are in error by <3%.
     flux, flux_std, slope = cog_flux(t, flat_tol)
+    flux_std = np.sqrt(flux_std**2 + (1.03 * flux_std) ** 2)
     flux_b, flux_b_std, slope_b = cog_flux(b, flat_tol)
+    flux_b_std = np.sqrt(flux_b_std**2 + (1.03 * flux_b_std) ** 2)
     flux_r, flux_r_std, slope_r = cog_flux(r, flat_tol)
+    flux_r_std = np.sqrt(flux_r_std**2 + (1.03 * flux_r_std) ** 2)
 
     # Find line widths.
     if 0.25 not in width_frac:
@@ -1391,35 +1396,28 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
 
     # Estimate rms from line-free channels.
     if bchan is None:
-        _bchan = np.argmin(abs(_x - (_vc - fw * widths[max(width_frac)])))
+        _bchan = np.argmin(abs(x - (_vc - fw * widths[max(width_frac)])))
         if _bchan <= 0:
             _bchan = 0
     else:
         _bchan = bchan
     if echan is None:
-        _echan = np.argmin(abs(_x - (_vc + fw * widths[max(width_frac)])))
+        _echan = np.argmin(abs(x - (_vc + fw * widths[max(width_frac)])))
         if _echan >= len(x):
             _echan = len(x)
     else:
         _echan = echan
+    _bchan, _echan = np.sort([_bchan, _echan])
 
     # Use y values without channel crop.
     rms = np.nanstd(np.hstack((y[:_bchan], y[_echan:])))
 
+    # Estimate error on line centroid.
     vc_std = 0 * x.unit
     if vc is None:
         fac1 = _vc / (_y * _x).sum() * np.sqrt(np.sum((_x * rms) ** 2))
         fac2 = np.sqrt(len(_x)) * rms * _vc / _y.sum()
         vc_std = np.sqrt(fac1**2 + fac2**2)
-
-    # Return to original ordering.
-    if p == -1:
-        if bchan is None:
-            _bchan = len(_x) - _bchan - 1
-        if echan is None:
-            _echan = len(_x) - _echan - 1
-        # Sort so that bchan is always lower than echan.
-        _bchan, _echan = np.sort([_bchan, _echan])
 
     # Estimate error on widths.
     nt_std = np.sqrt((nt / t[:flat_idx0] * rms * dx[:flat_idx0]) ** 2 + (nt / flux * flux_std) ** 2)
@@ -1432,6 +1430,9 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         std_m = xr[idx_m] - xr[idx]
         std_p = xr[idx] - xr[idx_p]
         widths_std[f] = np.nanmax((std_m.value, std_p.value, dx[idx].value)) * dx.unit
+        widths_std[f] = np.sqrt(
+            widths_std[f] ** 2 + (widths[f] * 0.01) ** 2
+        )  # Empirically, the widths are in error by <1%.
 
     # Flux asymmetry.
     a_f = flux_b / flux_r
