@@ -1270,7 +1270,7 @@ def cog_flux(c, flat_tol=0.1):
     """
     Find the flux from the curve of growth.
 
-    Paramaters
+    Parameters
     ----------
     c : array
         Curve of growth values.
