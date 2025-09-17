@@ -3,34 +3,47 @@ What's New?
 ***********
 
 
-Version 0.8.0
+Version 0.8.3
 =============
 
-.. _v0-8-0-functionality:
+.. _v0-8-3-functionality:
 
 Functionality & Enhancements
 ----------------------------
 
 - Spectral line query interface
 - Waterfall plots
+- Plotting multiple spectra in the same figure through `oshow` argument
 - Improved performance (loading and writing data)
-- Custom column selection for `~dysh.fits.GBTFITSLoad.summary`
-- On-the-fly calibration `tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/on_the_fly.html>`_
-- Data selection `tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/selection.html>`_
-- `~dysh.fits.GBTFITSLoad.getfs` works on data without noise diode(s)
+- Custom column selection for `~dysh.fits.gbtfitsload.GBTFITSLoad.summary`
+- New on-the-fly calibration `tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/on_the_fly.html>`_
+- New data selection `tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/selection.html>`_
+- `~dysh.fits.gbtfitsload.GBTFITSLoad.getfs` works on data without noise diode(s)
 - Adds `~dysh.util.calibrator` submodule
+- Adds `~dysh.spectra.tcal` submodule
+- Adds `~dysh.fits.gbtfitsload.GBTFITSLoad.gettcal` method. See `HI survey tutorial <https://dysh.readthedocs.io/en/latest/tutorials/examples/hi_survey.html>`_ for an example
+- Enables selection of SIG and CAL columns using booleans
+- The brightness scale (antenna temperature, antenna temperature corrected for atmospheric opacity or flux) is now documented in `Spectrum`, `Scan` and `ScanBlock` objects as `tscale`
+- Switches to `specutils2.0`
 
-.. _v0-8-0-bugfixes:
+.. _v0-8-3-bugfixes:
 
 Bug Fixes
 ---------
 
-- `~dysh.fits.GBTFITSLoad.summary` is sorted by scan number (`Issue #648 <https://github.com/GreenBankObservatory/dysh/issues/648>`_)
-- `~dysh.fits.GBTFITSLoad.summary` works with repeated scan numbers (`Issue #638 <https://github.com/GreenBankObservatory/dysh/issues/638>`_)
+- Fixes an issue that would cause `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec` to always assign units of K to the output `Spectrum` (`Issue #663 <https://github.com/GreenBankObservatory/dysh/issues/663>`_)
+- `dysh` now writes SDFITS files with the DATA column in position 6 (`Issue #639 <https://github.com/GreenBankObservatory/dysh/issues/639>`_)
+- `~dysh.fits.gbtfitsload.GBTFITSLoad.summary` separates rows that have different BINTABLE or FITSINDEX values (`Issue #718 <https://github.com/GreenBankObservatory/dysh/issues/718>`_)
+- `~dysh.fits.gbtfitsload.GBTFITSLoad.summary` is sorted by scan number (`Issue #648 <https://github.com/GreenBankObservatory/dysh/issues/648>`_)
+- `~dysh.fits.gbtfitsload.GBTFITSLoad.summary` works with repeated scan numbers (`Issue #638 <https://github.com/GreenBankObservatory/dysh/issues/638>`_)
 - `~dysh.spectra.scan.ScanBlock` no longer writes the first Scan twice (`Issue #617 <https://github.com/GreenBankObservatory/dysh/issues/617>`_)
 - `~dysh.spectra.spectrum.Spectrum` can be sliced in any order (`Issue #360 <https://github.com/GreenBankObservatory/dysh/issues/360>`_)
 - baseline exclusion regions should work regardless of order of spectral axis and units (`Issue #654 <https://github.com/GreenBankObservatory/dysh/issues/654>`_)
 - `~dysh.spectra.spectrum.Spectrum.flux` attribute now contains NaN values for masked channels (`Issue #575 <https://github.com/GreenBankObservatory/dysh/issues/575>`_)
+- `~dysh.spectra.spectrum.Spectrum.cog` now returns the correct widths (before they were approximately half the widths)
+- Fixes an issue where trying to select data from a different binary table would result in an error
+- `~dysh.spectra.spectrum.Spectrum.plot` now produces the correct y-axis label
+- Changes the default `dysh` shell colors (`Issue #522 <https://github.com/GreenBankObservatory/dysh/issues/522>`_)
 
 Version 0.7.0
 =============
