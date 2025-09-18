@@ -463,6 +463,9 @@ class InteractiveSpanSelector:
     def on_press(self, event):
         if event.inaxes != self.ax:
             return
+        # Do nothing if another widget is enabled.
+        if self.canvas.toolbar.get_state()["_current_action"] != "":
+            return
         got_one = False
         for patch in self.regions:
             contains, attr = patch.contains(event)
