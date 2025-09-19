@@ -13,3 +13,10 @@ SpecPlot
    :members:
    :undoc-members:
    :show-inheritance:
+
+ScanPlot
+--------
+.. automodule:: dysh.plot.scanplot
+   :members:
+   :undoc-members:
+   :show-inheritance:
