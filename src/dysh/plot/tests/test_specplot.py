@@ -42,8 +42,8 @@ class TestSpecplot:
     def test_bline(self):
         tp = self.sdf.gettp(scan=6, plnum=0, ifnum=1, fdnum=0).timeaverage()
         tp_plt = tp.plot()
-        tp.baseline(2,remove=False)
-        tp.baseline(2,remove=True)
+        tp.baseline(2, remove=False)
+        tp.baseline(2, remove=True)
 
     def test_oshows(self):
         tp1 = self.sdf.gettp(scan=6, plnum=0, ifnum=1, fdnum=0).timeaverage()

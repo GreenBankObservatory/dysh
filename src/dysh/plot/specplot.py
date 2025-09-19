@@ -133,7 +133,7 @@ class SpectrumPlot(PlotBase):
         }
 
     def plot(self, show_header=True, select=True, oshow=None, **kwargs):
-        '''Plot the spectrum.'''
+        """Plot the spectrum."""
 
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:
