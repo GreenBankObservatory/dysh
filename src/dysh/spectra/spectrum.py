@@ -244,8 +244,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # `include` and `exclude` are mutually exclusive, but we allow `include`
         # if `include` is used, transform it to `exclude`.
-        if include != None:  # noqa: E711
-            if exclude != None:  # noqa: E711
+        if include is not None:
+            if exclude is not None:
                 logger.info(f"Warning: ignoring exclude={exclude}")  # noqa: F821
             exclude = core.include_to_exclude_spectral_region(include, self)
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
@@ -1539,7 +1539,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         bchan=None,
         echan=None,
         flat_tol=0.1,
-        fw=2,
+        fw=1,
         xunit="km/s",
     ):
         """
