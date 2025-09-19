@@ -15,65 +15,63 @@ from ..coordinates import (
     decode_veldef,
     frame_to_label,
 )
-from ..spectra.spectrum import Spectrum
+from ..util.docstring_manip import docstring_parameter
 from . import PlotBase
 
 _KMS = u.km / u.s
 
 
+kwargs_docstring = """xaxis_unit : str or `~astropy.unit.Unit`
+    The units to use on the x-axis, e.g. "km/s" to plot velocity
+yaxis_unit : str or `~astropy.unit.Unit`
+    The units to use on the y-axis
+xmin : float
+    Minimum x-axis value, in `xaxis_unit`
+xmax : float
+    Maximum x-axis value, in `yaxis_unit`
+ymin : float
+    Minimum y-axis value, in `xaxis_unit`
+ymax : float
+    Maximum y-axis value, in `yaxis_unit`
+xlabel : str
+    x-axis label
+ylabel : str
+    y-axis label
+grid : bool
+    Show a plot grid or not
+figsize : tuple
+    Figure size (see matplotlib)
+linewidth : float
+    Line width, default: 2.0.  lw also works
+linestyle : str
+    Line style, default 'steps-mid'.  ls also works
+color : str
+    Line color, c also works
+title : str
+    Plot title
+vel_frame : str
+    The velocity frame (see VELDEF FITS Keyword)
+doppler_convention: str
+    The velocity convention (see VELDEF FITS Keyword)
+"""
+
+
+@docstring_parameter(kwargs_docstring)
 class SpectrumPlot(PlotBase):
-    # @todo make xaxis_unit='chan[nel]' work
     r"""
-    The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
+    The SpectrumPlot class is for simple plotting of a `~dysh.spectra.spectrum.Spectrum`
     using matplotlib functions. Plots attributes are modified using keywords
-    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    (\*\*kwargs) described below. SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
 
     Parameters
     ----------
-    spectrum : `~spectra.spectrum.Spectrum`
+    spectrum : `~dysh.spectra.spectrum.Spectrum`
         The spectrum to plot
-    **kwargs : dict
-        Plot attribute keyword arguments, see below.
 
     Other Parameters
     ----------------
-    xaxis_unit : str or `~astropy.unit.Unit`
-        The units to use on the x-axis, e.g. "km/s" to plot velocity
-    yaxis_unit : str or `~astropy.unit.Unit`
-        The units to use on the y-axis
-    xmin : float
-        Minimum x-axis value, in `xaxis_unit`
-    xmax : float
-        Maximum x-axis value, in `yaxis_unit`
-    ymin : float
-        Minimum y-axis value, in `xaxis_unit`
-    ymax : float
-        Maximum y-axis value, in `yaxis_unit`
-    xlabel : str
-        x-axis label
-    ylabel : str
-        y-axis label
-    grid : bool
-        Show a plot grid or not
-    figsize : tuple
-        Figure size (see matplotlib)
-    linewidth : float
-        Line width, default: 2.0.  lw also works
-    linestyle : str
-        Line style, default 'steps-mid'.  ls also works
-    color : str
-        Line color, c also works
-    title : str
-        Plot title
-    aspect : str
-        plot aspect ratio, default: 'auto'
-    show_baseline : bool
-        show the baseline - not yet implemented
-    vel_frame : str
-        The velocity frame (see VELDEF FITS Keyword)
-    doppler_convention: str
-        The velocity convention (see VELDEF FITS Keyword)
+    {0}
     """
 
     # loc, legend, bbox_to_anchor
@@ -89,8 +87,6 @@ class SpectrumPlot(PlotBase):
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
 
-    # def __call__ (see pyspeckit)
-
     def _set_xaxis_info(self):
         """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
         self._plot_kwargs["doppler_convention"] = self._spectrum.doppler_convention
@@ -100,7 +96,7 @@ class SpectrumPlot(PlotBase):
 
     @property
     def spectrum(self):
-        """The underlying `~spectra.spectrum.Spectrum`"""
+        """The underlying `~dysh.spectra.spectrum.Spectrum`"""
         return self._spectrum
 
     def reset(self):
@@ -124,7 +120,7 @@ class SpectrumPlot(PlotBase):
             "title": None,
             #'axis':None,
             #'label':None,
-            "aspect": "auto",
+            # "aspect": "auto",
             "bbox_to_anchor": None,
             "loc": "best",
             "legend": None,
@@ -132,19 +128,23 @@ class SpectrumPlot(PlotBase):
             "test": False,
         }
 
+    @docstring_parameter(kwargs_docstring)
     def plot(self, show_header=True, select=True, oshow=None, **kwargs):
-        # @todo document kwargs here
-        r"""
+        """
         Plot the spectrum.
 
         Parameters
         ----------
         show_header : bool
-            Show informational header in the style of GBTIDL, default: True.
+            Show informational header.
         select : bool
-            Allow selecting regions via click and drag for baseline computation, default: True
-        **kwargs : various
-            keyword=value arguments (need to describe these in a central place)
+            Allow selecting regions via click and drag.
+        oshow : list or `~dysh.spectra.spectrum.Spectrum`
+            Spectra to overlay in the plot.
+
+        Other Parameters
+        ----------------
+        {0}
         """
 
         # xtype = 'velocity, 'frequency', 'wavelength'
@@ -223,11 +223,13 @@ class SpectrumPlot(PlotBase):
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
         if oshow is not None:
-            if isinstance(oshow, Spectrum):
+            if isinstance(oshow, type(self._spectrum)):
                 oshow = [oshow]
             if type(oshow) is not list:
-                raise TypeError(f"oshow ({oshow}) must be of type list or Spectrum")
-            for sp in oshow:
+                raise TypeError(f"oshow ({oshow}) must be a list or Spectrum")
+            for i, sp in enumerate(oshow):
+                if not isinstance(sp, type(self._spectrum)):
+                    raise TypeError(f"Element {i} of oshow ({oshow}) is not a Spectrum")
                 self._oshow(sp)
 
     def _compose_xlabel(self, **kwargs):
@@ -363,12 +365,16 @@ class SpectrumPlot(PlotBase):
         """
 
         # If a single Spectrum is the input, make everything a list.
-        if isinstance(spectra, Spectrum):
+        if isinstance(spectra, type(self._spectrum)):
             spectra = [spectra]
             if color is not None:
                 color = [color]
             if linestyle is not None:
                 linestyle = [linestyle]
+
+        for i, s in enumerate(spectra):
+            if not isinstance(s, type(self._spectrum)):
+                raise TypeError(f"Element {i} of spectra (s) is not a Spectrum.")
 
         # Pack args together, and check that we have enough of each.
         zargs = (spectra,)

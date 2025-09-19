@@ -39,6 +39,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
+from ..util.docstring_manip import copy_docstring
 from . import (
     FWHM_TO_STDDEV,
     available_smooth_methods,
@@ -326,7 +327,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Show the baseline model"""
         print(f"baseline model {self._baseline_model}")
 
+    @copy_docstring(sp.SpectrumPlot.plot)
     def plot(self, **kwargs):
+        """ """
+
         if self._plotter is None:
             self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)

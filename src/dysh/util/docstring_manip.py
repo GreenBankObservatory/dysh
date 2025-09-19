@@ -1,6 +1,34 @@
 import textwrap
+from typing import Any, Callable, TypeAlias, TypeVar
 
 from astroquery.utils.docstr_chompers import remove_sections
+from typing_extensions import ParamSpec
+
+T = TypeVar("T")
+P = ParamSpec("P")
+WrappedFuncDeco: TypeAlias = Callable[[Callable[P, T]], Callable[P, T]]
+
+
+def copy_docstring(copy_func: Callable[..., Any]) -> WrappedFuncDeco[P, T]:
+    """Copies the doc string of the given function to another.
+    This function is intended to be used as a decorator.
+
+    .. code-block:: python3
+
+        def foo():
+            '''This is a foo doc string'''
+            ...
+
+        @copy_docstring(foo)
+        def bar():
+            ...
+    """
+
+    def dec(func: Callable[P, T]) -> Callable[P, T]:
+        func.__doc__ = copy_func.__doc__
+        return func
+
+    return dec
 
 
 def docstring_parameter(*args):
@@ -18,7 +46,7 @@ def docstring_parameter(*args):
     """
 
     def dec(obj):
-        obj.__doc__ = obj.__doc__.format(*args)
+        obj.__doc__ = textwrap.dedent(obj.__doc__).format(*args)
         return obj
 
     return dec
@@ -73,7 +101,7 @@ def append_docstr_nosections(doc, *, sections=None):
     return dec
 
 
-def append_docstr_sections(doc, *, sections=None):
+def append_docstr_sections(doc, *, sections=None, prefix="\t"):
     """
     Decorator to append to the function's docstr the list of
     `sections` provided from `doc` (by default "Parameters" only).
@@ -90,7 +118,9 @@ def append_docstr_sections(doc, *, sections=None):
         sections = ["Parameters"]
 
     def dec(fn):
-        fn.__doc__ = textwrap.dedent(fn.__doc__) + textwrap.indent("\n".join(keep_sections(doc, sections)), prefix="\t")
+        fn.__doc__ = textwrap.dedent(fn.__doc__) + textwrap.indent(
+            "\n".join(keep_sections(doc, sections)), prefix=prefix
+        )
         return fn
 
     return dec
