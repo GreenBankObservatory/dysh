@@ -133,19 +133,7 @@ class SpectrumPlot(PlotBase):
         }
 
     def plot(self, show_header=True, select=True, oshow=None, **kwargs):
-        # @todo document kwargs here
-        r"""
-        Plot the spectrum.
-
-        Parameters
-        ----------
-        show_header : bool
-            Show informational header in the style of GBTIDL, default: True.
-        select : bool
-            Allow selecting regions via click and drag for baseline computation, default: True
-        **kwargs : various
-            keyword=value arguments (need to describe these in a central place)
-        """
+        '''Plot the spectrum.'''
 
         # xtype = 'velocity, 'frequency', 'wavelength'
         # if self._figure is None:

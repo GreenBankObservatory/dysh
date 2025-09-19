@@ -327,6 +327,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
         print(f"baseline model {self._baseline_model}")
 
     def plot(self, **kwargs):
+        r"""
+        Plot the spectrum.
+
+        Parameters
+        ----------
+        show_header : bool
+            Show informational header in the style of GBTIDL, default: True.
+        select : bool
+            Allow selecting regions via click and drag for baseline computation, default: True
+        oshow : `dysh.spectra.spectrum.Spectrum` or list of `dysh.spectra.spectrum.Spectrum`
+            Other spectra to overlay on the parent spectrum.
+        **kwargs : various
+            keyword=value arguments
+        """
         if self._plotter is None:
             self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)

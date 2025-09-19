@@ -39,6 +39,12 @@ class TestSpecplot:
         tpplot.savefig(of)
         assert of.is_file()
 
+    def test_bline(self):
+        tp = self.sdf.gettp(scan=6, plnum=0, ifnum=1, fdnum=0).timeaverage()
+        tp_plt = tp.plot()
+        tp.baseline(2,remove=False)
+        tp.baseline(2,remove=True)
+
     def test_oshows(self):
         tp1 = self.sdf.gettp(scan=6, plnum=0, ifnum=1, fdnum=0).timeaverage()
         tp2 = self.sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage()
