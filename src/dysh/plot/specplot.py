@@ -340,13 +340,24 @@ class SpectrumPlot(PlotBase):
         blines : bool
             Remove only baseline models overlaid on the plot. Default: True
         """
+        if blines:
+            self.clear_lines("baseline")
+        if oshows:
+            self.clear_lines("oshow")
+
+    def clear_lines(self, gid):
+        """
+        Clears lines with `gid` from the plot.
+
+        Parameters
+        ----------
+        gid : str
+            Group id for the lines to be cleared.
+        """
+
         for b in self._axis.lines:
-            if blines:
-                if b.get_gid() == "baseline":
-                    b.remove()
-            if oshows:
-                if b.get_gid() == "oshow":
-                    b.remove()
+            if b.get_gid() == gid:
+                b.remove()
 
     def oshow(self, spectra, color=None, linestyle=None):
         """
