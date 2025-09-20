@@ -120,6 +120,21 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
             Repeated Scans
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`troubleshoot;3em;green` **Gaussian Fitting**
+
+        How to fit Gaussian profiles
+
+
+        .. button-link:: examples/gauss_fit.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Gaussian Fitting
 
 .. toctree::
    :maxdepth: 4
@@ -132,3 +147,4 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/align_spectra
    examples/flagging
    examples/repeated_scans
+   examples/gauss_fit
