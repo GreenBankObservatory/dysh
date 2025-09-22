@@ -29,54 +29,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           version: "0.8.19"  # Update this occasionally to stay up to date!
           python-version: ${{ matrix.python-version }}
           enable-cache: true
       - name: Install the project
-        run: uv sync --all-extras --dev --managed-python
-      - name: Test with pytest
+        run: uv sync --locked --all-extras --dev --managed-python
+      # ---- run tests WITHOUT coverage on most of the matrix ----
+      - name: Test with pytest (no coverage)
+        if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12') }}
+        run: uv run pytest --numprocesses auto --dist=worksteal -q
+
+      # ---- run tests WITH coverage on a single env ----
+      - name: Test with pytest (coverage on ubuntu+3.12)
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
         env:
           COVERAGE_FILE: "coverage.${{ matrix.os }}.${{ matrix.python-version }}"
-        run: |
-          # Write coverage data files, namespaced using matrix info
-          uv run pytest --numprocesses auto --cov=dysh
-      - name: Upload coverage data
-        # Upload only ubuntu results, since we are only running the coverage step on ubuntu
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage.${{ matrix.os }}.${{ matrix.python-version }}
-          path: "coverage.ubuntu-latest*"
-  coverage:
-    needs: tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
-        with:
-            version: "0.8.19"  # Update this occasionally to stay up to date!
-            enable-cache: true
-      - name: Install the project
-        run: uv sync --all-extras --dev --managed-python
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: coverage.*
-          path: coverage-data
-          merge-multiple: true
-      - name: Combine coverage
-        run: |
-          uv run coverage combine coverage-data/coverage.*
-          uv run coverage html --skip-covered --skip-empty
+        run: uv run pytest --numprocesses auto --dist=worksteal --cov=dysh --durations=20
 
-          # Report and write to summary.
+      # ---- generate reports & upload ----
+      - name: Coverage report & HTML
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
+        run: |
+          uv run coverage html --skip-covered --skip-empty
+          uv run coverage xml
+          echo "### Coverage Report" >> $GITHUB_STEP_SUMMARY
           uv run coverage report | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
 
-          # Report again and fail if under 100%.
-          # coverage report --fail-under=100
       - name: Upload HTML report
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
         uses: actions/upload-artifact@v4
         with:
           name: html-report
