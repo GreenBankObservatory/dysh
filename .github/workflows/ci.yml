@@ -34,12 +34,6 @@ jobs:
           version: "0.8.19"  # Update this occasionally to stay up to date!
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-      - name: Install Tcl/Tk (windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install tcltk --no-progress
-          echo "TCL_LIBRARY=C:\tools\tcltk\lib\tcl8.6" >> $env:GITHUB_ENV
-          echo "TK_LIBRARY=C:\tools\tcltk\lib\tk8.6" >> $env:GITHUB_ENV
       - name: Install the project
         run: uv sync --all-extras --dev
       - name: Test with pytest
