@@ -35,7 +35,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --all-extras --dev --managed-pythnon
       - name: Test with pytest
         env:
           COVERAGE_FILE: "coverage.${{ matrix.os }}.${{ matrix.python-version }}"
@@ -60,7 +60,7 @@ jobs:
             version: "0.8.19"  # Update this occasionally to stay up to date!
             enable-cache: true
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --all-extras --dev --managed-pythnon
       - uses: actions/download-artifact@v4
         with:
           pattern: coverage.*
