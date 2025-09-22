@@ -12,43 +12,28 @@ You first need to add the package to `pyproject.toml`. Locate the section of the
 .. code-block:: Python
 
     dependencies = [
-        "astropy<6.1.0",
-        "ipython",
-        "jplephem",
-        "matplotlib",
-        "numpy",
-        "pandas",
-        "scipy",
-        "specutils",
-        "wget",
-        ]
+      "httpx",
+      "astropy>=6.1",
+      "astroquery",
+      "ipython",
+      "jplephem",
+      "matplotlib",
+      "numpy<2",
+      "pandas",
+      "rich",
+      "scipy",
+      "specutils>=2",
+      "tenacity",
+    ]
 
     [project.optional-dependencies]
-    dev = [
-        "coverage[toml]",
-        "ipdb",
-        "numpydoc",
-        "pytest",
-        "pytest-cov",
-        "sphinx",
-        "sphinx-autobuild",
-        "sphinx-inline-tabs",
-        "sphinx-rtd-theme",
-        "sphinxcontrib-mermaid",
-        ]
     nb = [
-        "jupyter",
-        "jupyterlab",
-        ]
-    gui = [
-        "pyqt5",
-        "pyqt5-qt5==5.15.14 ; platform_system != \"Windows\"",
-        "pyqt5-qt5==5.15.2 ; platform_system == \"Windows\"",
-        "pyqtgraph",
-        "qt_material",
-        "screeninfo",
+      "jupyter",
+      "jupyterlab",
+      "ipympl",
+      "jupyter-nbextensions-configurator>=0.6.4",
     ]
-    all = ["dysh[dev,nb,gui]"]
+    all = ["dysh[nb]"]
 
 * If the package is needed for `dysh` functionality, add it to the `dependencies = [...]` list.
 
