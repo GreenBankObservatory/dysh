@@ -80,15 +80,4 @@ Platform-dependent versions
 
 Some packages may require different versions for different operating systems. If you cannot resolve a dependency issue another way, there is a solution.
 
-**Solution:** Pin the versions in the `pyproject.toml` file, then re-compile the `requirements.txt`. Here is an example of a pinned version of `pyqt5-qt5` within the `gui` dependencies:
-
-.. code-block:: Python
-
-    gui = [
-        "pyqt5",
-        "pyqt5-qt5==5.15.14 ; platform_system != \"Windows\"",
-        "pyqt5-qt5==5.15.2 ; platform_system == \"Windows\"",
-        "pyqtgraph",
-        "qt_material",
-        "screeninfo",
-        ]
+**Solution:** Pin the versions in the `pyproject.toml` file, then re-compile the `requirements.txt`.
