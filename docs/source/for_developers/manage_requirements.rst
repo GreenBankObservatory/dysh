@@ -41,7 +41,6 @@ You first need to add the package to `pyproject.toml`. Locate the section of the
 
 * If the package is needed for notebooks, add it to the `nb = [...]` list.
 
-* If the package is needed for interactive plotting, add it to the `gui = [...]` list.
 
 Step 2: Compile `requirements.txt`
 ==================================
