@@ -47,10 +47,8 @@ jobs:
         run: uv run pytest --numprocesses auto --dist=worksteal -q
 
       # ---- run tests WITH coverage on a single env ----
-      - name: Test with pytest (coverage on ubuntu+3.12)
+      - name: Test with pytest
         if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
-        env:
-          COVERAGE_FILE: "coverage.${{ matrix.os }}.${{ matrix.python-version }}"
         run: uv run pytest --numprocesses auto --dist=worksteal --cov=dysh --durations=20
 
       # ---- generate reports & upload ----
