@@ -39,6 +39,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
+from ..util.docstring_manip import copy_docstring
 from . import (
     FWHM_TO_STDDEV,
     available_smooth_methods,
@@ -244,8 +245,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # `include` and `exclude` are mutually exclusive, but we allow `include`
         # if `include` is used, transform it to `exclude`.
-        if include != None:  # noqa: E711
-            if exclude != None:  # noqa: E711
+        if include is not None:
+            if exclude is not None:
                 logger.info(f"Warning: ignoring exclude={exclude}")  # noqa: F821
             exclude = core.include_to_exclude_spectral_region(include, self)
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
@@ -326,7 +327,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Show the baseline model"""
         print(f"baseline model {self._baseline_model}")
 
+    @copy_docstring(sp.SpectrumPlot.plot)
     def plot(self, **kwargs):
+        """ """
+
         if self._plotter is None:
             self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
@@ -1539,7 +1543,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         bchan=None,
         echan=None,
         flat_tol=0.1,
-        fw=2,
+        fw=1,
         xunit="km/s",
     ):
         """

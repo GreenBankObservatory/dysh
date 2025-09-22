@@ -91,7 +91,7 @@ class TCal(Spectrum):
         tcal_smo = super().smooth(*args, **kwargs)
         return TCal.from_spectrum(tcal_smo, self.name, self.snu)
 
-    def get_tcal(self, frac=0.1, method=np.nanmean):
+    def get_tcal(self, frac=0.1, method=np.nanmean, dtype=np.float32):
         """
         Reduce the temperature of the noise diode to a single value.
 
@@ -103,6 +103,8 @@ class TCal(Spectrum):
         method : callable
             The function used to reduce the values.
             Default : `numpy.nanmean`
+        dtype : str or dtype
+            Typecode or data-type to which the output value, `tcal` is cast.
 
         Returns
         -------
@@ -115,7 +117,7 @@ class TCal(Spectrum):
         s = slice(ch0, chf)
         self.tcal = method(self.data[s])
 
-        return self.tcal
+        return self.tcal.astype(dtype)
 
     @property
     def nchan(self):

@@ -80,8 +80,8 @@ __splatdoc__ = Splatalogue.query_lines.__doc__
 # Remove the first part of splatalogue doc in favor of our own
 i = __splatdoc__.index("chemical_name")
 __splatdoc__ = __splatdoc__.replace(__splatdoc__[0:i], "")
-# Replace how splatalogue displays the ReEturn object with our typical format.
-ours = "\tReturns\n\t-------\n\tTable\n\t\tAn astropy table containing the results of the search"
+# Replace how astroquery displays the Return section with our typical format.
+ours = "Returns\n-------\nTable\n\tAn `astropy.table.Table` containing the results of the search."
 i = __splatdoc__.index("Returns")
 __splatdoc__ = __splatdoc__.replace(__splatdoc__[i:], ours)
 
