@@ -13,8 +13,13 @@ on:
       - "*_ci"
   pull_request:  # Run on all pull requests
   workflow_dispatch:  # needed for "Run" button to show up in action
+
 env:
   FORCE_COLOR: "1" # Make tools pretty.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
