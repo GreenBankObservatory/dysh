@@ -69,6 +69,7 @@ autodoc_default_options = {"members": None, "undoc-members": None}
 
 # Make sure the targets are unique
 autosectionlabel_prefix_document = True
+autosectionlabel_maxdepth = 1
 
 # type hints
 # autodoc_typehints = 'description'
@@ -258,10 +259,12 @@ html_css_files = [
 
 # Settings for myst_nb notebook rendering
 
-# Cache notebooks to only re-run when cells change
+# Cache notebooks to only re-run when cells change.
 nb_execution_mode = "cache"
 # Use this mode if working on the documentation with sphinx-autobuild.
 # nb_execution_mode = "auto"
+# Use this to skip executing the notebooks.
+# nb_execution_mode = "off"
 
 # Execution timeout.
 # -1 should set this to no limit.
@@ -276,7 +279,7 @@ myst_enable_extensions = [
     "dollarmath",
 ]
 myst_dmath_double_inline = True
-
+myst_links_external_new_tab = True
 
 # -- sphinx-copybutton config -------------------------------------
 copybutton_exclude = ".linenos, .gp"

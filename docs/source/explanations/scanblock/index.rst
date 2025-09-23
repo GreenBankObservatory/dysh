@@ -28,18 +28,18 @@ One of its purposes is to facilitate working with groups of scans, as it allows 
     end
 
 
-    newLines -- getps( scan=45, plnum=1, ifnum=0 ) --> ScanBlock1
-    newLines -- gettp( scan=[17,18,19], intnum=np.r_[50:100], ifnum=2 ) --> ScanBlock2
+    newLines -- getps( scan=45, plnum=1, ifnum=0, fdnum=0 ) --> ScanBlock1
+    newLines -- gettp( scan=[17,18,19], intnum=np.r_[50:100], ifnum=2, plnum=0,fdnum=0 ) --> ScanBlock2
 
 
 
     subgraph ScanBlock1[ScanBlock]
-            psscan["spectra.scan.PSScan<br />scans = 44,45<br />plnum = 1<br />ifnum = 0<br />intnum = (0,100)"]
+            psscan["spectra.scan.PSScan<br />scans = 44,45<br />plnum = 1<br />ifnum = 0<br />fdnum = 0<br />intnum = (0,100)"]
         end
     subgraph ScanBlock2[ScanBlock]
-            tpscan1["spectra.scan.TPScan<br />scan=17<br />plnum = 0<br />ifnum = 2<br />intnum=(50,100)"]
-            tpscan2["spectra.scan.TPScan<br />scan=18<br />plnum = 0<br />ifnum = 2<br />intnum=(50,100)"]
-            tpscan3["spectra.scan.TPScan<br />scan=19<br />plnum = 0<br />ifnum = 2<br />intnum=(50,100)"]
+            tpscan1["spectra.scan.TPScan<br />scan=17<br />plnum = 0<br />ifnum = 2<br />fdnum = 0 <br />intnum=(50,100)"]
+            tpscan2["spectra.scan.TPScan<br />scan=18<br />plnum = 0<br />ifnum = 2<br />fdnum = 0 <br />intnum=(50,100)"]
+            tpscan3["spectra.scan.TPScan<br />scan=19<br />plnum = 0<br />ifnum = 2<br />fdnum = 0 <br />intnum=(50,100)"]
 
         end
 
