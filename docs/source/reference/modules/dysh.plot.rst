@@ -7,8 +7,8 @@ Plotting classes and functions
    :undoc-members:
    :show-inheritance:
 
-Core Functions
---------------
+Core Functions and Classes
+--------------------------
 .. automodule:: dysh.plot.core
    :members:
    :undoc-members:
