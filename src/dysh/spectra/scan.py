@@ -1321,7 +1321,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # need to preserve table.meta because it gets lost in created of "cd" ColDefs
         table_meta = table.meta
         cd = BinTableHDU(table, name="SINGLE DISH").columns
-        data = np.concatenate([c._calibrated for c in self.data])
+        data = np.concatenate([c._calibrated.filled(np.nan) for c in self.data])
         form = f"{np.shape(data)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=data))
         # re-arrange so DATA is column 7
