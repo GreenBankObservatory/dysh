@@ -69,7 +69,7 @@ Please remember that as of version 0.4 `dysh` requires `Python3.10+`.
 
     .. code:: bash
 
-        pip install "dysh[nb]==0.4.2"
+        pip install "dysh[nb]==0.8.3"
 
     Check that the correct version of `dysh` was installed
 
@@ -77,7 +77,7 @@ Please remember that as of version 0.4 `dysh` requires `Python3.10+`.
 
         dysh --version
 
-    It should print 0.4.2.
+    It should print 0.8.3.
 
 .. tab:: Outside of GBO
 
@@ -99,7 +99,7 @@ Please remember that as of version 0.4 `dysh` requires `Python3.10+`.
 
     .. code:: bash
 
-        pip install "dysh[nb]==0.4.2"
+        pip install "dysh[nb]==0.8.3"
 
     Check that the correct version of `dysh` was installed
 
@@ -107,7 +107,7 @@ Please remember that as of version 0.4 `dysh` requires `Python3.10+`.
 
         dysh --version
 
-    It should print 0.4.2.
+    It should print 0.8.3.
 
 `dysh` is installed in the GBO data reduction hosts, however, it may not be the latest version.
 You can launch it using
@@ -121,6 +121,9 @@ Previous beta releases
 ======================
 
 Feedback on previous beta releases is also welcome. Here you can find links to previous beta release documents.
+
+0.4.2
+-----
 
 0.3.0
 -----

@@ -91,7 +91,7 @@ Contents
    :maxdepth: 2
    :hidden:
 
-   whatsnew/0.4.rst
+   whatsnew/CHANGES.rst
    getting_started/index
    tutorials/index
    how-tos/index

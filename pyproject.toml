@@ -8,14 +8,14 @@ keywords = []
 dynamic = ["version"]
 authors = [
   { name = "Marc Pound", email = "mpound@umd.edu" },
-  { name = "Victoria Catlett", email = "vcatlett@nrao.edu" },
   { name = "Peter Teuben", email = "teuben@umd.edu" },
-  { name = "Thomas Chamberlin", email = "tchamber@nrao.edu" },
   { name = "Pedro Salas", email = "psalas@nrao.edu" },
   { name = "Evan Smith", email = "esmith@nrao.edu" },
+  { name = "Thomas Chamberlin", email = "tchamber@nrao.edu" },
+  { name = "Victoria Catlett"}
 ]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: Implementation :: CPython",
