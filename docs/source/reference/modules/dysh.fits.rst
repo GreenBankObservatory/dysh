@@ -30,3 +30,10 @@ GB20MFITSLoad
    :members:
    :undoc-members:
    :show-inheritance:
+
+Core Functions and Classes
+--------------------------
+.. automodule:: dysh.fits.core
+   :members:
+   :undoc-members:
+   :show-inheritance:

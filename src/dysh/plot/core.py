@@ -160,13 +160,15 @@ class PlotBase:
         if self.axis is not None:
             self.axis.figure.canvas.draw_idle()
 
-    def savefig(self, file, **kwargs):
+    def savefig(self, file, hidebuttons=True, **kwargs):
         r"""Save the plot
 
         Parameters
         ----------
-        file - str
-            The output file name
+        file : str
+            The output file name.
+        hidebuttons : bool
+            Hide the buttons in the output.
         **kwargs : dict or key=value pairs
             Other arguments to pass to `~matplotlib.pyplot.savefig`
 
@@ -179,8 +181,11 @@ class PlotBase:
         # there has to be a better way to do this
         # TODO: put buttons in a sub/different axes so we only have to hide the axes object instead of
         # a list of all the buttons and plots
-        for button in self.figure._localaxes[1:]:
-            button.set_visible(False)
-        self.figure.savefig(file, *kwargs)
-        for button in self.figure._localaxes[1:]:
-            button.set_visible(True)
+        if hidebuttons:
+            for button in self.figure._localaxes[1:]:
+                button.set_visible(False)
+            self.figure.savefig(file, *kwargs)
+            for button in self.figure._localaxes[1:]:
+                button.set_visible(True)
+        else:
+            self.figure.savefig(file, *kwargs)
