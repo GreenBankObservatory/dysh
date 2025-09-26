@@ -1253,7 +1253,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:
             scan.undo_baseline()
 
-    def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
+    def write(self, fileobj, flags=True, output_verify="exception", overwrite=False, checksum=False):
         """
         Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this ScanBlock
 
@@ -1262,6 +1262,8 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         fileobj : str, file-like or `pathlib.Path`
             File to write to.  If a file object, must be opened in a
             writeable mode.
+        flags: bool, optional
+            If True, write the applied flags to a `FLAGS` column in the binary table.
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
@@ -1321,11 +1323,16 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # need to preserve table.meta because it gets lost in created of "cd" ColDefs
         table_meta = table.meta
         cd = BinTableHDU(table, name="SINGLE DISH").columns
-        data = np.concatenate([c._calibrated for c in self.data])
+        data = np.concatenate([c._calibrated.filled(np.nan) for c in self.data])
+
         form = f"{np.shape(data)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=data))
         # re-arrange so DATA is column 7
         cd1 = cd[:6] + cd[-1] + cd[6:-1]
+        if flags:
+            flags = np.concatenate([c._calibrated.mask * 1 for c in self.data]).astype(np.uint8)
+            flagform = f"{np.shape(flags)[1]}B"
+            cd1.add_col(Column(name="FLAGS", format=flagform, array=flags))
         b = BinTableHDU.from_columns(cd1, name="SINGLE DISH")
 
         # preserve any meta
