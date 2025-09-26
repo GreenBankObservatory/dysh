@@ -1,0 +1,10 @@
+#!/bin/csh -f
+# make the load time table for parsing with astropy Table.read(format='ascii.basic')
+echo -n "data" > loadtimes_after
+grep VmRSS multismallsmall.profile >> loadtimes_after
+grep ^load multi* | grep -v time | tr ':' '  ' | sed 's/.profile//g' | sed s/.skipflags//g >> loadtimes_after
+
+cd ../q8stats 
+echo -n "data" > loadtimes_before
+grep VmRSS multismallsmall.profile >> loadtimes_before
+grep ^load multi* | grep -v time | tr ':' '  ' | sed 's/.profile//g' | sed s/.skipflags//g >> loadtimes_before

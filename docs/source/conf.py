@@ -18,7 +18,6 @@ import sys
 sys.path.insert(0, os.path.abspath("../../src"))
 sys.path.insert(0, os.path.abspath("."))
 
-import dysh
 from dysh import __version__
 
 # -- Project information -----------------------------------------------------
@@ -44,7 +43,7 @@ release = __version__
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "myst_parser",
+    "myst_nb",
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.graphviz",
@@ -58,6 +57,8 @@ extensions = [
     "sphinxcontrib.mermaid",
     "numpydoc",
     "sphinx_inline_tabs",
+    "sphinx_design",
+    "sphinx_copybutton",
 ]
 
 numpydoc_show_class_members = True
@@ -68,12 +69,18 @@ autodoc_default_options = {"members": None, "undoc-members": None}
 
 # Make sure the targets are unique
 autosectionlabel_prefix_document = True
+autosectionlabel_maxdepth = 1
 
-# TODO: These appear to have no effect
-mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:false});"
+# type hints
+# autodoc_typehints = 'description'
+autodoc_typehints_format = "short"
+autodoc_preserve_defaults = False
 
-# TODO: These appear to have no effect
-mermaid_verbose = True
+## Mermaid configuration
+## https://github.com/mgaitan/sphinxcontrib-mermaid
+mermaid_version = "11.11.0"
+mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:true});"
+# mermaid_verbose = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -81,12 +88,8 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = [".rst", ".md"]
-# source_suffix = {
-#    '.rst': 'restructuredtext',
-#    '.txt': 'markdown',
-#    '.md': 'markdown',
-# }
+# source_suffix = [".rst", ".md"]
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # The master toctree document.
 master_doc = "index"
@@ -101,7 +104,7 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = []
+exclude_patterns = ["examples/output"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -113,14 +116,34 @@ pygments_style = "sphinx"
 # a list of builtin themes.
 #
 # TODO: consider using sphinx_sizzle_theme, so we get tooltip definitions?
-html_theme = "sphinx_rtd_theme"
-html_logo = "_static/icon/logo.svg"
+html_theme = "sphinx_book_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_theme_options = {"logo_only": True, "vcs_pageview_mode": "display_github"}
+html_theme_options = {
+    "repository_url": "https://github.com/GreenBankObservatory/dysh",
+    "repository_branch": "main",
+    "logo": {
+        "image_light": "_static/icon/dysh_logo_lightmode.png",
+        "image_dark": "_static/icon/dysh_logo_darkmode.png",
+    },
+    # "show_toc_level": 2,
+    "use_source_button": True,
+    "use_issues_button": True,
+    "use_download_button": False,
+    "use_sidenotes": True,
+    "show_toc_level": 2,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/GreenBankObservatory/dysh",
+            "icon": "fa-brands fa-github",
+        },
+    ],
+    "path_to_docs": "docs/source/",
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -232,3 +255,31 @@ intersphinx_mapping = {
 html_css_files = [
     "css/custom.css",
 ]
+
+
+# Settings for myst_nb notebook rendering
+
+# Cache notebooks to only re-run when cells change.
+nb_execution_mode = "cache"
+# Use this mode if working on the documentation with sphinx-autobuild.
+# nb_execution_mode = "auto"
+# Use this to skip executing the notebooks.
+# nb_execution_mode = "off"
+
+# Execution timeout.
+# -1 should set this to no limit.
+nb_execution_timeout = -1
+
+# Where to store the notebook cache
+nb_execution_cache_path = "jupyter_cache"
+
+
+myst_enable_extensions = [
+    "amsmath",
+    "dollarmath",
+]
+myst_dmath_double_inline = True
+myst_links_external_new_tab = True
+
+# -- sphinx-copybutton config -------------------------------------
+copybutton_exclude = ".linenos, .gp"

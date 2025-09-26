@@ -1,6 +1,6 @@
 """Top-level package for dysh."""
 
-__version__ = "0.3.0b"
+__version__ = "0.8.3"
 
 all = ["version"]
 
@@ -8,6 +8,9 @@ all = ["version"]
 def version():
     """Version of the dysh code
 
-    :rtype: str
+    Returns
+    -------
+    version : str
+        dysh version.
     """
     return __version__

@@ -1,0 +1,34 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: Date, datatype: string}
+# - {name: Surface Error, unit: micron, datatype: float64}
+# - {name: Gmax, unit: K/Jy, datatype: float64}
+# - {name: A0, datatype: float64}
+# - {name: A1, datatype: float64}
+# - {name: A2, datatype: float64}
+# - {name: Frequency, unit: GHz, datatype: float64}
+# - {name: Tag, datatype: string}
+# meta: !!omap
+# - {Source: GBT Memo 301 and dysh aperture efficiency design document}
+# - {Description: 'up to and including Date, the values to be used are in that Date row'}
+# - __serialized_columns__:
+#     Date:
+#       __class__: astropy.time.core.Time
+#       format: iso
+#       in_subfmt: '*'
+#       out_subfmt: '*'
+#       precision: 3
+#       scale: utc
+#       value: !astropy.table.SerializedColumn {name: Date}
+#     Surface Error:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: micron}
+#       value: !astropy.table.SerializedColumn {name: Surface Error}
+# schema: astropy-2.0
+Date "Surface Error" Gmax A0 A1 A2 Frequency Tag
+"2002-02-28 23:59:59.000" 490.0 1.00 0.4543 0.02855 -0.00037353  22.0  2002
+"2006-11-30 23:59:59.000" 440.0 1.74 0.8150 0.0097  -0.0001273   22.0  2003
+"2009-09-30 23:59:59.000" 418.0 0.61 0.9100 0.00434 -5.22e-05    22.0  2009a
+"2014-04-30 23:59:59.000" 240.0 1.82 0.8618 7.737e-3 -1.0838E-4 43.0  2009b
+"2014-05-01 00:00:00.000" 230.0 1.00 0.9710 1.24e-3 -1.31e-05    43.0  2014

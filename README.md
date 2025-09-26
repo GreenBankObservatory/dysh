@@ -4,95 +4,131 @@
 
 # dysh
 
-*dysh* is a Python spectral line data reduction and analysis program for singledish data with specific emphasis on data from the Green Bank Telescope.  It is currently under development in collaboration between the [Green Bank Observatory](https:/greenbankobservatory.org) and the Laboratory for Millimeter-Wave Astronomy (LMA) at [University of Maryland (UMD)](https://www.astro.umd.edu).  It is intended to be an alternative to the GBO's current reduction package [GBTIDL](https://www.gb.nrao.edu/GBT/DA/gbtidl/users_guide/).
+*dysh* is a Python spectral line data reduction and analysis program for singledish data with specific emphasis on data from the Green Bank Telescope. It is currently under development in collaboration between the [Green Bank Observatory](https:/greenbankobservatory.org) and the Laboratory for Millimeter-Wave Astronomy (LMA) at [University of Maryland (UMD)](https://www.astro.umd.edu). It is intended to be an alternative to the GBO's current reduction package [GBTIDL](https://www.gb.nrao.edu/GBT/DA/gbtidl/users_guide/).
 
-## Getting Started
-### Installation
+## Installation
 
-dysh requires Python 3.9+ and recent versions of [astropy]( https://astropy.org), [numpy](https://numpy.org), [scipy](https://scipy.org), [pandas](https://pandas.pydata.org), [specutils](https://specutils.readthedocs.io/en/stable/),  and [matplotlib](https://matplotlib.org).
+Note: if you are on the GBO network, dysh will already be installed; you do not need to do anything further! Other uses cases are outlined below.
 
-#### With pip from PyPi
-dysh is most easily installed with *pip*, which will take care of any dependencies.  The packaged code is hosted at the [Python Packaging Index](https://pypi.org/project/dysh).
+### Global Installation
 
-```bash
-    $ pip install dysh
+Example use case: you want to quickly install and use dysh on a non-GBO computer
+
+#### Via uv
+
+This will install a persistent global version of dysh via uv:
+
+```sh
+# Install dysh
+$ uv tool install dysh[all]
+# Launch dysh notebook
+$ dysh-lab
 ```
 
-#### From GitHub
-To install from github without creating a separate virtual environment:
+#### Via pipx
 
-```bash
-    $ git clone git@github.com:GreenBankObservatory/dysh.git
-    $ cd dysh
-    $ pip install -e .
+
+You can also use [pipx](https://github.com/pypa/pipx#install-pipx). After installing pipx, dysh can be installed via:
+
+```sh
+# Install dysh
+$ pipx install dysh[nb]
+# Launch dysh notebook
+$ dysh-lab
 ```
-If you wish to install using a virtual environment, which we strongly recommend if you plan to contribute to the code, see Development.
 
-### Reporting Issues
+### Local Installation via pip
+
+Example use case: you want to use dysh with a specific set of dependencies, or in conjunction with an existing project
+
+#### Stable Version
+dysh is most easily installed with *pip*, which will take care of any dependencies. The packaged code is hosted at the [Python Packaging Index](https://pypi.org/project/dysh).
+
+```sh
+$ pip install dysh[all]
+```
+
+#### Beta Version
+
+Beta versions will also be published to PyPI, and can be installed via:
+
+```sh
+$ pip install dysh[all] --pre
+```
+
+#### Development Version
+
+Development versions can be installed from GitHub branches via:
+
+```sh
+$ pip install "dysh[all] @ git+https://github.com/GreenBankObservatory/dysh"
+```
+For more options, see the [pip VCS Support documentation](https://pip.pypa.io/en/stable/topics/vcs-support/).
+
+## Reporting Issues
 
 If you find a bug or something you think is in error, please report it on
-the [github issue tracker](https://github.com/GreenBankObservatory/dysh/issues).
-(You must have a [Github account](https://github.com) to submit an issue)
+the [GitHub issue tracker](https://github.com/GreenBankObservatory/dysh/issues).
+(You must have a [GitHub account](https://github.com) to submit an issue)
 
 ---
 
 ## Development
 
-Here are the steps if you want to develop code for dysh. We use [hatch](https://hatch.pypa.io/) to manage the build environment.
-The usual caveats apply how you set up your python development environment.
+See the [For Developers](https://dysh.readthedocs.io/en/latest/for_developers/index.html) documentation for more detailed instructions on setting up a development environment.
 
-1.  Clone the repo and install hatch.
+### Clone the Repo
 
-```bash
-    $ git clone git@github.com:GreenBankObservatory/dysh.git
-    $ cd dysh
-    $ pip install hatch
+```sh
+$ git clone git@github.com:GreenBankObservatory/dysh.git
 ```
 
-2.  Hatch will default to using the system Python if there's no ``HATCH_PYTHON`` environment variable set. To use a specific version of Python, add the following line to your ``~/.bash_profile``:
+### Set Up Dysh Environment
 
+#### Via uv
+
+The recommended development workflow is to use [uv](https://docs.astral.sh/uv/). After installing uv all you need to do is:
+
+```sh
+$ uv sync
 ```
-export HATCH_PYTHON=/path/to/bin/python
-```
+You also have access to "dysh shell" and "dysh lab":
 
-Then source the new profile to apply the changes.
-
-```bash
-$ source ~/.bash_profile
-```
-
-3.  Create and activate a virtual environment with hatch and install the packages required for development.
-The virtual environment will be created the first time; subsequent invoking ``hatch shell`` will simply load the created environment.cdi
-
-```bash
-    $ hatch shell
-    (dysh) $ pip install -r requirements.txt
+```sh
+$ uv run dysh
+$ uv run dysh-lab
 ```
 
-4.  Build and install the package
+Or you can source the uv virtual environment just like any other:
 
-```bash
-    (dysh) $ hatch build
-    (dysh) $ pip install -e .
+```sh
+$ source .venv/bin/activate
 ```
 
-5.  You can exit this environment (which effectively had started a new shell) just exit:
+#### Via Hatch
 
-```bash
-    (dysh) $ exit
+Another workflow is to use [hatch](https://hatch.pypa.io/latest/tutorials/environment/basic-usage/). After installing hatch, this will look something like:
+
+```sh
+$ hatch shell
 ```
 
-6.  Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment
+#### Without Hatch
 
-```bash
-    $ hatch shell
+If you do not want to use Hatch, it is possible to develop using a "classic" workflow. From the root of the dysh repo:
+
+```sh
+$ # Create your virtual environment
+$ python -m venv /path/to/venv
+$ # Activate your virtual environment
+$ source /path/to/venv/bin/activate
+$ # Install dysh and its development dependencies
+$ pip install -e .[all]
 ```
 
-Notice you can ONLY do that from this directory
+### Testing
+We use pytest for unit and integration testing. From the top-level dysh directory, run:
 
-## Testing
- We use pytest for unit and integration testing.  From the top-level dysh directory, run:
-
-```bash
-    $ pytest
+```sh
+$ pytest
 ```

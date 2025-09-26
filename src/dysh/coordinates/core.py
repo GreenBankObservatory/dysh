@@ -4,13 +4,13 @@ Core functions/classes for spatial and velocity coordinates and reference frames
 
 import warnings
 
-import astropy.constants as const
 import astropy.coordinates as coord
 import astropy.units as u
 import numpy as np
 from astropy.coordinates.spectral_coordinate import (
     DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
 )
+from astropy.time import Time
 
 _PMZERO = 0.0 * u.mas / u.yr
 _PMZERORAD = 0.0 * u.rad / u.s
@@ -53,7 +53,23 @@ astropy_frame_dict = {
     "galactocentric": coord.Galactocentric,
     "topocentric": coord.ITRS,  # but need to add observatory position
     "topo": coord.ITRS,  # but need to add observatory position
+    "itrs": coord.ITRS,  # but need to add observatory position
+    "fk5": coord.FK5,
+    "gal": coord.Galactic,
 }
+
+astropy_convenience_frame_names = {
+    "bary": "icrs",
+    "barycentric": "icrs",
+    "heliocentric": "icrs",
+    "helio": "icrs",
+    "geo": "icrs",
+    "geocentric": "icrs",
+    "topocentric": "itrs",
+    "topo": "itrs",
+    "vlsr": "lsrk",
+}
+
 
 # astropy-sanctioned coordinate frame string to label
 frame_to_label = {
@@ -131,6 +147,22 @@ velocity_convention_dict = {
 # reverse of above
 reverse_velocity_convention_dict = {"optical": "OPTI", "radio": "RADI", "relativistic": "VELO"}
 
+# dictionary to convert CRVAL4 to a polarization ID for plotting purposes
+crval4_to_pol = {
+    -1: "RR",
+    -2: "LL",
+    -3: "RL",
+    -4: "LR",
+    -5: "XX",
+    -6: "YY",
+    -7: "YX",
+    -8: "XY",
+    1: "I",
+    2: "Q",
+    3: "U",
+    4: "V",
+}
+
 
 def replace_convention(veldef, doppler_convention):
     return reverse_velocity_convention_dict[doppler_convention] + veldef[4:]
@@ -175,13 +207,13 @@ def decode_veldef(veldef):
     try:
         velocity_convention = velocity_convention_dict[vconv]
     except KeyError:
-        raise KeyError(f"Velocity convention {vconv} not recognized.")
+        raise KeyError(f"Velocity convention {vconv} not recognized.")  # noqa: B904
 
     frame = veldef[4:]
     try:
         frame_type = frame_dict[frame]
     except KeyError:
-        raise KeyError(f"Velocity frame {frame} not recognized.")
+        raise KeyError(f"Velocity frame {frame} not recognized.")  # noqa: B904
 
     return velocity_convention, frame_type
 
@@ -286,7 +318,7 @@ def sanitize_skycoord(target):
             else:
                 pm_lon = target.pm_l_cosb
                 pm_lat = target.pm_b
-        except:
+        except:  # noqa: E722
             pm_lon = _PMZERORAD
             pm_lat = _PMZERORAD
         # print(
@@ -302,8 +334,36 @@ def sanitize_skycoord(target):
             pm_b=pm_lat,
             radial_velocity=_rv,
         )
+    elif hasattr(target, "az"):  # AzEl or AltAz
+        lon = target.az
+        lat = target.alt
+        pm_lon = target.pm_az_cosalt
+        pm_lat = target.pm_alt
+        _target = coord.SkyCoord(
+            lon,
+            lat,
+            frame=target.frame,
+            distance=newdistance,
+            pm_az_cosalt=pm_lon,
+            pm_alt=pm_lat,
+            radial_velocity=_rv,
+        )
+    elif hasattr(target, "ha"):  # HADec
+        lon = target.ha
+        lat = target.dec
+        pm_lon = target.pm_ha_cosdec
+        pm_lat = target.pm_dec
+        _target = coord.SkyCoord(
+            lon,
+            lat,
+            frame=target.frame,
+            distance=newdistance,
+            pm_ha_cosdec=pm_lon,
+            pm_dec=pm_lat,
+            radial_velocity=_rv,
+        )
     else:
-        warnings.warn(f"Can't sanitize {target}")
+        warnings.warn(f"Can't sanitize {target}")  # noqa: B028
         return target
 
     _target.sanitized = True
@@ -313,28 +373,29 @@ def sanitize_skycoord(target):
 # @todo version that takes a SpectralCoord
 def topocentric_velocity_to_frame(target, toframe, observer, obstime):
     """Compute the difference in topocentric velocity and the velocity in the input frame.
+
     Parameters
     ----------
-        target: `~astropy.coordinates.SkyCoord`
-            The sky coordinates of the object including proper motion and distance. Must be in ICRS
-        target: `~astropy.coordinates.SkyCoord`
-            The sky coordinates of the object including proper motion and distance. Must be in ICRS
+    target: `~astropy.coordinates.SkyCoord`
+        The sky coordinates of the object including proper motion and distance. Must be in ICRS
+    target: `~astropy.coordinates.SkyCoord`
+        The sky coordinates of the object including proper motion and distance. Must be in ICRS
 
-        toframe: str
-            The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
-            The string 'topo' is interpreted as 'itrs'.
-            See astropy-supported reference frames (link)
+    toframe: str
+        The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
+        The string 'topo' is interpreted as 'itrs'.
+        See astropy-supported reference frames (link)
 
-        observer: `~astropy.coordinates.EarthLocation`
-            The location of the observer
+    observer: `~astropy.coordinates.EarthLocation`
+        The location of the observer
 
-        obstime: `~astropy.time.Time`
-            The time of the observation
+    obstime: `~astropy.time.Time`
+        The time of the observation
 
     Returns
     -------
-        radial_velocity : `~astropy.units.Quantity`
-            The radial velocity of the source in `toframe`
+    radial_velocity : `~astropy.units.Quantity`
+        The radial velocity of the source in `toframe`
 
     """
     if not isinstance(target.frame, coord.ICRS):
@@ -344,7 +405,7 @@ def topocentric_velocity_to_frame(target, toframe, observer, obstime):
     # raise Exception("input frame must be ICRS")
     topocoord = observer.get_itrs(obstime=obstime)
     sc = coord.SpectralCoord(1 * u.Hz, observer=topocoord, target=_target)
-    sc2 = sc.with_observer_stationary_relative_to(toframe)
+    sc2 = sc.with_observer_stationary_relative_to(toframe)  # noqa: F841
     return sc.with_observer_stationary_relative_to(toframe).radial_velocity
 
 
@@ -360,8 +421,7 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
             done:
 
             * If proper motions attributes of `target` are not set, they will be set to zero.
-            * Similarly, if distance attribute of `target` is not set, it will
-            be set to a very large number.
+            * Similarly, if distance attribute of `target` is not set, it will be set to a very large number.
             * This is done on a copy of the coordinate so as not to change the input object.
 
         toframe: str
@@ -409,18 +469,18 @@ def veltofreq(velocity, restfreq, veldef):
     restfreq: `~astropy.units.Quantity`
         The rest frequency
     veldef : str
-        Velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'
+        Velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'.
 
     Returns
     -------
-        frequency: `~astropy.units.Quantity`
-            The velocity values converted to frequency using `restfreq` and `veldef'
+    frequency: `~astropy.units.Quantity`
+        The velocity values converted to frequency using `restfreq` and `veldef`.
+
     """
 
     vdef = veldef_to_convention(veldef)
     if vdef is None:
         raise ValueError(f"Unrecognized VELDEF: {veldef}")
-    vc = velocity / const.c
     if vdef == "radio":
         radio = u.doppler_radio(restfreq)
         frequency = velocity.to(u.Hz, equivalencies=radio)
@@ -439,7 +499,6 @@ def veltofreq(velocity, restfreq, veldef):
 def change_ctype(ctype, toframe):
     # when changing frame, we should also change CTYPE1. Pretty sure GBTIDL does not do this
     prefix = ctype[0:4]
-    postfix = ctype[4:]
     newpostfix = reverse_frame_dict[toframe]
     newctype = prefix + newpostfix
     # print(f"changing {ctype} to {newctype}")
@@ -465,7 +524,7 @@ def make_target(header):
     """
 
     # should we also require DATE-OBS or MJD-OBS?
-    _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS"])
+    _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"])
 
     # for k in _required:
     #    print(f"{k} {k in header}")
@@ -479,26 +538,58 @@ def make_target(header):
         frame=header["RADESYS"].lower(),
         radial_velocity=header["VELOCITY"] * _MPS,
         distance=_DEFAULT_DISTANCE,  # need this or PMs get units m rad /s !
+        obstime=Time(header["DATE-OBS"]),
+        location=gbt_location(),
     )
     # print(f"{t1},{t1.pm_ra_cosdec},{t1.pm_dec},{t1.distance},{t1.radial_velocity}")
     target = sanitize_skycoord(t1)
     return target
 
 
-def gbt_location():
+def gb20m_location():
     """
-    Create an astropy EarthLocation for the GBT using the same established by GBO.
-    See: page 3: https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf
-        latitude    = 38d 25m 59.265s N
-        longitude   = 79d 50m 23.419s W
-        height      = 854.83 m
-
-    Note these differ from astropy's "GBT" EarthLocation by several meters.
+    Create an astropy EarthLocation for the 20 Meter using the same established by GBO.
 
     Returns
-    ----------
-        gbt : `~astropy.coordinates.EarthLocation`
-            astropy EarthLocation for the GBT
+    -------
+    gb20m : `~astropy.coordinates.EarthLocation`
+        astropy EarthLocation for the GBT.
+    """
+    gb20m_lat = 38.43685 * u.deg
+    gb20m_lon = -79.82552 * u.deg
+    gb20m_height = 835.0 * u.m
+    gb20m = coord.EarthLocation.from_geodetic(lon=gb20m_lon, lat=gb20m_lat, height=gb20m_height)
+    return gb20m
+
+
+class GB20M:
+    """Singleton Green Bank 20 Meter Telescope EarthLocation object, using the Green Bank Observatory's official coordinates for the site."""
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = gb20m_location()
+        return cls._instance
+
+
+def gbt_location():
+    """
+    Create an astropy `~astropy.coordinates.EarthLocation` for the GBT using the same established by GBO.
+    See page 3 of https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf
+
+    * latitude    = 38d 25m 59.265s N
+
+    * longitude   = 79d 50m 23.419s W
+
+    * height      = 854.83 m
+
+    Note these differ from astropy's "GBT" `~astropy.coordinates.EarthLocation` by several meters.
+
+    Returns
+    -------
+    gbt : `~astropy.coordinates.EarthLocation`
+        astropy EarthLocation for the GBT
     """
     gbt_lat = 38.4331291667 * u.deg
     gbt_lon = -79.839838611 * u.deg
@@ -524,9 +615,10 @@ class Observatory:
     This can be used for instance in transforming velocities between
     different reference frames.
 
-    Example usage
-    -------------
+    Examples
+    --------
     .. code-block::
+
         obs = Observatory()
         print(obs['GBT'])
         print(obs['ALMA'])
@@ -534,6 +626,7 @@ class Observatory:
     Alternatively, you can treat Observatory like a dict:
 
     .. code-block::
+
         gbt = Observatory["GBT"]
 
     """
@@ -543,15 +636,126 @@ class Observatory:
         # and just GBT as an attribute. Leave this unadvertised for now
         # in case I remove it.
         self.GBT = GBT()
+        self.GB20M = GB20M()
 
     def __getitem__(self, key):
         # For GBT we want to use the GBO official location
-        if key == "GBT":
+        if key == "GBT" or key == "NRAO_GBT":
             return self.GBT
+        elif key == "GB20M":
+            return self.GB20M
         return coord.EarthLocation.of_site(key)
 
     def __class_getitem__(self, key):
         # For GBT we want to use the GBO official location
-        if key == "GBT":
+        if key == "GBT" or key == "NRAO_GBT":
             return GBT()
+        elif key == "GB20M":
+            return GB20M()
         return coord.EarthLocation.of_site(key)
+
+    def get_earth_location(longitude, latitude, height=0.0, ellipsoid=None):
+        """
+        Location on Earth, initialized from geodetic coordinates.
+
+        Parameters
+        ----------
+        lon : `~astropy.coordinates.Longitude` or float
+            Earth East longitude.  Can be anything that initialises an
+            `~astropy.coordinates.Angle` object (if float, in degrees).
+        lat : `~astropy.coordinates.Latitude` or float
+            Earth latitude.  Can be anything that initialises an
+            `~astropy.coordinates.Latitude` object (if float, in degrees).
+        height : `~astropy.units.Quantity` ['length'] or float, optional
+            Height above reference ellipsoid (if float, in meters; default: 0).
+        ellipsoid : str, optional
+            Name of the reference ellipsoid to use (default: 'WGS84').
+            Available ellipsoids are:  'WGS84', 'GRS80', 'WGS72'.
+
+        Raises
+        ------
+        `~astropy.units.UnitsError`
+            If the units on ``lon`` and ``lat`` are inconsistent with angular
+            ones, or that on ``height`` with a length.
+        ValueError
+            If ``lon``, ``lat``, and ``height`` do not have the same shape, or
+            if ``ellipsoid`` is not recognized as among the ones implemented.
+
+        Notes
+        -----
+        See :meth:`~astropy.coordinates.EarthLocation.from_geodetic`
+        """
+        return coord.EarthLocation.from_geodetic(longitude, latitude, height, ellipsoid)
+
+
+def eq2hor(lon, lat, frame, date_obs, unit="deg", location=GBT()):  # noqa: B008
+    """
+    Equatorial to horizontal coordinate conversion.
+
+    Parameters
+    ----------
+    lon : float
+        Longitude coordinate. E.g., RA or Galactic longitude.
+    lat : float
+        Latitude coordinate. E.g., Dec or Galactic latitude.
+    frame : str
+        Input coordinate frame. Must be recognized by `~astropy.coordinates`
+    date_obs : str
+        Date of observations. Must be a format compatible with `~astropy.time.Time`.
+    unit : str
+        Units of `lon` and `lat`.
+    location : `~astropy.coordinates.EarthLocation`
+        Observer location.
+
+    Returns
+    -------
+    altaz : `~astropy.coordinates.AltAz`
+        Horizontal coordinates.
+
+    """
+
+    lonlat = coord.SkyCoord(lon, lat, unit=unit, frame=frame, obstime=Time(date_obs))
+    return lonlat.transform_to(coord.AltAz(location=location))
+
+
+def hor2eq(az, alt, frame, date_obs, unit="deg", location=GBT()):  # noqa: B008
+    """
+    Horizontal to Equatorial coordinate conversion.
+
+    Parameters
+    ----------
+    az : float
+        Azimuth coordinate.
+    alt : float
+        Altitude or elevation coordinate.
+    frame : str
+        Output coordinate frame. Must be recognized by `~astropy.coordinates`
+    date_obs : str
+        Date of observations. Must be a format compatible with `~astropy.time.Time`.
+    unit : str
+        Units of `lon` and `lat`.
+    location : `~astropy.coordinates.EarthLocation`
+        Observer location.
+
+    Returns
+    -------
+    eq : `~astropy.coordinates.SkyCoord`
+        Celestial coordinates in `frame`.
+
+    """
+
+    altaz = coord.SkyCoord(az=az, alt=alt, unit=unit, frame="altaz", obstime=Time(date_obs), location=location)
+    return altaz.transform_to(astropy_frame_dict[frame])
+
+
+def ra2ha(lst, ra):
+    """
+    Take LST (sec) and RA (deg) and output wrapped HA (hr).
+    Follows GBTIDL implementation (with the hour conversion included)
+    """
+    ha = np.around(15 * (lst / 3600) - ra, 2)
+    if ha > 180:
+        ha -= 360
+    elif ha < -180:
+        ha += 360
+    return np.around(ha / 15, 2)

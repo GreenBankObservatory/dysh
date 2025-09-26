@@ -1,12 +1,12 @@
 ---
 # See https://pre-commit.com for more information
 default_language_version:
-  python: python3.9
+  python: python3
 
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: 'https://github.com/pre-commit/pre-commit-hooks'
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         exclude: '(notebooks|attic|benchmark|testdata)/.*'
@@ -24,13 +24,9 @@ repos:
           - '--fix=lf'
       - id: check-docstring-first
       - id: check-case-conflict # Check for files with names that would conflict on a case-insensitive filesystem
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.11
     hooks:
-      - id: isort
-        exclude: '(notebooks|attic|benchmark|testdata)/.*'
-  - repo: 'https://github.com/psf/black'
-    rev: 24.4.2
-    hooks:
-      - id: black
-        exclude: '(notebooks|attic|benchmark|testdata)/.*'
+    - id: ruff-format
+    - id: ruff
+      args: ['--fix', '--exit-non-zero-on-fix']

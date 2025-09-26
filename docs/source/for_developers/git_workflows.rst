@@ -47,38 +47,54 @@ Setting up your own development branch
 
 In the directory you want to work in, set up the repo:
 
-`$ git clone git@github.com:GreenBankObservatory/dysh.git`
+.. code-block:: bash
 
-`$ cd dysh`
+    $ git clone git@github.com:GreenBankObservatory/dysh.git
+    $ cd dysh
 
-`$ git checkout [branch-name]`
+To check out a branch called {{branch-name}}, just do
 
-with the [branch-name] replaced by the current release or other branch. Currently, this is "release-0.2.0". Then setup your own development branch with your first name followed by "-devel":
+.. code-block:: bash
 
-`$ git checkout [name-devel]`
+    $ git checkout {{branch-name}}
+
+Current development is done in the `main` branch. To set up your own development branch called `{{your-name}}-devel`, do the following:
+
+.. code-block:: bash
+
+    $ git checkout main
+    $ git checkout -b {{your-name}}-devel
+
+Say someone just made changes to `main`. To add them to your branch, do the following:
+
+.. code-block:: bash
+
+    $ git checkout main
+    $ git pull
+    $ git checkout {{your-name}}-devel
+    $ git merge main
 
 Now make and activate a python virtual environment so your work doesn't impede or break other concurrent projects. Whenever you do some work, make sure you are in your own development branch. When you are ready to merge changes made by other developers into your own branch,
 
-`$ git checkout release-0.2.0`
-
-`$ git pull`
-
-`$ git checkout [name-devel]`
-
-`$ git merge release-0.2.0`
-
 When you are ready to commit changes, review what's been changed with
 
-`$ git status`
+.. code-block:: bash
+
+    $ git status
 
 and then add the intended files using
 
-`$ git add [path/to/changed/file]`
+.. code-block:: bash
 
-check `dysh/.gitignore` to make sure you are not adding ignored files (virtual environment data, `_build/`, etc.). Then commit and push with
+    $ git add path/to/changed_file.py
 
-`$ git commit -m "[this is my commit message]"`
+Check `dysh/.gitignore` to make sure you are not adding ignored files (virtual environment data, `_build/`, etc.). Then commit and push with
 
-`$ git push`
+.. code-block:: bash
+
+    $ git commit -m "this is my commit message"
+    $ git push
 
 The first time you run this, it will give a command about setting the origin upstream. Simply copy and run that command. Users of GitHub Desktop can also achieve all of these above steps using the app interface. Next, go to the `dysh GitHub page <https://github.com/GreenBankObservatory/dysh/>`_ and submit a pull request.
+
+Now follow the steps in the next page to set up more integrations.

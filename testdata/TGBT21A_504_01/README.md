@@ -20,7 +20,7 @@ Note in the raw data plnum=1 is actually the first polarization (rows 0..3) and 
 sdfits -scans=20 -backends=vegas TGBT21A_504_01/ScanLog.fits
 ```
 
-To generate the calibrated folded data used from comparison, in both polarizations:
+To generate the calibrated folded data used for comparison, in both polarizations:
 ``` IDL
 filein,"TGBT21A_504_01.raw.vegas"
 getfs,20,ifnum=0,plnum=0
@@ -29,7 +29,7 @@ keep
 getfs,20,ifnum=0,plnum=1
 keep
 ```
-To generate the calibrated UNfolded data used from comparison, in both polarizations:
+To generate the calibrated UNfolded data used for comparison, in both polarizations:
 ``` IDL
 filein,"TGBT21A_504_01.raw.vegas"
 getfs,20,ifnum=0,plnum=0,/nofold

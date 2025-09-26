@@ -1,30 +1,84 @@
-import copy
+"""Tests for specplot."""
 
-import astropy.units as u
 import matplotlib.pyplot as plt
-import numpy as np
-from astropy.io import fits
-from astropy.utils.data import get_pkg_data_filename, get_pkg_data_filenames
+import pytest
 
-import dysh
-from dysh.fits import gbtfitsload
+from dysh.fits import GBTFITSLoad
+from dysh.util import get_project_testdata
 
-# PyInstallwe won't work if there's pathlib in the environment
-# Why? Idk. But removing the dependency and commenting this out doesn't seem to hurt.
-# dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
+# Disable interactive plotting.
+plt.ioff()
 
 
-class test_specplot:
+class TestSpecplot:
     """ """
 
-    def test_default_plotter():
+    def setup_method(self):
         """
-        Just plot a default plot of a spectrum and visually inspect
+        Set up a plotter.
         """
-        return 0
 
-    def test_complicated_plotter():
+        p = get_project_testdata()
+
+        self.sdf = GBTFITSLoad(p / "AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A6.fits")
+        self.tp = self.sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0).timeaverage()
+        self.tpplot = self.tp.plot()
+
+    def test_savefig(self, tmp_path):
         """
-        Plot a more complicated spectrum and visually inspect
+        Test that plots are saved.
         """
-        return 0
+
+        of = tmp_path / "test_savefig.png"
+        self.tpplot.savefig(of)
+        assert of.is_file()
+
+        # Plot without header.
+        tpplot = self.tp.plot(show_header=False)
+        of = tmp_path / "test_savefig_noheader.png"
+        tpplot.savefig(of)
+        assert of.is_file()
+
+    def test_bline(self):
+        tp = self.sdf.gettp(scan=6, plnum=0, ifnum=1, fdnum=0).timeaverage()
+        tp_plt = tp.plot()  # noqa: F841
+        tp.baseline(2, remove=False)
+        tp.baseline(2, remove=True)
+
+    def test_oshows(self):
+        tp1 = self.sdf.gettp(scan=6, plnum=0, ifnum=1, fdnum=0).timeaverage()
+        tp2 = self.sdf.gettp(scan=6, plnum=0, ifnum=2, fdnum=0).timeaverage()
+        self.tpplot = self.tp.plot(oshow=tp1)
+        self.tpplot.oshow(tp2, color="r", linestyle="--")
+
+
+class TestScanplot:
+    def setup_method(self):
+        """
+        Set up a plotter.
+        """
+
+        p = get_project_testdata()
+
+        self.sdf = GBTFITSLoad(p / "AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A6.fits")
+        self.tp = self.sdf.gettp(scan=6, plnum=0, ifnum=0, fdnum=0)
+        self.tpplot = self.tp.plot()
+
+    def test_savefig(self, tmp_path):
+        """
+        Test that waterfall plots are saved.
+        """
+
+        of = tmp_path / "test_savefig.png"
+        self.tpplot.savefig(of)
+        assert of.is_file()
+
+    def test_axis2_limits(self):
+        """
+        Test that the frequency axis matches that of the Spectrum object.
+        """
+
+        units = self.tpplot._axis2.get_ylabel()[-4:-1]
+        assert self.tpplot._spectrum.spectral_axis.quantity.to(units).value.min() == pytest.approx(
+            min(self.tpplot._axis2.get_ylim())
+        )

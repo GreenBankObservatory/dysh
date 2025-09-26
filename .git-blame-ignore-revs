@@ -1,0 +1,6 @@
+# $ ruff format
+639cb06fcba5e0e16b752c41729bc4153dbbb8a6
+# $ ruff check --fix
+0bd816f70bd7f6abbc815c332fd2db3a6102dc08
+# $ ruff check --fix
+756e47ecf955a75190d822ae2a2cb88ca73467e8
