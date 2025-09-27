@@ -1,5 +1,5 @@
-.. |minver| replace:: ``0.7.0``
-.. |minpatch| replace:: ``0.7.1``
+.. |minver| replace:: ``0.8.3``
+.. |minpatch| replace:: ``0.8.4``
 .. |pymin| replace:: 3.10
 .. |pymax| replace:: 3.12
 .. |pyupp| replace:: 3.13
@@ -293,9 +293,18 @@ This quick example will download a 31 MB file to the current directory.
         filename = dysh_data(example="getfs") # This will download 31 MB, if outside of GBO.
         sdfits = GBTFITSLoad(filename)
         sdfits.summary()
+        scan_block = sdfits.getfs(scan=6, ifnum=0, plnum=0, fdnum=0)
+        spectrum = scan_block.timeaverage()
+        spectrum.plot()
 
 This should look like
 
 .. image:: img/dysh-quickstart.png
     :width: 800
     :alt: Terminal showing how to activate dysh, and launch the CLI interface. In the dysh CLI it download a file, loads it and prints a summary of its contents. There is a single scan of M33.
+
+And the plot command should produce the following figure
+
+.. image:: img/dysh-quickstart-plot.png
+    :width: 800
+    :alt: A frequency switched spectrum calibrated and displayed using dysh.
