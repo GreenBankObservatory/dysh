@@ -470,7 +470,7 @@ class InteractiveSpanSelector:
         if event.inaxes != self.ax:
             return
         # Do nothing if another widget is enabled.
-        if self.canvas.toolbar.get_state()["_current_action"] != "":
+        if self.ax.get_navigate_mode() is not None:
             return
         got_one = False
         for patch in self.regions:
