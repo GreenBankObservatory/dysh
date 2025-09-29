@@ -9,9 +9,8 @@ from pstats import SortKey
 
 import numpy as np
 from astropy.table import Table, vstack
-from specutils import SpectralRegion
-
 from dysh.sdfitsload import SDFITSLoad, baseline
+from specutils import SpectralRegion
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="revisedstructure")
