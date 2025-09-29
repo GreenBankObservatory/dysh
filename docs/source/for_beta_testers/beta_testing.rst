@@ -16,7 +16,7 @@ Providing feedback
 
 If you encounter a problem with `dysh`, would like to request a new feature or enhancement or would like to leave feedback, please do so using `GitHub issues <https://github.com/GreenBankObservatory/dysh/issues>`_. There are some basic instructions of how to do this :ref:`here <githubissues>`. This requires `creating a free account <https://github.com/>`_ on GitHub if you do not have one.
 
-If you prefer not to create a GitHub account, please provide your feedback to the `dysh-beta mailing list <https://groups.google.com/g/dysh-beta/about>`_, or send an email to dysh-beta@googlegroups.com. Additionally, we provide a `form for collecting feedback <https://forms.gle/gf9rydgNE8v7iDKR8>`_.
+If you prefer not to create a GitHub account, please provide your feedback to the `dysh-beta mailing list <https://groups.google.com/g/dysh-beta/about>`_, or send an email to dysh-beta@googlegroups.com.
 
 When providing feedback, please indicate
 
@@ -46,7 +46,8 @@ Installing `dysh`
 =================
 
 Here we provide additional installation steps that include creating a virtual environment to keep `dysh` isolated from your system `Python` version.
-We provide steps for working in one of `GBO data reduction hosts <ihttps://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier), and if you're working outside one of the GBO data reduction hosts. The provided command will install `dysh` and `jupyterlab`, which can be used to run the example notebooks locally.
+We provide steps for working in one of `GBO data reduction hosts <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier), and if you're working outside one of the GBO data reduction hosts.
+The provided commands will install `dysh` and `jupyterlab`, which can be used to run the example notebooks locally.
 Please remember that as of version 0.4 `dysh` requires `Python3.10+`.
 
 .. tab:: At GBO
@@ -109,7 +110,7 @@ Please remember that as of version 0.4 `dysh` requires `Python3.10+`.
 
     It should print 0.8.3.
 
-`dysh` is installed in the GBO data reduction hosts, however, it may not be the latest version.
+`dysh` is installed in the GBO data reduction hosts, however, it may not be the same version used for beta testing.
 You can launch it using
 
 .. code:: bash
@@ -122,8 +123,16 @@ Previous beta releases
 
 Feedback on previous beta releases is also welcome. Here you can find links to previous beta release documents.
 
+
+0.8.3
+-----
+
+`Instructions <https://docs.google.com/document/d/15Ip2YkEaG2oOoCuKAYe1pGTkuB-abHLQYazIKXiCVXw/edit?usp=sharing>`_.
+
 0.4.2
 -----
+
+`Instructions <https://docs.google.com/document/d/1ph49_9LfUeIpvR8prWq4Q5RKQfwXV01EKMZMOnkAS8w/edit?usp=sharing>`_ and `questionnaire <https://forms.gle/gf9rydgNE8v7iDKR8>`_.
 
 0.3.0
 -----

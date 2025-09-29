@@ -234,7 +234,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
 
     if dysh_data == None and "DYSH_DATA" in os.environ:  # noqa: E711
         dysh_data = Path(os.environ["DYSH_DATA"])
-    logger.info(f"DYSH_DATA: {dysh_data}")
+    logger.debug(f"DYSH_DATA: {dysh_data}")
 
     # 2. Process whichever one of 'sdfits=', 'test=', 'example=', and  'accept=' is present (in that order)
 

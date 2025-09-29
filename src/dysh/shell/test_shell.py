@@ -30,3 +30,17 @@ def test_init_shell(monkeypatch):
 
     mock_stdout.seek(0)
     assert test_str in mock_stdout.read()
+
+
+def test_shell_cli_with_script(tmp_path):
+    """Test that we can run a script from the CLI"""
+
+    script = tmp_path / "test_cli_script.py"
+    code = """fnm = dysh_data(test='getps')
+sdf = GBTFITSLoad(fnm)
+sb = sdf.getps(ifnum=0, fdnum=0, plnum=0)
+assert len(sb) == 4"""
+
+    with open(script, "w") as o:
+        o.write(code)
+    subprocess.check_call(["dysh", script])
