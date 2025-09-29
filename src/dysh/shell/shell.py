@@ -42,8 +42,13 @@ def parse_args():
             "to ipython; see $ ipython --help for more details"
         )
     )
-    parser.add_argument("paths", help="FITS file paths to load initially", nargs="*", type=Path)
-    parser.add_argument("-p", "--profile", help="The IPython profile to use", default=DEFAULT_PROFILE)
+
+    parser.add_argument("file", nargs="?", help="Path to a Dysh Script to run", type=Path)
+    parser.add_argument(
+        "-i", "--interactive", help="Remain in interactive mode after running a script", action="store_true"
+    )
+    parser.add_argument("-p", "--paths", help="FITS file paths to load initially", nargs="+", type=Path)
+    parser.add_argument("-P", "--profile", help="The IPython profile to use", default=DEFAULT_PROFILE)
     parser.add_argument("-L", "--fits-loader", help="The SDFITS loader class name to use", default="GBTFITSLoad")
     parser.add_argument(
         "--colors",
@@ -116,9 +121,19 @@ def main():
         print(__version__)
         sys.exit(0)
     init_logging(verbosity=args.verbosity, path=args.log, quiet=args.quiet)
-    sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
+    if args.paths:
+        sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
+    else:
+        sdfits_files = []
+
+    ipython_cmd = []
+    if args.file:
+        ipython_cmd.append(str(args.file))
+    if args.interactive:
+        ipython_cmd.append("-i")
+    ipython_cmd += remaining_args
     init_shell(
-        *remaining_args,
+        *ipython_cmd,
         colors=args.colors,
         profile=args.profile,
         sdfits_files=sdfits_files,
