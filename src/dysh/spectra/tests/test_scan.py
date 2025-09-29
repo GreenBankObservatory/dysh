@@ -182,6 +182,7 @@ class TestPSScan:
         tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
         assert np.all(np.where(tpscan[0]._calibrated.mask[1])[0] == flagrange)
         # try with flags=false
+        scanout = tmp_path / "test_scan_flag_write2.fits"
         sb[0].write(scanout, overwrite=True, flags=False)
         scanin = gbtfitsload.GBTFITSLoad(scanout)
         tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
