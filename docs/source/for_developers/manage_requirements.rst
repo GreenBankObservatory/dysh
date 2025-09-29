@@ -12,43 +12,28 @@ You first need to add the package to `pyproject.toml`. Locate the section of the
 .. code-block:: Python
 
     dependencies = [
-        "astropy<6.1.0",
-        "ipython",
-        "jplephem",
-        "matplotlib",
-        "numpy",
-        "pandas",
-        "scipy",
-        "specutils",
-        "wget",
-        ]
+      "httpx",
+      "astropy>=6.1",
+      "astroquery",
+      "ipython",
+      "jplephem",
+      "matplotlib",
+      "numpy<2",
+      "pandas",
+      "rich",
+      "scipy",
+      "specutils>=2",
+      "tenacity",
+    ]
 
     [project.optional-dependencies]
-    dev = [
-        "coverage[toml]",
-        "ipdb",
-        "numpydoc",
-        "pytest",
-        "pytest-cov",
-        "sphinx",
-        "sphinx-autobuild",
-        "sphinx-inline-tabs",
-        "sphinx-rtd-theme",
-        "sphinxcontrib-mermaid",
-        ]
     nb = [
-        "jupyter",
-        "jupyterlab",
-        ]
-    gui = [
-        "pyqt5",
-        "pyqt5-qt5==5.15.14 ; platform_system != \"Windows\"",
-        "pyqt5-qt5==5.15.2 ; platform_system == \"Windows\"",
-        "pyqtgraph",
-        "qt_material",
-        "screeninfo",
+      "jupyter",
+      "jupyterlab",
+      "ipympl",
+      "jupyter-nbextensions-configurator>=0.6.4",
     ]
-    all = ["dysh[dev,nb,gui]"]
+    all = ["dysh[nb]"]
 
 * If the package is needed for `dysh` functionality, add it to the `dependencies = [...]` list.
 
@@ -56,7 +41,6 @@ You first need to add the package to `pyproject.toml`. Locate the section of the
 
 * If the package is needed for notebooks, add it to the `nb = [...]` list.
 
-* If the package is needed for interactive plotting, add it to the `gui = [...]` list.
 
 Step 2: Compile `requirements.txt`
 ==================================
@@ -95,15 +79,4 @@ Platform-dependent versions
 
 Some packages may require different versions for different operating systems. If you cannot resolve a dependency issue another way, there is a solution.
 
-**Solution:** Pin the versions in the `pyproject.toml` file, then re-compile the `requirements.txt`. Here is an example of a pinned version of `pyqt5-qt5` within the `gui` dependencies:
-
-.. code-block:: Python
-
-    gui = [
-        "pyqt5",
-        "pyqt5-qt5==5.15.14 ; platform_system != \"Windows\"",
-        "pyqt5-qt5==5.15.2 ; platform_system == \"Windows\"",
-        "pyqtgraph",
-        "qt_material",
-        "screeninfo",
-        ]
+**Solution:** Pin the versions in the `pyproject.toml` file, then re-compile the `requirements.txt`.

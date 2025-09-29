@@ -15,4 +15,3 @@ Here's some info that developers might find useful
    manage_requirements
    creating_a_release
    black
-   terminal_messages
