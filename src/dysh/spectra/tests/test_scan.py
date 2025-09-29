@@ -156,6 +156,37 @@ class TestPSScan:
         testfile = o / "test_scan_write.fits"
         ps_sb[0].write(testfile, overwrite=True)
 
+    def test_flag_write(self, data_dir, tmp_path):
+        data_path = f"{data_dir}/AGBT18B_354_03"
+        sdf_file = f"{data_path}/AGBT18B_354_03.raw.vegas"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf.clear_flags()
+        flagarray = [60000, 90000]
+        flagrange = np.arange(flagarray[0], flagarray[1] + 1)
+        sdf.flag(scan=7, channel=[flagarray], intnum=[1])
+        sdf.apply_flags()
+        scan_block = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0)
+        output = tmp_path / "test_sb_flag_write.fits"
+        # scanblock flags test
+        scan_block.write(output, overwrite=True, flags=True)
+        sdfin = gbtfitsload.GBTFITSLoad(output)
+        assert np.all(np.where(sdfin._sdf[0]._flagmask[0][1])[0] == flagrange)
+        # scan flags test
+        sb = sdfin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        assert np.all(np.where(sb[0]._calibrated.mask[1])[0] == flagrange)
+        scanout = tmp_path / "test_scan_flag_write.fits"
+        sb[0].write(scanout, overwrite=True, flags=True)
+        scanin = gbtfitsload.GBTFITSLoad(scanout)
+        assert np.all(np.where(scanin._sdf[0]._flagmask[0][1])[0] == flagrange)
+        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        assert np.all(np.where(tpscan[0]._calibrated.mask[1])[0] == flagrange)
+        # try with flags=false
+        sb[0].write(scanout, overwrite=True, flags=False)
+        scanin = gbtfitsload.GBTFITSLoad(scanout)
+        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        assert len(np.where(tpscan[0]._calibrated.mask[1])[0]) == 0
+
     def test_scale_units(self, data_dir):
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
