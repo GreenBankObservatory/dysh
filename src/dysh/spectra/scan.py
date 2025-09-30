@@ -841,9 +841,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         return self._timeaveraged
 
-    def _make_bintable(self):
+    def _make_bintable(self, flags: bool) -> BinTableHDU:
         """
         Create a :class:`~astropy.io.fits.BinaryTableHDU` from the calibrated data of this Scan.
+
 
 
         Returns
@@ -869,10 +870,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         logger.debug(f"Writing {len(self._calibrated)} rows for output from ScanBase.")
         # re-arrange so DATA is column 7
         cd1 = cd[:6] + cd[-1] + cd[6:-1]
+        if flags:
+            flags = self._calibrated.mask.astype(np.uint8)
+            flagform = f"{np.shape(flags)[1]}B"
+            cd1.add_col(Column(name="FLAGS", format=flagform, array=flags))
         b = BinTableHDU.from_columns(cd1, name="SINGLE DISH")
         return b
 
-    def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
+    def write(self, fileobj, flags=True, output_verify="exception", overwrite=False, checksum=False):
         """
         Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this ScanBase
 
@@ -881,9 +886,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         fileobj : str, file-like or `pathlib.Path`
             File to write to.  If a file object, must be opened in a
             writeable mode.
-        multifile: bool, optional
-            If True, write to multiple files if and only if there are multiple SDFITS files in this GBTFITSLoad.
-            Otherwise, write to a single SDFITS file.
+        flags: bool, optional
+            If True, write the applied flags to a `FLAGS` column in the binary table.
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
@@ -903,7 +907,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         None.
 
         """
-        self._make_bintable().writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+        self._make_bintable(flags=flags).writeto(
+            name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
+        )
 
     def plot(self, **kwargs):
         if self._plotter is None:
@@ -1253,7 +1259,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:
             scan.undo_baseline()
 
-    def write(self, fileobj, output_verify="exception", overwrite=False, checksum=False):
+    def write(self, fileobj, flags=True, output_verify="exception", overwrite=False, checksum=False):
         """
         Write an SDFITS format file (FITS binary table HDU) of the calibrated data in this ScanBlock
 
@@ -1262,6 +1268,8 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         fileobj : str, file-like or `pathlib.Path`
             File to write to.  If a file object, must be opened in a
             writeable mode.
+        flags: bool, optional
+            If True, write the applied flags to a `FLAGS` column in the binary table.
         output_verify : str
             Output verification option.  Must be one of ``"fix"``,
             ``"silentfix"``, ``"ignore"``, ``"warn"``, or
@@ -1321,11 +1329,15 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # need to preserve table.meta because it gets lost in created of "cd" ColDefs
         table_meta = table.meta
         cd = BinTableHDU(table, name="SINGLE DISH").columns
-        data = np.concatenate([c._calibrated for c in self.data])
+        data = np.concatenate([c._calibrated.filled(np.nan) for c in self.data])
         form = f"{np.shape(data)[1]}E"
         cd.add_col(Column(name="DATA", format=form, array=data))
         # re-arrange so DATA is column 7
         cd1 = cd[:6] + cd[-1] + cd[6:-1]
+        if flags:
+            flags = np.concatenate([c._calibrated.mask * 1 for c in self.data]).astype(np.uint8)
+            flagform = f"{np.shape(flags)[1]}B"
+            cd1.add_col(Column(name="FLAGS", format=flagform, array=flags))
         b = BinTableHDU.from_columns(cd1, name="SINGLE DISH")
 
         # preserve any meta
