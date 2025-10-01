@@ -9,7 +9,7 @@ A dysh glossary
 
     argus
       yes, this is an abbreviation of sorts - https://www.gb.nrao.edu/argus/
-      
+
     band
       A coherent section of channels in frequency space, all with
       the same channel width. Sometimes called an IF band.
@@ -19,12 +19,12 @@ A dysh glossary
       Overloaded term for a **band**, possibly referring to hardware.
 
     beam
-      The footprint of one receiver horn on the sky. ARGUS has a 
+      The footprint of one receiver horn on the sky. ARGUS has a
       4x4 multi-beam receiver, numbered 0 through 15.
       Not to be confused with the
       **FWHM**.  At 115 GHz the **FWHM** is about xx", at 86 GHz about
       xx".  The beam separation is xx" for ARGUS.
-    
+
       Note that for some instruments beams are also interpreted while
       including other simulteanously taken data in another band/polarization
       See also :term:`fdnum``
@@ -45,11 +45,11 @@ A dysh glossary
 
     calon
       Signal with a calibration in the signal path.
-    
+
     DYSH_DATA
       (optional) environment variable pointing to a directory for a convenient view of
       data for developers.
-      See also :term:`SDFITS_DATA`.  
+      See also :term:`SDFITS_DATA`.
 
     ECSV
       (Enhanced Character Separated Values) a self-describing ascii table format popularized by astropy.
@@ -65,7 +65,7 @@ A dysh glossary
       for data-cube, although there is also a waterfall cube
       (time-freq-pixel) cube available.  Unclear what we will use for
       pure spectra.  **SDFITS** seems overly complex. CLASS needs to
-      be supported. 
+      be supported.
 
     flagging vs. masking
       flagging is non-destructive.
@@ -124,11 +124,11 @@ A dysh glossary
       An overloaded term. Sometimes referred to as the :term:`beam`, but usually interpreted as
       the size of a single (usually square) element in a gridded map (e.g. from an OTF), which
       we commonly also refer to as a *picture element*.
-   
+
     plnum
       Polarization number (0,1,...). Usually 0 and 1, but of course up to 4 values could be present
       for a full Stokes.
-      Also used as the plnum= keyword in getXX()    
+      Also used as the plnum= keyword in getXX()
 
     Position Switching
       This is a standard way to obtain spectra by switching
@@ -153,11 +153,11 @@ A dysh glossary
     Scan - GBT differentiates between different types of scans
      (FSScan, PSScan, TPScan, SubBeamNod Scan). Each of these comes
      with a corresponding :term:`getXX()`
-   
+
     ScanBlock
       A container for a series of **scan**'s.
       There is a whole section on this. explanations/scanblock/index.html
-      
+
     SDFITS
       Single Dish **FITS** format, normally used to store
       raw or even calibrated spectra in a FITS BINTABLE format.  Each
@@ -167,7 +167,7 @@ A dysh glossary
 
       There are two other links in the manual: reference/sdfits_files/index.html
       and   explanations/sdfits/index.html
-  
+
     SDFITS_DATA
       (optional) environment variable pointing to a directory where SDFITS files
       and projects are stored.
@@ -241,7 +241,7 @@ assuming there is only sky in the *OFF*:
 All of these have values for each channel. How exactly the :math:`T_{sys}` is computed (scalar, vector,
 mean/median) is something we generally leave open.
 
-.. math:: 
+.. math::
 
 
 the effective beam (see also GBT memo 296, and gbtpipe/Gridding.py - at 109 GHz)
@@ -260,7 +260,7 @@ Weight factors are 1/:math:`\sqrt(RMS)`
 
 .. math:: :label: sdmath4
 
-      \frac{\Delta t \Delta\nu}{T_{\rm{sys}}^{2}}    
+      \frac{\Delta t \Delta\nu}{T_{\rm{sys}}^{2}}
 
 Effective exposure time
 
@@ -280,5 +280,3 @@ with these are stored under **$SDFITS_DATA**, e.g. for session 5 of the example 
 in **$SDFITS_DATA/AGBT21B_024_05/**.   At GBO  SDFITS_DATA=/home/sdfits, but outside
 of GBO this will be user defined. Another default is **$DYSH_DATA/sdfits**, if
 **DYSH_DATA** is used.
-
-
