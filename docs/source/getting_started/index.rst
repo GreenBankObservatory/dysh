@@ -43,8 +43,14 @@ Installing ``dysh``
 `numpy <https://numpy.org>`_,
 `scipy <https://scipy.org>`_,
 `pandas <https://pandas.pydata.org>`_,
-`specutils <https://specutils.readthedocs.io/en/stable/>`_,  and
-`matplotlib <https://matplotlib.org>`_.
+`specutils <https://specutils.readthedocs.io/en/stable/>`_,
+`matplotlib <https://matplotlib.org>`_,
+and
+`astroquery <https://astroquery.readthedocs.io/en/latest/>`_.
+
+``dysh`` has been tested on Ubuntu, MacOS and Windows.
+Using ``dysh`` requires at least twice the amount of memory than the size of the data to be reduced.
+For example, if you are going to reduce observations that generated 8 GB of data, you require 16 GB of RAM.
 
 We strongly recommend the use of a virtual environment for installing ``dysh``.
 
