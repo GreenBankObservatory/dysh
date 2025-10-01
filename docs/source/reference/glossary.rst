@@ -136,7 +136,7 @@ A dysh glossary
       multi-beam receivers see also Beam Switching
 
     Project ID
-      Or what's the name at GBO?
+      Or what's the name at GBO? Also some confusion of GBT21B-024 vs. AGBT21B_024
 
     resolution
       this term is used in the gridder, but it's not
@@ -280,3 +280,6 @@ with these are stored under **$SDFITS_DATA**, e.g. for session 5 of the example 
 in **$SDFITS_DATA/AGBT21B_024_05/**.   At GBO  SDFITS_DATA=/home/sdfits, but outside
 of GBO this will be user defined. Another default is **$DYSH_DATA/sdfits**, if
 **DYSH_DATA** is used.
+
+confusion?  a project was named "GBT21B-024", though labeled "AGBT21B_024" as the
+filename prefix for gbtidl/dysh. 
