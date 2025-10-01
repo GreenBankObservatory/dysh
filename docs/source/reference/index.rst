@@ -57,6 +57,21 @@
 
             Dysh for GBTIDL Users
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Glossary**
+
+        Glossary and some Single Dysh math
+
+        .. button-link:: glossary.html
+            :color: primary
+            :tooltip: Glossary
+            :outline:
+            :click-parent:
+
+            Glossary
 .. toctree::
     :maxdepth: 3
     :hidden:
@@ -64,3 +79,4 @@
     modules/index
     sdfits_files/index
     dysh-for-gbtidl-users
+    glossary
