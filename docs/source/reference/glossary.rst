@@ -7,6 +7,9 @@ A dysh glossary
 .. glossary::
 
 
+    argus
+      yes, this is an abbreviation of sorts - https://www.gb.nrao.edu/argus/
+      
     band
       A coherent section of channels in frequency space, all with
       the same channel width. Sometimes called an IF band.
@@ -91,7 +94,10 @@ A dysh glossary
 
     intnum
       Integration number. 0 being the first.
-      Also used as the intnum= keyword in getXX()    
+      Also used as the intnum= keyword in getXX()
+
+    kfpa
+      K-band Focal Plane Array
 
     masking vs. flagging vs. blanking
       Masking removes or hides pixels,
@@ -149,7 +155,8 @@ A dysh glossary
      with a corresponding :term:`getXX()`
    
     ScanBlock
-      A container for a series of **scan**'s
+      A container for a series of **scan**'s.
+      There is a whole section on this. explanations/scanblock/index.html
       
     SDFITS
       Single Dish **FITS** format, normally used to store
@@ -158,6 +165,9 @@ A dysh glossary
       plus the whole spectrum. This standard was drafted in 1995 (Liszt),
       and has been implemented by many telescopes (Arecibo, FAST, GBT, Parkes, ....)
 
+      There are two other links in the manual: reference/sdfits_files/index.html
+      and   explanations/sdfits/index.html
+  
     SDFITS_DATA
       (optional) environment variable pointing to a directory where SDFITS files
       and projects are stored.
@@ -176,12 +186,29 @@ A dysh glossary
       defined by its own seting of *(crval, crpix, cdelt)* in a FITS WCS sense.
 
     SubBeamNod
-      Another scan mode
+      Subreflect Beam Nodding. The getXX() is now called `subbeamnod`
+
+    VEGAS
+      Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
 
     Window
       See **Spectral Window**
 
-.. _overloaded:
+
+Band Designations
+~~~~~~~~~~~~~~~~~
+
+
+W-band
+
+Q-band
+
+L-band
+
+K-band
+
+
+.. _sdmath:
 
 
 
@@ -217,7 +244,7 @@ mean/median) is something we generally leave open.
 .. math:: 
 
 
-is the effective beam (see also GBT memo 296, and gbtpipe/Gridding.py)
+the effective beam (see also GBT memo 296, and gbtpipe/Gridding.py - at 109 GHz)
 
 .. code-block::
 
