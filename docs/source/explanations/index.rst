@@ -21,12 +21,27 @@ dysh
 
         .. button-link:: scanblock/index.html
             :color: primary
-            :tooltip: Details of what is a ScanBlock
+            :tooltip: Description of a ScanBlock
             :outline:
             :click-parent:
 
             ScanBlock
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`area_chart;3em;green` **Curve of Growth**
+
+        Curve of growth details
+
+        .. button-link:: cog/index.html
+            :color: primary
+            :tooltip: Details of the curve of growth method
+            :outline:
+            :click-parent:
+
+            Curve of Growth
 
 SDFITS
 ======
@@ -55,4 +70,5 @@ SDFITS
     :maxdepth: 3
 
     scanblock/index
+    cog/index
     sdfits/index
