@@ -282,4 +282,4 @@ of GBO this will be user defined. Another default is **$DYSH_DATA/sdfits**, if
 **DYSH_DATA** is used.
 
 confusion?  a project was named "GBT21B-024", though labeled "AGBT21B_024" as the
-filename prefix for gbtidl/dysh. 
+filename prefix for gbtidl/dysh.
