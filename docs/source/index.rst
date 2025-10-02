@@ -99,6 +99,7 @@ Contents
    reference/index
    for_beta_testers/index
    for_developers/index
+   glossary
 
 
 Reporting Issues

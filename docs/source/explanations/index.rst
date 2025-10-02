@@ -6,9 +6,6 @@
 
 Big-picture explanations of higher-level concepts. Most useful for building understanding of a particular topic.
 
-dysh
-====
-
 .. grid:: 1 2 2 2
 
     .. grid-item-card::
@@ -27,11 +24,6 @@ dysh
 
             ScanBlock
 
-
-SDFITS
-======
-
-.. grid:: 1 2 2 2
 
     .. grid-item-card::
         :shadow: md
