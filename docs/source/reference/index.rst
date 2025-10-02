@@ -72,6 +72,25 @@
             :click-parent:
 
             Glossary
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :octicon:`file;3em;green` **SDMATH**
+
+        Single Dish math
+
+        .. button-link:: sdmath.html
+            :color: primary
+            :tooltip: Single Dish math
+            :outline:
+            :click-parent:
+
+            SDMATH
+
+
+	       
 .. toctree::
     :maxdepth: 3
     :hidden:
@@ -80,3 +99,4 @@
     sdfits_files/index
     dysh-for-gbtidl-users
     glossary
+    sdmath
