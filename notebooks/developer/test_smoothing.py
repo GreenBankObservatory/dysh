@@ -41,13 +41,13 @@ gaussian_smooth(spec1, stddev=3)
 
 
 f1 = util.get_project_testdata() / 'TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits'
-f1 = dysh_data(test="getps")
+# f1 = dysh_data(test="getps")
 
 sdf1 = GBTFITSLoad(f1)
 sdf1.info()
-sdf1.summary(verbose=True)
+sdf1.get_summary(verbose=True)
 
-p1 = sdf1.getps(scan=152, ifnum=0, plnum=0)
+p1 = sdf1.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
 sp1 = p1[0].calibrated(0)
     
 sp1b = sp1.smooth("boxcar",5,-1)
@@ -62,7 +62,7 @@ d1g=sp1g.flux.value
 # now the smoothref version; it needs to be odd, otherwise
 # the IDL kernel isn't the same as astropy
 
-p1s = sdf1.getps(scan=152, ifnum=0, plnum=0, smoothref=15)
+p1s = sdf1.getps(scan=152, ifnum=0, plnum=0, fdnum=0, smoothref=15)
 sp1s = p1s[0].calibrated(0)
 d1s = sp1s.flux.value
 
@@ -102,3 +102,51 @@ print("e box :", np.nanstd(e2b))
 print("e han :", np.nanstd(e2h))    
 print("e gau :", np.nanstd(e2g))
 print("e smth:", np.nanstd(e2s))
+
+#%% issue 415
+
+
+# from dysh.util import get_project_testdata
+# filename = get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
+filename = dysh_data(test="getps")
+
+sdfits = GBTFITSLoad(filename)
+sdfits.get_summary()
+ta0 = sdfits.getps(ifnum=0, plnum=0, fdnum=0).timeaverage()
+
+#      1..1      test
+#    130..210    sync type behavior
+#   1000..2000   test
+#   2860..3010   galactic
+#  31000..32768  edge effect
+flags1 = [[2,2],[130,200],[1000,2000],[2860,3010],[31000,32768]]
+flags2 = [14000,18000]
+sdfits.flag_channel(flags1)
+ta1 = sdfits.getps(ifnum=0, plnum=0, fdnum=0).timeaverage()
+ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
+
+ta1.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)], remove=True)
+ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
+
+flags1.append(flags2)
+print(flags1)
+ta0.baseline(model="chebyshev", degree=2, exclude=flags1, remove=True)
+ta0.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
+
+
+
+ts = ta1.smooth('gaussian',16)
+ts.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-100, ymax=200, grid=True)
+
+
+#%%   partial solution in spectrum.py smooth
+
+        # in core.smooth, we fill masked values with np.nan.
+        # astropy.convolve does not return a new mask, so we recreate
+        # a decimated mask where values are nan
+        mask = np.full(s1.shape, False)
+        mask[np.where(s1 == np.nan)] = True
+        new_data = Masked(s1 * self.flux.unit, mask)
+        
+        # in spectrum.core.smooth
+        new_data = convolve(data, kernel, boundary="extend",  nan_treatment="fill", fill_value=np.nan, mask=mask)
