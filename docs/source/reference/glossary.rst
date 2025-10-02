@@ -17,7 +17,7 @@ A dysh glossary
       e.g. L-band.   A summary
       of the bands commonly used at GBO can be found on
       https://gbtdocs.readthedocs.io/en/latest/references/receivers.html#gregorian-receivers
-    
+
       See also :term:`ifnum`
 
     bank
@@ -32,7 +32,7 @@ A dysh glossary
 
       Note that for some instruments beams are also interpreted while
       including other simulteanously taken data in another band/polarization
-    
+
       See also :term:`fdnum`
 
       See also :term:`multi-beam`
@@ -58,7 +58,7 @@ A dysh glossary
     DYSH_DATA
       (optional) environment variable pointing to a directory for a convenient view of
       data for developers.
-    
+
       See also :term:`SDFITS_DATA`.
 
     ECSV
@@ -68,7 +68,7 @@ A dysh glossary
     fdnum
       Feed Number. 0, 1, ...
       Also used as the **fdnum=** keyword in getXX()
-    
+
       See also :term:`beam`
 
     FITS
@@ -101,7 +101,7 @@ A dysh glossary
     ifnum
       IF number (0,1,...)
       Also used as the ifnum= keyword in getXX().
-    
+
       See also :term:`band` and :term:`window`
 
     intnum
@@ -146,7 +146,7 @@ A dysh glossary
       This is a standard way to obtain spectra by switching
       between a "Main" and "Reference" position on the sky, usually using a single beam. For our
       multi-beam receivers see also :term:`Beam Switching`
-    
+
 
     Project ID
       A code designating the year and proposal number, e.g. GBT21B-024.  Data associated with
@@ -186,7 +186,7 @@ A dysh glossary
       See also :ref:`sdfits-reference`
 
     SDFITS_DATA
-      (optional) environment variable pointing to a directory where SDFITS 
+      (optional) environment variable pointing to a directory where SDFITS
       project directories and files are stored.
 
     SFL
