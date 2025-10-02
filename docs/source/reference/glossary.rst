@@ -17,6 +17,7 @@ A dysh glossary
       e.g. L-band.   A summary
       of the bands commonly used at GBO can be found on
       https://gbtdocs.readthedocs.io/en/latest/references/receivers.html#gregorian-receivers
+    
       See also :term:`ifnum`
 
     bank
@@ -31,7 +32,8 @@ A dysh glossary
 
       Note that for some instruments beams are also interpreted while
       including other simulteanously taken data in another band/polarization
-      See also :term:`fdnum``
+    
+      See also :term:`fdnum`
 
       See also :term:`multi-beam`
 
@@ -44,6 +46,9 @@ A dysh glossary
     blanking vs flagging vs masking
       flagging defines the rules for blanking data, blanking actually applies them
 
+      blanking is also a term used in the (VEGAS) correllator, where bad data has been replaced
+      with a zero (?) value.
+
     caloff
       Signal with no calibration diode in the signal path.
 
@@ -53,6 +58,7 @@ A dysh glossary
     DYSH_DATA
       (optional) environment variable pointing to a directory for a convenient view of
       data for developers.
+    
       See also :term:`SDFITS_DATA`.
 
     ECSV
@@ -62,6 +68,7 @@ A dysh glossary
     fdnum
       Feed Number. 0, 1, ...
       Also used as the **fdnum=** keyword in getXX()
+    
       See also :term:`beam`
 
     FITS
@@ -94,6 +101,7 @@ A dysh glossary
     ifnum
       IF number (0,1,...)
       Also used as the ifnum= keyword in getXX().
+    
       See also :term:`band` and :term:`window`
 
     intnum
@@ -137,10 +145,13 @@ A dysh glossary
     Position Switching
       This is a standard way to obtain spectra by switching
       between a "Main" and "Reference" position on the sky, usually using a single beam. For our
-      multi-beam receivers see also Beam Switching
+      multi-beam receivers see also :term:`Beam Switching`
+    
 
     Project ID
-      Or what's the name at GBO? Also some confusion of GBT21B-024 vs. AGBT21B_024
+      A code designating the year and proposal number, e.g. GBT21B-024.  Data associated with
+      a project are found in /home/sdfits (or $SDFITS_DATA), with a slight twist of the name.
+      In the example this becomes AGBT21B_024.
 
     resolution
       this term is used in the gridder, but it's not
@@ -152,11 +163,13 @@ A dysh glossary
       alltogether.
 
     RRL - Radio Recombination Line
-      more tbd
+      A common type of line observed at GBO that Pedro likes to observe.
 
-    Scan - GBT differentiates between different types of scans
-     (FSScan, PSScan, TPScan, SubBeamNod Scan). Each of these comes
-     with a corresponding :term:`getXX()`
+    Scan
+       A unit of observing, usually in some common mode.
+       GBT differentiates between different types of scans
+       (FSScan, PSScan, TPScan, SubBeamNod Scan). Each of these comes
+       with a corresponding :term:`getXX()`
 
     ScanBlock
       A container for a series of **scan**'s.
@@ -167,14 +180,14 @@ A dysh glossary
       raw or even calibrated spectra in a FITS BINTABLE format.  Each
       row in a BINTABLE has an attached RA,DEC (and other meta-data),
       plus the whole spectrum. This standard was drafted in 1995 (Liszt),
-      and has been implemented by many telescopes (Arecibo, FAST, GBT, Parkes, ....)
+      and has been implemented by many telescopes (Arecibo, FAST, GBT, Parkes, ....),
+      albeit with slightly different conventions.
 
-      There are two other links in the manual: reference/sdfits_files/index.html
-      and   explanations/sdfits/index.html
+      See also :ref:`sdfits-reference`
 
     SDFITS_DATA
-      (optional) environment variable pointing to a directory where SDFITS files
-      and projects are stored.
+      (optional) environment variable pointing to a directory where SDFITS 
+      project directories and files are stored.
 
     SFL
       Sanson-Flamsteed projection, sometimes used in gridding OTF maps.
@@ -182,7 +195,9 @@ A dysh glossary
 
     Spectral Window
       In ALMA commonly abbreviated as **spw**, this is closest to what we call a **bank**,
-      or **band**, a set of linearly spaced channels. See also :term:`ifnum`
+      or **band**, a set of linearly spaced channels.
+
+      See also :term:`ifnum`
 
     Spectrum
       A coherent section in frequency space, with its own unique meta-data (such as polarization,
@@ -197,20 +212,6 @@ A dysh glossary
 
     Window
       See **Spectral Window**
-
-
-Band Designations
-~~~~~~~~~~~~~~~~~
-
-
-W-band
-
-Q-band
-
-L-band
-
-K-band
-
 
 
 Data : Project ID / Session / Scan
