@@ -173,7 +173,8 @@ A dysh glossary
 
     ScanBlock
       A container for a series of **scan**'s.
-      There is a whole section on this. explanations/scanblock/index.html
+
+      See also :ref:`scanblocks`
 
     SDFITS
       Single Dish **FITS** format, normally used to store
