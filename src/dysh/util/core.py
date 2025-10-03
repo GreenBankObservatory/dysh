@@ -603,3 +603,31 @@ def show_dataframe(df, show_index=False, max_rows=None, max_cols=None):
         display(HTML(df.to_html(**kwargs)))
     else:
         print(df.to_string(**kwargs))
+
+
+def calc_vegas_spurs(vsprval: float, vspdelt: float, vsprpix: float) -> np.ndarray:
+    """
+    Calculate VEGAS spur channel locations
+
+    SPUR_CHANNEL = (J-VSPRVAL)*VSPDELT+VSPRPIX - 1
+
+    where 0 <= J < 32.
+
+    Spur channels are counted from zero.
+
+    Parameters
+    ----------
+    vsprval : float
+        VEGAS spur channel offset
+    vspdelt : float
+        VEGAS spur separation width in channels.
+    vsprpix : float
+        VEGAS spur reference pixel.
+
+    Returns
+    -------
+    `~numpy.ndarray`
+        The array of channel numbers where spurs occur, 0-based.
+
+    """
+    return (np.arange(33) - vsprval) * vspdelt + vsprpix - 1

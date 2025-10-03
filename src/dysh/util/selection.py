@@ -1300,7 +1300,7 @@ class Flag(SelectionBase):
         self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
         self._channel_selection = None  # unused for flagging
 
-    def read(self, fileobj, **kwargs):
+    def read(self, fileobj, ignore_vegas=False, **kwargs):
         """Read a GBTIDL flag file and instantiate Flag object.
 
         Parameters
@@ -1308,6 +1308,9 @@ class Flag(SelectionBase):
         fileobj : str, file-like or `pathlib.Path`
             File to read.  If a file object, must be opened in a
             readable mode.
+        ignore_vegas : bool
+            If True, ignore any flag rules which contain 'VEGAS_SPUR' in the line, as these
+            are usually flagged via algorithm. See :meth:`~dysh.util.core.calc_vegas_spurs`.
         **kwargs : dict
             Extra keyword arguments to apply to the flag rule.  (This is mainly for internal use.)
 
@@ -1368,6 +1371,9 @@ class Flag(SelectionBase):
         ]
         found_header = False
         for l in lines[lines.index("[flags]") + 1 :]:
+            # ignore VEGAS_SPUR flags if requested
+            if ignore_vegas and l.strip().lower().endswith("vegas_spur"):
+                continue
             vdict = {}
             if l.startswith("#"):
                 if not found_header:
