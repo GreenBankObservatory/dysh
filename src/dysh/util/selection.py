@@ -793,7 +793,9 @@ class SelectionBase(DataFrame):
         self._check_numbers(chan=channel)
         if isinstance(channel, numbers.Number):
             channel = [int(channel)]
-        self._channel_selection = channel
+        # numpy arrays cause trouble when comparing to ALL_CHANNELS in flag application,
+        # so take a list here.
+        self._channel_selection = list(channel)
         # we don't care if a selection selects the same channels.  They are all pasted together in numpy later and
         # never go through a DataFrame (which is why we pass in the dummy self)
         self._addrow(
@@ -1202,7 +1204,7 @@ class Flag(SelectionBase):
         """
         Flag  channels and/or channel ranges for *all data*. These are NOT used in :meth:`final`
         but rather will be used to create a mask for
-        flagging. Single arrays/tuples will be treated as *channel lists;
+        flagging. Single arrays/tuples will be treated as channel lists;
         nested arrays will be treated as  *inclusive* ranges. For instance:
 
         ```
