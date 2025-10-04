@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 from dysh.fits.sdfitsload import SDFITSLoad
 from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.fits.gbtfitsload import GBTOffline
 import dysh.util as util
 from dysh.util.selection import Selection
 from dysh.util.files import dysh_data
@@ -103,8 +104,8 @@ print("e han :", np.nanstd(e2h))
 print("e gau :", np.nanstd(e2g))
 print("e smth:", np.nanstd(e2s))
 
-#%% issue 415
-
+#%% issue 415 : Masks not handled in smoothing
+#               The smooth spectrum does not mask the flagged channels.
 
 # from dysh.util import get_project_testdata
 # filename = get_project_testdata() / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
@@ -113,30 +114,52 @@ filename = dysh_data(test="getps")
 sdfits = GBTFITSLoad(filename)
 sdfits.get_summary()
 ta0 = sdfits.getps(ifnum=0, plnum=0, fdnum=0).timeaverage()
+#ta0.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
+ta0.plot(xaxis_unit="chan",grid=True)
 
-#      1..1      test
+# notice some bad spikes and the upper edge
+
+#      2..2      test
 #    130..210    sync type behavior
 #   1000..2000   test
 #   2860..3010   galactic
 #  31000..32768  edge effect
 flags1 = [[2,2],[130,200],[1000,2000],[2860,3010],[31000,32768]]
 flags2 = [14000,18000]
+flags3 = [[2,2],[130,200],[1000,2000],[2860,3010],[14000,18000],[31000,32768]]
+sdfits.flags.clear()
 sdfits.flag_channel(flags1)
+sdfits.flags.show()
 ta1 = sdfits.getps(ifnum=0, plnum=0, fdnum=0).timeaverage()
-ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
+#ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
+ta1.plot(xaxis_unit="chan",  grid=True)
+
 
 ta1.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)], remove=True)
-ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
+#ta1.baseline(model="chebyshev", degree=2, exclude=[flags2], remove=True)      #  IndexError: list index out of range
+#ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
+ta1.plot(xaxis_unit="chan", grid=True)
 
 flags1.append(flags2)
 print(flags1)
-ta0.baseline(model="chebyshev", degree=2, exclude=flags1, remove=True)
+ta0.baseline(model="chebyshev", degree=2, exclude=flags3, remove=True)
+# ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+
 ta0.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
 
 
 
 ts = ta1.smooth('gaussian',16)
 ts.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-100, ymax=200, grid=True)
+
+
+sdfits.flag(scan=20, 
+            channel=[[2300,4096]], 
+            intnum=[i for i in range(42,53)])
+
+
+
+
 
 
 #%%   partial solution in spectrum.py smooth
