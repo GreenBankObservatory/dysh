@@ -203,9 +203,10 @@ def log_function_call(log_level: str = "info"):
         def func_wrapper(*args, **kwargs):
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
             # Log the function name and arguments
             sig = inspect.signature(func)
             logmsg = f"DYSH v{dysh_version} : {func.__module__}"
@@ -284,16 +285,17 @@ def log_call_to_result(func: Callable):
         if self is None:
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
-                # @todo this no longer works under python >3.9
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
         else:
             try:
                 result = func(self, *args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
         resultname = result.__class__.__name__
         if hasattr(result, "_history"):
             sig = inspect.signature(func)
@@ -349,15 +351,17 @@ def log_call_to_history(func: Callable):
             # could put this try around the whole thing but then it would catch exceptions from the wrapper itself
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
         else:  # it's a class instance
             try:
                 result = func(self, *args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
                 tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
             classname = self.__class__.__name__
             if hasattr(self, "_history"):
                 sig = inspect.signature(func)
