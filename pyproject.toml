@@ -184,6 +184,7 @@ combine-as-imports = true
 # Ignore  in all `__init__.py` files
 "__init__.py" = ["ALL"]
 "**/{tests,docs,tools}/*" = ["E402", "B011", "B017", "S101"]
+"test_*.py" = ["S101"]  # Allow assert in test files
 # The stuff in the attic doesn't need to be linted at all
 "attic/**" = ["ALL"]
 
