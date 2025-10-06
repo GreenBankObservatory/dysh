@@ -165,6 +165,7 @@ select = [
   "T10", # https://docs.astral.sh/ruff/rules/#flake8-debugger-t10
   "PLR5501", # https://docs.astral.sh/ruff/rules/collapsible-else-if/
   "PLR2044", # https://docs.astral.sh/ruff/rules/empty-comment/
+  "G010",
 ]
 fixable = ["ALL"]
 ignore = [
