@@ -160,7 +160,7 @@ select = [
   "NPY", # https://docs.astral.sh/ruff/rules/numpy-specific-rules-npy
   "PD", # https://docs.astral.sh/ruff/rules/pandas-vet-pd
   "RUF", # https://docs.astral.sh/ruff/rules/ruff-specific-rules-ruf
-  "UP031", # https://docs.astral.sh/ruff/rules/printf-string-formatting/
+  "UP", # https://docs.astral.sh/ruff/rules/printf-string-formatting/
 
 ]
 fixable = ["ALL"]

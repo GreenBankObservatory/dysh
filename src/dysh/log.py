@@ -5,11 +5,12 @@ import os
 import sys
 import time
 from abc import ABC
+from collections.abc import Callable  # , Self # not available until 3.11
 from datetime import datetime
 from functools import wraps
 from io import StringIO
 from pathlib import Path
-from typing import Callable, NewType, Union  # , Self # not available until 3.11
+from typing import NewType
 
 from astropy import log
 from astropy.io.fits.header import _HeaderCommentaryCards
@@ -131,7 +132,7 @@ config = {
 }
 
 
-def init_logging(verbosity: int, level: Union[int, None] = None, path: Union[Path, None] = None, quiet=False):
+def init_logging(verbosity: int, level: int | None = None, path: Path | None = None, quiet=False):
     global LOGGING_INITIALIZED
     if LOGGING_INITIALIZED is True:
         logger.warning(
@@ -464,7 +465,7 @@ class HistoricalBase(ABC):  # noqa: B024
         self._remove_duplicates()
         return ensure_ascii(self._comments)
 
-    def add_comment(self, comment: Union[str, StrList], add_time: bool = False) -> None:
+    def add_comment(self, comment: str | StrList, add_time: bool = False) -> None:
         """
         Add one or more comments to the class metadata.
 
@@ -496,7 +497,7 @@ class HistoricalBase(ABC):  # noqa: B024
             else:
                 self._comments.append(comment)
 
-    def add_history(self, history: Union[str, StrList], add_time: bool = False) -> None:
+    def add_history(self, history: str | StrList, add_time: bool = False) -> None:
         """
         Add one or more history entries to the class metadata
 

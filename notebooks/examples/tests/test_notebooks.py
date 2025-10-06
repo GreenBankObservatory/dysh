@@ -15,7 +15,7 @@ def check_notebook_execution(notebook_file):
     notebook_dir = Path(notebook_file).parent.resolve()
 
     # Open the notebook
-    with open(notebook_file, "r", encoding="utf-8") as f:
+    with open(notebook_file, encoding="utf-8") as f:
         nb = nbformat.read(f, as_version=4)
 
     # Try to execute the notebook
@@ -50,7 +50,7 @@ class TestNotebooks:
 
         # Open each notebook
         for notebook_file in self.notebook_files:
-            with open(notebook_file, "r", encoding="utf-8") as f:
+            with open(notebook_file, encoding="utf-8") as f:
                 nb = nbformat.read(f, as_version=4)
 
             top_level_headers = 0

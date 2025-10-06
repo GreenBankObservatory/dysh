@@ -253,7 +253,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             else:
                 dd = Path(dysh_data) / "sdfits"
             # @todo figure out listing of file OS agnostic
-            cmd = "ls {}".format(dd)
+            cmd = f"ls {dd}"
             print("# dysh_data::sdfits")
             print("# contents of", dd)
             print("# -----------------")
@@ -443,7 +443,7 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
                 if p[1:] in os.environ:
                     p = os.environ[p[1:]]
                 else:
-                    print("# Warning: {} not in the environment".format(p))
+                    print(f"# Warning: {p} not in the environment")
             if os.path.exists(p):
                 os.chdir(p)
                 if wildcard:
@@ -458,7 +458,7 @@ def fdr(filename, path=None, recursive=False, wildcard=False, maxfiles=None):
                     fn = fn[:maxfiles]
                 all = all + fn
             else:
-                print("# Warning: directory {} does not exist".format(p))
+                print(f"# Warning: directory {p} does not exist")
             os.chdir(cwd0)
         retval = all
     return retval

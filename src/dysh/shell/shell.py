@@ -1,7 +1,6 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import List, Union
 
 import IPython
 from traitlets.config import Config
@@ -67,7 +66,7 @@ def parse_args():
 def init_shell(
     *ipython_args,
     colors=DEFAULT_COLORS,
-    profile: Union[str, Path] = "DEFAULT_PROFILE",
+    profile: str | Path = "DEFAULT_PROFILE",
     sdfits_files=None,
     skip_config=False,
 ):
@@ -110,7 +109,7 @@ def get_fits_loader_class(loader_class_name: str):
         raise NotImplementedError(f"No known SDFITS Loader {loader_class_name!r}") from error
 
 
-def open_sdfits_files(paths: List[Path], loader_class_name="GBTFITSLoad") -> List[SDFITSLoad]:
+def open_sdfits_files(paths: list[Path], loader_class_name="GBTFITSLoad") -> list[SDFITSLoad]:
     loader_class = get_fits_loader_class(loader_class_name)
     return [loader_class(path) for path in paths]
 

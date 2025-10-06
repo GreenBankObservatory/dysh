@@ -6,7 +6,6 @@ import warnings
 from abc import abstractmethod
 from collections import UserList
 from copy import deepcopy
-from typing import Union
 
 import astropy.units as u
 import numpy as np
@@ -1793,7 +1792,7 @@ class PSScan(ScanBase):
         return self._sigscan
 
     @property
-    def refscan(self) -> Union[int | None]:
+    def refscan(self) -> int | None:
         """The scan number associated with the reference.
 
         Returns
@@ -1804,7 +1803,7 @@ class PSScan(ScanBase):
         return self._refscan
 
     @property
-    def sigspec(self) -> Union[Spectrum | None]:
+    def sigspec(self) -> Spectrum | None:
         """The signal Spectrum if one was given at construction.
 
         Returns
@@ -1815,7 +1814,7 @@ class PSScan(ScanBase):
         return self._sigspec
 
     @property
-    def refspec(self) -> Union[Spectrum | None]:
+    def refspec(self) -> Spectrum | None:
         """The reference Spectrum if one was given at construction.
 
         Returns

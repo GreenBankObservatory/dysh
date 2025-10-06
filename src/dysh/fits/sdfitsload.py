@@ -18,7 +18,7 @@ from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 
 
-class SDFITSLoad(object):
+class SDFITSLoad:
     """
     Generic Container for a bintable(s) from selected HDU(s) for a single SDFITS file.
     For multiple SDFITS files, see :class:`~gbtfitsload.GBTFITSLoad`.
@@ -41,7 +41,7 @@ class SDFITSLoad(object):
         }
         kwargs_opts.update(kwargs)
         if kwargs_opts["verbose"]:
-            print("==SDFITSLoad {}".format(filename))
+            print(f"==SDFITSLoad {filename}")
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # u.cds.enable()  # to get mmHg
@@ -643,7 +643,7 @@ class SDFITSLoad(object):
 
     def summary(self):
         """Print a summary of each record of the data"""
-        print("File:     {}".format(self._filename))
+        print(f"File:     {self._filename}")
         for i in range(len(self._bintable)):
             print("i=", i)
             self._summary(i)
