@@ -41,7 +41,7 @@ class SDFITSLoad(object):
         }
         kwargs_opts.update(kwargs)
         if kwargs_opts["verbose"]:
-            print("==SDFITSLoad %s" % filename)
+            print("==SDFITSLoad {}".format(filename))
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # u.cds.enable()  # to get mmHg
@@ -632,9 +632,9 @@ class SDFITSLoad(object):
         nflds = self._binheader[j]["TFIELDS"]
         restfreq = np.unique(self.index(bintable=j)["RESTFREQ"]) / 1.0e9
         #
-        print("HDU       %d" % (j + 1))
-        print("BINTABLE: %d rows x %d cols with %d chans" % (self._nrows[j], nflds, self.nchan(j)))
-        print("Selected  %d/%d rows" % (self._nrows[j], nrows))
+        print(f"HDU       {j + 1}")
+        print(f"BINTABLE: {self._nrows[j]} rows x {nflds} cols with {self.nchan(j)} chans")
+        print(f"Selected  {self._nrows[j]}/{nrows} rows")
         print("Sources: ", self.sources(j))
         print("RESTFREQ:", restfreq, "GHz")
         print("Scans:   ", self.scans(j))
@@ -643,7 +643,7 @@ class SDFITSLoad(object):
 
     def summary(self):
         """Print a summary of each record of the data"""
-        print("File:     %s" % self._filename)
+        print("File:     {}".format(self._filename))
         for i in range(len(self._bintable)):
             print("i=", i)
             self._summary(i)

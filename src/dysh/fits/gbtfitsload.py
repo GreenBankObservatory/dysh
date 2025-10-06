@@ -132,7 +132,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # ushow/udata depend on the index being present, so check that index is created.
         if kwargs.get("verbose", None) and kwargs_opts["index"]:
-            print("==GBTLoad %s" % fileobj)
+            print("==GBTLoad {}".format(fileobj))
             self.ushow("OBJECT", 0)
             self.ushow("SCAN", 0)
             self.ushow("SAMPLER", 0)
