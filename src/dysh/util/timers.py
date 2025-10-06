@@ -184,7 +184,7 @@ class DTime(object):
 
         try:
             if __ostype__ == "linux":
-                proc_status = "/proc/%d/status" % os.getpid()  # linux only
+                proc_status = f"/proc/{os.getpid()}/status"  # linux only
                 # open pseudo file  /proc/<pid>/status
                 t = open(proc_status)
                 # get value from line e.g. 'VmRSS:  9999  kB\n'

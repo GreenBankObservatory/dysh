@@ -11,7 +11,7 @@ from astropy.io import fits
 from dysh.fits.gbtfitsload import GBTFITSLoad
 
 if len(sys.argv) < 3:
-    print("Usage: %s row_min row_max | row1 row2 row3 .... rowN" % sys.argv[0])
+    print("Usage: {} row_min row_max | row1 row2 row3 .... rowN".format(sys.argv[0]))
     print("Select either a row range (min,max), or selected rows.")
     print("Row numbers are 0 based")
     print("Example of selecting many:  $(seq  0 15)")
