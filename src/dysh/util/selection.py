@@ -793,9 +793,7 @@ class SelectionBase(DataFrame):
         self._check_numbers(chan=channel)
         if isinstance(channel, numbers.Number):
             channel = [int(channel)]
-        # numpy arrays cause trouble when comparing to ALL_CHANNELS in flag application,
-        # so take a list here.
-        self._channel_selection = list(channel)
+        self._channel_selection = channel
         # we don't care if a selection selects the same channels.  They are all pasted together in numpy later and
         # never go through a DataFrame (which is why we pass in the dummy self)
         self._addrow(
