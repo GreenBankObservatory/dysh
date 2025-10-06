@@ -199,6 +199,9 @@ def log_function_call(log_level: str = "info"):
         except KeyError:
             raise Exception(f"Log level {log_level} unrecognized. Must be one of {list(logging._nameToLevel.keys())}.")  # noqa: B904
 
+        # Cache signature at decoration time for performance
+        sig = inspect.signature(func)
+
         @wraps(func)
         def func_wrapper(*args, **kwargs):
             try:
@@ -208,7 +211,6 @@ def log_function_call(log_level: str = "info"):
                 # Re-raise with modified traceback to hide this wrapper from stack trace
                 raise exc.with_traceback(tb.tb_next) from None
             # Log the function name and arguments
-            sig = inspect.signature(func)
             logmsg = f"DYSH v{dysh_version} : {func.__module__}"
             if hasattr(func, "__self__"):
                 # func is  method of a class
@@ -280,6 +282,9 @@ def log_call_to_result(func: Callable):
 
     """
 
+    # Cache signature at decoration time for performance
+    sig = inspect.signature(func)
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self is None:
@@ -298,7 +303,6 @@ def log_call_to_result(func: Callable):
                 raise exc.with_traceback(tb.tb_next) from None
         resultname = result.__class__.__name__
         if hasattr(result, "_history"):
-            sig = inspect.signature(func)
             if self is not None:
                 extra = {
                     "modName": func.__module__,
@@ -341,6 +345,9 @@ def log_call_to_history(func: Callable):
 
     """
 
+    # Cache signature at decoration time for performance
+    sig = inspect.signature(func)
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self is None:  # not a class, but a function
@@ -364,7 +371,6 @@ def log_call_to_history(func: Callable):
                 raise exc.with_traceback(tb.tb_next) from None
             classname = self.__class__.__name__
             if hasattr(self, "_history"):
-                sig = inspect.signature(func)
                 if "kwargs" in sig.parameters:
                     extra = {
                         "modName": func.__module__,
