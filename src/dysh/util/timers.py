@@ -17,7 +17,7 @@ __ostype__ = None
 # see also ADMIT's util.utils.Dtime()
 
 
-class DTime(object):
+class DTime:
     r"""This class encapsulated some popular timing/performance tools.
 
     Parameters

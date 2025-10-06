@@ -9,7 +9,6 @@ import time
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -132,7 +131,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # ushow/udata depend on the index being present, so check that index is created.
         if kwargs.get("verbose", None) and kwargs_opts["index"]:
-            print("==GBTLoad {}".format(fileobj))
+            print(f"==GBTLoad {fileobj}")
             self.ushow("OBJECT", 0)
             self.ushow("SCAN", 0)
             self.ushow("SAMPLER", 0)
@@ -1342,8 +1341,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getsigref(
         self,
-        scan: Union[int | list | np.ndarray],
-        ref: Union[int | Spectrum],
+        scan: int | list | np.ndarray,
+        ref: int | Spectrum,
         fdnum: int,
         ifnum: int,
         plnum: int,

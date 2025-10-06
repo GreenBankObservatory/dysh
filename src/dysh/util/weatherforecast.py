@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Wed Feb 12 13:13:33 2025
 
@@ -12,7 +11,6 @@ import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Union
 
 import astropy.units as u
 import numpy as np
@@ -34,7 +32,7 @@ class BaseWeatherForecast(ABC):
     def fetch(
         specval: Quantity,
         valueType: list = None,  # noqa: RUF013
-        mjd: Union[Time, np.ndarray] = None,
+        mjd: Time | np.ndarray = None,
         coeffs=None,
         **kwargs,  # noqa: RUF013, RUF100
     ) -> np.ndarray:
@@ -53,7 +51,7 @@ class GBTWeatherForecast(BaseWeatherForecast):
         self,
         specval: Quantity = None,
         vartype: str = "Opacity",
-        mjd: Union[Time, float] = None,
+        mjd: Time | float = None,
         coeffs=True,
     ) -> np.ndarray:
         r"""Call the GBO weather script and parse the results into numbers.
@@ -361,7 +359,7 @@ class GBTForecastScriptInterface:
         If True, don't check that `path` exists.  This is useful for testing when not on GBO network. Default: False
     """
 
-    def __init__(self, path: Union[Path, str] = "/users/rmaddale/bin/getForecastValues", **kwargs):
+    def __init__(self, path: Path | str = "/users/rmaddale/bin/getForecastValues", **kwargs):
         self._testmode = kwargs.get("testmode", False)
         self._path = Path(path)
         self._fit = None

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 import astropy.units as u
 from astropy.table import Table
@@ -212,10 +211,10 @@ class SpectralLineSearchClass:
         max_frequency: Quantity,
         cat: Literal[(x for x in _allowable_local_cats)] | Path = "gbtlines",
         columns: str | list = _default_columns_to_return,
-        chemical_name: Optional[str] = None,
+        chemical_name: str | None = None,
         chem_re_flags: int = 0,
-        energy_min: Optional[float] = None,
-        energy_max: Optional[float] = None,
+        energy_min: float | None = None,
+        energy_max: float | None = None,
         energy_type: Literal[(x for x in Splatalogue.VALID_ENERGY_TYPES)] | None = None,
         intensity_lower_limit=None,
         intensity_type: Literal[(x for x in Splatalogue.VALID_INTENSITY_TYPES)] | None = None,

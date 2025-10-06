@@ -1352,7 +1352,7 @@ class Flag(SelectionBase):
 
         # Because the table header and table row delimeters are different,
         # Table.read() can't work.  So construct it row by row.
-        f = open(fileobj, mode="r")
+        f = open(fileobj)
         lines = f.read().splitlines()  # gets rid of \n
         f.close()
         header = [

@@ -591,7 +591,7 @@ class TestGBTFITSLoad:
 
         def read_gbtidl_summary(filename, idx=1):
             """ """
-            with open(filename, "r") as log:
+            with open(filename) as log:
                 lines = log.readlines()
             lines.pop(idx)
             tmp = Path(f"{filename}.tmp")
