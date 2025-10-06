@@ -147,7 +147,6 @@ reportImplicitStringConcatenation = false
 line-length = 120
 src = ["src", "benchmark", "notebooks"]
 extend-exclude = ["attic", "notebooks/developer", "*.ipynb"]
-target-version = "py310" # Keep this is lowest-supported Python version
 
 
 [tool.ruff.lint]
