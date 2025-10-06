@@ -25,6 +25,9 @@ LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")
 dhlogger = AstropyLogger("dysh_history", level=logging.INFO)
 
+# Environment variable to disable logging decorators for performance benchmarking
+DISABLE_HISTORY_LOGGING = os.getenv("DYSH_DISABLE_HISTORY_LOGGING", "0") == "1"
+
 _DYSH_LOG_DIR = os.getenv("DYSH_LOG_DIR", ".")
 try:
     DYSH_LOG_DIR = Path(_DYSH_LOG_DIR)
@@ -191,6 +194,10 @@ def log_function_call(log_level: str = "info"):
     #    log_level = "info"
 
     def inner_decorator(func: Callable):
+        # If logging is disabled, return the function unchanged
+        if DISABLE_HISTORY_LOGGING:
+            return func
+
         # the inner decorator is to process the log_level argument of
         # the outer decorator
 
@@ -282,6 +289,10 @@ def log_call_to_result(func: Callable):
 
     """
 
+    # If logging is disabled, return the function unchanged
+    if DISABLE_HISTORY_LOGGING:
+        return func
+
     # Cache signature at decoration time for performance
     sig = inspect.signature(func)
 
@@ -344,6 +355,10 @@ def log_call_to_history(func: Callable):
         The result of the method call
 
     """
+
+    # If logging is disabled, return the function unchanged
+    if DISABLE_HISTORY_LOGGING:
+        return func
 
     # Cache signature at decoration time for performance
     sig = inspect.signature(func)
