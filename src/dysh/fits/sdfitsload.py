@@ -631,7 +631,6 @@ class SDFITSLoad:
         nrows = self.naxis(bintable=j, naxis=2)
         nflds = self._binheader[j]["TFIELDS"]
         restfreq = np.unique(self.index(bintable=j)["RESTFREQ"]) / 1.0e9
-        #
         print(f"HDU       {j + 1}")
         print(f"BINTABLE: {self._nrows[j]} rows x {nflds} cols with {self.nchan(j)} chans")
         print(f"Selected  {self._nrows[j]}/{nrows} rows")
@@ -762,21 +761,20 @@ class SDFITSLoad:
                 self._hdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             else:
                 raise ValueError("You must specify bintable if you specify rows")
+        elif rows is None:
+            # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
+            self._hdu[0 : bintable + 2]._hdu.writeto(
+                fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
+            )
         else:
-            if rows is None:
-                # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
-                self._hdu[0 : bintable + 2]._hdu.writeto(
-                    fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
-                )
-            else:
-                hdu0 = self._hdu[0].copy()
-                # need to get imports correct first
-                # hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
-                outhdu = fits.HDUList(hdu0)
-                outbintable = self._bintable_from_rows(rows, bintable)
-                outhdu.append(outbintable)
-                outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
-                outhdu.close()
+            hdu0 = self._hdu[0].copy()
+            # need to get imports correct first
+            # hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
+            outhdu = fits.HDUList(hdu0)
+            outbintable = self._bintable_from_rows(rows, bintable)
+            outhdu.append(outbintable)
+            outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            outhdu.close()
 
     def rename_column(self, oldname, newname):
         """

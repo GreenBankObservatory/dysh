@@ -1381,21 +1381,19 @@ class Flag(SelectionBase):
                 for i, v in enumerate(values):
                     if v.strip() == "*":
                         continue
+                    elif header[i] == "IDSTRING":
+                        vdict[header[i]] = v
+                    # handle comma-separated lists
+                    elif "," in v:
+                        vdict[header[i]] = [int(float(x)) for x in v.split(",")]
+                    # handle colon-separated ranges by expanding into a comma-separated list.
+                    elif ":" in v:
+                        vdict[header[i]] = [int(float(x)) for x in range(*map(int, v.split(":")))] + [
+                            int(v.split(":")[-1])
+                        ]
+                    # handle single values
                     else:
-                        if header[i] == "IDSTRING":
-                            vdict[header[i]] = v
-                        else:
-                            # handle comma-separated lists
-                            if "," in v:
-                                vdict[header[i]] = [int(float(x)) for x in v.split(",")]
-                            # handle colon-separated ranges by expanding into a comma-separated list.
-                            elif ":" in v:
-                                vdict[header[i]] = [int(float(x)) for x in range(*map(int, v.split(":")))] + [
-                                    int(v.split(":")[-1])
-                                ]
-                            # handle single values
-                            else:
-                                vdict[header[i]] = int(float(v))
+                        vdict[header[i]] = int(float(v))
 
                 # our tag is gbtidl's idstring
                 tag = vdict.pop("IDSTRING", None)

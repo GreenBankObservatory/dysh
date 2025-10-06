@@ -666,7 +666,6 @@ class GBTForecastScriptInterface:
 
     def _parse_list_values(self, vartype: str, script_output: str) -> np.ndarray:
         """parse script output when values are returned instead of coefficients"""
-        #
         lines = script_output.split("\n")
         # tau = []
         out = None

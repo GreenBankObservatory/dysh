@@ -2709,9 +2709,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 outhdu[0].header["COMMENT"] = c
             if total_rows_written == 0:  # shouldn't happen, caught earlier
                 raise Exception("Your selection resulted in no rows to be written")
-            else:
-                if verbose:
-                    print(f"Writing {total_rows_written} to {fileobj}")
+            elif verbose:
+                print(f"Writing {total_rows_written} to {fileobj}")
             # outhdu.update_extend()  # possibly unneeded
             outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             outhdu.close()
