@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import ClassVar
 
 import astropy.constants as ac
 import astropy.units as u
@@ -131,7 +132,10 @@ class GBTGainCorrection(BaseGainCorrection):
          Default None will use dysh's internal GBT gain correction table.
     """
 
-    _valid_scales = ["ta", "ta*", "flux"]
+    # Note: This variable shares state across all instances of this class
+    # TODO: Verify that we want this to happen
+    # See https://docs.astral.sh/ruff/rules/mutable-class-default/
+    _valid_scales: ClassVar[list[str]] = ["ta", "ta*", "flux"]
 
     def __init__(self, gain_correction_table: Path = None):  # noqa: RUF013
         if gain_correction_table is None:
