@@ -30,7 +30,7 @@ def plot_vegas(sdf, scans, title=None, tsys=False, inverse=False, edge=50, ylim=
 
     """
 
-    fig, ax = plt.subplots(4, 4, sharex="col", sharey="row", gridspec_kw={"hspace": 0, "wspace": 0})
+    _fig, ax = plt.subplots(4, 4, sharex="col", sharey="row", gridspec_kw={"hspace": 0, "wspace": 0})
 
     for r in range(4):
         for c in range(4):

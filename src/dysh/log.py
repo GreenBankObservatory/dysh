@@ -214,7 +214,7 @@ def log_function_call(log_level: str = "info"):
             try:
                 result = func(*args, **kwargs)
             except:  # noqa: E722 - intentionally catch all to manipulate traceback
-                tp, exc, tb = sys.exc_info()
+                _tp, exc, tb = sys.exc_info()
                 # Re-raise with modified traceback to hide this wrapper from stack trace
                 raise exc.with_traceback(tb.tb_next) from None
             # Log the function name and arguments
@@ -302,14 +302,14 @@ def log_call_to_result(func: Callable):
             try:
                 result = func(*args, **kwargs)
             except:  # noqa: E722 - intentionally catch all to manipulate traceback
-                tp, exc, tb = sys.exc_info()
+                _, exc, tb = sys.exc_info()
                 # Re-raise with modified traceback to hide this wrapper from stack trace
                 raise exc.with_traceback(tb.tb_next) from None
         else:
             try:
                 result = func(self, *args, **kwargs)
             except:  # noqa: E722 - intentionally catch all to manipulate traceback
-                tp, exc, tb = sys.exc_info()
+                _tp, exc, tb = sys.exc_info()
                 # Re-raise with modified traceback to hide this wrapper from stack trace
                 raise exc.with_traceback(tb.tb_next) from None
         resultname = result.__class__.__name__
@@ -374,14 +374,14 @@ def log_call_to_history(func: Callable):
             try:
                 result = func(*args, **kwargs)
             except:  # noqa: E722 - intentionally catch all to manipulate traceback
-                tp, exc, tb = sys.exc_info()
+                _, exc, tb = sys.exc_info()
                 # Re-raise with modified traceback to hide this wrapper from stack trace
                 raise exc.with_traceback(tb.tb_next) from None
         else:  # it's a class instance
             try:
                 result = func(self, *args, **kwargs)
             except:  # noqa: E722 - intentionally catch all to manipulate traceback
-                tp, exc, tb = sys.exc_info()
+                _, exc, tb = sys.exc_info()
                 # Re-raise with modified traceback to hide this wrapper from stack trace
                 raise exc.with_traceback(tb.tb_next) from None
             classname = self.__class__.__name__

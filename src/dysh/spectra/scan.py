@@ -100,7 +100,7 @@ class SpectralAverageMixin:
             decimate = int(abs(width))
             if not float(width).is_integer():
                 logger.info(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
-        clen, nchan = self._calibrated.shape
+        clen, _nchan = self._calibrated.shape
         sdata = []
         smask = []
         meta = []

@@ -685,7 +685,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             convention : str
                 The velocity convention
         """
-        (convention, frame) = decode_veldef(veldef)
+        (convention, _frame) = decode_veldef(veldef)
         return convention
 
     def velocity_frame(self, veldef):
@@ -702,7 +702,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             frame: str
                 The velocity frame
         """
-        (convention, frame) = decode_veldef(veldef)
+        (_convention, frame) = decode_veldef(veldef)
         return frame
 
     def _select_scans(self, scans, df):
