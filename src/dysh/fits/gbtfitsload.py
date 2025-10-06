@@ -991,12 +991,32 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
-        if next(iter(set(self["INSTRUME"]))) != "VEGAS":
-            logger.warning(f"This does not appear to be VEGAS data. The FITS header say INSTRUME={self['INSTRUME']}")
-        vsprval = next(iter(set(self["VSPRVAL"])))
-        vspdelt = next(iter(set(self["VSPDELT"])))
-        vsprpix = next(iter(set(self["VSPRPIX"])))
-        self.flag_channel(calc_vegas_spurs(vsprval, vspdelt, vsprpix, flag_central), tag="AUTO_VEGAS_SPURS")
+        if "INSTRUME" in self._selection:
+            if next(iter(set(self["INSTRUME"]))) != "VEGAS":
+                logger.warning(
+                    f"This does not appear to be VEGAS data. The FITS header says INSTRUME={self['INSTRUME']}. No channels will be flagged."
+                )
+                return
+        else:
+            logger.warning(
+                "This may not be VEGAS data. There is no 'INSTRUME' keyword in the FITS header to distinguish the backend. No channels will be flagged."
+            )
+            return
+        try:
+            vsprval = next(iter(set(self["VSPRVAL"])))
+            vspdelt = next(iter(set(self["VSPDELT"])))
+            vsprpix = next(iter(set(self["VSPRPIX"])))
+            spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, flag_central)
+            maxnchan = max([b for b in uniq(self["BINTABLE"])])
+            if spurs[0] < 0 or spurs[:1] > maxnchan:
+                logger.warning(
+                    "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
+                )
+            self.flag_channel(channel=spurs, tag="AUTO_VEGAS_SPURS")  # add S so not ignored in re-read. See Flag.read.
+        except KeyError as k:
+            logger.warning(
+                f"Can't determine VEGAS spur locations because one or more VSPR keywords are missing from the FITS header {k}"
+            )
 
     @log_call_to_history
     def apply_flags(self):
