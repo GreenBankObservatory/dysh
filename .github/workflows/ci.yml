@@ -41,7 +41,8 @@ jobs:
           COVERAGE_FILE: "coverage.${{ matrix.os }}.${{ matrix.python-version }}"
         run: |
           # Write coverage data files, namespaced using matrix info
-          uv run pytest --numprocesses auto --cov=dysh
+          # Run all tests including slow ones (override -m not slow from pyproject.toml)
+          uv run pytest --numprocesses auto --cov=dysh -m ""
       - name: Upload coverage data
         # Upload only ubuntu results, since we are only running the coverage step on ubuntu
         if: matrix.os == 'ubuntu-latest'

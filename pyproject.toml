@@ -161,7 +161,10 @@ select = [
   "PD", # https://docs.astral.sh/ruff/rules/pandas-vet-pd
   "RUF", # https://docs.astral.sh/ruff/rules/ruff-specific-rules-ruf
   "UP", # https://docs.astral.sh/ruff/rules/printf-string-formatting/
-
+  "S101", # https://docs.astral.sh/ruff/rules/assert/
+  "T10", # https://docs.astral.sh/ruff/rules/#flake8-debugger-t10
+  "PLR5501", # https://docs.astral.sh/ruff/rules/collapsible-else-if/
+  "PLR2044", # https://docs.astral.sh/ruff/rules/empty-comment/
 ]
 fixable = ["ALL"]
 ignore = [
@@ -179,7 +182,7 @@ combine-as-imports = true
 [tool.ruff.lint.per-file-ignores]
 # Ignore  in all `__init__.py` files
 "__init__.py" = ["ALL"]
-"**/{tests,docs,tools}/*" = ["E402", "B011", "B017"]
+"**/{tests,docs,tools}/*" = ["E402", "B011", "B017", "S101"]
 # The stuff in the attic doesn't need to be linted at all
 "attic/**" = ["ALL"]
 
@@ -193,8 +196,13 @@ filterwarnings = [
 # Ignore tests that should only be run on the GBO network
 # By convention these should be named "test_{something}_gbo_only.py"
 addopts = [
-  "--ignore-glob='*_gbo_only.py'",
-  "--timeout=300"
+  "--ignore-glob=*_gbo_only.py",
+  "--timeout=300",
+  "-m not slow"  # Skip slow tests by default
+]
+markers = [
+    "slow: marks tests as slow (run with 'pytest -m slow' or 'pytest -m \"\"')",
+    "notebooks: marks notebook tests (run with 'pytest -m notebooks')",
 ]
 
 [build-system]
