@@ -65,6 +65,7 @@ dev = [
   "sphinx-inline-tabs",
   "sphinxcontrib-mermaid",
   "dysh[all]", # ensure that all extras are included in dev envs
+  "pytest-timeout>=2.4.0",
 ]
 
 [project.urls]
@@ -191,7 +192,10 @@ filterwarnings = [
 ]
 # Ignore tests that should only be run on the GBO network
 # By convention these should be named "test_{something}_gbo_only.py"
-addopts = "--ignore-glob='*_gbo_only.py'"
+addopts = [
+  "--ignore-glob='*_gbo_only.py'",
+  "--timeout=300"
+]
 
 [build-system]
 requires = ["hatchling"]
