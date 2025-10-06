@@ -3,6 +3,7 @@ Core functions for FITS/SDFITS
 """
 
 __all__ = [
+    "ColDef",
     "default_sdfits_columns",
     "summary_column_definitions",
 ]
@@ -121,7 +122,7 @@ class ColDef:
     stored in the operation attribute. For a description of the operations see
     `https://pandas.pydata.org/pandas-docs/stable/user_guide/groupby.html#built-in-aggregation-methods`_.
     The type attribute is the data type for the column. The name attribute is
-    the name to be shown if `verbose=False`.
+    the name to be shown when using `summary(verbose=False)`.
     The scale attribute is the factor by which to scale the column.
     The post attribute is any post operations to apply to the column after being aggregated.
     """
