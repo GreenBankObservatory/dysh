@@ -42,7 +42,7 @@ jobs:
         run: |
           # Write coverage data files, namespaced using matrix info
           # Run all tests including slow ones, but skip GBO-only tests that require GBO network access
-          uv run pytest --numprocesses auto --cov=dysh -m "not gbo_only"
+          uv run pytest --numprocesses auto --cov=dysh -m "not gbo_only" --timeout=600
       - name: Upload coverage data
         # Upload only ubuntu results, since we are only running the coverage step on ubuntu
         if: matrix.os == 'ubuntu-latest'
