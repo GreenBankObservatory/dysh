@@ -56,7 +56,6 @@ valid_dysh_example = {
     "getps0"     : "positionswitch/data/AGBT05B_047_01/AGBT05B_047_01.raw.acs",                             #  NGC5291  old test1
     "getps2"     : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415   - old getps
     "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",        #  NGC2415, NGC2782 etc. - total 15GB
-                   #
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
     "getfs2"     : "frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/",    #  W3OH    # staff training FS
     "subbeamnod" : "subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/",   #  vIIzw31      example/subbeamnod    staff training SBN -- no signal?
@@ -286,7 +285,6 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
             my_test = valid_dysh_test[my_test]
         else:
             my_test = test
-        #
         if dysh_data is not None:
             fn = dysh_data / "testdata" / my_test
             if not fn.exists():

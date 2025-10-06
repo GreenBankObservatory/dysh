@@ -2452,7 +2452,6 @@ class FSScan(ScanBase):
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._calc_exposure()
-        #
         sig_freq = self._sigcaloff[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]
@@ -2504,13 +2503,12 @@ class FSScan(ScanBase):
                         self._calibrated[i] = cal_ref_fold
                         self._tsys[i] = tsys_sig
 
+                elif self._use_sig:
+                    self._calibrated[i] = cal_sig
+                    self._tsys[i] = tsys_ref
                 else:
-                    if self._use_sig:
-                        self._calibrated[i] = cal_sig
-                        self._tsys[i] = tsys_ref
-                    else:
-                        self._calibrated[i] = cal_ref
-                        self._tsys[i] = tsys_sig
+                    self._calibrated[i] = cal_ref
+                    self._tsys[i] = tsys_sig
         else:
             for i in range(nspect):
                 tsys = self._tsys[i]
@@ -2534,11 +2532,10 @@ class FSScan(ScanBase):
                         self._calibrated[i] = cal_sig_fold
                     else:
                         self._calibrated[i] = cal_ref_fold
+                elif self._use_sig:
+                    self._calibrated[i] = cal_sig
                 else:
-                    if self._use_sig:
-                        self._calibrated[i] = cal_sig
-                    else:
-                        self._calibrated[i] = cal_ref
+                    self._calibrated[i] = cal_ref
 
         if _fold:
             self._exposure = 2 * self.exposure

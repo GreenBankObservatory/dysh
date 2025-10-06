@@ -1074,14 +1074,12 @@ class TestGBTFITSLoad:
     def test_online(self, tmp_path):
         f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
-        #
         sdfits = tmp_path / "sdfits"
         sdfits.mkdir()
         os.environ["SDFITS_DATA"] = str(sdfits)
         print("PJT1", sdfits)
         o1 = sdfits / "online.fits"
         print("PJT2", o1)
-        #
         shutil.copyfile(f1, o1)
         sdf = gbtfitsload.GBTOnline()
         s = sdf.summary()
