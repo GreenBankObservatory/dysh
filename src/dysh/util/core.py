@@ -462,7 +462,7 @@ def convert_array_to_mask(a, length, value=True):
 
     """
 
-    if a == ALL_CHANNELS:
+    if str(a) == ALL_CHANNELS:
         return np.full(length, value)
 
     mask = np.full(length, False)
@@ -640,5 +640,5 @@ def calc_vegas_spurs(vsprval: float, vspdelt: float, vsprpix: float, keep_centra
         # Which actually is ambiguous but we will take to mean e.g. 8192 when NCHAN=16384
         # This produces the same return array as GBTIDL dcspurschan.pro
         central = len(spurs) // 2
-        return spurs[np.arange(len(spurs)) != central].astype(int)
-    return spurs.astype(int)
+        return np.sort(spurs[np.arange(len(spurs)) != central].astype(int))
+    return np.sort(spurs.astype(int))
