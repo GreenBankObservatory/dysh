@@ -169,8 +169,7 @@ ignore = [
   "RUF052", # dummy var used
   "PD015", # TODO: This really should be removed
   "E501", # line too long TODO: This really should be removed
-  "NPY002",
-  # "RUF012",
+  "NPY002", # https://docs.astral.sh/ruff/rules/numpy-legacy-random/
 ]
 
 [tool.ruff.lint.isort]
