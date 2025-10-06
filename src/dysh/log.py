@@ -334,7 +334,7 @@ def log_call_to_result(func: Callable):
                 if hasattr(result, "_history"):
                     result._history.extend(log_str)
         else:
-            logger.warn(f"Class {resultname} has no _history attribute. Use @log_function_call instead.")
+            logger.warning(f"Class {resultname} has no _history attribute. Use @log_function_call instead.")
         return result
 
     return wrapper
@@ -367,7 +367,7 @@ def log_call_to_history(func: Callable):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self is None:  # not a class, but a function
-            logger.warn(
+            logger.warning(
                 f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use"
                 " @log_function_call instead."
             )
@@ -406,7 +406,7 @@ def log_call_to_history(func: Callable):
                     if hasattr(result, "_history"):
                         result._history.extend(log_str)
             else:
-                logger.warn(
+                logger.warning(
                     f"Class {func.__module__}.{classname} has no _history attribute. Use @log_function_call instead."
                 )
         return result
@@ -490,12 +490,11 @@ class HistoricalBase(ABC):  # noqa: B024
                     self.add_comment(h, add_time=False)
             else:
                 self._comments.extend(comment)
+        elif add_time:
+            h = f"{_time} - {comment}"
+            self._comments.append(h)
         else:
-            if add_time:
-                h = f"{_time} - {comment}"
-                self._comments.append(h)
-            else:
-                self._comments.append(comment)
+            self._comments.append(comment)
 
     def add_history(self, history: str | StrList, add_time: bool = False) -> None:
         """
@@ -523,12 +522,11 @@ class HistoricalBase(ABC):  # noqa: B024
                     self.add_history(h, add_time=False)
                 else:
                     self._history.extend(history)
+        elif add_time:
+            h = f"{_time} - {history}"
+            self._history.append(h)
         else:
-            if add_time:
-                h = f"{_time} - {history}"
-                self._history.append(h)
-            else:
-                self._history.append(history)
+            self._history.append(history)
 
     # def merge_commentary(self, other: Self) -> None:  # Self not available until python 3.11
     def merge_commentary(self, other: object) -> None:
