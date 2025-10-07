@@ -76,8 +76,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
     flag_vegas: bool
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
-        and ignore VEGAS_SPUR flag rules in flag files.
-
+        and ignore VEGAS_SPUR flag rules in flag files. Note this parameter is independent of 'skip_flags', which
+        controls only the reading of the flag file.  If you want no flags at all, use `skipflags=True, flag_vegas=False`.
     """
 
     @log_call_to_history
@@ -1008,7 +1008,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             vsprpix = next(iter(set(self["VSPRPIX"])))
             spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, flag_central)
             maxnchan = max([self.nchan(b) for b in uniq(self["BINTABLE"])]) - 1
-            print(maxnchan)
             if spurs[0] < 0 or spurs[:1] > maxnchan:
                 logger.warning(
                     "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
