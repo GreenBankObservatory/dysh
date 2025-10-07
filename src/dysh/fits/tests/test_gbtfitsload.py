@@ -66,7 +66,7 @@ class TestGBTFITSLoad:
         assert fnm == sdf.filename
 
         fnm = Path(f"{self.data_dir}/AGBT20B_014_03.raw.vegas")
-        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf = gbtfitsload.GBTFITSLoad(fnm, skipflags=True)
         assert fnm == sdf.filename
 
     def test_getspec(self):
@@ -130,7 +130,7 @@ class TestGBTFITSLoad:
         out_file2 = tmp_path / "test_data_2.fits"
         pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
         pssb.write(out_file2, overwrite=True)
-        # there is a bugthat the binheader in gbtfitsload doesn't exist, so we use sdfitsload
+        # there is a bug that the binheader in gbtfitsload doesn't exist, so we use sdfitsload
         for f in [fnm, out_file, out_file2]:
             sdf = sdfitsload.SDFITSLoad(f)
             assert sdf.binheader[0]["TTYPE7"] == "DATA"
@@ -1673,6 +1673,20 @@ class TestGBTFITSLoad:
             assert tsys == pytest.approx(212.62577140649026)
         else:
             assert tsys == pytest.approx(221.82213493114335)
+
+    def test_vegas_flags(self):
+        # check that algorithmically applying vegas flags
+        # gives the same mask array as when reading from a flag file.
+        sdf_file = util.get_project_testdata() / "AGBT22A_325_15/"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        sdf.apply_flags()
+        saveflags0 = sdf._sdf[0]._flagmask.copy()
+        saveflags1 = sdf._sdf[1]._flagmask.copy()
+        sdf.clear_flags()
+        sdf.flag_vegas_spurs()
+        sdf.apply_flags()
+        assert np.all(sdf._sdf[0]._flagmask.all() == saveflags0.all())
+        assert np.all(sdf._sdf[1]._flagmask.all() == saveflags1.all())
 
 
 def test_parse_tsys():
