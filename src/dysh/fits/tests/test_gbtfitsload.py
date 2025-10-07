@@ -1391,7 +1391,7 @@ class TestGBTFITSLoad:
         """
 
         fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
 
         # Nothing to flag.
         sdf.qd_flag()
@@ -1643,7 +1643,7 @@ class TestGBTFITSLoad:
         """Test for calseq"""
 
         sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0)
         assert tsys == pytest.approx(106.97707617351139)
@@ -1658,7 +1658,7 @@ class TestGBTFITSLoad:
         """Test for vanecal"""
 
         sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         tcal = 272
         ifnum = 0

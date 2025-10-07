@@ -334,7 +334,7 @@ class TestSubBeamNod:
         """Test subbeamnod using synthithic spectra."""
         # Load a file with subbeamnod observations.
         sdf_file = f"{data_dir}/TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         # Generate fake data.
         def gauss(x, a, s, c):
