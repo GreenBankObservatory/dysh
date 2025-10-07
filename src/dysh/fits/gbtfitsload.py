@@ -1012,6 +1012,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.warning(
                     "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
                 )
+                return
             self.flag_channel(channel=spurs, tag="AUTO_VEGAS_SPURS")  # add S so not ignored in re-read. See Flag.read.
         except KeyError as k:
             logger.warning(
