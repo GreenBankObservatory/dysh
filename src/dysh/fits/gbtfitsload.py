@@ -1007,7 +1007,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             vspdelt = next(iter(set(self["VSPDELT"])))
             vsprpix = next(iter(set(self["VSPRPIX"])))
             spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, flag_central)
-            maxnchan = max([b for b in uniq(self["BINTABLE"])]) - 1
+            maxnchan = max([self.nchan(b) for b in uniq(self["BINTABLE"])]) - 1
+            print(maxnchan)
             if spurs[0] < 0 or spurs[:1] > maxnchan:
                 logger.warning(
                     "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
