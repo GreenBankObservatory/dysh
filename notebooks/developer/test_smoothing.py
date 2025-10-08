@@ -3,6 +3,7 @@
 # fmt: off
 
 import numpy as np
+import numpy.ma as ma
 import matplotlib.pyplot as plt
 
 import astropy.units as u
@@ -24,6 +25,12 @@ def parr(data, n, w=1):
     """ print  values of an array +/-w around n
     """
     print(data[n-w:n+w+1])
+    
+def stats(sp):
+    """ some more sstats on a spectrum
+    """
+    n = len(np.where(np.isnan(sp.flux))[0])
+    print("nans:",n)
     
     
 #%%  testing simple spectra; even though we're not using specutils anymore
@@ -68,7 +75,9 @@ sp1s = p1s[0].calibrated(0)
 d1s = sp1s.flux.value
 
 np.where(np.isnan(d1))   # 3072
-
+# after ...
+# [3069, 3070, 3071, 3072, 3073, 3074, 3075]
+    
 #%% grab GBTIDL data
 example1=\
     """
@@ -126,7 +135,9 @@ ta0.plot(xaxis_unit="chan",grid=True)
 #  31000..32768  edge effect
 flags1 = [[2,2],[130,200],[1000,2000],[2860,3010],[31000,32768]]
 flags2 = [14000,18000]
-flags3 = [[2,2],[130,200],[1000,2000],[2860,3010],[14000,18000],[31000,32768]]
+flags3 = [[130,200],[1000,2000],[2860,3010],[14000,18000],[31000,32768]]
+flags3t = list(map(tuple,flags3))
+
 sdfits.flags.clear()
 sdfits.flag_channel(flags1)
 sdfits.flags.show()
@@ -136,14 +147,20 @@ ta1.plot(xaxis_unit="chan",  grid=True)
 
 
 ta1.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)], remove=True)
+# this now shows odd sections where baseline is -0.2 from the old continuum
+
 #ta1.baseline(model="chebyshev", degree=2, exclude=[flags2], remove=True)      #  IndexError: list index out of range
 #ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
 ta1.plot(xaxis_unit="chan", grid=True)
 
 flags1.append(flags2)
 print(flags1)
-ta0.baseline(model="chebyshev", degree=2, exclude=flags3, remove=True)
+#ta0.baseline(model="chebyshev", degree=2, exclude=flags3, remove=True)
 # ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+# see issue 783
+ta0.baseline(model="chebyshev", degree=2, exclude=flags3t, remove=True)
+
+
 
 ta0.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
 
@@ -159,9 +176,30 @@ sdfits.flag(scan=20,
 
 
 
+#%%
 
+a=np.arange(20.0)
+a1 = ma.masked_array(a, mask=a>10)
+print(a.mean())
+print(a1.mean())
+a[5] = np.nan
+print(a.mean())
+print(np.nanmean(a))
+print(np.nanmean(a1))
 
+#%%
 
+ta = GBTFITSLoad(dysh_data(test="getps")).getps(ifnum=0, plnum=0, fdnum=0).timeaverage()
+print(ta.flux[1])
+ta._data[1] = np.nan
+print(ta.flux[1])
+
+# note we need _data to patch manually, but _mask and mask are the same.
+ta.mask[2] = True
+print(ta.flux[2])
+
+ta.mask[2] = False
+print(ta.flux[2])
 #%%   partial solution in spectrum.py smooth
 
         # in core.smooth, we fill masked values with np.nan.
@@ -173,3 +211,18 @@ sdfits.flag(scan=20,
         
         # in spectrum.core.smooth
         new_data = convolve(data, kernel, boundary="extend",  nan_treatment="fill", fill_value=np.nan, mask=mask)
+
+#%%
+
+
+from dysh.spectra.spectrum import Spectrum
+f = Spectrum.fake_spectrum()
+f.plot()
+f.mask[1:100] = True
+f.plot()
+
+f1 = f.smooth('box',11)
+f1.plot()
+# this looks good
+
+
