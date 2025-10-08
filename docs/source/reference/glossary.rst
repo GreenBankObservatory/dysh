@@ -8,7 +8,8 @@ A dysh glossary
 
 
     argus
-      yes, this is an abbreviation of sorts - https://www.gb.nrao.edu/argus/
+      A 16-:term:`pixel` W-band focal plane array in use at the GBT. Named after a mythical figure.
+      See https://www.gb.nrao.edu/argus/
 
     band
       A coherent section of channels in frequency space, all with
@@ -43,17 +44,24 @@ A dysh glossary
       calculated so that the receiver is always pointing at the source. This is most
       useful for point sources. See also :term:`Position Switching`
 
-    blanking vs flagging vs masking
-      flagging defines the rules for blanking data, blanking actually applies them
+    bintable
+      see also FITS
 
-      blanking is also a term used in the (VEGAS) correllator, where bad data has been replaced
-      with a zero (?) value.
+    blanking
+      blanking is a term used in the (VEGAS) correllator, where bad data has been replaced
+      with a zero (?) value. Not to be confused with the concepts :term:`flagging`
+      and :term:`masking` in dysh
+
+    CAL
+      see also SIG
 
     caloff
       Signal with no calibration diode in the signal path.
 
     calon
       Signal with a calibration diode in the signal path.
+
+    cog - Curve of Growth
 
     DYSH_DATA
       (optional) environment variable pointing to a directory for a convenient view of
@@ -78,8 +86,14 @@ A dysh glossary
       pure spectra.  **SDFITS** seems overly complex. CLASS needs to
       be supported.
 
-    flagging vs. masking
-      flagging is non-destructive.
+    flagging
+      flagging is a non-destructive operation, typically done ...
+      See also :term:`masking`
+
+      VEGAS flagging.
+
+    flag files
+      SDFITS files can have a separate flag file, which is a small ASCII file
 
     FWHM
       (Full Width Half Max): the effective resolution of the
@@ -109,31 +123,34 @@ A dysh glossary
       Also used as the intnum= keyword in getXX()
 
     kfpa
-      K-band Focal Plane Array
+      K-band Focal Plane Array, a hexagonal set of beams, with a central beam.
 
-    masking vs. flagging vs. blanking
-      Masking removes or hides pixels,
+    masking
+      Masking removes or hides the value in the spectrum.
+      As in numpy, as mask value of True means the underlying value is not used.
       while flagging keeps the pixels but attaches a status to them for later filtering or analysis. (google)
 
-      blanking is destructive.
+      A spectrum flux is an (astropy) Quantity. they don't use masks.
 
-      OK  google is also very conflicted here.  Compare python:
+      See also :term:`flagging`
 
-      In python a mask is True/False, where True indicates an element of the array is to be selected.
+    metadata
+      describes data.
 
     multi-beam
       If an instrument has multiple beams that typically point are different areas in the sky
       (e.g. **ARGUS** in a 4x4 configuration, and **Kfpa** in a 7 beam hexagonal shape).
 
     Nod or Nodding
-      An observing mode ...
+      An observing mode where two beams alternatingly look at source and (different) sky.
 
     OTF Mapping
       In this procedure the telescope is scanned across the sky to sample the emission.
       The samples are then "gridded" into a map.
 
     pixel
-      An overloaded term. Sometimes referred to as the :term:`beam`, but usually interpreted as
+      An overloaded term. Sometimes referred to as the :term:`beam`, but usually interpreted
+      in image processing as
       the size of a single (usually square) element in a gridded map (e.g. from an OTF), which
       we commonly also refer to as a *picture element*.
 
@@ -194,6 +211,9 @@ A dysh glossary
       Sanson-Flamsteed projection, sometimes used in gridding OTF maps.
       (the GLS - GLobal Sinusoidal is similar to SFL).
 
+    SiG
+      signal - see also cal
+
     Spectral Window
       In ALMA commonly abbreviated as **spw**, this is closest to what we call a **bank**,
       or **band**, a set of linearly spaced channels.
@@ -206,10 +226,16 @@ A dysh glossary
       defined by its own seting of *(crval, crpix, cdelt)* in a FITS WCS sense.
 
     SubBeamNod
-      Subreflect Beam Nodding. The getXX() is now called `subbeamnod`
+      Subreflector Beam Nodding. The getXX() is now called `subbeamnod`
+
+    tcal
+      Derive the noise diode temperature from observations
 
     VEGAS
       Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
+
+    waterfall plot
+      plot ...
 
     Window
       See **Spectral Window**
