@@ -30,13 +30,13 @@ If no value of ``vc`` is provided, the uncertainty in the estimated :math:`v_{\m
 
     \sigma_{v_{\mathrm{c}}}^{2}=\left(\frac{v_{\mathrm{c}}}{\sum_{i} T(v_{i})v_{i}}\sqrt{\sum (v\sigma)^{2}}\right)^{2}+\left(\sqrt{N}\sigma \frac{v_{\mathrm{c}}}{\sum_{i} T(v_{i})}\right)^{2},
 
-where :math:`N` is the number of channels and :math:`sigma` is the rms in the line free channels.
+where :math:`N` is the number of channels and :math:`\sigma` is the rms in the line free channels.
 
 Line Area
 =========
 
-For the line area we use the same definition as `Yu et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_, their equation (1).
-To determine the line intensity, flux intensity :math:`F_{\mathrm{t}}`, we take the median of :math:`F_{\mathrm{t}}(v)` after it becomes flat.
+For the line area (or line intensity, flux intensity, integrated intensity) we use the same definition as `Yu et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_, their equation (1).
+To determine the line area, :math:`F_{\mathrm{t}}`, we take the median of :math:`F_{\mathrm{t}}(v)` after it becomes flat.
 To determine the point at which :math:`F_{\mathrm{t}}(v)` becomes flat, we estimate the slope of :math:`F_{\mathrm{t}}(v)` and take the point at which the slope, :math:`s`, satisfies
 
 .. math::
@@ -44,11 +44,11 @@ To determine the point at which :math:`F_{\mathrm{t}}(v)` becomes flat, we estim
     s<f\sigma_{s},
 
 with :math:`f` being the parameter ``flat_tol`` (defaults to 0.1) and :math:`\sigma_{s}` is the rms of :math:`s`.
-The estimated line intensity is returned as the ``flux`` entry in the return dictionary.
+The estimated line area is returned as the ``flux`` entry in the return dictionary.
 
-The uncertainty in the line intensity is estimated as the rms of :math:`F_{\mathrm{t}}(v)` after it becomes flat.
-This also incorporates 3% of the line intensity, which was determined empirically using synthetic spectra (added in quadrature to the rms of :math:`F_{\mathrm{t}}(v)`).
-The uncertainty in the line intensity is returned as the ``flux_std`` entry in the return dictionary.
+The uncertainty in the line area is estimated as the rms of :math:`F_{\mathrm{t}}(v)` after it becomes flat.
+This also incorporates 3% of the line area, which was determined empirically using synthetic spectra (added in quadrature to the rms of :math:`F_{\mathrm{t}}(v)`).
+The uncertainty in the line area is returned as the ``flux_std`` entry in the return dictionary.
 
 Line Width
 ==========
@@ -64,7 +64,7 @@ For example,
     cog = Spectrum.cog()
     cog["width"][0.5]
 
-is the line width that encompases 50% of the line intensity.
+is the line width that encompases 50% of the line area.
 
 To estimate the uncertainty in the line width we compute the error in the normalized curve of growth, :math:`\hat{F}=F_{\mathrm{t}}(v)/F_{\mathrm{t}}`,
 
@@ -72,9 +72,9 @@ To estimate the uncertainty in the line width we compute the error in the normal
 
     \sigma_{\hat{F}}^{2}=\left(\frac{\hat{F}}{F_{\mathrm{t}}(v)}\sigma_{F_{\mathrm{t}}(v)}\right)^{2}+\left(\frac{\hat{F}}{F_{\mathrm{t}}}\sigma_{F_{\mathrm{t}}}\right)^{2}
 
-with :math:`\sigma_{F_{\mathrm{t}}(v)}` the uncertainty in the curve of growth :math:`F_{\mathrm{t}}(v)` and :math:`\sigma_{F_{\mathrm{t}}}` the uncertainty in the line intensity.
+with :math:`\sigma_{F_{\mathrm{t}}(v)}` the uncertainty in the curve of growth :math:`F_{\mathrm{t}}(v)` and :math:`\sigma_{F_{\mathrm{t}}}` the uncertainty in the line area.
 We estimate :math:`\sigma_{F_{\mathrm{t}}(v)}` as the rms in the line free channels times the channel width.
-Then, we compute the width adding and subtracting :math:`\sigma_{\hat{F}}` to :math:`\hat{F}` at each fraction of the total flux.
+Then, we compute the width adding and subtracting :math:`\sigma_{\hat{F}}` to :math:`\hat{F}` at each fraction of the line area.
 The final uncertainty is the maximum between the difference of the width and the width plus :math:`\sigma_{\hat{F}}`, the width minus :math:`\sigma_{\hat{F}}`, and the channel width.
 We add 1% of the line width to the uncertainty in the line width, which was determined empirically using synthetic spectra.
 The uncertainty in the line width is returned as the ``width_std`` entry in the return dictionary.
@@ -96,7 +96,7 @@ The assymetry parameters :math:`A_{F}` and :math:`A_{C}` are close to unity for 
 Concentration
 =============
 
-For the concentration of the line profile, :math:`C_{W}`, we use the definition of `Yu et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_
+For the concentration of the line profile, :math:`C_{V}`, we use the definition of `Yu et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_
 
 .. math::
 
