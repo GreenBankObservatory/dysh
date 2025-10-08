@@ -992,9 +992,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         if "INSTRUME" in self._selection:
-            if next(iter(set(self["INSTRUME"]))) != "VEGAS":
+            if (_inst := next(iter(set(self["INSTRUME"])))) != "VEGAS":
                 logger.warning(
-                    f"This does not appear to be VEGAS data. The FITS header says INSTRUME={self['INSTRUME']}. No channels will be flagged."
+                    f"This does not appear to be VEGAS data. The FITS header says INSTRUME={_inst}. No channels will be flagged."
                 )
                 return
         else:
