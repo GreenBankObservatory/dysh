@@ -5,17 +5,17 @@ name: CI
 on:
   push:
     branches:
-      - "main"
-      - "release*"
-      - "*-devel"
-      - "*_devel"
-      - "*-ci"
-      - "*_ci"
+    - main
+    - release*
+    - '*-devel'
+    - '*_devel'
+    - '*-ci'
+    - '*_ci'
   pull_request:  # Run on all pull requests
   workflow_dispatch:  # needed for "Run" button to show up in action
 
 env:
-  FORCE_COLOR: "1" # Make tools pretty.
+  FORCE_COLOR: '1' # Make tools pretty.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,39 +30,39 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ['3.10', '3.11', '3.12']
     steps:
-      - uses: actions/checkout@v4
-      - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.8.19"  # Update this occasionally to stay up to date!
-          python-version: ${{ matrix.python-version }}
-          enable-cache: true
-      - name: Install the project
-        run: uv sync --locked --all-extras --dev --managed-python
+    - uses: actions/checkout@v4
+    - name: Install uv and set the python version
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: 0.8.19      # Update this occasionally to stay up to date!
+        python-version: ${{ matrix.python-version }}
+        enable-cache: true
+    - name: Install the project
+      run: uv sync --locked --all-extras --dev --managed-python
       # ---- run tests WITHOUT coverage on most of the matrix ----
-      - name: Test with pytest (no coverage)
-        if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12') }}
-        run: uv run pytest --numprocesses auto --dist=worksteal -q
+    - name: Test with pytest (no coverage)
+      if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12') }}
+      run: uv run pytest --numprocesses auto --dist=worksteal -q
 
       # ---- run tests WITH coverage on a single env ----
-      - name: Test with pytest
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
-        run: uv run pytest --numprocesses auto --dist=worksteal --cov=dysh --durations=20
+    - name: Test with pytest
+      if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
+      run: uv run pytest --numprocesses auto --dist=worksteal --cov=dysh --durations=20
 
       # ---- generate reports & upload ----
-      - name: Coverage report & HTML
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
-        run: |
-          uv run coverage html --skip-covered --skip-empty
-          uv run coverage xml
-          echo "### Coverage Report" >> $GITHUB_STEP_SUMMARY
-          uv run coverage report | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
+    - name: Coverage report & HTML
+      if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
+      run: |
+        uv run coverage html --skip-covered --skip-empty
+        uv run coverage xml
+        echo "### Coverage Report" >> $GITHUB_STEP_SUMMARY
+        uv run coverage report | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload HTML report
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: html-report
-          path: htmlcov
+    - name: Upload HTML report
+      if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: html-report
+        path: htmlcov
