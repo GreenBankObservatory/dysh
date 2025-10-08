@@ -458,13 +458,12 @@ class TestSpectrum:
         f1 = Spectrum.fake_spectrum()
         f1.mask[100:200] = True
         assert f1.mask.sum() == 100
-        f2 = f1.smooth("box",11)
+        f2 = f1.smooth("box", 11)
         assert f2.mask.sum() == 10
-        f3 = f1.smooth("gaussian",11)
+        f3 = f1.smooth("gaussian", 11)
         assert f3.mask.sum() == 14
-        f4 = f1.smooth("hanning",11)
+        f4 = f1.smooth("hanning", 11)
         assert f4.mask.sum() == 14
-        
 
     def test_smooth_nodecimate(self):
         """Test for smooth without decimation."""

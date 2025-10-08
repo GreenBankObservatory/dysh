@@ -22,8 +22,8 @@ from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum as Spectrum1D
 
-from dysh.spectra import core
 from dysh.log import logger
+from dysh.spectra import core
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
@@ -248,7 +248,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # if `include` is used, transform it to `exclude`.
         if include is not None:
             if exclude is not None:
-                logger.info(f"Warning: ignoring exclude={exclude}")  # noqa: F821
+                logger.info(f"Warning: ignoring exclude={exclude}")
             exclude = core.include_to_exclude_spectral_region(include, self)
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
         if kwargs_opts["remove"]:
@@ -423,7 +423,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             logger.info(f"Note: found {nan1} NaN (masked) values")
 
-        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "nan" : nan2}
+        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "nan": nan2}
 
         return out
 
