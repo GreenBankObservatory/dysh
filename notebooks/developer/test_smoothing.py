@@ -19,7 +19,7 @@ from dysh.fits.gbtfitsload import GBTOffline
 import dysh.util as util
 from dysh.util.selection import Selection
 from dysh.util.files import dysh_data
-
+from dysh.spectra.spectrum import Spectrum
 
 def parr(data, n, w=1):
     """ print  values of an array +/-w around n
@@ -232,12 +232,14 @@ print(ta.flux[2])
 #%%
 
 
-from dysh.spectra.spectrum import Spectrum
+# from dysh.spectra.spectrum import Spectrum
 f = Spectrum.fake_spectrum()
 f.plot()
-f.mask[1:100] = True
+f.mask[100:200] = True
 f.plot()
+print(f.stats()["nan"])   # 100
 
 f1 = f.smooth('gaussian',11)
 f1.plot()
+print(f1.stats()["nan"])   # 12
 # this looks good now
