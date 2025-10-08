@@ -93,6 +93,8 @@ A dysh glossary
 
       VEGAS flagging.
 
+      flags are set on an sdfits file
+
     flag files
       SDFITS files can have a separate flag file, which is a small ASCII file
 
@@ -132,6 +134,8 @@ A dysh glossary
       while flagging keeps the pixels but attaches a status to them for later filtering or analysis. (google)
 
       A spectrum flux is an (astropy) Quantity. they don't use masks.
+
+      masks are set on a spectrum (they usually get inherited from the sdfits flags).
 
       See also :term:`flagging`
 
