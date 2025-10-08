@@ -66,6 +66,7 @@ dev = [
   "sphinxcontrib-mermaid",
   "dysh[all]", # ensure that all extras are included in dev envs
   "pytest-timeout>=2.4.0",
+  "yamlfmt>=1.1.1",
 ]
 
 [project.urls]
