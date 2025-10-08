@@ -54,7 +54,7 @@ or
 
     1.18 {\lambda \over D}
 
-with D=100 m.	  
+with D=100 m.
 
 
 Reduction of noise with **smoothref=N**:
@@ -85,5 +85,5 @@ the gain of an antenna to the root mean square (:math:`\delta`) of the antenna's
 
 As shown in :eq:`eq_sdmath2` we can ...
 
-	  
+
 Something about Doppler and Velocity Frames?
