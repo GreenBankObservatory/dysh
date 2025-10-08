@@ -133,7 +133,7 @@ ta0.plot(xaxis_unit="chan",grid=True)
 #   1000..2000   test
 #   2860..3010   galactic
 #  31000..32768  edge effect
-flags1 = [[2,2],[130,200],[1000,2000],[2860,3010],[31000,32768]]
+flags1 = [[2,3],[130,200],[1000,2000],[2860,3010],[31000,32768]]
 flags2 = [14000,18000]
 flags3 = [[130,200],[1000,2000],[2860,3010],[14000,18000],[31000,32768]]
 flags3t = list(map(tuple,flags3))
@@ -144,14 +144,22 @@ sdfits.flags.show()
 ta1 = sdfits.getps(ifnum=0, plnum=0, fdnum=0).timeaverage()
 #ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=100, ymax=600, grid=True)
 ta1.plot(xaxis_unit="chan",  grid=True)
+# ok, this shows sections it skips where the flags were set
 
+
+ta1.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)])
+   # this will show the baseline solution
+   #   doing this first seems to fix the problem in the next one
 
 ta1.baseline(model="chebyshev", degree=2, exclude=[(14000,18000)], remove=True)
 # this now shows odd sections where baseline is -0.2 from the old continuum
+# as if there are no more masks - should be an issue for Evan?
 
 #ta1.baseline(model="chebyshev", degree=2, exclude=[flags2], remove=True)      #  IndexError: list index out of range
 #ta1.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
 ta1.plot(xaxis_unit="chan", grid=True)
+# now the plot looks good
+
 
 flags1.append(flags2)
 print(flags1)
@@ -162,13 +170,22 @@ ta0.baseline(model="chebyshev", degree=2, exclude=flags3t, remove=True)
 
 
 
-ta0.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-200, ymax=300, grid=True)
+ta0.plot(xaxis_unit="chan", yaxis_unit="mK", grid=True)
 
 
 
-ts = ta1.smooth('gaussian',16)
-ts.plot(xaxis_unit="chan", yaxis_unit="mK", ymin=-100, ymax=200, grid=True)
+ts = ta1.smooth('box',31)
+ts.plot(xaxis_unit="chan",   grid=True)
+# this looks ok as long as no baseline subtraction was done
+# box looks ok 
+ts = ta1.smooth('gaussian',31)
+ts.plot(xaxis_unit="chan",   grid=True)
+# did not skip masked sections
 
+
+ts = ta1.smooth('hanning',31)
+ts.plot(xaxis_unit="chan",   grid=True)
+# ok
 
 sdfits.flag(scan=20, 
             channel=[[2300,4096]], 
@@ -221,8 +238,6 @@ f.plot()
 f.mask[1:100] = True
 f.plot()
 
-f1 = f.smooth('box',11)
+f1 = f.smooth('gaussian',11)
 f1.plot()
-# this looks good
-
-
+# this looks good now
