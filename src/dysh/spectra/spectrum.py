@@ -23,6 +23,7 @@ from ndcube import NDCube
 from specutils import Spectrum as Spectrum1D
 
 from dysh.spectra import core
+from dysh.log import logger
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     KMS,
@@ -414,7 +415,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             out = f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
             return out
 
-        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax}
+        # these two should be the same
+        nan1 = np.isnan(self.data).sum()
+        nan2 = self.mask.sum()
+        if nan1 != nan2:
+            logger.info(f"Warning: nan1={nan1}  nan2={nan2}")
+        else:
+            logger.info(f"Note: found {nan1} NaN (masked) values")
+
+        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "nan" : nan2}
 
         return out
 
@@ -548,10 +557,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             stddev = kwidth / FWHM_TO_STDDEV
 
             new_data, new_meta = core.smooth(
-                data=md * self.flux.unit,
+                data=md,
                 method=this_method,
-                ndecimate=decimate,
                 width=stddev,
+                ndecimate=decimate,
                 meta=self.meta,
                 boundary=boundary,
                 mask=mask,
@@ -560,7 +569,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 preserve_nan=preserve_nan,
             )
         else:
-            kwidth = width
             new_data, new_meta = core.smooth(
                 data=md,
                 method=this_method,
