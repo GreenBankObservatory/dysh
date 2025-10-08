@@ -940,10 +940,8 @@ class TestSpectrum:
             p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
         )
         assert mean.value == pytest.approx(p["vel"].value, abs=3 * p["vel_std"].value)
-        # Use 30x tolerance here due to platform-dependent argmin behavior when vc is between channels
-        # On some platforms, argmin may pick a different channel due to floating-point precision, causing asymmetry
         assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
-            0, abs=30 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
+            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2)
         )
         assert rms == pytest.approx(p["rms"].value, abs=1e-3)
 
