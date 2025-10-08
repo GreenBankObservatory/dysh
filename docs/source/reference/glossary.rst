@@ -8,8 +8,8 @@ A dysh glossary
 
 
     argus
-      A 16-:term:`pixel` W-band focal plane array in use at the GBT. Named after a mythical figure.
-      See https://www.gb.nrao.edu/argus/
+      A 16-:term:`pixel` W-band focal plane array in use at the GBT. Named after a mythical figure
+      with 100 eyes. See also https://www.gb.nrao.edu/argus/
 
     band
       A coherent section of channels in frequency space, all with
@@ -62,6 +62,7 @@ A dysh glossary
       Signal with a calibration diode in the signal path.
 
     cog - Curve of Growth
+      ...
 
     DYSH_DATA
       (optional) environment variable pointing to a directory for a convenient view of
@@ -114,13 +115,13 @@ A dysh glossary
 
     ifnum
       IF number (0,1,...)
-      Also used as the ifnum= keyword in getXX().
+      Also used as the **ifnum=** keyword in getXX().
 
       See also :term:`band` and :term:`window`
 
     intnum
       Integration number. 0 being the first.
-      Also used as the intnum= keyword in getXX()
+      Also used as the **intnum=** keyword in getXX()
 
     kfpa
       K-band Focal Plane Array, a hexagonal set of beams, with a central beam.
@@ -157,7 +158,7 @@ A dysh glossary
     plnum
       Polarization number (0,1,...). Usually 0 and 1, but of course up to 4 values could be present
       for a full Stokes.
-      Also used as the plnum= keyword in getXX()
+      Also used as the **plnum=** keyword in getXX()
 
     Position Switching
       This is a standard way to obtain spectra by switching
