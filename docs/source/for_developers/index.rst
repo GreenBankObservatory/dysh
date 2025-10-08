@@ -14,5 +14,3 @@ Here's some info that developers might find useful
    doc_standards
    manage_requirements
    creating_a_release
-   black
-   terminal_messages
