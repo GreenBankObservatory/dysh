@@ -23,6 +23,7 @@ def test_insert_docstr_section():
         pass
     # fmt: on
 
-    expected = "\n    This is a function.\n\n    Parameters\n    ----------\n    arg : str\n\tThis is a string.\n\n    Returns\n    -------\n    Nothing\n        "
+    # Python 3.14+ automatically dedents docstrings, removing common leading whitespace
+    expected = "\nThis is a function.\n\nParameters\n----------\narg : str\n\tThis is a string.\n\nReturns\n-------\nNothing\n    "
 
     assert fun.__doc__ == expected
