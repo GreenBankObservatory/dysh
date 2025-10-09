@@ -2,7 +2,7 @@
 name = "dysh"
 description = ''
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 keywords = []
 dynamic = ["version"]
@@ -27,7 +27,7 @@ dependencies = [
   "ipython",
   "jplephem",
   "matplotlib",
-  "numpy<2",
+  "numpy",
   "pandas",
   "rich",
   "scipy",
