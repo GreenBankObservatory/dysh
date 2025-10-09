@@ -398,18 +398,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         if roll == 0:
-            mean = self.mean()
-            median = self.median()
+            mean = np.nanmean(self.flux)
+            median = np.nanmedian(self.flux)
             rms = np.nanstd(self.flux)
-            dmin = self.min()
-            dmax = self.max()
+            dmin = np.nanmin(self.flux)
+            dmax = np.nanmax(self.flux)
         else:
             d = self[roll:] - self[:-roll]
-            mean = d.mean()
-            median = d.median()
+            mean = np.nanmean(d.flux)
+            median = np.nanmedian(d.flux)
             rms = np.nanstd(d.flux)
-            dmin = d.min()
-            dmax = d.max()
+            dmin = np.nanmin(d.flux)
+            dmax = np.nanmax(d.flux)
 
         if qac:
             out = f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
