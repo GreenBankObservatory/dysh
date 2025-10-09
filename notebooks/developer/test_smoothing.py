@@ -216,18 +216,7 @@ ta.mask[2] = True
 print(ta.flux[2])
 
 ta.mask[2] = False
-print(ta.flux[2])
-#%%   partial solution in spectrum.py smooth
-
-        # in core.smooth, we fill masked values with np.nan.
-        # astropy.convolve does not return a new mask, so we recreate
-        # a decimated mask where values are nan
-        mask = np.full(s1.shape, False)
-        mask[np.where(s1 == np.nan)] = True
-        new_data = Masked(s1 * self.flux.unit, mask)
-        
-        # in spectrum.core.smooth
-        new_data = convolve(data, kernel, boundary="extend",  nan_treatment="fill", fill_value=np.nan, mask=mask)
+print(ta.flux[2])git b
 
 #%%
 
@@ -243,3 +232,19 @@ f1 = f.smooth('gaussian',11)
 f1.plot()
 print(f1.stats()["nan"])   # 12
 # this looks good now
+
+#%%
+
+
+sdfits = GBTFITSLoad(dysh_data(test="getps"))
+ta0 = sdfits.getps(ifnum=0, plnum=0, fdnum=0).timeaverage()
+ta0.plot(xaxis_unit="chan", grid=True)
+
+flags3 = [[130,200],[1000,2000],[2860,3010],[14000,18000],[31000,32768]]
+flags3t = list(map(tuple,flags3))
+
+ta0.baseline(model="chebyshev", degree=2, exclude=flags3)
+    # ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+ 
+ta0.baseline(model="chebyshev", degree=2, exclude=flags3t)
+    # ok
