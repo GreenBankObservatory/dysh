@@ -9,7 +9,6 @@ import time
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -137,7 +136,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # ushow/udata depend on the index being present, so check that index is created.
         if kwargs.get("verbose", None) and kwargs_opts["index"]:
-            print("==GBTLoad %s" % fileobj)
+            print(f"==GBTLoad {fileobj}")
             self.ushow("OBJECT", 0)
             self.ushow("SCAN", 0)
             self.ushow("SAMPLER", 0)
@@ -693,7 +692,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             convention : str
                 The velocity convention
         """
-        (convention, frame) = decode_veldef(veldef)
+        (convention, _frame) = decode_veldef(veldef)
         return convention
 
     def velocity_frame(self, veldef):
@@ -710,7 +709,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             frame: str
                 The velocity frame
         """
-        (convention, frame) = decode_veldef(veldef)
+        (_convention, frame) = decode_veldef(veldef)
         return frame
 
     def _select_scans(self, scans, df):
@@ -1398,8 +1397,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_result
     def getsigref(
         self,
-        scan: Union[int | list | np.ndarray],
-        ref: Union[int | Spectrum],
+        scan: int | list | np.ndarray,
+        ref: int | Spectrum,
         fdnum: int,
         ifnum: int,
         plnum: int,
@@ -2766,9 +2765,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 outhdu[0].header["COMMENT"] = c
             if total_rows_written == 0:  # shouldn't happen, caught earlier
                 raise Exception("Your selection resulted in no rows to be written")
-            else:
-                if verbose:
-                    print(f"Writing {total_rows_written} to {fileobj}")
+            elif verbose:
+                print(f"Writing {total_rows_written} to {fileobj}")
             # outhdu.update_extend()  # possibly unneeded
             outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             outhdu.close()

@@ -18,7 +18,7 @@ class TestDopplerConvention:
         return velokms, flux
 
     def compare_gbtidl(self, spectrum, filename, doppler_convention, maxdiff):
-        velokms, flux = self.read_ascii(filename)
+        velokms, _flux = self.read_ascii(filename)
         s = spectrum.with_velocity_convention(doppler_convention)
         x = np.mean(velokms - s.axis_velocity())
         assert np.abs(x.value) < maxdiff

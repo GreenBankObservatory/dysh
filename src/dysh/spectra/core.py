@@ -1288,7 +1288,7 @@ def cog_flux(c, flat_tol=0.1):
     slope : array
         The median value of the slope for the curve of growth before it becomes flat.
     """
-    slope, slope_rms, flat_idx0 = cog_slope(c, flat_tol)
+    slope, _slope_rms, flat_idx0 = cog_slope(c, flat_tol)
     flux = np.nanmedian(c[flat_idx0:])
     flux_std = np.nanstd(c[flat_idx0:])
     slope = np.nanmedian(slope[:flat_idx0])
@@ -1375,7 +1375,7 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
 
     # Find flux.
     # Empirically, fluxes are in error by <3%.
-    flux, flux_std, slope = cog_flux(t, flat_tol)
+    flux, flux_std, _slope = cog_flux(t, flat_tol)
     flux_std = np.sqrt(flux_std**2 + (1.03 * flux_std) ** 2)
     flux_b, flux_b_std, slope_b = cog_flux(b, flat_tol)
     flux_b_std = np.sqrt(flux_b_std**2 + (1.03 * flux_b_std) ** 2)
