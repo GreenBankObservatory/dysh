@@ -204,6 +204,7 @@ markers = [
     "slow: marks tests as slow (run with 'pytest -m slow' or 'pytest -m \"\"')",
     "notebooks: marks notebook tests (run with 'pytest -m notebooks')",
     "gbo_only: marks tests that require GBO network access (run with 'pytest -m gbo_only')",
+    "requires_internet: marks tests that require internet access (run with 'pytest -m requires_internet')",
 ]
 
 [build-system]

@@ -1,9 +1,11 @@
 import astropy.units as u
+import pytest
 from astroquery.splatalogue import Splatalogue
 
 from dysh.line import SpectralLineSearch
 
 
+@pytest.mark.requires_internet
 class TestSearch:
     """Test dysh.line search functions"""
 
