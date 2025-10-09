@@ -14,6 +14,8 @@ on:
   workflow_dispatch: # needed for "Run" button to show up in action
 env:
   FORCE_COLOR: '1' # Make tools pretty.
+  MPLBACKEND: Agg # hard-force headless backend (tkagg bad!)
+  QT_QPA_PLATFORM: offscreen  # No real display. Renders to memory. Not sure if Qt ever gets pulled in though
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
