@@ -419,7 +419,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         nan1 = np.isnan(self.data).sum()
         nan2 = self.mask.sum()
         if nan1 != nan2:
-            logger.info(f"Warning: nan1={nan1}  nan2={nan2}")
+            logger.warning(f"Warning: nan1={nan1}  nan2={nan2}: inconsistency in mask usage")
         else:
             logger.info(f"Note: found {nan1} NaN (masked) values")
 
