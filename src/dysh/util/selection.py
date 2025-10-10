@@ -1192,7 +1192,6 @@ class Flag(SelectionBase):
                 cc = abbreviate_to(DEFAULT_COLUMN_WIDTH, chan)
                 self._table.loc[idx]["CHAN"] = cc
                 self._flag_channel_selection[idx] = chan
-                # self._selection_rules[idx]["CHAN"] = str(chan)
                 self._selection_rules[idx].loc[:, "CHAN"] = str(chan)
             else:
                 self._flag_channel_selection[idx] = ALL_CHANNELS
@@ -1235,7 +1234,7 @@ class Flag(SelectionBase):
         self._base_select_channel(channel, tag, **kwargs)
         idx = len(self._table) - 1
         self._flag_channel_selection[idx] = channel
-        self._selection_rules[idx]["CHAN"] = str(channel)
+        self._selection_rules[idx].loc[:, "CHAN"] = str(channel)
         self._channel_selection = None  # unused for flagging
 
     def flag_range(self, tag=None, check=False, **kwargs):
@@ -1266,7 +1265,7 @@ class Flag(SelectionBase):
         self._base_select_range(tag, check=check, **kwargs)
         idx = len(self._table) - 1
         self._flag_channel_selection[idx] = ALL_CHANNELS
-        self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
+        self._selection_rules[idx].loc[:, "CHAN"] = ALL_CHANNELS
         self._channel_selection = None  # unused for flagging
 
     def flag_within(self, tag=None, check=False, **kwargs):
@@ -1297,7 +1296,7 @@ class Flag(SelectionBase):
         self._base_select_within(tag, check=check, **kwargs)
         idx = len(self._table) - 1
         self._flag_channel_selection[idx] = ALL_CHANNELS
-        self._selection_rules[idx]["CHAN"] = ALL_CHANNELS
+        self._selection_rules[idx].loc[:, "CHAN"] = ALL_CHANNELS
         self._channel_selection = None  # unused for flagging
 
     def read(self, fileobj, ignore_vegas=False, **kwargs):
