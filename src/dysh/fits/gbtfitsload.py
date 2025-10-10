@@ -35,6 +35,7 @@ from ..util import (
     Flag,
     Selection,
     calc_vegas_spurs,
+    calc_vegas_spurs_array,
     consecutive,
     convert_array_to_mask,
     eliminate_flagged_rows,
@@ -93,6 +94,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._selection = None
         self._tpnocal = None  # should become True or False once known
         self._flag = None
+        self._vegas_flag_mask = None
         self.GBT = Observatory["GBT"]
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
@@ -1013,6 +1015,64 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 )
                 return
             self.flag_channel(channel=spurs, tag="AUTO_VEGAS_SPURS")  # add S so not ignored in re-read. See Flag.read.
+        except KeyError as k:
+            logger.warning(
+                f"Can't determine VEGAS spur locations because one or more VSPR keywords are missing from the FITS header {k}"
+            )
+
+    def flag_vegas_spurs_array(self, flag_central=False):
+        """
+        Flag VEGAS SPUR channels.
+
+        Parameters
+        ----------
+        flag_central : bool, optional
+            Whether to flag the central VEGAS spur location or not.
+            The GBO SDFITS writer by default replaces the value at the central SPUR with the average of the
+            two adjacent channels, and hence the central channel is not typically flagged.
+
+        Returns
+        -------
+        None.
+
+        """
+        if "INSTRUME" in self._selection:
+            if (_inst := next(iter(set(self["INSTRUME"])))) != "VEGAS":
+                logger.warning(
+                    f"This does not appear to be VEGAS data. The FITS header says INSTRUME={_inst}. No channels will be flagged."
+                )
+                return
+        else:
+            logger.warning(
+                "This may not be VEGAS data. There is no 'INSTRUME' keyword in the FITS header to distinguish the backend. No channels will be flagged."
+            )
+            return
+        try:
+            for fi in range(len(self._sdf)):
+                for k in range(len(self._sdf[fi].bintable)):
+                    df = select_from("BINTABLE", k, self._selection)
+                    df = select_from("FITSINDEX", fi, df)
+                    vsprval = df["VSPRVAL"].to_numpy()
+                    vspdelt = df["VSPDELT"].to_numpy()
+                    vsprpix = df["VSPRPIX"].to_numpy()
+                    rows = df["ROW"].to_numpy()
+                    spurs = calc_vegas_spurs_array(vsprval, vspdelt, vsprpix, flag_central).T
+                    print(f"{k=}, {fi=}, nspurs={np.shape(spurs)}, nrows={len(rows)}")
+                    maxnchan = self.nchan(k) - 1  # for b in uniq(self["BINTABLE"])]) - 1
+                    if np.any(spurs < 0) or np.any(spurs > maxnchan):
+                        logger.warning(
+                            "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
+                        )
+                        # return
+                    if spurs.shape[0] != len(rows):
+                        raise ValueError(f"spurs length {spurs.shape[0]} != number of rows {len(rows)}")
+                    if np.shape(spurs)[0] != np.shape(self._sdf[fi]._flagmask[k])[0]:
+                        print(f"MISMATCHED SHAPES spurs {np.shape(spurs)} flags {np.shape(self._sdf[fi]._flagmask[k])}")
+                    else:
+                        print(f"{spurs=}")
+                        # self._sdf[fi]._flagmask[k] = spurs
+
+                    # self.flag_channel(channel=spurs, tag="AUTO_VEGAS_SPURS")  # add S so not ignored in re-read. See Flag.read.
         except KeyError as k:
             logger.warning(
                 f"Can't determine VEGAS spur locations because one or more VSPR keywords are missing from the FITS header {k}"
