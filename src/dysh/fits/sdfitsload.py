@@ -62,6 +62,7 @@ class SDFITSLoad:
         self._flagmask = None
         if doflag:
             self._init_flags()
+        self._additional_channel_mask = np.full_like(self._flagmask, False)
 
     def __del__(self):
         # We need to ensure that any open HDUs are properly
