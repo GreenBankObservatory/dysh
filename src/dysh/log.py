@@ -5,11 +5,12 @@ import os
 import sys
 import time
 from abc import ABC
+from collections.abc import Callable  # , Self # not available until 3.11
 from datetime import datetime
 from functools import wraps
 from io import StringIO
 from pathlib import Path
-from typing import Callable, NewType, Union  # , Self # not available until 3.11
+from typing import NewType
 
 from astropy import log
 from astropy.io.fits.header import _HeaderCommentaryCards
@@ -24,6 +25,9 @@ log.setLevel("WARNING")
 LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")
 dhlogger = AstropyLogger("dysh_history", level=logging.INFO)
+
+# Environment variable to disable logging decorators for performance benchmarking
+DISABLE_HISTORY_LOGGING = os.getenv("DYSH_DISABLE_HISTORY_LOGGING", "0") == "1"
 
 _DYSH_LOG_DIR = os.getenv("DYSH_LOG_DIR", ".")
 try:
@@ -128,7 +132,7 @@ config = {
 }
 
 
-def init_logging(verbosity: int, level: Union[int, None] = None, path: Union[Path, None] = None, quiet=False):
+def init_logging(verbosity: int, level: int | None = None, path: Path | None = None, quiet=False):
     global LOGGING_INITIALIZED
     if LOGGING_INITIALIZED is True:
         logger.warning(
@@ -191,6 +195,10 @@ def log_function_call(log_level: str = "info"):
     #    log_level = "info"
 
     def inner_decorator(func: Callable):
+        # If logging is disabled, return the function unchanged
+        if DISABLE_HISTORY_LOGGING:
+            return func
+
         # the inner decorator is to process the log_level argument of
         # the outer decorator
 
@@ -199,15 +207,18 @@ def log_function_call(log_level: str = "info"):
         except KeyError:
             raise Exception(f"Log level {log_level} unrecognized. Must be one of {list(logging._nameToLevel.keys())}.")  # noqa: B904
 
+        # Cache signature at decoration time for performance
+        sig = inspect.signature(func)
+
         @wraps(func)
         def func_wrapper(*args, **kwargs):
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
-                tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
+                _tp, exc, tb = sys.exc_info()
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
             # Log the function name and arguments
-            sig = inspect.signature(func)
             logmsg = f"DYSH v{dysh_version} : {func.__module__}"
             if hasattr(func, "__self__"):
                 # func is  method of a class
@@ -279,24 +290,31 @@ def log_call_to_result(func: Callable):
 
     """
 
+    # If logging is disabled, return the function unchanged
+    if DISABLE_HISTORY_LOGGING:
+        return func
+
+    # Cache signature at decoration time for performance
+    sig = inspect.signature(func)
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self is None:
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
-                # @todo this no longer works under python >3.9
-                tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
+                _, exc, tb = sys.exc_info()
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
         else:
             try:
                 result = func(self, *args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
-                tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
+                _tp, exc, tb = sys.exc_info()
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
         resultname = result.__class__.__name__
         if hasattr(result, "_history"):
-            sig = inspect.signature(func)
             if self is not None:
                 extra = {
                     "modName": func.__module__,
@@ -316,7 +334,7 @@ def log_call_to_result(func: Callable):
                 if hasattr(result, "_history"):
                     result._history.extend(log_str)
         else:
-            logger.warn(f"Class {resultname} has no _history attribute. Use @log_function_call instead.")
+            logger.warning(f"Class {resultname} has no _history attribute. Use @log_function_call instead.")
         return result
 
     return wrapper
@@ -339,28 +357,36 @@ def log_call_to_history(func: Callable):
 
     """
 
+    # If logging is disabled, return the function unchanged
+    if DISABLE_HISTORY_LOGGING:
+        return func
+
+    # Cache signature at decoration time for performance
+    sig = inspect.signature(func)
+
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self is None:  # not a class, but a function
-            logger.warn(
+            logger.warning(
                 f"Function {func.__module__}.{func.__name__} is a function with no _history attribute. Use"
                 " @log_function_call instead."
             )
             # could put this try around the whole thing but then it would catch exceptions from the wrapper itself
             try:
                 result = func(*args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
-                tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
+                _, exc, tb = sys.exc_info()
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
         else:  # it's a class instance
             try:
                 result = func(self, *args, **kwargs)
-            except:  # remove the wrapper from the stack trace  # noqa: E722
-                tp, exc, tb = sys.exc_info()
-                raise tp(exc).with_traceback(tb.tb_next)  # noqa: B904
+            except:  # noqa: E722 - intentionally catch all to manipulate traceback
+                _, exc, tb = sys.exc_info()
+                # Re-raise with modified traceback to hide this wrapper from stack trace
+                raise exc.with_traceback(tb.tb_next) from None
             classname = self.__class__.__name__
             if hasattr(self, "_history"):
-                sig = inspect.signature(func)
                 if "kwargs" in sig.parameters:
                     extra = {
                         "modName": func.__module__,
@@ -380,7 +406,7 @@ def log_call_to_history(func: Callable):
                     if hasattr(result, "_history"):
                         result._history.extend(log_str)
             else:
-                logger.warn(
+                logger.warning(
                     f"Class {func.__module__}.{classname} has no _history attribute. Use @log_function_call instead."
                 )
         return result
@@ -439,7 +465,7 @@ class HistoricalBase(ABC):  # noqa: B024
         self._remove_duplicates()
         return ensure_ascii(self._comments)
 
-    def add_comment(self, comment: Union[str, StrList], add_time: bool = False) -> None:
+    def add_comment(self, comment: str | StrList, add_time: bool = False) -> None:
         """
         Add one or more comments to the class metadata.
 
@@ -464,14 +490,13 @@ class HistoricalBase(ABC):  # noqa: B024
                     self.add_comment(h, add_time=False)
             else:
                 self._comments.extend(comment)
+        elif add_time:
+            h = f"{_time} - {comment}"
+            self._comments.append(h)
         else:
-            if add_time:
-                h = f"{_time} - {comment}"
-                self._comments.append(h)
-            else:
-                self._comments.append(comment)
+            self._comments.append(comment)
 
-    def add_history(self, history: Union[str, StrList], add_time: bool = False) -> None:
+    def add_history(self, history: str | StrList, add_time: bool = False) -> None:
         """
         Add one or more history entries to the class metadata
 
@@ -497,12 +522,11 @@ class HistoricalBase(ABC):  # noqa: B024
                     self.add_history(h, add_time=False)
                 else:
                     self._history.extend(history)
+        elif add_time:
+            h = f"{_time} - {history}"
+            self._history.append(h)
         else:
-            if add_time:
-                h = f"{_time} - {history}"
-                self._history.append(h)
-            else:
-                self._history.append(history)
+            self._history.append(history)
 
     # def merge_commentary(self, other: Self) -> None:  # Self not available until python 3.11
     def merge_commentary(self, other: object) -> None:

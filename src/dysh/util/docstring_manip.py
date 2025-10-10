@@ -1,5 +1,6 @@
 import textwrap
-from typing import Any, Callable, TypeAlias, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeAlias, TypeVar
 
 from astroquery.utils.docstr_chompers import remove_sections
 from typing_extensions import ParamSpec

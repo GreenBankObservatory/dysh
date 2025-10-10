@@ -485,7 +485,7 @@ class InteractiveSpanSelector:
             return
         got_one = False
         for patch in self.regions:
-            contains, attr = patch.contains(event)
+            contains, _attr = patch.contains(event)
             if contains and not got_one:
                 self.span.set_active(False)
                 x0 = patch.get_x()

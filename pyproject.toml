@@ -65,6 +65,8 @@ dev = [
   "sphinx-inline-tabs",
   "sphinxcontrib-mermaid",
   "dysh[all]", # ensure that all extras are included in dev envs
+  "pytest-timeout>=2.4.0",
+  "yamlfmt>=1.1.1",
 ]
 
 [project.urls]
@@ -151,25 +153,29 @@ extend-exclude = ["attic", "notebooks/developer", "*.ipynb"]
 
 [tool.ruff.lint]
 select = [
-  "F",    # https://beta.ruff.rs/docs/rules/#pyflakes-f
-  "E",    # https://beta.ruff.rs/docs/rules/#error-e
-  "W",    # https://beta.ruff.rs/docs/rules/#warning-w
-  "B",    # https://beta.ruff.rs/docs/rules/#flake8-bugbear-b
-  "I",    # https://beta.ruff.rs/docs/rules/#isort-i
-  "NPY",  # https://beta.ruff.rs/docs/rules/#numpy-specific-rules-npy
-  "PD",   # https://beta.ruff.rs/docs/rules/#pandas-vet-pd
-  "RUF",  # https://beta.ruff.rs/docs/rules/#ruff-specific-rules-ruf
+  "F", # https://docs.astral.sh/ruff/rules/pyflakes-f
+  "E", # https://docs.astral.sh/ruff/rules/error-e
+  "W", # https://docs.astral.sh/ruff/rules/warning-w
+  "B", # https://docs.astral.sh/ruff/rules/flake8-bugbear-b
+  "I", # https://docs.astral.sh/ruff/rules/isort-i
+  "NPY", # https://docs.astral.sh/ruff/rules/numpy-specific-rules-npy
+  "PD", # https://docs.astral.sh/ruff/rules/pandas-vet-pd
+  "RUF", # https://docs.astral.sh/ruff/rules/ruff-specific-rules-ruf
+  "UP", # https://docs.astral.sh/ruff/rules/printf-string-formatting/
+  "S101", # https://docs.astral.sh/ruff/rules/assert/
+  "T10", # https://docs.astral.sh/ruff/rules/#flake8-debugger-t10
+  "PLR5501", # https://docs.astral.sh/ruff/rules/collapsible-else-if/
+  "PLR2044", # https://docs.astral.sh/ruff/rules/empty-comment/
+  "G010",
 ]
 fixable = ["ALL"]
 ignore = [
   "E741",  # ambiguous-variable-name
-  "PD901",
   "RUF002", # ambiguous characters
   "RUF052", # dummy var used
   "PD015", # TODO: This really should be removed
   "E501", # line too long TODO: This really should be removed
-  "NPY002",
-  "RUF012",
+  "NPY002", # https://docs.astral.sh/ruff/rules/numpy-legacy-random/
 ]
 
 [tool.ruff.lint.isort]
@@ -178,7 +184,8 @@ combine-as-imports = true
 [tool.ruff.lint.per-file-ignores]
 # Ignore  in all `__init__.py` files
 "__init__.py" = ["ALL"]
-"**/{tests,docs,tools}/*" = ["E402", "B011", "B017"]
+"**/{tests,docs,tools}/*" = ["E402", "B011", "B017", "S101"]
+"test_*.py" = ["S101"]  # Allow assert in test files
 # The stuff in the attic doesn't need to be linted at all
 "attic/**" = ["ALL"]
 
@@ -189,9 +196,15 @@ testpaths = ["tests", "src", "notebooks/examples"]
 filterwarnings = [
     "ignore::DeprecationWarning"
 ]
-# Ignore tests that should only be run on the GBO network
-# By convention these should be named "test_{something}_gbo_only.py"
-addopts = "--ignore-glob='*_gbo_only.py'"
+addopts = [
+  "--timeout=300",
+  "-m not slow and not gbo_only"  # Skip slow and GBO-only tests by default
+]
+markers = [
+    "slow: marks tests as slow (run with 'pytest -m slow' or 'pytest -m \"\"')",
+    "notebooks: marks notebook tests (run with 'pytest -m notebooks')",
+    "gbo_only: marks tests that require GBO network access (run with 'pytest -m gbo_only')",
+]
 
 [build-system]
 requires = ["hatchling"]

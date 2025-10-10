@@ -1288,7 +1288,7 @@ def cog_flux(c, flat_tol=0.1):
     slope : array
         The median value of the slope for the curve of growth before it becomes flat.
     """
-    slope, slope_rms, flat_idx0 = cog_slope(c, flat_tol)
+    slope, _slope_rms, flat_idx0 = cog_slope(c, flat_tol)
     flux = np.nanmedian(c[flat_idx0:])
     flux_std = np.nanstd(c[flat_idx0:])
     slope = np.nanmedian(slope[:flat_idx0])
@@ -1361,7 +1361,9 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
 
     # Compute curve of growth.
     b = np.cumsum(ydx[:vc_idx][::-1])  # Blue.
+    bp = np.cumsum(ydx[: vc_idx + 1][::-1])
     r = np.cumsum(ydx[vc_idx:])  # Red.
+    rp = np.cumsum(ydx[vc_idx + 1 :])
     s = min(len(b), len(r))
     t = b[:s] + r[:s]
     dx = dx[:s]
@@ -1375,12 +1377,18 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
 
     # Find flux.
     # Empirically, fluxes are in error by <3%.
-    flux, flux_std, slope = cog_flux(t, flat_tol)
+    flux, flux_std, _slope = cog_flux(t, flat_tol)
     flux_std = np.sqrt(flux_std**2 + (1.03 * flux_std) ** 2)
+    # Blue.
     flux_b, flux_b_std, slope_b = cog_flux(b, flat_tol)
-    flux_b_std = np.sqrt(flux_b_std**2 + (1.03 * flux_b_std) ** 2)
+    flux_bp, _, _ = cog_flux(bp, flat_tol)
+    dflux_b = flux_b - flux_bp
+    flux_b_std = np.sqrt(flux_b_std**2 + (1.03 * flux_b_std) ** 2 + dflux_b**2)
+    # Red.
     flux_r, flux_r_std, slope_r = cog_flux(r, flat_tol)
-    flux_r_std = np.sqrt(flux_r_std**2 + (1.03 * flux_r_std) ** 2)
+    flux_rp, _, _ = cog_flux(rp, flat_tol)
+    dflux_r = flux_r - flux_rp
+    flux_r_std = np.sqrt(flux_r_std**2 + (1.03 * flux_r_std) ** 2 + dflux_r**2)
 
     # Find line widths.
     if 0.25 not in width_frac:
@@ -1427,8 +1435,8 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         std = nt_std[idx]
         idx_m = np.argmin(abs(nt - std - f))
         idx_p = np.argmin(abs(nt + std - f))
-        std_m = xr[idx_m] - xr[idx]
-        std_p = xr[idx] - xr[idx_p]
+        std_m = xt[idx_m] - xt[idx]
+        std_p = xt[idx] - xt[idx_p]
         widths_std[f] = np.nanmax((std_m.value, std_p.value, dx[idx].value)) * dx.unit
         widths_std[f] = np.sqrt(
             widths_std[f] ** 2 + (widths[f] * 0.01) ** 2

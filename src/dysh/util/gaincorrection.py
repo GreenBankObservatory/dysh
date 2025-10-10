@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union
+from typing import ClassVar
 
 import astropy.constants as ac
 import astropy.units as u
@@ -55,7 +55,7 @@ class BaseGainCorrection(ABC):
         return (2.0 * ac.k_B / self.physical_aperture.to("m^2")).to("Jy/K")
 
     @abstractmethod
-    def airmass(self, angle: Union[Angle, Quantity], zd: bool, **kwargs) -> Union[float, np.ndarray]:
+    def airmass(self, angle: Angle | Quantity, zd: bool, **kwargs) -> float | np.ndarray:
         """Computes the airmass at given elevation(s) or zenith distance(s).
         Subclasses should implement an airmass function specific to their application.
 
@@ -79,7 +79,7 @@ class BaseGainCorrection(ABC):
         pass
 
     @abstractmethod
-    def aperture_efficiency(self, specval: Quantity, **kwargs) -> Union[float, np.ndarray]:
+    def aperture_efficiency(self, specval: Quantity, **kwargs) -> float | np.ndarray:
         """
         Calculate the antenna aperture efficiency.
 
@@ -100,7 +100,7 @@ class BaseGainCorrection(ABC):
         """
         pass
 
-    def zenith_opacity(self, specval: Quantity, **kwargs) -> Union[float, np.ndarray]:  # noqa: B027
+    def zenith_opacity(self, specval: Quantity, **kwargs) -> float | np.ndarray:  # noqa: B027
         """
         Compute the zenith opacity.
 
@@ -132,7 +132,10 @@ class GBTGainCorrection(BaseGainCorrection):
          Default None will use dysh's internal GBT gain correction table.
     """
 
-    _valid_scales = ["ta", "ta*", "flux"]
+    # Note: This variable shares state across all instances of this class
+    # TODO: Verify that we want this to happen
+    # See https://docs.astral.sh/ruff/rules/mutable-class-default/
+    _valid_scales: ClassVar[list[str]] = ["ta", "ta*", "flux"]
 
     def __init__(self, gain_correction_table: Path = None):  # noqa: RUF013
         if gain_correction_table is None:
@@ -186,7 +189,7 @@ class GBTGainCorrection(BaseGainCorrection):
         """The table containing the parameterized gain correction as a fucntion of zenith distance and time"""
         return self._gct
 
-    def airmass(self, angle: Union[Angle, Quantity], zd: bool = False, **kwargs) -> Union[float, np.ndarray]:
+    def airmass(self, angle: Angle | Quantity, zd: bool = False, **kwargs) -> float | np.ndarray:
         """
         Computes the airmass at given elevation(s) or zenith distance(s).  The formula used is
 
@@ -266,10 +269,10 @@ class GBTGainCorrection(BaseGainCorrection):
 
     def gain_correction(
         self,
-        angle: Union[Angle, Quantity],
+        angle: Angle | Quantity,
         date: Time,
         zd: bool = True,
-    ) -> Union[float, np.ndarray]:
+    ) -> float | np.ndarray:
         r"""
         Compute the gain correction scale factor, to be used in the aperture efficiency
         calculation. The factor is a float between zero and 1.
@@ -313,12 +316,12 @@ class GBTGainCorrection(BaseGainCorrection):
     def aperture_efficiency(
         self,
         specval: Quantity,
-        angle: Union[Angle, Quantity],
+        angle: Angle | Quantity,
         date: Time,
         zd: bool = False,
-        eps0: Union[None, Quantity] = None,
+        eps0: None | Quantity = None,
         **kwargs,
-    ) -> Union[float, np.ndarray]:
+    ) -> float | np.ndarray:
         r"""
         Compute the aperture efficiency, as a float between zero and 1. The aperture
         efficiency :math:`\eta_a`, is determined by:
@@ -409,12 +412,12 @@ class GBTGainCorrection(BaseGainCorrection):
         self,
         tscale: str,
         specval: Quantity,
-        angle: Union[Angle, Quantity],
+        angle: Angle | Quantity,
         date: Time,
         zenith_opacity,
         zd=False,
         eps0=None,
-    ) -> Union[float, np.array]:
+    ) -> float | np.ndarray:
         r"""
         Scale the antenna temperature to a different brightness temperature unit.
 
@@ -471,7 +474,7 @@ class GBTGainCorrection(BaseGainCorrection):
         return jyperk.value
 
     def get_weather(
-        self, specval: Quantity, vartype: str, mjd: Union[Time, float] = None, coeffs: bool = True, **kwargs
+        self, specval: Quantity, vartype: str, mjd: Time | float = None, coeffs: bool = True, **kwargs
     ) -> np.ndarray:
         r"""
         Call the GBO `getForecastValues` script with the given inputs.
@@ -518,7 +521,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
     # Question: should use_script default to False?
     def zenith_opacity(
-        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs: bool = True, use_script: bool = True, **kwargs
+        self, specval: Quantity, mjd: Time | float = None, coeffs: bool = True, use_script: bool = True, **kwargs
     ) -> np.ndarray:
         r"""
         Compute the zenith opacity, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
@@ -569,7 +572,7 @@ class GBTGainCorrection(BaseGainCorrection):
         return out
 
     def atm_temperature(
-        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs: bool = True, use_script: bool = True, **kwargs
+        self, specval: Quantity, mjd: Time | float = None, coeffs: bool = True, use_script: bool = True, **kwargs
     ) -> np.ndarray:
         r"""
         Compute the atmospheric temperature `Tatm`, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
