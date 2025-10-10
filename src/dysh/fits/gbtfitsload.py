@@ -2627,7 +2627,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         selection = Selection(self._index)
         if len(kwargs) > 0:
             selection._select_from_mixed_kwargs(**kwargs)
-            logger.debug(selection.show())
+            # logger.debug(selection.show())
             _final = selection.final
         else:
             _final = selection

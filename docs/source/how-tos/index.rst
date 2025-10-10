@@ -136,6 +136,22 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
             Gaussian Fitting
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`troubleshoot;3em;green` **Merging SDFITS**
+
+        How to merge SDFITS files
+
+
+        .. button-link:: examples/merge_sdfits.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Merging SDFITS Files
+
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -148,3 +164,4 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/flagging
    examples/repeated_scans
    examples/gauss_fit
+   examples/merge_sdfits
