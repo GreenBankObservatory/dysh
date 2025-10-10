@@ -134,6 +134,7 @@ class GBTGainCorrection(BaseGainCorrection):
     ----------
     valid_scales : tuple
         Strings representing valid options for scaling spectral data, specifically
+
         - 'ta'  : Antenna Temperature in K
         - 'ta*' : Antenna temperature corrected to above the atmosphere in K
         - 'flux'  : flux density in Jansky
