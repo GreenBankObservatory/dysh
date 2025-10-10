@@ -3403,7 +3403,7 @@ class GBTOnline(GBTFITSLoad):
             # 1. check the status_file ?
             status_file = "sdfitsStatus.txt"
             if os.path.exists(sdfits_root + "/" + status_file):
-                logger.warning(f"Warning, found {status_file} but not using it yet")
+                logger.debug(f"Warning, found {status_file} but not using it yet")
 
             # 2. visit each directory where the final leaf contains fits files, and find the most recent one
             n = 0
@@ -3449,7 +3449,7 @@ class GBTOnline(GBTFITSLoad):
                 logger.debug("NEW MTIME:", self._mtime)
                 force = True
         if force:
-            print(f"Reload {self._online}")
+            logger.info(f"Reload {self._online}")
             GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
         return force
 
