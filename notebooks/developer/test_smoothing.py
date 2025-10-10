@@ -216,7 +216,7 @@ ta.mask[2] = True
 print(ta.flux[2])
 
 ta.mask[2] = False
-print(ta.flux[2])git b
+print(ta.flux[2])
 
 #%%
 
