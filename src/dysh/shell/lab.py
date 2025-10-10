@@ -14,7 +14,7 @@ def parse_args():
 
 
 def main():
-    args, remaining_args = parse_args()
+    _args, remaining_args = parse_args()
 
     subprocess.run(["jupyter", "lab", *remaining_args])
 

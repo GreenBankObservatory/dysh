@@ -17,7 +17,7 @@ __ostype__ = None
 # see also ADMIT's util.utils.Dtime()
 
 
-class DTime(object):
+class DTime:
     r"""This class encapsulated some popular timing/performance tools.
 
     Parameters
@@ -112,8 +112,10 @@ class DTime(object):
         if data_cols is not None and data_units is not None and data_types is not None:
             self.ndata = len(data_cols)
             # print("PJT ndata",self.ndata)
-            assert len(data_units) == self.ndata
-            assert len(data_types) == self.ndata
+            if len(data_units) != self.ndata:
+                raise ValueError(f"data_units length ({len(data_units)}) must match data_cols length ({self.ndata})")
+            if len(data_types) != self.ndata:
+                raise ValueError(f"data_types length ({len(data_types)}) must match data_cols length ({self.ndata})")
             my_cols = my_cols + data_cols
             my_unit = my_unit + data_units
             my_type = my_type + data_types
@@ -146,8 +148,8 @@ class DTime(object):
         """ """
         if not self.active:
             return
-        if data is not None:
-            assert len(data) == self.ndata
+        if data is not None and len(data) != self.ndata:
+            raise ValueError(f"data length ({len(data)}) must match expected length ({self.ndata})")
         mem1, mem2 = self._mem()
         self.stats.append([name, time.perf_counter_ns(), mem1, mem2, data])
 
@@ -184,7 +186,7 @@ class DTime(object):
 
         try:
             if __ostype__ == "linux":
-                proc_status = "/proc/%d/status" % os.getpid()  # linux only
+                proc_status = f"/proc/{os.getpid()}/status"  # linux only
                 # open pseudo file  /proc/<pid>/status
                 t = open(proc_status)
                 # get value from line e.g. 'VmRSS:  9999  kB\n'
