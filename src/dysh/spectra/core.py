@@ -1467,7 +1467,7 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         "width_std": widths_std,
         "A_F": a_f.value,
         "A_C": a_c.value,
-        "C_C": c_v.value,
+        "C_V": c_v.value,
         "rms": rms,
         "bchan": _bchan,
         "echan": _echan,
