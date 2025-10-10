@@ -126,7 +126,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_history(h.header.get("HISTORY", []))
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
-        self._vegas_flag_mask = np.empty(len(self._sdf))
         if kwargs_opts["index"]:
             self._create_index_if_needed(skipflags, flag_vegas)
             self._update_radesys()
@@ -1021,6 +1020,21 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 f"Can't determine VEGAS spur locations because one or more VSPR keywords are missing from the FITS header {k}"
             )
 
+    def is_vegas(self):
+        """Check if these data appear to use the VEGAS backend
+
+        Returns
+        ------
+            True if FITS HEADER Keyword INSTRUME is present and equals 'VEGAS', False otherwise
+        """
+
+        if "INSTRUME" not in self._selection:
+            return False
+        elif next(iter(set(self["INSTRUME"]))).upper() == "VEGAS":
+            return True
+        else:
+            return False
+
     def flag_vegas_spurs_array(self, flag_central=False):
         """
         Flag VEGAS SPUR channels.
@@ -1037,15 +1051,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         None.
 
         """
-        if "INSTRUME" in self._selection:
-            if (_inst := next(iter(set(self["INSTRUME"])))) != "VEGAS":
-                logger.warning(
-                    f"This does not appear to be VEGAS data. The FITS header says INSTRUME={_inst}. No channels will be flagged."
-                )
-                return
-        else:
+        if not self.is_vegas():
             logger.warning(
-                "This may not be VEGAS data. There is no 'INSTRUME' keyword in the FITS header to distinguish the backend. No channels will be flagged."
+                "This does not appear to be VEGAS data. Check the FITS Header keyword 'INSTRUME' is present and equals 'VEGAS'. No channels will be flagged."
             )
             return
         try:
@@ -1152,7 +1160,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._construct_procedure()
         self._construct_integration_number()
 
-        if flag_vegas:
+        if flag_vegas and self.is_vegas():
             self.flag_vegas_spurs()
 
         if skipflags:
