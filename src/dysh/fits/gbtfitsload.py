@@ -94,7 +94,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._selection = None
         self._tpnocal = None  # should become True or False once known
         self._flag = None
-        self._vegas_flag_mask = None
+
         self.GBT = Observatory["GBT"]
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
@@ -126,6 +126,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_history(h.header.get("HISTORY", []))
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
+        self._vegas_flag_mask = np.empty(len(self._sdf))
         if kwargs_opts["index"]:
             self._create_index_if_needed(skipflags, flag_vegas)
             self._update_radesys()
@@ -1048,29 +1049,33 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
             return
         try:
-            for fi in range(len(self._sdf)):
-                for k in range(len(self._sdf[fi].bintable)):
-                    df = select_from("BINTABLE", k, self._selection)
-                    df = select_from("FITSINDEX", fi, df)
-                    vsprval = df["VSPRVAL"].to_numpy()
-                    vspdelt = df["VSPDELT"].to_numpy()
-                    vsprpix = df["VSPRPIX"].to_numpy()
-                    rows = df["ROW"].to_numpy()
-                    spurs = calc_vegas_spurs_array(vsprval, vspdelt, vsprpix, flag_central).T
-                    print(f"{k=}, {fi=}, nspurs={np.shape(spurs)}, nrows={len(rows)}")
-                    maxnchan = self.nchan(k) - 1  # for b in uniq(self["BINTABLE"])]) - 1
-                    if np.any(spurs < 0) or np.any(spurs > maxnchan):
-                        logger.warning(
-                            "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
-                        )
-                        # return
-                    if spurs.shape[0] != len(rows):
-                        raise ValueError(f"spurs length {spurs.shape[0]} != number of rows {len(rows)}")
-                    if np.shape(spurs)[0] != np.shape(self._sdf[fi]._flagmask[k])[0]:
-                        print(f"MISMATCHED SHAPES spurs {np.shape(spurs)} flags {np.shape(self._sdf[fi]._flagmask[k])}")
-                    else:
-                        print(f"{spurs=}")
-                        # self._sdf[fi]._flagmask[k] = spurs
+            # for key, chan in self._flag._flag_channel_selection.items():
+            # chan will be a list or a list of lists
+            # If it is a single list, it is just a list of channels
+            # if it is list of lists, then it is upper lower inclusive
+            df = self._selection.groupby(["FITSINDEX", "BINTABLE"])
+            for _i, ((fi, bi), g) in enumerate(df):
+                vsprval = g["VSPRVAL"].to_numpy()
+                vspdelt = g["VSPDELT"].to_numpy()
+                vsprpix = g["VSPRPIX"].to_numpy()
+                rows = g["ROW"].to_numpy()
+                spurs = calc_vegas_spurs_array(vsprval, vspdelt, vsprpix, flag_central)
+                print(f"{bi=}, {fi=}, nspurs={np.shape(spurs)}, nrows={len(rows)}")
+                maxnchan = self._sdf[fi].nchan(bi) - 1  # for b in uniq(self["BINTABLE"])]) - 1
+                if np.any(spurs < 0) or np.any(spurs > maxnchan):
+                    logger.warning(
+                        "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
+                    )
+                    return
+                if spurs.shape[0] != len(rows):
+                    raise ValueError(f"spurs length {spurs.shape[0]} != number of rows {len(rows)}")
+                if np.shape(spurs)[0] != np.shape(self._sdf[fi]._flagmask[bi])[0]:
+                    print(f"MISMATCHED SHAPES spurs {np.shape(spurs)} flags {np.shape(self._sdf[fi]._flagmask[bi])}")
+                else:
+                    print(f"{spurs=}")
+                    self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(
+                        [convert_array_to_mask(a, maxnchan + 1) for a in spurs]
+                    )
 
                     # self.flag_channel(channel=spurs, tag="AUTO_VEGAS_SPURS")  # add S so not ignored in re-read. See Flag.read.
         except KeyError as k:
@@ -1100,7 +1105,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # if it is list of lists, then it is upper lower inclusive
             dfs = selection.groupby(["FITSINDEX", "BINTABLE"])
             # the dict key for the groups is a tuple (fitsindex,bintable)
-            for i, ((fi, bi), g) in enumerate(dfs):  # noqa: B007
+            for _i, ((fi, bi), g) in enumerate(dfs):
                 chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
