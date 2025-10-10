@@ -604,6 +604,54 @@ def show_dataframe(df, show_index=False, max_rows=None, max_cols=None):
         print(df.to_string(**kwargs))
 
 
+def calc_vegas_spurs_array(
+    vsprval: float | np.ndarray, vspdelt: float | np.ndarray, vsprpix: float | np.ndarray, keep_central=False
+) -> np.ndarray:
+    """
+    Calculate VEGAS spur channel locations.
+
+    SPUR_CHANNEL = (J-VSPRVAL)*VSPDELT+VSPRPIX - 1
+
+    where 0 <= J < 32.
+
+    Spur channels are counted from zero.
+
+    Parameters
+    ----------
+    vsprval : float or ~numpy.ndarray
+        VEGAS spur channel offset
+    vspdelt : float or ~numpy.ndarray
+        VEGAS spur separation width in channels.
+    vsprpix : float or ~numpy.ndarray
+        VEGAS spur reference pixel.
+    keep_central: bool
+        Whether to keep the central VEGAS spur location in the returned array or not.
+        The GBO SDFITS writer by default replaces the value at the central SPUR with the average of the
+        two adjacent channels, and hence the central channel is not typically flagged.
+
+    Note
+    ----
+    All input arrays must have the same shape
+
+    Returns
+    -------
+    `~numpy.ndarray`
+        The array of channel numbers where spurs occur, with shape (`N_vsp`,31) where
+        `N_vsp` is the length of the VSP arrays.
+
+    """
+    NSPURS = 32
+    spurs = np.outer(np.arange(NSPURS), vspdelt) - vsprval * vspdelt + vsprpix - 1
+
+    if not keep_central:
+        # GBTIDL says: The central channel is defined by NCHAN/2 when counting from zero.
+        # Which actually is ambiguous but we will take to mean e.g. 8192 when NCHAN=16384
+        # This produces the same return array as GBTIDL dcspurschan.pro
+        central = NSPURS // 2
+        return np.sort(spurs[np.arange(len(spurs)) != central].astype(int))
+    return np.sort(spurs.astype(int)).T
+
+
 def calc_vegas_spurs(vsprval: float, vspdelt: float, vsprpix: float, keep_central=False) -> np.ndarray:
     """
     Calculate VEGAS spur channel locations.
@@ -633,6 +681,7 @@ def calc_vegas_spurs(vsprval: float, vspdelt: float, vsprpix: float, keep_centra
         The array of channel numbers where spurs occur, 0-based.
 
     """
+
     spurs = (np.arange(32) - vsprval) * vspdelt + vsprpix - 1
     if not keep_central:
         # GBTIDL says: The central channel is defined by NCHAN/2 when counting from zero.
