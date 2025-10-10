@@ -1120,6 +1120,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"{np.where(chan_mask)}")
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
 
+    def _apply_additional_flags(self):
+        for k in self._sdf:
+            if k._additional_channel_mask is not None:
+                k._flagmask |= k._additional_channel_mask
+
     @log_call_to_history
     def clear_flags(self):
         """Clear all flags for these data"""
