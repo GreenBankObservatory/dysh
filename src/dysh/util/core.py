@@ -9,7 +9,6 @@ import sys
 from collections.abc import Sequence
 from itertools import zip_longest
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 from astropy.time import Time
@@ -125,7 +124,7 @@ def gbt_timestamp_to_time(timestamp):
     return Time(t, scale="utc")
 
 
-def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
+def to_mjd_list(time_val: Time | float) -> np.ndarray:
     """Convert an astropy Time, list of MJD, or single MJD to a list of MJD
 
     Parameters
@@ -156,7 +155,7 @@ def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
         raise ValueError(f"Unrecognized type for time value: {type(time_val)}")
 
 
-def to_quantity_list(q: Union[Quantity, Sequence]) -> Quantity:
+def to_quantity_list(q: Quantity | Sequence) -> Quantity:
     # if given quanity or [quanity], return [quanity.value]*quantity.units
     # handle quantities first
     if isinstance(q, Quantity):

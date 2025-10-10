@@ -18,7 +18,7 @@ from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 
 
-class SDFITSLoad(object):
+class SDFITSLoad:
     """
     Generic Container for a bintable(s) from selected HDU(s) for a single SDFITS file.
     For multiple SDFITS files, see :class:`~gbtfitsload.GBTFITSLoad`.
@@ -41,7 +41,7 @@ class SDFITSLoad(object):
         }
         kwargs_opts.update(kwargs)
         if kwargs_opts["verbose"]:
-            print("==SDFITSLoad %s" % filename)
+            print(f"==SDFITSLoad {filename}")
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # u.cds.enable()  # to get mmHg
@@ -631,10 +631,9 @@ class SDFITSLoad(object):
         nrows = self.naxis(bintable=j, naxis=2)
         nflds = self._binheader[j]["TFIELDS"]
         restfreq = np.unique(self.index(bintable=j)["RESTFREQ"]) / 1.0e9
-        #
-        print("HDU       %d" % (j + 1))
-        print("BINTABLE: %d rows x %d cols with %d chans" % (self._nrows[j], nflds, self.nchan(j)))
-        print("Selected  %d/%d rows" % (self._nrows[j], nrows))
+        print(f"HDU       {j + 1}")
+        print(f"BINTABLE: {self._nrows[j]} rows x {nflds} cols with {self.nchan(j)} chans")
+        print(f"Selected  {self._nrows[j]}/{nrows} rows")
         print("Sources: ", self.sources(j))
         print("RESTFREQ:", restfreq, "GHz")
         print("Scans:   ", self.scans(j))
@@ -643,7 +642,7 @@ class SDFITSLoad(object):
 
     def summary(self):
         """Print a summary of each record of the data"""
-        print("File:     %s" % self._filename)
+        print(f"File:     {self._filename}")
         for i in range(len(self._bintable)):
             print("i=", i)
             self._summary(i)
@@ -762,21 +761,20 @@ class SDFITSLoad(object):
                 self._hdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             else:
                 raise ValueError("You must specify bintable if you specify rows")
+        elif rows is None:
+            # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
+            self._hdu[0 : bintable + 2]._hdu.writeto(
+                fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
+            )
         else:
-            if rows is None:
-                # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
-                self._hdu[0 : bintable + 2]._hdu.writeto(
-                    fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
-                )
-            else:
-                hdu0 = self._hdu[0].copy()
-                # need to get imports correct first
-                # hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
-                outhdu = fits.HDUList(hdu0)
-                outbintable = self._bintable_from_rows(rows, bintable)
-                outhdu.append(outbintable)
-                outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
-                outhdu.close()
+            hdu0 = self._hdu[0].copy()
+            # need to get imports correct first
+            # hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
+            outhdu = fits.HDUList(hdu0)
+            outbintable = self._bintable_from_rows(rows, bintable)
+            outhdu.append(outbintable)
+            outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            outhdu.close()
 
     def rename_column(self, oldname, newname):
         """

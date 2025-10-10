@@ -84,24 +84,23 @@ if __name__ == "__main__":
         sdf2 = sdf1
         dt.tag("write1", [sk])
         dt.tag("load2", [sk])
-    else:  # need to create smaller file first, 13 "on" scans, plus a single "off"
-        if do_L:
-            mkdir("ngc6946")
-            sdf1.write("ngc6946/file.fits", scan=scans, overwrite=True, fdnum=0, ifnum=0, plnum=0)
+    elif do_L:
+        mkdir("ngc6946")
+        sdf1.write("ngc6946/file.fits", scan=scans, overwrite=True, fdnum=0, ifnum=0, plnum=0)
 
-            dt.tag("write1", [sk])
-            sdf2 = GBTFITSLoad("ngc6946", skipflags=args.skipflags)
-            print("STATS:", sdf2.stats())
-            dt.tag("load2", [sk])
-            del sdf1
-        else:
-            mkdir("ngc5954a")
-            sdf1.write("ngc5954a/file.fits", scan=scans, overwrite=True)
-            dt.tag("write1", [sk])
-            sdf2 = GBTFITSLoad("ngc5954a", skipflags=args.skipflags)
-            print("STATS:", sdf2.stats())
-            dt.tag("load2", [sk])
-            del sdf1
+        dt.tag("write1", [sk])
+        sdf2 = GBTFITSLoad("ngc6946", skipflags=args.skipflags)
+        print("STATS:", sdf2.stats())
+        dt.tag("load2", [sk])
+        del sdf1
+    else:
+        mkdir("ngc5954a")
+        sdf1.write("ngc5954a/file.fits", scan=scans, overwrite=True)
+        dt.tag("write1", [sk])
+        sdf2 = GBTFITSLoad("ngc5954a", skipflags=args.skipflags)
+        print("STATS:", sdf2.stats())
+        dt.tag("load2", [sk])
+        del sdf1
         # sdf1 = np.arange(100)   # dummy space
         # dt.tag("mem",[sk])
 

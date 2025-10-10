@@ -640,7 +640,7 @@ class TestSpectrum:
         ps1_org = self.ps1._copy()
 
         avg = average_spectra((self.ps0, self.ps1))
-        avg2 = self.ps0.average((self.ps1))
+        avg2 = self.ps0.average(self.ps1)
         compare_spectrum(avg, avg2, ignore_history=True, ignore_comments=True)
 
         avg = average_spectra((self.ps0, self.ps1), align=True)
@@ -953,7 +953,7 @@ class TestSpectrum:
         )
         assert mean.value == pytest.approx(p["vel"].value, abs=3 * p["vel_std"].value)
         assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
-            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
+            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2)
         )
         assert rms == pytest.approx(p["rms"].value, abs=1e-3)
 

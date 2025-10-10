@@ -6,7 +6,6 @@ import warnings
 from abc import abstractmethod
 from collections import UserList
 from copy import deepcopy
-from typing import Union
 
 import astropy.units as u
 import numpy as np
@@ -100,7 +99,7 @@ class SpectralAverageMixin:
             decimate = int(abs(width))
             if not float(width).is_integer():
                 logger.info(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
-        clen, nchan = self._calibrated.shape
+        clen, _nchan = self._calibrated.shape
         sdata = []
         smask = []
         meta = []
@@ -1793,7 +1792,7 @@ class PSScan(ScanBase):
         return self._sigscan
 
     @property
-    def refscan(self) -> Union[int | None]:
+    def refscan(self) -> int | None:
         """The scan number associated with the reference.
 
         Returns
@@ -1804,7 +1803,7 @@ class PSScan(ScanBase):
         return self._refscan
 
     @property
-    def sigspec(self) -> Union[Spectrum | None]:
+    def sigspec(self) -> Spectrum | None:
         """The signal Spectrum if one was given at construction.
 
         Returns
@@ -1815,7 +1814,7 @@ class PSScan(ScanBase):
         return self._sigspec
 
     @property
-    def refspec(self) -> Union[Spectrum | None]:
+    def refspec(self) -> Spectrum | None:
         """The reference Spectrum if one was given at construction.
 
         Returns
@@ -2453,7 +2452,6 @@ class FSScan(ScanBase):
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._calc_exposure()
-        #
         sig_freq = self._sigcaloff[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]
@@ -2505,13 +2503,12 @@ class FSScan(ScanBase):
                         self._calibrated[i] = cal_ref_fold
                         self._tsys[i] = tsys_sig
 
+                elif self._use_sig:
+                    self._calibrated[i] = cal_sig
+                    self._tsys[i] = tsys_ref
                 else:
-                    if self._use_sig:
-                        self._calibrated[i] = cal_sig
-                        self._tsys[i] = tsys_ref
-                    else:
-                        self._calibrated[i] = cal_ref
-                        self._tsys[i] = tsys_sig
+                    self._calibrated[i] = cal_ref
+                    self._tsys[i] = tsys_sig
         else:
             for i in range(nspect):
                 tsys = self._tsys[i]
@@ -2535,11 +2532,10 @@ class FSScan(ScanBase):
                         self._calibrated[i] = cal_sig_fold
                     else:
                         self._calibrated[i] = cal_ref_fold
+                elif self._use_sig:
+                    self._calibrated[i] = cal_sig
                 else:
-                    if self._use_sig:
-                        self._calibrated[i] = cal_sig
-                    else:
-                        self._calibrated[i] = cal_ref
+                    self._calibrated[i] = cal_ref
 
         if _fold:
             self._exposure = 2 * self.exposure

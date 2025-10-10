@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Thu Jul 17 11:26:52 2025
 
@@ -39,7 +38,7 @@ def byassert(df1, df2):
 
 
 def bynumpy(df1, df2):
-    return np.all((df1.to_numpy(na_value=0) == df2.to_numpy(na_value=0)))
+    return np.all(df1.to_numpy(na_value=0) == df2.to_numpy(na_value=0))
 
 
 data_cols = ["#files", "nchan", "nrow", "EQUAL?"]

@@ -50,7 +50,7 @@ def getps(r1, r2, r3, r4):
 
 
 def getps2(data):
-    nscan, ndim, nchan = data.shape
+    _nscan, _ndim, _nchan = data.shape
     # print(nscan,ndim,nchan)
     tc = 10.0
     tsys = tc * data[:, 0, :].sum(axis=1) / (data[:, 1, :] - data[:, 0, :]).sum(axis=1)

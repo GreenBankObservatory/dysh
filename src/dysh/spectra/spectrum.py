@@ -1662,7 +1662,7 @@ def _read_table(fileobj, format, **kwargs):
         spectral_axis = df2["col0"]
         flux = df2["col1"]
         # Parse the first line of the header and put into meta
-        tmp, scan, target, date, ra = df.columns[0].split(maxsplit=4)
+        _tmp, scan, target, date, ra = df.columns[0].split(maxsplit=4)
         meta = {}
         meta["SCAN"] = int(scan)
         meta["OBJECT"] = target

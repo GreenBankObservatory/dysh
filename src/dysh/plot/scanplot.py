@@ -131,11 +131,10 @@ class ScanPlot(PlotBase):
         # second "plot" to get different scales on x2, y2 axes
         if spectral_unit is not None:
             self._sa = self._sa.to(spectral_unit)
+        elif self._sa[0] / (u.GHz) < 1:
+            self._sa = self._sa.to(u.MHz)
         else:
-            if self._sa[0] / (u.GHz) < 1:
-                self._sa = self._sa.to(u.MHz)
-            else:
-                self._sa = self._sa.to(u.GHz)
+            self._sa = self._sa.to(u.GHz)
         stop = self.spectrogram.shape[1]
         step = self.spectrogram.shape[1] / self.spectrogram.shape[0]
         im2 = self._axis2.plot(np.arange(0, stop, step), self._sa, linewidth=0)  # noqa: F841
