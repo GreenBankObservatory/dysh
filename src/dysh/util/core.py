@@ -641,6 +641,7 @@ def calc_vegas_spurs_array(
 
     """
     NSPURS = 32
+    print("CASL3")
     spurs = np.outer(np.arange(NSPURS), vspdelt) - vsprval * vspdelt + vsprpix - 1
 
     if not keep_central:
@@ -648,8 +649,10 @@ def calc_vegas_spurs_array(
         # Which actually is ambiguous but we will take to mean e.g. 8192 when NCHAN=16384
         # This produces the same return array as GBTIDL dcspurschan.pro
         central = NSPURS // 2
-        return np.sort(spurs[np.arange(len(spurs)) != central].astype(int))
-    return np.sort(spurs.astype(int)).T
+        a = np.sort(spurs[np.arange(len(spurs)) != central].astype(int))
+    else:
+        a = np.sort(spurs.astype(int))
+    return a.T
 
 
 def calc_vegas_spurs(vsprval: float, vspdelt: float, vsprpix: float, keep_central=False) -> np.ndarray:

@@ -1035,7 +1035,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             return False
 
-    def flag_vegas_spurs_array(self, flag_central=False):
+    def flag_vegas_spurs_array(self, flag_central=False, test=True):
         """
         Flag VEGAS SPUR channels.
 
@@ -1062,7 +1062,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # If it is a single list, it is just a list of channels
             # if it is list of lists, then it is upper lower inclusive
             df = self._selection.groupby(["FITSINDEX", "BINTABLE"])
+
             for _i, ((fi, bi), g) in enumerate(df):
+                # tablerowdict = {}
                 vsprval = g["VSPRVAL"].to_numpy()
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
@@ -1072,18 +1074,29 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 maxnchan = self._sdf[fi].nchan(bi) - 1  # for b in uniq(self["BINTABLE"])]) - 1
                 if np.any(spurs < 0) or np.any(spurs > maxnchan):
                     logger.warning(
-                        "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
+                        f"Calculated VEGAS SPUR channels for BINTABLE {bi} FITSINDEX {fi} outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged for this BINTABLE/FITSINDEX"
                     )
-                    return
+                    continue
                 if spurs.shape[0] != len(rows):
-                    raise ValueError(f"spurs length {spurs.shape[0]} != number of rows {len(rows)}")
-                if np.shape(spurs)[0] != np.shape(self._sdf[fi]._flagmask[bi])[0]:
-                    print(f"MISMATCHED SHAPES spurs {np.shape(spurs)} flags {np.shape(self._sdf[fi]._flagmask[bi])}")
+                    raise ValueError(f"spurs array length {spurs.shape[0]} != selected number of rows {len(rows)}")
+                if spurs.shape[0] != np.shape(self._sdf[fi]._flagmask[bi])[0]:
+                    raise ValueError(
+                        f"MISMATCHED SHAPES spurs {np.shape(spurs)} flags {np.shape(self._sdf[fi]._flagmask[bi])}"
+                    )
                 else:
-                    print(f"{spurs=}")
                     self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(
                         [convert_array_to_mask(a, maxnchan + 1) for a in spurs]
                     )
+                    # for a in spurs.T:
+                    #    tablerowdict["CHAN"] = a
+                    #   self._flag._addrow(row=tablerowdict, dataframe=df,tag='AUTO_VEGAS_SPURS')
+                    # else:
+                    #    q=0
+                    #     for a in spurs:
+                    #       print(f"{q=}")
+                    #       q=q+1
+                    # this would be 31 flag rules for every bintable and every file.  Terrible performance
+                    #       self.flag(channel=a,fitsindex=fi,bintable=bi,row=rows,tag="AUTO_VEGAS_SPURS")
 
                     # self.flag_channel(channel=spurs, tag="AUTO_VEGAS_SPURS")  # add S so not ignored in re-read. See Flag.read.
         except KeyError as k:
@@ -1118,6 +1131,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
+                self._sdf[fi]._flagmask[bi][rows] |= chan_mask
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
 
     def _apply_additional_flags(self):
