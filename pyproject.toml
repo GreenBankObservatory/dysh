@@ -2,7 +2,7 @@
 name = "dysh"
 description = ''
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 keywords = []
 dynamic = ["version"]
@@ -22,12 +22,12 @@ classifiers = [
 ]
 dependencies = [
   "httpx",
-  "astropy>=6.1,<7",
+  "astropy>=6.1",
   "astroquery",
   "ipython",
   "jplephem",
   "matplotlib",
-  "numpy<2",
+  "numpy",
   "pandas",
   "rich",
   "scipy",
@@ -198,12 +198,13 @@ filterwarnings = [
 ]
 addopts = [
   "--timeout=300",
-  "-m not slow and not gbo_only"  # Skip slow and GBO-only tests by default
+  "-m not gbo_only"  # Skip slow and GBO-only tests by default
 ]
 markers = [
     "slow: marks tests as slow (run with 'pytest -m slow' or 'pytest -m \"\"')",
     "notebooks: marks notebook tests (run with 'pytest -m notebooks')",
     "gbo_only: marks tests that require GBO network access (run with 'pytest -m gbo_only')",
+    "requires_internet: marks tests that require internet access (run with 'pytest -m requires_internet')",
 ]
 
 [build-system]
