@@ -51,8 +51,6 @@ class TestGBTFITSLoad:
         }
 
         for fnm in self._file_list:
-            print(fnm)
-
             filename = os.path.basename(fnm)
             sdf = gbtfitsload.GBTFITSLoad(fnm)
             assert len(sdf.index(bintable=0)) == expected[filename]
@@ -196,8 +194,6 @@ class TestGBTFITSLoad:
         diff = ps_vals[~mask] - gbtidl_spec[~mask]
         # try:
         assert np.all(diff < 1e-3)
-        # except AssertionError:
-        #    print(f"Comparison with GBTIDL ACS Spectrum failed, mean difference is {np.nanmean(diff)}")
 
         for col in table.names:
             if col not in ["DATA"]:
@@ -891,7 +887,6 @@ class TestGBTFITSLoad:
 
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
-            print(f"trying to writing file #{i} {out}")
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
@@ -924,7 +919,6 @@ class TestGBTFITSLoad:
 
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
-            print(f"trying to writing file #{i} {out}")
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
@@ -1079,9 +1073,7 @@ class TestGBTFITSLoad:
         sdfits = tmp_path / "sdfits"
         sdfits.mkdir()
         os.environ["SDFITS_DATA"] = str(sdfits)
-        print("PJT1", sdfits)
         o1 = sdfits / "online.fits"
-        print("PJT2", o1)
         shutil.copyfile(f1, o1)
         sdf = gbtfitsload.GBTOnline()
         s = sdf.summary()
