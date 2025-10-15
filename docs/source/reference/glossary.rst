@@ -110,7 +110,7 @@ A dysh glossary
       This is a variation on position switching using a receiver
       where the IF is changed. The "Main" and "Reference" positions on the sky are
       calculated so that the receiver is always pointing at the source. This is most
-      useful for point sources. See also :term:`Position Switching`    
+      useful for point sources. See also :term:`Position Switching`
 
     getXX()
       Generic name for the dysh access routines, e.g. getps, getfs, getnod etc.
@@ -205,7 +205,7 @@ A dysh glossary
        A unit of observing, usually in some common mode.
        GBT differentiates between different types of scans. Scans are typically simple integers,
        starting with 1 (check).
-       
+
 
     ScanBlock
       A container for a series of **scan**'s.
