@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import ClassVar
 
 import astropy.constants as ac
 import astropy.units as u
@@ -130,12 +129,19 @@ class GBTGainCorrection(BaseGainCorrection):
          of zenith distance and time (see  `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
          Must be in an `~astropy.table.QTable` readable format.
          Default None will use dysh's internal GBT gain correction table.
+
+    Attributes
+    ----------
+    valid_scales : tuple
+        Strings representing valid options for scaling spectral data, specifically
+
+        - 'ta'  : Antenna Temperature in K
+        - 'ta*' : Antenna temperature corrected to above the atmosphere in K
+        - 'flux'  : flux density in Jansky
+
     """
 
-    # Note: This variable shares state across all instances of this class
-    # TODO: Verify that we want this to happen
-    # See https://docs.astral.sh/ruff/rules/mutable-class-default/
-    _valid_scales: ClassVar[list[str]] = ["ta", "ta*", "flux"]
+    valid_scales: tuple[str, str, str] = ("ta", "ta*", "flux")
 
     def __init__(self, gain_correction_table: Path = None):  # noqa: RUF013
         if gain_correction_table is None:
@@ -147,23 +153,6 @@ class GBTGainCorrection(BaseGainCorrection):
         self.physical_aperture = 7853.9816 * u.m * u.m
         self.loss_eff_0 = 0.99
         self._forecast = None
-
-    @classmethod
-    @property
-    def valid_scales(cls):
-        """
-        Strings representing valid options for scaling spectral data, specifically
-            - 'ta'  : Antenna Temperature in K
-            - 'ta*' : Antenna temperature corrected to above the atmosphere in K
-            - 'flux'  : flux density in Jansky
-
-        Returns
-        -------
-        list
-            The list of valid scale strings
-
-        """
-        return cls._valid_scales
 
     @classmethod
     def is_valid_scale(cls, scale):
