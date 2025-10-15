@@ -96,7 +96,7 @@ A dysh glossary
 
     FWHM
       (Full Width Half Max): the effective resolution of the
-      beam if normally given in **FITS** keywords BMAJ,BMIN,BPA.  
+      beam if normally given in **FITS** keywords BMAJ,BMIN,BPA.
 
     Frequency Switching
       This is a variation on position switching using a receiver
@@ -206,7 +206,7 @@ A dysh glossary
 
     Spectral Window
       In ALMA commonly abbreviated as **spw**, this is closest to what we call a **bank**,
-      or **band**, a set of linearly spaced channels. 
+      or **band**, a set of linearly spaced channels.
 
       See also :term:`ifnum`
 
@@ -237,7 +237,7 @@ Data : Project ID / Session / Scan
 Generally projects are assigned a project id, e.g. *AGBT21B_024*, which is
 then observed in a number of sessions, numbered starting with 1. The SDFITS data associated
 with these are stored under **$SDFITS_DATA**, e.g. for session 5 of the example above, this would be
-in **$SDFITS_DATA/AGBT21B_024_05/**.  
+in **$SDFITS_DATA/AGBT21B_024_05/**.
 
 Possible confusion: project was named "GBT21B-024", though labeled "AGBT21B_024" as the
 filename prefix for file storage, which is the name that users need for dysh.
