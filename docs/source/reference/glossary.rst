@@ -7,7 +7,7 @@ A dysh glossary
 .. glossary::
 
 
-    argus
+    Argus
       A 16-:term:`pixel` W-band focal plane array in use at the GBT. Named after a mythical figure
       with 100 eyes. See also https://www.gb.nrao.edu/argus/
 
@@ -23,16 +23,12 @@ A dysh glossary
 
     bank
       Overloaded term for a **band**, possibly referring to hardware.
+      For the GBT a bank is one of VEGAS roaches (or more than one?). The closest
+      thing is an IF or VEGAS subband.
 
     beam
-      The footprint of one receiver horn on the sky. ARGUS has a
+      The footprint of one receiver horn on the sky. Argus has a
       4x4 multi-beam receiver, numbered 0 through 15.
-      Not to be confused with the
-      **FWHM**.  At 115 GHz the **FWHM** is about xx", at 86 GHz about
-      xx".  The beam separation is xx" for ARGUS.
-
-      Note that for some instruments beams are also interpreted while
-      including other simulteanously taken data in another band/polarization
 
       See also :term:`fdnum`
 
@@ -44,12 +40,12 @@ A dysh glossary
       calculated so that the receiver is always pointing at the source. This is most
       useful for point sources. See also :term:`Position Switching`
 
-    bintable
+    BINTABLE
       see also FITS
 
     blanking
       blanking is a term used in the (VEGAS) correllator, where bad data has been replaced
-      with a zero (?) value. Not to be confused with the concepts :term:`flagging`
+      with a Not-a-Number value. Not to be confused with the concepts :term:`flagging`
       and :term:`masking` in dysh
 
     CAL
@@ -100,8 +96,7 @@ A dysh glossary
 
     FWHM
       (Full Width Half Max): the effective resolution of the
-      beam if normally given in **FITS** keywords BMAJ,BMIN,BPA.  The
-      term **resolution**
+      beam if normally given in **FITS** keywords BMAJ,BMIN,BPA.  
 
     Frequency Switching
       This is a variation on position switching using a receiver
@@ -144,7 +139,7 @@ A dysh glossary
 
     multi-beam
       If an instrument has multiple beams that typically point are different areas in the sky
-      (e.g. **ARGUS** in a 4x4 configuration, and **Kfpa** in a 7 beam hexagonal shape).
+      (e.g. **Argus** in a 4x4 configuration, and **Kfpa** in a 7 beam hexagonal shape).
 
     Nod or Nodding
       An observing mode where two beams alternatingly look at source and (different) sky.
@@ -157,7 +152,7 @@ A dysh glossary
       An overloaded term. Sometimes referred to as the :term:`beam`, but usually interpreted
       in image processing as
       the size of a single (usually square) element in a gridded map (e.g. from an OTF), which
-      we commonly also refer to as a *picture element*.
+      is commonly referred to as a *picture element*.
 
     plnum
       Polarization number (0,1,...). Usually 0 and 1, but of course up to 4 values could be present
@@ -175,23 +170,12 @@ A dysh glossary
       a project are found in /home/sdfits (or $SDFITS_DATA), with a slight twist of the name.
       In the example this becomes AGBT21B_024.
 
-    resolution
-      this term is used in the gridder, but it's not
-      **FWHM**, it's lambda/D.  Keyword --resolution= is used If
-      selected this way, FWHM is then set as 1.15 * resolution. But if
-      resolution is chosen larger, what is the effective FWHM?  It
-      would be better to have a dimensionless term for
-      **resolution/pixel** and a different name for resolution
-      alltogether.
-
     RRL - Radio Recombination Line
       A common type of line observed at GBO that Pedro likes to observe.
 
     Scan
        A unit of observing, usually in some common mode.
-       GBT differentiates between different types of scans
-       (FSScan, PSScan, TPScan, SubBeamNod Scan). Each of these comes
-       with a corresponding :term:`getXX()`
+       GBT differentiates between different types of scans.
 
     ScanBlock
       A container for a series of **scan**'s.
@@ -200,11 +184,12 @@ A dysh glossary
 
     SDFITS
       Single Dish **FITS** format, normally used to store
-      raw or even calibrated spectra in a FITS BINTABLE format.  Each
+      raw or even calibrated spectra in a FITS binary table (BINTABLE) format.  Each
       row in a BINTABLE has an attached RA,DEC (and other meta-data),
       plus the whole spectrum. This standard was drafted in 1995 (Liszt),
       and has been implemented by many telescopes (Arecibo, FAST, GBT, Parkes, ....),
-      albeit with slightly different conventions.
+      albeit with slightly different conventions.  Also to note is that an SDFITS file
+      can have more than one BINTABLE extension.
 
       See also :ref:`sdfits-reference`
 
@@ -216,12 +201,12 @@ A dysh glossary
       Sanson-Flamsteed projection, sometimes used in gridding OTF maps.
       (the GLS - GLobal Sinusoidal is similar to SFL).
 
-    SiG
-      signal - see also cal
+    SIG
+      signal - see also CAL
 
     Spectral Window
       In ALMA commonly abbreviated as **spw**, this is closest to what we call a **bank**,
-      or **band**, a set of linearly spaced channels.
+      or **band**, a set of linearly spaced channels. 
 
       See also :term:`ifnum`
 
@@ -240,7 +225,7 @@ A dysh glossary
       Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
 
     waterfall plot
-      plot ...
+      A plot (or two-dimensional image) that shows time vs. frequency.
 
     Window
       See **Spectral Window**
@@ -252,9 +237,7 @@ Data : Project ID / Session / Scan
 Generally projects are assigned a project id, e.g. *AGBT21B_024*, which is
 then observed in a number of sessions, numbered starting with 1. The SDFITS data associated
 with these are stored under **$SDFITS_DATA**, e.g. for session 5 of the example above, this would be
-in **$SDFITS_DATA/AGBT21B_024_05/**.   At GBO  SDFITS_DATA=/home/sdfits, but outside
-of GBO this will be user defined. Another default is **$DYSH_DATA/sdfits**, if
-**DYSH_DATA** is used.
+in **$SDFITS_DATA/AGBT21B_024_05/**.  
 
-confusion?  a project was named "GBT21B-024", though labeled "AGBT21B_024" as the
-filename prefix for gbtidl/dysh.
+Possible confusion: project was named "GBT21B-024", though labeled "AGBT21B_024" as the
+filename prefix for file storage, which is the name that users need for dysh.
