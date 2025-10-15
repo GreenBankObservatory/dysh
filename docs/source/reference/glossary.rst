@@ -26,6 +26,9 @@ A dysh glossary
       For the GBT a bank is one of VEGAS roaches (or more than one?). The closest
       thing is an IF or VEGAS subband.
 
+    baseline
+      part of the spectrum that ideally is flat and absent of instrumental features.
+
     beam
       The footprint of one receiver horn on the sky. Argus has a
       4x4 multi-beam receiver, numbered 0 through 15.
@@ -49,13 +52,18 @@ A dysh glossary
       and :term:`masking` in dysh
 
     CAL
-      see also SIG
+      see also :term:`SIG` or :term:`REF`
 
     caloff
       Signal with no calibration diode in the signal path.
 
     calon
       Signal with a calibration diode in the signal path.
+
+    Chebyshev
+      a type of orthogonal polynomial that is commonly used in
+      numerical methods due to its optimal convergence properties and
+      connection to the Fourier transform.
 
     cog - Curve of Growth
       ...
@@ -102,7 +110,7 @@ A dysh glossary
       This is a variation on position switching using a receiver
       where the IF is changed. The "Main" and "Reference" positions on the sky are
       calculated so that the receiver is always pointing at the source. This is most
-      useful for point sources.
+      useful for point sources. See also :term:`Position Switching`    
 
     getXX()
       Generic name for the dysh access routines, e.g. getps, getfs, getnod etc.
@@ -152,6 +160,9 @@ A dysh glossary
     Nod or Nodding
       An observing mode where two beams alternatingly look at source and (different) sky.
 
+    Noise Diode
+      Use for calibration
+
     OTF Mapping
       On-the-fly mapping: in this procedure the telescope is scanned across the sky to
       sample the emission. The samples are then "gridded" into a map (which is not part
@@ -168,6 +179,11 @@ A dysh glossary
       for a full Stokes.
       Also used as the **plnum=** keyword in getXX()
 
+    polarization
+      ...
+      Assuming an unpolarized signal,
+      averaging the two polarizations will reduce the noise by :math:`sqrt{2}`
+
     Position Switching
       This is a standard way to obtain spectra by switching
       between a "Main" and "Reference" position on the sky, usually using a single beam. For our
@@ -179,9 +195,17 @@ A dysh glossary
       a project are found in /home/sdfits (or $SDFITS_DATA), with a slight twist of the name.
       In the example this becomes AGBT21B_024.
 
+    REF
+      Reference point. See also :term:`CAL`
+
+    Region
+      Region or regions of spectrum, use for flagging/masking,baseline subtraction.
+
     Scan
        A unit of observing, usually in some common mode.
-       GBT differentiates between different types of scans.
+       GBT differentiates between different types of scans. Scans are typically simple integers,
+       starting with 1 (check).
+       
 
     ScanBlock
       A container for a series of **scan**'s.
