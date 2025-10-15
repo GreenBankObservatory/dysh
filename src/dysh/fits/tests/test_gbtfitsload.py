@@ -1675,8 +1675,8 @@ class TestGBTFITSLoad:
         sdf.clear_flags()
         sdf.flag_vegas_spurs()
         sdf.apply_flags()
-        assert np.all(sdf._sdf[0]._flagmask.all() == saveflags0.all())
-        assert np.all(sdf._sdf[1]._flagmask.all() == saveflags1.all())
+        assert np.all(sdf._sdf[0]._flagmask[0] == saveflags0[0])
+        assert np.all(sdf._sdf[1]._flagmask[0] == saveflags1[0])
 
 
 def test_parse_tsys():
