@@ -1440,8 +1440,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             return int(np.round(idxs[0]))
 
         def wav2idx(wav, wcs, spectral_axis, coo, sto):
+            wav_sp = spectral_axis.to(unit=wav.unit).replicate(value=wav.value, unit=wav.unit)
             with u.set_enabled_equivalencies(u.spectral()):
-                wav_sp = spectral_axis.to(unit=wav.unit).replicate(value=wav.value, unit=wav.unit)
                 idxs = wcs.world_to_pixel(coo, wav_sp, sto)
             return int(np.round(idxs[0]))
 
