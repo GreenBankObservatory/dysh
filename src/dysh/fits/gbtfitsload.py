@@ -35,7 +35,6 @@ from ..util import (
     Flag,
     Selection,
     calc_vegas_spurs,
-    calc_vegas_spurs_array,
     consecutive,
     convert_array_to_mask,
     eliminate_flagged_rows,
@@ -975,51 +974,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         self._flag.flag_channel(tag=tag, channel=channel)
 
-    @log_call_to_history
-    def flag_vegas_spurs(self, flag_central=False):
-        """
-        Flag VEGAS SPUR channels.
-
-        Parameters
-        ----------
-        flag_central : bool, optional
-            Whether to flag the central VEGAS spur location or not.
-            The GBO SDFITS writer by default replaces the value at the central SPUR with the average of the
-            two adjacent channels, and hence the central channel is not typically flagged.
-
-        Returns
-        -------
-        None.
-
-        """
-        if "INSTRUME" in self._selection:
-            if (_inst := next(iter(set(self["INSTRUME"])))) != "VEGAS":
-                logger.warning(
-                    f"This does not appear to be VEGAS data. The FITS header says INSTRUME={_inst}. No channels will be flagged."
-                )
-                return
-        else:
-            logger.warning(
-                "This may not be VEGAS data. There is no 'INSTRUME' keyword in the FITS header to distinguish the backend. No channels will be flagged."
-            )
-            return
-        try:
-            vsprval = next(iter(set(self["VSPRVAL"])))
-            vspdelt = next(iter(set(self["VSPDELT"])))
-            vsprpix = next(iter(set(self["VSPRPIX"])))
-            spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, flag_central)
-            maxnchan = max([self.nchan(b) for b in uniq(self["BINTABLE"])]) - 1
-            if spurs[0] < 0 or spurs[:1] > maxnchan:
-                logger.warning(
-                    "Calculated VEGAS SPUR channels outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged."
-                )
-                return
-            self.flag_channel(channel=spurs, tag="AUTO_VEGAS_SPURS")  # add S so not ignored in re-read. See Flag.read.
-        except KeyError as k:
-            logger.warning(
-                f"Can't determine VEGAS spur locations because one or more VSPR keywords are missing from the FITS header {k}"
-            )
-
     def is_vegas(self):
         """Check if these data appear to use the VEGAS backend
 
@@ -1040,7 +994,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             return False
 
-    def flag_vegas_spurs_array(self, flag_central=False):
+    @log_call_to_history
+    def flag_vegas_spurs(self, flag_central=False):
         """
         Flag VEGAS SPUR channels.
 
@@ -1069,7 +1024,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
                 rows = g["ROW"].to_numpy()
-                spurs = calc_vegas_spurs_array(vsprval, vspdelt, vsprpix, flag_central)
+                spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, flag_central)
                 maxnchan = self._sdf[fi].nchan(bi) - 1  # for b in uniq(self["BINTABLE"])]) - 1
                 if np.any(spurs < 0) or np.any(spurs > maxnchan):
                     logger.warning(
@@ -1082,15 +1037,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(
                         [convert_array_to_mask(a, maxnchan + 1) for a in spurs]
                     )
-                    # for a in spurs.T:
-                    #    tablerowdict["CHAN"] = a
-                    #    tablerowdict["BINTABLE"] = bi
-                    #    tablerowdict["FITSINDEX'"] = fi
-                    #   self._flag._addrow(row=tablerowdict, dataframe=df,tag='AUTO_VEGAS_SPURS')
-                    # else:
-                    #     for a in spurs:
-                    # this would be 31 flag rules for every bintable and every file.  Terrible performance
-                    #       self.flag(channel=a,fitsindex=fi,bintable=bi,row=rows,tag="AUTO_VEGAS_SPURS")
         except KeyError as k:
             logger.warning(
                 f"Can't determine VEGAS spur locations because one or more VSPR keywords are missing from the FITS header {k}"
@@ -1128,11 +1074,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._apply_additional_flags()
 
     def _apply_additional_flags(self):
-        """apply the additional channel flags created by, e.g. flag_vegas"""
+        """apply the additional channel flags created by, e.g., flag_vegas"""
         for k in self._sdf:
             if k._additional_channel_mask is not None and k._flagmask is not None:
-                print(f"{k._flagmask=}")
-                print(f"{k._additional_channel_mask=}")
                 k._flagmask |= k._additional_channel_mask
 
     @log_call_to_history
@@ -1195,7 +1139,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.flags.read(flagfile, fitsindex=fi, ignore_vegas=flag_vegas)
                 found_flags = True
         if found_flags:
-            print("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
+            logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
     def _construct_procedure(self):
         """
