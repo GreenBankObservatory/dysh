@@ -23,7 +23,7 @@ Using `uv`
 
        $ uv sync --all-extras --dev
 
-# Verify the installation
+#. Verify the installation
 
     .. code-block:: bash
 
@@ -33,13 +33,13 @@ Using `uv`
        # should print dysh version and exit
        $ uv run dysh --version
 
-# Optional: run the test suite
+#. Optional: run the test suite
 
     .. code-block:: bash
 
         $ uv run pytest -n auto
 
-# Optional: build the documentation locally
+#. Optional: build the documentation locally
 
     .. code:: bash
 
