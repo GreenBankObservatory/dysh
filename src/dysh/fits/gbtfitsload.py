@@ -1025,17 +1025,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Returns
         ------
-            True if FITS HEADER Keyword INSTRUME is present and equals 'VEGAS', False otherwise
+            True if FITS HEADER Keyword INSTRUME or BACKEND is present and equals 'VEGAS', False otherwise
         """
-
-        if "INSTRUME" not in self._selection:
-            return False
-        elif next(iter(set(self["INSTRUME"]))).upper() == "VEGAS":
+        if "INSTRUME" in self._selection:
+            instrument = str(next(iter(set(self["INSTRUME"])))).upper()
+        else:
+            instrument = ""
+        if "BACKEND" in self._selection:
+            backend = str(next(iter(set(self["BACKEND"])))).upper()
+        else:
+            backend = ""
+        if instrument == "VEGAS" or backend == "VEGAS":
             return True
         else:
             return False
 
-    def flag_vegas_spurs_array(self, flag_central=False, test=True):
+    def flag_vegas_spurs_array(self, flag_central=False):
         """
         Flag VEGAS SPUR channels.
 
@@ -1053,16 +1058,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         if not self.is_vegas():
             logger.warning(
-                "This does not appear to be VEGAS data. Check the FITS Header keyword 'INSTRUME' is present and equals 'VEGAS'. No channels will be flagged."
+                "This does not appear to be VEGAS data. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. No channels will be flagged."
             )
             return
         try:
-            # for key, chan in self._flag._flag_channel_selection.items():
-            # chan will be a list or a list of lists
-            # If it is a single list, it is just a list of channels
-            # if it is list of lists, then it is upper lower inclusive
             df = self._selection.groupby(["FITSINDEX", "BINTABLE"])
-
             for _i, ((fi, bi), g) in enumerate(df):
                 # tablerowdict = {}
                 vsprval = g["VSPRVAL"].to_numpy()
@@ -1070,7 +1070,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 vsprpix = g["VSPRPIX"].to_numpy()
                 rows = g["ROW"].to_numpy()
                 spurs = calc_vegas_spurs_array(vsprval, vspdelt, vsprpix, flag_central)
-                print(f"{bi=}, {fi=}, nspurs={np.shape(spurs)}, nrows={len(rows)}")
                 maxnchan = self._sdf[fi].nchan(bi) - 1  # for b in uniq(self["BINTABLE"])]) - 1
                 if np.any(spurs < 0) or np.any(spurs > maxnchan):
                     logger.warning(
@@ -1079,26 +1078,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     continue
                 if spurs.shape[0] != len(rows):
                     raise ValueError(f"spurs array length {spurs.shape[0]} != selected number of rows {len(rows)}")
-                if spurs.shape[0] != np.shape(self._sdf[fi]._flagmask[bi])[0]:
-                    raise ValueError(
-                        f"MISMATCHED SHAPES spurs {np.shape(spurs)} flags {np.shape(self._sdf[fi]._flagmask[bi])}"
-                    )
                 else:
                     self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(
                         [convert_array_to_mask(a, maxnchan + 1) for a in spurs]
                     )
                     # for a in spurs.T:
                     #    tablerowdict["CHAN"] = a
+                    #    tablerowdict["BINTABLE"] = bi
+                    #    tablerowdict["FITSINDEX'"] = fi
                     #   self._flag._addrow(row=tablerowdict, dataframe=df,tag='AUTO_VEGAS_SPURS')
                     # else:
-                    #    q=0
                     #     for a in spurs:
-                    #       print(f"{q=}")
-                    #       q=q+1
                     # this would be 31 flag rules for every bintable and every file.  Terrible performance
                     #       self.flag(channel=a,fitsindex=fi,bintable=bi,row=rows,tag="AUTO_VEGAS_SPURS")
-
-                    # self.flag_channel(channel=spurs, tag="AUTO_VEGAS_SPURS")  # add S so not ignored in re-read. See Flag.read.
         except KeyError as k:
             logger.warning(
                 f"Can't determine VEGAS spur locations because one or more VSPR keywords are missing from the FITS header {k}"
@@ -1132,11 +1124,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
-                self._sdf[fi]._flagmask[bi][rows] |= chan_mask
+        # now any additional channel flags, i.e. VEGAS flags
+        self._apply_additional_flags()
 
     def _apply_additional_flags(self):
+        """apply the additional channel flags created by, e.g. flag_vegas"""
         for k in self._sdf:
-            if k._additional_channel_mask is not None:
+            if k._additional_channel_mask is not None and k._flagmask is not None:
+                print(f"{k._flagmask=}")
+                print(f"{k._additional_channel_mask=}")
                 k._flagmask |= k._additional_channel_mask
 
     @log_call_to_history
@@ -2775,7 +2771,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         selection = Selection(self._index)
         if len(kwargs) > 0:
             selection._select_from_mixed_kwargs(**kwargs)
-            # logger.debug(selection.show())
+            logger.debug(selection.show())
             _final = selection.final
         else:
             _final = selection
@@ -3551,7 +3547,7 @@ class GBTOnline(GBTFITSLoad):
             # 1. check the status_file ?
             status_file = "sdfitsStatus.txt"
             if os.path.exists(sdfits_root + "/" + status_file):
-                logger.debug(f"Warning, found {status_file} but not using it yet")
+                logger.warning(f"Warning, found {status_file} but not using it yet")
 
             # 2. visit each directory where the final leaf contains fits files, and find the most recent one
             n = 0
@@ -3597,7 +3593,7 @@ class GBTOnline(GBTFITSLoad):
                 logger.debug("NEW MTIME:", self._mtime)
                 force = True
         if force:
-            logger.info(f"Reload {self._online}")
+            print(f"Reload {self._online}")
             GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
         return force
 
