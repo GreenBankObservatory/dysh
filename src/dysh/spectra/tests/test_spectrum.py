@@ -1020,3 +1020,16 @@ class TestSpectrum:
         # Check that original Spectrum history did not change.
         assert "baseline" in f1.history[-1]
         assert "__init__" in f2.history[-1]
+
+    def test_average(self):
+        """
+        Test stats method of Spectrum.
+        """
+        f1 = Spectrum.fake_spectrum(nchan=1024,seed=123)
+        s1 = f1.stats()
+        s2 = f1.stats(roll=1)
+        assert s1["rms"].value == pytest.approx(0.28470637)
+        assert s2["rms"].value == pytest.approx(0.40211407)
+        assert s1["npt"] == 1024
+        assert s2["npt"] == 1022
+        assert s1["nan"] == 0
