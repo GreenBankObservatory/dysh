@@ -453,7 +453,7 @@ class TestSpectrum:
         assert ss.doppler_convention == self.ps0.doppler_convention
         assert ss.observer.frame_attributes == self.ps0.observer.frame_attributes
 
-    def test_pjt_smooth(self):
+    def test_smooth_mask(self):
         """Test for smooth with decimation and masking."""
         f1 = Spectrum.fake_spectrum()
         f1.mask[100:200] = True
