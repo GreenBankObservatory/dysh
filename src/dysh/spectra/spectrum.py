@@ -1428,8 +1428,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             return int(np.round(idxs[0]))
 
         def wav2idx(wav, wcs, spectral_axis, coo, sto):
+            wav_sp = spectral_axis.to(unit=wav.unit).replicate(value=wav.value, unit=wav.unit)
             with u.set_enabled_equivalencies(u.spectral()):
-                wav_sp = spectral_axis.to(unit=wav.unit).replicate(value=wav.value, unit=wav.unit)
                 idxs = wcs.world_to_pixel(coo, wav_sp, sto)
             return int(np.round(idxs[0]))
 
@@ -1654,7 +1654,7 @@ def _read_table(fileobj, format, **kwargs):
         spectral_axis = df2["col0"]
         flux = df2["col1"]
         # Parse the first line of the header and put into meta
-        tmp, scan, target, date, ra = df.columns[0].split(maxsplit=4)
+        _tmp, scan, target, date, ra = df.columns[0].split(maxsplit=4)
         meta = {}
         meta["SCAN"] = int(scan)
         meta["OBJECT"] = target

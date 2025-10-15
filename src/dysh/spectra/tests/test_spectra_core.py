@@ -84,11 +84,11 @@ class TestSmooth:
         data0h = np.array([0, 0, 0.25, 0.5, 0.25, 0, 0])
         data0b = np.array([0, 0.2, 0.2, 0.2, 0.2, 0.2, 0])
         data0g = np.array([0, 1.3563e-5, 0.055554, 0.888865, 0.055554, 1.3563e-5, 0])
-        data1h, meta = core.smooth(data0, "hanning")
+        data1h, _ = core.smooth(data0, "hanning")
         assert data1h.data == pytest.approx(data0h.data)
-        data1b, meta = core.smooth(data0, "boxcar", 5)
+        data1b, _ = core.smooth(data0, "boxcar", 5)
         assert data1b.data == pytest.approx(data0b.data)
-        data1g, meta = core.smooth(data0, "gaussian", 1 / 2.35482)
+        data1g, _ = core.smooth(data0, "gaussian", 1 / 2.35482)
 
         assert data1g.data == pytest.approx(data0g.data)
 
@@ -183,3 +183,19 @@ class TestBaseline:
         assert len(s_e.data) == idx_low
         assert s_e.spectral_axis.quantity[0] == s.spectral_axis.quantity[0]
         assert s_e.spectral_axis.quantity[-1] == s.spectral_axis.quantity[idx_low - 1]
+
+    def test_exclude_to_spectral_region(self):
+        """
+        Test that `exclude_to_spectral_region` can parse lists, list of lists and list of tuples.
+        """
+        s = Spectrum.fake_spectrum()
+
+        core.exclude_to_spectral_region([1, 10], s)
+        core.exclude_to_spectral_region([[1, 10]], s)
+        core.exclude_to_spectral_region([(1, 10)], s)
+        core.exclude_to_spectral_region([1 * u.m, 10 * u.m], s)
+        core.exclude_to_spectral_region([[1 * u.m, 10 * u.m]], s)
+        core.exclude_to_spectral_region([(1 * u.m, 10 * u.m)], s)
+        core.exclude_to_spectral_region([1 * u.m, 10 * u.m, 20 * u.m, 30 * u.m], s)
+        core.exclude_to_spectral_region([[1 * u.m, 10 * u.m], [20 * u.m, 30 * u.m]], s)
+        core.exclude_to_spectral_region([(1 * u.m, 10 * u.m), (20 * u.m, 30 * u.m)], s)
