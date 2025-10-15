@@ -1,7 +1,6 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import List, Union
 
 import IPython
 from traitlets.config import Config
@@ -32,7 +31,7 @@ BANNER = f"""-------------------------------------------------------------------
 """
 
 DEFAULT_PROFILE = "dysh"
-DEFAULT_COLORS = "LightBG"
+DEFAULT_COLORS = "Linux"
 
 
 def parse_args():
@@ -42,8 +41,13 @@ def parse_args():
             "to ipython; see $ ipython --help for more details"
         )
     )
-    parser.add_argument("paths", help="FITS file paths to load initially", nargs="*", type=Path)
-    parser.add_argument("-p", "--profile", help="The IPython profile to use", default=DEFAULT_PROFILE)
+
+    parser.add_argument("file", nargs="?", help="Path to a Dysh Script to run", type=Path)
+    parser.add_argument(
+        "-i", "--interactive", help="Remain in interactive mode after running a script", action="store_true"
+    )
+    parser.add_argument("-p", "--paths", help="FITS file paths to load initially", nargs="+", type=Path)
+    parser.add_argument("-P", "--profile", help="The IPython profile to use", default=DEFAULT_PROFILE)
     parser.add_argument("-L", "--fits-loader", help="The SDFITS loader class name to use", default="GBTFITSLoad")
     parser.add_argument(
         "--colors",
@@ -62,7 +66,7 @@ def parse_args():
 def init_shell(
     *ipython_args,
     colors=DEFAULT_COLORS,
-    profile: Union[str, Path] = "DEFAULT_PROFILE",
+    profile: str | Path = "DEFAULT_PROFILE",
     sdfits_files=None,
     skip_config=False,
 ):
@@ -73,6 +77,7 @@ def init_shell(
     from astropy.table import Table
 
     from dysh.fits.gbtfitsload import GBTFITSLoad, GBTOffline, GBTOnline
+    from dysh.util.files import dysh_data
 
     user_ns = {
         "pd": pd,
@@ -80,6 +85,7 @@ def init_shell(
         "GBTFITSLoad": GBTFITSLoad,
         "GBTOnline": GBTOnline,
         "GBTOffline": GBTOffline,
+        "dysh_data": dysh_data,
         "Table": Table,
         "fits": fits,
     }
@@ -103,7 +109,7 @@ def get_fits_loader_class(loader_class_name: str):
         raise NotImplementedError(f"No known SDFITS Loader {loader_class_name!r}") from error
 
 
-def open_sdfits_files(paths: List[Path], loader_class_name="GBTFITSLoad") -> List[SDFITSLoad]:
+def open_sdfits_files(paths: list[Path], loader_class_name="GBTFITSLoad") -> list[SDFITSLoad]:
     loader_class = get_fits_loader_class(loader_class_name)
     return [loader_class(path) for path in paths]
 
@@ -114,9 +120,19 @@ def main():
         print(__version__)
         sys.exit(0)
     init_logging(verbosity=args.verbosity, path=args.log, quiet=args.quiet)
-    sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
+    if args.paths:
+        sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
+    else:
+        sdfits_files = []
+
+    ipython_cmd = []
+    if args.file:
+        ipython_cmd.append(str(args.file))
+    if args.interactive:
+        ipython_cmd.append("-i")
+    ipython_cmd += remaining_args
     init_shell(
-        *remaining_args,
+        *ipython_cmd,
         colors=args.colors,
         profile=args.profile,
         sdfits_files=sdfits_files,

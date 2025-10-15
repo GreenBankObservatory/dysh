@@ -18,7 +18,7 @@ from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 
 
-class SDFITSLoad(object):
+class SDFITSLoad:
     """
     Generic Container for a bintable(s) from selected HDU(s) for a single SDFITS file.
     For multiple SDFITS files, see :class:`~gbtfitsload.GBTFITSLoad`.
@@ -41,7 +41,7 @@ class SDFITSLoad(object):
         }
         kwargs_opts.update(kwargs)
         if kwargs_opts["verbose"]:
-            print("==SDFITSLoad %s" % filename)
+            print(f"==SDFITSLoad {filename}")
         # We cannot use this to get mmHg as it will disable all default astropy units!
         # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
         # u.cds.enable()  # to get mmHg
@@ -201,7 +201,18 @@ class SDFITSLoad(object):
         # T* are in the binary table header
         # NAXIS* have a different meaning in the primary hdu, we want the bintable values
         # BITPIX, GCOUNT,PCOUNT,XTENSION are FITS reserved keywords
-        ignore = ["TUNIT", "TTYPE", "TFORM", "TFIELDS", "NAXIS", "COMMENT", "GCOUNT", "PCOUNT", "XTENSION", "BITPIX"]
+        ignore = [
+            "TUNIT",
+            "TTYPE",
+            "TFORM",
+            "TFIELDS",
+            "NAXIS",
+            "COMMENT",
+            "GCOUNT",
+            "PCOUNT",
+            "XTENSION",
+            "BITPIX",
+        ]
         cols = {}
         for h in self._hdu:
             c = dict(filter(lambda item: not any(sub in item[0] for sub in ignore), h.header.items()))
@@ -478,7 +489,9 @@ class SDFITSLoad(object):
         data = self.rawspectrum(i, bintable, setmask=setmask)
         meta["NAXIS1"] = len(data)
         if "CUNIT1" not in meta:
-            meta["CUNIT1"] = "Hz"  # @todo this is in gbtfits.hdu[0].header['TUNIT11'] but is it always TUNIT11?
+            # @todo this is in gbtfits.hdu[0].header['TUNIT11'] or whereever CRVAL1 is stored
+            # for good measure CTYPE1 and CDELT1 also store this unit, and better be the same
+            meta["CUNIT1"] = "Hz"
             logger.debug("Fixing CUNIT1 to Hz")
         meta["CUNIT2"] = "deg"  # is this always true?
         meta["CUNIT3"] = "deg"  # is this always true?
@@ -490,37 +503,42 @@ class SDFITSLoad(object):
         # @todo   could we safely store it in meta['BUNIT']
         #  for now, loop over the binheader keywords to find the matching TUNITxx that belongs to TTYPExx='DATA'
         #  if BUNIT was also found, a comparison is made, but TUNIT wins
+        #  NOTE: sdfits file from sdf.write() currently have
         if "BUNIT" in meta:
             bunit = meta["BUNIT"]
+            logger.debug(f"BUNIT {bunit} already set")
         else:
             bunit = None
             h = self.binheader[0]
-            for k, v, c in h.cards:  # noqa: B007
+            for k, v, _c in h.cards:
                 if k == "BUNIT":
                     bunit = v
             ukey = None
-            for k, v, c in h.cards:  # loop over the (key,val,comment) for all cards in the header  # noqa: B007
+            for k, v, _c in h.cards:  # loop over the (key,val,comment) for all cards in the header
                 if v == "DATA":
                     ukey = "TUNIT" + k[5:]
                     break
             if ukey is not None:  # ukey should almost never be "None" in standard SDFITS
-                for k, v, c in h.cards:  # noqa: B007
+                for k, v, _c in h.cards:
                     if k == ukey:
                         if bunit != v:
-                            logger.info(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
-                        bunit = v
+                            logger.debug(f"Found BUNIT={bunit}, now finding {ukey}={v}, using the latter")
+                        if len(v) == 0:
+                            logger.debug("Blank BUNIT; overriding unit as 'ct'")
+                            bunit = u.ct
+                        else:
+                            bunit = v
                         break
+            if bunit is None:
+                logger.debug("no bunit yet")
         if bunit is not None:
             bunit = u.Unit(bunit)
         else:
             bunit = u.ct
         logger.debug(f"BUNIT = {bunit}")
-        if bunit == "ct":
-            logger.info("Your data have no units, 'ct' was selected")
-            # PJT hack: bunit = u.K
         # use from_unmasked so we don't get the astropy INFO level message about replacing a mask
         # (doesn't work -- the INFO message comes from the Spectrum1D constructor)
-        masked_data = Masked.from_unmasked(data.data, data.mask) * u.K
+        masked_data = Masked.from_unmasked(data.data, data.mask) * bunit
         s = Spectrum.make_spectrum(masked_data, meta, observer_location=observer_location)
         return s
 
@@ -613,10 +631,9 @@ class SDFITSLoad(object):
         nrows = self.naxis(bintable=j, naxis=2)
         nflds = self._binheader[j]["TFIELDS"]
         restfreq = np.unique(self.index(bintable=j)["RESTFREQ"]) / 1.0e9
-        #
-        print("HDU       %d" % (j + 1))
-        print("BINTABLE: %d rows x %d cols with %d chans" % (self._nrows[j], nflds, self.nchan(j)))
-        print("Selected  %d/%d rows" % (self._nrows[j], nrows))
+        print(f"HDU       {j + 1}")
+        print(f"BINTABLE: {self._nrows[j]} rows x {nflds} cols with {self.nchan(j)} chans")
+        print(f"Selected  {self._nrows[j]}/{nrows} rows")
         print("Sources: ", self.sources(j))
         print("RESTFREQ:", restfreq, "GHz")
         print("Scans:   ", self.scans(j))
@@ -625,7 +642,7 @@ class SDFITSLoad(object):
 
     def summary(self):
         """Print a summary of each record of the data"""
-        print("File:     %s" % self._filename)
+        print(f"File:     {self._filename}")
         for i in range(len(self._bintable)):
             print("i=", i)
             self._summary(i)
@@ -653,7 +670,7 @@ class SDFITSLoad(object):
         for i, (k, v) in enumerate(column_dict.items()):
             _mask[i, :] = self[k] == v
         if _mask.shape[0] > 1:
-            _mask = np.logical_and(*_mask)
+            _mask = np.logical_and.reduce(_mask)
         return _mask.ravel()
 
     def __repr__(self):
@@ -662,7 +679,7 @@ class SDFITSLoad(object):
     def __str__(self):
         return str(self._filename)
 
-    def _bintable_from_rows(self, rows=None, bintable=None):
+    def _bintable_from_rows(self, rows, bintable):
         """
         Extract a bintable from an existing
         bintable in this SDFITSLoad object
@@ -687,13 +704,20 @@ class SDFITSLoad(object):
             rows = [rows]
         # ensure rows are sorted
         rows.sort()
-        outbintable = self._bintable[bintable].copy()
-        outbintable.data = outbintable.data[rows]
-        outbintable.update_header()
+        header = self._bintable[bintable].header
+        data = self._bintable[bintable].data[rows]
+        outbintable = BinTableHDU(data, header)
         return outbintable
 
     def write(
-        self, fileobj, rows=None, bintable=None, flags=True, output_verify="exception", overwrite=False, checksum=False
+        self,
+        fileobj,
+        rows=None,
+        bintable=None,
+        flags=True,
+        output_verify="exception",
+        overwrite=False,
+        checksum=False,
     ):
         """
         Write the `SDFITSLoad` to a new file, potentially sub-selecting rows or bintables.
@@ -737,21 +761,20 @@ class SDFITSLoad(object):
                 self._hdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             else:
                 raise ValueError("You must specify bintable if you specify rows")
+        elif rows is None:
+            # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
+            self._hdu[0 : bintable + 2]._hdu.writeto(
+                fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
+            )
         else:
-            if rows is None:
-                # bin table index counts from 0 and starts at the 2nd HDU (hdu index 1), so add 2
-                self._hdu[0 : bintable + 2]._hdu.writeto(
-                    fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
-                )
-            else:
-                hdu0 = self._hdu[0].copy()
-                # need to get imports correct first
-                # hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
-                outhdu = fits.HDUList(hdu0)
-                outbintable = self._bintable_from_rows(rows, bintable)
-                outhdu.append(outbintable)
-                outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
-                outhdu.close()
+            hdu0 = self._hdu[0].copy()
+            # need to get imports correct first
+            # hdu0.header["DYSHVER"] = ('dysh '+version(), "This file was created by dysh")
+            outhdu = fits.HDUList(hdu0)
+            outbintable = self._bintable_from_rows(rows, bintable)
+            outhdu.append(outbintable)
+            outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            outhdu.close()
 
     def rename_column(self, oldname, newname):
         """
@@ -912,7 +935,10 @@ class SDFITSLoad(object):
                 n = self._nrows[i]
                 if isinstance(value, Column):
                     cut = Column(
-                        name=value.name, format=value.format, dim=value.dim, array=value.array[start : start + n]
+                        name=value.name,
+                        format=value.format,
+                        dim=value.dim,
+                        array=value.array[start : start + n],
                     )
                     self._bintable[i].columns.add_col(cut)
                 else:
@@ -1089,7 +1115,7 @@ class SDFITSLoad(object):
             self._update_column(d)
         except Exception as e:
             raise Exception(f"Could not update SDFITS binary table for {items} because {e}")  # noqa: B904
-        # only update the index if the binary table could be updated.
+        # only update the index if the binary table could not be updated.
         # DATA is not in the index.
         if "DATA" not in items:
             self._index[items] = values

@@ -3,7 +3,6 @@ Methods for deling with non-ASCII strings
 """
 
 import re
-from typing import Union
 
 # From astropy.io.fits.Card:
 # FSC commentary card string which must contain printable ASCII characters.
@@ -21,7 +20,7 @@ def _ensure_ascii_str(text: str, check: bool = False) -> str:
     return clean_text
 
 
-def ensure_ascii(text: Union[str, list[str]], check: bool = False) -> Union[str, list[str]]:
+def ensure_ascii(text: str | list[str], check: bool = False) -> str | list[str]:
     """
     Remove non-printable ASCII characters from a string or list of strings. This is to ensure that
     FITS cards conform to the standard

@@ -50,7 +50,7 @@ def getps(r1, r2, r3, r4):
 
 
 def getps2(data):
-    nscan, ndim, nchan = data.shape
+    _nscan, _ndim, _nchan = data.shape
     # print(nscan,ndim,nchan)
     tc = 10.0
     tsys = tc * data[:, 0, :].sum(axis=1) / (data[:, 1, :] - data[:, 0, :]).sum(axis=1)
@@ -66,13 +66,14 @@ if __name__ == "__main__":
     parser.add_argument("--loop",        "-l", action="store",       help="number of times to loop", default=4)
     parser.add_argument("--nchan",       "-n", action="store",       help="number of channels", default=100000)
     parser.add_argument("--nscan",       "-s", action="store",       help="number of scans", default=1000)
-    parser.add_argument("--mode",        "-m", action="store",       help="initialization mode", default=1)
+    parser.add_argument("--mode",        "-m", action="store",       help="initialization mode", default=0)
     parser.add_argument("--timeaverage", "-t", action="store_true",  help="time average as well")
 
     parser.add_argument("--out",         "-o", action="store",       help="output filename (astropy Table)", required=False)
     parser.add_argument("--append",      "-a", action="store_true",  help="append to previous output file (astropy Table)", required=False)
     parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
+    parser.add_argument("--sortkey",     "-x", action="store",       help="How to sort the profiler statistics, 'cumulative' or 'time'", default="cumulative")
     parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
     parser.add_argument("--quit",        "-q", action="store_true",  help="quit early")
     # fmt: on

@@ -104,6 +104,53 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
 
             Flagging
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`123;3em;green` **Repeated Scan Numbers**
+
+        How to work with repeated scan numbers
+
+
+        .. button-link:: examples/repeated_scans.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Repeated Scans
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`troubleshoot;3em;green` **Gaussian Fitting**
+
+        How to fit Gaussian profiles
+
+
+        .. button-link:: examples/gauss_fit.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Gaussian Fitting
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`troubleshoot;3em;green` **Merging SDFITS**
+
+        How to merge SDFITS files
+
+
+        .. button-link:: examples/merge_sdfits.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Merging SDFITS Files
 
 .. toctree::
    :maxdepth: 4
@@ -115,3 +162,6 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/dataIO
    examples/align_spectra
    examples/flagging
+   examples/repeated_scans
+   examples/gauss_fit
+   examples/merge_sdfits

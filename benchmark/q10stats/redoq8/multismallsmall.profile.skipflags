@@ -1,0 +1,121 @@
+Loading not more than 8 from /lma1/teuben/GBT/dysh_data/acceptance_testing/data/AGBT20B_336_01/AGBT20B_336_01.raw.vegas
+Will load 8 of 8 files. FITS size per file 56.18MB, Flag lines 7
+Loaded 8 FITS files
+Found ostype= linux
+Loaded 8 FITS files
+Loaded 8 FITS files
+Loaded 8 FITS files
+# Dysh Benchmark: GBTFITSLoad
+ name   time  VmSize VmRSS  #files file_size totsize nchan  nrow nIF nFd nPol #flags skipflags
+         ms   Mbyte  Mbyte           Mbyte    Mbyte                                           
+----- ------- ------ ------ ------ --------- ------- ----- ----- --- --- ---- ------ ---------
+load1 14897.4 1995.8 1378.8      8     56.18  449.44  1024 95136   4   2    2      0      True
+load2 14836.8 2422.8 1805.6      8     56.18  449.44  1024 95136   4   2    2      0      True
+load3 14572.5 2487.7 1871.3      8     56.18  449.44  1024 95136   4   2    2      0      True
+load4 14820.8 2546.4 1929.6      8     56.18  449.44  1024 95136   4   2    2      0      True
+         111555789 function calls (111296797 primitive calls) in 58.845 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1544 to 100 due to restriction <100>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        4    0.000    0.000   58.127   14.532 /lma1/mpound/dysh/src/dysh/log.py:342(wrapper)
+        4    0.001    0.000   58.124   14.531 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:75(__init__)
+        4    0.237    0.059   37.983    9.496 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:870(_create_index_if_needed)
+        8    0.000    0.000   33.461    4.183 /lma1/mpound/dysh/src/dysh/util/selection.py:55(__init__)
+        8    0.000    0.000   33.359    4.170 /lma1/mpound/dysh/src/dysh/util/selection.py:94(_add_utc_column)
+ 1520/784    0.009    0.000   33.027    0.042 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:4271(__setitem__)
+     1488    0.004    0.000   32.969    0.022 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:4514(_set_item)
+     1488    0.005    0.000   32.685    0.022 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:5242(_sanitize_column)
+     5396    0.149    0.000   32.679    0.006 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/construction.py:517(sanitize_array)
+   761096    0.255    0.000   28.273    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/utils/shapes.py:252(self_iter)
+   761088    0.613    0.000   28.019    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/utils/shapes.py:232(__getitem__)
+   761088    8.480    0.000   27.406    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/core.py:1350(_apply)
+       32    0.001    0.000   19.983    0.624 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:37(__init__)
+       32    0.033    0.001   18.900    0.591 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:150(create_index)
+  1522208    2.663    0.000   11.777    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:155(__init__)
+     1508    2.582    0.002   10.075    0.007 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:46(_str_map)
+       32    0.000    0.000    9.648    0.301 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:10170(apply)
+       32    0.026    0.001    9.646    0.301 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/apply.py:864(apply)
+       32    0.000    0.000    9.619    0.301 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/apply.py:1061(apply_standard)
+       32    0.003    0.000    9.543    0.298 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/apply.py:1070(apply_series_generator)
+      736    0.003    0.000    9.472    0.013 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:173(<lambda>)
+       32    0.000    0.000    6.503    0.203 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/lib/recfunctions.py:501(drop_fields)
+       32    2.051    0.064    6.500    0.203 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/lib/recfunctions.py:35(recursive_fill_fields)
+      772    0.019    0.000    6.280    0.008 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:129(wrapper)
+     2408    0.008    0.000    5.433    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:503(__getitem__)
+      736    0.007    0.000    4.804    0.007 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:1972(decode)
+      736    0.002    0.000    4.466    0.006 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:2115(strip)
+     2372    0.012    0.000    4.442    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:684(field)
+      736    0.001    0.000    4.381    0.006 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:450(_str_strip)
+     2372    0.010    0.000    4.354    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:875(_convert_other)
+      736    0.003    0.000    4.312    0.006 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/util.py:253(decode_ascii)
+      736    0.053    0.000    4.307    0.006 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/defchararray.py:572(decode)
+       72    0.002    0.000    4.184    0.058 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/cast.py:124(maybe_convert_platform)
+       72    1.123    0.016    4.182    0.058 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/cast.py:1580(construct_1d_object_array_from_listlike)
+  3805488    3.890    0.000    3.890    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/core.py:1792(__getattr__)
+  3044368    1.949    0.000    3.618    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:2453(_validate_jd_for_storage)
+  8752512    1.712    0.000    3.195    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:2002(<lambda>)
+  1522184    1.107    0.000    3.121    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:241(jd2)
+3439570/3439498    1.035    0.000    2.892    0.000 {built-in method builtins.getattr}
+  8752512    1.680    0.000    2.873    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:451(<lambda>)
+      740    2.842    0.004    2.842    0.004 {built-in method numpy.core._multiarray_umath._vec_string}
+  1522184    0.611    0.000    2.547    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:231(jd1)
+      136    0.004    0.000    2.263    0.017 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:1466(__init__)
+        4    0.067    0.017    1.921    0.480 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:948(_construct_integration_number)
+        4    0.010    0.003    1.901    0.475 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:922(_construct_procedure)
+13824711/13817859    1.789    0.000    1.827    0.000 {built-in method builtins.isinstance}
+       36    0.000    0.000    1.795    0.050 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:834(split)
+    11904    0.036    0.000    1.707    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/ops.py:607(get_iterator)
+  4566600    1.199    0.000    1.675    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:441(_select_subfmts)
+    11904    0.011    0.000    1.660    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1149(__iter__)
+    10064    0.165    0.000    1.631    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:561(__init__)
+47396/23364    0.053    0.000    1.543    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/utils/decorators.py:827(__get__)
+  8752527    1.483    0.000    1.483    0.000 {method 'decode' of 'bytes' objects}
+       32    0.000    0.000    1.475    0.046 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/hdu/table.py:405(data)
+       32    0.000    0.000    1.454    0.045 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/hdu/table.py:175(_get_tbdata)
+      736    0.014    0.000    1.411    0.002 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/numpy/core/defchararray.py:60(_to_bytes_or_str_array)
+21264/19720    1.374    0.000    1.375    0.000 {built-in method numpy.asarray}
+15594/8998    0.011    0.000    1.229    0.000 {method 'view' of 'numpy.ndarray' objects}
+  1522208    0.646    0.000    1.223    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:211(in_subfmt)
+    11896    0.633    0.000    1.220    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/groupby/ops.py:1180(_chop)
+  8814840    1.208    0.000    1.208    0.000 {method 'strip' of 'str' objects}
+       68    0.004    0.000    1.202    0.018 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:230(__array_finalize__)
+  1522176    0.560    0.000    1.140    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:193(_get_allowed_subfmt)
+       68    0.030    0.000    1.114    0.016 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:1524(_init_from_array)
+  1522208    0.570    0.000    1.089    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:221(out_subfmt)
+1077225/926260    0.234    0.000    1.051    0.000 {built-in method builtins.setattr}
+   761112    0.496    0.000    1.013    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/utils/shapes.py:223(__len__)
+       36    0.000    0.000    0.993    0.028 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:544(nchan)
+       36    0.001    0.000    0.993    0.028 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:404(rawspectrum)
+       36    0.000    0.000    0.971    0.027 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:327(_str_split)
+     1508    0.303    0.000    0.966    0.001 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/accessor.py:255(_wrap_result)
+       32    0.001    0.000    0.935    0.029 /lma1/mpound/dysh/src/dysh/fits/sdfitsload.py:75(_init_flags)
+  1526990    0.927    0.000    0.927    0.000 {built-in method numpy.array}
+   161024    0.154    0.000    0.853    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:532(__set__)
+   761088    0.635    0.000    0.838    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/strings/object_array.py:358(<lambda>)
+       32    0.000    0.000    0.823    0.026 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/hdu/table.py:396(columns)
+       32    0.026    0.001    0.809    0.025 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:1580(_init_from_table)
+  1522208    0.601    0.000    0.778    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:276(precision)
+        8    0.260    0.033    0.770    0.096 /lma1/mpound/dysh/src/dysh/util/core.py:103(gbt_timestamp_to_time)
+   761096    0.253    0.000    0.749    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/core.py:777(scale)
+      116    0.002    0.000    0.741    0.006 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/frame.py:694(__init__)
+    39344    0.049    0.000    0.719    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/card.py:282(value)
+    63118    0.040    0.000    0.715    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/config/configuration.py:333(__get__)
+    63118    0.157    0.000    0.675    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/config/configuration.py:442(__call__)
+        4    0.000    0.000    0.675    0.169 /lma1/mpound/dysh/src/dysh/fits/gbtfitsload.py:314(stats)
+      100    0.022    0.000    0.661    0.007 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/construction.py:96(arrays_to_mgr)
+    10064    0.020    0.000    0.611    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/io/fits/column.py:871(name)
+       32    0.001    0.000    0.589    0.018 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/construction.py:161(rec_array_to_mgr)
+      100    0.001    0.000    0.587    0.006 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/internals/managers.py:2121(create_block_manager_from_column_arrays)
+     5211    0.003    0.000    0.558    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/missing.py:101(isna)
+     5211    0.005    0.000    0.556    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/missing.py:184(_isna)
+   761088    0.355    0.000    0.554    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/core.py:1097(masked)
+     1512    0.003    0.000    0.548    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/missing.py:261(_isna_array)
+     1512    0.544    0.000    0.544    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/missing.py:305(_isna_string_dtype)
+   761120    0.226    0.000    0.517    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/utils/shapes.py:219(isscalar)
+    11896    0.478    0.000    0.504    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/indexes/base.py:5425(_getitem_slice)
+   761104    0.300    0.000    0.496    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:262(scale)
+  3805544    0.463    0.000    0.463    0.000 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/astropy/time/formats.py:227(jd1)
+       28    0.000    0.000    0.444    0.016 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/reshape/concat.py:157(concat)
+       28    0.002    0.000    0.443    0.016 /n/lma1/mpound/anaconda3/lib/python3.12/site-packages/pandas/core/reshape/concat.py:622(get_result)

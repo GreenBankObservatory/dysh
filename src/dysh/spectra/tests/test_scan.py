@@ -16,7 +16,6 @@ class TestPSScan:
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_getps_scan_152_intnum_0_ifnum_0_plnum_0.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        print("SDF ", type(sdf))
         tps = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
         tsys = tps[0].tsys
 
@@ -61,12 +60,10 @@ class TestPSScan:
 
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
-        print(f"{sdf_file=}")
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
-        print(np.shape(ps_scans[0]._calibrated), np.shape(ps_scans[1]._calibrated))
         ta = ps_scans.timeaverage()
 
         hdu = fits.open(gbtidl_file)
@@ -159,19 +156,71 @@ class TestPSScan:
         testfile = o / "test_scan_write.fits"
         ps_sb[0].write(testfile, overwrite=True)
 
+    def test_flag_write(self, data_dir, tmp_path):
+        data_path = f"{data_dir}/AGBT18B_354_03"
+        sdf_file = f"{data_path}/AGBT18B_354_03.raw.vegas"
+
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf.clear_flags()
+        flagarray = [60000, 90000]
+        flagrange = np.arange(flagarray[0], flagarray[1] + 1)
+        sdf.flag(scan=7, channel=[flagarray], intnum=[1])
+        sdf.apply_flags()
+        scan_block = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0)
+        output = tmp_path / "test_sb_flag_write.fits"
+        # scanblock flags test
+        scan_block.write(output, overwrite=True, flags=True)
+        sdfin = gbtfitsload.GBTFITSLoad(output)
+        assert np.all(np.where(sdfin._sdf[0]._flagmask[0][1])[0] == flagrange)
+        # scan flags test
+        sb = sdfin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        assert np.all(np.where(sb[0]._calibrated.mask[1])[0] == flagrange)
+        scanout = tmp_path / "test_scan_flag_write.fits"
+        sb[0].write(scanout, overwrite=True, flags=True)
+        scanin = gbtfitsload.GBTFITSLoad(scanout)
+        assert np.all(np.where(scanin._sdf[0]._flagmask[0][1])[0] == flagrange)
+        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        assert np.all(np.where(tpscan[0]._calibrated.mask[1])[0] == flagrange)
+        # try with flags=false
+        scanout = tmp_path / "test_scan_flag_write2.fits"
+        sb[0].write(scanout, overwrite=True, flags=False)
+        scanin = gbtfitsload.GBTFITSLoad(scanout)
+        tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
+        assert len(np.where(tpscan[0]._calibrated.mask[1])[0]) == 0
+
     def test_scale_units(self, data_dir):
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
         sdf_file = f"{data_path}/NGC2782.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, bunit="jy", zenith_opacity=0.08)
+        tscale = "Flux"
+        tunit = "Jy"
+        ps_sb = sdf.getps(scan=156, fdnum=0, plnum=0, ifnum=0, units=tscale, zenith_opacity=0.08)
+        assert ps_sb.tunit == tunit
+        assert ps_sb.tscale == tscale
+        assert ps_sb.tscale_fac == pytest.approx(0.55117614)
+        assert ps_sb[0].tunit == tunit
+        assert ps_sb[0].tscale == tscale
+
         ps_jy = ps_sb.timeaverage()
-        assert ps_jy.meta["BUNIT"] == "Jy"
-        assert ps_jy.meta["TUNIT7"] == "Jy"
-        assert ps_jy.flux.unit.to_string() == "Jy"
+        assert ps_jy.meta["BUNIT"] == tunit
+        assert ps_jy.meta["TUNIT7"] == tunit
+        assert ps_jy.flux.unit.to_string() == tunit
         ps_jy_i = ps_sb[0].calibrated(0)
-        assert ps_jy_i.meta["BUNIT"] == "Jy"
-        assert ps_jy_i.meta["TUNIT7"] == "Jy"
-        assert ps_jy_i.flux.unit.to_string() == "Jy"
+        assert ps_jy_i.meta["BUNIT"] == tunit
+        assert ps_jy_i.meta["TUNIT7"] == tunit
+        assert ps_jy_i.flux.unit.to_string() == tunit
+
+    def test_tcal(self, data_dir):
+        """
+        Test for getps with t_cal argument.
+        """
+
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        ps_org = sdf.getps(scan=152, plnum=0, ifnum=0, fdnum=0).timeaverage()
+        ps_cal = sdf.getps(scan=152, plnum=0, ifnum=0, fdnum=0, t_cal=1.0).timeaverage()
+        assert ps_cal.meta["TSYS"] == pytest.approx(ps_org.meta["TSYS"] / ps_org.meta["TCAL"])
+        assert ps_cal.meta["TCAL"] == 1.0
 
 
 class TestSubBeamNod:
@@ -207,7 +256,78 @@ class TestSubBeamNod:
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
         # make sure call to timeaverage functions
-        xx = sbn.timeaverage()  # noqa: F841
+        sbn.timeaverage()
+
+    def test_nodiode(self, data_dir):
+        """
+        Test for SubBeamNodScan without noise diodes.
+        """
+        sdf_file = f"{data_dir}/AGBT17B_456_03/AGBT17B_456_03.raw.vegas.testtrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Cycle mode.
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0).timeaverage()
+
+        assert sbn.data.std() == pytest.approx(0.00222391)
+        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["SCAN"] == 20
+        assert sbn.meta["TSYS"] == 1.0
+
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.0).timeaverage()
+
+        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["SCAN"] == 20
+        assert sbn.meta["TSYS"] == pytest.approx(105.0)
+
+        # Scan mode.
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan").timeaverage()
+
+        assert sbn.meta["SCAN"] == 20
+        assert sbn.meta["TSYS"] == 1.0
+
+        sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0).timeaverage()
+
+        assert sbn.meta["SCAN"] == 20
+        assert sbn.meta["TSYS"] == pytest.approx(100.0)
+
+        # Equal weights.
+        sbn_eq = sdf.subbeamnod(
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, weights=None
+        ).timeaverage()
+
+        assert (sbn.data - sbn_eq.data).sum() > 0.15
+        assert sbn_eq.meta["SCAN"] == 20
+        assert sbn_eq.meta["TSYS"] == pytest.approx(100.0)
+
+        # Smooth reference.
+        sbn_smref = sdf.subbeamnod(
+            scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0, smoothref=10
+        ).timeaverage()
+        s = slice(2000, 6000)  # Clean channels.
+
+        assert (sbn.data - sbn_smref.data)[s].sum() == pytest.approx(-5.375981637276874)
+        assert sbn_smref.meta["SCAN"] == 20
+        assert sbn_smref.meta["TSYS"] == pytest.approx(100.0)
+        assert sbn_smref[s].stats()["rms"].value == pytest.approx(0.17582152178367458)
+
+    def test_tcal(self, data_dir):
+        """
+        Test for SubBeamNodScan with t_cal argument.
+        """
+        sdf_file = f"{data_dir}/AGBT17B_456_03/AGBT17B_456_03.raw.vegas.testtrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Cycle mode.
+        sbn_org = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0).timeaverage()
+        sbn_cal = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_cal=1.0).timeaverage()
+        assert sbn_cal.meta["TSYS"] == pytest.approx(sbn_org.meta["TSYS"] / sbn_org.meta["TCAL"])
+        assert sbn_cal.meta["TCAL"] == 1.0
+
+        # Scan mode.
+        sbn_org = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan").timeaverage()
+        sbn_cal = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_cal=1.0).timeaverage()
+        assert sbn_cal.meta["TSYS"] == pytest.approx(sbn_org.meta["TSYS"] / sbn_org.meta["TCAL"])
+        assert sbn_cal.meta["TCAL"] == 1.0
 
     @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_synth_spectra(self, data_dir):
@@ -293,9 +413,9 @@ class TestSubBeamNod:
 
 
 class TestTPScan:
-    def test_len(self, data_dir):
+    def test_len_and_units(self, data_dir):
         """
-        Test that `TPScan` has the proper len.
+        Test that `TPScan` has the proper length and units.
         """
 
         sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
@@ -304,7 +424,28 @@ class TestTPScan:
         scan = 153
         tpsb = sdf.gettp(scan=153, ifnum=0, plnum=0, fdnum=0)
 
-        assert len(tpsb[0]) == sdf.summary(scan=scan)["# INT"][0]
+        assert len(tpsb[0]) == sdf.get_summary(scan=scan)["# INT"][0]
+        assert tpsb.tscale == "Raw"
+        assert tpsb.tunit == u.ct
+        assert np.all(tpsb.tscale_fac == 1)
+
+    def test_units_preserved(self, data_dir, tmp_path):
+        """
+        Test that TPScan preserves brightness units of calibrated data that was written out
+        """
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0, units="flux", zenith_opacity=0.1)
+        o = tmp_path / "tpsub"
+        o.mkdir()
+        testfile = o / "test_scanblock_write.fits"
+        sb.write(fileobj=testfile, overwrite=True)
+        sdf = gbtfitsload.GBTFITSLoad(testfile)
+        tpsb = sdf.gettp(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        assert tpsb.tunit == sb.tunit
+        assert tpsb.tscale == sb.tscale
+        assert np.all(tpsb.tscale_fac == sb.tscale_fac)
 
     def test_tsys(self, data_dir):
         """
@@ -423,8 +564,30 @@ class TestTPScan:
         assert abs(table["TSYS"][0] - tpavg.meta["TSYS"]) < 2**-32
         assert np.all((data[0] - tpavg.flux.value.astype(np.float32)) == 0.0)
 
+    def test_t_sys_arg(self, data_dir):
+        """
+        Test for gettp with t_sys arg.
+        """
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        t_sys = 10.0
+        tpsb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0, t_sys=t_sys)
+        assert np.all(tpsb[0].tsys == 10.0)
 
-class TestFScan:
+    def test_t_cal_arg(self, data_dir):
+        """
+        Test for gettp with t_cal arg.
+        """
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        t_cal = 10.0
+        tpsb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0, t_cal=t_cal)
+        assert np.all(tpsb[0]._tcal == t_cal)
+        tpsb_org = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+        assert np.all(tpsb_org[0].tsys / tpsb_org[0]._tcal * t_cal == tpsb[0].tsys)
+
+
+class TestFSScan:
     def test_getfs_with_args(self, data_dir):
         sdf_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         gbtidl_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.cal.vegas.fits"
@@ -432,8 +595,7 @@ class TestFScan:
 
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
 
-        print("MWP: NO FOLD")
-        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False, debug=True)
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False)
         ta = fsscan.timeaverage(weights="tsys")
         #    we're using astropy access here, and use gbtfitsload.GBTFITSLoad() in the other test
         hdu = fits.open(gbtidl_file_nofold)
@@ -444,7 +606,6 @@ class TestFScan:
         nm = np.nanmean(data[0] - ta.flux.value.astype(np.float32))
         assert abs(nm) <= level
 
-        print("MWP: FOLD")
         fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True)
         ta = fsscan.timeaverage(weights="tsys")
         # We will be using GBTFITSLoad() here instead of astropy.
@@ -458,7 +619,7 @@ class TestFScan:
             hdu.close()
             sp = data[1]
         # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
-        level = 0.02
+        level = 5e-3
         print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
         diff1 = sp - ta.flux.value.astype(np.float32)
         nm = np.nanmean(diff1[15000:20000])  # Use channel range around the line.
@@ -471,8 +632,120 @@ class TestFScan:
         nm = np.nanmean(diff2[15000:20000])
         assert abs(nm) <= level
 
-    def test_getfs_with_selection(self, data_dir):
-        assert True
+        # Test with reference smoothing.
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
+        assert fs.meta["TSYS"] == pytest.approx(26.83285745447353)
+        assert fs.stats()["mean"].value == pytest.approx(0.19299398411039015)
+        assert fs.stats()["rms"].value == pytest.approx(5.4871938402480795)
+
+        # nocal.
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
+        assert fs.meta["TSYS"] == pytest.approx(1.0)
+        assert fs.stats()["mean"].value == pytest.approx(0.007543638921500274)
+        assert fs.stats()["rms"].value == pytest.approx(0.20901151397310902)
+
+        # t_sys.
+        t_sys = 124.0
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, t_sys=t_sys)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
+        assert fs.meta["TSYS"] == pytest.approx(t_sys)
+        assert fs.stats()["mean"].value == pytest.approx(0.878913979866379)
+        assert fs.stats()["rms"].value == pytest.approx(25.31681410111804)
+
+        # nocal and t_sys.
+        t_sys = 120.0
+        fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True, t_sys=t_sys)
+        fs = fs_sb.timeaverage()
+        assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
+        assert fs.meta["TSYS"] == pytest.approx(t_sys)
+        assert fs.stats()["mean"].value == pytest.approx(0.9052366705561161)
+        assert fs.stats()["rms"].value == pytest.approx(25.081381667649197)
+
+    def test_getfs_nocal(self):
+        """
+        Test for getfs without noise diode.
+        """
+        sdf_file = util.get_project_testdata() / "AGBT20B_295_02/AGBT20B_295_02.raw.vegas.testtrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Test without system temperature.
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == 1.0
+        assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
+        assert fs.stats()["mean"].value == pytest.approx(0.0011396648555837365)
+        assert fs.stats()["rms"].value == pytest.approx(0.011687166084964482)
+
+        # Test with system temperature.
+        t_sys = 205.0
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, t_sys=t_sys)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == pytest.approx(t_sys)
+        assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
+        assert fs.stats()["mean"].value == pytest.approx(0.2336313)
+        assert fs.stats()["rms"].value == pytest.approx(2.395869046975605)
+
+        # Test with reference smoothing.
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, smoothref=256)
+        assert fs_sb[0]._nocal
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSYS"] == 1.0
+        assert fs.meta["EXPOSURE"] == pytest.approx(2.115174908755242)
+        assert fs.stats()["mean"].value == pytest.approx(0.0007359185384744827)
+        assert fs.stats()["rms"].value == pytest.approx(0.010336309743526804)
+
+    def test_tcal(self):
+        """
+        Test for getfs with t_cal argument.
+        """
+        sdf_file = (
+            util.get_project_testdata() / "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
+        )
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        fs_org = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0).timeaverage()
+        fs_cal = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, t_cal=1.0).timeaverage()
+        assert fs_cal.meta["TSYS"] == pytest.approx(fs_org.meta["TSYS"] / fs_org.meta["TCAL"])
+        assert fs_cal.meta["TCAL"] == 1.0
+
+
+class TestNodScan:
+    def test_nodscan(self):
+        """
+        Test for `getnod` using data with noise diode.
+        """
+        # Reduce with dysh.
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nod = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        assert len(nod) == 2
+        nod_sp = nod.timeaverage()
+        stats = nod_sp[int(2**15 * 0.1) : int(2**15 * 0.9)].stats()
+        assert stats["rms"].value == pytest.approx(0.3502195954575188)
+        assert stats["mean"].value == pytest.approx(0.21385395659416562)
+
+    def test_tcal(self):
+        """
+        Test for getnod with t_cal argument.
+        """
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nod_sb_org = sdf.getnod(scan=62, ifnum=0, plnum=0)
+        nod_sb_cal = sdf.getnod(scan=62, ifnum=0, plnum=0, t_cal=1.0)
+        nod_org = nod_sb_org[0].timeaverage()
+        nod_cal = nod_sb_cal[0].timeaverage()
+        assert nod_cal.meta["TSYS"] == pytest.approx(nod_org.meta["TSYS"] / nod_org.meta["TCAL"])
+        assert nod_cal.meta["TCAL"] == 1.0
+        nod_org = nod_sb_org[1].timeaverage()
+        nod_cal = nod_sb_cal[1].timeaverage()
+        assert nod_cal.meta["TSYS"] == pytest.approx(nod_org.meta["TSYS"] / nod_org.meta["TCAL"])
+        assert nod_cal.meta["TCAL"] == 1.0
 
 
 class TestScanBlock:
@@ -502,6 +775,11 @@ class TestScanBlock:
 
         # Single scan test.
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        # check some properties while we're here
+        assert sb.tunit == "K"
+        assert sb.tscale == "Ta"
+        assert np.all(sb.tscale_fac == 1)
+
         ta = sb.timeaverage()
         ta.baseline(exclude=[3000, 5000] * u.km / u.s, degree=1, remove=True)
         sb.subtract_baseline(ta.baseline_model)
@@ -538,3 +816,25 @@ class TestScanBlock:
         sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0, calibrate=False)
         with pytest.raises(ValueError):
             sb.subtract_baseline(ta.baseline_model)
+
+    def test_smooth(self, data_dir):
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        rng = np.random.default_rng(12345)
+        rdata = rng.random(sb[0]._calibrated.shape)
+        rmask = sb[0]._calibrated.mask
+        for width in [3, 5]:
+            sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
+
+            mean = np.nanmean(sb[0]._calibrated)
+            std = np.std(sb[0]._calibrated)
+            sb[0].smooth(method="box", width=width, decimate=-1)
+            hmean = np.nanmean(sb[0]._calibrated)
+            hstd = np.std(sb[0]._calibrated)
+            assert hmean == pytest.approx(mean, rel=1e-5)
+            assert std / hstd == pytest.approx(np.sqrt(width), abs=1e-2)
+            sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
+            sb[0].smooth(method="box", width=width, decimate=0)
+            assert all(sb[0].delta_freq == np.array([x["CDELT1"] for x in sb[0].meta]))

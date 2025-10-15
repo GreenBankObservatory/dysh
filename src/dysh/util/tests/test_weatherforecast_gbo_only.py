@@ -10,6 +10,7 @@ from dysh.util.gaincorrection import GBTGainCorrection
 from dysh.util.weatherforecast import GBTForecastScriptInterface, GBTWeatherForecast
 
 
+@pytest.mark.gbo_only
 class TestWeatherForecastGBO:
     """Test the GBT Gain Correction functions on GBO Network"""
 

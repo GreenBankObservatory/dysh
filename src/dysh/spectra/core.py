@@ -2,7 +2,6 @@
 Core functions for spectral data.
 """
 
-import warnings
 from copy import deepcopy
 from functools import reduce
 
@@ -24,6 +23,29 @@ from specutils.utils import QuantityModel
 
 from ..log import logger
 from ..util import grouper, merge_ranges, minimum_string_match, powerof2
+
+# note that these methods always return odd number in the kernel
+_available_smooth_methods = {
+    "boxcar": Box1DKernel,  # (e.g. width=2 gives hanning)
+    "hanning": Trapezoid1DKernel,  # only for width=1
+    "gaussian": Gaussian1DKernel,
+}
+
+
+def available_smooth_methods():
+    """The list of smooth methods that dysh understands. These can be passed to various
+    smooth routines via their `method` keywords.
+
+    Returns
+    -------
+    methods: list
+        The method names allowable to `smooth`
+
+    """
+    return list(_available_smooth_methods.keys())
+
+
+FWHM_TO_STDDEV = np.sqrt(8 * np.log(2.0))
 
 
 # @todo: allow data to be SpectrumList or array of Spectrum
@@ -159,29 +181,6 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     return goodrows
 
 
-def sort_spectral_region(spectral_region):
-    """
-    Sort the elements of a `~specutils.SpectralRegion`.
-
-    Parameters
-    ----------
-    spectral_region : `~specutils.SpectralRegion`
-        `~specutils.SpectralRegion` to be sorted.
-
-    Returns
-    -------
-    sorted_spectral_region : `~specutils.SpectralRegion`
-        Sorted `~specutils.SpectralRegion`.
-    """
-
-    unit = spectral_region.lower.unit
-    bound_list = np.sort([srb.value for sr in spectral_region.subregions for srb in sr]) * unit
-    it = iter(bound_list)
-    sorted_spectral_region = SpectralRegion(list(zip(it, it, strict=False)))
-
-    return sorted_spectral_region
-
-
 def sort_spectral_region_subregions(spectral_region):
     """ """
 
@@ -255,7 +254,7 @@ def include_to_exclude_spectral_region(include, refspec):
     return invert_spectral_region(spectral_region, refspec)
 
 
-def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
+def exclude_to_spectral_region(exclude, refspec):
     """Convert `exclude` to a `~specutils.SpectralRegion`.
 
     Parameters
@@ -283,9 +282,6 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
     refspec: `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
         when converting between `exclude` and axis units (e.g. channels to GHz).
-    fix_exclude: bool
-        If True, fix exclude regions that are out of bounds of the spectral axis to be within the spectral axis.
-        Default: True
 
     Returns
     -------
@@ -293,44 +289,34 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
         A `~specutils.SpectralRegion` corresponding to `exclude`.
     """
 
-    p = refspec  # noqa: F841
     sa = refspec.spectral_axis
-    lastchan = len(sa) - 1
 
-    o = 1
-    # If the spectral axis is inverted, flip the order of the elements.
-    if refspec.spectral_axis_direction == "decreasing":
-        o = -1
+    # A single SpectralRegion was given.
+    if isinstance(exclude, SpectralRegion):
+        sr = exclude
+    # `list` of `int` or `Quantity` or `SpectralRegion` was given.
+    else:
+        # If user provided a single list or list of lists,
+        # we have to turn it into a list of tuples.
+        # If SpectralRegion took a list argument, we wouldn't have to do this.
+        # List of lists.
+        if isinstance(exclude[0], list):
+            exclude = list(map(tuple, exclude))
+        # List of scalars or quantities.
+        elif not isinstance(exclude[0], tuple):
+            it = iter(exclude)
+            exclude = list(zip(it, it, strict=False))
+        try:
+            sr = SpectralRegion(exclude)
+            # The above will error if the elements are not quantities.
+            # In that case use the spectral axis to define the exclusion regions.
+        except ValueError:
+            # Make sure all the channels are within bounds.
+            exclude = np.array(exclude)
+            exclude[exclude >= len(sa)] = len(sa) - 1
+            sr = SpectralRegion(sa.quantity[exclude])
 
-    if exclude is not None:
-        # A single SpectralRegion was given.
-        if isinstance(exclude, SpectralRegion):
-            sr = exclude
-        # `list` of `int` or `Quantity` or `SpectralRegion` was given.
-        else:
-            # If user provided a single list, we have to
-            # turn it into a list of tuples. If SpectralRegion
-            # took a list argument, we wouldn't have to do this.
-            if type(exclude[0]) is not tuple:
-                it = iter(exclude)
-                exclude = list(zip(it, it, strict=False))
-            try:
-                sr = SpectralRegion(exclude)
-                # The above will error if the elements are not quantities.
-                # In that case use the spectral axis to define the exclusion regions.
-            except ValueError:
-                # If the user requested to fix the exclude range.
-                if fix_exclude:
-                    exclude = np.array(exclude)
-                    mask = exclude >= len(sa)
-                    if mask.sum() > 0:
-                        msg = f"Setting upper limit to {lastchan}."
-                        exclude[exclude >= len(sa)] = lastchan
-                        warnings.warn(msg, stacklevel=2)
-                # If the spectral_axis is decreasing, flip it.
-                sr = SpectralRegion(sa[exclude][:, ::o])
-
-        return sr
+    return sr
 
 
 def spectral_region_to_unit(spectral_region, refspec, unit=None, append_doppler=True):
@@ -412,7 +398,8 @@ def spectral_region_to_list(spectral_region):
 
     # The continuum fitting routines use a list of `SpectralRegion` as input.
     for r in spectral_region.subregions:
-        region_list.append(SpectralRegion([r]))
+        if r[0] != r[1]:
+            region_list.append(SpectralRegion([r]))
 
     return region_list
 
@@ -430,7 +417,7 @@ def spectral_region_to_list_of_tuples(spectral_region):
     """
     o = []
     for sr in spectral_region.subregions:
-        o.append((sr[0].quantity, sr[1].quantity))
+        o.append((sr[0], sr[1]))
     return o
 
 
@@ -459,13 +446,7 @@ def region_to_axis_indices(region, refspec):
     return indices
 
 
-def exclude_to_mask(exclude, refspec):
-    # set a mask based on an exclude region
-    # mask ~ exclude_to_indices(exclude_to_region())
-    pass
-
-
-def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
+def exclude_to_region_list(exclude, spectrum, clip_exclude=True):
     """
     Convert an exclusion region, `exclude`, to a list of `~specutils.SpectralRegion`.
     This is used for baseline fitting.
@@ -495,9 +476,9 @@ def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
     spectrum : `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
         when converting between `exclude` and axis units (e.g. channels to GHz).
-    fix_exclude : bool
-        See `~spectra.core.exclude_to_spectral_region` for details.
-        Default: True
+    clip_exclude : bool
+        Whether to clip the edges of the exclude regions when they are outside
+        `spectrum.spectral_axis`.
 
     Returns
     -------
@@ -505,11 +486,30 @@ def exclude_to_region_list(exclude, spectrum, fix_exclude=True):
         Regions defined in `exclude` as a list of `~specutils.SpectralRegion`.
     """
 
-    spectral_region = exclude_to_spectral_region(exclude, spectrum, fix_exclude=fix_exclude)
+    spectral_region = exclude_to_spectral_region(exclude, spectrum)
     spectral_region = spectral_region_to_unit(spectral_region, spectrum)
+    sort_spectral_region_subregions(spectral_region)
+    if clip_exclude:
+        clip_spectral_region_subregions(spectral_region, spectrum)
     region_list = spectral_region_to_list(spectral_region)
 
     return region_list
+
+
+def clip_spectral_region_subregions(spectral_region, spectrum):
+    """
+    Clip the values of the `spectral_region.subregions` if they extend
+    outside the `spectrum.spectral_axis`.
+    """
+    sa_max = spectrum.spectral_axis.quantity.max()
+    sa_min = spectrum.spectral_axis.quantity.min()
+    for i, s in enumerate(spectral_region.subregions):
+        if s[0] < sa_min:
+            logger.info(f"{s[0]} is below the minimum spectral axis {sa_min}. Replacing.")
+            spectral_region._subregions[i] = (sa_min, s[1])
+        if s[1] > sa_max:
+            logger.info(f"{s[1]} is above the maximum spectral axis {sa_max}. Replacing.")
+            spectral_region._subregions[i] = (s[0], sa_max)
 
 
 def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **kwargs):
@@ -519,7 +519,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
 
     Parameters
     ----------
-    spectrum : `~spectra.spectrum.Spectrum`
+    spectrum : `~dysh.spectra.spectrum.Spectrum`
         The input spectrum.
     order : int
         The order of the polynomial series, a.k.a. baseline order.
@@ -553,6 +553,8 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
     exclude_region_upper_bounds : bool
         Makes the upper bound of any excision region(s) inclusive.
         Allows excising channel 0 for lower-sideband data, and the last channel for upper-sideband data.
+    clip_exclude : bool
+        Whether to clip the exclude or include regions when they extend outside the `spectrum.spectral_axis`.
 
     Returns
     -------
@@ -561,11 +563,10 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         See `~specutils.fitting.fit_continuum`.
     """
     kwargs_opts = {
-        #'show': False,
         "model": "chebyshev",
         "fitter": LinearLSQFitter(calc_uncertainties=True),
-        "fix_exclude": True,
-        "exclude_action": "replace",  # {'replace','append', None}
+        "clip_exclude": True,
+        "exclude_action": "replace",
     }
     kwargs_opts.update(kwargs)
 
@@ -593,7 +594,7 @@ def baseline(spectrum, order, exclude=None, exclude_region_upper_bounds=True, **
         # @todo handle masks
         return None  # or raise exception
     if exclude is not None:
-        regionlist = exclude_to_region_list(exclude, spectrum, fix_exclude=kwargs_opts["fix_exclude"])
+        regionlist = exclude_to_region_list(exclude, spectrum, clip_exclude=kwargs_opts["clip_exclude"])
         if kwargs_opts["exclude_action"] == "replace":
             p._exclude_regions = regionlist
         elif kwargs_opts["exclude_action"] == "append":
@@ -736,12 +737,12 @@ def tsys_weight(exposure, delta_freq, tsys):
 
     Parameters
     ----------
-         exposure : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The exposure time, typically given in seconds
-         delta_freq : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The channel width in frequency units
-         tsys : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
-             The system temperature, typically in K
+     exposure : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+         The exposure time, typically given in seconds.
+     delta_freq : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+         The channel width in frequency units.
+     tsys : `~numpy.ndarray`, float, or `~astropy.units.Quantity`
+         The system temperature, typically in K.
 
     Returns
     -------
@@ -762,7 +763,7 @@ def tsys_weight(exposure, delta_freq, tsys):
 
 def mean_data(data, fedge=0.1, nedge=None, median=False):
     """
-    special mean of data to exclude the edges like mean_tsys(), with
+    Special mean of data to exclude the edges like mean_tsys(), with
     an option to use the median instead of the mean.
 
     Parameters
@@ -772,10 +773,10 @@ def mean_data(data, fedge=0.1, nedge=None, median=False):
     fedge : float, optional
         Fraction of edge channels to exclude at each end, a number between 0 and 1.
         If `nedge` is used, this parameter is not used.
-        Default: 0.1, meaning the central 80% bandwidth is used
+        Default: 0.1, meaning the central 80% bandwidth is used.
     nedge : int, optional
         Number of edge channels to exclude. nedge cannot be 0.
-        Default: None, meaning use `fedge`
+        Default: None, meaning use `fedge`.
     median : boolean, optional
         Use the median instead of the mean.
         The default is False.
@@ -938,9 +939,62 @@ def fft_shift(
     return new_y
 
 
-def smooth(data, method="hanning", width=1, kernel=None, show=False):
+def decimate(data, n, meta=None):
     """
-    Smooth or Convolve a spectrum, optionally decimating it.
+    Decimate a data array by `n` pixels.
+
+    Parameters
+    ----------
+    data : `~numpy.ndarray` or `~astropy.quantity.Quantity`
+        The data to decimate.
+    n : int
+        Decimation factor of the spectrum by returning every n-th channel.
+    meta : dict
+        Metadata dictionary with CDELT1, CRVAL1, NAXIS1, and CRPIX1 which will be recalculated.
+
+    Returns
+    -------
+    tuple : `~numpy.ndarray` or `~astropy.quantity.Quantity` and dict
+        A tuple of the decimated `data` and updated metadata (or None if no `meta` given).
+    """
+
+    if not float(n).is_integer():
+        raise ValueError(f"`n` ({n}) must be an integer.")
+
+    nchan = len(data)
+    idx = np.arange(0, nchan, n)
+    new_data = data[idx]  # this will also decimate the mask if data has a mask attribute.
+    if meta is not None:
+        new_meta = deepcopy(meta)
+        new_cdelt1 = meta["CDELT1"] * n
+        cell_shift = 0.5 * (n - 1) * meta["CDELT1"]
+
+        new_meta["CDELT1"] = new_cdelt1
+        new_meta["CRPIX1"] = 1.0 + (meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
+        new_meta["CRVAL1"] += cell_shift
+        new_meta["NAXIS1"] = len(new_data)
+    else:
+        new_meta = None
+
+    return (new_data, new_meta)
+
+
+# @todo it would be nice if this could take a 2-D array of N spectra. astropy.convolve can handle it.
+def smooth(
+    data,
+    method="hanning",
+    width=1,
+    ndecimate=0,
+    meta=None,
+    kernel=None,
+    mask=None,
+    boundary="extend",
+    nan_treatment="fill",
+    fill_value=np.nan,
+    preserve_nan=True,
+):
+    """
+    Smooth or Convolve spectrum, optionally decimating it.
     A number of methods from astropy.convolution can be selected
     with the method= keyword.
 
@@ -955,26 +1009,59 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         Smoothing method. Valid are: 'hanning', 'boxcar' and
         'gaussian'. Minimum match applies.
         The default is 'hanning'.
-    width : int, optional
+    width : int or float, optional
         Effective width of the convolving kernel.  Should ideally be an
         odd number.
         For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
         For 'boxcar' an even value triggers an odd one with half the
         signal at the edges, and will thus not reproduce GBTIDL.
-        For 'gaussian' this is the FWHM of the final beam. We normally
+        For 'gaussian' this is the FWHM of the final beam in channels (float). We normally
         assume the input beam has FWHM=1, pending resolution on cases
         where CDELT1 is not the same as FREQRES.
         The default is 1.
-    kernel : numpy array, optional
+    ndecimate : int, optional
+        Decimation factor of the spectrum by returning every `ndecimate`-th channel.
+    meta: dict
+         metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
+    kernel : `~numpy.ndarray`, optional
         A numpy array which is the kernel by which the signal is convolved.
         Use with caution, as it is assumed the kernel is normalized to
         one, and is symmetric. Since width is ill-defined here, the user
         should supply an appropriate number manually.
         NOTE: not implemented yet.
         The default is None.
-    show : bool, optional
-        If set, the kernel is returned, instead of the convolved array.
-        The default is False.
+    mask : None or `~numpy.ndarray`, optional
+        A "mask" array.  Shape must match ``array``, and anything that is masked
+        (i.e., not 0/`False`) will be set to NaN for the convolution.  If
+        `None`, no masking will be performed unless ``array`` is a masked array.
+        If ``mask`` is not `None` *and* ``array`` is a masked array, a pixel is
+        masked if it is masked in either ``mask`` *or* ``array.mask``.
+    boundary : str, optional
+        A flag indicating how to handle boundaries:
+            * `None`
+                Set the ``result`` values to zero where the kernel
+                extends beyond the edge of the array.
+            * 'fill'
+                Set values outside the array boundary to ``fill_value`` (default).
+            * 'wrap'
+                Periodic boundary that wrap to the other side of ``array``.
+            * 'extend'
+                Set values outside the array to the nearest ``array``
+                value.
+    fill_value : float, optional
+        The value to use outside the array when using ``boundary='fill'``. Default value is ``NaN``.
+    nan_treatment : {'interpolate', 'fill'}, optional
+        The method used to handle NaNs in the input ``array``:
+            * ``'interpolate'``: ``NaN`` values are replaced with
+              interpolated values using the kernel as an interpolation
+              function. Note that if the kernel has a sum equal to
+              zero, NaN interpolation is not possible and will raise an
+              exception.
+            * ``'fill'``: ``NaN`` values are replaced by ``fill_value``
+              prior to convolution.
+    preserve_nan : bool, optional
+        After performing convolution, should pixels that were originally NaN
+        again become NaN?
 
     Raises
     ------
@@ -987,25 +1074,49 @@ def smooth(data, method="hanning", width=1, kernel=None, show=False):
         The new convolved spectrum.
 
     """
-    # note that these methods always return odd number in the kernel
-    available_methods = {
-        "boxcar": Box1DKernel,  # (e.g. width=2 gives hanning)
-        "hanning": Trapezoid1DKernel,  # only for width=1
-        "gaussian": Gaussian1DKernel,
-    }
-    method = minimum_string_match(method, list(available_methods.keys()))
-    if method == None:  # noqa: E711
-        raise ValueError(f"Unrecognized input method {method}. Must be one of {list(available_methods.keys())}")
-    kernel = available_methods[method](width)
-    if show:
-        return kernel
-    # the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
+    if kernel is not None:
+        raise NotImplementedError("Custom kernels are not yet implemented.")
+
+    asm = available_smooth_methods()
+    method = minimum_string_match(method, asm)
+    if method is None:
+        raise ValueError(f"Unrecognized input method {method}. Must be one of {asm}")
+
+    if not float(ndecimate).is_integer():
+        raise ValueError("`decimate ({ndecimate})` must be an integer.")
+
+    kernel = _available_smooth_methods[method](width)
+    # Notes:
+    # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
+    # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
+    # 3. However, astropy convolve will not return a masked array even if the input data have a mask.
+    # 4. We create an input mask if the data do not have one and we ensure input NaNs that are smoothed to output Nans get masked.
+    # 5. We then mask any NaN on output by modifying the input mask
     if hasattr(data, "mask"):
         mask = data.mask
     else:
-        mask = None  # noqa: F841
-    new_data = convolve(data, kernel, boundary="extend")  # , nan_treatment="fill", fill_value=np.nan, mask=mask)
-    return new_data
+        mask = np.full(data.shape, False)
+
+    new_data = convolve(
+        data,
+        kernel,
+        boundary=boundary,
+        mask=mask,
+        nan_treatment=nan_treatment,
+        fill_value=fill_value,
+        preserve_nan=preserve_nan,
+    )
+    mask[np.where(np.isnan(new_data))] = True
+    new_data = np.ma.masked_array(new_data, mask)
+    new_meta = deepcopy(meta)
+    if new_meta is not None:
+        if method == "gaussian":
+            width = width * FWHM_TO_STDDEV
+        new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
+    if ndecimate > 0:
+        new_data, new_meta = decimate(new_data, n=ndecimate, meta=new_meta)
+
+    return new_data, new_meta
 
 
 def data_ishift(y, ishift, axis=-1, remove_wrap=True, fill_value=np.nan):
@@ -1160,7 +1271,7 @@ def cog_flux(c, flat_tol=0.1):
     """
     Find the flux from the curve of growth.
 
-    Paramaters
+    Parameters
     ----------
     c : array
         Curve of growth values.
@@ -1178,14 +1289,14 @@ def cog_flux(c, flat_tol=0.1):
     slope : array
         The median value of the slope for the curve of growth before it becomes flat.
     """
-    slope, slope_rms, flat_idx0 = cog_slope(c, flat_tol)
+    slope, _slope_rms, flat_idx0 = cog_slope(c, flat_tol)
     flux = np.nanmedian(c[flat_idx0:])
     flux_std = np.nanstd(c[flat_idx0:])
     slope = np.nanmedian(slope[:flat_idx0])
     return flux, flux_std, slope
 
 
-def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=2):
+def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=1):
     """
     Curve of growth analysis based on Yu et al. (2020) [1]_.
 
@@ -1241,26 +1352,44 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         _x = _x[bchan:]
         _y = _y[bchan:]
     dx = np.diff(_x)
-    ydx = _y[1:] * dx
+    ydx = _y[:-1] * dx
 
     # Find initial guess for central velocity.
     _vc = vc
     if _vc is None:
         _vc = (_x * _y).sum() / _y.sum()
     vc_idx = np.argmin(abs(_x - _vc))
-    xr = _x[vc_idx:] - _vc
 
     # Compute curve of growth.
     b = np.cumsum(ydx[:vc_idx][::-1])  # Blue.
-    r = np.cumsum(ydx[vc_idx - 1 :])  # Red.
+    bp = np.cumsum(ydx[: vc_idx + 1][::-1])
+    r = np.cumsum(ydx[vc_idx:])  # Red.
+    rp = np.cumsum(ydx[vc_idx + 1 :])
     s = min(len(b), len(r))
     t = b[:s] + r[:s]
     dx = dx[:s]
+    xr = _x[vc_idx:] - _vc
+    xb = abs(_x[:vc_idx] - _vc)[::-1]
+    s = min(len(xb), len(xr))
+    xt = xr[:s] + xb[:s]
+    # todo: use these to give widths in each direction.
+    # vb = x[:vc_idx][::-1]
+    # vr = x[vc_idx - 1 :]
 
     # Find flux.
-    flux, flux_std, slope = cog_flux(t, flat_tol)
+    # Empirically, fluxes are in error by <3%.
+    flux, flux_std, _slope = cog_flux(t, flat_tol)
+    flux_std = np.sqrt(flux_std**2 + (1.03 * flux_std) ** 2)
+    # Blue.
     flux_b, flux_b_std, slope_b = cog_flux(b, flat_tol)
+    flux_bp, _, _ = cog_flux(bp, flat_tol)
+    dflux_b = flux_b - flux_bp
+    flux_b_std = np.sqrt(flux_b_std**2 + (1.03 * flux_b_std) ** 2 + dflux_b**2)
+    # Red.
     flux_r, flux_r_std, slope_r = cog_flux(r, flat_tol)
+    flux_rp, _, _ = cog_flux(rp, flat_tol)
+    dflux_r = flux_r - flux_rp
+    flux_r_std = np.sqrt(flux_r_std**2 + (1.03 * flux_r_std) ** 2 + dflux_r**2)
 
     # Find line widths.
     if 0.25 not in width_frac:
@@ -1272,39 +1401,32 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     nt = t[:flat_idx0] / flux
     for f in width_frac:
         idx = np.argmin(abs(nt - f))
-        widths[f] = xr[idx]
+        widths[f] = xt[idx]
 
     # Estimate rms from line-free channels.
     if bchan is None:
-        _bchan = np.argmin(abs(_x - (_vc - fw * widths[max(width_frac)])))
+        _bchan = np.argmin(abs(x - (_vc - fw * widths[max(width_frac)])))
         if _bchan <= 0:
             _bchan = 0
     else:
         _bchan = bchan
     if echan is None:
-        _echan = np.argmin(abs(_x - (_vc + fw * widths[max(width_frac)])))
+        _echan = np.argmin(abs(x - (_vc + fw * widths[max(width_frac)])))
         if _echan >= len(x):
             _echan = len(x)
     else:
         _echan = echan
+    _bchan, _echan = np.sort([_bchan, _echan])
 
     # Use y values without channel crop.
     rms = np.nanstd(np.hstack((y[:_bchan], y[_echan:])))
 
+    # Estimate error on line centroid.
     vc_std = 0 * x.unit
     if vc is None:
         fac1 = _vc / (_y * _x).sum() * np.sqrt(np.sum((_x * rms) ** 2))
         fac2 = np.sqrt(len(_x)) * rms * _vc / _y.sum()
         vc_std = np.sqrt(fac1**2 + fac2**2)
-
-    # Return to original ordering.
-    if p == -1:
-        if bchan is None:
-            _bchan = len(_x) - _bchan - 1
-        if echan is None:
-            _echan = len(_x) - _echan - 1
-        # Sort so that bchan is always lower than echan.
-        _bchan, _echan = np.sort([_bchan, _echan])
 
     # Estimate error on widths.
     nt_std = np.sqrt((nt / t[:flat_idx0] * rms * dx[:flat_idx0]) ** 2 + (nt / flux * flux_std) ** 2)
@@ -1314,9 +1436,12 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         std = nt_std[idx]
         idx_m = np.argmin(abs(nt - std - f))
         idx_p = np.argmin(abs(nt + std - f))
-        std_m = xr[idx_m] - xr[idx]
-        std_p = xr[idx] - xr[idx_p]
+        std_m = xt[idx_m] - xt[idx]
+        std_p = xt[idx] - xt[idx_p]
         widths_std[f] = np.nanmax((std_m.value, std_p.value, dx[idx].value)) * dx.unit
+        widths_std[f] = np.sqrt(
+            widths_std[f] ** 2 + (widths[f] * 0.01) ** 2
+        )  # Empirically, the widths are in error by <1%.
 
     # Flux asymmetry.
     a_f = flux_b / flux_r
@@ -1342,7 +1467,7 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         "width_std": widths_std,
         "A_F": a_f.value,
         "A_C": a_c.value,
-        "C_C": c_v.value,
+        "C_V": c_v.value,
         "rms": rms,
         "bchan": _bchan,
         "echan": _echan,

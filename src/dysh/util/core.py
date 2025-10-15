@@ -9,11 +9,11 @@ import sys
 from collections.abc import Sequence
 from itertools import zip_longest
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 from astropy.time import Time
 from astropy.units.quantity import Quantity
+from IPython.display import HTML, display
 
 ALL_CHANNELS = "all channels"
 
@@ -96,7 +96,7 @@ def indices_where_value_changes(colname, df):
     # df.shift() shifts the index by one, so we are then comparing df[N] to df[N-1]. This gets us
     # a truth table of where values change.  We filter on colname, then return a list of indices
     # where the value is true. Finally, we squeeze out the empty dimensions of the np array.
-    ary = df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).values
+    ary = df.ne(df.shift()).filter(items=[colname]).apply(lambda x: x.index[x].tolist()).to_numpy()
     return np.squeeze(ary, axis=1)
 
 
@@ -124,7 +124,7 @@ def gbt_timestamp_to_time(timestamp):
     return Time(t, scale="utc")
 
 
-def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
+def to_mjd_list(time_val: Time | float) -> np.ndarray:
     """Convert an astropy Time, list of MJD, or single MJD to a list of MJD
 
     Parameters
@@ -155,7 +155,7 @@ def to_mjd_list(time_val: Union[Time, float]) -> np.ndarray:
         raise ValueError(f"Unrecognized type for time value: {type(time_val)}")
 
 
-def to_quantity_list(q: Union[Quantity, Sequence]) -> Quantity:
+def to_quantity_list(q: Quantity | Sequence) -> Quantity:
     # if given quanity or [quanity], return [quanity.value]*quantity.units
     # handle quantities first
     if isinstance(q, Quantity):
@@ -300,7 +300,7 @@ def get_size(obj, seen=None):
     return size
 
 
-def minimum_string_match(s, valid_strings):
+def minimum_string_match(s, valid_strings, casefold=False):
     """
     return the valid string from a list, given a minimum string input
 
@@ -312,23 +312,66 @@ def minimum_string_match(s, valid_strings):
     s : string
         string to use for minimum match
     valid_strings : list of strings
-        list of full strings to min match on
+        list of full strings to minimum match on.
+    casefold: bool
+        If True, do a case insensitive match
 
     Returns
     -------
     string
-        matched string, if one is found.
+        matched string, if one is found.  An exact match will
+        also count as a match, even if others are present with
+        longer match.
         Otherwise "None" is returned.
 
     """
     n = len(valid_strings)
+    if casefold:
+        vsfold = [a.casefold() for a in valid_strings]
+        s = s.casefold()
+    else:
+        vsfold = valid_strings
     m = []
     for i in range(n):
-        if valid_strings[i].find(s) == 0:
+        if vsfold[i].find(s) == 0:
             m.append(i)
-    if len(m) == 1:
+    if len(m) >= 1:
         return valid_strings[m[0]]
     return None
+
+
+def minimum_list_match(strings, valid_strings, casefold=False):
+    """
+    Return the list of valid strings given a list of minimum string inputs.
+
+    Parameters
+    ----------
+    strings : str or list of str
+        The strings to compare for minimum match
+    valid_strings : list of str
+        list of full strings to min match on.
+    casefold: bool
+        If True, do a case insensitive match
+
+    Returns
+    -------
+    list
+        List of all minimum matches or None if no matches found
+
+    """
+    valid = []
+    # if user passes in a string instead of a list, it should act like minimum_string_match
+    # Note: strings=list(strings) is not the same as [strings]!
+    if isinstance(strings, str):
+        strings = [strings]
+    for s in strings:
+        p = minimum_string_match(s, valid_strings, casefold)
+        if p is not None:
+            valid.append(p)
+    if len(valid) == 0:
+        return None
+    else:
+        return valid
 
 
 def uniq(seq):
@@ -520,3 +563,42 @@ def grouper(iterable, n, *, incomplete="fill", fillvalue=None):
             return zip(*iterators, strict=False)
         case _:
             raise ValueError("Expected fill, strict, or ignore")
+
+
+def in_notebook() -> bool:
+    """
+    Check if the code is being run inside a notebook.
+    """
+    try:
+        from IPython import get_ipython
+
+        if "IPKernelApp" not in get_ipython().config:  # pragma: no cover
+            return False
+    except ImportError:
+        return False
+    except AttributeError:
+        return False
+    return True
+
+
+def show_dataframe(df, show_index=False, max_rows=None, max_cols=None):
+    """
+    Function to show a `~pandas.DataFrame` in IPython or Jupyter.
+
+    Parameters
+    ----------
+    df : `~pandas.DataFrame`
+        The `~pandas.DataFrame` to be shown.
+    show_index : bool
+        Show the index of the `~pandas.DataFrame`.
+    max_rows : int or None
+        Maximum number of rows to display.
+    max_cols : int or None
+        Maximum number of columns to display.
+    """
+
+    kwargs = {"max_rows": max_rows, "max_cols": max_cols, "index": show_index}
+    if in_notebook():
+        display(HTML(df.to_html(**kwargs)))
+    else:
+        print(df.to_string(**kwargs))

@@ -2,101 +2,90 @@
 Plot a spectrum using matplotlib
 """
 
-import datetime as dt
 from copy import deepcopy
 
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
-from astropy.coordinates import SkyCoord
-from astropy.time import Time
 from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, SpanSelector
 
 from ..coordinates import (
-    Observatory,
-    crval4_to_pol,
     decode_veldef,
     frame_to_label,
-    ra2ha,
 )
+from ..util.docstring_manip import docstring_parameter
+from . import PlotBase
 
 _KMS = u.km / u.s
 
 
-class SpectrumPlot:
-    # @todo make xaxis_unit='chan[nel]' work
+kwargs_docstring = """xaxis_unit : str or `~astropy.unit.Unit`
+    The units to use on the x-axis, e.g. "km/s" to plot velocity
+yaxis_unit : str or `~astropy.unit.Unit`
+    The units to use on the y-axis
+xmin : float
+    Minimum x-axis value, in `xaxis_unit`
+xmax : float
+    Maximum x-axis value, in `yaxis_unit`
+ymin : float
+    Minimum y-axis value, in `xaxis_unit`
+ymax : float
+    Maximum y-axis value, in `yaxis_unit`
+xlabel : str
+    x-axis label
+ylabel : str
+    y-axis label
+grid : bool
+    Show a plot grid or not
+figsize : tuple
+    Figure size (see matplotlib)
+linewidth : float
+    Line width, default: 2.0.  lw also works
+linestyle : str
+    Line style, default 'steps-mid'.  ls also works
+color : str
+    Line color, c also works
+title : str
+    Plot title
+vel_frame : str
+    The velocity frame (see VELDEF FITS Keyword)
+doppler_convention: str
+    The velocity convention (see VELDEF FITS Keyword)
+"""
+
+
+@docstring_parameter(kwargs_docstring)
+class SpectrumPlot(PlotBase):
     r"""
-    The SpectrumPlot class is for simple plotting of a `~spectrum.Spectrum`
+    The SpectrumPlot class is for simple plotting of a `~dysh.spectra.spectrum.Spectrum`
     using matplotlib functions. Plots attributes are modified using keywords
-    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    (\*\*kwargs) described below. SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
 
     Parameters
     ----------
-    spectrum : `~spectra.spectrum.Spectrum`
+    spectrum : `~dysh.spectra.spectrum.Spectrum`
         The spectrum to plot
-    **kwargs : dict
-        Plot attribute keyword arguments, see below.
 
     Other Parameters
     ----------------
-    xaxis_unit : str or `~astropy.unit.Unit`
-        The units to use on the x-axis, e.g. "km/s" to plot velocity
-    yaxis_unit : str or `~astropy.unit.Unit`
-        The units to use on the y-axis
-    xmin : float
-        Minimum x-axis value, in `xaxis_unit`
-    xmax : float
-        Maximum x-axis value, in `yaxis_unit`
-    ymin : float
-        Minimum y-axis value, in `xaxis_unit`
-    ymax : float
-        Maximum y-axis value, in `yaxis_unit`
-    xlabel : str
-        x-axis label
-    ylabel : str
-        y-axis label
-    grid : bool
-        Show a plot grid or not
-    figsize : tuple
-        Figure size (see matplotlib)
-    linewidth : float
-        Line width, default: 2.0.  lw also works
-    linestyle : str
-        Line style, default 'steps-mid'.  ls also works
-    color : str
-        Line color, c also works
-    title : str
-        Plot title
-    aspect : str
-        plot aspect ratio, default: 'auto'
-    show_baseline : bool
-        show the baseline - not yet implemented
-    vel_frame : str
-        The velocity frame (see VELDEF FITS Keyword)
-    doppler_convention: str
-        The velocity convention (see VELDEF FITS Keyword)
+    {0}
     """
 
     # loc, legend, bbox_to_anchor
 
     def __init__(self, spectrum, **kwargs):
-        self.reset()
+        super().__init__()
         self._spectrum = spectrum
         self._sa = spectrum._spectral_axis
         self._set_xaxis_info()
         self._plot_kwargs.update(kwargs)
-        self._plt = plt
-        self._figure = None
-        self._axis = None
         self._title = self._plot_kwargs["title"]
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
-
-    # def __call__ (see pyspeckit)
 
     def _set_xaxis_info(self):
         """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
@@ -106,117 +95,9 @@ class SpectrumPlot:
         self._plot_kwargs["yaxis_unit"] = self._spectrum.unit
 
     @property
-    def axis(self):
-        """The underlying :class:`~matplotlib.Axes` object"""
-        return self._axis
-
-    @property
-    def figure(self):
-        """The underlying :class:`~matplotlib.Figure` object"""
-        return self._figure
-
-    @property
     def spectrum(self):
-        """The underlying `~spectra.spectrum.Spectrum`"""
+        """The underlying `~dysh.spectra.spectrum.Spectrum`"""
         return self._spectrum
-
-    def plot(self, show_header=True, select=True, interactive=True, **kwargs):
-        # @todo document kwargs here
-        r"""
-        Plot the spectrum.
-
-        Parameters
-        ----------
-        show_header : bool
-            Show informational header in the style of GBTIDL, default: True.
-        select : bool
-            Allow selecting regions via click and drag for baseline computation, default: True
-        interactive : bool
-            Allow interactive plots, default: True
-        **kwargs : various
-            keyword=value arguments (need to describe these in a central place)
-        """
-        self.__init__(self._spectrum, **kwargs)
-        if interactive:
-            self._plt.ion()
-        self._plt.rcParams["font.family"] = "monospace"
-        # plt.rcParams['axes.formatter.useoffset'] = False # Disable use of offset.
-
-        # xtype = 'velocity, 'frequency', 'wavelength'
-        # if self._figure is None:
-        self._set_xaxis_info()
-        # plot arguments for this call of plot(). i.e. non-sticky plot attributes
-        this_plot_kwargs = deepcopy(self._plot_kwargs)
-        this_plot_kwargs.update(kwargs)
-        if True:  # @todo deal with plot reuse (notebook vs script)
-            self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
-
-        # TODO: procedurally generate subplot params based on show header/buttons args.
-        # ideally place left/right params right here, then top gets determined below.
-
-        s = self._spectrum
-
-        lw = this_plot_kwargs["linewidth"]
-        xunit = this_plot_kwargs["xaxis_unit"]
-        yunit = this_plot_kwargs["yaxis_unit"]
-        if xunit is None:
-            xunit = str(sa.unit)  # noqa: F821
-        if "vel_frame" not in this_plot_kwargs:
-            if u.Unit(xunit).is_equivalent("km/s") and "VELDEF" in s.meta:
-                # If the user specified velocity units, default to
-                # the velframe the data were taken in.  This we can
-                # get from VELDEF keyword.  See issue #303
-                this_plot_kwargs["vel_frame"] = decode_veldef(s.meta["VELDEF"])[1].lower()
-            else:
-                this_plot_kwargs["vel_frame"] = s.velocity_frame
-        if "chan" in str(xunit).lower():
-            self._sa = u.Quantity(np.arange(len(self._sa)))
-            this_plot_kwargs["xlabel"] = "Channel"
-        else:
-            # convert the x axis to the requested
-            # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
-            # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"],
-            #   equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
-            self._sa = s.velocity_axis_to(
-                unit=xunit,
-                toframe=this_plot_kwargs["vel_frame"],
-                doppler_convention=this_plot_kwargs["doppler_convention"],
-            )
-        sf = s.flux
-        if yunit is not None:
-            sf = s.flux.to(yunit)
-        sf = Masked(sf, s.mask)
-        lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
-        self._line = lines[0]
-        if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
-            self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
-        else:
-            self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
-        self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
-        if self._freezey:
-            self._axis.autoscale(enable=False)
-        else:
-            self._axis.autoscale(axis="y", enable=True)
-        self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
-        if this_plot_kwargs["grid"]:
-            self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
-            self._axis.grid(visible=True, which="minor", axis="both", lw=lw / 2, color="k", alpha=0.22, linestyle="--")
-
-        self._set_labels(**this_plot_kwargs)
-        # self._axis.axhline(y=0,color='red',lw=2)
-        if self._title is not None:
-            self._axis.set_title(self._title)
-
-        if show_header:
-            self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
-            self._set_header(s)
-
-        if select:
-            self._selector = InteractiveSpanSelector(self._axis)
-            self._spectrum._selection = self._selector.get_selected_regions()
-
-        if interactive:
-            self.refresh()
 
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
@@ -239,7 +120,7 @@ class SpectrumPlot:
             "title": None,
             #'axis':None,
             #'label':None,
-            "aspect": "auto",
+            # "aspect": "auto",
             "bbox_to_anchor": None,
             "loc": "best",
             "legend": None,
@@ -247,17 +128,121 @@ class SpectrumPlot:
             "test": False,
         }
 
+    @docstring_parameter(kwargs_docstring)
+    def plot(self, show_header=True, select=True, oshow=None, **kwargs):
+        """
+        Plot the spectrum.
+
+        Parameters
+        ----------
+        show_header : bool
+            Show informational header.
+        select : bool
+            Allow selecting regions via click and drag.
+        oshow : list or `~dysh.spectra.spectrum.Spectrum`
+            Spectra to overlay in the plot.
+
+        Other Parameters
+        ----------------
+        {0}
+        """
+
+        # xtype = 'velocity, 'frequency', 'wavelength'
+        # if self._figure is None:
+        self._set_xaxis_info()
+        # plot arguments for this call of plot(). i.e. non-sticky plot attributes
+        this_plot_kwargs = deepcopy(self._plot_kwargs)
+        this_plot_kwargs.update(kwargs)
+        if True:  # @todo deal with plot reuse (notebook vs script)
+            self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
+
+        # TODO: procedurally generate subplot params based on show header/buttons args.
+        # ideally place left/right params right here, then top gets determined below.
+
+        s = self._spectrum
+
+        lw = this_plot_kwargs["linewidth"]
+        self._xunit = this_plot_kwargs["xaxis_unit"]  # need to kick back a ref to xunit for baseline overlays
+        yunit = this_plot_kwargs["yaxis_unit"]
+        if self._xunit is None:
+            self._xunit = str(sa.unit)  # noqa: F821
+        if "vel_frame" not in this_plot_kwargs:
+            if u.Unit(self._xunit).is_equivalent("km/s") and "VELDEF" in s.meta:
+                # If the user specified velocity units, default to
+                # the velframe the data were taken in.  This we can
+                # get from VELDEF keyword.  See issue #303
+                this_plot_kwargs["vel_frame"] = decode_veldef(s.meta["VELDEF"])[1].lower()
+            else:
+                this_plot_kwargs["vel_frame"] = s.velocity_frame
+        if "chan" in str(self._xunit).lower():
+            self._sa = u.Quantity(np.arange(len(self._sa)))
+            this_plot_kwargs["xlabel"] = "Channel"
+        else:
+            # convert the x axis to the requested
+            # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
+            # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"],
+            #   equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
+            self._sa = s.velocity_axis_to(
+                unit=self._xunit,
+                toframe=this_plot_kwargs["vel_frame"],
+                doppler_convention=this_plot_kwargs["doppler_convention"],
+            )
+
+        sf = s.flux
+        if yunit is not None:
+            sf = s.flux.to(yunit)
+        sf = Masked(sf, s.mask)
+
+        lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        self._line = lines[0]
+
+        if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
+            self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
+        else:
+            self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
+        self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
+
+        if self._freezey:
+            self._axis.autoscale(enable=False)
+        else:
+            self._axis.autoscale(axis="y", enable=True)
+
+        self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
+        if this_plot_kwargs["grid"]:
+            self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
+            self._axis.grid(visible=True, which="minor", axis="both", lw=lw / 2, color="k", alpha=0.22, linestyle="--")
+        self._set_labels(**this_plot_kwargs)
+        # self._axis.axhline(y=0,color='red',lw=2)
+        if self._title is not None:
+            self._axis.set_title(self._title)
+
+        if show_header:
+            self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
+            self._set_header(s)
+        if select:
+            self._selector = InteractiveSpanSelector(self._axis)
+            self._spectrum._selection = self._selector.get_selected_regions()
+        if oshow is not None:
+            if isinstance(oshow, type(self._spectrum)):
+                oshow = [oshow]
+            if type(oshow) is not list:
+                raise TypeError(f"oshow ({oshow}) must be a list or Spectrum")
+            for i, sp in enumerate(oshow):
+                if not isinstance(sp, type(self._spectrum)):
+                    raise TypeError(f"Element {i} of oshow ({oshow}) is not a Spectrum")
+                self._oshow(sp)
+
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
         if xlabel is not None:
             return xlabel
         if kwargs["doppler_convention"] == "radio":
-            subscript = "_{rad}$"
+            subscript = "_{rad}"
         elif kwargs["doppler_convention"] == "optical":
-            subscript = "_{opt}$"
+            subscript = "_{opt}"
         elif kwargs["doppler_convention"] == "relativistic":
-            subscript = "_{rel}$"
+            subscript = "_{rel}"
         else:  # should never happen
             subscript = ""
         if kwargs.get("xaxis_unit", None) is not None:
@@ -265,15 +250,16 @@ class SpectrumPlot:
         else:
             xunit = self.spectrum.spectral_axis.unit
         if xunit.is_equivalent(u.Hz):
-            xname = r"$\nu" + subscript
+            xname = r"\nu"
         elif xunit.is_equivalent(_KMS):
-            xname = r"V$" + subscript
+            xname = r"V" + subscript
         elif xunit.is_equivalent(u.angstrom):
-            xname = r"$\lambda" + subscript
+            xname = r"\lambda"
         # Channel is handled in plot() with kwargs['xlabel']
         else:
             raise ValueError(f"Unrecognized spectral axis unit: {xunit}")
-        xlabel = f"{frame_to_label[kwargs['vel_frame']]} {xname} ({xunit})"
+        _xunit = xunit.to_string(format="latex_inline")
+        xlabel = f"{frame_to_label[kwargs['vel_frame']]} ${xname}$ ({_xunit})"
         return xlabel
 
     def _set_labels(self, **kwargs):
@@ -304,107 +290,9 @@ class SpectrumPlot:
         self.axis.set_xlabel(self._compose_xlabel(**kwargs))
         if ylabel is not None:
             self.axis.set_ylabel(ylabel)
-        elif yunit.is_equivalent(u.K):
-            self.axis.set_ylabel(f"$T_A$ ({yunit})")
-        elif self.spectrum.unit.is_equivalent(u.Jy):
-            snu = r"$S_{\nu}$"
-            self.axis.set_ylabel(f"{snu} ({yunit})")
-
-    def _set_header(self, s):
-        fsize_small = 9
-        fsize_large = 14
-        xyc = "figure fraction"
-
-        hcoords = np.array([0.05, 0.21, 0.41, 0.59, 0.77])
-        vcoords = np.array([0.84, 0.8, 0.76])
-
-        def time_formatter(time_sec):
-            hh = int(time_sec // 3600)
-            mm = int((time_sec - 3600 * hh) // 60)
-            ss = np.around((time_sec - 3600 * hh - 60 * mm), 1)
-            return f"{str(hh).zfill(2)} {str(mm).zfill(2)} {str(ss).zfill(3)}"
-
-        def coord_formatter(s):
-            sc = SkyCoord(
-                s.meta["CRVAL2"],
-                s.meta["CRVAL3"],
-                unit="deg",
-                frame=s.meta["RADESYS"].lower(),
-                obstime=Time(s.meta["DATE-OBS"]),
-                location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
-            )
-            out_str = sc.transform_to("fk5").to_string("hmsdms", sep=" ", precision=2)[:-1]
-            out_ra = out_str[:11]
-            out_dec = out_str[12:]
-            return out_ra, out_dec
-
-        # col 1
-        self._axis.annotate(f"Scan     {s.meta['SCAN']}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['DATE-OBS'][:10]}", (hcoords[0], vcoords[1]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 2
-        velo = s.meta["VELOCITY"] * 1e-3  # * u.km / u.s # GBTIDL doesn't say km/s so neither will I (saves space)
-        self._axis.annotate(
-            f"V   : {velo} {s.meta['VELDEF']}", (hcoords[1], vcoords[0]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(
-            f"Int : {time_formatter(s.meta['EXPOSURE'])}", (hcoords[1], vcoords[1]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(
-            f"LST : {time_formatter(s.meta['LST'])}", (hcoords[1], vcoords[2]), xycoords=xyc, size=fsize_small
-        )
-
-        # col 3
-        # TODO: need to understand frequencies to assign correct title
-        # instead of just forcing to GHz with 5 decimal points
-        f0 = np.around(s.meta["RESTFREQ"] * 1e-9, 5) * u.GHz
-        self._axis.annotate(f"F0   :  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
-        fsky = np.around(s.meta["OBSFREQ"] * 1e-9, 5) * u.GHz  # or CRVAL1?
-        self._axis.annotate(f"Fsky :  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)
-        bw = np.around(s.meta["BANDWID"] * 1e-6, 4) * u.MHz
-        self._axis.annotate(f"BW   :  {bw}", (hcoords[2], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 4
-        self._axis.annotate(
-            f"Pol  :   {crval4_to_pol[s.meta['CRVAL4']]}", (hcoords[3], vcoords[0]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(f"IF   :    {s.meta['IFNUM']}", (hcoords[3], vcoords[1]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(f"{s.meta['PROJID']}", (hcoords[3], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # col 5
-        _tsys = np.around(s.meta["TSYS"], 2)
-        self._axis.annotate(f"Tsys   :  {_tsys}", (hcoords[4], vcoords[0]), xycoords=xyc, size=fsize_small)
-        self._axis.annotate(
-            f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
-        )
-        self._axis.annotate(f"{s.meta['PROC']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
-
-        # bottom row
-        vcoord_bot = 0.72
-        hcoord_bot = 0.95
-        ra, dec = coord_formatter(s)
-        self._axis.annotate(f"{ra}  {dec}", (hcoords[0], vcoord_bot), xycoords=xyc, size=fsize_small)
-        if self._axis.get_title() == "":
-            self._axis.annotate(
-                f"{s.meta['OBJECT']}", (0.5, vcoord_bot), xycoords=xyc, size=fsize_large, horizontalalignment="center"
-            )
-        az = np.around(s.meta["AZIMUTH"], 1)
-        el = np.around(s.meta["ELEVATIO"], 1)
-        ha = ra2ha(s.meta["LST"], s.meta["CRVAL2"])
-        self._axis.annotate(
-            f"Az: {az}  El: {el}  HA: {ha}",
-            (hcoord_bot, vcoord_bot),
-            xycoords=xyc,
-            size=fsize_small,
-            horizontalalignment="right",
-        )
-
-        # last corner -- current date time.
-        ts = str(dt.datetime.now())[:19]
-        self._axis.annotate(
-            f"{ts}", (hcoord_bot - 0.1, 0.01), xycoords=xyc, size=fsize_small, horizontalalignment="right"
-        )
+        else:
+            # @todo It would be nice if yunit could be latex. e.g. T_A^* instead of Ta*
+            self.axis.set_ylabel(f"{self.spectrum.meta['TSCALE']} ({yunit})")
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
@@ -416,56 +304,121 @@ class SpectrumPlot:
         # if kwargs_opts['loc'] == 'bottom':
         #    self._ax.axhline
 
-    def refresh(self):
-        """Refresh the plot"""
-        if self.axis is not None:
-            self.axis.figure.canvas.draw_idle()
-
-    def savefig(self, file, **kwargs):
-        r"""Save the plot
-
-        Parameters
-        ----------
-        file - str
-            The output file name
-        **kwargs : dict or key=value pairs
-            Other arguments to pass to `~matplotlib.pyplot.savefig`
-
-        """
-        # TODO: add clause about cutting off the top of the figure where the interactive buttons are
-        # bbox_inches = matplotlib.transforms.Bbox((0,0,10,hgt)) (warn: 10 is hardcoded in specplot)
-        # or, set_visible to False
-        # buttons are currently listed in the _localaxes, but this includes the plot window at index 0
-        # so if the plot window ever goes missing, check the order in this list
-        # there has to be a better way to do this
-        # TODO: put buttons in a sub/different axes so we only have to hide the axes object instead of
-        # a list of all the buttons and plots
-        for button in self.figure._localaxes[1:]:
-            button.set_visible(False)
-        self.figure.savefig(file, *kwargs)
-        for button in self.figure._localaxes[1:]:
-            button.set_visible(True)
-
     def get_selected_regions(self):
         """ """
         regions = self._selector.get_selected_regions()
         return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
 
     def freex(self):
+        """ "Free the X-axis if limits have been set. Resets the limits to be the span of the spectrum."""
         self._freezex = False
         # This line (and the other in specplot.py) will have to be addressed when we
         # implement multiple IF windows in the same plot
-        self._axis.set_xlim(self._sa.min.value, self._sa.max.value)
+        mins = []
+        maxs = []
+        for line in self._axis.lines:
+            mins.append(line._x.min())
+            maxs.append(line._x.max())
+        # elf._axis.set_xlim(self._sa.min().value, self._sa.max().value)
+        self._axis.set_xlim((min(mins), max(maxs)))
 
     def freey(self):
+        """Free the Y-axis if limits have been set. Autoscales the Y-axis according to your matplotlib configuration."""
         self._freezey = False
         self._axis.relim()
         self._axis.autoscale(axis="y", enable=True)
         self._axis.autoscale_view()
 
     def freexy(self):
+        r"""Free the X and Y axes simultaneously. See `freex` and `freey` for more details."""
         self.freex()
         self.freey()
+
+    def clear_overlays(self, blines=True, oshows=True):
+        """Clear Overlays from the plot.
+
+        Parameters
+        ----------
+        blines : bool
+            Remove only baseline models overlaid on the plot. Default: True
+        """
+        if blines:
+            self.clear_lines("baseline")
+        if oshows:
+            self.clear_lines("oshow")
+
+    def clear_lines(self, gid):
+        """
+        Clears lines with `gid` from the plot.
+
+        Parameters
+        ----------
+        gid : str
+            Group id for the lines to be cleared.
+        """
+
+        for b in self._axis.lines:
+            if b.get_gid() == gid:
+                b.remove()
+
+    def oshow(self, spectra, color=None, linestyle=None):
+        """
+        Add `spectra` to the current plot.
+
+        Parameters
+        ----------
+        spectra : list of `dysh.spectra.spectrum.Spectrum` or `dysh.spectra.spectrum.Spectrum`
+            Spectra to add to the plot.
+        color : list of valid `matplotlib` colors or `matplotlib` color
+            Colors for the spectra. There must be one element per spectra.
+        linestyle : list of valid `matplotlib` linestyles or `matplotlib` linestyle
+            Linestyles for the spectra. There must be one element per spectra.
+        """
+
+        # If a single Spectrum is the input, make everything a list.
+        if isinstance(spectra, type(self._spectrum)):
+            spectra = [spectra]
+            if color is not None:
+                color = [color]
+            if linestyle is not None:
+                linestyle = [linestyle]
+
+        for i, s in enumerate(spectra):
+            if not isinstance(s, type(self._spectrum)):
+                raise TypeError(f"Element {i} of spectra (s) is not a Spectrum.")
+
+        # Pack args together, and check that we have enough of each.
+        zargs = (spectra,)
+        if color is not None:
+            # Check that we have enough colors.
+            if len(color) != len(spectra):
+                raise ValueError(f"How do I color {len(spectra)} spectra with {len(color)} colors?")
+            zargs += (color,)
+        else:
+            zargs += ([None] * len(spectra),)
+        if linestyle is not None:
+            # Check that we have enough linestyles.
+            if len(linestyle) != len(spectra):
+                raise ValueError(f"How do I style {len(spectra)} spectra with {len(linestyle)} linestyles?")
+            zargs += (linestyle,)
+        else:
+            zargs += ([None] * len(spectra),)
+
+        for s, c, ls in zip(*zargs, strict=True):
+            self._oshow(s, color=c, linestyle=ls)
+
+    def _oshow(self, oshow_spectrum, color=None, linestyle=None):
+        this_plot_kwargs = deepcopy(self._plot_kwargs)
+        sf = oshow_spectrum.flux.to(self._spectrum.unit)
+        sa = oshow_spectrum.velocity_axis_to(
+            unit=self._xunit,
+            toframe=this_plot_kwargs["vel_frame"],
+            doppler_convention=this_plot_kwargs["doppler_convention"],
+        )
+
+        self._axis.plot(sa, sf, color=color, linestyle=linestyle, gid="oshow")
+
+        self.freexy()
 
 
 class InteractiveSpanSelector:
@@ -527,9 +480,12 @@ class InteractiveSpanSelector:
     def on_press(self, event):
         if event.inaxes != self.ax:
             return
+        # Do nothing if another widget is enabled.
+        if self.ax.get_navigate_mode() is not None:
+            return
         got_one = False
         for patch in self.regions:
-            contains, attr = patch.contains(event)
+            contains, _attr = patch.contains(event)
             if contains and not got_one:
                 self.span.set_active(False)
                 x0 = patch.get_x()

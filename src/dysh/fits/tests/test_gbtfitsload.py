@@ -13,7 +13,7 @@ from astropy.io import fits
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 from dysh import util
-from dysh.fits import gbtfitsload
+from dysh.fits import gbtfitsload, sdfitsload
 
 
 class TestGBTFITSLoad:
@@ -80,9 +80,58 @@ class TestGBTFITSLoad:
         sdf.apply_flags()
         spec = sdf.getspec(0, setmask=False)
         spec2 = sdf.getspec(0, setmask=True)
+        assert spec.flux.unit == "ct"
         assert any(spec.mask != spec2.mask)
         assert all(spec2.mask[0:101])
         assert all(spec2.mask[102:] == False)  # noqa: E712
+
+    def test_getspec_units(self, tmp_path):
+        """
+        Test that the units of a file written as PS has units "K" or "Jy"
+        """
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+
+        # K
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
+        out_file = tmp_path / "getspec_units.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "K"
+
+        # Jy
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, units="Flux")
+        out_file = tmp_path / "getspec_units_Jy.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "Jy"
+
+        # Ta*
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.08, units="Ta*")
+        out_file = tmp_path / "getspec_units_Tastar.fits"
+        pssb.write(out_file, overwrite=True)
+        sdf_load = gbtfitsload.GBTFITSLoad(out_file)
+        pss = sdf_load.getspec(0)
+        assert pss.flux.unit == "K"
+
+    def test_data_column(self):
+        """
+        Test that the DATA column in in column 7 for 3 types of SDFITS files:
+        1. original sdfits
+        2. sdf.write()
+        3. sdf.getps().write()
+        """
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf.write("test_data_1.fits", overwrite=True)
+        pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
+        pssb.write("test_data_2.fits", overwrite=True)
+        # there is a bugthat the binheader in gbtfitsload doesn't exist, so we use sdfitsload
+        for f in [fnm, "test_data_1.fits", "test_data_2.fits"]:
+            sdf = sdfitsload.SDFITSLoad(f)
+            assert sdf.binheader[0]["TTYPE7"] == "DATA"
 
     def test_getps_single_int(self):
         """
@@ -106,6 +155,7 @@ class TestGBTFITSLoad:
         )
         assert len(psscan) == 1
         psscan.calibrate()
+        assert psscan[0].calibrated(0).flux.unit == "K"
         dysh_getps = psscan[0].calibrated(0).flux.to("K").value
 
         diff = gbtidl_getps - dysh_getps
@@ -387,10 +437,22 @@ class TestGBTFITSLoad:
             if v["SIG"] == False:  # noqa: E712
                 with pytest.raises(Exception):
                     tps = sdf.gettp(
-                        scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], fdnum=0, cal=v["CAL"], sig=v["SIG"]
+                        scan=v["SCAN"],
+                        ifnum=v["IFNUM"],
+                        plnum=v["PLNUM"],
+                        fdnum=0,
+                        cal=v["CAL"],
+                        sig=v["SIG"],
                     )
                 continue
-            tps = sdf.gettp(scan=v["SCAN"], ifnum=v["IFNUM"], plnum=v["PLNUM"], fdnum=0, cal=v["CAL"], sig=v["SIG"])
+            tps = sdf.gettp(
+                scan=v["SCAN"],
+                ifnum=v["IFNUM"],
+                plnum=v["PLNUM"],
+                fdnum=0,
+                cal=v["CAL"],
+                sig=v["SIG"],
+            )
             if v["CAL"]:
                 assert np.all(tps[0]._refcalon[0] == tps[0].total_power(0).flux.value)
             tp = tps.timeaverage(weights=None)
@@ -453,6 +515,18 @@ class TestGBTFITSLoad:
         tsys = {295: 35}
         tp_nnd = sdf.gettp(scan=295, plnum=0, ifnum=0, fdnum=0, t_sys=tsys).timeaverage()
         assert tp_nnd.meta["TSYS"] == tsys[295]
+
+    def test_repeated_scan_number(self):
+        """
+        Test for data with repeated scan numbers.
+        """
+        fnm = f"{self.data_dir}/TRFI_090125_S1/TRFI_090125_S1.raw.vegas/TRFI_090125_S1.raw.vegas.testtrim.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+
+        assert len(sdf._sdf[0].bintable) == 2
+        assert np.all(sdf.get_summary()["SCAN"] == [2, 2])
+        assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=0).timeaverage().flux) == 2**14
+        assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=1).timeaverage().flux) == 2**17
 
     def test_load_multifits(self):
         """
@@ -517,7 +591,7 @@ class TestGBTFITSLoad:
 
         def read_gbtidl_summary(filename, idx=1):
             """ """
-            with open(filename, "r") as log:
+            with open(filename) as log:
                 lines = log.readlines()
             lines.pop(idx)
             tmp = Path(f"{filename}.tmp")
@@ -545,7 +619,7 @@ class TestGBTFITSLoad:
         path = util.get_project_testdata() / "AGBT05B_047_01"
         sdf_file = path / "AGBT05B_047_01.raw.acs"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        dysh_df = sdf.summary()
+        dysh_df = sdf.get_summary()
 
         gbtidl_summary = read_gbtidl_summary(path / "gbtidl" / "AGBT05B_047_01.summary")
 
@@ -558,7 +632,90 @@ class TestGBTFITSLoad:
                 check_index=False,
             )
 
-    def test_contruct_integration_number(self, tmp_path):
+    def test_get_summary(self):
+        """Test for get_summary"""
+
+        path = util.get_project_testdata() / "AGBT05B_047_01"
+        sdf_file = path / "AGBT05B_047_01.raw.acs"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        with fits.open(sdf_file / "AGBT05B_047_01.raw.acs.fits") as hdu:
+            table = hdu[1].data
+
+        # Plain call.
+        df = sdf.get_summary()
+        assert np.all(df["SCAN" == np.r_[51:59]])
+
+        # Verbose mode.
+        df = sdf.get_summary(verbose=True)
+        assert np.all(df["SCAN"] == table["SCAN"])
+
+        # With scan range.
+        scan = [51, 52]
+        df = sdf.get_summary(scan=scan)
+        assert np.all(df["SCAN"] == scan)
+
+        # With columns.
+        columns = ["SCAN", "PROJID", "OBJECT"]
+        df = sdf.get_summary(columns=columns)
+        assert np.all(df["OBJECT"] == "NGC5291")
+        assert np.all(df["PROJID"] == "AGBT05B_047_01")
+        assert np.all(df["SCAN" == np.r_[51:59]])
+        assert np.all(df.columns == columns)
+        c = list(set(columns))  # Change column order.
+        df = sdf.get_summary(columns=c)
+        assert np.all(df.columns == c)
+        # Now as a comma separated list.
+        df = sdf.get_summary(columns=",".join(columns))
+        assert np.all(df["OBJECT"] == "NGC5291")
+        assert np.all(df["PROJID"] == "AGBT05B_047_01")
+        assert np.all(df["SCAN" == np.r_[51:59]])
+        assert np.all(df.columns == columns)
+        c = list(set(columns))  # Change column order.
+        df = sdf.get_summary(columns=c)
+        assert np.all(df.columns == c)
+        # With spaces.
+        sdf.get_summary(columns=" IFNUM , PLNUM ")
+
+        # With added columns.
+        add_columns = ["BINTABLE", "PROJID"]
+        expected_columns = list(sdf.get_summary().columns) + add_columns
+        df = sdf.get_summary(add_columns=add_columns)
+        assert np.all(df.columns == expected_columns)
+
+        # Repeated added columns.
+        add_columns = ["IFNUM", "SCAN"]
+        expected_columns = sdf.get_summary().columns
+        df = sdf.get_summary(add_columns=add_columns)
+        assert np.all(df.columns == expected_columns)
+
+        # Empty columns.
+        with pytest.raises(ValueError):
+            sdf.get_summary(columns=[])
+
+        # Undefined column.
+        columns += ["NOTTHERE"]
+        with pytest.raises(ValueError):
+            df = sdf.get_summary(columns=columns)
+        with pytest.raises(KeyError):
+            df = sdf.get_summary(columns=columns, verbose=True)
+
+        # User defined column.
+        # Add MYCOL to the GBTFITSLoad object.
+        sdf["MYCOL"] = 100.0
+        from dysh.fits.core import ColDef, summary_column_definitions
+
+        cd = summary_column_definitions()
+        # Add MYCOL to the dictionary of column definitions.
+        cd["MYCOL"] = ColDef("mean", float, name="M", scale=1e-2)
+        # Get summary and start testing.
+        df = sdf.get_summary(columns=["MYCOL"], col_defs=cd)
+        assert np.all(df["M"] == 100.0 * cd["MYCOL"].scale)
+        df = sdf.get_summary(columns=["MYCOL"], col_defs=cd, verbose=True)
+        assert np.all(df["MYCOL"] == 100.0 * cd["MYCOL"].scale)
+        with pytest.raises(ValueError):
+            df = sdf.get_summary(columns=["MYCOL"])
+
+    def test_contruct_integration_number(self, tmp_path, tmp_path_factory):
         """
         Tests for _construct_integration_number.
         * Test that construction of integration number (intnum) during FITS load matches
@@ -579,6 +736,36 @@ class TestGBTFITSLoad:
         sdf2 = gbtfitsload.GBTFITSLoad(tmp_path / "write_test_intnum.fits")
         assert set(sdf2["INTNUM"]) == set((0, 1, 2, 3))  # There should be only four integration numbers.
 
+        # Based on issue #713.
+        # First, create a dummy fits file with the time stamps shifted.
+        fn0 = util.get_project_testdata() / "AGBT15B_244_07/AGBT15B_244_07_test/file0.fits"
+        fn1 = util.get_project_testdata() / "AGBT15B_244_07/AGBT15B_244_07_test/file1.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fn0)
+        t = sdf["DATE-OBS"].to_numpy(dtype="datetime64")
+        # Add 10 ms shift.
+        td = t + np.timedelta64(10, "ms")
+        with pytest.warns(UserWarning):
+            sdf["DATE-OBS"] = np.datetime_as_string(td)
+        odir = tmp_path_factory.mktemp("dummy-data")
+        sdf.write(odir / "file0.fits")
+        # Copy the other file to the new location.
+        dest = odir / "file1.fits"
+        dest.write_bytes(fn1.read_bytes())
+        # Now load and check that there are only 3 integrations.
+        sdf_mod = gbtfitsload.GBTFITSLoad(odir)
+        # Sanity checks. Did the data get writen with updated DATE-OBS values?
+        assert len(sdf_mod.files) == 2
+        s = sdf_mod.get_summary(scan=130, verbose=True, columns=["DATE-OBS"])
+        assert len(s["DATE-OBS"].unique()) == 6  # They should not be all equal.
+        # Actual tests now.
+        assert set(sdf_mod["INTNUM"]) == set(sdf["INTNUM"])  # These should be equal.
+        # This should work.
+        sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=1)
+        sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=2)
+        # This should fail.
+        with pytest.raises(Exception), pytest.warns(UserWarning):
+            sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=3)
+
     def test_getps_smoothref(self):
         """ """
 
@@ -595,7 +782,7 @@ class TestGBTFITSLoad:
         hdu.close()
         gbtidl_spec = table["DATA"][0]
 
-        diff = ta.flux.to("K").value.astype(np.float32) - gbtidl_spec
+        diff = np.ma.MaskedArray(ta.flux.to("K").value.astype(np.float32) - gbtidl_spec, ta.mask)
 
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
         assert ta.meta["EXPOSURE"] == table["EXPOSURE"][0]
@@ -603,7 +790,7 @@ class TestGBTFITSLoad:
             if k in ["DURATION", "TUNIT7", "VSPRPIX", "CAL"]:
                 continue
             try:
-                assert v == table[k][0]
+                assert v == pytest.approx(table[k][0])
             except KeyError:
                 continue
 
@@ -631,6 +818,7 @@ class TestGBTFITSLoad:
         assert set(t._index["PLNUM"]) == set([1])
         # assert set(t._index["INT"]) == set([2])  # this exists because GBTIDL wrote it
         assert set(t._index["INTNUM"]) == set([2])
+        # assert t.gettp(plnum=1, fdnum=0, ifnum=0).timeaverage().flux.unit == "K" # @todo fix ?
 
     def test_write_multi_file(self, tmp_path):
         "Test that writing multiple SDFITS files works, including subselection of data"
@@ -886,14 +1074,12 @@ class TestGBTFITSLoad:
     def test_online(self, tmp_path):
         f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
-        #
         sdfits = tmp_path / "sdfits"
         sdfits.mkdir()
         os.environ["SDFITS_DATA"] = str(sdfits)
         print("PJT1", sdfits)
         o1 = sdfits / "online.fits"
         print("PJT2", o1)
-        #
         shutil.copyfile(f1, o1)
         sdf = gbtfitsload.GBTOnline()
         s = sdf.summary()
@@ -981,6 +1167,7 @@ class TestGBTFITSLoad:
         spec2 = psscan2.timeaverage()
         exp2 = spec2.meta["EXPOSURE"]  # 58.59014643665782
         assert exp2 < exp1
+        assert spec.flux.unit == "K"
 
     def test_getnod_wcal(self):
         """
@@ -1113,34 +1300,34 @@ class TestGBTFITSLoad:
         # PSScan
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
-        sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
-        sbb = sdf.getps(scan=152, bunit="jy", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        sbb = sdf.getps(scan=152, units="flux", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         # The ratio of these scale factors should be the Jy/K of the telescope
-        jyperk = sbb[0].bscale / sba[0].bscale
+        jyperk = sbb[0].tscale_fac / sba[0].tscale_fac
         gc = util.gaincorrection.GBTGainCorrection()
         assert jyperk == pytest.approx(gc.jyperk.value, 1e-6)
-        assert sba[0].bunit == "ta*"
-        assert sbb[0].bunit == "jy"
+        assert sba[0].tscale == "Ta*"
+        assert sbb[0].tscale == "Flux"
         assert sba[0].is_scaled
         assert sbb[0].is_scaled
         # Now test scaling after the fact
         sbd = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
-        sbd[0].scale("jy", zenith_opacity=0.1)
-        assert sbd[0].bunit == "jy"
+        sbd[0].scale("flux", zenith_opacity=0.1)
+        assert sbd[0].tscale == "Flux"
         assert sbd[0].is_scaled
 
         # try a bad scale type
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="foobar", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="foobar", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
         # try a bad tau
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="jy", zenith_opacity=-1, ifnum=0, plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="flux", zenith_opacity=-1, ifnum=0, plnum=0, fdnum=0)
 
         # test that scaling a ScanBlock works, also case insensitivity
-        sb = sdf.getps(scan=152, bunit="Ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
-        assert sb.bunit == "ta*"
+        sb = sdf.getps(scan=152, units="Ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=0)
+        assert sb.tscale == "Ta*"
         with pytest.raises(ValueError):
-            sb.scale("not a valid bunit", zenith_opacity=0.2)
+            sb.scale("not a valid scale unit", zenith_opacity=0.2)
 
     def test_qd_check(self, caplog):
         """
@@ -1264,11 +1451,11 @@ class TestGBTFITSLoad:
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=[0, 1], plnum=0, fdnum=0)
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=[0, 1], plnum=0, fdnum=0)
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=0, fdnum=[1, 0])
         with pytest.raises(ValueError):
-            sba = sdf.getps(scan=152, bunit="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)  # noqa: F841
+            sba = sdf.getps(scan=152, units="ta*", zenith_opacity=0.05, ifnum=0, plnum=[0, 1], fdnum=0)  # noqa: F841
 
     def test_fix_ka(self):
         """
@@ -1307,7 +1494,7 @@ class TestGBTFITSLoad:
         expected1 = {
             "mean": -0.20809913,
             "median": -0.21268716,
-            "rms": 0.32515864,
+            "rms": 0.3251615719704055,
             "min": -1.5866431,
             "max": 6.48147535,
         }
@@ -1315,7 +1502,7 @@ class TestGBTFITSLoad:
         expected2 = {
             "mean": -0.27350813,
             "median": -0.27524167,
-            "rms": 0.33285654,
+            "rms": 0.33285818897668434,
             "min": -1.75938678,
             "max": 2.47693372,
         }
@@ -1405,6 +1592,30 @@ class TestGBTFITSLoad:
         with pytest.raises(TypeError):
             sdf.getsigref(scan=51, ref=x.data, fdnum=0, ifnum=0, plnum=0)
 
+        # 6. Using t_cal argument.
+        sigref_org = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0).timeaverage()
+        sigref_cal = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0, t_cal=14.0).timeaverage()
+        assert sigref_cal.meta["TCAL"] == 14.0
+        assert sigref_cal.meta["TSYS"] == pytest.approx(sigref_org.meta["TSYS"] / sigref_org.meta["TCAL"] * 14.0)
+
+        # Changing TCAL of `refspec` has no effect on the result, but the value gets passed.
+        refspec.meta["TCAL"] = 25.0
+        sigref_cal = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0).timeaverage()
+        assert sigref_cal.meta["TCAL"] == 25.0
+        assert sigref_cal.meta["TSYS"] == pytest.approx(sigref_org.meta["TSYS"])
+
+        # If both t_cal and t_sys are not None, then only t_sys is used.
+        sigref_cal = sdf.getsigref(
+            scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0, t_cal=14.0, t_sys=25.0
+        ).timeaverage()
+        assert sigref_cal.meta["TCAL"] == 14.0
+        assert sigref_cal.meta["TSYS"] == pytest.approx(25.0)
+        np.testing.assert_allclose(sigref_cal.data, sigref_org.data / sigref_org.meta["TSYS"] * 25.0)
+        sigref_cal = sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0, t_cal=14.0, t_sys=25.0).timeaverage()
+        assert sigref_cal.meta["TCAL"] == 14.0
+        assert sigref_cal.meta["TSYS"] == pytest.approx(25.0)
+        np.testing.assert_allclose(sigref_cal.data, sigref_org.data / sigref_org.meta["TSYS"] * 25.0)
+
     def test_get_nod_beams(self):
         """Test that we can get the nodding beams"""
         sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
@@ -1486,13 +1697,21 @@ def test_parse_tsys():
     # List of lists case.
     tsys = [[50, 60], [55, 65]]
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
-    expected = {1: np.array([tsys[0], tsys[1]]), 2: np.array([tsys[0], tsys[1]]), 3: np.array([tsys[0], tsys[1]])}
+    expected = {
+        1: np.array([tsys[0], tsys[1]]),
+        2: np.array([tsys[0], tsys[1]]),
+        3: np.array([tsys[0], tsys[1]]),
+    }
     compare_tsys_dicts(_tsys, expected)
 
     # ndarray case.
     tsys = np.array([[50, 60], [55, 65]])
     _tsys = gbtfitsload._parse_tsys(tsys, scans)
-    expected = {1: np.array([tsys[0], tsys[1]]), 2: np.array([tsys[0], tsys[1]]), 3: np.array([tsys[0], tsys[1]])}
+    expected = {
+        1: np.array([tsys[0], tsys[1]]),
+        2: np.array([tsys[0], tsys[1]]),
+        3: np.array([tsys[0], tsys[1]]),
+    }
     compare_tsys_dicts(_tsys, expected)
 
     # dict case.

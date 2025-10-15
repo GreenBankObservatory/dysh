@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union
 
 import astropy.constants as ac
 import astropy.units as u
@@ -55,7 +54,7 @@ class BaseGainCorrection(ABC):
         return (2.0 * ac.k_B / self.physical_aperture.to("m^2")).to("Jy/K")
 
     @abstractmethod
-    def airmass(self, angle: Union[Angle, Quantity], zd: bool, **kwargs) -> Union[float, np.ndarray]:
+    def airmass(self, angle: Angle | Quantity, zd: bool, **kwargs) -> float | np.ndarray:
         """Computes the airmass at given elevation(s) or zenith distance(s).
         Subclasses should implement an airmass function specific to their application.
 
@@ -79,7 +78,7 @@ class BaseGainCorrection(ABC):
         pass
 
     @abstractmethod
-    def aperture_efficiency(self, specval: Quantity, **kwargs) -> Union[float, np.ndarray]:
+    def aperture_efficiency(self, specval: Quantity, **kwargs) -> float | np.ndarray:
         """
         Calculate the antenna aperture efficiency.
 
@@ -100,7 +99,7 @@ class BaseGainCorrection(ABC):
         """
         pass
 
-    def zenith_opacity(self, specval: Quantity, **kwargs) -> Union[float, np.ndarray]:  # noqa: B027
+    def zenith_opacity(self, specval: Quantity, **kwargs) -> float | np.ndarray:  # noqa: B027
         """
         Compute the zenith opacity.
 
@@ -130,9 +129,19 @@ class GBTGainCorrection(BaseGainCorrection):
          of zenith distance and time (see  `GBT Memo 301 <https://library.nrao.edu/public/memos/gbt/GBT_301.pdf>`_).
          Must be in an `~astropy.table.QTable` readable format.
          Default None will use dysh's internal GBT gain correction table.
+
+    Attributes
+    ----------
+    valid_scales : tuple
+        Strings representing valid options for scaling spectral data, specifically
+
+        - 'ta'  : Antenna Temperature in K
+        - 'ta*' : Antenna temperature corrected to above the atmosphere in K
+        - 'flux'  : flux density in Jansky
+
     """
 
-    _valid_scales = ["ta", "ta*", "jy"]
+    valid_scales: tuple[str, str, str] = ("ta", "ta*", "flux")
 
     def __init__(self, gain_correction_table: Path = None):  # noqa: RUF013
         if gain_correction_table is None:
@@ -144,23 +153,6 @@ class GBTGainCorrection(BaseGainCorrection):
         self.physical_aperture = 7853.9816 * u.m * u.m
         self.loss_eff_0 = 0.99
         self._forecast = None
-
-    @classmethod
-    @property
-    def valid_scales(cls):
-        """
-        Strings representing valid options for scaling spectral data, specifically
-            - 'ta'  : Antenna Temperature
-            - 'ta*' : Antenna temperature corrected to above the atmosphere
-            - 'jy'  : flux density in Jansky
-
-        Returns
-        -------
-        list
-            The list of valid scale strings
-
-        """
-        return cls._valid_scales
 
     @classmethod
     def is_valid_scale(cls, scale):
@@ -186,7 +178,7 @@ class GBTGainCorrection(BaseGainCorrection):
         """The table containing the parameterized gain correction as a fucntion of zenith distance and time"""
         return self._gct
 
-    def airmass(self, angle: Union[Angle, Quantity], zd: bool = False, **kwargs) -> Union[float, np.ndarray]:
+    def airmass(self, angle: Angle | Quantity, zd: bool = False, **kwargs) -> float | np.ndarray:
         """
         Computes the airmass at given elevation(s) or zenith distance(s).  The formula used is
 
@@ -266,10 +258,10 @@ class GBTGainCorrection(BaseGainCorrection):
 
     def gain_correction(
         self,
-        angle: Union[Angle, Quantity],
+        angle: Angle | Quantity,
         date: Time,
         zd: bool = True,
-    ) -> Union[float, np.ndarray]:
+    ) -> float | np.ndarray:
         r"""
         Compute the gain correction scale factor, to be used in the aperture efficiency
         calculation. The factor is a float between zero and 1.
@@ -313,33 +305,37 @@ class GBTGainCorrection(BaseGainCorrection):
     def aperture_efficiency(
         self,
         specval: Quantity,
-        angle: Union[Angle, Quantity],
+        angle: Angle | Quantity,
         date: Time,
         zd: bool = False,
-        eps0: Union[None, Quantity] = None,
+        eps0: None | Quantity = None,
         **kwargs,
-    ) -> Union[float, np.ndarray]:
+    ) -> float | np.ndarray:
         r"""
         Compute the aperture efficiency, as a float between zero and 1. The aperture
         efficiency :math:`\eta_a`, is determined by:
 
-                :math:`\eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon_0/\lambda)^2)`
+        .. math::
+
+            \eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon/\lambda)^2)
 
         where :math:`\eta_0` is the long wavelength aperture efficiency, :math:`G(ZD)` is the gain correction factor
-        at a zenith distance :math:`ZD, \epsilon_0` is the surface error, and :math:`\lambda` is the wavelength.
+        at a zenith distance :math:`ZD` (`zd`), :math:`\epsilon` (`eps0`) is the surface error, and :math:`\lambda` is the wavelength.
 
         **Rules for input of multiple dates, spectral values, and angles**
 
         For a single date:
-        - If one spectral value and multiple angles, then the aperture efficiency at each angle is returned.
-        - If multiple spectral values and one angle, then the aperture efficiency at each spectral value is returned
-        - If multiple spectral values and multiple angles, then it is assumed they are to be paired
-          and the aperture efficiency at each pair will be returned.  Therefore the lengths must be equal.
+
+            - If one spectral value and multiple angles, then the aperture efficiency at each angle is returned.
+            - If multiple spectral values and one angle, then the aperture efficiency at each spectral value is returned
+            - If multiple spectral values and multiple angles, then it is assumed they are to be paired
+              and the aperture efficiency at each pair will be returned.  Therefore the lengths must be equal.
 
         For mutiple dates:
-        - For one spectral value and one angle, the aperture efficiency at each date is returned.
-        - For multiple spectral values and multiple angles, it is assumed they go together, so the lengths must match
-          the number of dates. The aperture efficiency for each (spectral value, angle, date) tuple will be returned.
+
+            - For one spectral value and one angle, the aperture efficiency at each date is returned.
+            - For multiple spectral values and multiple angles, it is assumed they go together, so the lengths must match
+              the number of dates. The aperture efficiency for each (spectral value, angle, date) tuple will be returned.
 
         Parameters
         ----------
@@ -356,7 +352,7 @@ class GBTGainCorrection(BaseGainCorrection):
             True if the input value is zenith distance, False if it is elevation. Default: False
 
         eps0 : `~astropy.units.quantity.Quantity` or None
-            The value of :math:`\epsilon_0` to use, the surface rms error. If given, must have units of length (typically microns).
+            The value of :math:`\epsilon` to use, the surface rms error. If given, must have units of length (typically microns).
             If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
 
         Returns
@@ -403,23 +399,24 @@ class GBTGainCorrection(BaseGainCorrection):
 
     def scale_ta_to(
         self,
-        bunit: str,
+        tscale: str,
         specval: Quantity,
-        angle: Union[Angle, Quantity],
+        angle: Angle | Quantity,
         date: Time,
         zenith_opacity,
         zd=False,
         eps0=None,
-    ) -> Union[float, np.array]:
+    ) -> float | np.ndarray:
         r"""
         Scale the antenna temperature to a different brightness temperature unit.
 
-        bunit : str
+        tscale : str
             The brightness scale unit for the output scan, must be one of (case-insensitive)
-                    - 'ta'  : Antenna Temperature
-                    - 'ta*' : Antenna temperature corrected to above the atmosphere
-                    - 'jy'  : flux density in Jansky
-            If 'ta*' or 'jy' the zenith opacity must also be given. Default:'ta'
+                - 'Ta'  : Antenna Temperature in K
+                - 'Ta*' : Antenna temperature corrected to above the atmosphere in K
+                - 'Flux'  : flux density in Jansky
+
+            If 'Ta*' or 'Flux' the zenith opacity must also be given. Default:'Fa'
 
         specval : `~astropy.units.quantity.Quantity`
             The spectral value(s) -- frequency or wavelength -- at which to compute the efficiency
@@ -439,11 +436,11 @@ class GBTGainCorrection(BaseGainCorrection):
             The value of :math:`\epsilon_0` to use, the surface rms error. If given, must have units of length (typically microns).
             If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
         """
-        if not GBTGainCorrection.is_valid_scale(bunit):
+        if not GBTGainCorrection.is_valid_scale(tscale):
             raise ValueError(
-                f"Unrecognized temperature scale {bunit}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
+                f"Unrecognized temperature scale {tscale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
-        s = bunit.lower()
+        s = tscale.lower()
         if s == "ta":
             return 1.0
         am = self.airmass(angle, zd)
@@ -466,7 +463,7 @@ class GBTGainCorrection(BaseGainCorrection):
         return jyperk.value
 
     def get_weather(
-        self, specval: Quantity, vartype: str, mjd: Union[Time, float] = None, coeffs: bool = True, **kwargs
+        self, specval: Quantity, vartype: str, mjd: Time | float = None, coeffs: bool = True, **kwargs
     ) -> np.ndarray:
         r"""
         Call the GBO `getForecastValues` script with the given inputs.
@@ -513,7 +510,7 @@ class GBTGainCorrection(BaseGainCorrection):
 
     # Question: should use_script default to False?
     def zenith_opacity(
-        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs: bool = True, use_script: bool = True, **kwargs
+        self, specval: Quantity, mjd: Time | float = None, coeffs: bool = True, use_script: bool = True, **kwargs
     ) -> np.ndarray:
         r"""
         Compute the zenith opacity, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.
@@ -534,7 +531,7 @@ class GBTGainCorrection(BaseGainCorrection):
             polynomial coefficients to fit opacity as a function of frequency for each MJD.
         use_script : bool
             If at GBO, use the `getForecastValues` script to determine the opacity. This argument is
-            ignore if the user is not on the GBO network.
+            ignored if the user is not on the GBO network.
 
         Returns
         -------
@@ -564,7 +561,7 @@ class GBTGainCorrection(BaseGainCorrection):
         return out
 
     def atm_temperature(
-        self, specval: Quantity, mjd: Union[Time, float] = None, coeffs: bool = True, use_script: bool = True, **kwargs
+        self, specval: Quantity, mjd: Time | float = None, coeffs: bool = True, use_script: bool = True, **kwargs
     ) -> np.ndarray:
         r"""
         Compute the atmospheric temperature `Tatm`, optionally interfacing with the GBO `getForecastValues` script.  If multiple `specval` are given, an array is returned otherwise a float is returned.

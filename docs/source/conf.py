@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -69,17 +68,18 @@ autodoc_default_options = {"members": None, "undoc-members": None}
 
 # Make sure the targets are unique
 autosectionlabel_prefix_document = True
+autosectionlabel_maxdepth = 1
 
-# TODO: These appear to have no effect
-mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:false});"
+# type hints
+# autodoc_typehints = 'description'
+autodoc_typehints_format = "short"
+autodoc_preserve_defaults = False
 
-# TODO: These appear to have no effect
-mermaid_verbose = True
-
-# Mermaid configuration
-# https://github.com/mgaitan/sphinxcontrib-mermaid
-mermaid_version = "11.2.0"
-mermaid_params = ["--theme", "dark"]
+## Mermaid configuration
+## https://github.com/mgaitan/sphinxcontrib-mermaid
+mermaid_version = "11.11.0"
+mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:true});"
+# mermaid_verbose = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -87,12 +87,8 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = [".rst", ".md"]
-# source_suffix = {
-#    '.rst': 'restructuredtext',
-#    '.txt': 'markdown',
-#    '.md': 'markdown',
-# }
+# source_suffix = [".rst", ".md"]
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # The master toctree document.
 master_doc = "index"
@@ -135,7 +131,7 @@ html_theme_options = {
     # "show_toc_level": 2,
     "use_source_button": True,
     "use_issues_button": True,
-    "use_download_button": True,
+    "use_download_button": False,
     "use_sidenotes": True,
     "show_toc_level": 2,
     "icon_links": [
@@ -262,11 +258,16 @@ html_css_files = [
 
 # Settings for myst_nb notebook rendering
 
-# Cache notebooks to only re-run when cells change
+# Cache notebooks to only re-run when cells change.
 nb_execution_mode = "cache"
 # Use this mode if working on the documentation with sphinx-autobuild.
 # nb_execution_mode = "auto"
+# Use this to skip executing the notebooks.
+# nb_execution_mode = "off"
 
+# Execution timeout.
+# -1 should set this to no limit.
+nb_execution_timeout = -1
 
 # Where to store the notebook cache
 nb_execution_cache_path = "jupyter_cache"
@@ -277,7 +278,7 @@ myst_enable_extensions = [
     "dollarmath",
 ]
 myst_dmath_double_inline = True
-
+myst_links_external_new_tab = True
 
 # -- sphinx-copybutton config -------------------------------------
 copybutton_exclude = ".linenos, .gp"

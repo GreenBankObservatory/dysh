@@ -20,7 +20,9 @@ def fit_gauss(spectrum):
     from specutils.fitting import fit_lines
 
     g_init = models.Gaussian1D(
-        amplitude=spectrum.flux.max(), mean=spectrum.spectral_axis.mean(), stddev=spectrum.meta["FREQRES"] * u.Hz
+        amplitude=spectrum.flux.max(),
+        mean=spectrum.spectral_axis.mean(),
+        stddev=spectrum.meta["FREQRES"] * u.Hz,
     )
     g_fit = fit_lines(spectrum, g_init)
 
@@ -264,15 +266,18 @@ class TestSpectrum:
 
         plt.ioff()
 
+        # General variables.
         meta_ignore = ["CRPIX1", "CRVAL1"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
         s = slice(1000, 1100, 1)
+        tol = 1e-5  # Tolerance to compare spectral axes.
+
         trimmed = self.ps0[s]
         assert trimmed.flux[0] == self.ps0.flux[s.start]
         assert trimmed.flux[-1] == self.ps0.flux[s.stop - 1]
         assert np.all(trimmed.flux == self.ps0.flux[s])
         # The slicing changes the values at the micro Hz level.
-        assert np.all(trimmed.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        assert np.all(trimmed.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         # Check meta values. The trimmed spectrum has an additional
         # key: 'original_wcs'.
         for k, v in self.ps0.meta.items():
@@ -300,7 +305,7 @@ class TestSpectrum:
         spec_ax = self.ps0.spectral_axis
         trimmed_nu = self.ps0[spec_ax[s.start].to("Hz") : spec_ax[s.stop].to("Hz")]
         assert np.all(trimmed_nu.flux == self.ps0.flux[s])
-        assert np.all(trimmed_nu.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        assert np.all(trimmed_nu.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
                 assert trimmed_nu.meta[k] == v
@@ -312,7 +317,7 @@ class TestSpectrum:
         spec_ax = self.ps0.spectral_axis.to("km/s")
         trimmed_vel = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
         assert np.all(trimmed_vel.flux == self.ps0.flux[s])
-        assert np.all(trimmed_vel.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        assert np.all(trimmed_vel.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
                 assert trimmed_vel.meta[k] == v
@@ -324,7 +329,73 @@ class TestSpectrum:
         spec_ax = self.ps0.spectral_axis.to("m")
         trimmed_wav = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
         assert np.all(trimmed_wav.flux == self.ps0.flux[s])
-        assert np.all(trimmed_wav.spectral_axis.value - self.ps0.spectral_axis[s].value < 1e-5)
+        assert np.all(trimmed_wav.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
+
+        # Slice in any order.
+        # int.
+        trimmed_sp = self.ps0[s]
+        trimmed_sp_inv = self.ps0[s.stop : s.start]
+        assert np.all(trimmed_sp.flux == trimmed_sp_inv.flux)
+        assert np.all(trimmed_sp.spectral_axis.value - trimmed_sp_inv.spectral_axis.value < tol)
+
+        # Hz.
+        spec_ax = self.ps0.spectral_axis
+        trimmed_nu = self.ps0[spec_ax[s.start].to("Hz") : spec_ax[s.stop].to("Hz")]
+        trimmed_nu_inv = self.ps0[spec_ax[s.stop].to("Hz") : spec_ax[s.start].to("Hz")]
+        assert np.all(trimmed_nu.flux == trimmed_nu_inv.flux)
+        assert np.all(trimmed_nu.spectral_axis.value - trimmed_nu_inv.spectral_axis.value < tol)
+
+        # km/s.
+        spec_ax = self.ps0.spectral_axis.to("km/s")
+        trimmed_vel = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
+        trimmed_vel_inv = self.ps0[spec_ax[s.stop] : spec_ax[s.start]]
+        assert np.all(trimmed_vel.flux == trimmed_vel_inv.flux)
+        assert np.all(trimmed_vel.spectral_axis.value - trimmed_vel_inv.spectral_axis.value < tol)
+
+        # m.
+        spec_ax = self.ps0.spectral_axis.to("m")
+        trimmed_wav = self.ps0[spec_ax[s.start] : spec_ax[s.stop]]
+        trimmed_wav_inv = self.ps0[spec_ax[s.stop] : spec_ax[s.start]]
+        assert np.all(trimmed_wav.flux == trimmed_wav_inv.flux)
+        assert np.all(trimmed_wav.spectral_axis.value - trimmed_wav_inv.spectral_axis.value < tol)
+
+        # Slice using negative values.
+        ns = slice(10, -10)
+        trimmed_sp = self.ps0[ns]
+        assert np.all(trimmed_sp.flux == self.ps0.flux[ns])
+        assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[ns]).value < tol)
+
+        # km/s.
+        spec_ax = self.ps0.spectral_axis.to("km/s")
+        trimmed_vel = self.ps0[spec_ax[ns.start] : ns.stop]
+        assert np.all(trimmed_vel.flux == self.ps0.flux[ns])
+        assert np.all((trimmed_vel.spectral_axis.quantity - self.ps0.spectral_axis.quantity[ns]).value < tol)
+
+        # Both start and stop are negative values.
+        ns = slice(-100, -10)
+        trimmed_sp = self.ps0[ns]
+        assert np.all(trimmed_sp.flux == self.ps0.flux[ns])
+        assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[ns]).value < tol)
+
+        # km/s.
+        spec_ax = self.ps0.spectral_axis.to("km/s")
+        trimmed_vel = self.ps0[spec_ax[ns.start] : ns.stop]
+        assert np.all(trimmed_vel.flux == self.ps0.flux[ns])
+        assert np.all((trimmed_vel.spectral_axis.quantity - self.ps0.spectral_axis.quantity[ns]).value < tol)
+
+        # Negative start and no stop.
+        s = slice(-100, None)
+        trimmed_sp = self.ps0[s]
+        assert len(trimmed_sp.data) == 100
+        assert np.all(trimmed_sp.flux == self.ps0.flux[s])
+        assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
+
+        # Negative stop and no start.
+        s = slice(None, -100)
+        trimmed_sp = self.ps0[s]
+        assert len(trimmed_sp.data) == len(self.ps0.data) - 100
+        assert np.all(trimmed_sp.flux == self.ps0.flux[s])
+        assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
 
     def test_smooth(self):
         """Test for smooth with `decimate=0`"""
@@ -332,6 +403,7 @@ class TestSpectrum:
         ss = self.ps0.smooth("gauss", width)
         assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"] * width
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert ss.meta["NAXIS1"] == len(ss.data)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(1)
         assert ss.velocity_frame == self.ps0.velocity_frame
@@ -358,6 +430,7 @@ class TestSpectrum:
         ss = self.ps0.smooth("gauss", width, decimate)
         assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"] * decimate
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert ss.meta["NAXIS1"] == len(ss.data)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(width / decimate)
 
@@ -365,6 +438,7 @@ class TestSpectrum:
         sss = self.ss.smooth("gauss", width, decimate)
         assert sss.meta["CDELT1"] == self.ss.meta["CDELT1"] * decimate
         assert sss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * width, abs=100)
+        assert sss.meta["NAXIS1"] == len(sss.data)
         assert np.diff(sss.spectral_axis).mean().value == sss.meta["CDELT1"]
         assert sss._resolution == pytest.approx(width / decimate, abs=1e-2)
         # Also check the line properties.
@@ -372,7 +446,8 @@ class TestSpectrum:
         fwhm = g_fit.stddev.value * 2.35482
         assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
-            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"],
+            abs=abs(self.ss.meta["CDELT1"]) / 9.0,
         )
         assert ss.velocity_frame == self.ps0.velocity_frame
         assert ss.doppler_convention == self.ps0.doppler_convention
@@ -385,6 +460,7 @@ class TestSpectrum:
         ss = self.ps0.smooth("gauss", width, decimate)
         assert ss.meta["CDELT1"] == self.ps0.meta["CDELT1"]
         assert ss.meta["FREQRES"] == pytest.approx(abs(self.ps0.meta["CDELT1"]) * width)
+        assert ss.meta["NAXIS1"] == len(ss.data)
         assert np.diff(ss.spectral_axis).mean().value == ss.meta["CDELT1"]
         assert ss._resolution == pytest.approx(width / abs(decimate))
 
@@ -403,12 +479,15 @@ class TestSpectrum:
         sss = self.ss._copy()
         for w in widths:
             sss = sss.smooth("gauss", w, decimate=decimate)
+
             g_fit = fit_gauss(sss)
             fwhm = g_fit.stddev.value * 2.35482
             assert sss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * w)
             assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
-                abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+                abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"],
+                abs=abs(self.ss.meta["CDELT1"]) / 9.0,
             )
+            assert sss.meta["NAXIS1"] == len(sss.data)
             assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
 
     def test_smooth_and_slice(self):
@@ -422,11 +501,14 @@ class TestSpectrum:
         fwhm = g_fit.stddev.value * 2.35482
         assert ssss.meta["CDELT1"] == self.ss.meta["CDELT1"] * decimate
         assert ssss.meta["FREQRES"] == pytest.approx(abs(self.ss.meta["CDELT1"]) * width, abs=100)
+        assert sss.meta["NAXIS1"] == len(sss.data)
+        # NB: Slicing does not correctly changes NAXIS1
         assert np.diff(sss.spectral_axis).mean().value == sss.meta["CDELT1"]
         assert sss._resolution == pytest.approx(width / decimate, abs=1e-2)
         assert g_fit.mean.value == pytest.approx(self.ss.meta["CENTER"])
         assert np.sqrt(fwhm**2 - sss.meta["FREQRES"] ** 2) == pytest.approx(
-            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"], abs=abs(self.ss.meta["CDELT1"]) / 9.0
+            abs(self.ss.meta["CDELT1"]) * self.ss.meta["FWHM"],
+            abs=abs(self.ss.meta["CDELT1"]) / 9.0,
         )
 
     def test_shift(self):
@@ -546,7 +628,7 @@ class TestSpectrum:
         ps1_org = self.ps1._copy()
 
         avg = average_spectra((self.ps0, self.ps1))
-        avg2 = self.ps0.average((self.ps1))
+        avg2 = self.ps0.average(self.ps1)
         compare_spectrum(avg, avg2, ignore_history=True, ignore_comments=True)
 
         avg = average_spectra((self.ps0, self.ps1), align=True)
@@ -614,7 +696,11 @@ class TestSpectrum:
             dysh_spec = sdf.getspec(0)
             temp_bmodel = np.copy(dysh_spec.data)
             dysh_spec.baseline(
-                order, ex_reg, remove=True, model=model, exclude_region_upper_bounds=exclude_region_upper_bounds
+                order,
+                ex_reg,
+                remove=True,
+                model=model,
+                exclude_region_upper_bounds=exclude_region_upper_bounds,
             )
             dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
             diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
@@ -660,7 +746,11 @@ class TestSpectrum:
         kms = u.km / u.s
         ex_reg = [(0 * kms, 4200 * kms), (6000 * kms, 7000 * kms), (8800 * kms, 90000 * kms)]
         dysh_spec.baseline(order, ex_reg, model="chebyshev")
-        ex_reg = [(1 * u.GHz, 1.38 * u.GHz), (1.388 * u.GHz, 1.392 * u.GHz), (1.4 * u.GHz, 2 * u.GHz)]
+        ex_reg = [
+            (1 * u.GHz, 1.38 * u.GHz),
+            (1.388 * u.GHz, 1.392 * u.GHz),
+            (1.4 * u.GHz, 2 * u.GHz),
+        ]
         dysh_spec.baseline(order, ex_reg, model="chebyshev")
         ex_reg = [21 * u.cm, 21.5 * u.cm]
         dysh_spec.baseline(order, ex_reg, model="chebyshev")
@@ -676,7 +766,11 @@ class TestSpectrum:
             dysh_spec = sdf.getspec(0)
             temp_bmodel = np.copy(dysh_spec.data)
             dysh_spec.baseline(
-                order, include=in_reg, remove=True, model=model, exclude_region_upper_bounds=exclude_region_upper_bounds
+                order,
+                include=in_reg,
+                remove=True,
+                model=model,
+                exclude_region_upper_bounds=exclude_region_upper_bounds,
             )
             dysh_bmodel = temp_bmodel - np.copy(dysh_spec.data)
             diff = np.sum(np.abs(dysh_bmodel - gbtidl_bmodel))
@@ -730,7 +824,10 @@ class TestSpectrum:
         }
         with pytest.raises(ValueError) as excinfo:
             s = Spectrum.make_spectrum(
-                data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
+                data=np.arange(64) * u.K,
+                meta=meta,
+                use_wcs=True,
+                observer_location=Observatory["GBT"],
             )
         assert excinfo.type is ValueError
         assert excinfo.value.args == ("Header (meta) is missing one or more required keywords: {'RESTFRQ'}",)
@@ -747,7 +844,12 @@ class TestSpectrum:
         * Test that the returned selection is in the expected format.
         """
 
+        ch_low = 574
+        ch_upp = 853
+
         s = Spectrum.fake_spectrum()
+        saq = s.spectral_axis.quantity
+        saq_v = s.axis_velocity().quantity
         with pytest.raises(TypeError) as excinfo:
             s.get_selected_regions()
         assert excinfo.type is TypeError
@@ -756,18 +858,20 @@ class TestSpectrum:
         import matplotlib.pyplot as plt
 
         plt.ioff()
-        s.plot(interactive=False, xaxis_unit="MHz")
-        s._plotter._selector.onselect(1402.3, 1402.5)
+        s.plot(xaxis_unit="MHz")
+        s._plotter._selector.onselect(saq[ch_low].to("MHz").value, saq[ch_upp].to("MHz").value)
         r = s.get_selected_regions()
-        assert r == [(574, 853)]
+        assert r == [(ch_low, ch_upp)]
 
         # Now with units.
         r_nu = s.get_selected_regions(unit="MHz")
-        assert r_nu[0][0].value == pytest.approx(1402.3)
-        assert r_nu[0][1].value == pytest.approx(1402.5)
+        assert r_nu[0][0].value == pytest.approx(saq[ch_low].to("MHz").value)
+        assert r_nu[0][1].value == pytest.approx(saq[ch_upp].to("MHz").value)
+        assert r_nu[0][1].unit == u.MHz
         r_v = s.get_selected_regions(unit="km/s")
-        assert r_v[0][0].value == pytest.approx(3870.69160846)
-        assert r_v[0][1].value == pytest.approx(3827.48453869)
+        assert r_v[0][0].value == pytest.approx(saq_v[ch_low].value)
+        assert r_v[0][1].value == pytest.approx(saq_v[ch_upp].value)
+        assert r_v[0][0].unit == u.km / u.s
 
     def test_cog(self):
         """
@@ -775,16 +879,17 @@ class TestSpectrum:
         It creates a Gaussian line profile and checks the answers against the input parameters.
         """
 
-        nchan = 2**14
+        nchan = 2**13
         ss = Spectrum.fake_spectrum(nchan=nchan, VELDEF="RADI-HEL")
-        x = np.arange(0, len(ss.data))
-        fwhm = 50
-        stdd = fwhm / 2 * np.sqrt(2 * np.log(2.0))
-        mean = int(x.mean())
-        rms = 0.001
+        x = ss.spectral_axis.to("km/s")  # np.arange(0, len(ss.data))
+        fwhm = 40 * u.km / u.s
+        stdd = fwhm / (2 * np.sqrt(2 * np.log(2.0)))
+        mean = x[nchan // 2] + (x[1] - x[0]) / 2  # Middle of a channel.
+        area = stdd * np.sqrt(2 * np.pi)
+        rms = 0.0
 
         # Add Gaussian line with noise.
-        ss._data = 1.0 / (stdd * np.sqrt(2 * np.pi)) * np.exp(-0.5 * (x - mean) ** 2 / stdd**2)
+        ss._data = np.exp(-0.5 * (x - mean) ** 2 / stdd**2)
         rng = np.random.default_rng(1234)
         ss._data += rng.normal(loc=0, scale=rms, size=nchan)
 
@@ -792,53 +897,61 @@ class TestSpectrum:
 
         flux = p["flux"].value
         flux_err = p["flux_std"].value
-        assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
-        assert stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
+        assert area.value == pytest.approx(flux, abs=3 * flux_err)
+        assert 2 * stdd.value == pytest.approx(
             p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
         )
-        assert ss.spectral_axis.to("km/s").quantity[mean].value == pytest.approx(
-            p["vel"].value, abs=3 * p["vel_std"].value
+        assert mean.value == pytest.approx(p["vel"].value, abs=3 * p["vel_std"].value)
+        assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
+            0, abs=5 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
         )
+        assert rms == pytest.approx(p["rms"].value, abs=1e-3)
+
+        bchan = len(ss[: mean - 3 * fwhm].data) + p["bchan"]
+        echan = len(ss[: mean - 3 * fwhm].data) + p["echan"]
+
+        p = ss.cog(
+            width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95],
+            bchan=bchan,
+            echan=echan,
+        )
+        flux = p["flux"].value
+        flux_err = p["flux_std"].value
+        assert area.value == pytest.approx(flux, abs=3 * flux_err)
+        assert 2 * stdd.value == pytest.approx(
+            p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
+        )
+        assert mean.value == pytest.approx(p["vel"].value, abs=3 * p["vel_std"].value)
         assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
             0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
         )
         assert rms == pytest.approx(p["rms"].value, abs=1e-3)
+        assert p["bchan"] == bchan
+        assert p["echan"] == echan
 
-        p = ss.cog(width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95], bchan=mean - 3 * fwhm, echan=mean + 3 * fwhm)
+        p = ss.cog(
+            vc=mean,
+            width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95],
+        )
         flux = p["flux"].value
         flux_err = p["flux_std"].value
-        assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
-        assert stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
+        assert area.value == pytest.approx(flux, abs=3 * flux_err)
+        assert 2 * stdd.value == pytest.approx(
             p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
         )
-        assert ss.spectral_axis.to("km/s").quantity[mean].value == pytest.approx(
-            p["vel"].value, abs=3 * p["vel_std"].value
-        )
+        assert mean.value == pytest.approx(p["vel"].value, abs=3 * p["vel_std"].value)
         assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
-            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
-        )
-        assert rms == pytest.approx(p["rms"].value, abs=1e-3)
-        assert p["bchan"] == mean - 3 * fwhm
-        assert p["echan"] == mean + 3 * fwhm
-
-        p = ss.cog(vc=ss.spectral_axis.to("km/s").quantity[mean], width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95])
-        flux = p["flux"].value
-        flux_err = p["flux_std"].value
-        assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
-        assert stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
-            p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
-        )
-        assert ss.spectral_axis.to("km/s").quantity[mean].value == pytest.approx(
-            p["vel"].value, abs=3 * p["vel_std"].value
-        )
-        assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
-            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
+            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2)
         )
         assert rms == pytest.approx(p["rms"].value, abs=1e-3)
 
         # Now, a line at the window edge.
         ss = Spectrum.fake_spectrum(nchan=nchan, VELDEF="RADI-HEL")
+        x = np.arange(0, nchan)
         mean = int(nchan * 0.7)
+        fwhm = 50
+        stdd = fwhm / (2 * np.sqrt(2 * np.log(2.0)))
+        rms = 0.01
         # Add Gaussian line with noise.
         ss._data = 1.0 / (stdd * np.sqrt(2 * np.pi)) * np.exp(-0.5 * (x - mean) ** 2 / stdd**2)
         rng = np.random.default_rng(1234)
@@ -848,14 +961,14 @@ class TestSpectrum:
         flux = p["flux"].value
         flux_err = p["flux_std"].value
         assert np.diff(ss.spectral_axis.to("km/s")).mean().value == pytest.approx(flux, abs=3 * flux_err)
-        assert stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
+        assert 2 * stdd * abs(ss.meta["CDELT1"]) / ss.meta["RESTFREQ"] * 3e5 == pytest.approx(
             p["width"][0.68].to("km/s").value, abs=3 * p["width_std"][0.68].to("km/s").value
         )
         assert ss.spectral_axis.to("km/s").quantity[mean].value == pytest.approx(
             p["vel"].value, abs=3 * p["vel_std"].value
         )
         assert (p["flux_b"] - p["flux_r"]).value == pytest.approx(
-            0, abs=3 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
+            0, abs=5 * np.sqrt(p["flux_b_std"].value ** 2 + p["flux_r_std"].value ** 2 + rms**2)
         )
         assert rms == pytest.approx(p["rms"].value, abs=1e-3)
         assert p["bchan"] == mean - 3 * fwhm

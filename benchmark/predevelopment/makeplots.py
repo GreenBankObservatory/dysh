@@ -174,7 +174,7 @@ def barplots(file, x_col="N_rows"):
         for j in time_cols:
             df[key][j] = df[key][j] / df[key]["N_rows"]
 
-    fig, ax = plt.subplots(figsize=(12, 10))
+    _fig, ax = plt.subplots(figsize=(12, 10))
     # print("TIME ",list(df["p"][time_cols].mean()))
     # print(df["p"])
     ind = np.arange(len(time_cols))
@@ -196,7 +196,7 @@ def barplots(file, x_col="N_rows"):
     )
 
     # ax.hlines(pure_numpy,2.75,4.,lw=3,color=colors[0],label="pure numpy")
-    handles, labels = ax.get_legend_handles_labels()
+    _handles, _labels = ax.get_legend_handles_labels()
     # print(handles)
     # print(sorted(labels))
     # sort both labels and handles by labels

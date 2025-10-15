@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Fit benchmark data
 Created on Mon Apr 21 09:47:46 2025

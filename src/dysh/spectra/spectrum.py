@@ -20,7 +20,7 @@ from astropy.time import Time
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
-from specutils import Spectrum1D
+from specutils import Spectrum as Spectrum1D
 
 from dysh.spectra import core
 
@@ -39,9 +39,13 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
+from ..util.docstring_manip import copy_docstring
 from . import (
+    FWHM_TO_STDDEV,
+    available_smooth_methods,
     baseline,
     curve_of_growth,
+    decimate,
     exclude_to_spectral_region,
     get_spectral_equivalency,
     spectral_region_to_list_of_tuples,
@@ -67,11 +71,11 @@ IGNORE_ON_COPY = [
 class Spectrum(Spectrum1D, HistoricalBase):
     """
     This class contains a spectrum and its attributes. It is built on
-    `~specutils.Spectrum1D` with added attributes like baseline model.
-    Note that `~specutils.Spectrum1D` can contain multiple spectra but
+    `~specutils.Spectrum` with added attributes like baseline model.
+    Note that `~specutils.Spectrum` can contain multiple spectra but
     we probably will not use that because the restriction that it can
     have only one spectral axis conflicts with slight Doppler shifts.
-    See `~specutils.Spectrum1D` for the instantiation arguments.
+    See `~specutils.Spectrum` for the instantiation arguments.
     """
 
     @log_call_to_history
@@ -119,7 +123,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self.mask is None:
             self._mask = np.full(np.shape(self.flux), False)
         self._baseline_model = None
-        self._bline = None
         self._subtracted = False
         self._normalized = False
         self._exclude_regions = None
@@ -138,6 +141,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         return len(self.frequency)
 
+    def _spectrum_property(self, prop: str):
+        """
+        Utility method to return a header value as a property.
+
+        Parameters
+        ----------
+        prop : str
+            The property name, _case-sensitive_
+
+        Returns
+        -------
+        value : Any or Non
+            The property value or None if `prop` is not in the header.
+
+        """
+        return self.meta.get(prop, None)
+
     @property
     def weights(self):
         """The channel weights of this spectrum"""
@@ -152,17 +172,22 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """The baseline exclusion region(s) of this spectrum"""
         return self._exclude_regions
 
-    ##@todo
-    # def exclude_region(self,region):
-    # where region is SpectralRegion, channels, velocity, etc.  See core.py baseline method.
-    #
-    # def region_to_mask():
-    #  set spectrum mask to True inside exclude_regions. normally we don't do this for baselining
-
     @property
     def baseline_model(self):
         """Returns the computed baseline model or None if it has not yet been computed."""
         return self._baseline_model
+
+    @property
+    def flux(self):
+        """
+        Converts the stored data and unit and mask into a `~astropy.units.Quantity` object.
+
+        Returns
+        -------
+        `~astropy.units.Quantity`
+            Spectral data as a quantity. Masked values are filled with NaN.
+        """
+        return Masked(self.data * self.unit, mask=self.mask).filled(np.nan)
 
     @log_call_to_history
     def baseline(self, degree, exclude=None, include=None, color="k", **kwargs):
@@ -197,6 +222,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
+        color : str
+            The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
         model : str
             One of 'polynomial', 'chebyshev', 'legendre', or 'hermite'
             Default: 'chebyshev'
@@ -204,7 +231,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The fitter to use. Default: `~astropy.modeling.fitting.LinearLSQFitter` (with `calc_uncertaintes=True`).
             Be careful when choosing a different fitter to be sure it is optimized for this problem.
         remove : bool
-            If True, the baseline is removed from the spectrum. Default: False
+            If True, the baseline is removed from the spectrum.
+            If False, the baseline will be computed and overlaid on the spectrum. Default: False
         """
         # fmt: on
         # @todo: Are exclusion regions OR'd with the existing mask? make that an option?
@@ -217,8 +245,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         # `include` and `exclude` are mutually exclusive, but we allow `include`
         # if `include` is used, transform it to `exclude`.
-        if include != None:  # noqa: E711
-            if exclude != None:  # noqa: E711
+        if include is not None:
+            if exclude is not None:
                 logger.info(f"Warning: ignoring exclude={exclude}")  # noqa: F821
             exclude = core.include_to_exclude_spectral_region(include, self)
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
@@ -229,16 +257,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is not None:
             if kwargs_opts["remove"]:
                 self._plotter._line.set_ydata(self._data)
-                if self._bline is not None:
-                    self._bline.set_ydata(np.ones(len(self.flux)) * np.nan)
+                self._plotter.clear_overlays(blines=True)
                 if not self._plotter._freezey:
                     self._plotter.freey()
-                # ydiff = np.max(self._data) - np.min(self._data)
-                # self._plotter._axis.set_ylim(np.min(self._data) - 0.05 * ydiff, np.max(self._data) + 0.05 * ydiff)
-                # self._plotter._figure.canvas.flush_events()
             else:
-                lines = self._plotter._axis.plot(self.spectral_axis, self._baseline_model(self.spectral_axis), c=color)
-                self._bline = lines[0]
+                if self._plotter._xunit == "chan":
+                    xval = np.arange(len(self.flux))
+                else:
+                    xval = self._plotter._sa
+                self._plotter._axis.plot(xval, self._baseline_model(self.spectral_axis), c=color, gid="baseline")
                 self._plotter.refresh()
 
     # baseline
@@ -300,7 +327,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Show the baseline model"""
         print(f"baseline model {self._baseline_model}")
 
+    @copy_docstring(sp.SpectrumPlot.plot)
     def plot(self, **kwargs):
+        """ """
+
         if self._plotter is None:
             self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
@@ -403,29 +433,26 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s : `Spectrum`
             The decimated `Spectrum`.
         """
-
-        if not float(n).is_integer():
-            raise ValueError(f"`n` ({n}) must be an integer.")
-
-        nchan = len(self._data)
-        new_meta = deepcopy(self.meta)
-        idx = np.arange(0, nchan, n)
-        new_cdelt1 = self.meta["CDELT1"] * n
-        cell_shift = 0.5 * (n - 1) * (self._spectral_axis.value[1] - self._spectral_axis.value[0])
-        new_data = self.data[idx] * self.flux.unit
-        new_meta["CDELT1"] = new_cdelt1
-        new_meta["CRPIX1"] = 1.0 + (self.meta["CRPIX1"] - 1) / n + 0.5 * (n - 1) / n
-        new_meta["CRVAL1"] += cell_shift
-
+        new_data, new_meta = decimate(self.data * self.flux.unit, n, self.meta)
         s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
-
         if self._baseline_model is not None:
             s._baseline_model = None
 
         return s
 
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
+    def smooth(
+        self,
+        method="hanning",
+        width=1,
+        decimate=0,
+        meta=None,
+        mask=None,
+        boundary="extend",
+        nan_treatment="fill",
+        fill_value=np.nan,
+        preserve_nan=True,
+    ):
         """
         Smooth or Convolve the `Spectrum`, optionally decimating it.
 
@@ -433,13 +460,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        method : string, optional
+        method : string
             Smoothing method. Valid are: 'hanning', 'boxcar' and
             'gaussian'. Minimum match applies.
             The default is 'hanning'.
-        width : int, optional
-            Effective width of the convolving kernel.  Should ideally be an
-            odd number.
+        width : int
+            Effective width of the convolving kernel.
             For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
             signal at the edges, and will thus not reproduce GBTIDL.
@@ -447,19 +473,43 @@ class Spectrum(Spectrum1D, HistoricalBase):
             That is, the smoothed `Spectrum` will have an effective frequency resolution
             equal to CDELT1*`width`.
             The default is 1.
-        decimate : int, optional
+        decimate : int
             Decimation factor of the spectrum by returning every decimate channel.
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-            The default is 0, meaning decimation is by `width`
-        kernel : `~numpy.ndarray`, optional
-            A numpy array which is the kernel by which the signal is convolved.
-            Use with caution, as it is assumed the kernel is normalized to
-            one, and is symmetric. Since width is ill-defined here, the user
-            should supply an appropriate number manually.
-            NOTE: not implemented yet.
-            The default is None.
+        mask : None or `numpy.ndarray`
+            A "mask" array.  Shape must match ``array``, and anything that is masked
+            (i.e., not 0/`False`) will be set to NaN for the convolution.  If
+            `None`, no masking will be performed unless ``array`` is a masked array.
+            If ``mask`` is not `None` *and* ``array`` is a masked array, a pixel is
+            masked if it is masked in either ``mask`` *or* ``array.mask``.
+        boundary : str
+            A flag indicating how to handle boundaries:
+                * `None`
+                    Set the ``result`` values to zero where the kernel
+                    extends beyond the edge of the array.
+                * 'fill'
+                    Set values outside the array boundary to ``fill_value`` (default).
+                * 'wrap'
+                    Periodic boundary that wrap to the other side of ``array``.
+                * 'extend'
+                    Set values outside the array to the nearest ``array``
+                    value.
+        fill_value : float
+            The value to use outside the array when using ``boundary='fill'``. Default value is ``NaN``.
+        nan_treatment : {'interpolate', 'fill'}
+            The method used to handle NaNs in the input ``array``:
+                * ``'interpolate'``: ``NaN`` values are replaced with
+                  interpolated values using the kernel as an interpolation
+                  function. Note that if the kernel has a sum equal to
+                  zero, NaN interpolation is not possible and will raise an
+                  exception.
+                * ``'fill'``: ``NaN`` values are replaced by ``fill_value``
+                  prior to convolution.
+        preserve_nan : bool
+            After performing convolution, should pixels that were originally NaN
+            again become NaN?
 
         Raises
         ------
@@ -475,59 +525,57 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s : `Spectrum`
             The new, possibly decimated, convolved `Spectrum`.
         """
-        nchan = len(self._data)  # noqa: F841
-        # decimate = int(decimate) # Should we change this value and tell the user, or just error out?
-        # For now, we'll error out if decimate is not an integer..
 
+        valid_methods = available_smooth_methods()
+        this_method = minimum_string_match(method, valid_methods)
         if width < 1:
             raise ValueError(f"`width` ({width}) must be >=1.")
 
-        # @todo  see also core.smooth() for valid_methods
-        valid_methods = ["hanning", "boxcar", "gaussian"]
-        this_method = minimum_string_match(method, valid_methods)
-        if this_method == None:  # noqa: E711
+        if this_method is None:
             raise Exception(f"smooth({method}): valid methods are {valid_methods}")
-
-        if not float(decimate).is_integer():
-            raise ValueError("`decimate` must be an integer.")
-
-        # All checks for smoothing should be completed by this point.
-        # Create a new metadata dictionary to modify by smooth.
-        new_meta = deepcopy(self.meta)
         md = np.ma.masked_array(self._data, self.mask)
+        if decimate == 0:
+            # Take the default decimation by `width`.
+            decimate = int(abs(width))
+            if not float(width).is_integer():
+                print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
         if this_method == "gaussian":
             if width <= self._resolution:
                 raise ValueError(
                     f"`width` ({width} channels) cannot be less than the current resolution ({self._resolution} channels)."
                 )
             kwidth = np.sqrt(width**2 - self._resolution**2)  # Kernel effective width.
-            stddev = kwidth / 2.35482
+            stddev = kwidth / FWHM_TO_STDDEV
 
-            s1 = core.smooth(md, this_method, stddev)
+            new_data, new_meta = core.smooth(
+                data=md * self.flux.unit,
+                method=this_method,
+                ndecimate=decimate,
+                width=stddev,
+                meta=self.meta,
+                boundary=boundary,
+                mask=mask,
+                nan_treatment=nan_treatment,
+                fill_value=fill_value,
+                preserve_nan=preserve_nan,
+            )
         else:
             kwidth = width
-            s1 = core.smooth(md, this_method, width)
-        # mask = np.full(s1.shape, False)
-        # in core.smooth, we fill masked values with np.nan.
-        # astropy.convolve does not return a new mask, so we recreate
-        # a decimated mask where values are nan
-        # mask[np.where(s1 == np.nan)] = True
-        # new_data = Masked(s1 * self.flux.unit, mask)
-        new_data = s1 * self.flux.unit
-        new_meta["FREQRES"] = np.sqrt((kwidth * self.meta["CDELT1"]) ** 2 + self.meta["FREQRES"] ** 2)
+            new_data, new_meta = core.smooth(
+                data=md,
+                method=this_method,
+                width=width,
+                ndecimate=decimate,
+                meta=self.meta,
+                boundary=boundary,
+                mask=mask,
+                nan_treatment=nan_treatment,
+                fill_value=fill_value,
+                preserve_nan=preserve_nan,
+            )
 
-        s = Spectrum.make_spectrum(new_data, meta=new_meta, observer_location="from_meta")
+        s = Spectrum.make_spectrum(new_data * self.flux.unit, meta=new_meta, observer_location="from_meta")
         s._baseline_model = self._baseline_model
-
-        # Now decimate if needed.
-        if decimate >= 0:
-            if decimate == 0:
-                # Take the default decimation by `width`.
-                decimate = int(abs(width))
-                if not float(width).is_integer():
-                    print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
-
-            s = s.decimate(decimate)
 
         # Update the spectral resolution in channel units.
         s._resolution = s.meta["FREQRES"] / abs(s.meta["CDELT1"])
@@ -668,7 +716,46 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @property
     def target(self):
+        """
+        The target object of this spectrum.
+
+        Returns
+        -------
+        target : `~astropy.coordinates.sky_coordinate.SkyCoord`
+            The sky coordinate object
+        """
         return self._target
+
+    @property
+    def tscale(self):
+        """
+        The descriptive brightness unit of the data. One of
+            - 'Raw' : raw value, e.g., count
+            - 'Ta'  : Antenna Temperature in K
+            - 'Ta*' : Antenna temperature corrected to above the atmosphere in K
+            - 'Flux': flux density in Jansky
+
+        Returns
+        -------
+        tscale : str or None
+            Brightness unit string. If there is no TSCALE in the header, None is returned.
+
+        """
+        return self._spectrum_property("TSCALE")
+
+    @property
+    def tscale_fac(self):
+        """
+        The factor by which the data have been scale from antenna temperature to corrected antenna temperature
+        or flux density. This is the average of the values by which the integrations in the spectrum have been scaled.
+
+        Returns
+        -------
+        tscale_fac : float or None
+            The scale factor. If there is no TSCALFAC in the header, None is returned.
+
+        """
+        return self._spectrum_property("TSCALFAC")
 
     @property
     def observer(self):
@@ -831,19 +918,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         spectrum : `Spectrum`
             A new `Spectrum` object with `doppler_convention` as its Doppler convention.
         """
-        if False:
-            # this doesn't work.
-            # for some reason, the axis velocity
-            # still contains the difference between TOPO and observed frame
-            s = self.__class__(
-                flux=self.flux,
-                wcs=self.wcs,
-                meta=self.meta,
-                velocity_convention=doppler_convention,
-                target=self._target,
-                observer=self._spectral_axis.observer,
-            )
-            s.meta["VELDEF"] = replace_convention(self.meta["VELDEF"], doppler_convention)
         s = self._copy(velocity_convention=doppler_convention)
         s.set_convention(doppler_convention)
         return s
@@ -930,7 +1004,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         Perform deep copy operations on each attribute of the ``Spectrum``
         object.
-        This overrides the ``specutils.Spectrum1D`` method so that
+        This overrides the ``specutils.Spectrum`` method so that
         target and observer attributes get copied.
         """
         alt_kwargs = dict(
@@ -1079,6 +1153,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "RESTFRQ": 1420405751.7,
             "MEANTSYS": 17.16746070048293,
             "WTTSYS": 17.16574907094451,
+            "TSCALE": "Ta*",
+            "TSCALFAC": 0.54321,
+            "TUNIT7": "K",
+            "BUNIT": "K",
         }
         for k, v in kwargs.items():
             meta[k.upper()] = v
@@ -1094,7 +1172,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Parameters
         ----------
         data :  `~numpy.ndarray`
-            The data array. See `~specutils.Spectrum1D`
+            The data array. See `~specutils.Spectrum`
         meta : dict
             The metadata, typically derived from an SDFITS header.
             Required items in `meta` are 'CTYPE[123]','CRVAL[123]', 'CUNIT[123]', 'VELOCITY', 'EQUINOX', 'RADESYS'
@@ -1207,7 +1285,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             )
             obsitrs = None
 
-        if np.ma.is_masked(data):
+        if hasattr(data, "mask"):
             s = cls(
                 flux=data,
                 wcs=wcs,
@@ -1230,7 +1308,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 observer=obsitrs,
                 target=target,
             )
-        # For some reason, Spectrum1D.spectral_axis created with WCS do not inherit
+        # For some reason, Spectrum.spectral_axis created with WCS do not inherit
         # the radial velocity. In fact, they get no radial_velocity attribute at all!
         # This method creates a new spectral_axis with the given radial velocity.
         if observer_location is None and observer is None:
@@ -1350,8 +1428,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             return int(np.round(idxs[0]))
 
         def wav2idx(wav, wcs, spectral_axis, coo, sto):
+            wav_sp = spectral_axis.to(unit=wav.unit).replicate(value=wav.value, unit=wav.unit)
             with u.set_enabled_equivalencies(u.spectral()):
-                wav_sp = spectral_axis.to(unit=wav.unit).replicate(value=wav.value, unit=wav.unit)
                 idxs = wcs.world_to_pixel(coo, wav_sp, sto)
             return int(np.round(idxs[0]))
 
@@ -1391,6 +1469,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         else:
             raise NotImplementedError("Use a slice for slicing.")
+
+        # WCS slicing does not do well if the start is negative.
+        if start is not None and not isinstance(start, u.Quantity) and start < 0:
+            start_idx = len(self.data) + start
+
+        # Sort the start and stop indices if they are not None nor
+        # negative integers.
+        if (
+            start is not None
+            and stop is not None
+            and not (
+                (not isinstance(start, u.Quantity) and start < 0) or (not isinstance(stop, u.Quantity) and stop < 0)
+            )
+        ):
+            start_idx, stop_idx = np.sort([start_idx, stop_idx])
 
         # Slicing uses NumPY ordering by default.
         sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
@@ -1450,7 +1543,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         bchan=None,
         echan=None,
         flat_tol=0.1,
-        fw=2,
+        fw=1,
         xunit="km/s",
     ):
         """
@@ -1561,7 +1654,7 @@ def _read_table(fileobj, format, **kwargs):
         spectral_axis = df2["col0"]
         flux = df2["col1"]
         # Parse the first line of the header and put into meta
-        tmp, scan, target, date, ra = df.columns[0].split(maxsplit=4)
+        _tmp, scan, target, date, ra = df.columns[0].split(maxsplit=4)
         meta = {}
         meta["SCAN"] = int(scan)
         meta["OBJECT"] = target
