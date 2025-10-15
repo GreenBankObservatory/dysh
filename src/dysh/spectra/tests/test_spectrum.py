@@ -1025,7 +1025,7 @@ class TestSpectrum:
         """
         Test stats method of Spectrum.
         """
-        f1 = Spectrum.fake_spectrum(nchan=1024,seed=123)
+        f1 = Spectrum.fake_spectrum(nchan=1024, seed=123)
         s1 = f1.stats()
         s2 = f1.stats(roll=1)
         assert s1["rms"].value == pytest.approx(0.28470637)
