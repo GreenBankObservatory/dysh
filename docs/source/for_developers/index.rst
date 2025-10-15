@@ -9,7 +9,6 @@ Here's some info that developers might find useful
 
    contributing
    install
-   git_workflows
    github_integrations
    doc_standards
    manage_requirements
