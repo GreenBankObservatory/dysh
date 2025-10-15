@@ -90,3 +90,8 @@ Something about Doppler and Velocity Frames?
 
 
 See also  :ref:`cof` for math behind the Curve of Growth method.
+
+
+Temperature scales:   Ta, Ta', Ta*, Tmb -
+Correcting for Atmospheric Opacity - 
+see https://library.nrao.edu/public/memos/gbt/GBT_302.pdf
