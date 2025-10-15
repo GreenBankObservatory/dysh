@@ -400,7 +400,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # note the Spectrum class has special nanXXX functions for most, but not std()
         if roll == 0:
             mean = self.mean()
-            median = self.median() 
+            median = self.median()
             rms = np.nanstd(self.flux)
             dmin = self.min()
             dmax = self.max()
@@ -426,8 +426,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             logger.info(f"Note: found {nan1} NaN (masked) values")
 
-        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax,
-               "npt": npt, "nan": nan2}
+        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
 
         return out
 
