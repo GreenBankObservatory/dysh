@@ -87,3 +87,6 @@ As shown in :eq:`eq_sdmath2` we can ...
 
 
 Something about Doppler and Velocity Frames?
+
+
+See also  :ref:`cof` for math behind the Curve of Growth method.
