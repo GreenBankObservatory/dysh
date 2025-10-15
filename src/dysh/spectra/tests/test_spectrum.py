@@ -1021,7 +1021,7 @@ class TestSpectrum:
         assert "baseline" in f1.history[-1]
         assert "__init__" in f2.history[-1]
 
-    def test_average(self):
+    def test_stats(self):
         """
         Test stats method of Spectrum.
         """
