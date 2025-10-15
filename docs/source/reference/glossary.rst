@@ -110,6 +110,12 @@ A dysh glossary
     horn
       Another term used for :term:`beam` or :term:`pixel`.
 
+    IF
+      Intermediate Frequency, is a frequency to which a carrier wave is shifted as
+      an intermediate step in transmission or reception. The terms
+      See also :term:`band` and :term:`window` are often used as well, where they
+      mean an IF band.
+
     ifnum
       IF number (0,1,...)
       Also used as the **ifnum=** keyword in getXX().
@@ -120,7 +126,7 @@ A dysh glossary
       Integration number. 0 being the first.
       Also used as the **intnum=** keyword in getXX()
 
-    kfpa
+    KFPA
       K-band Focal Plane Array, a hexagonal set of beams, with a central beam.
 
     masking
@@ -135,18 +141,21 @@ A dysh glossary
       See also :term:`flagging`
 
     metadata
-      describes data.
+      describes data. Examples for a spectrum are the RA and DEC associated with the spectrum.
+      Typically GBT spectra have 70 items in the metadata, implemented as columns in the
+      :term:`BINTABLE`.
 
     multi-beam
-      If an instrument has multiple beams that typically point are different areas in the sky
-      (e.g. **Argus** in a 4x4 configuration, and **Kfpa** in a 7 beam hexagonal shape).
+      If an instrument has multiple :term:`beam`s that typically point are different areas in the sky
+      (e.g. **Argus** in a 4x4 configuration, and **KFPA** in a 7 beam hexagonal shape).
 
     Nod or Nodding
       An observing mode where two beams alternatingly look at source and (different) sky.
 
     OTF Mapping
-      In this procedure the telescope is scanned across the sky to sample the emission.
-      The samples are then "gridded" into a map.
+      On-the-fly mapping: in this procedure the telescope is scanned across the sky to
+      sample the emission. The samples are then "gridded" into a map (which is not part
+      of dysh). See for example [gbtgridder](https://github.com/GreenBankObservatory/gbtgridder)
 
     pixel
       An overloaded term. Sometimes referred to as the :term:`beam`, but usually interpreted
@@ -169,9 +178,6 @@ A dysh glossary
       A code designating the year and proposal number, e.g. GBT21B-024.  Data associated with
       a project are found in /home/sdfits (or $SDFITS_DATA), with a slight twist of the name.
       In the example this becomes AGBT21B_024.
-
-    RRL - Radio Recombination Line
-      A common type of line observed at GBO that Pedro likes to observe.
 
     Scan
        A unit of observing, usually in some common mode.
