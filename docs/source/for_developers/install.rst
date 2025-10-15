@@ -1,9 +1,9 @@
-***************************
-Installation for Developers
-***************************
+************************************
+Installation and Virtual Environment
+************************************
 
-Here are the steps to install ``dysh`` if you want to develop code.
-We recommend the use of a python virtual environment for development. The example below uses `uv <https://docs.astral.sh/uv/>`_.
+For developing `dysh` code,
+we recommend the use of a python virtual environment for development. The example below uses `uv <https://docs.astral.sh/uv/>`_.
 
 Using `uv`
 ----------
@@ -37,12 +37,12 @@ Using `uv`
 
     .. code-block:: bash
 
-        $ uv run pytest -n auto
+       $ uv run pytest -n auto
 
 #. Optional: build the documentation locally
 
     .. code:: bash
 
-         cd docs/source
-         uv run make html
-         xdg-open _build/html/index.html
+      $ cd docs/source
+      $ uv run make html
+      $ xdg-open _build/html/index.html
