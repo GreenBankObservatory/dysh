@@ -85,6 +85,10 @@ path = "src/dysh/__init__.py"
 [tool.hatch.envs.default]
 # By default hatch will effectively do $ pip install dysh[all]
 features = ["all"]
+installer = "uv"
+pre-install-commands = [
+  "uv sync --active",
+]
 
 # run via: $ hatch run <script>
 [tool.hatch.envs.default.scripts]
@@ -96,6 +100,10 @@ docs = "sphinx-autobuild {root}/docs/source {root}/docs/build -b html {args}"
 docs-build = "sphinx-build {root}/docs/source {root}/docs/build -b html {args}"
 
 [tool.hatch.envs.test]
+installer = "uv"
+pre-install-commands = [
+  "uv sync --active",
+]
 
 # run via: $ hatch run test:<script>
 [tool.hatch.envs.test.scripts]
