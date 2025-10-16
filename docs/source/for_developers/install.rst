@@ -32,7 +32,7 @@ Using `uv`
 
     .. code-block:: bash
 
-       $ uv run pytest -n auto
+       $ uv run pytest
 
 #. Optional: build the documentation locally
 
