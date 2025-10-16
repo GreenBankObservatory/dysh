@@ -11,7 +11,7 @@ Tests should be named `test_*.py` and located within a `tests` directory of thei
 Pre-Commit Hooks
 ================
 
-We have several pre-commit hooks that ensure committed code follows desired standards. They can be found in `dysh/.pre-commit-config.yaml`.   pre-commit is automattically installed if you used the `dev` dependency group to install dysh (`uv sync --dev`).  `pre-commit` will run whenever you commit code.
+We have several pre-commit hooks that ensure committed code follows desired standards. They can be found in `dysh/.pre-commit-config.yaml`.   pre-commit is automatically installed if you used the `dev` dependency group to install dysh (`uv sync --dev`).  `pre-commit` will run whenever you commit code.
 
 .. code-block:: bash
 
