@@ -248,7 +248,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # if `include` is used, transform it to `exclude`.
         if include is not None:
             if exclude is not None:
-                logger.info(f"Warning: ignoring exclude={exclude}")
+                logger.warning(f"Warning: ignoring exclude={exclude}")
             exclude = core.include_to_exclude_spectral_region(include, self)
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
         if kwargs_opts["remove"]:
@@ -422,7 +422,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         nan1 = np.isnan(self.data).sum()
         nan2 = self.mask.sum()
         if nan1 != nan2:
-            logger.warning(f"Warning: nan1={nan1}  nan2={nan2}: inconsistency in mask usage")
+            logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
         else:
             logger.info(f"Note: found {nan1} NaN (masked) values")
 
