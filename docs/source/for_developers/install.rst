@@ -3,25 +3,20 @@ Installation and Virtual Environment
 ************************************
 
 For developing `dysh` code,
-we recommend the use of a python virtual environment for development. The example below uses `uv <https://docs.astral.sh/uv/>`_.
+we recommend the use of a python virtual environment for development. The example below uses `uv <https://docs.astral.sh/uv/>`_.   Before installing `dysh`, developers should install `uv` following one of the methods in the `uv docs <https://docs.astral.sh/uv/getting-started/installation/>`_.
+
+
 
 Using `uv`
 ----------
 
-#. Clone the repo, install `uv`, and create the virtual environment, by default in dysh/.venv:
+#. Clone the repo, install dysh and its required packages. This will create a uv.lock file containing the exact dependencies as well as a `.venv` virtual environment directory.
 
     .. code-block:: bash
 
-        $ git clone git@github.com:GreenBankObservatory/dysh.git
-        $ pip install uv
-        $ cd dysh
-        $ uv venv
-
-#. Install dysh and its required packages. This will create a uv.lock file containing the exact dependencies.
-
-    .. code-block:: bash
-
-       $ uv sync --all-extras --dev
+       $ git clone git@github.com:GreenBankObservatory/dysh.git
+       $ cd dysh
+       $ uv sync --all-extras
 
 #. Verify the installation
 
