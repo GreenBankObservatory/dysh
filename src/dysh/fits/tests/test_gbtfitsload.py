@@ -116,7 +116,7 @@ class TestGBTFITSLoad:
         pss = sdf_load.getspec(0)
         assert pss.flux.unit == "K"
 
-    def test_data_column(self):
+    def test_data_column(self, tmp_path):
         """
         Test that the DATA column in in column 7 for 3 types of SDFITS files:
         1. original sdfits
@@ -125,11 +125,11 @@ class TestGBTFITSLoad:
         """
         fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(fnm)
-        sdf.write("test_data_1.fits", overwrite=True)
+        sdf.write(tmp_path / "test_data_1.fits", overwrite=True)
         pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
-        pssb.write("test_data_2.fits", overwrite=True)
+        pssb.write(tmp_path / "test_data_2.fits", overwrite=True)
         # there is a bugthat the binheader in gbtfitsload doesn't exist, so we use sdfitsload
-        for f in [fnm, "test_data_1.fits", "test_data_2.fits"]:
+        for f in [fnm, tmp_path / "test_data_1.fits", tmp_path / "test_data_2.fits"]:
             sdf = sdfitsload.SDFITSLoad(f)
             assert sdf.binheader[0]["TTYPE7"] == "DATA"
 
