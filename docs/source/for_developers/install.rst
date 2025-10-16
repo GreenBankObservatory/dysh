@@ -34,6 +34,8 @@ Using `uv`
 
        $ uv run pytest
 
+  You can optionally add `-n auto` to spawn multiple runners for pytest.
+
 #. Optional: build the documentation locally
 
     .. code:: bash
