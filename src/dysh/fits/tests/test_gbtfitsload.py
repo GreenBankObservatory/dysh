@@ -51,8 +51,6 @@ class TestGBTFITSLoad:
         }
 
         for fnm in self._file_list:
-            print(fnm)
-
             filename = os.path.basename(fnm)
             sdf = gbtfitsload.GBTFITSLoad(fnm)
             assert len(sdf.index(bintable=0)) == expected[filename]
@@ -66,7 +64,7 @@ class TestGBTFITSLoad:
         assert fnm == sdf.filename
 
         fnm = Path(f"{self.data_dir}/AGBT20B_014_03.raw.vegas")
-        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf = gbtfitsload.GBTFITSLoad(fnm, skipflags=True)
         assert fnm == sdf.filename
 
     def test_getspec(self):
@@ -116,20 +114,22 @@ class TestGBTFITSLoad:
         pss = sdf_load.getspec(0)
         assert pss.flux.unit == "K"
 
-    def test_data_column(self):
+    def test_data_column(self, tmp_path):
         """
         Test that the DATA column in in column 7 for 3 types of SDFITS files:
         1. original sdfits
         2. sdf.write()
         3. sdf.getps().write()
         """
+        out_file = tmp_path / "test_data_1.fits"
         fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(fnm)
-        sdf.write("test_data_1.fits", overwrite=True)
+        sdf.write(out_file, overwrite=True)
+        out_file2 = tmp_path / "test_data_2.fits"
         pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
-        pssb.write("test_data_2.fits", overwrite=True)
-        # there is a bugthat the binheader in gbtfitsload doesn't exist, so we use sdfitsload
-        for f in [fnm, "test_data_1.fits", "test_data_2.fits"]:
+        pssb.write(out_file2, overwrite=True)
+        # there is a bug that the binheader in gbtfitsload doesn't exist, so we use sdfitsload
+        for f in [fnm, out_file, out_file2]:
             sdf = sdfitsload.SDFITSLoad(f)
             assert sdf.binheader[0]["TTYPE7"] == "DATA"
 
@@ -194,8 +194,6 @@ class TestGBTFITSLoad:
         diff = ps_vals[~mask] - gbtidl_spec[~mask]
         # try:
         assert np.all(diff < 1e-3)
-        # except AssertionError:
-        #    print(f"Comparison with GBTIDL ACS Spectrum failed, mean difference is {np.nanmean(diff)}")
 
         for col in table.names:
             if col not in ["DATA"]:
@@ -889,7 +887,6 @@ class TestGBTFITSLoad:
 
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
-            print(f"trying to writing file #{i} {out}")
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
@@ -922,7 +919,6 @@ class TestGBTFITSLoad:
 
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
-            print(f"trying to writing file #{i} {out}")
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
@@ -1077,9 +1073,7 @@ class TestGBTFITSLoad:
         sdfits = tmp_path / "sdfits"
         sdfits.mkdir()
         os.environ["SDFITS_DATA"] = str(sdfits)
-        print("PJT1", sdfits)
         o1 = sdfits / "online.fits"
-        print("PJT2", o1)
         shutil.copyfile(f1, o1)
         sdf = gbtfitsload.GBTOnline()
         s = sdf.summary()
@@ -1389,7 +1383,7 @@ class TestGBTFITSLoad:
         """
 
         fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
 
         # Nothing to flag.
         sdf.qd_flag()
@@ -1641,7 +1635,7 @@ class TestGBTFITSLoad:
         """Test for calseq"""
 
         sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0)
         assert tsys == pytest.approx(106.97707617351139)
@@ -1656,7 +1650,7 @@ class TestGBTFITSLoad:
         """Test for vanecal"""
 
         sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         tcal = 272
         ifnum = 0
@@ -1669,6 +1663,20 @@ class TestGBTFITSLoad:
             assert tsys == pytest.approx(212.62577140649026)
         else:
             assert tsys == pytest.approx(221.82213493114335)
+
+    def test_vegas_flags(self):
+        # check that algorithmically applying vegas flags
+        # gives the same mask array as when reading from a flag file.
+        sdf_file = util.get_project_testdata() / "AGBT22A_325_15/"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        sdf.apply_flags()
+        saveflags0 = sdf._sdf[0]._flagmask.copy()
+        saveflags1 = sdf._sdf[1]._flagmask.copy()
+        sdf.clear_flags()
+        sdf.flag_vegas_spurs()
+        sdf.apply_flags()
+        assert np.all(sdf._sdf[0]._flagmask[0] == saveflags0[0])
+        assert np.all(sdf._sdf[1]._flagmask[0] == saveflags1[0])
 
 
 def test_parse_tsys():
