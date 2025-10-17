@@ -1,8 +1,7 @@
 .. |minver| replace:: ``0.8.3``
 .. |minpatch| replace:: ``0.8.4``
 .. |pymin| replace:: 3.10
-.. |pymax| replace:: 3.12
-.. |pyupp| replace:: 3.13
+.. |pymax| replace:: 3.14
 
 ***************
 Getting Started
@@ -38,7 +37,7 @@ If you want to install your own version of ``dysh`` instead, read the following 
 Installing ``dysh``
 ===================
 
-``dysh`` requires a Python version between |pymin| and |pymax| (``dysh`` has not been tested in Python |pyupp| or above) and recent versions of
+``dysh`` requires a Python version between |pymin| and |pymax| (``dysh`` has not been tested in Python versions newer than |pymax|) and recent versions of
 `astropy <https://astropy.org>`_,
 `numpy <https://numpy.org>`_,
 `scipy <https://scipy.org>`_,
@@ -62,7 +61,7 @@ Linux and MacOS
 
     The details of how to install ``dysh`` on your own depend on what package manager you use (e.g., ``uv``, ``conda``, ``pip``).
     We strongly recommend that you install ``dysh`` in a separate Python environment, so you do not change your system Python (if you use your own anaconda3, you can of course do anything you like, though we still recommend a virtual environment).
-    It is important to note that the latest version of ``dysh`` will only work on Python versions between |pymin| and |pymax| (``dysh`` has not been tested on Python |pyupp| or above).
+    It is important to note that the latest version of ``dysh`` will only work on Python versions between |pymin| and |pymax|.
     Here we provide a few examples, which require the ability to install Python packages in your system.
 
     .. tab:: Using ``conda``
@@ -227,8 +226,7 @@ If you want to install the latest stable version of ``dysh``, then it is not nec
         conda create -n dysh-venv python==3.10
 
    This will create a new virtual environment with ``Python3.10``.
-   You can use other versions of ``Python``, but not lower than |pymin| nor above |pymax|.
-   ``dysh`` has not been tested with ``Python`` |pyupp| and above.
+   You can use other versions of ``Python``, but not lower than |pymin| nor above |pymax| (``dysh`` has not been tested on ``Python`` versions newer than |pymax|).
    You can check the ``Python`` version using the command ``python --version`` in the terminal.
 
 #. After creating the environment, activate it. Enter the following command

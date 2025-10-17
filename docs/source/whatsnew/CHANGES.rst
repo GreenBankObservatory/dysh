@@ -2,6 +2,17 @@
 What's New?
 ***********
 
+Version 0.8.4
+=============
+
+.. _v0-8-4-bugfixes:
+
+Bug Fixes
+---------
+
+- Tested with Python 3.13 and 3.14
+- Add support for numpy 2.0
+- Fixes a bug where the flags would not be saved when writting an SDFITS file (`Issue #750 <https://github.com/GreenBankObservatory/dysh/issues/750>`_)
 
 Version 0.8.3
 =============
