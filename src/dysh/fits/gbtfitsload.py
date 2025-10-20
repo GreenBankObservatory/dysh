@@ -1019,27 +1019,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         try:
             df = self._selection.groupby(["FITSINDEX", "BINTABLE"])
             for _i, ((fi, bi), g) in enumerate(df):
-                # tablerowdict = {}
                 vsprval = g["VSPRVAL"].to_numpy()
                 vspdelt = g["VSPDELT"].to_numpy()
                 vsprpix = g["VSPRPIX"].to_numpy()
                 rows = g["ROW"].to_numpy()
-                spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, flag_central)
-                maxnchan = self._sdf[fi].nchan(bi) - 1  # for b in uniq(self["BINTABLE"])]) - 1
-                if np.any(spurs < 0) or np.any(spurs > maxnchan):
-                    logger.warning(
-                        f"Calculated VEGAS SPUR channels for BINTABLE {bi} FITSINDEX {fi} outside range of spectral channels. Check FITS header variables VSPRVAL, VSPRDELT, VSPRPIX. No channels will be flagged for this BINTABLE/FITSINDEX"
-                    )
-                    continue
+                maxnchan = self._sdf[fi].nchan(bi) - 1
+                spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, maxnchan, flag_central)
                 if spurs.shape[0] != len(rows):
                     raise ValueError(f"spurs array length {spurs.shape[0]} != selected number of rows {len(rows)}")
                 else:
-                    self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(
-                        [convert_array_to_mask(a, maxnchan + 1) for a in spurs]
-                    )
+                    p = []
+                    # there should be a way to do this without a for loop.
+                    for a in spurs:
+                        mask = np.full(maxnchan + 1, False)
+                        mask[a[~a.mask]] = True
+                        p.append(mask)
+                    self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(p)
         except KeyError as k:
             logger.warning(
-                f"Can't determine VEGAS spur locations because one or more VSPR keywords are missing from the FITS header {k}"
+                f"Can't determine VEGAS spur locations because one or more VSP keywords are missing from the FITS header {k}"
             )
 
     @log_call_to_history
