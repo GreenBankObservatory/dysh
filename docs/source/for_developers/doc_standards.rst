@@ -5,12 +5,12 @@ Documentation
 Creating Documentation
 ======================
 
-All Python classes and methods should be documented and the documentation must follow `the NumPy convention. <https://numpydoc.readthedocs.io/en/latest/format.html>`_   Some IDEs have keyboard shortcuts to insert skeleton docstrings once the method signature is created.    Use of major features should be demonstrated in an example notebook.
+All Python classes and methods should be documented and the documentation must follow `the NumPy convention. <https://numpydoc.readthedocs.io/en/latest/format.html>`_.  Use of major features should be demonstrated in an example notebook.
 
 Mermaid Diagrams
 ================
 
-Diagrams can be directly in these text files by using the `sphinxcontrib-mermaid` package. Here's an example:
+Diagrams can be directly added to the documentation by using the `sphinxcontrib-mermaid` package. Here's an example:
 
 .. mermaid::
 

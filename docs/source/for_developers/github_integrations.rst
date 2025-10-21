@@ -5,9 +5,9 @@ Testing & GitHub Integrations
 Test Code
 =========
 
-All new features **must** have accompanying test code verifies their correctness; no PR will be accepted without it.  A jupyter notebook explaining how to use the new feature is also strongly recommended.   Bug fixes should have a regression test added to verify the issue is fixed and doesn't return.  Tests must be runnable by `pytest`.   If a test writes a file to disk, it **must** use `pytest's` `tmp_path  infrastructure <https://docs.pytest.org/en/latest/how-to/tmp_path.html>`_ to ensure the file is removed after the test.
+All new features **must** have accompanying test code that verifies their correctness; no PR will be accepted without it.  A jupyter notebook explaining how to use the new feature is also strongly recommended.   Bug fixes should have a regression test added to verify the issue is fixed and doesn't return.  Tests must be runnable by pytest.   If a test writes a file to disk, it **must** use`pytest's `tmp_path  fixture <https://docs.pytest.org/en/latest/how-to/tmp_path.html>`_ to ensure the file is removed after the test.
 
-Tests must be named `test_*.py` and located within a `tests` directory of their parent module. All tests are run as a Github Workflow in dysh's continuous integration suite defined in `dysh/.github/workflows/ci.yml`.
+Tests must be named `test_*.py` and located within a `tests` directory of their parent module. All tests are run as a GitHub Workflow in dysh's continuous integration suite defined in `dysh/.github/workflows/ci.yml`.
 
 
 Pre-Commit Hooks
@@ -44,7 +44,7 @@ The `pre-commit` will run  to make sure all of the staged files are formatted co
 
      ruff check...............................................................Passed
 
-If any check Failed, then a file was modified by pre-commit, so you must commit again to get those changes.
+If a check Failed, then a file was modified by pre-commit, so you must commit again to get those changes.
 
 .. code-block:: bash
 

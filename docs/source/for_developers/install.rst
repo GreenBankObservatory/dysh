@@ -3,9 +3,7 @@ Installation and Virtual Environment
 ************************************
 
 For developing `dysh` code,
-we recommend the use of a python virtual environment for development. The example below uses `uv <https://docs.astral.sh/uv/>`_.   Before installing `dysh`, developers should install `uv` following one of the methods in the `uv docs <https://docs.astral.sh/uv/getting-started/installation/>`_.
-
-
+we recommend the use of a python virtual environment for development. The example below uses `uv <https://docs.astral.sh/uv/>`_.   Before installing `dysh`, developers should install `uv` following one of the methods in the `uv docs <https://docs.astral.sh/uv/getting-started/installation/>`_.  `uv` is the only tool that can sync the environment to the lockfile, so if developer what the known working development environment, they need to use `uv`.
 
 Using `uv`
 ----------
