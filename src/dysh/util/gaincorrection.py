@@ -454,7 +454,7 @@ class GBTGainCorrection(BaseGainCorrection):
         if s == "ta*":
             return factor
         # Snu = 2kT_a exp(tau*A)/(eta_a * eta_loss *  A_p )
-        #     = 2kTa*/(eta_loss * A_p)
+        #     = 2kTa*/A_p
         # where
         # - k is Boltzmann's constant
         # - the physical aperture, A_p
