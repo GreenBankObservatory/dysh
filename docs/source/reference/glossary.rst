@@ -3,23 +3,25 @@
 A dysh glossary
 ---------------
 
+See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.html>`_
+
 
 .. glossary::
 
 
     Argus
-      A 16-:term:`pixel` W-band focal plane array in use at the GBT. Named after a mythical figure
+      A 16-:term:`pixel` W-band (74-116 GHz) focal plane array in use at the GBT. Named after a mythical figure
       with 100 eyes. See also https://www.gb.nrao.edu/argus/
 
     band
       A coherent section of channels in frequency space, all with
       the same channel width. Sometimes called an IF band. In radio
       astronomy bands are often referred to by an alphabetical designation,
-      e.g. L-band.   A summary
+      e.g. L-band covers 1-2 GHz. A summary
       of the bands commonly used at GBO can be found on
       https://gbtdocs.readthedocs.io/en/latest/references/receivers.html#gregorian-receivers
 
-      See also :term:`ifnum`
+      See also :term:`ifnum` and :term:`IF`
 
     bank
       Overloaded term for a **band**, possibly referring to hardware.
@@ -27,7 +29,10 @@ A dysh glossary
       thing is an IF or VEGAS subband.
 
     baseline
-      part of the spectrum that ideally is flat and absent of instrumental features.
+      Baseline is a generic term usually taken to mean the
+      instrumental plus continuum bandpass shape in an observed
+      spectrum, or changes in the background level in a continuum
+      observation.
 
     beam
       The footprint of one receiver horn on the sky. Argus has a
@@ -112,11 +117,20 @@ A dysh glossary
       calculated so that the receiver is always pointing at the source. This is most
       useful for point sources. See also :term:`Position Switching`
 
+    GBTIDL
+      Green Bank Telescope Interactive Data Language. The GBT data
+      reduction package written in :term:`IDL` for analyzing GBT spectral line
+      data.
+
     getXX()
       Generic name for the dysh access routines, e.g. getps, getfs, getnod etc.
 
     horn
       Another term used for :term:`beam` or :term:`pixel`.
+
+    IDL
+      The Interactive Data Language program, currently of ITT Visual Information Solutions
+      but with a long history of owners.
 
     IF
       Intermediate Frequency, is a frequency to which a carrier wave is shifted as
@@ -162,11 +176,17 @@ A dysh glossary
 
     Noise Diode
       Use for calibration
+    
+      A device with known effective temperature that is coupled to the
+      telescope system to give a measure of system temperature
+      (Tsys). When the telescope is pointed on blank sky, the noise
+      diode is turned on and then off to determine the off-source
+      system temperature. This device is alo refered to as the "Cal".
 
     OTF Mapping
       On-the-fly mapping: in this procedure the telescope is scanned across the sky to
       sample the emission. The samples are then "gridded" into a map (which is not part
-      of dysh). See for example [gbtgridder](https://github.com/GreenBankObservatory/gbtgridder)
+      of dysh). See for example `gbtgridder <https://github.com/GreenBankObservatory/gbtgridder>`_
 
     pixel
       An overloaded term. Sometimes referred to as the :term:`beam`, but usually interpreted
@@ -271,3 +291,16 @@ in **$SDFITS_DATA/AGBT21B_024_05/**.
 
 Possible confusion: project was named "GBT21B-024", though labeled "AGBT21B_024" as the
 filename prefix for file storage, which is the name that users need for dysh.
+
+
+.. bands listed in the GBO glossary
+.. C   4-8 GHz
+.. K   18-26
+.. Ka  26-40
+.. Ku  12-18
+.. L   1-2
+.. P   300-1000 MHz
+.. Q   40-50
+.. S   2-4
+.. W   75-111
+.. X   8-12

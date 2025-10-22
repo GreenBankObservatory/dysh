@@ -44,11 +44,7 @@ The radiometer equation equates the noise to the system temperature, integration
 
 The effective beam (see also GBT memo 296, and gbtpipe/Gridding.py - at 109 GHz)
 
-.. code-block::
-
-    1.18 * (c / nu0 / 100.0) * 180 / np.pi  # in degrees
-
-or
+..  1.18 * (c / nu0 / 100.0) * 180 / np.pi  # in degrees
 
 .. math:: :label: eq_beam109
 
