@@ -20,7 +20,7 @@ If the package is needed for notebooks, add it to the `nb` optional dependencies
 
    $ uv add --group nb <package name>
 
-`uv add` will update uv.lock and pyproject.toml; you should not edit those files directly.
+`uv add` will update uv.lock and pyproject.toml. You should never edit uv.lock nor the dependencies section of pyproject.toml.
 
 Do not remove any packages without prior discussion with the `dysh` maintainers.
 
