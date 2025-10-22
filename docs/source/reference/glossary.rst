@@ -176,7 +176,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     Noise Diode
       Use for calibration
-    
+
       A device with known effective temperature that is coupled to the
       telescope system to give a measure of system temperature
       (Tsys). When the telescope is pointed on blank sky, the noise
