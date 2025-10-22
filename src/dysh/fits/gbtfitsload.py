@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.io import fits
+from astropy.units.quantity import Quantity
 
 from dysh.log import logger
 
@@ -1237,6 +1238,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used.
+
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1567,6 +1569,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys=None,
         nocal=False,
         t_cal=None,
+        ap_eff: float | None = None,
+        surface_error: Quantity | None = None,
         **kwargs,
     ) -> ScanBlock:
         """
@@ -1605,6 +1609,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
             It can be set to True to override this. Default: False
+        ap_eff : float or None
+            Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+            can be provided.
+        surface_error: Quantity or None
+            Surface error, in units of length (typically mm), to be used in the Ruze formula when calculating the
+            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            can be provided.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1706,6 +1719,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     nocal=_nocal,
                     tsys=_tsys,
                     tcal=_tcal,
+                    ap_eff=ap_eff,
+                    surface_error=surface_error,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
