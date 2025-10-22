@@ -8,7 +8,7 @@ we recommend the use of a python virtual environment for development. The exampl
 Using `uv`
 ----------
 
-#. Clone the repo, install dysh and its required packages. This will create a uv.lock file containing the exact dependencies as well as a `.venv` virtual environment directory.
+#. Clone the repo, install dysh and its required packages. This will create a uv.lock file containing the exact dependencies as well as a virtual environment directory in `dysh/.venv`.
 
     .. code-block:: bash
 
@@ -16,7 +16,7 @@ Using `uv`
        $ cd dysh
        $ uv sync --all-extras
 
-#. Verify the installation
+#. Verify the installation.  Below, `uv run` is used to execute commands, however one could also run `source .venv/bin/activate` which eliminates the need to prepend `uv run` to each command.
 
     .. code-block:: bash
 
