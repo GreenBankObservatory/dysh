@@ -50,7 +50,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     BINTABLE
       Binary table. In dysh data, BINTABLE is an index running from 0 to N-1,
-      where N is the number of binary tables in the SDFITS file. 
+      where N is the number of binary tables in the SDFITS file.
       see also :term:`FITS`
 
     blanking
@@ -95,7 +95,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
     FITS
       (Flexible Image Transport System): the export format
       for data-cube, although there is also a waterfall cube
-      (time-freq-pixel) cube available.  
+      (time-freq-pixel) cube available.
 
     flagging
       flagging is a non-destructive operation, where data in the
@@ -107,7 +107,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       :class:`~dysh.fits.gbtfitsload.GBTFITSLoad`.
 
       See also :term:`masking`
-	 
+
 
     flag files
       SDFITS files created by GBTIDL can have a separate ASCII flag
@@ -164,7 +164,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       dysh masks are set on individual integrations during calibration
       [getXX()]; resultant spectra will have the final mask set in
       Spectrum.mask. See also :term:`flagging`
-   
+
 
     metadata
       describes data. Examples for a spectrum are the RA and DEC associated with the spectrum.
