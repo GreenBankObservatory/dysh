@@ -40,7 +40,6 @@ class ScanPlot(PlotBase):
         self._scanblock_or_scan = scanblock_or_scan
         self._plot_kwargs.update(kwargs)
         self._axis2 = None
-        # self._title = self._plot_kwargs["title"]# todo: deal with when refactoring
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
         self._spectrum = self._scanblock_or_scan.timeaverage()
         self._sa = self._spectrum.spectral_axis
@@ -50,14 +49,15 @@ class ScanPlot(PlotBase):
         if self._type == "ScanBlock":
             self._scanblock = scanblock_or_scan
             self._num_scans = len(self._scanblock)
+            self._scan_numbers = np.empty(self._num_scans, dtype=int)
         elif self._type in acceptable_types:
             self._scan = scanblock_or_scan
+            self._scan_numbers = np.empty(1, dtype=int)
         else:
             raise Exception(f"Plotter input {self._type} does not appear to be a valid input object type")
 
         # handle scanblocks
         if self._type == "ScanBlock":
-            self._scan_nos = []  # scan numbers in the scan block
             self._nint_nos = []  # number of integrations in each scan
             self._timestamps = []  # 0-indexed timestamps in sec for every integration
             xtick_labels = []  # intnum labels for multiple-scan scanblocks
@@ -66,7 +66,7 @@ class ScanPlot(PlotBase):
                     self.spectrogram = scan._calibrated
                 else:
                     self.spectrogram = np.append(self.spectrogram, scan._calibrated, axis=0)
-                self._scan_nos.append(scan.scan)
+                self._scan_numbers[i] = scan.scan
                 self._nint_nos.append(scan.nint)  # not sure if I need this
                 xtick_labels.append(np.r_[0 : scan.nint])
                 # TODO: figure out how to deal with generating a "time" axis
@@ -76,8 +76,8 @@ class ScanPlot(PlotBase):
 
         # handle scans
         elif self._type in acceptable_types:
+            self._scan_numbers[0] = self._scan.scan
             self.spectrogram = self._scan._calibrated
-            self._scan_nos = [self._scan.scan]
             self._nint_nos = [self._scan.nint]
             xtick_labels = np.r_[0 : self._scan.nint]
 
@@ -149,7 +149,7 @@ class ScanPlot(PlotBase):
             tick_locs.append(acc)
             acc += numints
         self._axis3.set_xticks(tick_locs)
-        self._axis3.set_xticklabels(self._scan_nos)
+        self._axis3.set_xticklabels(self._scan_numbers)
         fsize = 15
         x1_alt_padding = self._plt.rcParams["axes.labelpad"] + fsize
         self._axis3.tick_params(
