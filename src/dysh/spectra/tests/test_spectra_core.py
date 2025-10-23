@@ -183,3 +183,19 @@ class TestBaseline:
         assert len(s_e.data) == idx_low
         assert s_e.spectral_axis.quantity[0] == s.spectral_axis.quantity[0]
         assert s_e.spectral_axis.quantity[-1] == s.spectral_axis.quantity[idx_low - 1]
+
+    def test_exclude_to_spectral_region(self):
+        """
+        Test that `exclude_to_spectral_region` can parse lists, list of lists and list of tuples.
+        """
+        s = Spectrum.fake_spectrum()
+
+        core.exclude_to_spectral_region([1, 10], s)
+        core.exclude_to_spectral_region([[1, 10]], s)
+        core.exclude_to_spectral_region([(1, 10)], s)
+        core.exclude_to_spectral_region([1 * u.m, 10 * u.m], s)
+        core.exclude_to_spectral_region([[1 * u.m, 10 * u.m]], s)
+        core.exclude_to_spectral_region([(1 * u.m, 10 * u.m)], s)
+        core.exclude_to_spectral_region([1 * u.m, 10 * u.m, 20 * u.m, 30 * u.m], s)
+        core.exclude_to_spectral_region([[1 * u.m, 10 * u.m], [20 * u.m, 30 * u.m]], s)
+        core.exclude_to_spectral_region([(1 * u.m, 10 * u.m), (20 * u.m, 30 * u.m)], s)

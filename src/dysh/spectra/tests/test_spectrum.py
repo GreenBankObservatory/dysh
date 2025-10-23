@@ -453,6 +453,18 @@ class TestSpectrum:
         assert ss.doppler_convention == self.ps0.doppler_convention
         assert ss.observer.frame_attributes == self.ps0.observer.frame_attributes
 
+    def test_smooth_mask(self):
+        """Test for smooth with decimation and masking."""
+        f1 = Spectrum.fake_spectrum()
+        f1.mask[100:200] = True
+        assert f1.mask.sum() == 100
+        f2 = f1.smooth("box", 11)
+        assert f2.mask.sum() == 10
+        f3 = f1.smooth("gaussian", 11)
+        assert f3.mask.sum() == 14
+        f4 = f1.smooth("hanning", 11)
+        assert f4.mask.sum() == 14
+
     def test_smooth_nodecimate(self):
         """Test for smooth without decimation."""
         width = 10
@@ -1008,3 +1020,16 @@ class TestSpectrum:
         # Check that original Spectrum history did not change.
         assert "baseline" in f1.history[-1]
         assert "__init__" in f2.history[-1]
+
+    def test_stats(self):
+        """
+        Test stats method of Spectrum.
+        """
+        f1 = Spectrum.fake_spectrum(nchan=1024, seed=123)
+        s1 = f1.stats()
+        s2 = f1.stats(roll=1)
+        assert s1["rms"].value == pytest.approx(0.28470637)
+        assert s2["rms"].value == pytest.approx(0.40211407)
+        assert s1["npt"] == 1024
+        assert s2["npt"] == 1022
+        assert s1["nan"] == 0
