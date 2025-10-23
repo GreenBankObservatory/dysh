@@ -49,7 +49,9 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       useful for point sources. See also :term:`Position Switching`
 
     BINTABLE
-      see also FITS
+      Binary table. In dysh data, BINTABLE is an index running from 0 to N-1,
+      where N is the number of binary tables in the SDFITS file. 
+      see also :term:`FITS`
 
     blanking
       blanking is a term used in the (VEGAS) correllator, where bad data has been replaced
@@ -72,15 +74,16 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     cog - Curve of Growth
       ...
+      see also notebook
 
     DYSH_DATA
-      (optional) environment variable pointing to a directory for a convenient view of
-      data for developers.
+      (optional) environment variable pointing to a directory with local copies
+      for developers.
 
       See also :term:`SDFITS_DATA`.
 
     ECSV
-      (Enhanced Character Separated Values) a self-describing ascii table format popularized by astropy.
+      (Enhanced Character Separated Values) a self-describing ASCII table format popularized by astropy.
       See also https://github.com/astropy/astropy-APEs/blob/main/APE6.rst
 
     fdnum
@@ -92,23 +95,27 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
     FITS
       (Flexible Image Transport System): the export format
       for data-cube, although there is also a waterfall cube
-      (time-freq-pixel) cube available.  Unclear what we will use for
-      pure spectra.  **SDFITS** seems overly complex. CLASS needs to
-      be supported.
+      (time-freq-pixel) cube available.  
 
     flagging
-      flagging is a non-destructive operation, typically done ...
+      flagging is a non-destructive operation, where data in the
+      time-frequency domain is flagged to be skipped.
+
+      Flagging specific to the VEGAS backend, which has bad channels
+      also known as 'spurs' at regular channel intervals. VEGAS
+      flagging is done automatically by
+      :class:`~dysh.fits.gbtfitsload.GBTFITSLoad`.
+
       See also :term:`masking`
-
-      VEGAS flagging.
-
-      flags are set on an sdfits file
+	 
 
     flag files
-      SDFITS files can have a separate flag file, which is a small ASCII file
+      SDFITS files created by GBTIDL can have a separate ASCII flag
+      file. By default, :class:`~dysh.fits.gbtfitsload.GBTFITSLoad`
+      reads this file and applies the flags therein.
 
     FWHM
-      (Full Width Half Max): the effective resolution of the
+      (Full Width at Half Max): the effective resolution of the
       beam if normally given in **FITS** keywords BMAJ,BMIN,BPA.
 
     Frequency Switching
@@ -123,7 +130,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       data.
 
     getXX()
-      Generic name for the dysh access routines, e.g. getps, getfs, getnod etc.
+      Generic name for the dysh calibration routines, e.g. getps, getfs, getnod etc.
 
     horn
       Another term used for :term:`beam` or :term:`pixel`.
@@ -152,24 +159,24 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       K-band Focal Plane Array, a hexagonal set of beams, with a central beam.
 
     masking
-      Masking removes or hides the value in the spectrum.
-      As in numpy, as mask value of True means the underlying value is not used.
-      while flagging keeps the pixels but attaches a status to them for later filtering or analysis. (google)
-
-      A spectrum flux is an (astropy) Quantity. they don't use masks.
-
-      masks are set on a spectrum (they usually get inherited from the sdfits flags).
-
-      See also :term:`flagging`
+      Masking removes or hides the value in the spectrum. As in numpy,
+      as mask value of True means the underlying value is not used. In
+      dysh masks are set on individual integrations during calibration
+      [getXX()]; resultant spectra will have the final mask set in
+      Spectrum.mask. See also :term:`flagging`
+   
 
     metadata
       describes data. Examples for a spectrum are the RA and DEC associated with the spectrum.
       Typically GBT spectra have 70 items in the metadata, implemented as columns in the
-      :term:`BINTABLE`.
+      :term:`BINTABLE`
+      and accessed via keyword in :class:`~dysh.fits.gbtfitsload.GBTFITSLoad`, e.g., sdf["object"].
+
+      dysh spectra have metadata in Spectrum.meta and Scans in Scan.meta.
 
     multi-beam
       If an instrument has multiple :term:`beam`s that typically point are different areas in the sky
-      (e.g. **Argus** in a 4x4 configuration, and **KFPA** in a 7 beam hexagonal shape).
+      (e.g. :term:`Argus` in a 4x4 configuration, and :term:`KFPA` in a 7 beam hexagonal shape).
 
     Nod or Nodding
       An observing mode where two beams alternatingly look at source and (different) sky.
@@ -181,7 +188,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       telescope system to give a measure of system temperature
       (Tsys). When the telescope is pointed on blank sky, the noise
       diode is turned on and then off to determine the off-source
-      system temperature. This device is alo refered to as the "Cal".
+      system temperature. This device is also refered to as the "Cal".
 
     OTF Mapping
       On-the-fly mapping: in this procedure the telescope is scanned across the sky to
@@ -196,13 +203,10 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     plnum
       Polarization number (0,1,...). Usually 0 and 1, but of course up to 4 values could be present
-      for a full Stokes.
+      for a full Stokes. Averaging the two polarizations will reduce the noise by :math:`sqrt{2}`
+
       Also used as the **plnum=** keyword in getXX()
 
-    polarization
-      ...
-      Assuming an unpolarized signal,
-      averaging the two polarizations will reduce the noise by :math:`sqrt{2}`
 
     Position Switching
       This is a standard way to obtain spectra by switching
@@ -214,6 +218,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       A code designating the year and proposal number, e.g. GBT21B-024.  Data associated with
       a project are found in /home/sdfits (or $SDFITS_DATA), with a slight twist of the name.
       In the example this becomes AGBT21B_024.
+      See below :ref:`data_org`
 
     REF
       Reference point. See also :term:`CAL`
@@ -222,15 +227,15 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       Region or regions of spectrum, use for flagging/masking,baseline subtraction.
 
     Scan
-       A unit of observing, usually in some common mode.
-       GBT differentiates between different types of scans. Scans are typically simple integers,
-       starting with 1 (check).
+       A unit of observing, usually in some common mode, with one or more integrations.
+       GBT differentiates between different types of scans. Scans are integers,
+       starting with 1.
 
 
     ScanBlock
       A container for a series of **scan**'s.
 
-      See also :ref:`scanblocks`
+      See also :term:`scanblocks`
 
     SDFITS
       Single Dish **FITS** format, normally used to store
@@ -247,15 +252,18 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       (optional) environment variable pointing to a directory where SDFITS
       project directories and files are stored.
 
+    SESSION
+      see :ref:`data_org`
+
     SFL
       Sanson-Flamsteed projection, sometimes used in gridding OTF maps.
       (the GLS - GLobal Sinusoidal is similar to SFL).
 
     SIG
-      signal - see also CAL
+      signal - see also CAL.
 
     Spectral Window
-      In ALMA commonly abbreviated as **spw**, this is closest to what we call a **bank**,
+      This is closest to what we call a **bank**,
       or **band**, a set of linearly spaced channels.
 
       See also :term:`ifnum`
@@ -278,22 +286,24 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       A plot (or two-dimensional image) that shows time vs. frequency.
 
     Window
-      See **Spectral Window**
+      See :term:`Spectral Window`
 
 
-Data : Project ID / Session / Scan
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _data_org:
+
+Data : Project ID / Session
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Generally projects are assigned a project id, e.g. *AGBT21B_024*, which is
 then observed in a number of sessions, numbered starting with 1. The SDFITS data associated
-with these are stored under **$SDFITS_DATA**, e.g. for session 5 of the example above, this would be
+with these are stored under **$SDFITS_DATA**, e.g. for session 5 in this example, this would be
 in **$SDFITS_DATA/AGBT21B_024_05/**.
 
-Possible confusion: project was named "GBT21B-024", though labeled "AGBT21B_024" as the
+One possible confusion: a project named "GBT21B-024", is labeled "AGBT21B_024" as the
 filename prefix for file storage, which is the name that users need for dysh.
 
 
-.. bands listed in the GBO glossary
+.. bands listed alpabetically in the GBO glossary
 .. C   4-8 GHz
 .. K   18-26
 .. Ka  26-40

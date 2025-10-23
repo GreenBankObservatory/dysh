@@ -20,18 +20,17 @@ or
 
    T_{sys} = T_{cal} { { <SKY> } \over { <HOT - SKY> } } + T_{cal}/2
 
-where the :math:`< >` operator averages over the center 80% of the spectrum.
-This way :math:`T_{sys}` is a scalar. The routine ``meantsys`` computes this.
-
-and using this system temperature, calculating the signal by comparing an *ON* and *OFF* position,
-assuming there is only sky in the *OFF*:
+where the :math:`< >` operator averages over the center (typically 80%) portion of the spectrum.
+This way :math:`T_{sys}` is a scalar. The routine ``meantsys`` computes this.  The HOT and SKY
+are also referred to sometimes as CAL and SIG.
 
 .. math:: :label: eq_sdmath3
 
    T_A = T_{sys}  {   { ON - OFF } \over {OFF} }
 
 All of these have values for each channel. How exactly the :math:`T_{sys}` is computed (scalar, vector,
-mean/median) is something we generally leave open.
+mean/median)
+can vary with different implementations.
 
 
 The radiometer equation equates the noise to the system temperature, integration time and bandwidth
@@ -72,11 +71,11 @@ Effective exposure time in an ON/OFF observation
   { t_{ON} * t_{OFF} } \over {  t_{ON} + t_{OFF}  }
 
 The Ruze equation equates
-the gain of an antenna to the root mean square (:math:`\delta`) of the antenna's random surface errors.
+the gain of an antenna to the root mean square (:math:`\epsilon`) of the antenna's random surface errors.
 
 .. math:: :label: eq_ruze
 
-   G = G_0 \exp{ (-4\pi\delta / \lambda^2) }
+   G = G_0 \exp{ (-4\pi\epsilon / \lambda^2) }
 
 
 As shown in :eq:`eq_sdmath2` we can ...
@@ -85,7 +84,7 @@ As shown in :eq:`eq_sdmath2` we can ...
 Something about Doppler and Velocity Frames?
 
 
-See also  :ref:`cof` for math behind the Curve of Growth method.
+See also  :ref:`cog` for math behind the Curve of Growth method.
 
 
 Temperature scales:   Ta, Ta', Ta*, Tmb -
