@@ -62,7 +62,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     CAL
       see also :term:`SIG` or :term:`REF`
-      ON/OFF   SIG/REF 
+      ON/OFF   SIG/REF
 
     caloff
       Signal with no calibration diode in the signal path.
@@ -162,7 +162,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       K-band Focal Plane Array, a hexagonal set of beams, with a central beam. Covers 18-26 GHz.
       See the `KFPA receiver page <https://gbtdocs.readthedocs.io/en/latest/references/receivers/kfpa.html>`_
       for more details.
-   
+
     masking
       Masking removes or hides the value in the spectrum. As in numpy,
       as mask value of True means the underlying value is not used. In
@@ -192,7 +192,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       (Tsys). When the telescope is pointed on blank sky, the noise
       diode is turned on and then off to determine the off-source
       system temperature. This device is also refered to as the "Cal".
-      See also :term:`calon` and :term:`caloff` and 
+      See also :term:`calon` and :term:`caloff` and
 
     OTF Mapping
       On-the-fly mapping: in this procedure the telescope is scanned across the sky to
@@ -287,7 +287,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
     VEGAS
       Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
 
-    
+
 
 ..    The velocity of a source using the relativistic definition of the velocity-frequency relationship.
 
