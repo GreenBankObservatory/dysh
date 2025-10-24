@@ -44,9 +44,11 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     Beam Switching
       This is a variation on position switching using a receiver
-      with multiple beams. The "Main" and "Reference" positions on the sky are
+      with multiple beams. The :term:`SIG` and :term:`REF`
+      positions on the sky are
       calculated so that the receiver is always pointing at the source. This is most
-      useful for point sources. See also :term:`Position Switching`
+      useful for point sources. At GBT only implemented for Ka-band.
+      See also :term:`Position Switching`
 
     BINTABLE
       Binary table. In dysh data, BINTABLE is an index running from 0 to N-1,
@@ -60,6 +62,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     CAL
       see also :term:`SIG` or :term:`REF`
+      ON/OFF   SIG/REF 
 
     caloff
       Signal with no calibration diode in the signal path.
@@ -116,13 +119,13 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     FWHM
       (Full Width at Half Max): the effective resolution of the
-      beam if normally given in **FITS** keywords BMAJ,BMIN,BPA.
+      beam is normally given in :term:`FITS` keywords
+      BMAJ, BMIN, and BPA.
 
     Frequency Switching
       This is a variation on position switching using a receiver
-      where the IF is changed. The "Main" and "Reference" positions on the sky are
-      calculated so that the receiver is always pointing at the source. This is most
-      useful for point sources. See also :term:`Position Switching`
+      where the IF is changed.
+      See also :term:`Position Switching`
 
     GBTIDL
       Green Bank Telescope Interactive Data Language. The GBT data
@@ -156,8 +159,10 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       Also used as the **intnum=** keyword in getXX()
 
     KFPA
-      K-band Focal Plane Array, a hexagonal set of beams, with a central beam.
-
+      K-band Focal Plane Array, a hexagonal set of beams, with a central beam. Covers 18-26 GHz.
+      See the `KFPA receiver page <https://gbtdocs.readthedocs.io/en/latest/references/receivers/kfpa.html>`_
+      for more details.
+   
     masking
       Masking removes or hides the value in the spectrum. As in numpy,
       as mask value of True means the underlying value is not used. In
@@ -182,13 +187,12 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       An observing mode where two beams alternatingly look at source and (different) sky.
 
     Noise Diode
-      Use for calibration
-
       A device with known effective temperature that is coupled to the
       telescope system to give a measure of system temperature
       (Tsys). When the telescope is pointed on blank sky, the noise
       diode is turned on and then off to determine the off-source
       system temperature. This device is also refered to as the "Cal".
+      See also :term:`calon` and :term:`caloff` and 
 
     OTF Mapping
       On-the-fly mapping: in this procedure the telescope is scanned across the sky to
@@ -210,7 +214,8 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     Position Switching
       This is a standard way to obtain spectra by switching
-      between a "Main" and "Reference" position on the sky, usually using a single beam. For our
+      between a :term:`SIG` and :term:`REF` position on the sky,
+      usually using a single beam. For our
       multi-beam receivers see also :term:`Beam Switching`
 
 
@@ -221,7 +226,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       See below :ref:`data_org`
 
     REF
-      Reference point. See also :term:`CAL`
+      Reference point, meant to have no signal. See also :term:`CAL`
 
     Region
       Region or regions of spectrum, use for flagging/masking,baseline subtraction.
@@ -281,6 +286,15 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     VEGAS
       Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
+
+    
+
+..    The velocity of a source using the relativistic definition of the velocity-frequency relationship.
+
+..    The velocity of a source using the optical definition of the velocity-frequency relationship.
+
+..    The velocity of a source using the radio definition of the velocity-frequency relationship.
+
 
     waterfall plot
       A plot (or two-dimensional image) that shows time vs. frequency.
