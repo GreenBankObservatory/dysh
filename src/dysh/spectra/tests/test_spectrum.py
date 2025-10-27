@@ -59,7 +59,8 @@ class TestSpectrum:
     def setup_method(self):
         data_dir = get_project_testdata() / "AGBT05B_047_01"
         sdf_file = data_dir / "AGBT05B_047_01.raw.acs"
-        sdf = GBTFITSLoad(sdf_file)
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
+        sdf = GBTFITSLoad(sdf_file, flag_vegas=False)
         self.getps0 = sdf.getps(scan=51, plnum=0, fdnum=0, ifnum=0)
         self.ps0 = self.getps0.timeaverage()
         self.getps1 = sdf.getps(scan=51, plnum=1, fdnum=0, ifnum=0)
@@ -527,8 +528,9 @@ class TestSpectrum:
         """Test the shift method against the results produced by GBTIDL"""
 
         # Prepare test data.
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         filename = get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
-        sdf = GBTFITSLoad(filename)
+        sdf = GBTFITSLoad(filename, flag_vegas=False)
         nchan = sdf["DATA"].shape[-1]
         spec = Spectrum.fake_spectrum(nchan=nchan, seed=1)
         spec.data[nchan // 2 - 5 : nchan // 2 + 6] = 10
@@ -720,7 +722,8 @@ class TestSpectrum:
 
         data_dir = get_project_testdata() / "AGBT17A_404_01"
         sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
-        sdf = GBTFITSLoad(sdf_file)
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
+        sdf = GBTFITSLoad(sdf_file, flag_vegas=False)
         gbtidl_two_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_bmodel.fits")
         gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")
 
@@ -790,7 +793,8 @@ class TestSpectrum:
 
         data_dir = get_project_testdata() / "AGBT17A_404_01"
         sdf_file = data_dir / "AGBT17A_404_01_scan_19_prebaseline.fits"
-        sdf = GBTFITSLoad(sdf_file)
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
+        sdf = GBTFITSLoad(sdf_file, flag_vegas=False)
         gbtidl_two_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_bmodel.fits")
         gbtidl_no_reg = loadfits(data_dir / "AGBT17A_404_01_scan_19_noregion_bmodel.fits")  # noqa: F841
 
