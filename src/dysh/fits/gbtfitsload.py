@@ -1610,12 +1610,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             By default it will figure this out by looking at the "CAL" column.
             It can be set to True to override this. Default: False
         ap_eff : float or None
-            Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
+            Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
             efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
         surface_error: Quantity or None
-            Surface error, in units of length (typically mm), to be used in the Ruze formula when calculating the
+            Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
         **kwargs : dict
@@ -1634,7 +1634,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
         """
         ScanBase._check_tscale(units)
-        if units.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_gain_factors(ap_eff, surface_error)
+        if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         prockey = "OBSTYPE"
