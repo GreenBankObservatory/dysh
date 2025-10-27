@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
-from matplotlib.widgets import Button, SpanSelector
+from matplotlib.widgets import Button, SpanSelector, CheckButtons
 
 from ..coordinates import (
     decode_veldef,
@@ -17,15 +17,6 @@ from ..coordinates import (
 )
 from ..util.docstring_manip import docstring_parameter
 from . import PlotBase
-
-
-from dataclasses import dataclass
-
-import matplotlib.pyplot as plt
-
-import matplotlib.artist as artist
-import matplotlib.patches as patches
-from matplotlib.typing import ColorType
 
 _KMS = u.km / u.s
 
@@ -225,10 +216,13 @@ class SpectrumPlot(PlotBase):
         if self._title is not None:
             self._axis.set_title(self._title)
 
+        #persistent zline reference
+        self._zline = self._axis.axhline(0,c='k', visible = False, linewidth=1)
+
         if show_header:
             self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
             self._set_header(s)
-            self._setup_menu()
+            self._menu = Menu(self)
         if select:
             self._selector = InteractiveSpanSelector(self._axis)
             self._spectrum._selection = self._selector.get_selected_regions()
@@ -430,22 +424,6 @@ class SpectrumPlot(PlotBase):
 
         self.freexy()
 
-    def _setup_menu(self):
-        props = ItemProperties(labelcolor='black', bgcolor='yellow',
-                       fontsize=15, alpha=0.2)
-        hoverprops = ItemProperties(labelcolor='white', bgcolor='blue',
-                                    fontsize=15, alpha=0.2)
-
-        menuitems = []
-        for label in ('open', 'close', 'save', 'save as', 'quit'):
-            def on_select(item):
-                print(f'you selected {item.labelstr}')
-            item = MenuItem(self._figure, label, props=props, hoverprops=hoverprops,
-                            on_select=on_select)
-            menuitems.append(item)
-
-        menu = Menu(self._figure, menuitems)  # noqa: F841
-
 
 class InteractiveSpanSelector:
     def __init__(self, ax):
@@ -578,114 +556,49 @@ class InteractiveSpanSelector:
         self.canvas.draw_idle()
 
     def get_selected_regions(self):
-        return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]\
-
-@dataclass
-class ItemProperties:
-    fontsize: float = 14
-    labelcolor: ColorType = 'black'
-    bgcolor: ColorType = 'yellow'
-    alpha: float = 1.0
+        return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]
 
 
-class MenuItem(artist.Artist):
-    padx = 0.05  # inches
-    pady = 0.05
-
-    def __init__(self, fig, labelstr, props=None, hoverprops=None,
-                 on_select=None):
-        super().__init__()
-
-        self.set_figure(fig)
-        self.labelstr = labelstr
-
-        self.props = props if props is not None else ItemProperties()
-        self.hoverprops = (
-            hoverprops if hoverprops is not None else ItemProperties())
-        if self.props.fontsize != self.hoverprops.fontsize:
-            raise NotImplementedError(
-                'support for different font sizes not implemented')
-
-        self.on_select = on_select
-
-        # specify coordinates in inches.
-        self.label = fig.text(0, 0, labelstr, transform=fig.dpi_scale_trans,
-                              size=props.fontsize)
-        self.text_bbox = self.label.get_window_extent(
-            fig.canvas.get_renderer())
-        self.text_bbox = fig.dpi_scale_trans.inverted().transform_bbox(self.text_bbox)
-
-        self.rect = patches.Rectangle(
-            (0, 0), 1, 1, transform=fig.dpi_scale_trans)  # Will be updated later.
-
-        self.set_hover_props(False)
-
-        fig.canvas.mpl_connect('button_release_event', self.check_select)
-
-    def check_select(self, event):
-        over, _ = self.rect.contains(event)
-        if not over:
-            return
-        if self.on_select is not None:
-            self.on_select(self)
-
-    def set_extent(self, x, y, w, h, depth):
-        self.rect.set(x=x, y=y, width=w, height=h)
-        self.label.set(position=(x + self.padx, y + depth + self.pady / 2))
-        self.hover = False
-
-    def draw(self, renderer):
-        self.rect.draw(renderer)
-        self.label.draw(renderer)
-
-    def set_hover_props(self, b):
-        props = self.hoverprops if b else self.props
-        self.label.set(color=props.labelcolor)
-        self.rect.set(facecolor=props.bgcolor, alpha=props.alpha)
-
-    def set_hover(self, event):
-        """
-        Update the hover status of event and return whether it was changed.
-        """
-        b, _ = self.rect.contains(event)
-        changed = (b != self.hover)
-        if changed:
-            self.set_hover_props(b)
-        self.hover = b
-        return changed
 
 
 class Menu:
-    def __init__(self, fig, menuitems):
-        self.figure = fig
+    def __init__(self,specplot):
+        self.specplot = specplot
+        self.canvas = self.specplot._axis.figure.canvas
 
-        self.menuitems = menuitems
+        # Button to write an ASCII file.
+        self.writeascii_button_ax = self.canvas.figure.add_axes([0.1, 0.9, 0.12, 0.04])
+        self.writeascii_button = Button(self.writeascii_button_ax, "Write ASCII")
+        self.writeascii_button.on_clicked(self._writeascii)
 
-        maxw = max(item.text_bbox.width for item in menuitems)
-        maxh = max(item.text_bbox.height for item in menuitems)
-        depth = max(-item.text_bbox.y0 for item in menuitems)
 
-        x0 = 0
-        y0 = 5
+        # CheckButton to show zline
+        self.zline_button_ax = self.canvas.figure.add_axes([0.23, 0.9, 0.12, 0.04])
+        self.zline_button = CheckButtons(
+            ax = self.zline_button_ax,
+            labels = ["Zline"],
+            )
+        self.zline_button.on_clicked(self._zline_enable)
+        
+        # Button to clear overlays
+        self.clearoverlay_button_ax = self.canvas.figure.add_axes([0.36, 0.9, 0.12, 0.04])
+        self.clearoverlay_button = Button(self.clearoverlay_button_ax, "Clear Overlays")
+        self.clearoverlay_button.on_clicked(self._clearoverlays)
 
-        width = maxw + 2 * MenuItem.padx
-        height = maxh + MenuItem.pady
 
-        for item in menuitems:
-            left = x0 + maxw + MenuItem.padx
-            bottom = y0# - maxh - MenuItem.pady
 
-            item.set_extent(left, bottom, width, height, depth)
+    def _writeascii(self,event=None):
+        print('oop no file dialog window yet')
 
-            fig.artists.append(item)
-            #y0 -= maxh + MenuItem.pady
-            x0 += maxw + MenuItem.padx
+    def _zline_enable(self, event=None):
+        print('zline!')
+        self.specplot._zline.set_visible(not self.specplot._zline.get_visible())
+        #self.specplot._zline._axis.canvas.draw_idle()
 
-        fig.canvas.mpl_connect('motion_notify_event', self.on_move)
+    def _clearoverlays(self,event=None):
+        self.specplot.clear_overlays()
 
-    def on_move(self, event):
-        if any(item.set_hover(event) for item in self.menuitems):
-            self.figure.canvas.draw()
+
 
 
 
