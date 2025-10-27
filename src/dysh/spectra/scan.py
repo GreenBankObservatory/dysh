@@ -338,7 +338,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             else:
                 self.calibrate()
             self._add_calibration_meta()
-        if zenith_opacity is not None or self._app_eff is not None:
+        if zenith_opacity is not None or self._ap_eff is not None:
             self.scale(tscale, zenith_opacity)
         else:
             self._tscale_fac = np.ones(self._nint)
@@ -490,7 +490,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         s = tscale.lower()
         if s == self._tscale.lower():
             return
-        if s != "ta" and zenith_opacity is None and self._app_eff is not None:
+        if s != "ta" and zenith_opacity is None and self._ap_eff is not None:
             raise ValueError("Zenith opacity must be provided when scaling to Ta* or Flux.")
         ntscale = self._tscale_to_unit[s].to_string()
         # unscale the data if it was already scaled.
@@ -2043,6 +2043,15 @@ class NodScan(ScanBase):
                 - 'Ta*' : Antenna temperature corrected to above the atmosphere
                 - 'Flux'  : flux density in Jansky
         If 'ta*' or 'flux' the zenith opacity must also be given. Default:'ta'
+    ap_eff : float or None
+        Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
+        efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        can be provided.
+    surface_error: Quantity or None
+        Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+        aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+        can be provided.
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
@@ -2050,6 +2059,7 @@ class NodScan(ScanBase):
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
+
     """
 
     def __init__(
@@ -2070,10 +2080,25 @@ class NodScan(ScanBase):
         tcal=None,
         nocal=False,
         tscale="ta",
+        ap_eff=None,
+        surface_error=None,
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tcal=tcal)
+        ScanBase.__init__(
+            self,
+            gbtfits,
+            smoothref,
+            apply_flags,
+            observer_location,
+            fdnum,
+            ifnum,
+            plnum,
+            tsys,
+            ap_eff=ap_eff,
+            surface_error=surface_error,
+            tcal=tcal,
+        )
         self._scan = scan["ON"]
         self._scanrows = scanrows
         self._nrows = len(self._scanrows["ON"])
@@ -2276,6 +2301,15 @@ class FSScan(ScanBase):
                 - 'Ta*' : Antenna temperature corrected to above the atmosphere
                 - 'Flux'  : flux density in Jansky
         If 'ta*' or 'flux' the zenith opacity must also be given. Default:'ta'
+    ap_eff : float or None
+        Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
+        efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        can be provided.
+    surface_error: Quantity or None
+        Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+        aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+        can be provided.
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
@@ -2306,6 +2340,8 @@ class FSScan(ScanBase):
         smoothref=1,
         apply_flags=False,
         tscale="ta",
+        ap_eff=None,
+        surface_error=None,
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
         tsys=None,
@@ -2313,7 +2349,18 @@ class FSScan(ScanBase):
         nocal: bool = False,
     ):
         ScanBase.__init__(
-            self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys=tsys, tcal=tcal
+            self,
+            gbtfits,
+            smoothref,
+            apply_flags,
+            observer_location,
+            fdnum,
+            ifnum,
+            plnum,
+            tsys,
+            ap_eff=ap_eff,
+            surface_error=surface_error,
+            tcal=tcal,
         )
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
@@ -2671,6 +2718,15 @@ class SubBeamNodScan(ScanBase):
                 - 'Ta*' : Antenna temperature corrected to above the atmosphere
                 - 'Flux'  : flux density in Jansky
         If 'ta*' or 'flux' the zenith opacity must also be given. Default:'ta'
+    ap_eff : float or None
+        Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
+        efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        can be provided.
+    surface_error: Quantity or None
+        Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+        aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+        can be provided.
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations.  Default:None
     observer_location : `~astropy.coordinates.EarthLocation`
@@ -2698,24 +2754,32 @@ class SubBeamNodScan(ScanBase):
         smoothref=1,
         apply_flags=False,
         tscale="ta",
+        ap_eff=None,
+        surface_error=None,
         zenith_opacity=None,
         tcal=None,
         observer_location=Observatory["GBT"],
+        weights="tsys",
         **kwargs,
     ):
         ScanBase.__init__(
-            self, sigtp[0]._sdfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tcal=tcal
+            self,
+            sigtp[0]._sdfits,
+            smoothref,
+            apply_flags,
+            observer_location,
+            fdnum,
+            ifnum,
+            plnum,
+            tcal=tcal,
+            ap_eff=ap_eff,
+            surface_error=surface_error,
         )
-        kwargs_opts = {
-            "weights": "tsys",  # or None or ndarray
-            "debug": False,
-        }
-        kwargs_opts.update(kwargs)
-        w = kwargs_opts["weights"]
         if len(reftp) != len(sigtp):
             raise ValueError(
                 f"Reference and signal total power arrays are different lengths: {len(reftp)} != {len(sigtp)}"
             )
+
         self._bintable_index = sigtp[0]._bintable_index
         self._scan = sigtp[0]._scan
         self._sigtp = sigtp
@@ -2729,7 +2793,7 @@ class SubBeamNodScan(ScanBase):
             meta_rows.append(r._refoffrows[0])
         meta_rows = list(set(meta_rows))
 
-        self._finish_initialization(calibrate, {"weights": w}, meta_rows, tscale, zenith_opacity, tcal=tcal)
+        self._finish_initialization(calibrate, {"weights": weights}, meta_rows, tscale, zenith_opacity, tcal=tcal)
 
     def _calc_exposure(self):
         # This is done in calibrate() via assignment.
