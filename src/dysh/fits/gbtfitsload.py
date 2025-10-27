@@ -1136,7 +1136,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 fi = uniq(s["FITSINDEX"])[0]
                 self.flags.read(flagfile, fitsindex=fi, ignore_vegas=flag_vegas)
                 found_flags = True
-        if found_flags:
+        if found_flags and len(self.flags._table) != 0:
             logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
     def _construct_procedure(self):
