@@ -228,6 +228,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         plnum=-1,
         tsys=None,
         tcal=None,
+        ap_eff=None,
+        surface_error=None,
     ):
         HistoricalBase.__init__(self)
         self._fdnum = fdnum
@@ -246,6 +248,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._tscale = "ta"
         self._tsys = tsys
         self._tcal = tcal
+        self._ap_eff = ap_eff
+        self._surface_error = surface_error
         self._exposure = None
         self._calibrated = None
         self._smoothref = smoothref
@@ -256,6 +260,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
         self._plotter = None
+        self._check_gain_factors(self._ap_eff, self._surface_error)
+        print(f"Scanbase {ap_eff=} {surface_error=}")
 
     def _validate_defaults(self):
         _required = {
@@ -307,6 +313,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 f"Unrecognized brightness scale {tscale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
 
+    @classmethod
+    def _check_gain_factors(self, ap_eff, surface_error):
+        if ap_eff is not None and surface_error is not None:
+            raise ValueError("Only one of ap_eff or surface_error should be specified")
+
     def _finish_initialization(
         self, calibrate, calibrate_kwargs, meta_rows, tscale, zenith_opacity, tsys=None, tcal=None
     ):
@@ -327,7 +338,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             else:
                 self.calibrate()
             self._add_calibration_meta()
-        if zenith_opacity is not None:
+        if zenith_opacity is not None or self._app_eff is not None:
             self.scale(tscale, zenith_opacity)
         else:
             self._tscale_fac = np.ones(self._nint)
@@ -479,7 +490,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         s = tscale.lower()
         if s == self._tscale.lower():
             return
-        if s != "ta" and zenith_opacity is None:
+        if s != "ta" and zenith_opacity is None and self._app_eff is not None:
             raise ValueError("Zenith opacity must be provided when scaling to Ta* or Flux.")
         ntscale = self._tscale_to_unit[s].to_string()
         # unscale the data if it was already scaled.
@@ -500,7 +511,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
         freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
         date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
-        factor = gc.scale_ta_to(tscale, freq, elev, date, zenith_opacity, zd=False)
+        print(
+            f"gc.scale_ta_to(tscale, freq, elev, date, zenith_opacity, zd=False, {self._surface_error}, {self._ap_eff=}"
+        )
+        factor = gc.scale_ta_to(
+            tscale, freq, elev, date, zenith_opacity, zd=False, eps0=self._surface_error, ap_eff=self._ap_eff
+        )
         self._scaleby(factor)
         self._tscale_fac = factor
         self._tscale = s
@@ -616,6 +632,19 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             The scan number of the integrations in the Scan object
         """
         return self._scan
+
+    @property
+    def ap_eff(self):
+        """
+        The aperture efficiency for this Scan
+
+        Returns
+        -------
+        ap_eff : float or None
+            The aperture ef
+
+        """
+        return self._ap_eff
 
     @property
     def nchan(self):
@@ -1687,6 +1716,15 @@ class PSScan(ScanBase):
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
         scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+    ap_eff : float or None
+        Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
+        efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        can be provided.
+    surface_error: Quantity or None
+        Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+        aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+        can be provided.
     """
 
     def __init__(
@@ -1707,11 +1745,24 @@ class PSScan(ScanBase):
         zenith_opacity=0.0,
         refspec=None,
         tsys=None,
+        ap_eff=None,
+        surface_error=None,
         tcal=None,
         nocal=False,
     ):
         ScanBase.__init__(
-            self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tsys, tcal=tcal
+            self,
+            gbtfits,
+            smoothref,
+            apply_flags,
+            observer_location,
+            fdnum,
+            ifnum,
+            plnum,
+            tsys,
+            ap_eff=ap_eff,
+            surface_error=surface_error,
+            tcal=tcal,
         )
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         # self._history = deepcopy(gbtfits._history)
