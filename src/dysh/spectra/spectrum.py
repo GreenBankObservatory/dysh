@@ -22,6 +22,7 @@ from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum as Spectrum1D
 
+from dysh.log import logger
 from dysh.spectra import core
 
 from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
@@ -247,7 +248,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # if `include` is used, transform it to `exclude`.
         if include is not None:
             if exclude is not None:
-                logger.info(f"Warning: ignoring exclude={exclude}")  # noqa: F821
+                logger.warning(f"Warning: ignoring exclude={exclude}")
             exclude = core.include_to_exclude_spectral_region(include, self)
         self._baseline_model = baseline(self, degree, exclude, **kwargs)
         if kwargs_opts["remove"]:
@@ -396,12 +397,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
 
+        # note the Spectrum class has special nanXXX functions for most, but not std()
         if roll == 0:
             mean = self.mean()
             median = self.median()
             rms = np.nanstd(self.flux)
             dmin = self.min()
             dmax = self.max()
+            npt = len(self.flux)
         else:
             d = self[roll:] - self[:-roll]
             mean = d.mean()
@@ -409,12 +412,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
             rms = np.nanstd(d.flux)
             dmin = d.min()
             dmax = d.max()
+            npt = len(self.flux) - 2
 
         if qac:
             out = f"{mean.value} {rms.value} {dmin.value} {dmax.value}"
             return out
 
-        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax}
+        # these two should be the same
+        nan1 = np.isnan(self.data).sum()
+        nan2 = self.mask.sum()
+        if nan1 != nan2:
+            logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
+        else:
+            logger.info(f"Note: found {nan1} NaN (masked) values")
+
+        out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
 
         return out
 
@@ -548,10 +560,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             stddev = kwidth / FWHM_TO_STDDEV
 
             new_data, new_meta = core.smooth(
-                data=md * self.flux.unit,
+                data=md,
                 method=this_method,
-                ndecimate=decimate,
                 width=stddev,
+                ndecimate=decimate,
                 meta=self.meta,
                 boundary=boundary,
                 mask=mask,
@@ -560,7 +572,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 preserve_nan=preserve_nan,
             )
         else:
-            kwidth = width
             new_data, new_meta = core.smooth(
                 data=md,
                 method=this_method,

@@ -254,7 +254,7 @@ def include_to_exclude_spectral_region(include, refspec):
     return invert_spectral_region(spectral_region, refspec)
 
 
-def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
+def exclude_to_spectral_region(exclude, refspec):
     """Convert `exclude` to a `~specutils.SpectralRegion`.
 
     Parameters
@@ -282,9 +282,6 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
     refspec: `~spectra.spectrum.Spectrum`
         The reference spectrum whose spectral axis will be used
         when converting between `exclude` and axis units (e.g. channels to GHz).
-    fix_exclude: bool
-        If True, fix exclude regions that are out of bounds of the spectral axis to be within the spectral axis.
-        Default: True
 
     Returns
     -------
@@ -299,10 +296,14 @@ def exclude_to_spectral_region(exclude, refspec, fix_exclude=True):
         sr = exclude
     # `list` of `int` or `Quantity` or `SpectralRegion` was given.
     else:
-        # If user provided a single list, we have to
-        # turn it into a list of tuples. If SpectralRegion
-        # took a list argument, we wouldn't have to do this.
-        if type(exclude[0]) is not tuple:
+        # If user provided a single list or list of lists,
+        # we have to turn it into a list of tuples.
+        # If SpectralRegion took a list argument, we wouldn't have to do this.
+        # List of lists.
+        if isinstance(exclude[0], list):
+            exclude = list(map(tuple, exclude))
+        # List of scalars or quantities.
+        elif not isinstance(exclude[0], tuple):
             it = iter(exclude)
             exclude = list(zip(it, it, strict=False))
         try:
