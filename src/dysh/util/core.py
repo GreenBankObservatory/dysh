@@ -475,11 +475,11 @@ def convert_array_to_mask(a, length, value=True):
     return mask
 
 
-def abbreviate_to(length, value, squeeze=True):
+def abbreviate_to(length, value, squeeze=True) -> str:
     """
     Abbreviate a value for display in limited space. The abbreviated
     value will have initial characters, ellipsis, and final characters, e.g.
-    '[(a,b),(c,d)...(w,x),(y,z)]'.
+    '[(a,b),(c,d),...,(w,x),(y,z)]'.
 
     Parameters
     ----------
@@ -493,16 +493,25 @@ def abbreviate_to(length, value, squeeze=True):
     Returns
     -------
     strv : str
-        Abbreviated string representation of the input value
-
+        Abbreviated string representation of the input value.
     """
     strv = str(value)
+    sep = ", "
     if squeeze:
         strv = strv.replace(", ", ",")
+        sep = ","
     if len(strv) > length:
-        bc = int(length / 2) - 1
-        ec = bc - 1
-        strv = strv[0:bc] + "..." + strv[-ec:]
+        try:
+            bc = strv.rindex(sep, 0, length // 2 - 1)
+        except ValueError:
+            bc = strv.index(sep)
+        try:
+            ec = strv[-length // 2 + 1 :].index(sep)
+            eci = -length // 2 + 1
+        except ValueError:
+            ec = strv.rindex(sep)
+            eci = None
+        strv = strv[:bc] + sep + "..." + strv[eci:][ec:]
     return strv
 
 
