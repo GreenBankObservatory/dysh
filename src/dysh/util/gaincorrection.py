@@ -405,6 +405,7 @@ class GBTGainCorrection(BaseGainCorrection):
         date: Time,
         zenith_opacity,
         zd=False,
+        ap_eff=None,
         eps0=None,
     ) -> float | np.ndarray:
         r"""
@@ -429,8 +430,14 @@ class GBTGainCorrection(BaseGainCorrection):
 
         zenith_opacity: float
             The zenith opacity to use in calculating the scale factors for the integrations.
+
         zd : bool
             True if the input value is zenith distance, False if it is elevation. Default: False
+
+        ap_eff : float or None
+            Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it :meth:`aperture_efficiency`. Only one of `ap_eff` or `eps0`
+            can be provided.
 
         eps0 : `~astropy.units.quantity.Quantity` or None
             The value of :math:`\epsilon_0` to use, the surface rms error. If given, must have units of length (typically microns).
@@ -440,11 +447,17 @@ class GBTGainCorrection(BaseGainCorrection):
             raise ValueError(
                 f"Unrecognized temperature scale {tscale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
+        if ap_eff is not None and eps0 is not None:
+            raise ValueError("Only one of ap_eff or eps0 should be specified")
         s = tscale.lower()
         if s == "ta":
             return 1.0
         am = self.airmass(angle, zd)
-        eta_a = self.aperture_efficiency(specval, angle, date, zd, eps0)
+        if ap_eff is None:
+            eta_a = self.aperture_efficiency(specval, angle, date, zd, eps0)
+        else:
+            eta_a = ap_eff
+        print(f"Using {ap_eff=}")
         # Calculate Ta* because in both cases we need it
         # Ta* = T_a exp(tau*A)/(eta_a * eta_loss )
         # - the airmass as a function of elevation, A
