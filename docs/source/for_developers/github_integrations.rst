@@ -5,7 +5,7 @@ Testing & GitHub Integrations
 Test Code
 =========
 
-All new features **must** have accompanying test code that verifies their correctness; no PR will be accepted without it.  A jupyter notebook explaining how to use the new feature is also strongly recommended.   Bug fixes should have a regression test added to verify the issue is fixed and doesn't return.  Tests must be runnable by pytest.   If a test writes a file to disk, it **must** use`pytest's `tmp_path  fixture <https://docs.pytest.org/en/latest/how-to/tmp_path.html>`_ to ensure the file is removed after the test.
+All new features **must** have accompanying test code that verifies their correctness; no PR will be accepted without it.  A jupyter notebook explaining how to use the new feature is also strongly recommended.   Bug fixes should have a regression test added to verify the issue is fixed and doesn't return.  Tests must be runnable by pytest.   If a test writes a file to disk, it **must** use`pytest's `tmp_path  fixture <https://docs.pytest.org/en/latest/how-to/tmp_path.html>`_ to ensure the file is removed after the test.   The `dysh` development team can provide help developing regression tests for bug fixes.
 
 Tests must be named `test_*.py` and located within a `tests` directory of their parent module. All tests are run as a GitHub Workflow in dysh's continuous integration suite defined in `dysh/.github/workflows/ci.yml`.
 
