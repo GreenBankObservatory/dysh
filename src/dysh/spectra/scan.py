@@ -347,7 +347,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             f"Delta Freq (channel width) calculation for {self.__class__.__name__} needs to be implemented."
         )
 
-    def calibrated(self, i):  ##SCANBASE
+    def getspec(self, i):  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
 
         Parameters
@@ -571,7 +571,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 return
         if tol < 0:
             raise ValueError("tol must be non-negative.")
-        c0 = self.calibrated(0)
+        c0 = self.getspec(0)
         sa = c0.spectral_axis
         self._check_model(model, c0, sa, tol)
         self._calibrated -= model(sa).value
@@ -585,7 +585,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if self._baseline_model is None:
             return
-        sa = self.calibrated(0).spectral_axis
+        sa = self.getspec(0).spectral_axis
         self._calibrated += self._baseline_model(sa).value
         self._baseline_model = None
         self._subtracted = False
@@ -594,6 +594,11 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def baseline_model(self):
         """Returns the subtracted baseline model or None if it has not yet been computed."""
         return self._baseline_model
+
+    @property
+    def calibrated(self):
+        """Returns the calibrated integrations in the Scan."""
+        return self._calibrated
 
     @property
     def subtracted(self):
@@ -825,7 +830,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.calibrated(0))
+        self._timeaveraged = deepcopy(self.getspec(0))
         data = self._calibrated
         if weights == "tsys":
             w = self.tsys_weight
@@ -1636,7 +1641,7 @@ class TPScan(ScanBase):
         -------
         spectrum : `~spectra.spectrum.Spectrum`
         """
-        return self.calibrated(i)
+        return self.getspec(i)
 
 
 class PSScan(ScanBase):
