@@ -77,6 +77,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
         and ignore VEGAS_SPUR flag rules in flag files. Note this parameter is independent of 'skip_flags', which
         controls only the reading of the flag file.  If you want no flags at all, use `skipflags=True, flag_vegas=False`.
+
+
+        +---------+-----------+--------------------------------------------------------------------------------------------+
+        |skipflags|flag_vegas | behavior                                                                                   |
+        +=========+===========+============================================================================================+
+        |False    | False     | VEGAS and other flags are created based on the flags file                                  |
+        +---------+-----------+--------------------------------------------------------------------------------------------+
+        |True     | False     | No flags are created                                                                       |
+        +---------+-----------+--------------------------------------------------------------------------------------------+
+        |True     | True      | VEGAS flags are created based on the FITS header                                           |
+        +---------+-----------+--------------------------------------------------------------------------------------------+
+        |False    | True      | VEGAS flags are created based on the FITS header.  Other flags are read from the flags file|
+        +---------+-----------+--------------------------------------------------------------------------------------------+
     """
 
     @log_call_to_history
@@ -978,7 +991,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """Check if these data appear to use the VEGAS backend
 
         Returns
-        ------
+        -------
             True if FITS HEADER Keyword INSTRUME or BACKEND is present and equals 'VEGAS', False otherwise
         """
         if "INSTRUME" in self._selection:
