@@ -19,14 +19,14 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       astronomy bands are often referred to by an alphabetical designation,
       e.g. L-band covers 1-2 GHz. A summary
       of the bands commonly used at GBO can be found on
-      https://gbtdocs.readthedocs.io/en/latest/references/receivers.html#gregorian-receivers
+      https://gbtdocs.readthedocs.io/en/latest/references/receivers.html
 
       See also :term:`ifnum` and :term:`IF`
 
     bank
       Overloaded term for a **band**, possibly referring to hardware.
-      For the GBT a bank is one of VEGAS roaches (or more than one?). The closest
-      thing is an IF or VEGAS subband.
+      A VEGAS bank (hardware-wise) is a single ROACH-2 board with 2 inputs,
+      typically for two polarizations of one subband.
 
     baseline
       Baseline is a generic term usually taken to mean the
@@ -58,7 +58,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
     blanking
       blanking is a term used in the (VEGAS) correllator, where bad data has been replaced
       with a Not-a-Number value. Not to be confused with the concepts :term:`flagging`
-      and :term:`masking` in dysh
+      and :term:`masking` in dysh.
 
     CAL
       see also :term:`SIG` or :term:`REF`
@@ -81,7 +81,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     DYSH_DATA
       (optional) environment variable pointing to a directory with local copies
-      for developers.
+      of SDFITS data for developers.
 
       See also :term:`SDFITS_DATA`.
 
@@ -97,7 +97,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
     FITS
       (Flexible Image Transport System): the export format
-      for data-cube, although there is also a waterfall cube
+      for data-cubes, although there is also a waterfall cube
       (time-freq-pixel) cube available.
 
     flagging
@@ -118,13 +118,21 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       reads this file and applies the flags therein.
 
     FWHM
-      (Full Width at Half Max): the effective resolution of the
-      beam is normally given in :term:`FITS` keywords
-      BMAJ, BMIN, and BPA.
+      Full Width at Half Max.
+      A measure of the width of a curve. It reports the width of the
+      curve at its half power point. It is commonly used to describe
+      the angular resolution of a telescope (also referred to as half
+      power beam width, HPBW, in this case), or the width of a
+      spectral line.
+
+      The :term:`FITS` keywords BMAJ, BMIN, and BPA  are used for the
+      major axis, minor axis, and position angle respectively when referring
+      to a spatial beam.
+    
 
     Frequency Switching
       This is a variation on position switching using a receiver
-      where the IF is changed.
+      where the IF is alternating.
       See also :term:`Position Switching`
 
     GBTIDL
@@ -180,7 +188,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       dysh spectra have metadata in Spectrum.meta and Scans in Scan.meta.
 
     multi-beam
-      If an instrument has multiple :term:`beam`s that typically point are different areas in the sky
+      If an instrument has multiple :term:`beam`s that typically point to different sky locations
       (e.g. :term:`Argus` in a 4x4 configuration, and :term:`KFPA` in a 7 beam hexagonal shape).
 
     Nod or Nodding
@@ -190,14 +198,20 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       A device with known effective temperature that is coupled to the
       telescope system to give a measure of system temperature
       (Tsys). When the telescope is pointed on blank sky, the noise
-      diode is turned on and then off to determine the off-source
+      diode is alternating in On and Off states to determine the
       system temperature. This device is also refered to as the "Cal".
-      See also :term:`calon` and :term:`caloff` and 
+
+      See also :term:`calon` and :term:`caloff` and
+
+    ON, OFF
+      The ON/OFF references are an overloaded term for when we refer to the
+      :term:`SIG` and  :term:`REF` resp.
 
     OTF Mapping
       On-the-fly mapping: in this procedure the telescope is scanned across the sky to
-      sample the emission. The samples are then "gridded" into a map (which is not part
-      of dysh). See for example `gbtgridder <https://github.com/GreenBankObservatory/gbtgridder>`_
+      sample the emission. The samples are "gridded" on to a map using the tool
+      `gbtgridder <https://github.com/GreenBankObservatory/gbtgridder>`_. The gridding
+      is not implemented in dysh.
 
     pixel
       An overloaded term. Sometimes referred to as the :term:`beam`, but usually interpreted
@@ -219,7 +233,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       multi-beam receivers see also :term:`Beam Switching`
 
 
-    Project ID
+    Project Code
       A code designating the year and proposal number, e.g. GBT21B-024.  Data associated with
       a project are found in /home/sdfits (or $SDFITS_DATA), with a slight twist of the name.
       In the example this becomes AGBT21B_024.
@@ -229,13 +243,11 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       Reference point, meant to have no signal. See also :term:`CAL`
 
     Region
-      Region or regions of spectrum, use for flagging/masking,baseline subtraction.
+      Region or regions of spectrum, used for flagging/masking,baseline subtraction.
 
     Scan
        A unit of observing, usually in some common mode, with one or more integrations.
-       GBT differentiates between different types of scans. Scans are integers,
-       starting with 1.
-
+       GBT differentiates between different types of scans. Scans are integers.
 
     ScanBlock
       A container for a series of **scan**'s.
@@ -258,11 +270,9 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       project directories and files are stored.
 
     SESSION
-      see :ref:`data_org`
-
-    SFL
-      Sanson-Flamsteed projection, sometimes used in gridding OTF maps.
-      (the GLS - GLobal Sinusoidal is similar to SFL).
+      Or Session ID.  This is the number (starting at index 01) denoting the observing sessions
+      within a given :ref:`Project Code`.
+      See also :ref:`data_org` 
 
     SIG
       signal - see also CAL.
@@ -305,15 +315,15 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
 .. _data_org:
 
-Data : Project ID / Session
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Data : Project Code / Session ID
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Generally projects are assigned a project id, e.g. *AGBT21B_024*, which is
+Generally projects are assigned a project code, e.g. *AGBT21B-024*, which is
 then observed in a number of sessions, numbered starting with 1. The SDFITS data associated
 with these are stored under **$SDFITS_DATA**, e.g. for session 5 in this example, this would be
 in **$SDFITS_DATA/AGBT21B_024_05/**.
 
-One possible confusion: a project named "GBT21B-024", is labeled "AGBT21B_024" as the
+Possible confusion: a project code "GBT21B-024", is labeled "AGBT21B_024" as the
 filename prefix for file storage, which is the name that users need for dysh.
 
 
