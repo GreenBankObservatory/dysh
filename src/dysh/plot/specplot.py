@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
-from matplotlib.widgets import Button, SpanSelector, CheckButtons
+from matplotlib.widgets import Button, CheckButtons, SpanSelector
 
 from ..coordinates import (
     decode_veldef,
@@ -129,7 +129,7 @@ class SpectrumPlot(PlotBase):
         }
 
     @docstring_parameter(kwargs_docstring)
-    def plot(self, show_header=True, select=True, oshow=None, **kwargs):
+    def plot(self, show_header=True, select=True, oshow=None, hist=False, **kwargs):
         """
         Plot the spectrum.
 
@@ -141,6 +141,8 @@ class SpectrumPlot(PlotBase):
             Allow selecting regions via click and drag.
         oshow : list or `~dysh.spectra.spectrum.Spectrum`
             Spectra to overlay in the plot.
+        hist : bool
+            Set the plot type to histogram. Default: False
 
         Other Parameters
         ----------------
@@ -193,8 +195,13 @@ class SpectrumPlot(PlotBase):
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
 
+        #plot both hist and line type plot, only show one (default line)
+        lines = self._axis.step(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        self._histline = lines[0]
+        self._histline.set_visible(hist)
         lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
         self._line = lines[0]
+        self._line.set_visible(not hist)
 
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
@@ -565,23 +572,47 @@ class Menu:
     def __init__(self,specplot):
         self.specplot = specplot
         self.canvas = self.specplot._axis.figure.canvas
+        self.regionshow = True
+
+        hcoords = [0.1,0.23,0.36]
+        vcoords = [0.93,0.88]
+
+        hsize = 0.12
+        vsize = 0.04
+
 
         # Button to write an ASCII file.
-        self.writeascii_button_ax = self.canvas.figure.add_axes([0.1, 0.9, 0.12, 0.04])
+        self.writeascii_button_ax = self.canvas.figure.add_axes([hcoords[0], vcoords[0], hsize, vsize])
         self.writeascii_button = Button(self.writeascii_button_ax, "Write ASCII")
         self.writeascii_button.on_clicked(self._writeascii)
 
 
         # CheckButton to show zline
-        self.zline_button_ax = self.canvas.figure.add_axes([0.23, 0.9, 0.12, 0.04])
+        self.zline_button_ax = self.canvas.figure.add_axes([hcoords[1], vcoords[0], hsize, vsize])
         self.zline_button = CheckButtons(
             ax = self.zline_button_ax,
             labels = ["Zline"],
             )
         self.zline_button.on_clicked(self._zline_enable)
-        
+
+        # CheckButton to plot hist style
+        self.hist_button_ax = self.canvas.figure.add_axes([hcoords[1], vcoords[1], hsize, vsize])
+        self.hist_button = CheckButtons(
+            ax = self.hist_button_ax,
+            labels = ["Hist"],
+            )
+        self.hist_button.on_clicked(self._hist_enable)
+
+        # CheckButton to show selected regions
+        self.regionshow_button_ax = self.canvas.figure.add_axes([hcoords[2], vcoords[0], hsize, vsize])
+        self.regionshow_button = CheckButtons(
+            ax = self.regionshow_button_ax,
+            labels = ["Show Regs"],
+            )
+        self.regionshow_button.on_clicked(self._regionshow_enable)
+
         # Button to clear overlays
-        self.clearoverlay_button_ax = self.canvas.figure.add_axes([0.36, 0.9, 0.12, 0.04])
+        self.clearoverlay_button_ax = self.canvas.figure.add_axes([hcoords[2], vcoords[1], hsize, vsize])
         self.clearoverlay_button = Button(self.clearoverlay_button_ax, "Clear Overlays")
         self.clearoverlay_button.on_clicked(self._clearoverlays)
 
@@ -591,11 +622,28 @@ class Menu:
         print('oop no file dialog window yet')
 
     def _zline_enable(self, event=None):
-        print('zline!')
+        #print('zline!')
         self.specplot._zline.set_visible(not self.specplot._zline.get_visible())
         #self.specplot._zline._axis.canvas.draw_idle()
 
+    def _hist_enable(self, event=None):
+        #print('zline!')
+        self.specplot._line.set_visible(not self.specplot._line.get_visible())
+        self.specplot._histline.set_visible(not self.specplot._histline.get_visible())
+        #self.specplot._zline._axis.canvas.draw_idle()
+
+    def _regionshow_enable(self, event=None):
+        #need to have a persistent bool here in case users disable showing regions then make more
+        self.regionshow = not self.regionshow
+        print(f'regionshow is now {self.regionshow}')
+        if self.specplot._selector is not None:
+            for region in self.specplot._selector.regions:
+                region.set_visible(self.regionshow)
+
+
+
     def _clearoverlays(self,event=None):
+        print('clear overlays')
         self.specplot.clear_overlays()
 
 
