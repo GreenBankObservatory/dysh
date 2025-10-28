@@ -235,8 +235,6 @@ class TestSubBeamNod:
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         sbn = sdf.subbeamnod(
             scan=43,
-            sig=None,
-            cal=None,
             ifnum=0,
             fdnum=1,
             plnum=1,
