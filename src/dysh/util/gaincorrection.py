@@ -389,13 +389,15 @@ class GBTGainCorrection(BaseGainCorrection):
                 )
 
             if eps0 is None:
-                eps0 = [self.surface_error(x) for x in date]
-                eps0 = to_quantity_list(eps0)
+                eps0 = self._surface_error_array(date)
         _lambda = sp.to(eps0.unit, equivalencies=u.spectral())
 
         a = (4.0 * np.pi * eps0 / _lambda) ** 2
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
+
+    def _surface_error_array(self, date):
+        return to_quantity_list([self.surface_error(x) for x in date])
 
     def scale_ta_to(
         self,
@@ -457,7 +459,7 @@ class GBTGainCorrection(BaseGainCorrection):
             eta_a = self.aperture_efficiency(specval, angle, date, zd, eps0)
         else:
             eta_a = ap_eff
-        print(f"Using {ap_eff=}")
+        print(f"Using {eta_a=}")
         # Calculate Ta* because in both cases we need it
         # Ta* = T_a exp(tau*A)/(eta_a * eta_loss )
         # - the airmass as a function of elevation, A

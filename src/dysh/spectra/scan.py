@@ -230,6 +230,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         tcal=None,
         ap_eff=None,
         surface_error=None,
+        zenith_opacity=None,
     ):
         HistoricalBase.__init__(self)
         self._fdnum = fdnum
@@ -249,7 +250,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._tsys = tsys
         self._tcal = tcal
         self._ap_eff = ap_eff
+        self._ap_eff_array = None
         self._surface_error = surface_error
+        self._surface_error_array = None
+        self._zenith_opacity = zenith_opacity
         self._exposure = None
         self._calibrated = None
         self._smoothref = smoothref
@@ -636,15 +640,61 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @property
     def ap_eff(self):
         """
-        The aperture efficiency for this Scan
+        The aperture efficiencies for the integrations in this Scan
 
         Returns
         -------
-        ap_eff : float or None
-            The aperture ef
-
+        ap_eff : `~np.ndarray`
+            The aperture efficiencies, an array of floats between 0 and 1, one value per integration.
         """
-        return self._ap_eff
+        # compute it the first time if not computed.
+        if self._ap_eff_array is None:
+            if self._ap_eff is not None:
+                self._ap_eff_array = np.full(self.nint, fill_value=self._ap_eff, dtype=float)
+            else:
+                gc = GBTGainCorrection()
+                elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
+                freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
+                date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
+                self._ap_eff_array = gc.aperture_efficiency(
+                    specval=freq, angle=elev, date=date, zd=False, eps0=self.surface_error
+                )
+
+        return self._ap_eff_array
+
+    @property
+    def surface_error(self):
+        """
+        The dish surface errors for the integrations in this Scan
+
+        Returns
+        -------
+        surface_error : `~astropy.units.quanity.Quantity`
+            The surface_errors with dimension length, one value per integration.
+        """
+        # compute it the first time if not computed.
+        if self._surface_error_array is None:
+            if self._surface_error is not None:
+                self._surface_error_array = np.full(self.nint, fill_value=self._surface_error, dtype=float)
+            else:
+                gc = GBTGainCorrection()
+                date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
+                # While any Quantity with dimensions length is fine; be nice and convert to
+                # traditional micron units
+                self._surface_error_array = gc._surface_error_array(date).to(u.micron)
+        return self._surface_error_array
+
+    @property
+    def zenith_opacity(self):
+        """
+        The zenith opacity of this Scan, used to calculated aperture efficiency.
+
+        Returns
+        -------
+        zenith_opacity: float or None
+            A non-negative float. If None, no zenith opacity was set for this scan (e.g. TPScan); the data cannot be scaled.
+        """
+        return self._zenith_opacity
 
     @property
     def nchan(self):
@@ -818,10 +868,18 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["EXPOSURE"] = self.exposure[i]
 
     def _update_scale_meta(self):
+        """Update metadata that described how integrations were scaled to Ta, Ta*, or Flux"""
+        a = self.ap_eff
+        s = self.surface_error.value
+        seunit = str(self.surface_error.unit)
         for i in range(len(self._meta)):
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
             self._meta[i]["TSCALE"] = self.tscale
             self._meta[i]["TSCALFAC"] = self.tscale_fac[i]
+            self._meta[i]["AP_EFF"] = a[i]
+            print(self._meta[i]["AP_EFF"])
+            self._meta[i]["SURF_ERR"] = s[i]
+            self._meta[i]["SE_UNIT"] = seunit
 
     @abstractmethod
     def calibrate(self, **kwargs):  ## SCANBASE
@@ -852,6 +910,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
            Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
 
         """
+        print("TIMEAVERAGE")
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         self._timeaveraged = deepcopy(self.calibrated(0))
@@ -867,6 +926,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
+        self._timeaveraged.meta["AP_EFF"] = sq_weighted_avg(self.ap_eff[non_blanks], axis=0, weights=w[non_blanks])
+        print(f'{self._timeaveraged.meta["AP_EFF"]=}, {w[non_blanks]=},{self.ap_eff[non_blanks]=}')
+        self._timeaveraged.meta["SURF_ERR"] = sq_weighted_avg(
+            self.surface_error[non_blanks], axis=0, weights=w[non_blanks]
+        )
+        if self.zenith_opacity is not None:
+            self._timeaveraged.meta["TAU_Z"] = self.zenith_opacity
         return self._timeaveraged
 
     def _make_bintable(self, flags: bool) -> BinTableHDU:
@@ -1474,7 +1540,7 @@ class TPScan(ScanBase):
         tsys=None,
         tcal=None,
         observer_location=Observatory["GBT"],
-        tscale="Raw",
+        tscale="Raw",  # @todo why is this even an exposed parameter for TPScan?
     ):
         ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tcal=tcal)
         self._sdfits = gbtfits  # parent class
@@ -1762,6 +1828,7 @@ class PSScan(ScanBase):
             tsys,
             ap_eff=ap_eff,
             surface_error=surface_error,
+            zenith_opacity=zenith_opacity,
             tcal=tcal,
         )
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
@@ -2097,6 +2164,7 @@ class NodScan(ScanBase):
             tsys,
             ap_eff=ap_eff,
             surface_error=surface_error,
+            zenith_opacity=zenith_opacity,
             tcal=tcal,
         )
         self._scan = scan["ON"]
@@ -2360,6 +2428,7 @@ class FSScan(ScanBase):
             tsys,
             ap_eff=ap_eff,
             surface_error=surface_error,
+            zenith_opacity=zenith_opacity,
             tcal=tcal,
         )
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
@@ -2774,6 +2843,7 @@ class SubBeamNodScan(ScanBase):
             tcal=tcal,
             ap_eff=ap_eff,
             surface_error=surface_error,
+            zenith_opacity=zenith_opacity,
         )
         if len(reftp) != len(sigtp):
             raise ValueError(
