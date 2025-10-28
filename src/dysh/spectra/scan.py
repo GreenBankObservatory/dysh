@@ -597,7 +597,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
     @property
     def calibrated(self):
-        """Returns the calibrated integrations in the Scan."""
+        """Returns the calibrated integrations in the Scan as a numpy array."""
         return self._calibrated
 
     @property
