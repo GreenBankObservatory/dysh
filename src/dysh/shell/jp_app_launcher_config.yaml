@@ -1,5 +1,5 @@
 - id: dysh-notebook
-  title: dysh.ipynb
+  title: dysh
   description: Create a new notebook with dysh imports pre-loaded
   type: notebook
   source: ../lab_templates/dysh/default.ipynb
