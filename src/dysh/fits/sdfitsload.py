@@ -76,14 +76,16 @@ class SDFITSLoad:
         """initialize the channel masks to False"""
 
         self._flagmask = np.empty(len(self._bintable), dtype=object)
+        self._additional_channel_mask = self._flagmask.copy()
         for i in range(len(self._flagmask)):
+            nc = self.nchan(i)
+            nr = self.nrows(i)
             if "FLAGS" in self._bintable[i].data.columns.names:
                 self._flagmask[i] = self._bintable[i].data["FLAGS"].astype(bool)
             else:
-                nc = self.nchan(i)
-                nr = self.nrows(i)
                 logger.debug(f"flag {nr=} {nc=}")
                 self._flagmask[i] = np.full((nr, nc), fill_value=False)
+            self._additional_channel_mask[i] = np.full((nr, nc), fill_value=False)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
