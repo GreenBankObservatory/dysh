@@ -57,12 +57,12 @@ class TestPSScan:
         """
         Test `getps` when working with multiple scans.
         """
-
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782"
         sdf_file = f"{data_path}/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
         gbtidl_file = f"{data_path}/TGBT21A_501_11_getps_scans_156-158_ifnum_0_plnum_0_timeaverage.fits"
 
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
         ps_scans = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
         ta = ps_scans.timeaverage()
 
@@ -139,12 +139,12 @@ class TestPSScan:
             assert ~all_nan
             # Check that the metadata is accurate.
             # The system temperature is different because of the squared averaging.
-            assert abs(ps_sb[0].calibrated(0).meta["TSYS"] - ta1.meta["TSYS"]) < 5e-16
-            assert (ps_sb[0].calibrated(0).meta["EXPOSURE"] - ta1.meta["EXPOSURE"]) == 0.0
+            assert abs(ps_sb[0].getspec(0).meta["TSYS"] - ta1.meta["TSYS"]) < 5e-16
+            assert (ps_sb[0].getspec(0).meta["EXPOSURE"] - ta1.meta["EXPOSURE"]) == 0.0
             # Check if the time averaged data matches that from the first integration.
-            # assert np.all(abs(ps_sb[0].calibrated(0).flux.value - ta1[0].flux.value) < 2e-19)
+            # assert np.all(abs(ps_sb[0].getspec(0).flux.value - ta1[0].flux.value) < 2e-19)
             # Set to 5E-16 because Windows OS tests fail below that.  Need to understand why.
-            assert np.all(abs(ps_sb[0].calibrated(0).flux.value - ta1.flux.value) < 5e-16)
+            assert np.all(abs(ps_sb[0].getspec(0).flux.value - ta1.flux.value) < 5e-16)
 
     def test_scan_write(self, data_dir, tmp_path):
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
@@ -159,8 +159,8 @@ class TestPSScan:
     def test_flag_write(self, data_dir, tmp_path):
         data_path = f"{data_dir}/AGBT18B_354_03"
         sdf_file = f"{data_path}/AGBT18B_354_03.raw.vegas"
-
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
         sdf.clear_flags()
         flagarray = [60000, 90000]
         flagrange = np.arange(flagarray[0], flagarray[1] + 1)
@@ -170,21 +170,21 @@ class TestPSScan:
         output = tmp_path / "test_sb_flag_write.fits"
         # scanblock flags test
         scan_block.write(output, overwrite=True, flags=True)
-        sdfin = gbtfitsload.GBTFITSLoad(output)
+        sdfin = gbtfitsload.GBTFITSLoad(output, flag_vegas=False)
         assert np.all(np.where(sdfin._sdf[0]._flagmask[0][1])[0] == flagrange)
         # scan flags test
         sb = sdfin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
         assert np.all(np.where(sb[0]._calibrated.mask[1])[0] == flagrange)
         scanout = tmp_path / "test_scan_flag_write.fits"
         sb[0].write(scanout, overwrite=True, flags=True)
-        scanin = gbtfitsload.GBTFITSLoad(scanout)
+        scanin = gbtfitsload.GBTFITSLoad(scanout, flag_vegas=False)
         assert np.all(np.where(scanin._sdf[0]._flagmask[0][1])[0] == flagrange)
         tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
         assert np.all(np.where(tpscan[0]._calibrated.mask[1])[0] == flagrange)
         # try with flags=false
         scanout = tmp_path / "test_scan_flag_write2.fits"
         sb[0].write(scanout, overwrite=True, flags=False)
-        scanin = gbtfitsload.GBTFITSLoad(scanout)
+        scanin = gbtfitsload.GBTFITSLoad(scanout, flag_vegas=False)
         tpscan = scanin.gettp(scan=7, ifnum=0, plnum=0, fdnum=0)
         assert len(np.where(tpscan[0]._calibrated.mask[1])[0]) == 0
 
@@ -205,7 +205,7 @@ class TestPSScan:
         assert ps_jy.meta["BUNIT"] == tunit
         assert ps_jy.meta["TUNIT7"] == tunit
         assert ps_jy.flux.unit.to_string() == tunit
-        ps_jy_i = ps_sb[0].calibrated(0)
+        ps_jy_i = ps_sb[0].getspec(0)
         assert ps_jy_i.meta["BUNIT"] == tunit
         assert ps_jy_i.meta["TUNIT7"] == tunit
         assert ps_jy_i.flux.unit.to_string() == tunit
@@ -251,7 +251,7 @@ class TestSubBeamNod:
         hdu.close()
 
         # Compare.
-        ratio = sbn[0].calibrated(0).flux.value / nodscan_gbtidl
+        ratio = sbn[0].getspec(0).flux.value / nodscan_gbtidl
         # kluge for now since there is a small wavy pattern in
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998
@@ -262,8 +262,9 @@ class TestSubBeamNod:
         """
         Test for SubBeamNodScan without noise diodes.
         """
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         sdf_file = f"{data_dir}/AGBT17B_456_03/AGBT17B_456_03.raw.vegas.testtrim.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         # Cycle mode.
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0).timeaverage()
@@ -334,7 +335,7 @@ class TestSubBeamNod:
         """Test subbeamnod using synthithic spectra."""
         # Load a file with subbeamnod observations.
         sdf_file = f"{data_dir}/TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         # Generate fake data.
         def gauss(x, a, s, c):
@@ -539,11 +540,12 @@ class TestTPScan:
         and that the system temperature is the same up to the precision
         used by GBTIDL.
         """
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
         gbtidl_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_eqweight.fits"
 
         # Generate the dysh result.
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
         tp = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
         assert len(tp) == 1
         # tpavg is a Spectrum
@@ -670,8 +672,9 @@ class TestFSScan:
         """
         Test for getfs without noise diode.
         """
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         sdf_file = util.get_project_testdata() / "AGBT20B_295_02/AGBT20B_295_02.raw.vegas.testtrim.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         # Test without system temperature.
         fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10)
@@ -721,8 +724,9 @@ class TestNodScan:
         Test for `getnod` using data with noise diode.
         """
         # Reduce with dysh.
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
         nod = sdf.getnod(scan=62, ifnum=0, plnum=0)
         assert len(nod) == 2
         nod_sp = nod.timeaverage()

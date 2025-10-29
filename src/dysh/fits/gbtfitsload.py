@@ -34,6 +34,7 @@ from ..spectra.tcal import TCal
 from ..util import (
     Flag,
     Selection,
+    calc_vegas_spurs,
     consecutive,
     convert_array_to_mask,
     eliminate_flagged_rows,
@@ -72,10 +73,27 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     skipflags: bool
         If True, do not read any flag files associated with these data. Default:False
 
+    flag_vegas: bool
+        If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
+        and ignore VEGAS_SPUR flag rules in flag files. Note this parameter is independent of 'skip_flags', which
+        controls only the reading of the flag file.  If you want no flags at all, use `skipflags=True, flag_vegas=False`.
+
+
+        +---------+-----------+--------------------------------------------------------------------------------------------+
+        |skipflags|flag_vegas | behavior                                                                                   |
+        +=========+===========+============================================================================================+
+        |False    | False     | VEGAS and other flags are created based on the flags file                                  |
+        +---------+-----------+--------------------------------------------------------------------------------------------+
+        |True     | False     | No flags are created                                                                       |
+        +---------+-----------+--------------------------------------------------------------------------------------------+
+        |True     | True      | VEGAS flags are created based on the FITS header                                           |
+        +---------+-----------+--------------------------------------------------------------------------------------------+
+        |False    | True      | VEGAS flags are created based on the FITS header.  Other flags are read from the flags file|
+        +---------+-----------+--------------------------------------------------------------------------------------------+
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, source=None, hdu=None, skipflags=False, **kwargs):
+    def __init__(self, fileobj, source=None, hdu=None, skipflags=False, flag_vegas=True, **kwargs):
         kwargs_opts = {
             "index": True,
             "verbose": False,
@@ -88,6 +106,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._selection = None
         self._tpnocal = None  # should become True or False once known
         self._flag = None
+
         self.GBT = Observatory["GBT"]
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
@@ -120,7 +139,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
         if kwargs_opts["index"]:
-            self._create_index_if_needed(skipflags)
+            self._create_index_if_needed(skipflags, flag_vegas)
             self._update_radesys()
             # This only works if the index was created.
             if kwargs_opts["fix_ka"]:
@@ -565,7 +584,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         else:
             # Check that the user input won't break anything.
             columns = self._validate_summary_columns(columns, col_defs, needed, verbose)
-
         ocols = columns + add_columns  # Output columns.
         ocols = sorted(set(ocols), key=ocols.index)  # Remove duplicates preserving order.
         _columns = ocols.copy()
@@ -575,8 +593,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             except ValueError:
                 continue
         cols = _columns + needed  # All columns to fetch.
-
-        self._create_index_if_needed()
+        # skipflags and flag_vegas from the constructor have been lost at this
+        # point, but if the user skipped the index with index=False, then the flags
+        # including vegas flags would have been skipped as well. So we can set them
+        # here reasonably.  If index=True in the constructor, then the index was already
+        # created and this method is a no-op.
+        self._create_index_if_needed(skipflags=True, flag_vegas=False)
 
         # Define column types.
         col_dtypes = {k: v.type for k, v in col_defs.items() if k in cols}
@@ -965,6 +987,72 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         self._flag.flag_channel(tag=tag, channel=channel)
 
+    def is_vegas(self):
+        """Check if these data appear to use the VEGAS backend
+
+        Returns
+        -------
+            True if FITS HEADER Keyword INSTRUME or BACKEND is present and equals 'VEGAS', False otherwise
+        """
+        if "INSTRUME" in self._selection:
+            instrument = str(next(iter(set(self["INSTRUME"])))).upper()
+        else:
+            instrument = ""
+        if "BACKEND" in self._selection:
+            backend = str(next(iter(set(self["BACKEND"])))).upper()
+        else:
+            backend = ""
+        if instrument == "VEGAS" or backend == "VEGAS":
+            return True
+        else:
+            return False
+
+    @log_call_to_history
+    def flag_vegas_spurs(self, flag_central=False):
+        """
+        Flag VEGAS SPUR channels.
+
+        Parameters
+        ----------
+        flag_central : bool, optional
+            Whether to flag the central VEGAS spur location or not.
+            The GBO SDFITS writer by default replaces the value at the central SPUR with the average of the
+            two adjacent channels, and hence the central channel is not typically flagged.
+
+        Returns
+        -------
+        None.
+
+        """
+        if not self.is_vegas():
+            logger.warning(
+                "This does not appear to be VEGAS data. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. No channels will be flagged."
+            )
+            return
+        try:
+            df = self._selection.groupby(["FITSINDEX", "BINTABLE"])
+            for _i, ((fi, bi), g) in enumerate(df):
+                vsprval = g["VSPRVAL"].to_numpy()
+                vspdelt = g["VSPDELT"].to_numpy()
+                vsprpix = g["VSPRPIX"].to_numpy()
+                rows = g["ROW"].to_numpy()
+                maxnchan = self._sdf[fi].nchan(bi) - 1
+                spurs = calc_vegas_spurs(vsprval, vspdelt, vsprpix, maxnchan, flag_central)
+                if spurs.shape[0] != len(rows):
+                    raise ValueError(f"spurs array length {spurs.shape[0]} != selected number of rows {len(rows)}")
+                else:
+                    p = []
+                    # there should be a way to do this without a for loop.
+                    for a in spurs:
+                        mask = np.full(maxnchan + 1, False)
+                        mask[a[~a.mask]] = True
+                        p.append(mask)
+                    self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(p)
+        except KeyError as k:
+            logger.warning(
+                f"Can't determine VEGAS spur locations because one or more VSP keywords are missing from the FITS header {k}"
+            )
+
     @log_call_to_history
     def apply_flags(self):
         """
@@ -987,12 +1075,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # if it is list of lists, then it is upper lower inclusive
             dfs = selection.groupby(["FITSINDEX", "BINTABLE"])
             # the dict key for the groups is a tuple (fitsindex,bintable)
-            for i, ((fi, bi), g) in enumerate(dfs):  # noqa: B007
+            for _i, ((fi, bi), g) in enumerate(dfs):
                 chan_mask = convert_array_to_mask(chan, self._sdf[fi].nchan(bi))
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
+        # now any additional channel flags, i.e. VEGAS flags
+        self._apply_additional_flags()
+
+    def _apply_additional_flags(self):
+        """apply the additional channel flags created by, e.g., flag_vegas"""
+        for k in self._sdf:
+            if k._additional_channel_mask is not None and k._flagmask is not None:
+                k._flagmask |= k._additional_channel_mask
 
     @log_call_to_history
     def clear_flags(self):
@@ -1001,7 +1097,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sdf._init_flags()
         self._flag.clear()
 
-    def _create_index_if_needed(self, skipflags=False):
+    def _create_index_if_needed(self, skipflags=False, flag_vegas=True):
         """
         Parameters
         ----------
@@ -1034,6 +1130,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._construct_procedure()
         self._construct_integration_number()
 
+        if flag_vegas and self.is_vegas():
+            self.flag_vegas_spurs()
+
         if skipflags:
             return
 
@@ -1048,10 +1147,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             flagfile = p.with_suffix(".flag")
             if flagfile.exists():
                 fi = uniq(s["FITSINDEX"])[0]
-                self.flags.read(flagfile, fitsindex=fi)
+                self.flags.read(flagfile, fitsindex=fi, ignore_vegas=flag_vegas)
                 found_flags = True
-        if found_flags:
-            print("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
+        if found_flags and len(self.flags._table) != 0:
+            logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
     def _construct_procedure(self):
         """
@@ -1115,11 +1214,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     intnumarray[idx] = intnums[i]
         self._selection["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
-
-    def info(self):
-        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
-        for s in self._sdf:
-            s.info()
 
     def _common_selection(self, ifnum, plnum, fdnum, **kwargs):
         """Do selection and flag application common to all calibration methods.
@@ -1194,6 +1288,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if apply_flags:
             self.apply_flags()
         return (scans, _sf)
+
+    def info(self):
+        """Return information on the HDUs contained in this object. See :meth:`~astropy.HDUList/info()`"""
+        for s in self._sdf:
+            s.info()
 
     @log_call_to_result
     def gettp(
@@ -2504,7 +2603,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tscale=units,
                     zenith_opacity=zenith_opacity,
                     weights=weights,
-                    tcal=tpoff[0].calibrated(0).meta["TCAL"],
+                    tcal=tpoff[0].getspec(0).meta["TCAL"],
                 )
                 sb.merge_commentary(self)
                 scanblock.append(sb)
@@ -2627,7 +2726,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         selection = Selection(self._index)
         if len(kwargs) > 0:
             selection._select_from_mixed_kwargs(**kwargs)
-            # logger.debug(selection.show())
+            logger.debug(selection.show())
             _final = selection.final
         else:
             _final = selection
@@ -3403,7 +3502,7 @@ class GBTOnline(GBTFITSLoad):
             # 1. check the status_file ?
             status_file = "sdfitsStatus.txt"
             if os.path.exists(sdfits_root + "/" + status_file):
-                logger.debug(f"Warning, found {status_file} but not using it yet")
+                logger.debug(f"Found {status_file} but not using it yet")
 
             # 2. visit each directory where the final leaf contains fits files, and find the most recent one
             n = 0
