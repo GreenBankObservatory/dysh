@@ -194,7 +194,7 @@ class PlotBase:
 
 
 def check_kwargs(known_kwargs, kwargs):
-    """Check if kwargs is in known_kwargs"""
+    """Check if `kwargs` are in `known_kwargs`"""
     diff = set(kwargs) - set(known_kwargs)
     if len(diff) > 0:
-        logger.warning(f"Unknwon kwargs: {', '.join(diff)}")
+        logger.warning(f"Unknown kwargs: {', '.join(diff)}")
