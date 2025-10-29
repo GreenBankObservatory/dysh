@@ -516,7 +516,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
         date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
         factor = gc.scale_ta_to(
-            tscale, freq, elev, date, zenith_opacity, zd=False, eps0=self._surface_error, ap_eff=self._ap_eff
+            tscale, freq, elev, date, zenith_opacity, zd=False, surface_error=self._surface_error, ap_eff=self._ap_eff
         )
         self._scaleby(factor)
         self._tscale_fac = factor
@@ -654,7 +654,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
                 date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
                 self._ap_eff_array = gc.aperture_efficiency(
-                    specval=freq, angle=elev, date=date, zd=False, eps0=self.surface_error
+                    specval=freq, angle=elev, date=date, zd=False, surface_error=self.surface_error
                 )
 
         return self._ap_eff_array
