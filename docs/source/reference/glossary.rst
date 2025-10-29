@@ -142,7 +142,7 @@ In this glossary we also note overloaded terms.
       The :term:`FITS` keywords BMAJ, BMIN, and BPA  are used for the
       major axis, minor axis, and position angle respectively when referring
       to a spatial beam.
-    
+
 
     Frequency Switching
       This is a variation on position switching using a receiver
@@ -288,7 +288,7 @@ In this glossary we also note overloaded terms.
     SESSION
       Or Session ID.  This is the number (starting at index 01) denoting the observing sessions
       within a given :ref:`Project Code`.
-      See also :ref:`data_org` 
+      See also :ref:`data_org`
 
     SIG
       signal, but also overloaded the ON in ON/OFF.
