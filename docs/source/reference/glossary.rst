@@ -5,9 +5,10 @@ A dysh glossary
 
 See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.html>`_
 
+In this glossary we also note overloaded terms.
+
 
 .. glossary::
-
 
     Argus
       A 16-:term:`pixel` W-band (74-116 GHz) focal plane array in use at the GBT. Named after a mythical figure
@@ -42,13 +43,18 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
       See also :term:`multi-beam`
 
+      See also :term:`horn`
+
     Beam Switching
-      This is a variation on position switching using a receiver
+      This is a variation on :term:`Position Switching` using a receiver
       with multiple beams. The :term:`SIG` and :term:`REF`
       positions on the sky are
-      calculated so that the receiver is always pointing at the source. This is most
-      useful for point sources. At GBT only implemented for Ka-band.
+      calculated so that at least one feed of the multi-beam receiver is always
+      pointing at the source. This is most useful for point sources.
+
       See also :term:`Position Switching`
+
+.. PJT open issue
 
     BINTABLE
       Binary table. In dysh data, BINTABLE is an index running from 0 to N-1,
@@ -61,8 +67,8 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       and :term:`masking` in dysh.
 
     CAL
-      see also :term:`SIG` or :term:`REF`
-      ON/OFF   SIG/REF
+      overloaded term, sometimes used to refer to the :term:`REF` position (or OFF in the
+      :term:`ON/OFF` notation).
 
     caloff
       Signal with no calibration diode in the signal path.
@@ -73,11 +79,14 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
     Chebyshev
       a type of orthogonal polynomial that is commonly used in
       numerical methods due to its optimal convergence properties and
-      connection to the Fourier transform.
+      connection to the Fourier transform. One of the options in
+      baseline fitting in dysh.
 
-    cog - Curve of Growth
-      ...
-      see also notebook
+    CoG
+      Curve of Growth: integrating the flux from the center of a line outwards.
+
+      See also :ref:`cog` for the dysh implementation.
+      
 
     DYSH_DATA
       (optional) environment variable pointing to a directory with local copies
@@ -86,19 +95,19 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       See also :term:`SDFITS_DATA`.
 
     ECSV
-      (Enhanced Character Separated Values) a self-describing ASCII table format popularized by astropy.
+      Enhanced Character Separated Values: a self-describing ASCII table format popularized by astropy.
       See also https://github.com/astropy/astropy-APEs/blob/main/APE6.rst
 
     fdnum
-      Feed Number. 0, 1, ...
-      Also used as the **fdnum=** keyword in getXX()
+      Feed Number in dysh, starting at 0, used 
+      as the **fdnum=** keyword in the getXX() routines.
 
       See also :term:`beam`
 
     FITS
-      (Flexible Image Transport System): the export format
+      Flexible Image Transport System: the export format
       for data-cubes, although there is also a waterfall cube
-      (time-freq-pixel) cube available.
+      (time-freq-pixel) cube available in dysh.
 
     flagging
       flagging is a non-destructive operation, where data in the
@@ -109,7 +118,12 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       flagging is done automatically by
       :class:`~dysh.fits.gbtfitsload.GBTFITSLoad`.
 
+      The data are flagged by GBTFITSLoad (or the user). Blanking is
+      the application of flags using apply_flags().
+
       See also :term:`masking`
+
+.. PJT open issue	     
 
 
     flag files
@@ -156,6 +170,8 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       See also :term:`band` and :term:`window` are often used as well, where they
       mean an IF band.
 
+      See also :term:`ifnum`
+
     ifnum
       IF number (0,1,...)
       Also used as the **ifnum=** keyword in getXX().
@@ -163,8 +179,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       See also :term:`band` and :term:`window`
 
     intnum
-      Integration number. 0 being the first.
-      Also used as the **intnum=** keyword in getXX()
+      Integration number, starting at 0, used as the **intnum=** keyword in the getXX() routines.
 
     KFPA
       K-band Focal Plane Array, a hexagonal set of beams, with a central beam. Covers 18-26 GHz.
@@ -203,7 +218,7 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 
       See also :term:`calon` and :term:`caloff` and
 
-    ON, OFF
+    ON/OFF
       The ON/OFF references are an overloaded term for when we refer to the
       :term:`SIG` and  :term:`REF` resp.
 
@@ -242,17 +257,18 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
     REF
       Reference point, meant to have no signal. See also :term:`CAL`
 
+      See also :ref:`sdmath`
+
     Region
       Region or regions of spectrum, used for flagging/masking,baseline subtraction.
 
     Scan
        A unit of observing, usually in some common mode, with one or more integrations.
-       GBT differentiates between different types of scans. Scans are integers.
+       GBT differentiates between different types of scans. Scans are referred to as
+       1-based integers.
 
     ScanBlock
-      A container for a series of **scan**'s.
-
-      See also :term:`scanblocks`
+      A container for a series of :term:`Scan`'s. 
 
     SDFITS
       Single Dish **FITS** format, normally used to store
@@ -275,7 +291,9 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
       See also :ref:`data_org` 
 
     SIG
-      signal - see also CAL.
+      signal, but also overloaded the ON in ON/OFF.
+
+      See also :ref:`sdmath`    
 
     Spectral Window
       This is closest to what we call a **bank**,
@@ -297,6 +315,11 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
     VEGAS
       Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
 
+    waterfall plot
+      A plot (or two-dimensional image) that shows time vs. frequency.
+
+    Window
+      See :term:`Spectral Window`
 
 
 ..    The velocity of a source using the relativistic definition of the velocity-frequency relationship.
@@ -304,13 +327,6 @@ See also the `GBO Glossary <https://gbtdocs.readthedocs.io/en/latest/glossary.ht
 ..    The velocity of a source using the optical definition of the velocity-frequency relationship.
 
 ..    The velocity of a source using the radio definition of the velocity-frequency relationship.
-
-
-    waterfall plot
-      A plot (or two-dimensional image) that shows time vs. frequency.
-
-    Window
-      See :term:`Spectral Window`
 
 
 .. _data_org:
