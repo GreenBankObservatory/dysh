@@ -265,7 +265,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
         self._plotter = None
         self._check_gain_factors(self._ap_eff, self._surface_error)
-        print(f"Scanbase {ap_eff=} {surface_error=}")
 
     def _validate_defaults(self):
         _required = {
@@ -331,7 +330,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
         self._calibrate = calibrate
         self._nint = len(meta_rows)
-        print(f"{self._nint=}")
         self._make_meta(meta_rows)
         self._tscale_fac = np.ones(self._nint)
         self._init_tsys(tsys)
@@ -345,9 +343,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 self.calibrate()
             self._add_calibration_meta()
         if zenith_opacity is not None or self._ap_eff is not None:
-            print("calling scale")
             self.scale(tscale, zenith_opacity)
-        print(f"{self._tscale_fac=}")
         self._update_scale_meta()
         self._validate_defaults()
 
@@ -488,17 +484,17 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             If `tscale` is unrecognized or `zenith_opacity` is negative.
 
         """
-        print(f"IN scan.scale({tscale=},{zenith_opacity=})")
-        print(f"A {len(self._meta)=}")
         if self.__class__ == TPScan:
             raise TypeError("Total power data cannot be directly scaled to temperature or flux density.")
         self._check_tscale(tscale)
-        if zenith_opacity is not None and zenith_opacity < 0:
-            raise ValueError("Zenith opacity cannot be negative.")
         s = tscale.lower()
         if s == self._tscale.lower():
+            # requested scale is the current scale, nothing to be done.
             return
-        if s != "ta" and zenith_opacity is None:  # and self._ap_eff is not None:
+        if zenith_opacity is not None and zenith_opacity < 0:
+            raise ValueError("Zenith opacity cannot be negative.")
+        if s != "ta" and zenith_opacity is None:
+            # and self._ap_eff is not None:
             raise ValueError("Zenith opacity must be provided when scaling to Ta* or Flux.")
         ntscale = self._tscale_to_unit[s].to_string()
         # unscale the data if it was already scaled.
@@ -507,7 +503,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         # if scaling back to antenna temperature, reset the scale factor to one and return.
         if s == "ta":
-            print(f"{len(self._meta)=}")
             self._tscale_fac = np.full(self._nint, 1.0)
             self._tscale = s
             self._set_all_meta("TSCALFAC", 1.0)
@@ -520,9 +515,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
         freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
         date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
-        print(
-            f"gc.scale_ta_to(tscale, freq, elev, date, zenith_opacity, zd=False, {self._surface_error}, {self._ap_eff=}"
-        )
         factor = gc.scale_ta_to(
             tscale, freq, elev, date, zenith_opacity, zd=False, eps0=self._surface_error, ap_eff=self._ap_eff
         )
@@ -680,7 +672,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # compute it the first time if not computed.
         if self._surface_error_array is None:
             if self._surface_error is not None:
-                self._surface_error_array = np.full(self.nint, fill_value=self._surface_error, dtype=float)
+                self._surface_error_array = (
+                    np.full(self.nint, fill_value=self._surface_error.to(u.micron).value, dtype=float) * u.micron
+                )
             else:
                 gc = GBTGainCorrection()
                 date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
@@ -882,7 +876,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["TSCALE"] = self.tscale
             self._meta[i]["TSCALFAC"] = self.tscale_fac[i]
             self._meta[i]["AP_EFF"] = a[i]
-            print(self._meta[i]["AP_EFF"])
             self._meta[i]["SURF_ERR"] = s[i]
             self._meta[i]["SE_UNIT"] = seunit
 
@@ -915,7 +908,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
            Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
 
         """
-        print("TIMEAVERAGE")
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         self._timeaveraged = deepcopy(self.calibrated(0))
@@ -932,9 +924,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["AP_EFF"] = sq_weighted_avg(self.ap_eff[non_blanks], axis=0, weights=w[non_blanks])
-        print(f'{self._timeaveraged.meta["AP_EFF"]=}, {w[non_blanks]=},{self.ap_eff[non_blanks]=}')
         self._timeaveraged.meta["SURF_ERR"] = sq_weighted_avg(
-            self.surface_error[non_blanks], axis=0, weights=w[non_blanks]
+            self.surface_error[non_blanks].value, axis=0, weights=w[non_blanks]
         )
         if self.zenith_opacity is not None:
             self._timeaveraged.meta["TAU_Z"] = self.zenith_opacity
@@ -1389,12 +1380,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         """
         s0 = self.data[0]
-        # If there is only one scan, delegate to its write method
-        # this does not preserve scanblock history
-        # if len(self.data) == 1:
-        #    print("only one scan")
-        #   s0.write(fileobj, output_verify, overwrite, checksum)
-        #   return
         # Meta are the keys of the first scan's bintable except for DATA.
         # We can use this to compare with the subsequent Scan
         # keywords without have to create their bintables first.
