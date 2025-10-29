@@ -26,11 +26,13 @@ are also referred to sometimes as CAL and SIG.
 
 .. math:: :label: eq_sdmath3
 
-   T_A = T_{sys}  {   { ON - OFF } \over {OFF} }
+   T_A = T_{sys}  {   { SIG - REF } \over {REF} }
 
 All of these have values for each channel. How exactly the :math:`T_{sys}` is computed (scalar, vector,
-mean/median)
-can vary with different implementations.
+mean/median) can vary with different implementations.
+
+Note in some places you may see the SIG/REF referred to as ON/OFF.	  
+
 
 
 The radiometer equation equates the noise to the system temperature, integration time and bandwidth
