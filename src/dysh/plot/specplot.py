@@ -620,42 +620,48 @@ class Menu:
         self.leftclick_button_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[0], hsize, vsize])
         self.leftclick_button = Button(self.leftclick_button_ax, "Left Click")
         self.leftclick_button.on_clicked(self.open_leftclick_radio)
-        self.leftclick_radio_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[0]-vsize*4, hsize*2, vsize*4])
+        self.leftclick_radio_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1]-vsize*4, hsize*2, vsize*4],
+        zorder=100)
         self.leftclick_radio_ax.set_visible(False)
 
         # Button/Radio combo to select xunit
         self.xunit_button_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1], hsize, vsize])
         self.xunit_button = Button(self.xunit_button_ax, "X Unit")
         self.xunit_button.on_clicked(self.open_xunit_radio)
-        self.xunit_radio_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1]-vsize*7, hsize*2, vsize*7])
+        self.xunit_radio_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1]-vsize*7, hsize*2, vsize*7],
+        zorder=100)
         self.xunit_radio_ax.set_visible(False)
 
         # Button/Radio combo to select vframe
         self.vframe_button_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[0], hsize, vsize])
         self.vframe_button = Button(self.vframe_button_ax, "Vframe")
         self.vframe_button.on_clicked(self.open_vframe_radio)
-        self.vframe_radio_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[0]-vsize*7, hsize*2, vsize*7])
+        self.vframe_radio_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[1]-vsize*7, hsize*2, vsize*7],
+        zorder=100)
         self.vframe_radio_ax.set_visible(False)
 
         # Button/Radio combo to select voffset
         self.voffset_button_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[1], hsize, vsize])
         self.voffset_button = Button(self.voffset_button_ax, "Voffset")
         self.voffset_button.on_clicked(self.open_voffset_radio)
-        self.voffset_radio_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[1]-vsize*2, hsize*2, vsize*2])
+        self.voffset_radio_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[1]-vsize*2, hsize*2, vsize*2],
+        zorder=100)
         self.voffset_radio_ax.set_visible(False)
 
         # Button/Radio combo to select vdef
         self.vdef_button_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[0], hsize, vsize])
         self.vdef_button = Button(self.vdef_button_ax, "Vdef")
         self.vdef_button.on_clicked(self.open_vdef_radio)
-        self.vdef_radio_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[0]-vsize*3, hsize*2, vsize*3])
+        self.vdef_radio_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[1]-vsize*3, hsize*2, vsize*3],
+        zorder=100)
         self.vdef_radio_ax.set_visible(False)
 
         # Button/Radio combo to select center freq
         self.centfreq_button_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[1], hsize, vsize])
         self.centfreq_button = Button(self.centfreq_button_ax, "CentFreq")
         self.centfreq_button.on_clicked(self.open_centfreq_radio)
-        self.centfreq_radio_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[1]-vsize*2, hsize*2, vsize*2])
+        self.centfreq_radio_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[1]-vsize*2, hsize*2, vsize*2],
+        zorder=100)
         self.centfreq_radio_ax.set_visible(False)
 
 
@@ -666,6 +672,8 @@ class Menu:
     def _zline_enable(self, event=None):
         #print('zline!')
         self.specplot._zline.set_visible(not self.specplot._zline.get_visible())
+        #self.zline_button.set_active(not self.zline_button.get_active())
+        #self.specplot._axis.figure.canvas.draw_idle()
         #self.specplot._zline._axis.canvas.draw_idle()
 
     def _hist_enable(self, event=None):
