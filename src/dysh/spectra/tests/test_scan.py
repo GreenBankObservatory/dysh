@@ -222,6 +222,26 @@ class TestPSScan:
         assert ps_cal.meta["TSYS"] == pytest.approx(ps_org.meta["TSYS"] / ps_org.meta["TCAL"])
         assert ps_cal.meta["TCAL"] == 1.0
 
+    def test_ap_eff_surf_err(self, data_dir):
+        """check that user-provided aperture efficiency and surface error are propogated correctly"""
+        # assume that if it works for PSSCan it works for all Scan types???
+        data_path = f"{data_dir}/AGBT18B_354_03"
+        sdf_file = f"{data_path}/AGBT18B_354_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb1 = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0, surface_error=0 * u.micron, zenith_opacity=0, units="ta*")
+        # tscale_fac time loss efficiency = 0.99 should be 1/aperture efficiency
+        assert np.all(sb1[0].ap_eff * sb1.tscale_fac * 0.99) == 1
+        sb2 = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0, ap_eff=1, zenith_opacity=0, units="ta*")
+        # tscale fac times loss efficiency=0.99 should give 1 in this case
+        assert np.all(sb2.tscale_fac * 0.99 == 1)
+        x = sb1.timeaverage()
+        assert pytest.approx(x.meta["AP_EFF"] / 0.709684575408695) == 1
+        assert x.meta["SURF_ERR"] == 0.0
+        assert x.meta["SE_UNIT"] == "micron"
+        sb1 = sdf.getps(scan=6, ifnum=0, plnum=0, fdnum=0, zenith_opacity=0.1, units="ta*")
+        x = sb1.timeaverage()
+        assert pytest.approx(x.meta["TAU_Z"] / 0.1) == 1
+
 
 class TestSubBeamNod:
     def test_compare_with_GBTIDL(self, data_dir):
