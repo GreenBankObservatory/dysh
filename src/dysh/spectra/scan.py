@@ -331,7 +331,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             )
         self._calibrate = calibrate
         self._nint = len(meta_rows)
+        print(f"{self._nint=}")
         self._make_meta(meta_rows)
+        self._tscale_fac = np.ones(self._nint)
         self._init_tsys(tsys)
         self._init_tcal(tcal)
         self._calc_exposure()
@@ -343,9 +345,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 self.calibrate()
             self._add_calibration_meta()
         if zenith_opacity is not None or self._ap_eff is not None:
+            print("calling scale")
             self.scale(tscale, zenith_opacity)
-        else:
-            self._tscale_fac = np.ones(self._nint)
+        print(f"{self._tscale_fac=}")
         self._update_scale_meta()
         self._validate_defaults()
 
@@ -486,15 +488,17 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             If `tscale` is unrecognized or `zenith_opacity` is negative.
 
         """
+        print(f"IN scan.scale({tscale=},{zenith_opacity=})")
+        print(f"A {len(self._meta)=}")
         if self.__class__ == TPScan:
             raise TypeError("Total power data cannot be directly scaled to temperature or flux density.")
         self._check_tscale(tscale)
-        if zenith_opacity < 0:
+        if zenith_opacity is not None and zenith_opacity < 0:
             raise ValueError("Zenith opacity cannot be negative.")
         s = tscale.lower()
         if s == self._tscale.lower():
             return
-        if s != "ta" and zenith_opacity is None and self._ap_eff is not None:
+        if s != "ta" and zenith_opacity is None:  # and self._ap_eff is not None:
             raise ValueError("Zenith opacity must be provided when scaling to Ta* or Flux.")
         ntscale = self._tscale_to_unit[s].to_string()
         # unscale the data if it was already scaled.
@@ -503,7 +507,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
         # if scaling back to antenna temperature, reset the scale factor to one and return.
         if s == "ta":
-            self._tscale_fac = np.array([1.0])
+            print(f"{len(self._meta)=}")
+            self._tscale_fac = np.full(self._nint, 1.0)
             self._tscale = s
             self._set_all_meta("TSCALFAC", 1.0)
             self._set_all_meta("TSCALE", self.tscale)
@@ -1902,7 +1907,15 @@ class PSScan(ScanBase):
                 self._nrows = nsigrows
 
         self._nchan = gbtfits.nchan(self._bintable_index)
-        self._finish_initialization(calibrate, None, self._sigoffrows, tscale, zenith_opacity, tsys=tsys, tcal=tcal)
+        self._finish_initialization(
+            calibrate,
+            None,
+            meta_rows=self._sigoffrows,
+            tscale=tscale,
+            zenith_opacity=zenith_opacity,
+            tsys=tsys,
+            tcal=tcal,
+        )
 
     @property
     def sigscan(self) -> int:
