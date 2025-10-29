@@ -86,7 +86,7 @@ In this glossary we also note overloaded terms.
       Curve of Growth: integrating the flux from the center of a line outwards.
 
       See also :ref:`cog` for the dysh implementation.
-      
+
 
     DYSH_DATA
       (optional) environment variable pointing to a directory with local copies
@@ -99,7 +99,7 @@ In this glossary we also note overloaded terms.
       See also https://github.com/astropy/astropy-APEs/blob/main/APE6.rst
 
     fdnum
-      Feed Number in dysh, starting at 0, used 
+      Feed Number in dysh, starting at 0, used
       as the **fdnum=** keyword in the getXX() routines.
 
       See also :term:`beam`
@@ -123,7 +123,7 @@ In this glossary we also note overloaded terms.
 
       See also :term:`masking`
 
-.. PJT open issue	     
+.. PJT open issue
 
 
     flag files
@@ -268,7 +268,7 @@ In this glossary we also note overloaded terms.
        1-based integers.
 
     ScanBlock
-      A container for a series of :term:`Scan`'s. 
+      A container for a series of :term:`Scan`'s.
 
     SDFITS
       Single Dish **FITS** format, normally used to store
@@ -293,7 +293,7 @@ In this glossary we also note overloaded terms.
     SIG
       signal, but also overloaded the ON in ON/OFF.
 
-      See also :ref:`sdmath`    
+      See also :ref:`sdmath`
 
     Spectral Window
       This is closest to what we call a **bank**,

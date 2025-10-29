@@ -31,7 +31,7 @@ are also referred to sometimes as CAL and SIG.
 All of these have values for each channel. How exactly the :math:`T_{sys}` is computed (scalar, vector,
 mean/median) can vary with different implementations.
 
-Note in some places you may see the SIG/REF referred to as ON/OFF.	  
+Note in some places you may see the SIG/REF referred to as ON/OFF.
 
 
 
