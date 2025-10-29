@@ -54,7 +54,7 @@ In this glossary we also note overloaded terms.
 
       See also :term:`Position Switching`
 
-.. PJT open issue
+      .. was this only implemented for Ka, and now for more?
 
     BINTABLE
       Binary table. In dysh data, BINTABLE is an index running from 0 to N-1,
@@ -123,7 +123,7 @@ In this glossary we also note overloaded terms.
 
       See also :term:`masking`
 
-.. PJT open issue
+      .. PJT open issue
 
 
     flag files
