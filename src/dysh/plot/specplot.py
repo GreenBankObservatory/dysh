@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
-from matplotlib.widgets import Button, CheckButtons, SpanSelector
+from matplotlib.widgets import Button, CheckButtons, RadioButtons, SpanSelector
 
 from ..coordinates import (
     decode_veldef,
@@ -574,7 +574,7 @@ class Menu:
         self.canvas = self.specplot._axis.figure.canvas
         self.regionshow = True
 
-        hcoords = [0.1,0.23,0.36]
+        hcoords = [0.08,0.21,0.34, 0.47, 0.60, 0.73]
         vcoords = [0.93,0.88]
 
         hsize = 0.12
@@ -616,6 +616,48 @@ class Menu:
         self.clearoverlay_button = Button(self.clearoverlay_button_ax, "Clear Overlays")
         self.clearoverlay_button.on_clicked(self._clearoverlays)
 
+        # Button/Radio combo to select leftclick
+        self.leftclick_button_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[0], hsize, vsize])
+        self.leftclick_button = Button(self.leftclick_button_ax, "Left Click")
+        self.leftclick_button.on_clicked(self.open_leftclick_radio)
+        self.leftclick_radio_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[0]-vsize*4, hsize*2, vsize*4])
+        self.leftclick_radio_ax.set_visible(False)
+
+        # Button/Radio combo to select xunit
+        self.xunit_button_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1], hsize, vsize])
+        self.xunit_button = Button(self.xunit_button_ax, "X Unit")
+        self.xunit_button.on_clicked(self.open_xunit_radio)
+        self.xunit_radio_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1]-vsize*7, hsize*2, vsize*7])
+        self.xunit_radio_ax.set_visible(False)
+
+        # Button/Radio combo to select vframe
+        self.vframe_button_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[0], hsize, vsize])
+        self.vframe_button = Button(self.vframe_button_ax, "Vframe")
+        self.vframe_button.on_clicked(self.open_vframe_radio)
+        self.vframe_radio_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[0]-vsize*7, hsize*2, vsize*7])
+        self.vframe_radio_ax.set_visible(False)
+
+        # Button/Radio combo to select voffset
+        self.voffset_button_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[1], hsize, vsize])
+        self.voffset_button = Button(self.voffset_button_ax, "Voffset")
+        self.voffset_button.on_clicked(self.open_voffset_radio)
+        self.voffset_radio_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[1]-vsize*2, hsize*2, vsize*2])
+        self.voffset_radio_ax.set_visible(False)
+
+        # Button/Radio combo to select vdef
+        self.vdef_button_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[0], hsize, vsize])
+        self.vdef_button = Button(self.vdef_button_ax, "Vdef")
+        self.vdef_button.on_clicked(self.open_vdef_radio)
+        self.vdef_radio_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[0]-vsize*3, hsize*2, vsize*3])
+        self.vdef_radio_ax.set_visible(False)
+
+        # Button/Radio combo to select center freq
+        self.centfreq_button_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[1], hsize, vsize])
+        self.centfreq_button = Button(self.centfreq_button_ax, "CentFreq")
+        self.centfreq_button.on_clicked(self.open_centfreq_radio)
+        self.centfreq_radio_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[1]-vsize*2, hsize*2, vsize*2])
+        self.centfreq_radio_ax.set_visible(False)
+
 
 
     def _writeascii(self,event=None):
@@ -640,11 +682,124 @@ class Menu:
             for region in self.specplot._selector.regions:
                 region.set_visible(self.regionshow)
 
-
-
     def _clearoverlays(self,event=None):
         print('clear overlays')
         self.specplot.clear_overlays()
+
+
+    def open_leftclick_radio(self,event=None):
+        print('choose leftclick')
+        self.leftclick_radio_ax.set_visible(True)
+        self.leftclick_radio = RadioButtons(
+            self.leftclick_radio_ax,
+            ('Null', 'Position', 'Marker', 'Vline')
+        )
+        self.leftclick_radio.on_clicked(self.choose_leftclick)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+    def choose_leftclick(self, choice):
+        print(choice)
+        self.leftclick_radio = None
+        self.leftclick_radio_ax.set_visible(False)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+    def open_xunit_radio(self, event=None):
+        print('choose xunit')
+        self.xunit_radio_ax.set_visible(True)
+        self.xunit_radio = RadioButtons(
+            self.xunit_radio_ax,
+            ('chan', 'Hz', 'kHz', 'MHz', 'GHz', 'm/s', 'km/s')
+        )
+        self.xunit_radio.on_clicked(self.choose_xunit)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+    def choose_xunit(self, choice):
+        print(choice)
+        self.xunit_radio = None
+        self.xunit_radio_ax.set_visible(False)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+
+    def open_vframe_radio(self, event=None):
+        print('choose vframe')
+        self.vframe_radio_ax.set_visible(True)
+        self.vframe_radio = RadioButtons(
+            self.vframe_radio_ax,
+            ('TOPO', 'LSR', 'LSD', 'GEO', 'HEL', 'BARY', 'GAL')
+        )
+        self.vframe_radio.on_clicked(self.choose_vframe)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+    def choose_vframe(self, choice):
+        print(choice)
+        self.vframe_radio = None
+        self.vframe_radio_ax.set_visible(False)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+    def open_voffset_radio(self, event=None):
+        print('choose voffset')
+        self.voffset_radio_ax.set_visible(True)
+        self.voffset_radio = RadioButtons(
+            self.voffset_radio_ax,
+            ('vsrc', '0')
+        )
+        self.voffset_radio.on_clicked(self.choose_voffset)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+    def choose_voffset(self, choice):
+        print(choice)
+        self.voffset_radio = None
+        self.voffset_radio_ax.set_visible(False)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+
+    def open_vdef_radio(self, event=None):
+        print('choose vdef')
+        self.vdef_radio_ax.set_visible(True)
+        self.vdef_radio = RadioButtons(
+            self.vdef_radio_ax,
+            ('radio', 'optical', 'true')
+        )
+        self.vdef_radio.on_clicked(self.choose_vdef)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+    def choose_vdef(self, choice):
+        print(choice)
+        self.vdef_radio = None
+        self.vdef_radio_ax.set_visible(False)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+
+    def open_centfreq_radio(self, event=None):
+        print('choose centfreq')
+        self.centfreq_radio_ax.set_visible(True)
+        self.centfreq_radio = RadioButtons(
+            self.centfreq_radio_ax,
+            ('abs', 'rel')
+        )
+        self.centfreq_radio.on_clicked(self.choose_centfreq)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+    def choose_centfreq(self, choice):
+        print(choice)
+        self.centfreq_radio = None
+        self.centfreq_radio_ax.set_visible(False)
+        self.specplot._plt.draw()
+        self.specplot._axis.figure.canvas.draw_idle()
+
+
+
 
 
 
