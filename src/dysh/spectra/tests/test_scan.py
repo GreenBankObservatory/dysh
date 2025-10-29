@@ -139,12 +139,12 @@ class TestPSScan:
             assert ~all_nan
             # Check that the metadata is accurate.
             # The system temperature is different because of the squared averaging.
-            assert abs(ps_sb[0].calibrated(0).meta["TSYS"] - ta1.meta["TSYS"]) < 5e-16
-            assert (ps_sb[0].calibrated(0).meta["EXPOSURE"] - ta1.meta["EXPOSURE"]) == 0.0
+            assert abs(ps_sb[0].getspec(0).meta["TSYS"] - ta1.meta["TSYS"]) < 5e-16
+            assert (ps_sb[0].getspec(0).meta["EXPOSURE"] - ta1.meta["EXPOSURE"]) == 0.0
             # Check if the time averaged data matches that from the first integration.
-            # assert np.all(abs(ps_sb[0].calibrated(0).flux.value - ta1[0].flux.value) < 2e-19)
+            # assert np.all(abs(ps_sb[0].getspec(0).flux.value - ta1[0].flux.value) < 2e-19)
             # Set to 5E-16 because Windows OS tests fail below that.  Need to understand why.
-            assert np.all(abs(ps_sb[0].calibrated(0).flux.value - ta1.flux.value) < 5e-16)
+            assert np.all(abs(ps_sb[0].getspec(0).flux.value - ta1.flux.value) < 5e-16)
 
     def test_scan_write(self, data_dir, tmp_path):
         data_path = f"{data_dir}/TGBT21A_501_11/NGC2782_blanks"
@@ -205,7 +205,7 @@ class TestPSScan:
         assert ps_jy.meta["BUNIT"] == tunit
         assert ps_jy.meta["TUNIT7"] == tunit
         assert ps_jy.flux.unit.to_string() == tunit
-        ps_jy_i = ps_sb[0].calibrated(0)
+        ps_jy_i = ps_sb[0].getspec(0)
         assert ps_jy_i.meta["BUNIT"] == tunit
         assert ps_jy_i.meta["TUNIT7"] == tunit
         assert ps_jy_i.flux.unit.to_string() == tunit
@@ -269,7 +269,7 @@ class TestSubBeamNod:
         hdu.close()
 
         # Compare.
-        ratio = sbn[0].calibrated(0).flux.value / nodscan_gbtidl
+        ratio = sbn[0].getspec(0).flux.value / nodscan_gbtidl
         # kluge for now since there is a small wavy pattern in
         # the difference at the ~0.06 K level
         assert np.nanmedian(ratio) <= 0.998

@@ -154,8 +154,8 @@ class TestGBTFITSLoad:
         )
         assert len(psscan) == 1
         psscan.calibrate()
-        assert psscan[0].calibrated(0).flux.unit == "K"
-        dysh_getps = psscan[0].calibrated(0).flux.to("K").value
+        assert psscan[0].getspec(0).flux.unit == "K"
+        dysh_getps = psscan[0].getspec(0).flux.to("K").value
 
         diff = gbtidl_getps - dysh_getps
         hdu.close()
@@ -570,7 +570,7 @@ class TestGBTFITSLoad:
 
         # Check one IF.
         ps_scans = sdf.getps(scan=6, ifnum=2, plnum=0, fdnum=0)
-        ps_spec = ps_scans[0].calibrated(0).flux.to("K").value
+        ps_spec = ps_scans[0].getspec(0).flux.to("K").value
 
         gbtidl_dir = f"{proj_dir}/gbtidl_outputs"
         hdu = fits.open(f"{gbtidl_dir}/getps_scan_6_ifnum_2_plnum_0_intnum_0.fits")
@@ -581,7 +581,7 @@ class TestGBTFITSLoad:
         hdu.close()
         # assert np.all((ps_spec.astype(np.float32) - gbtidl_spec) == 0)
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
-        assert table["EXPOSURE"] == ps_scans[0].calibrated(0).meta["EXPOSURE"]
+        assert table["EXPOSURE"] == ps_scans[0].getspec(0).meta["EXPOSURE"]
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
 
     def test_summary(self):
