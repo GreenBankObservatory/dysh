@@ -2842,10 +2842,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 for c in self.comments:
                     outhdu[0].header["COMMENT"] = c
                 if verbose:
-                    print(f"Writing {this_rows_written} rows to {outfile}.")
+                    logger.info(f"Writing {this_rows_written} rows to {outfile}.")
                 outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             if verbose:
-                print(f"Total of {total_rows_written} rows written to files.")
+                logger.info(f"Total of {total_rows_written} rows written to files.")
         else:
             hdu = self._sdf[fi[0]]._hdu[0].copy()
             outhdu = fits.HDUList(hdu)
@@ -2876,7 +2876,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if total_rows_written == 0:  # shouldn't happen, caught earlier
                 raise Exception("Your selection resulted in no rows to be written")
             elif verbose:
-                print(f"Writing {total_rows_written} to {fileobj}")
+                logger.info(f"Writing {total_rows_written} to {fileobj}")
             # outhdu.update_extend()  # possibly unneeded
             outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             outhdu.close()
@@ -3562,7 +3562,7 @@ class GBTOnline(GBTFITSLoad):
                 sdfits_root = "/home/sdfits"
             logger.debug(f"Using SDFITS_DATA {sdfits_root}")
 
-            if not os.path.isdir(sdfits_root):
+            if not os.path.isdir(sdfits_root):  # @todo shouldn't this be an exception?
                 logger.info(f"Cannot find {sdfits_root}")
                 return None
 
