@@ -550,7 +550,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             # Take the default decimation by `width`.
             decimate = int(abs(width))
             if not float(width).is_integer():
-                print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
+                logger.info(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
         if this_method == "gaussian":
             if width <= self._resolution:
                 raise ValueError(
@@ -1817,6 +1817,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         data_array[i] = s.data
         data_array[i].mask = s.mask
 
+        # Assign a single weight to all channels in the Spectrum s
         if weights == "tsys":
             wts[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
         else:
@@ -1827,7 +1828,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         ycoos[i] = s.meta["CRVAL3"]
         ap_eff[i] = s.meta["AP_EFF"]
         surface_error[i] = s.meta["SURF_ERR"]
-        # not all scans will have zenith opacity
+        # if data are in Ta units, then there  normally wouldn't be a zenith opacity provided
         zenith_opacity[i] = s.meta.get("TAU_Z", -1)
     _mask = np.isnan(data_array.data) | data_array.mask
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
@@ -1838,8 +1839,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     ap = np.ma.average(ap_eff, axis=0, weights=wts[:, 0])
     se = np.ma.average(surface_error, axis=0, weights=wts[:, 0])
     zenith_opacity = np.ma.masked_where(zenith_opacity < 0, zenith_opacity)
-    idx = np.where(zenith_opacity < 0)
-    ze = np.ma.average(zenith_opacity, axis=0, weights=wts[idx, 0])
+    ze = np.ma.average(zenith_opacity, axis=0, weights=wts[:, 0])
     exposure = exposures.sum(axis=0)
 
     new_meta = deepcopy(spectra[0].meta)
@@ -1850,7 +1850,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     new_meta["AP_EFF"] = ap
     new_meta["SURF_ERR"] = se
     new_meta["SE_UNIT"] = seunit
-    if not ze.mask:
+    if not hasattr(ze, "mask"):
         new_meta["TAU_Z"] = ze
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
