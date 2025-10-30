@@ -131,7 +131,7 @@ class TestGainCorrection:
             if i < 2:
                 # For 2003 and 2009a, a smaller surface error is used in memo 301 than the standard in our gain table.
                 # So pass in the memo value in these cases.
-                ap = self.gbtgc.aperture_efficiency(freqs, a, d, zd=False, eps0=390 * u.micron)
+                ap = self.gbtgc.aperture_efficiency(freqs, a, d, zd=False, surface_error=390 * u.micron)
             else:
                 ap = self.gbtgc.aperture_efficiency(freqs, a, d, zd=False)
             apr = np.round(ap, decimals=2)  # this is all the precision the table has
@@ -144,8 +144,8 @@ class TestGainCorrection:
         ap = self.gbtgc.aperture_efficiency(specval=43 * u.GHz, angle=45 * u.degree, date=self.dates, zd=False)
         assert ap == pytest.approx(answer, 1e-3)
 
-        # aperture efficiency at low frequency should be ~app_eff_0 for recent dates
-        assert self.gbtgc.app_eff_0 == pytest.approx(
+        # aperture efficiency at low frequency should be ~ap_eff_0 for recent dates
+        assert self.gbtgc.ap_eff_0 == pytest.approx(
             self.gbtgc.aperture_efficiency(specval=1.0 * u.GHz, angle=45 * u.degree, date=self.dates[-1]), 1e-2
         )
 
@@ -195,7 +195,7 @@ class TestGainCorrection:
 
         # for perfect aperture and loss efficiencies the scale to jansky should be the Jy/K of the telescope = A_p/2K
         jyk = (2 * k_B / self.gbtgc.physical_aperture).to("Jy/K")
-        self.gbtgc.app_eff_0 = 1
+        self.gbtgc.ap_eff_0 = 1
         self.gbtgc.loss_eff_0 = 1
         a = self.gbtgc.scale_ta_to(
             "flux", 1.0 * u.GHz, 45 * u.degree, date=self.dates[-1], zenith_opacity=0.0, zd=False

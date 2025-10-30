@@ -550,7 +550,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             # Take the default decimation by `width`.
             decimate = int(abs(width))
             if not float(width).is_integer():
-                print(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
+                logger.info(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
         if this_method == "gaussian":
             if width <= self._resolution:
                 raise ValueError(
@@ -1168,6 +1168,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "TSCALFAC": 0.54321,
             "TUNIT7": "K",
             "BUNIT": "K",
+            "AP_EFF": 0.71,
+            "SURF_ERR": 230.0,
+            "SE_UNIT": "micron",
+            "TAU_Z": 0.08,
         }
         for k, v in kwargs.items():
             meta[k.upper()] = v
@@ -1794,9 +1798,12 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     tsyss = np.empty(nspec, dtype=float)
     xcoos = np.empty(nspec, dtype=float)
     ycoos = np.empty(nspec, dtype=float)
+    ap_eff = np.empty(nspec, dtype=float)
+    surface_error = np.empty(nspec, dtype=float)
+    zenith_opacity = np.empty(nspec, dtype=float)
     observer = spectra[0].observer
     units = spectra[0].flux.unit
-
+    seunit = spectra[0].meta.get("SE_UNIT", "")
     for i, s in enumerate(spectra):
         if not isinstance(s, Spectrum):
             raise ValueError(f"Element {i} of `spectra` is not a `Spectrum`. {type(s)}")
@@ -1810,6 +1817,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         data_array[i] = s.data
         data_array[i].mask = s.mask
 
+        # Assign a single weight to all channels in the Spectrum s
         if weights == "tsys":
             wts[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
         else:
@@ -1818,13 +1826,20 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
-
+        ap_eff[i] = s.meta["AP_EFF"]
+        surface_error[i] = s.meta["SURF_ERR"]
+        # if data are in Ta units, then there  normally wouldn't be a zenith opacity provided
+        zenith_opacity[i] = s.meta.get("TAU_Z", -1)
     _mask = np.isnan(data_array.data) | data_array.mask
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data = np.ma.average(data_array, axis=0, weights=wts)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
     xcoo = np.ma.average(xcoos, axis=0, weights=wts[:, 0])
     ycoo = np.ma.average(ycoos, axis=0, weights=wts[:, 0])
+    ap = np.ma.average(ap_eff, axis=0, weights=wts[:, 0])
+    se = np.ma.average(surface_error, axis=0, weights=wts[:, 0])
+    zenith_opacity = np.ma.masked_where(zenith_opacity < 0, zenith_opacity)
+    ze = np.ma.average(zenith_opacity, axis=0, weights=wts[:, 0])
     exposure = exposures.sum(axis=0)
 
     new_meta = deepcopy(spectra[0].meta)
@@ -1832,6 +1847,11 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     new_meta["EXPOSURE"] = exposure
     new_meta["CRVAL2"] = xcoo
     new_meta["CRVAL3"] = ycoo
+    new_meta["AP_EFF"] = ap
+    new_meta["SURF_ERR"] = se
+    new_meta["SE_UNIT"] = seunit
+    if not hasattr(ze, "mask"):
+        new_meta["TAU_Z"] = ze
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
 
