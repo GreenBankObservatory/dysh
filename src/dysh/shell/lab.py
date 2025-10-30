@@ -13,6 +13,7 @@ from dysh.util.core import get_project_root
 def parse_args():
     parser = argparse.ArgumentParser(description=("Dysh lab"))
     parser.add_argument("--version", help="Print version and exit", action="store_true")
+    parser.add_argument("--no-browser", help="Don't open browser automatically", action="store_true")
     return parser.parse_known_args()
 
 
@@ -46,6 +47,9 @@ def main():
 
     # Default to JupyterLab interface
     c.ServerApp.default_url = "/lab"
+
+    # Open browser by default unless --no-browser is specified
+    c.ServerApp.open_browser = not args.no_browser
 
     ServerApp.launch_instance(config=c, argv=remaining_args)
 
