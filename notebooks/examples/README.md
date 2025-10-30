@@ -8,6 +8,7 @@ We recommend reading the ``dysh`` documentation at https://dysh.readthedocs.io, 
 | Notebook             | Description                                                               |
 |----------------------|---------------------------------------------------------------------------|
 | align\_spectra       | How to align spectra                                                      |
+| apeff\_surferr       | How to modify aperture efficiency or surface error when calibrating       |
 | calseq               | Calibration of GBT W-Band observations                                    |
 | dataIO               | How to read and save data                                                 |
 | flagging             | Data flagging                                                             |
