@@ -84,6 +84,7 @@ class SpectrumPlot(PlotBase):
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
+        self._scan_numbers = np.array([self._spectrum.meta["SCAN"]])
 
     def _set_xaxis_info(self):
         """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
