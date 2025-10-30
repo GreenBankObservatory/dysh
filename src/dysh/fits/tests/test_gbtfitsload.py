@@ -51,8 +51,6 @@ class TestGBTFITSLoad:
         }
 
         for fnm in self._file_list:
-            print(fnm)
-
             filename = os.path.basename(fnm)
             sdf = gbtfitsload.GBTFITSLoad(fnm)
             assert len(sdf.index(bintable=0)) == expected[filename]
@@ -66,7 +64,7 @@ class TestGBTFITSLoad:
         assert fnm == sdf.filename
 
         fnm = Path(f"{self.data_dir}/AGBT20B_014_03.raw.vegas")
-        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf = gbtfitsload.GBTFITSLoad(fnm, skipflags=True)
         assert fnm == sdf.filename
 
     def test_getspec(self):
@@ -75,7 +73,8 @@ class TestGBTFITSLoad:
         """
 
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        # The above file was produced without flagging any data, I THINK. So don't flag here.
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
         sdf.flag_channel([[0, 100]])
         sdf.apply_flags()
         spec = sdf.getspec(0, setmask=False)
@@ -116,20 +115,22 @@ class TestGBTFITSLoad:
         pss = sdf_load.getspec(0)
         assert pss.flux.unit == "K"
 
-    def test_data_column(self):
+    def test_data_column(self, tmp_path):
         """
         Test that the DATA column in in column 7 for 3 types of SDFITS files:
         1. original sdfits
         2. sdf.write()
         3. sdf.getps().write()
         """
+        out_file = tmp_path / "test_data_1.fits"
         fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(fnm)
-        sdf.write("test_data_1.fits", overwrite=True)
+        sdf.write(out_file, overwrite=True)
+        out_file2 = tmp_path / "test_data_2.fits"
         pssb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0)
-        pssb.write("test_data_2.fits", overwrite=True)
-        # there is a bugthat the binheader in gbtfitsload doesn't exist, so we use sdfitsload
-        for f in [fnm, "test_data_1.fits", "test_data_2.fits"]:
+        pssb.write(out_file2, overwrite=True)
+        # there is a bug that the binheader in gbtfitsload doesn't exist, so we use sdfitsload
+        for f in [fnm, out_file, out_file2]:
             sdf = sdfitsload.SDFITSLoad(f)
             assert sdf.binheader[0]["TTYPE7"] == "DATA"
 
@@ -155,8 +156,8 @@ class TestGBTFITSLoad:
         )
         assert len(psscan) == 1
         psscan.calibrate()
-        assert psscan[0].calibrated(0).flux.unit == "K"
-        dysh_getps = psscan[0].calibrated(0).flux.to("K").value
+        assert psscan[0].getspec(0).flux.unit == "K"
+        dysh_getps = psscan[0].getspec(0).flux.to("K").value
 
         diff = gbtidl_getps - dysh_getps
         hdu.close()
@@ -194,8 +195,6 @@ class TestGBTFITSLoad:
         diff = ps_vals[~mask] - gbtidl_spec[~mask]
         # try:
         assert np.all(diff < 1e-3)
-        # except AssertionError:
-        #    print(f"Comparison with GBTIDL ACS Spectrum failed, mean difference is {np.nanmean(diff)}")
 
         for col in table.names:
             if col not in ["DATA"]:
@@ -318,6 +317,8 @@ class TestGBTFITSLoad:
 
         Check that it grabs the correct data when using an input SDFITS with multiple binary tables.
         """
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
+        #
         # @todo refactor the repeated gbtidl/tp0 sections here.
         # Get the answer from GBTIDL.
         gbtidl_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11_gettp_scan_152_ifnum_0_plnum_0_cal_state_1.fits"
@@ -329,7 +330,7 @@ class TestGBTFITSLoad:
 
         # Get the answer from dysh.
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
         tps_on = sdf.gettp(scan=152, sig=True, cal=True, calibrate=True, ifnum=0, plnum=0, fdnum=0)
         assert len(tps_on) == 1
 
@@ -372,7 +373,7 @@ class TestGBTFITSLoad:
 
         # Now do some sig=F data.
         sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
         tps = sdf.gettp(scan=20, ifnum=0, plnum=1, fdnum=0, sig=False, cal=True)
         gbtidl_file = (
             f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01_gettp_scan_20_ifnum_0_plnum_1_sig_state_0_cal_state_1.fits"
@@ -421,7 +422,7 @@ class TestGBTFITSLoad:
         # Self consistency check.
         # This only makes sure that the output matches what is expected given the data selection.
         data_path = f"{self.data_dir}/AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
-        sdf = gbtfitsload.GBTFITSLoad(data_path, verbose=False)
+        sdf = gbtfitsload.GBTFITSLoad(data_path, verbose=False, flag_vegas=False)
         tests = {
             0: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": None, "SIG": None},
             1: {"SCAN": 6, "IFNUM": 2, "PLNUM": 0, "CAL": True, "SIG": None},
@@ -495,7 +496,7 @@ class TestGBTFITSLoad:
 
         # Multiple binary tables.
         fits_path = f"{self.data_dir}/AGBT04A_008_02/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.testrim.fits"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
         tpsb = sdf.gettp(scan=269, ifnum=0, plnum=0, fdnum=0)
         assert tpsb[0].meta[0]["OBJECT"] == "U8249"
         assert tpsb[0].nchan == 32768
@@ -571,7 +572,7 @@ class TestGBTFITSLoad:
 
         # Check one IF.
         ps_scans = sdf.getps(scan=6, ifnum=2, plnum=0, fdnum=0)
-        ps_spec = ps_scans[0].calibrated(0).flux.to("K").value
+        ps_spec = ps_scans[0].getspec(0).flux.to("K").value
 
         gbtidl_dir = f"{proj_dir}/gbtidl_outputs"
         hdu = fits.open(f"{gbtidl_dir}/getps_scan_6_ifnum_2_plnum_0_intnum_0.fits")
@@ -582,7 +583,7 @@ class TestGBTFITSLoad:
         hdu.close()
         # assert np.all((ps_spec.astype(np.float32) - gbtidl_spec) == 0)
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
-        assert table["EXPOSURE"] == ps_scans[0].calibrated(0).meta["EXPOSURE"]
+        assert table["EXPOSURE"] == ps_scans[0].getspec(0).meta["EXPOSURE"]
         assert np.all(abs(diff[~np.isnan(diff)]) < 7e-5)
 
     def test_summary(self):
@@ -795,9 +796,10 @@ class TestGBTFITSLoad:
                 continue
 
     def test_getps_flagging(self):
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         path = util.get_project_testdata() / "TGBT21A_501_11"
         data_file = path / "TGBT21A_501_11.raw.vegas.fits"
-        sdf = gbtfitsload.GBTFITSLoad(data_file)
+        sdf = gbtfitsload.GBTFITSLoad(data_file, flag_vegas=False)
         sdf.flag_channel([[10, 20], [30, 41]])
         sb = sdf.getps(scan=152, ifnum=0, plnum=0, fdnum=0, apply_flags=True)
         ta = sb.timeaverage()
@@ -889,7 +891,6 @@ class TestGBTFITSLoad:
 
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
-            print(f"trying to writing file #{i} {out}")
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
@@ -922,7 +923,6 @@ class TestGBTFITSLoad:
 
             # check that thing were written correctly.
             out = o / f"test_write_gsetitem{i}.fits"
-            print(f"trying to writing file #{i} {out}")
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
@@ -1077,9 +1077,7 @@ class TestGBTFITSLoad:
         sdfits = tmp_path / "sdfits"
         sdfits.mkdir()
         os.environ["SDFITS_DATA"] = str(sdfits)
-        print("PJT1", sdfits)
         o1 = sdfits / "online.fits"
-        print("PJT2", o1)
         shutil.copyfile(f1, o1)
         sdf = gbtfitsload.GBTOnline()
         s = sdf.summary()
@@ -1122,10 +1120,11 @@ class TestGBTFITSLoad:
         # https://github.com/GreenBankObservatory/dysh/issues/429
         # We copy the flag mask for each rule
         # then check that the final flag mask is the logical OR of them
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         fits_path = (
             util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/AGBT18B_354_03.raw.vegas.A.fits"
         )
-        sdf = gbtfitsload.GBTFITSLoad(fits_path, skipflags=True)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, skipflags=True, flag_vegas=False)
         sdf.flag(scan=6, channel=[[2500, 3000]], intnum=range(0, 3))
         sdf.apply_flags()
         flag1 = sdf._sdf[0]._flagmask[0].copy()
@@ -1175,8 +1174,9 @@ class TestGBTFITSLoad:
         """
 
         # Reduce with dysh.
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
         nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0)
         nodsp0 = nodsb[0].timeaverage()
         nodsp1 = nodsb[1].timeaverage()
@@ -1389,7 +1389,7 @@ class TestGBTFITSLoad:
         """
 
         fits_path = util.get_project_testdata() / "TRCO_230413_Ka/TRCO_230413_Ka_scan43.fits"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
 
         # Nothing to flag.
         sdf.qd_flag()
@@ -1408,9 +1408,9 @@ class TestGBTFITSLoad:
 
     def test_write_multiple_bintables(self, tmp_path):
         """ """
-
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         fits_path = util.get_project_testdata() / "AGBT21B_024_01/AGBT21B_024_01.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, flag_vegas=False)
 
         # Write without any flags.
         sdf.write(tmp_path / "test0.fits")
@@ -1480,9 +1480,9 @@ class TestGBTFITSLoad:
         it also checks that there are no issues if two receivers are
         present in the same SDFITS (see Issue #553).
         """
-
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         sdf_file = f"{self.data_dir}/AGBT18A_333_21/AGBT18A_333_21.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         ps1 = sdf.getps(scan=11, fdnum=0, plnum=0, ifnum=0).timeaverage()
         ps2 = sdf.getps(scan=11, fdnum=1, plnum=1, ifnum=0).timeaverage()
@@ -1517,9 +1517,10 @@ class TestGBTFITSLoad:
 
     def test_getsigref(self):
         """test of various getsigref modes"""
+        # The SDFITS files used here did not flag vegas spurs, so don't flag them here
         # 1. Ensure that getsigref(scan=int,ref=int) returns the same as getps(scan=int [ref implied])
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
         # scan=152, ref=153
         psscan = sdf.getps(
             scan=152,
@@ -1538,7 +1539,7 @@ class TestGBTFITSLoad:
 
         # 2. Scan is a list, ref is an int
         sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
         sigref = sdf.getsigref(scan=[51, 53], ref=52, fdnum=0, ifnum=0, plnum=0)
         psscan = sdf.getps(scan=51, fdnum=0, ifnum=0, plnum=0)
         x = psscan[0]._calibrated - sigref[0]._calibrated
@@ -1558,7 +1559,7 @@ class TestGBTFITSLoad:
         sigref = sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0, weights=None)
         y = sigref[0].timeaverage(weights=None)
         gbtidl_file = util.get_project_testdata() / "AGBT05B_047_01/gbtidl/getsigref_53_52_eqweight_avgref.fits"
-        gdf = gbtfitsload.GBTFITSLoad(gbtidl_file)
+        gdf = gbtfitsload.GBTFITSLoad(gbtidl_file, flag_vegas=False)
         x = gdf.getspec(0)
         x.meta["MEANTSYS"] = x.meta["TSYS"]
         assert np.all(np.abs(y.data - x.data) < 6e-6)
@@ -1566,7 +1567,7 @@ class TestGBTFITSLoad:
         sigref = sdf.getsigref(scan=53, ref=52, fdnum=0, ifnum=0, plnum=0, weights="tsys")
         y = sigref[0].timeaverage(weights="tsys")
         gbtidl_file = util.get_project_testdata() / "AGBT05B_047_01/gbtidl/getsigref_53_52_tsysweight_avgref.fits"
-        gdf = gbtfitsload.GBTFITSLoad(gbtidl_file)
+        gdf = gbtfitsload.GBTFITSLoad(gbtidl_file, flag_vegas=False)
         x = gdf.getspec(0)
         x.meta["MEANTSYS"] = x.meta["TSYS"]
         assert np.all(np.abs(y.data - x.data) < 2e-6)
@@ -1641,7 +1642,7 @@ class TestGBTFITSLoad:
         """Test for calseq"""
 
         sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         tsys, gain = sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=0)
         assert tsys == pytest.approx(106.97707617351139)
@@ -1656,7 +1657,7 @@ class TestGBTFITSLoad:
         """Test for vanecal"""
 
         sdf_file = f"{self.data_dir}/AGBT21B_024_14/AGBT21B_024_14_test"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
 
         tcal = 272
         ifnum = 0
@@ -1669,6 +1670,20 @@ class TestGBTFITSLoad:
             assert tsys == pytest.approx(212.62577140649026)
         else:
             assert tsys == pytest.approx(221.82213493114335)
+
+    def test_vegas_flags(self):
+        # check that algorithmically applying vegas flags
+        # gives the same mask array as when reading from a flag file.
+        sdf_file = util.get_project_testdata() / "AGBT22A_325_15/"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        sdf.apply_flags()
+        saveflags0 = sdf._sdf[0]._flagmask.copy()
+        saveflags1 = sdf._sdf[1]._flagmask.copy()
+        sdf.clear_flags()
+        sdf.flag_vegas_spurs()
+        sdf.apply_flags()
+        assert np.all(sdf._sdf[0]._flagmask[0] == saveflags0[0])
+        assert np.all(sdf._sdf[1]._flagmask[0] == saveflags1[0])
 
 
 def test_parse_tsys():
