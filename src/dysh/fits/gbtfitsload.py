@@ -2668,9 +2668,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tscale=units,
                     zenith_opacity=zenith_opacity,
                     weights=weights,
-                    tcal=tpoff[0].calibrated(0).meta["TCAL"],
                     ap_eff=ap_eff,
                     surface_error=surface_error,
+                    tcal=tpoff[0].getspec(0).meta["TCAL"],
                 )
                 sb.merge_commentary(self)
                 scanblock.append(sb)
