@@ -2311,7 +2311,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             name = _sf["OBJECT"].unique()[0]
         target = Calibrator.from_name(name, scale=fluxscale)
 
-        proc = _sf["PROC"].unique()[0] 
+        proc = _sf["PROC"].unique()[0]
 
         if method is None:
             method = valid_procs[proc]
