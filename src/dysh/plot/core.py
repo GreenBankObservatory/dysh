@@ -10,6 +10,8 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
+from dysh.log import logger
+
 from ..coordinates import (
     Observatory,
     crval4_to_pol,
@@ -189,3 +191,10 @@ class PlotBase:
                 button.set_visible(True)
         else:
             self.figure.savefig(file, *kwargs)
+
+
+def check_kwargs(known_kwargs, kwargs):
+    """Check if `kwargs` are in `known_kwargs`"""
+    diff = set(kwargs) - set(known_kwargs)
+    if len(diff) > 0:
+        logger.warning(f"Unknown kwargs: {', '.join(diff)}")
