@@ -12,7 +12,7 @@ from io import StringIO
 from pathlib import Path
 from typing import NewType
 
-from astropy import log
+from astropy import log as astropy_logger
 from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
 
@@ -20,7 +20,7 @@ from . import version
 from .ascii import ensure_ascii
 
 # Set Astropy logging level to warning.
-log.setLevel("WARNING")
+astropy_logger.setLevel("WARNING")
 
 LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")
@@ -132,15 +132,19 @@ config = {
 }
 
 
-def init_logging(verbosity: int, level: int | None = None, path: Path | None = None, quiet=False):
+def init_logging(verbosity: int | None = None, level: int | None = None, path: Path | None = None, quiet=False):
     global LOGGING_INITIALIZED
-    if LOGGING_INITIALIZED is True:
-        logger.warning(
-            "dysh logging has already been initialized! Continuing, but this behavior is not well defined, "
-            "and you will likely end up with duplicate log handlers"
-        )
+    if LOGGING_INITIALIZED:
+        # Clear existing handlers to avoid duplicates when re-initializing
+        logger.handlers.clear()
+        dhlogger.handlers.clear()
 
     LOGGING_INITIALIZED = True
+
+    # If verbosity not provided, check environment variable
+    if verbosity is None:
+        verbosity = int(os.environ.get("DYSH_VERBOSITY", "2"))
+
     if verbosity == 0:
         level = logging.ERROR
     elif verbosity == 1:

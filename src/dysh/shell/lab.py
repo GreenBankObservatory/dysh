@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 from importlib.resources import files
@@ -5,43 +6,48 @@ from importlib.resources import files
 from jupyter_server.serverapp import ServerApp
 from traitlets.config import Config
 
+from dysh import __version__
+from dysh.util.core import get_project_root
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=("Dysh lab"))
+    parser.add_argument("--version", help="Print version and exit", action="store_true")
+    return parser.parse_known_args()
+
 
 def main():
-    templates_dir = files("dysh") / "lab_templates"
+    args, remaining_args = parse_args()
+    if args.version:
+        print(__version__)
+        sys.exit(0)
+
+    template_notebooks = files("dysh") / "lab_templates"
     shell_dir = files("dysh.shell")
 
-    # Add notebooks directory so examples subdirectory shows as templates
-    from pathlib import Path
-
-    import dysh
-
-    notebooks_dir = Path(dysh.__file__).parent.parent.parent / "notebooks"
+    example_notebooks = get_project_root().parent.parent / "notebooks"
 
     # Set environment variable so jupyter_app_launcher can find our config
     # The extension searches for jp_app_launcher*.yaml in JUPYTER_APP_LAUNCHER_PATH
     os.environ["JUPYTER_APP_LAUNCHER_PATH"] = str(shell_dir)
 
     c = Config()
+
     c.ServerApp.jpserver_extensions = {
         "jupyterlab": True,
         "jupyterlab_templates": True,
         "jupyter_app_launcher": True,
-        # "jupyter_lsp": False,  # Disable LSP to avoid basedpyright errors
     }
 
     # Add both lab_templates and notebooks to template dirs
     # jupyterlab-templates will find subdirectories (dysh, examples) and show them as categories
-    template_paths = [str(templates_dir)]
-    if notebooks_dir.exists():
-        template_paths.append(str(notebooks_dir))
-
-    c.JupyterLabTemplates.template_dirs = template_paths
+    c.JupyterLabTemplates.template_dirs = [str(template_notebooks), str(example_notebooks)]
     c.JupyterLabTemplates.include_default = False
 
     # Default to JupyterLab interface
     c.ServerApp.default_url = "/lab"
 
-    ServerApp.launch_instance(config=c, argv=sys.argv[1:])
+    ServerApp.launch_instance(config=c, argv=remaining_args)
 
 
 if __name__ == "__main__":
