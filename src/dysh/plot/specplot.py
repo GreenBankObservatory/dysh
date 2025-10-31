@@ -16,43 +16,43 @@ from ..coordinates import (
     frame_to_label,
 )
 from ..util.docstring_manip import docstring_parameter
-from . import PlotBase
+from . import PlotBase, check_kwargs
 
 _KMS = u.km / u.s
 
 
 kwargs_docstring = """xaxis_unit : str or `~astropy.unit.Unit`
-    The units to use on the x-axis, e.g. "km/s" to plot velocity
+    The units to use on the x-axis, e.g. "km/s" to plot velocity.
 yaxis_unit : str or `~astropy.unit.Unit`
-    The units to use on the y-axis
+    The units to use on the y-axis.
 xmin : float
-    Minimum x-axis value, in `xaxis_unit`
+    Minimum x-axis value, in `xaxis_unit`.
 xmax : float
-    Maximum x-axis value, in `yaxis_unit`
+    Maximum x-axis value, in `yaxis_unit`.
 ymin : float
-    Minimum y-axis value, in `xaxis_unit`
+    Minimum y-axis value, in `xaxis_unit`.
 ymax : float
-    Maximum y-axis value, in `yaxis_unit`
+    Maximum y-axis value, in `yaxis_unit`.
 xlabel : str
-    x-axis label
+    x-axis label.
 ylabel : str
-    y-axis label
+    y-axis label.
 grid : bool
-    Show a plot grid or not
+    Show a plot grid or not.
 figsize : tuple
-    Figure size (see matplotlib)
+    Figure size (see matplotlib).
 linewidth : float
-    Line width, default: 2.0.  lw also works
-linestyle : str
-    Line style, default 'steps-mid'.  ls also works
+    Line width, default: 2.0.
+drawstyle : str
+    Line style, default 'default'.
 color : str
-    Line color, c also works
+    Line color, c also works.
 title : str
-    Plot title
+    Plot title.
 vel_frame : str
-    The velocity frame (see VELDEF FITS Keyword)
+    The velocity frame (see VELDEF FITS Keyword).
 doppler_convention: str
-    The velocity convention (see VELDEF FITS Keyword)
+    The velocity convention (see VELDEF FITS Keyword).
 """
 
 
@@ -74,8 +74,6 @@ class SpectrumPlot(PlotBase):
     {0}
     """
 
-    # loc, legend, bbox_to_anchor
-
     def __init__(self, spectrum, **kwargs):
         super().__init__()
         self._spectrum = spectrum
@@ -86,6 +84,7 @@ class SpectrumPlot(PlotBase):
         self._selector: InteractiveSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
+        self._scan_numbers = np.array([self._spectrum.meta["SCAN"]])
 
     def _set_xaxis_info(self):
         """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
@@ -99,9 +98,8 @@ class SpectrumPlot(PlotBase):
         """The underlying `~dysh.spectra.spectrum.Spectrum`"""
         return self._spectrum
 
-    def reset(self):
-        """Reset the plot keyword arguments to their defaults."""
-        self._plot_kwargs = {
+    def default_plot_kwargs(self):
+        return {
             "xmin": None,
             "xmax": None,
             "ymin": None,
@@ -112,21 +110,15 @@ class SpectrumPlot(PlotBase):
             "yaxis_unit": None,
             "grid": False,
             "figsize": None,
-            #'capsize':3,
             "linewidth": 2.0,
-            "linestyle": "steps-mid",
-            "markersize": 8,
+            "drawstyle": "default",
             "color": None,
             "title": None,
-            #'axis':None,
-            #'label':None,
-            # "aspect": "auto",
-            "bbox_to_anchor": None,
-            "loc": "best",
-            "legend": None,
-            "show_baseline": True,
-            "test": False,
         }
+
+    def reset(self):
+        """Reset the plot keyword arguments to their defaults."""
+        self._plot_kwargs = self.default_plot_kwargs()
 
     @docstring_parameter(kwargs_docstring)
     def plot(self, show_header=True, select=True, oshow=None, **kwargs):
@@ -147,10 +139,10 @@ class SpectrumPlot(PlotBase):
         {0}
         """
 
-        # xtype = 'velocity, 'frequency', 'wavelength'
-        # if self._figure is None:
+        check_kwargs(self.default_plot_kwargs(), kwargs)
+
         self._set_xaxis_info()
-        # plot arguments for this call of plot(). i.e. non-sticky plot attributes
+        # Plot arguments for this call of plot(). i.e. non-sticky plot attributes
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
         if True:  # @todo deal with plot reuse (notebook vs script)
@@ -178,10 +170,7 @@ class SpectrumPlot(PlotBase):
             self._sa = u.Quantity(np.arange(len(self._sa)))
             this_plot_kwargs["xlabel"] = "Channel"
         else:
-            # convert the x axis to the requested
-            # print(f"EQUIV {equiv} doppler_rest {sa.doppler_rest} [{rfq}] convention {convention}")
-            # sa = s.spectral_axis.to( self._plot_kwargs["xaxis_unit"],
-            #   equivalencies=equiv,doppler_rest=rfq, doppler_convention=convention)
+            # convert the x axis to the requested velocity frame and Doppler convention.
             self._sa = s.velocity_axis_to(
                 unit=self._xunit,
                 toframe=this_plot_kwargs["vel_frame"],
@@ -193,26 +182,27 @@ class SpectrumPlot(PlotBase):
             sf = s.flux.to(yunit)
         sf = Masked(sf, s.mask)
 
-        lines = self._axis.plot(self._sa, sf, color=this_plot_kwargs["color"], lw=lw)
+        lines = self._axis.plot(
+            self._sa, sf, color=this_plot_kwargs["color"], lw=lw, drawstyle=this_plot_kwargs["drawstyle"]
+        )
         self._line = lines[0]
 
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
         else:
             self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
-        self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
 
         if self._freezey:
             self._axis.autoscale(enable=False)
         else:
             self._axis.autoscale(axis="y", enable=True)
+        self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
 
         self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
         if this_plot_kwargs["grid"]:
             self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
             self._axis.grid(visible=True, which="minor", axis="both", lw=lw / 2, color="k", alpha=0.22, linestyle="--")
         self._set_labels(**this_plot_kwargs)
-        # self._axis.axhline(y=0,color='red',lw=2)
         if self._title is not None:
             self._axis.set_title(self._title)
 
@@ -267,19 +257,20 @@ class SpectrumPlot(PlotBase):
 
         Parameters
         ----------
-
-        **kwargs : various
-            title : str
-                plot title
-            xlabel : str
-                x-axis label
-            ylabel : str
-                x-axis label
-
-            and other keyword=value arguments
+        title : str
+            Plot title.
+        xlabel : str
+            x-axis label.
+        ylabel : str
+            x-axis label.
+        doppler_convention : str
+            Doppler convention for x-axis.
+        xaxis_unit : str
+            Units for x-axis.
+        yaxis_unit : str
+            Units for y-axis.
         """
         title = kwargs.get("title", None)
-        xlabel = kwargs.get("xlabel", None)  # noqa: F841
         ylabel = kwargs.get("ylabel", None)
         if title is not None:
             self._title = title
@@ -310,16 +301,13 @@ class SpectrumPlot(PlotBase):
         return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
 
     def freex(self):
-        """ "Free the X-axis if limits have been set. Resets the limits to be the span of the spectrum."""
+        """Free the X-axis if limits have been set. Resets the limits to be the span of the spectrum."""
         self._freezex = False
-        # This line (and the other in specplot.py) will have to be addressed when we
-        # implement multiple IF windows in the same plot
         mins = []
         maxs = []
         for line in self._axis.lines:
             mins.append(line._x.min())
             maxs.append(line._x.max())
-        # elf._axis.set_xlim(self._sa.min().value, self._sa.max().value)
         self._axis.set_xlim((min(mins), max(maxs)))
 
     def freey(self):
@@ -385,7 +373,7 @@ class SpectrumPlot(PlotBase):
 
         for i, s in enumerate(spectra):
             if not isinstance(s, type(self._spectrum)):
-                raise TypeError(f"Element {i} of spectra (s) is not a Spectrum.")
+                raise TypeError(f"Element {i} of spectra ({s}) is not a Spectrum.")
 
         # Pack args together, and check that we have enough of each.
         zargs = (spectra,)
