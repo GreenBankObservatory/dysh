@@ -1,4 +1,5 @@
 import argparse
+import shlex
 import sys
 from pathlib import Path
 
@@ -9,7 +10,7 @@ import dysh.fits
 from dysh import __version__
 from dysh.config import create_config_file
 from dysh.fits.sdfitsload import SDFITSLoad
-from dysh.log import init_logging
+from dysh.log import init_logging, instance_logger
 
 # TODO: Derive URLs from pyproject.toml?
 BANNER = f"""--------------------------------------------------------------------------
@@ -120,6 +121,8 @@ def main():
         print(__version__)
         sys.exit(0)
     init_logging(verbosity=args.verbosity, path=args.log, quiet=args.quiet)
+
+    instance_logger.debug(f"Init dysh shell via: $ {shlex.join(sys.argv)}")
     if args.paths:
         sdfits_files = open_sdfits_files(args.paths, args.fits_loader)
     else:
@@ -131,13 +134,29 @@ def main():
     if args.interactive:
         ipython_cmd.append("-i")
     ipython_cmd += remaining_args
-    init_shell(
-        *ipython_cmd,
-        colors=args.colors,
-        profile=args.profile,
-        sdfits_files=sdfits_files,
-        skip_config=args.skip_config,
-    )
+
+    exit_reason = "user request"
+    try:
+        init_shell(
+            *ipython_cmd,
+            colors=args.colors,
+            profile=args.profile,
+            sdfits_files=sdfits_files,
+            skip_config=args.skip_config,
+        )
+    except SystemExit as e:
+        exit_reason = f"SystemExit {e.code}"
+        raise
+    except KeyboardInterrupt:
+        exit_reason = "KeyboardInterrupt"
+        raise
+    except Exception as e:
+        exit_reason = f"Exception: {e.__class__.__name__}: {e}"
+        raise
+    finally:
+        instance_logger.debug("Exiting dysh shell due to: %s", exit_reason)
+        for h in instance_logger.handlers:
+            h.flush()
 
 
 if __name__ == "__main__":
