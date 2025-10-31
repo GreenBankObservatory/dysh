@@ -609,7 +609,11 @@ class Menu:
 
         # Button/Radio combo to select xunit
         self.xunit_cycle = {'chan':'chan', 'Hz':u.Hz, 'kHz':u.kHz, 'MHz':u.MHz, 'GHz':u.GHz, 'm/s':u.m/u.s, 'km/s':u.km/u.s}
-        self.xunit_ind = 1
+        #print(self.specplot._xunit)
+        #print(list(self.xunit_cycle.values()))
+        #print(list(self.xunit_cycle.values()).index(self.specplot._xunit))
+        #c2 = {v:k for k,v in self.xunit_cycle.items()}
+        self.xunit_ind = list(self.xunit_cycle.values()).index(self.specplot._xunit)
 
         self.xunit_button_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1], hsize, vsize])
         self.xunit_button = Button(self.xunit_button_ax, list(self.xunit_cycle)[self.xunit_ind])
@@ -619,6 +623,8 @@ class Menu:
         # self.xunit_radio_ax.set_visible(False)
 
         # Button/Radio combo to select vframe
+        self.vframe_cycle = {'TOPO':'topo', 'LSRK':'lsrk', 'LSRD':'lsrd', 'GEO':'gcrs', 'HEL':'hcrs', 'BARY':'icrs', 'GAL':'galactocentric'}
+        self.vframe_ind = 0
         # self.vframe_button_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[0], hsize, vsize])
         # self.vframe_button = Button(self.vframe_button_ax, "Vframe")
         # self.vframe_button.on_clicked(self.open_vframe_radio)
@@ -716,13 +722,15 @@ class Menu:
     def choose_xunit(self, c):
         self.xunit_ind += 1
         i = self.xunit_ind % len(self.xunit_cycle)
+        #self.xunit_button.label.set_text(self.xunit_cycle[i][0])
         self.xunit_button.label.set_text(list(self.xunit_cycle)[i])
-        self.specplot._xunit = self.xunit_cycle[self.xunit_button.label.get_text()]
+        self.specplot._xunit = list(self.xunit_cycle.values())[i]
+
         if i==0:
             self.specplot._sa = u.Quantity(np.arange(len(self.specplot._sa)))
             self.specplot._plot_kwargs["xlabel"] = "Channel"
-            #print(self.specplot._plot_kwargs["xlabel"])
             self.specplot.axis.set_xlabel(self.specplot._plot_kwargs["xlabel"])
+            self.specplot._plot_kwargs["xaxis_unit"] = None
         else:
             self.specplot._sa = self.specplot._spectrum.velocity_axis_to(
                     unit=self.specplot._xunit,
@@ -730,23 +738,13 @@ class Menu:
                     doppler_convention=self.specplot._plot_kwargs["doppler_convention"],
                 )
             self.specplot._spectrum._spectral_axis = self.specplot._sa
-            #print(self.specplot._plot_kwargs)
-            #print(self.specplot._spectrum.spectral_axis.unit)
             self.specplot._set_xaxis_info()
-            #print(self.specplot._plot_kwargs)
-            #print(self.specplot._spectrum.spectral_axis.unit)
-            #self.specplot.axis.set_xlabel(self.specplot._compose_xlabel(**self.specplot._plot_kwargs))  # noqa: F821
             self.specplot._plot_kwargs["xlabel"] = self.specplot._compose_xlabel(**self.specplot._plot_kwargs)  # noqa: F821
-            #print(self.specplot._plot_kwargs)
-            #print(self.specplot._plot_kwargs["xlabel"])
-        # print(self.specplot._plot_kwargs)
-        # print(self.specplot.axis.get_xlabel())
-        self.specplot._set_labels(**self.specplot._plot_kwargs)
+
+            self.specplot._set_labels(**self.specplot._plot_kwargs)
+
         self.specplot._line.set_xdata(self.specplot._sa)
         self.specplot._axis.set_xlim(np.min(self.specplot._sa).value, np.max(self.specplot._sa).value)
-        #self.specplot.setxlim()
-        # self.xunit_radio = None
-        # self.xunit_radio_ax.set_visible(False)
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 
