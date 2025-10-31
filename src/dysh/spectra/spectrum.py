@@ -1039,7 +1039,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return s
 
     @classmethod
-    def fake_spectrum(cls, nchan=1024, seed=None, **kwargs):
+    def fake_spectrum(cls, nchan=1024, seed=None, normal=True, **kwargs):
         """
         Create a fake spectrum, useful for simple testing. A default header is
         created, which may be modified with kwargs.
@@ -1057,6 +1057,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
             be returned unaltered.
             The default is `None`.
 
+        normal : bool, optional
+            If set, the noise is distributed normal with a mean 0.1 and dispersion 0.1, and
+            the radiometer equation will be used to related EXPOSURUE, TSYS and CDELT1.
+            Otherwise noise is uniform from 0 to 1. Manual scaling will be needed
+            if different noise is needed.
+            The default is True.
+
         **kwargs: dict or key=value
             Metadata to put in the header.  If the key exists already in
             the default header, it will be replaced. Otherwise the key and value will be
@@ -1069,13 +1076,16 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         rng = np.random.default_rng(seed)
-        data = rng.random(nchan) * u.K
+        if normal:
+            data = rng.normal(0.1,0.1,nchan) * u.K
+        else:
+            data = rng.random(nchan) * u.K
         meta = {
             "OBJECT": "NGC2415",
             "BANDWID": 23437500.0,
             "DATE-OBS": "2021-02-10T07:38:37.50",
             "DURATION": 0.9982445,
-            "EXPOSURE": 732.1785161896237,
+            "EXPOSURE": 44.949832229522286, # fixed by radiometer equation
             "TSYS": 17.930595470605255,
             "CTYPE1": "FREQ-OBS",
             "CRVAL1": 1402544936.7749996,
@@ -1171,6 +1181,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         }
         for k, v in kwargs.items():
             meta[k.upper()] = v
+        # @todo   fix for radiometer equation"EXPOSURE" "TSYS": "CDELT1"
         return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"])
 
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
