@@ -755,10 +755,10 @@ def tsys_weight(exposure, delta_freq, tsys):
     # precision over the calculation used by GBTIDL:
     # weight = abs(delta_freq) * exposure / tsys**2.
     weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
-    if type(weight) == u.Quantity:  # noqa: E721
-        return weight.value.astype(np.float64)
+    if isinstance(weight, u.Quantity):
+        return weight.value
     else:
-        return weight.astype(np.float64)
+        return weight
 
 
 def mean_data(data, fedge=0.1, nedge=None, median=False):
