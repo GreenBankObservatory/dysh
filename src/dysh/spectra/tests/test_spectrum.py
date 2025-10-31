@@ -532,7 +532,7 @@ class TestSpectrum:
         filename = get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
         sdf = GBTFITSLoad(filename, flag_vegas=False)
         nchan = sdf["DATA"].shape[-1]
-        spec = Spectrum.fake_spectrum(nchan=nchan, seed=1)
+        spec = Spectrum.fake_spectrum(nchan=nchan, seed=1, normal=False)
         spec.data[nchan // 2 - 5 : nchan // 2 + 6] = 10
         org_spec = spec._copy()
         # The next two lines were used to create the input for GBTIDL.
@@ -1032,8 +1032,8 @@ class TestSpectrum:
         f1 = Spectrum.fake_spectrum(nchan=1024, seed=123)
         s1 = f1.stats()
         s2 = f1.stats(roll=1)
-        assert s1["rms"].value == pytest.approx(0.28470637)
-        assert s2["rms"].value == pytest.approx(0.40211407)
+        assert s1["rms"].value == pytest.approx(0.10086297)
+        assert s2["rms"].value == pytest.approx(0.14006544)
         assert s1["npt"] == 1024
         assert s2["npt"] == 1022
         assert s1["nan"] == 0
