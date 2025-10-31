@@ -139,7 +139,10 @@ def init_logging(verbosity: int | None = None, level: int | None = None, path: P
         logger.debug(f"Global file for {DYSH}: {global_log_path}")
 
     if path:
-        instance_log_path = init_instance_log()
+        try:
+            instance_log_path = init_instance_log()
+        except Exception as e:
+            raise ValueError(f"Failed to initialize requested instance log file in {path}") from e
         logger.info(f"Log file for this instance of {DYSH}: {instance_log_path.absolute()}")
     else:
         logger.debug("Instance log file disabled")
