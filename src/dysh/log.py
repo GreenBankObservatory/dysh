@@ -168,41 +168,13 @@ def init_logging(verbosity: int | None = None, level: int | None = None, path: P
     if path:
         config["handlers"]["dysh_instance_log_file"]["filename"] = path
         config["loggers"]["dysh"]["handlers"].append("dysh_instance_log_file")
+        logger.info(f"Log file for this instance of dysh: {path}")
 
-    # Init logging - try with configured handlers, fall back if files can't be written
-    try:
-        logging.config.dictConfig(config)
-        logging.getLogger().setLevel(level)
-        logger.setLevel(level)
-        logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
-        if path:
-            logger.info(f"Log file for this instance of dysh: {path}")
-    except (OSError, PermissionError, ValueError) as e:
-        # If we can't create a log file, try to continue with just stderr
-        # First try removing the instance log file if it was requested
-        if path and "dysh_instance_log_file" in config["loggers"]["dysh"]["handlers"]:
-            config["loggers"]["dysh"]["handlers"].remove("dysh_instance_log_file")
-            try:
-                logging.config.dictConfig(config)
-                logging.getLogger().setLevel(level)
-                logger.setLevel(level)
-                logger.warning(f"Could not create instance log file {path}: {e}. Continuing without instance log file.")
-                return
-            except (OSError, PermissionError, ValueError):
-                # Still failing, probably the global log file
-                pass
-
-        # If we still can't initialize, remove the global log file handler too
-        if "dysh_global_log_file" in config["loggers"]["dysh"]["handlers"]:
-            config["loggers"]["dysh"]["handlers"].remove("dysh_global_log_file")
-            try:
-                logging.config.dictConfig(config)
-                logging.getLogger().setLevel(level)
-                logger.setLevel(level)
-                logger.warning(f"Could not create log files: {e}. Continuing with stderr logging only.")
-            except (OSError, PermissionError, ValueError) as e2:
-                # Can't even log to stderr, something is seriously wrong
-                raise RuntimeError(f"Failed to initialize logging: {e2}") from e2
+    # Init logging
+    logging.config.dictConfig(config)
+    logging.getLogger().setLevel(level)
+    logger.setLevel(level)
+    logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
 
 
 def log_function_call(log_level: str = "info"):
