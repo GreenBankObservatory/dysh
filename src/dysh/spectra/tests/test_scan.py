@@ -842,3 +842,12 @@ class TestScanBlock:
             sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
             sb[0].smooth(method="box", width=width, decimate=0)
             assert all(sb[0].delta_freq == np.array([x["CDELT1"] for x in sb[0].meta]))
+
+    def test_tsys_weight(self, data_dir):
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51], ifnum=0, plnum=0, fdnum=0)
+        tsys_weights = sb.tsys_weight
+        tsys_weights_scan = sb[0].tsys_weight
+        assert all(tsys_weights[0] == tsys_weights_scan)
