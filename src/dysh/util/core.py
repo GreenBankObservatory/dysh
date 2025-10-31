@@ -461,11 +461,10 @@ def convert_array_to_mask(a, length, value=True):
 
     """
 
-    if a == ALL_CHANNELS:
+    if str(a) == ALL_CHANNELS:
         return np.full(length, value)
 
     mask = np.full(length, False)
-
     for v in a:
         if isinstance(v, (tuple, list, np.ndarray)) and len(v) == 2:
             # If there are just two numbers, interpret is as an inclusive range
@@ -475,11 +474,11 @@ def convert_array_to_mask(a, length, value=True):
     return mask
 
 
-def abbreviate_to(length, value, squeeze=True):
+def abbreviate_to(length, value, squeeze=True) -> str:
     """
     Abbreviate a value for display in limited space. The abbreviated
     value will have initial characters, ellipsis, and final characters, e.g.
-    '[(a,b),(c,d)...(w,x),(y,z)]'.
+    '[(a,b),(c,d),...,(w,x),(y,z)]'.
 
     Parameters
     ----------
@@ -493,16 +492,25 @@ def abbreviate_to(length, value, squeeze=True):
     Returns
     -------
     strv : str
-        Abbreviated string representation of the input value
-
+        Abbreviated string representation of the input value.
     """
     strv = str(value)
+    sep = ", "
     if squeeze:
         strv = strv.replace(", ", ",")
+        sep = ","
     if len(strv) > length:
-        bc = int(length / 2) - 1
-        ec = bc - 1
-        strv = strv[0:bc] + "..." + strv[-ec:]
+        try:
+            bc = strv.rindex(sep, 0, length // 2 - 1)
+        except ValueError:
+            bc = strv.index(sep)
+        try:
+            ec = strv[-length // 2 + 1 :].index(sep)
+            eci = -length // 2 + 1
+        except ValueError:
+            ec = strv.rindex(sep)
+            eci = None
+        strv = strv[:bc] + sep + "..." + strv[eci:][ec:]
     return strv
 
 
@@ -602,3 +610,63 @@ def show_dataframe(df, show_index=False, max_rows=None, max_cols=None):
         display(HTML(df.to_html(**kwargs)))
     else:
         print(df.to_string(**kwargs))
+
+
+def calc_vegas_spurs(
+    vsprval: float | np.ndarray,
+    vspdelt: float | np.ndarray,
+    vsprpix: float | np.ndarray,
+    maxchan: float,
+    keep_central=False,
+) -> np.ma.masked_array:
+    """
+    Calculate VEGAS spur channel locations.
+
+    SPUR_CHANNEL = (J-VSPRVAL)*VSPDELT+VSPRPIX - 1
+
+    where 0 <= J < 32.
+
+    Spur channels are counted from zero.
+
+    Parameters
+    ----------
+    vsprval : float or ~numpy.ndarray
+        VEGAS spur channel offset
+    vspdelt : float or ~numpy.ndarray
+        VEGAS spur separation width in channels.
+    vsprpix : float or ~numpy.ndarray
+        VEGAS spur reference pixel.
+    maxchan : float
+        Maximum channel number (counting from zero), above which calculated spurs are masked.
+    keep_central: bool
+        Whether to keep the central VEGAS spur location in the returned array or not.
+        The GBO SDFITS writer by default replaces the value at the central SPUR with the average of the
+        two adjacent channels, and hence the central channel is not typically flagged.
+
+    Note
+    ----
+    All input arrays must have the same shape
+
+    Returns
+    -------
+    `~numpy.ma.masked_array`
+        The array of channel numbers where spurs occur, with shape (`N_vsp`,31) where
+        `N_vsp` is the length of the VSP arrays.  Invalid spur locations will be masked.
+
+    """
+    NSPURS = 32
+    spurs = np.outer(np.arange(NSPURS), vspdelt) - vsprval * vspdelt + vsprpix - 1
+
+    if not keep_central:
+        # GBTIDL says: The central channel is defined by NCHAN/2 when counting from zero.
+        # Which actually is ambiguous but we will take to mean e.g. 8192 when NCHAN=16384
+        # This produces the same return array as GBTIDL dcspurschan.pro
+        central = NSPURS // 2
+        a = np.sort(spurs[np.arange(len(spurs)) != central].astype(int))
+    else:
+        a = np.sort(spurs.astype(int))
+    # Mask any spur locations <0 or > maxchan.
+    # Calling functions rely on the number of rows len(a[1]) to match the length of
+    # the input VSP values, so mask instead of dropping rows.
+    a = np.ma.masked_array(a, mask=np.logical_or(a < 0, a > maxchan))
+    return a.T
