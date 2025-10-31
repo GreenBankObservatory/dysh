@@ -347,13 +347,15 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             f"Delta Freq (channel width) calculation for {self.__class__.__name__} needs to be implemented."
         )
 
-    def getspec(self, i):  ##SCANBASE
+    def getspec(self, i, use_wcs=True):  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
 
         Parameters
         ----------
         i : int
             The index into the calibrated array
+        use_wcs : bool
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`
 
         Returns
         -------
@@ -366,6 +368,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             ),
             meta=self.meta[i],
             observer_location=self._observer_location,
+            use_wcs=use_wcs,
         )
         s.merge_commentary(self)
         s._baseline_model = self._baseline_model
@@ -805,7 +808,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         pass
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):  ## SCANBASE
+    def timeaverage(self, weights="tsys", use_wcs=True):  ## SCANBASE
         r"""Compute the time-averaged spectrum for this set of FSscans.
 
         Parameters
@@ -816,11 +819,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
-
+        use_wcs : bool
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`
 
         Returns
         -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
+        spectrum : `~dysh.spectra.spectrum.Spectrum`
             The time-averaged spectrum
 
         .. note::
@@ -830,7 +834,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.getspec(0))
+        self._timeaveraged = deepcopy(self.getspec(0, use_wcs=use_wcs))
         data = self._calibrated
         if weights == "tsys":
             w = self.tsys_weight
@@ -848,8 +852,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def _make_bintable(self, flags: bool) -> BinTableHDU:
         """
         Create a :class:`~astropy.io.fits.BinaryTableHDU` from the calibrated data of this Scan.
-
-
 
         Returns
         -------
@@ -1113,23 +1115,24 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.smooth(method, width, decimate, kernel)
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):  ## SCANBLOCK
+    def timeaverage(self, weights="tsys", use_wcs: bool = True):  ## SCANBLOCK
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
         ----------
-        weights: str
+        weights : str
             'tsys' or None.  If 'tsys' the weight will be calculated as:
 
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
-
+        use_wcs : bool
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`
 
         Returns
         -------
-        timeaverage: list of `~spectra.spectrum.Spectrum`
-            List of all the time-averaged spectra
+        timeaverage : `~dysh.spectra.spectrum.Spectrum`
+            Time-averaged spectra.
 
         .. note::
 
@@ -1139,7 +1142,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # average of the averages
         self._timeaveraged = []
         for scan in self.data:
-            self._timeaveraged.append(scan.timeaverage(weights))
+            self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
         s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
