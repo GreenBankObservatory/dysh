@@ -25,7 +25,7 @@ This way :math:`T_{sys}` is a scalar. The routine :py:func:`dysh.spectra.core.me
 computes this.  The HOT and SKY are also referred to sometimes as CAL and SIG.
 
 .. modules/dysh.spectra.html#dysh.spectra.core.mean_tsys
-   
+
 .. math:: :label: eq_sdmath3
 
    T_A = T_{sys}  {   { SIG - REF } \over {REF} }
@@ -65,7 +65,7 @@ e.g. :py:func:`dysh.fits.GBTFITSLoad.getps`
      \sigma_N = \sigma_1 \sqrt{   {N+1} \over  {2N}  }
 
 .. @todo fix this one if the EXPOSURES in ON and OFF are not the same
-	  
+
 
 Weight factors are 1/:math:`\sqrt(RMS)` following the radiometer equation
 
