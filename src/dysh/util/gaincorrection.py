@@ -148,7 +148,7 @@ class GBTGainCorrection(BaseGainCorrection):
             gain_correction_table = get_project_data() / "gaincorrection.tab"
         self._gct = QTable.read(gain_correction_table, format="ascii.ecsv")
         self._gct.sort("Date")  # just in case it ever is written unsorted.
-        self.app_eff_0 = 0.71
+        self.ap_eff_0 = 0.71
         self.epsilon_0 = 230 * u.micron
         self.physical_aperture = 7853.9816 * u.m * u.m
         self.loss_eff_0 = 0.99
@@ -308,7 +308,7 @@ class GBTGainCorrection(BaseGainCorrection):
         angle: Angle | Quantity,
         date: Time,
         zd: bool = False,
-        eps0: None | Quantity = None,
+        surface_error: None | Quantity = None,
         **kwargs,
     ) -> float | np.ndarray:
         r"""
@@ -320,7 +320,7 @@ class GBTGainCorrection(BaseGainCorrection):
             \eta_a = \eta_0 G(ZD) \exp(-(4\pi\epsilon/\lambda)^2)
 
         where :math:`\eta_0` is the long wavelength aperture efficiency, :math:`G(ZD)` is the gain correction factor
-        at a zenith distance :math:`ZD` (`zd`), :math:`\epsilon` (`eps0`) is the surface error, and :math:`\lambda` is the wavelength.
+        at a zenith distance :math:`ZD` (`zd`), :math:`\epsilon` (`surface_error`) is the surface error, and :math:`\lambda` is the wavelength.
 
         **Rules for input of multiple dates, spectral values, and angles**
 
@@ -351,7 +351,7 @@ class GBTGainCorrection(BaseGainCorrection):
         zd : bool
             True if the input value is zenith distance, False if it is elevation. Default: False
 
-        eps0 : `~astropy.units.quantity.Quantity` or None
+        surface_error : `~astropy.units.quantity.Quantity` or None
             The value of :math:`\epsilon` to use, the surface rms error. If given, must have units of length (typically microns).
             If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
 
@@ -367,35 +367,37 @@ class GBTGainCorrection(BaseGainCorrection):
         ang = to_quantity_list(angle)
         if date.isscalar:
             if len(sp) == 1 or len(ang) == 1 or (len(sp) == len(ang)):
-                coeff = self.app_eff_0 * self.gain_correction(ang, date, zd)
-                if eps0 is None:
-                    eps0 = self.surface_error(date)
+                coeff = self.ap_eff_0 * self.gain_correction(ang, date, zd)
+                if surface_error is None:
+                    surface_error = self.surface_error(date)
             else:
                 raise ValueError(f"Number of specvals {len(sp)} and angles {len(ang)} must be equal")
         else:
             if all([len(sp) == 1, len(ang) == 1]):
                 coeff = []
                 for i in range(len(date)):
-                    coeff.append(self.app_eff_0 * self.gain_correction(angle, date[i], zd))
+                    coeff.append(self.ap_eff_0 * self.gain_correction(angle, date[i], zd))
                 coeff = np.squeeze(np.array(coeff))
             elif len(sp) == len(date) and len(ang) == len(date):
                 coeff = []
                 for i in range(len(date)):
-                    coeff.append(self.app_eff_0 * self.gain_correction(ang[i], date[i], zd))
+                    coeff.append(self.ap_eff_0 * self.gain_correction(ang[i], date[i], zd))
                 coeff = np.squeeze(np.array(coeff))
             else:
                 raise ValueError(
                     f"Number of specvals {len(sp)} and angles {len(ang)} must be equal to number of dates {len(date)}"
                 )
 
-            if eps0 is None:
-                eps0 = [self.surface_error(x) for x in date]
-                eps0 = to_quantity_list(eps0)
-        _lambda = sp.to(eps0.unit, equivalencies=u.spectral())
+            if surface_error is None:
+                surface_error = self._surface_error_array(date)
+        _lambda = sp.to(surface_error.unit, equivalencies=u.spectral())
 
-        a = (4.0 * np.pi * eps0 / _lambda) ** 2
+        a = (4.0 * np.pi * surface_error / _lambda) ** 2
         eta_a = coeff * np.exp(-a)  # this will be a Quantity with units u.dimensionless
         return eta_a.value
+
+    def _surface_error_array(self, date):
+        return to_quantity_list([self.surface_error(x) for x in date])
 
     def scale_ta_to(
         self,
@@ -405,7 +407,8 @@ class GBTGainCorrection(BaseGainCorrection):
         date: Time,
         zenith_opacity,
         zd=False,
-        eps0=None,
+        ap_eff=None,
+        surface_error=None,
     ) -> float | np.ndarray:
         r"""
         Scale the antenna temperature to a different brightness temperature unit.
@@ -416,7 +419,7 @@ class GBTGainCorrection(BaseGainCorrection):
                 - 'Ta*' : Antenna temperature corrected to above the atmosphere in K
                 - 'Flux'  : flux density in Jansky
 
-            If 'Ta*' or 'Flux' the zenith opacity must also be given. Default:'Fa'
+            If 'Ta*' or 'Flux' the zenith opacity must also be given.
 
         specval : `~astropy.units.quantity.Quantity`
             The spectral value(s) -- frequency or wavelength -- at which to compute the efficiency
@@ -429,10 +432,16 @@ class GBTGainCorrection(BaseGainCorrection):
 
         zenith_opacity: float
             The zenith opacity to use in calculating the scale factors for the integrations.
+
         zd : bool
             True if the input value is zenith distance, False if it is elevation. Default: False
 
-        eps0 : `~astropy.units.quantity.Quantity` or None
+        ap_eff : float or None
+            Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it :meth:`aperture_efficiency`. Only one of `ap_eff` or `surface_errors`
+            can be provided.
+
+        surface_error : `~astropy.units.quantity.Quantity` or None
             The value of :math:`\epsilon_0` to use, the surface rms error. If given, must have units of length (typically microns).
             If None, the measured value from observatory testing will be used (See :meth:`surface_error`).
         """
@@ -440,11 +449,16 @@ class GBTGainCorrection(BaseGainCorrection):
             raise ValueError(
                 f"Unrecognized temperature scale {tscale}. Valid options are {GBTGainCorrection.valid_scales} (case-insensitive)."
             )
+        if ap_eff is not None and surface_error is not None:
+            raise ValueError("Only one of ap_eff or surface_error should be specified")
         s = tscale.lower()
         if s == "ta":
             return 1.0
         am = self.airmass(angle, zd)
-        eta_a = self.aperture_efficiency(specval, angle, date, zd, eps0)
+        if ap_eff is None:
+            eta_a = self.aperture_efficiency(specval, angle, date, zd, surface_error)
+        else:
+            eta_a = ap_eff
         # Calculate Ta* because in both cases we need it
         # Ta* = T_a exp(tau*A)/(eta_a * eta_loss )
         # - the airmass as a function of elevation, A
@@ -454,12 +468,11 @@ class GBTGainCorrection(BaseGainCorrection):
         if s == "ta*":
             return factor
         # Snu = 2kT_a exp(tau*A)/(eta_a * eta_loss *  A_p )
-        #     = 2kTa*/(eta_loss * A_p)
+        #     = 2kTa*/A_p
         # where
         # - k is Boltzmann's constant
         # - the physical aperture, A_p
         jyperk = factor * self.jyperk
-        # print(1.0 / jyperk)
         return jyperk.value
 
     def get_weather(
