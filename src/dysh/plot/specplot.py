@@ -609,25 +609,24 @@ class Menu:
 
         # Button/Radio combo to select xunit
         self.xunit_cycle = {'chan':'chan', 'Hz':u.Hz, 'kHz':u.kHz, 'MHz':u.MHz, 'GHz':u.GHz, 'm/s':u.m/u.s, 'km/s':u.km/u.s}
-        #print(self.specplot._xunit)
-        #print(list(self.xunit_cycle.values()))
-        #print(list(self.xunit_cycle.values()).index(self.specplot._xunit))
-        #c2 = {v:k for k,v in self.xunit_cycle.items()}
-        self.xunit_ind = list(self.xunit_cycle.values()).index(self.specplot._xunit)
+        try:
+            self.xunit_ind = list(self.xunit_cycle.values()).index(self.specplot._xunit)
+        except:
+            self.xunit_ind = 1
 
         self.xunit_button_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1], hsize, vsize])
         self.xunit_button = Button(self.xunit_button_ax, list(self.xunit_cycle)[self.xunit_ind])
         self.xunit_button.on_clicked(self.choose_xunit)
-        # self.xunit_radio_ax = self.canvas.figure.add_axes([hcoords[3], vcoords[1]-vsize*7, hsize*2, vsize*7],
-        # zorder=100)
-        # self.xunit_radio_ax.set_visible(False)
 
         # Button/Radio combo to select vframe
         self.vframe_cycle = {'TOPO':'topo', 'LSRK':'lsrk', 'LSRD':'lsrd', 'GEO':'gcrs', 'HEL':'hcrs', 'BARY':'icrs', 'GAL':'galactocentric'}
-        self.vframe_ind = 0
-        # self.vframe_button_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[0], hsize, vsize])
-        # self.vframe_button = Button(self.vframe_button_ax, "Vframe")
-        # self.vframe_button.on_clicked(self.open_vframe_radio)
+        try:
+            self.vframe_ind = list(self.vframe_cycle.values()).index(self.specplot._plot_kwargs["vel_frame"])
+        except:
+            self.vframe_ind = 0
+        self.vframe_button_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[0], hsize, vsize])
+        self.vframe_button = Button(self.vframe_button_ax, list(self.vframe_cycle)[self.vframe_ind])
+        self.vframe_button.on_clicked(self.choose_vframe)
         # self.vframe_radio_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[1]-vsize*7, hsize*2, vsize*7],
         # zorder=100)
         # self.vframe_radio_ax.set_visible(False)
@@ -725,6 +724,7 @@ class Menu:
         #self.xunit_button.label.set_text(self.xunit_cycle[i][0])
         self.xunit_button.label.set_text(list(self.xunit_cycle)[i])
         self.specplot._xunit = list(self.xunit_cycle.values())[i]
+        #TODO light amount of refactoring here between choose_xunit, chose_vframe, choose_vdef etc
 
         if i==0:
             self.specplot._sa = u.Quantity(np.arange(len(self.specplot._sa)))
@@ -749,21 +749,33 @@ class Menu:
         self.specplot._axis.figure.canvas.draw_idle()
 
 
-    def open_vframe_radio(self, event=None):
-        print('choose vframe')
-        self.vframe_radio_ax.set_visible(True)
-        self.vframe_radio = RadioButtons(
-            self.vframe_radio_ax,
-            ('TOPO', 'LSR', 'LSD', 'GEO', 'HEL', 'BARY', 'GAL')
-        )
-        self.vframe_radio.on_clicked(self.choose_vframe)
-        self.specplot._plt.draw()
-        self.specplot._axis.figure.canvas.draw_idle()
+    # def open_vframe_radio(self, event=None):
+    #     print('choose vframe')
+    #     self.vframe_radio_ax.set_visible(True)
+    #     self.vframe_radio = RadioButtons(
+    #         self.vframe_radio_ax,
+    #         ('TOPO', 'LSR', 'LSD', 'GEO', 'HEL', 'BARY', 'GAL')
+    #     )
+    #     self.vframe_radio.on_clicked(self.choose_vframe)
+    #     self.specplot._plt.draw()
+    #     self.specplot._axis.figure.canvas.draw_idle()
 
     def choose_vframe(self, choice):
-        print(choice)
-        self.vframe_radio = None
-        self.vframe_radio_ax.set_visible(False)
+        print('====================')
+        self.vframe_ind +=1
+        i = self.vframe_ind % len(self.vframe_cycle)
+        self.vframe_button.label.set_text(list(self.vframe_cycle)[i])
+        self.specplot._plot_kwargs["vel_frame"] = list(self.vframe_cycle.values())[i]
+
+        self.specplot.spectrum.set_frame(self.specplot._plot_kwargs["vel_frame"])
+
+        self.specplot._sa = self.specplot.spectrum.spectral_axis
+        self.specplot._set_xaxis_info()
+        self.specplot._plot_kwargs["xlabel"] = self.specplot._compose_xlabel(**self.specplot._plot_kwargs)  # noqa: F821
+        self.specplot._set_labels(**self.specplot._plot_kwargs)
+        self.specplot._line.set_xdata(self.specplot._sa)
+        self.specplot._axis.set_xlim(np.min(self.specplot._sa).value, np.max(self.specplot._sa).value)
+
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 

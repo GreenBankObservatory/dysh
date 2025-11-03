@@ -856,7 +856,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 if isinstance(self._observer, ITRS):
                     return  # nothing to be done, we already have the correct axis
                 raise ValueError(
-                    "For topographic or ITRS coordaintes, you must supply a full astropy Coordinate instance."
+                    "For topographic or ITRS coordinates, you must supply a full astropy Coordinate instance."
                 )
             elif self._velocity_frame == tfl:
                 return  # the frame is already the requested frame
