@@ -63,7 +63,7 @@
 
         **Glossary**
 
-        A dysh Glossary 
+        A dysh Glossary
 
         .. button-link:: glossary.html
             :color: primary
