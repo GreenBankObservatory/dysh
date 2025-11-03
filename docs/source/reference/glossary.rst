@@ -308,7 +308,8 @@ In this glossary we also note overloaded terms.
       Subreflector Beam Nodding, one of the :term:`getXX()` routines
 
     tcal
-      Derive the noise diode temperature from observations
+      Derive the noise diode temperature from observations. Also: the calibration temperature
+      input to a :term:`calon` - :term:`caloff` calibration.
 
     VEGAS
       Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
