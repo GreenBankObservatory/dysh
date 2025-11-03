@@ -36,30 +36,24 @@ In this glossary we also note overloaded terms.
       observation.
 
     beam
-      The footprint of one receiver horn on the sky. Argus has a
-      4x4 multi-beam receiver, numbered 0 through 15.
+      The footprint of one receiver horn on the sky. 
 
-      See also :term:`fdnum`
+      See also :term:`fdnum`,  :term:`multi-beam`, and :term:`horn`
 
-      See also :term:`multi-beam`
-
-      See also :term:`horn`
-
-    Beam Switching
-      This is a variation on :term:`Position Switching` using a receiver
+    beam switching
+      This is a variation on :term:`position switching` using a receiver
       with multiple beams. The :term:`SIG` and :term:`REF`
       positions on the sky are
       calculated so that at least one feed of the multi-beam receiver is always
       pointing at the source. This is most useful for point sources.
 
-      See also :term:`Position Switching`
-
-      .. was this only implemented for Ka, and now for more?
+      See also :term:`position switching`
 
     BINTABLE
-      Binary table. In dysh data, BINTABLE is an index running from 0 to N-1,
+      Binary table. In dysh data, `bintable is an index running from 0 to N-1,
       where N is the number of binary tables in the SDFITS file.
-      see also :term:`FITS`
+    
+      See also :term:`FITS`
 
     blanking
       blanking is a term used in the (VEGAS) correllator, where bad data has been replaced
@@ -100,7 +94,7 @@ In this glossary we also note overloaded terms.
 
     fdnum
       Feed Number in dysh, starting at 0, used
-      as the **fdnum=** keyword in the getXX() routines.
+      as the **fdnum=** keyword in the :term:`getXX()` routines.
 
       See also :term:`beam`
 
@@ -123,9 +117,6 @@ In this glossary we also note overloaded terms.
 
       See also :term:`masking`
 
-      .. PJT open issue
-
-
     flag files
       SDFITS files created by GBTIDL can have a separate ASCII flag
       file. By default, :class:`~dysh.fits.gbtfitsload.GBTFITSLoad`
@@ -144,10 +135,10 @@ In this glossary we also note overloaded terms.
       to a spatial beam.
 
 
-    Frequency Switching
+    frequency switching
       This is a variation on position switching using a receiver
       where the IF is alternating.
-      See also :term:`Position Switching`
+      See also :term:`position switching`
 
     GBTIDL
       Green Bank Telescope Interactive Data Language. The GBT data
@@ -155,7 +146,8 @@ In this glossary we also note overloaded terms.
       data.
 
     getXX()
-      Generic name for the dysh calibration routines, e.g. getps, getfs, getnod etc.
+      Generic name for any of the dysh calibration routines, e.g. getps, getfs, getnod etc.
+      after an sdfits object has been obtained.
 
     horn
       Another term used for :term:`beam` or :term:`pixel`.
@@ -167,19 +159,20 @@ In this glossary we also note overloaded terms.
     IF
       Intermediate Frequency, is a frequency to which a carrier wave is shifted as
       an intermediate step in transmission or reception. The terms
-      See also :term:`band` and :term:`window` are often used as well, where they
+      :term:`band` and :term:`window` are often used as well, where they
       mean an IF band.
 
       See also :term:`ifnum`
 
     ifnum
       IF number (0,1,...)
-      Also used as the **ifnum=** keyword in getXX().
+      Also used as the **ifnum=** keyword in :term:`getXX()`.
 
       See also :term:`band` and :term:`window`
 
     intnum
-      Integration number, starting at 0, used as the **intnum=** keyword in the getXX() routines.
+      Integration number, starting at 0, used as the **intnum=** keyword in the
+      :term:`getXX()` routines.
 
     KFPA
       K-band Focal Plane Array, a hexagonal set of beams, with a central beam. Covers 18-26 GHz.
@@ -191,7 +184,9 @@ In this glossary we also note overloaded terms.
       as mask value of True means the underlying value is not used. In
       dysh masks are set on individual integrations during calibration
       [getXX()]; resultant spectra will have the final mask set in
-      Spectrum.mask. See also :term:`flagging`
+      Spectrum.mask.
+
+      See also :term:`flagging`
 
 
     metadata
@@ -216,7 +211,7 @@ In this glossary we also note overloaded terms.
       diode is alternating in On and Off states to determine the
       system temperature. This device is also refered to as the "Cal".
 
-      See also :term:`calon` and :term:`caloff` and
+      See also :term:`calon` and :term:`caloff` 
 
     ON/OFF
       The ON/OFF references are an overloaded term for when we refer to the
@@ -238,15 +233,18 @@ In this glossary we also note overloaded terms.
       Polarization number (0,1,...). Usually 0 and 1, but of course up to 4 values could be present
       for a full Stokes. Averaging the two polarizations will reduce the noise by :math:`sqrt{2}`
 
-      Also used as the **plnum=** keyword in getXX()
+      Also used as the **plnum=** keyword in :term:`getXX()`.
 
-
-    Position Switching
+    position switching
       This is a standard way to obtain spectra by switching
       between a :term:`SIG` and :term:`REF` position on the sky,
-      usually using a single beam. For our
-      multi-beam receivers see also :term:`Beam Switching`
+      usually using a single beam. 
 
+      See also :term:`beam switching` and :ref:`sdmath`
+
+      .. See also :numref:`Equation %s  <eq_sdmath3>`   
+
+      .. See also :numref:`eq_sdmath3`
 
     Project Code
       A code designating the year and proposal number, e.g. GBT21B-024.  Data associated with
@@ -255,9 +253,9 @@ In this glossary we also note overloaded terms.
       See below :ref:`data_org`
 
     REF
-      Reference point, meant to have no signal. See also :term:`CAL`
+      Reference point, meant to have no signal.
 
-      See also :ref:`sdmath`
+      See also :term:`CAL`  and  :ref:`sdmath`
 
     Region
       Region or regions of spectrum, used for flagging/masking,baseline subtraction.
@@ -307,7 +305,7 @@ In this glossary we also note overloaded terms.
       defined by its own seting of *(crval, crpix, cdelt)* in a FITS WCS sense.
 
     SubBeamNod
-      Subreflector Beam Nodding. The getXX() is now called `subbeamnod`
+      Subreflector Beam Nodding, one of the :term:`getXX()` routines
 
     tcal
       Derive the noise diode temperature from observations
