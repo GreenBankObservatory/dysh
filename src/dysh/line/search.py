@@ -159,7 +159,7 @@ class SpectralLineSearchClass:
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
-            columns: str or list
+        columns: str or list
             The query result columns to include in the returned table.  Any of {1}. The default is all columns.
         cache: bool
             For a local file query, make an in-memory copy of the input catalog to be used in subsequent queries to this catalog.
