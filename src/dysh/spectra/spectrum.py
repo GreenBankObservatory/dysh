@@ -37,6 +37,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
+from ..line import SpectralLineSearch
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import minimum_string_match
@@ -1604,6 +1605,119 @@ class Spectrum(Spectrum1D, HistoricalBase):
         x = self.spectral_axis.to(xunit)
         y = self.flux
         return curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
+
+    def _min_max_freq(self):
+        start_freq = self.spectral_axis[0].to("Hz", equivalencies=u.spectral())
+        end_freq = self.spectral_axis[-1].to("Hz", equivalencies=u.spectral())
+        if start_freq < end_freq:
+            return [start_freq, end_freq]
+        else:
+            return [end_freq, start_freq]
+
+    def query_lines(
+        self, chemical_name: str, intensity_lower_limit: float | None = None, cat: str = "splatalogue"
+    ) -> Table:
+        """
+        Query locally or remotely for lines and return a table object. The query returns lines
+        with rest frequencies in the range of this Spectrum's spectral_axis.
+
+        **Note:** If the search parameters result in no matches, a zero-length Table will be returned.
+
+        Parameters
+        ----------
+        chemical_name : str
+            Name of the chemical to search for. Treated as a regular
+            expression.  An empty set ('', (), [], {}) will match *any*
+            species. Examples:
+
+            ``'H2CO'`` - 13 species have H2CO somewhere in their formula.
+
+            ``'Formaldehyde'`` - There are 8 isotopologues of Formaldehyde
+                                 (e.g., H213CO).
+
+            ``'formaldehyde'`` - Thioformaldehyde,Cyanoformaldehyde.
+
+            ``'formaldehyde',chem_re_flags=re.I`` - Formaldehyde,thioformaldehyde,
+                                                    and Cyanoformaldehyde.
+
+            ``' H2CO '`` - Just 1 species, H2CO. The spaces prevent including
+                           others.
+        intensity_lower_limit : float, optional
+                Lower limit on the intensity in the logarithmic CDMS/JPL scale
+        cat : str or Path
+            The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
+            must have all the columns listed in the `columns` parameter.
+
+                - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
+
+                - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+
+        Returns
+        -------
+        Table
+            An astropy table containing the results of the search
+
+        """
+        minf, maxf = self._min_max_freq()
+        return SpectralLineSearch.query_lines(
+            min_frequency=minf, max_frequency=maxf, intensity_lower_limit=intensity_lower_limit, cat=cat
+        )
+
+    def recomb(self, line, intensity_lower_limit: float | None = None, cat: str = "splatalogue") -> Table:
+        """
+        Search for recombination lines of H, He, and C in the frequency range of this Spectrum.
+
+        Parameters
+        ----------
+        line : str
+           A string describing the line or series to search for, e.g. "Hydrogen", "Halpha", "Hebeta", "C", "carbon".
+        intensity_lower_limit : float, optional
+                Lower limit on the intensity in the logarithmic CDMS/JPL scale
+        cat : str or Path
+            The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
+            must have all the columns listed in the `columns` parameter.
+
+                - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
+
+                - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+
+        Returns
+        -------
+        Table
+            An astropy table containing the results of the search
+
+        """
+        minf, maxf = self._min_max_freq()
+        return SpectralLineSearch.recomb(
+            min_frequency=minf, max_frequency=maxf, line=line, intensity_lower_limit=intensity_lower_limit, cat=cat
+        )
+
+    def recomball(self, intensity_lower_limit: float | None = None, cat: str = "splatalogue") -> Table:
+        """
+        Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog.
+
+        Parameters
+        ----------
+        intensity_lower_limit : float, optional
+                Lower limit on the intensity in the logarithmic CDMS/JPL scale
+        cat : str or Path
+            The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
+            must have all the columns listed in the `columns` parameter.
+
+                - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
+
+                - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+
+        Returns
+        -------
+        Table
+            An astropy table containing the results of the search
+
+        """
+        minf, maxf = self._min_max_freq()
+        return SpectralLineSearch.recomball(
+            min_frequency=minf, max_frequency=maxf, intensity_lower_limit=intensity_lower_limit, cat=cat
+        )
 
 
 # @todo figure how how to document write()
