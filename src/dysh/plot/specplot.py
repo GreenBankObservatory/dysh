@@ -208,8 +208,8 @@ class SpectrumPlot(PlotBase):
         if self._title is not None:
             self._axis.set_title(self._title)
 
-        #persistent zline reference
-        self._zline = self._axis.axhline(0,c='k', visible = False, linewidth=1)
+        # persistent zline reference
+        self._zline = self._axis.axhline(0, c="k", visible=False, linewidth=1)
 
         if show_header:
             self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
@@ -549,49 +549,45 @@ class InteractiveSpanSelector:
         return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]
 
 
-
-
 class Menu:
-    def __init__(self,specplot):
+    def __init__(self, specplot):
         self.specplot = specplot
         self.canvas = self.specplot._axis.figure.canvas
         self.regionshow = True
 
-        hcoords = [0.08,0.21,0.34, 0.47, 0.60, 0.73]
-        vcoords = [0.93,0.88]
+        hcoords = [0.08, 0.21, 0.34, 0.47, 0.60, 0.73]
+        vcoords = [0.93, 0.88]
 
         hsize = 0.12
         vsize = 0.04
-
 
         # Button to write an ASCII file.
         self.writeascii_button_ax = self.canvas.figure.add_axes([hcoords[0], vcoords[0], hsize, vsize])
         self.writeascii_button = Button(self.writeascii_button_ax, "Write ASCII")
         self.writeascii_button.on_clicked(self._writeascii)
 
-
         # CheckButton to show zline
         self.zline_button_ax = self.canvas.figure.add_axes([hcoords[1], vcoords[0], hsize, vsize])
         self.zline_button = CheckButtons(
-            ax = self.zline_button_ax,
-            labels = ["Zline"],
-            )
+            ax=self.zline_button_ax,
+            labels=["Zline"],
+        )
         self.zline_button.on_clicked(self._zline_enable)
 
         # CheckButton to plot hist style
         self.hist_button_ax = self.canvas.figure.add_axes([hcoords[1], vcoords[1], hsize, vsize])
         self.hist_button = CheckButtons(
-            ax = self.hist_button_ax,
-            labels = ["Hist"],
-            )
+            ax=self.hist_button_ax,
+            labels=["Hist"],
+        )
         self.hist_button.on_clicked(self._hist_enable)
 
         # CheckButton to show selected regions
         self.regionshow_button_ax = self.canvas.figure.add_axes([hcoords[2], vcoords[0], hsize, vsize])
         self.regionshow_button = CheckButtons(
-            ax = self.regionshow_button_ax,
-            labels = ["Show Regs"],
-            )
+            ax=self.regionshow_button_ax,
+            labels=["Show Regs"],
+        )
         self.regionshow_button.on_clicked(self._regionshow_enable)
 
         # Button to clear overlays
@@ -608,7 +604,15 @@ class Menu:
         # self.leftclick_radio_ax.set_visible(False)
 
         # Button/Radio combo to select xunit
-        self.xunit_cycle = {'chan':'chan', 'Hz':u.Hz, 'kHz':u.kHz, 'MHz':u.MHz, 'GHz':u.GHz, 'm/s':u.m/u.s, 'km/s':u.km/u.s}
+        self.xunit_cycle = {
+            "chan": "chan",
+            "Hz": u.Hz,
+            "kHz": u.kHz,
+            "MHz": u.MHz,
+            "GHz": u.GHz,
+            "m/s": u.m / u.s,
+            "km/s": u.km / u.s,
+        }
         try:
             self.xunit_ind = list(self.xunit_cycle.values()).index(self.specplot._xunit)
         except:
@@ -619,7 +623,15 @@ class Menu:
         self.xunit_button.on_clicked(self.choose_xunit)
 
         # Button/Radio combo to select vframe
-        self.vframe_cycle = {'TOPO':'topo', 'LSRK':'lsrk', 'LSRD':'lsrd', 'GEO':'gcrs', 'HEL':'hcrs', 'BARY':'icrs', 'GAL':'galactocentric'}
+        self.vframe_cycle = {
+            "TOPO": "topo",
+            "LSRK": "lsrk",
+            "LSRD": "lsrd",
+            "GEO": "gcrs",
+            "HEL": "hcrs",
+            "BARY": "icrs",
+            "GAL": "galactocentric",
+        }
         try:
             self.vframe_ind = list(self.vframe_cycle.values()).index(self.specplot._plot_kwargs["vel_frame"])
         except:
@@ -655,36 +667,33 @@ class Menu:
         # zorder=100)
         # self.centfreq_radio_ax.set_visible(False)
 
-
-
-    def _writeascii(self,event=None):
-        print('oop no file dialog window yet')
+    def _writeascii(self, event=None):
+        print("oop no file dialog window yet")
 
     def _zline_enable(self, event=None):
-        #print('zline!')
+        # print('zline!')
         self.specplot._zline.set_visible(not self.specplot._zline.get_visible())
-        #self.zline_button.set_active(not self.zline_button.get_active())
-        #self.specplot._axis.figure.canvas.draw_idle()
-        #self.specplot._zline._axis.canvas.draw_idle()
+        # self.zline_button.set_active(not self.zline_button.get_active())
+        # self.specplot._axis.figure.canvas.draw_idle()
+        # self.specplot._zline._axis.canvas.draw_idle()
 
     def _hist_enable(self, event=None):
-        #print('zline!')
+        # print('zline!')
         self.specplot._line.set_visible(not self.specplot._line.get_visible())
         self.specplot._histline.set_visible(not self.specplot._histline.get_visible())
-        #self.specplot._zline._axis.canvas.draw_idle()
+        # self.specplot._zline._axis.canvas.draw_idle()
 
     def _regionshow_enable(self, event=None):
-        #need to have a persistent bool here in case users disable showing regions then make more
+        # need to have a persistent bool here in case users disable showing regions then make more
         self.regionshow = not self.regionshow
-        print(f'regionshow is now {self.regionshow}')
+        print(f"regionshow is now {self.regionshow}")
         if self.specplot._selector is not None:
             for region in self.specplot._selector.regions:
                 region.set_visible(self.regionshow)
 
-    def _clearoverlays(self,event=None):
-        print('clear overlays')
+    def _clearoverlays(self, event=None):
+        print("clear overlays")
         self.specplot.clear_overlays()
-
 
     # def open_leftclick_radio(self,event=None):
     #     print('choose leftclick')
@@ -721,25 +730,25 @@ class Menu:
     def choose_xunit(self, c):
         self.xunit_ind += 1
         i = self.xunit_ind % len(self.xunit_cycle)
-        #self.xunit_button.label.set_text(self.xunit_cycle[i][0])
+        # self.xunit_button.label.set_text(self.xunit_cycle[i][0])
         self.xunit_button.label.set_text(list(self.xunit_cycle)[i])
         self.specplot._xunit = list(self.xunit_cycle.values())[i]
-        #TODO light amount of refactoring here between choose_xunit, chose_vframe, choose_vdef etc
+        # TODO light amount of refactoring here between choose_xunit, chose_vframe, choose_vdef etc
 
-        if i==0:
+        if i == 0:
             self.specplot._sa = u.Quantity(np.arange(len(self.specplot._sa)))
             self.specplot._plot_kwargs["xlabel"] = "Channel"
             self.specplot.axis.set_xlabel(self.specplot._plot_kwargs["xlabel"])
             self.specplot._plot_kwargs["xaxis_unit"] = None
         else:
             self.specplot._sa = self.specplot._spectrum.velocity_axis_to(
-                    unit=self.specplot._xunit,
-                    toframe=self.specplot._plot_kwargs["vel_frame"],
-                    doppler_convention=self.specplot._plot_kwargs["doppler_convention"],
-                )
+                unit=self.specplot._xunit,
+                toframe=self.specplot._plot_kwargs["vel_frame"],
+                doppler_convention=self.specplot._plot_kwargs["doppler_convention"],
+            )
             self.specplot._spectrum._spectral_axis = self.specplot._sa
             self.specplot._set_xaxis_info()
-            self.specplot._plot_kwargs["xlabel"] = self.specplot._compose_xlabel(**self.specplot._plot_kwargs)  # noqa: F821
+            self.specplot._plot_kwargs["xlabel"] = self.specplot._compose_xlabel(**self.specplot._plot_kwargs)
 
             self.specplot._set_labels(**self.specplot._plot_kwargs)
 
@@ -747,7 +756,6 @@ class Menu:
         self.specplot._axis.set_xlim(np.min(self.specplot._sa).value, np.max(self.specplot._sa).value)
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
-
 
     # def open_vframe_radio(self, event=None):
     #     print('choose vframe')
@@ -761,8 +769,8 @@ class Menu:
     #     self.specplot._axis.figure.canvas.draw_idle()
 
     def choose_vframe(self, choice):
-        print('====================')
-        self.vframe_ind +=1
+        print("====================")
+        self.vframe_ind += 1
         i = self.vframe_ind % len(self.vframe_cycle)
         self.vframe_button.label.set_text(list(self.vframe_cycle)[i])
         self.specplot._plot_kwargs["vel_frame"] = list(self.vframe_cycle.values())[i]
@@ -771,7 +779,7 @@ class Menu:
 
         self.specplot._sa = self.specplot.spectrum.spectral_axis
         self.specplot._set_xaxis_info()
-        self.specplot._plot_kwargs["xlabel"] = self.specplot._compose_xlabel(**self.specplot._plot_kwargs)  # noqa: F821
+        self.specplot._plot_kwargs["xlabel"] = self.specplot._compose_xlabel(**self.specplot._plot_kwargs)
         self.specplot._set_labels(**self.specplot._plot_kwargs)
         self.specplot._line.set_xdata(self.specplot._sa)
         self.specplot._axis.set_xlim(np.min(self.specplot._sa).value, np.max(self.specplot._sa).value)
@@ -780,12 +788,9 @@ class Menu:
         self.specplot._axis.figure.canvas.draw_idle()
 
     def open_voffset_radio(self, event=None):
-        print('choose voffset')
+        print("choose voffset")
         self.voffset_radio_ax.set_visible(True)
-        self.voffset_radio = RadioButtons(
-            self.voffset_radio_ax,
-            ('vsrc', '0')
-        )
+        self.voffset_radio = RadioButtons(self.voffset_radio_ax, ("vsrc", "0"))
         self.voffset_radio.on_clicked(self.choose_voffset)
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
@@ -797,14 +802,10 @@ class Menu:
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 
-
     def open_vdef_radio(self, event=None):
-        print('choose vdef')
+        print("choose vdef")
         self.vdef_radio_ax.set_visible(True)
-        self.vdef_radio = RadioButtons(
-            self.vdef_radio_ax,
-            ('radio', 'optical', 'true')
-        )
+        self.vdef_radio = RadioButtons(self.vdef_radio_ax, ("radio", "optical", "true"))
         self.vdef_radio.on_clicked(self.choose_vdef)
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
@@ -816,14 +817,10 @@ class Menu:
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 
-
     def open_centfreq_radio(self, event=None):
-        print('choose centfreq')
+        print("choose centfreq")
         self.centfreq_radio_ax.set_visible(True)
-        self.centfreq_radio = RadioButtons(
-            self.centfreq_radio_ax,
-            ('abs', 'rel')
-        )
+        self.centfreq_radio = RadioButtons(self.centfreq_radio_ax, ("abs", "rel"))
         self.centfreq_radio.on_clicked(self.choose_centfreq)
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
@@ -834,11 +831,3 @@ class Menu:
         self.centfreq_radio_ax.set_visible(False)
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
-
-
-
-
-
-
-
-
