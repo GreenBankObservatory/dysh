@@ -12,7 +12,7 @@ from io import StringIO
 from pathlib import Path
 from typing import NewType
 
-from astropy import log
+from astropy import log as astropy_logger
 from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
 
@@ -20,7 +20,7 @@ from . import version
 from .ascii import ensure_ascii
 
 # Set Astropy logging level to warning.
-log.setLevel("WARNING")
+astropy_logger.setLevel("WARNING")
 
 LOGGING_INITIALIZED = False
 logger = logging.getLogger("dysh")
@@ -132,15 +132,19 @@ config = {
 }
 
 
-def init_logging(verbosity: int, level: int | None = None, path: Path | None = None, quiet=False):
+def init_logging(verbosity: int | None = None, level: int | None = None, path: Path | None = None, quiet=False):
     global LOGGING_INITIALIZED
-    if LOGGING_INITIALIZED is True:
-        logger.warning(
-            "dysh logging has already been initialized! Continuing, but this behavior is not well defined, "
-            "and you will likely end up with duplicate log handlers"
-        )
+    if LOGGING_INITIALIZED:
+        # Clear existing handlers to avoid duplicates when re-initializing
+        logger.handlers.clear()
+        dhlogger.handlers.clear()
 
     LOGGING_INITIALIZED = True
+
+    # If verbosity not provided, check environment variable
+    if verbosity is None:
+        verbosity = int(os.environ.get("DYSH_VERBOSITY", "2"))
+
     if verbosity == 0:
         level = logging.ERROR
     elif verbosity == 1:
@@ -164,41 +168,13 @@ def init_logging(verbosity: int, level: int | None = None, path: Path | None = N
     if path:
         config["handlers"]["dysh_instance_log_file"]["filename"] = path
         config["loggers"]["dysh"]["handlers"].append("dysh_instance_log_file")
+        logger.info(f"Log file for this instance of dysh: {path}")
 
-    # Init logging - try with configured handlers, fall back if files can't be written
-    try:
-        logging.config.dictConfig(config)
-        logging.getLogger().setLevel(level)
-        logger.setLevel(level)
-        logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
-        if path:
-            logger.info(f"Log file for this instance of dysh: {path}")
-    except (OSError, PermissionError, ValueError) as e:
-        # If we can't create a log file, try to continue with just stderr
-        # First try removing the instance log file if it was requested
-        if path and "dysh_instance_log_file" in config["loggers"]["dysh"]["handlers"]:
-            config["loggers"]["dysh"]["handlers"].remove("dysh_instance_log_file")
-            try:
-                logging.config.dictConfig(config)
-                logging.getLogger().setLevel(level)
-                logger.setLevel(level)
-                logger.warning(f"Could not create instance log file {path}: {e}. Continuing without instance log file.")
-                return
-            except (OSError, PermissionError, ValueError):
-                # Still failing, probably the global log file
-                pass
-
-        # If we still can't initialize, remove the global log file handler too
-        if "dysh_global_log_file" in config["loggers"]["dysh"]["handlers"]:
-            config["loggers"]["dysh"]["handlers"].remove("dysh_global_log_file")
-            try:
-                logging.config.dictConfig(config)
-                logging.getLogger().setLevel(level)
-                logger.setLevel(level)
-                logger.warning(f"Could not create log files: {e}. Continuing with stderr logging only.")
-            except (OSError, PermissionError, ValueError) as e2:
-                # Can't even log to stderr, something is seriously wrong
-                raise RuntimeError(f"Failed to initialize logging: {e2}") from e2
+    # Init logging
+    logging.config.dictConfig(config)
+    logging.getLogger().setLevel(level)
+    logger.setLevel(level)
+    logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
 
 
 def log_function_call(log_level: str = "info"):
