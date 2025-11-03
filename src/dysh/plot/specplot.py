@@ -604,7 +604,7 @@ class Menu:
         # zorder=100)
         # self.leftclick_radio_ax.set_visible(False)
 
-        # Button/Radio combo to select xunit
+        # Button to cycle xunit
         self.xunit_cycle = {
             "chan": "chan",
             "Hz": u.Hz,
@@ -623,7 +623,7 @@ class Menu:
         self.xunit_button = Button(self.xunit_button_ax, list(self.xunit_cycle)[self.xunit_ind])
         self.xunit_button.on_clicked(self.choose_xunit)
 
-        # Button/Radio combo to select vframe
+        # Button to cycle vframe
         self.vframe_cycle = {
             "TOPO": "topo",
             "LSRK": "lsrk",
@@ -644,7 +644,7 @@ class Menu:
         # zorder=100)
         # self.vframe_radio_ax.set_visible(False)
 
-        # Button/Radio combo to select voffset
+        # Button to cycle voffset
         # self.voffset_button_ax = self.canvas.figure.add_axes([hcoords[4], vcoords[1], hsize, vsize])
         # self.voffset_button = Button(self.voffset_button_ax, "Voffset")
         # self.voffset_button.on_clicked(self.open_voffset_radio)
@@ -652,10 +652,15 @@ class Menu:
         # zorder=100)
         # self.voffset_radio_ax.set_visible(False)
 
-        # Button/Radio combo to select vdef
-        # self.vdef_button_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[0], hsize, vsize])
-        # self.vdef_button = Button(self.vdef_button_ax, "Vdef")
-        # self.vdef_button.on_clicked(self.open_vdef_radio)
+        # Button to cycle vdef
+        self.vdef_cycle = {'RADIO':'radio', 'OPTI':'optical', 'RELA':'relativistic'}
+        try:
+            self.vdef_ind = list(self.vdef_cycle.values()).index(self.specplot._plot_kwargs["doppler_convention"])
+        except:
+            self.vdef_ind = 0
+        self.vdef_button_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[0], hsize, vsize])
+        self.vdef_button = Button(self.vdef_button_ax, list(self.vdef_cycle)[self.vdef_ind])
+        self.vdef_button.on_clicked(self.choose_vdef)
         # self.vdef_radio_ax = self.canvas.figure.add_axes([hcoords[5], vcoords[1]-vsize*3, hsize*2, vsize*3],
         # zorder=100)
         # self.vdef_radio_ax.set_visible(False)
@@ -696,17 +701,6 @@ class Menu:
         print("clear overlays")
         self.specplot.clear_overlays()
 
-    # def open_leftclick_radio(self,event=None):
-    #     print('choose leftclick')
-    #     self.leftclick_radio_ax.set_visible(True)
-    #     self.leftclick_radio = RadioButtons(
-    #         self.leftclick_radio_ax,
-    #         ('Null', 'Position', 'Marker', 'Vline')
-    #     )
-    #     self.leftclick_radio.on_clicked(self.choose_leftclick)
-    #     self.specplot._plt.draw()
-    #     self.specplot._axis.figure.canvas.draw_idle()
-
     def choose_leftclick(self, event=None):
         self.xunit_ind += 1
         i = self.xunit_ind % len(self.xunit_cycle)
@@ -716,17 +710,6 @@ class Menu:
         # self.leftclick_radio_ax.set_visible(False)
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
-
-    # def open_xunit_radio(self, event=None):
-    #     print('choose xunit')
-    #     self.xunit_radio_ax.set_visible(True)
-    #     self.xunit_radio = RadioButtons(
-    #         self.xunit_radio_ax,
-    #         ('chan', 'Hz', 'kHz', 'MHz', 'GHz', 'm/s', 'km/s')
-    #     )
-    #     self.xunit_radio.on_clicked(self.choose_xunit)
-    #     self.specplot._plt.draw()
-    #     self.specplot._axis.figure.canvas.draw_idle()
 
     def choose_xunit(self, c):
         self.xunit_ind += 1
@@ -758,19 +741,7 @@ class Menu:
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 
-    # def open_vframe_radio(self, event=None):
-    #     print('choose vframe')
-    #     self.vframe_radio_ax.set_visible(True)
-    #     self.vframe_radio = RadioButtons(
-    #         self.vframe_radio_ax,
-    #         ('TOPO', 'LSR', 'LSD', 'GEO', 'HEL', 'BARY', 'GAL')
-    #     )
-    #     self.vframe_radio.on_clicked(self.choose_vframe)
-    #     self.specplot._plt.draw()
-    #     self.specplot._axis.figure.canvas.draw_idle()
-
     def choose_vframe(self, choice):
-        print("====================")
         self.vframe_ind += 1
         i = self.vframe_ind % len(self.vframe_cycle)
         self.vframe_button.label.set_text(list(self.vframe_cycle)[i])
@@ -803,18 +774,25 @@ class Menu:
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 
-    def open_vdef_radio(self, event=None):
-        print("choose vdef")
-        self.vdef_radio_ax.set_visible(True)
-        self.vdef_radio = RadioButtons(self.vdef_radio_ax, ("radio", "optical", "true"))
-        self.vdef_radio.on_clicked(self.choose_vdef)
-        self.specplot._plt.draw()
-        self.specplot._axis.figure.canvas.draw_idle()
-
     def choose_vdef(self, choice):
-        print(choice)
-        self.vdef_radio = None
-        self.vdef_radio_ax.set_visible(False)
+        self.vdef_ind += 1
+        i = self.vdef_ind % len(self.vdef_cycle)
+        self.vdef_button.label.set_text(list(self.vdef_cycle)[i])
+        self.specplot._plot_kwargs["doppler_convention"] = list(self.vdef_cycle.values())[i]
+
+        self.specplot.spectrum.set_frame(self.specplot._plot_kwargs["vel_frame"])
+
+        self.specplot._sa = self.specplot._spectrum.velocity_axis_to(
+            doppler_convention=self.specplot._plot_kwargs["doppler_convention"],
+        )
+        self.specplot._spectrum._spectral_axis = self.specplot._sa
+        self.specplot._set_xaxis_info()
+        self.specplot._plot_kwargs["xlabel"] = self.specplot._compose_xlabel(**self.specplot._plot_kwargs)
+
+        self.specplot._set_labels(**self.specplot._plot_kwargs)
+
+        self.specplot._line.set_xdata(self.specplot._sa)
+        self.specplot._axis.set_xlim(np.min(self.specplot._sa).value, np.max(self.specplot._sa).value)
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 
