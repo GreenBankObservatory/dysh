@@ -653,7 +653,7 @@ class Menu:
         # self.voffset_radio_ax.set_visible(False)
 
         # Button to cycle vdef
-        self.vdef_cycle = {'RADIO':'radio', 'OPTI':'optical', 'RELA':'relativistic'}
+        self.vdef_cycle = {"RADIO": "radio", "OPTI": "optical", "RELA": "relativistic"}
         try:
             self.vdef_ind = list(self.vdef_cycle.values()).index(self.specplot._plot_kwargs["doppler_convention"])
         except:
