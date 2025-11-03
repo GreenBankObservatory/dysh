@@ -21,9 +21,11 @@ or
    T_{sys} = T_{cal} { { <SKY> } \over { <HOT - SKY> } } + T_{cal}/2
 
 where the :math:`< >` operator averages over the center (typically 80%) portion of the spectrum.
-This way :math:`T_{sys}` is a scalar. The routine ``meantsys`` computes this.  The HOT and SKY
-are also referred to sometimes as CAL and SIG.
+This way :math:`T_{sys}` is a scalar. The routine :py:func:`dysh.spectra.core.mean_tsys`
+computes this.  The HOT and SKY are also referred to sometimes as CAL and SIG.
 
+.. modules/dysh.spectra.html#dysh.spectra.core.mean_tsys
+   
 .. math:: :label: eq_sdmath3
 
    T_A = T_{sys}  {   { SIG - REF } \over {REF} }
@@ -54,11 +56,16 @@ The effective beam (see also GBT memo 296, and gbtpipe/Gridding.py - at 109 GHz)
 with D=100 m.
 
 
-Reduction of noise with **smoothref=N**:
+Reduction of noise with **smoothref=N** is an option to most of the calibration routines,
+e.g. :py:func:`dysh.fits.GBTFITSLoad.getps`
+
 
 .. math:: :label: eq_smoothref
 
      \sigma_N = \sigma_1 \sqrt{   {N+1} \over  {2N}  }
+
+.. @todo fix this one if the EXPOSURES in ON and OFF are not the same
+	  
 
 Weight factors are 1/:math:`\sqrt(RMS)` following the radiometer equation
 
@@ -72,18 +79,21 @@ Effective exposure time in an ON/OFF observation
 
   { t_{ON} * t_{OFF} } \over {  t_{ON} + t_{OFF}  }
 
-The Ruze equation equates
-the gain of an antenna to the root mean square (:math:`\epsilon`) of the antenna's random surface errors.
+.. @todo fix this for unequal EXPOSURE
+..       as well as issue 800
+
+The Ruze equation relates the gain of an antenna to the root mean
+square (:math:`\delta`) of the antenna's random surface errors.
 
 .. math:: :label: eq_ruze
 
-   G = G_0 \exp{ (-4\pi\epsilon / \lambda^2) }
+   G = G_0 \exp{ (-(4\pi\delta / \lambda)^2) }
+
+but the associated beam spreading is a different story.
 
 
-As shown in :eq:`eq_sdmath2` we can ...
 
-
-Something about Doppler and Velocity Frames?
+.. Something about Doppler and Velocity Frames?
 
 
 See also  :ref:`cog` for math behind the Curve of Growth method.
