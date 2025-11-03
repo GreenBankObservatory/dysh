@@ -36,7 +36,7 @@ In this glossary we also note overloaded terms.
       observation.
 
     beam
-      The footprint of one receiver horn on the sky. 
+      The footprint of one receiver horn on the sky.
 
       See also :term:`fdnum`,  :term:`multi-beam`, and :term:`horn`
 
@@ -52,7 +52,7 @@ In this glossary we also note overloaded terms.
     BINTABLE
       Binary table. In dysh data, `bintable is an index running from 0 to N-1,
       where N is the number of binary tables in the SDFITS file.
-    
+
       See also :term:`FITS`
 
     blanking
@@ -211,7 +211,7 @@ In this glossary we also note overloaded terms.
       diode is alternating in On and Off states to determine the
       system temperature. This device is also refered to as the "Cal".
 
-      See also :term:`calon` and :term:`caloff` 
+      See also :term:`calon` and :term:`caloff`
 
     ON/OFF
       The ON/OFF references are an overloaded term for when we refer to the
@@ -238,11 +238,11 @@ In this glossary we also note overloaded terms.
     position switching
       This is a standard way to obtain spectra by switching
       between a :term:`SIG` and :term:`REF` position on the sky,
-      usually using a single beam. 
+      usually using a single beam.
 
       See also :term:`beam switching` and :ref:`sdmath`
 
-      .. See also :numref:`Equation %s  <eq_sdmath3>`   
+      .. See also :numref:`Equation %s  <eq_sdmath3>`
 
       .. See also :numref:`eq_sdmath3`
 
