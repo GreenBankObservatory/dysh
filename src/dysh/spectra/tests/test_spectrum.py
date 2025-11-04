@@ -1067,4 +1067,7 @@ class TestSpectrum:
             "He&delta;",
         ]
         assert list(tr["name"]) == out
-        tr = f.query_lines(intensity_lower_limit=-8)
+        tr = f.query_lines(intensity_lower_limit=-8, cat="gbtlines")
+        assert len(tr) == 7
+        freq = np.array([1405.0142, 1390.8698, 1393.8448, 1406.519, 1392.42, 1392.42, 1392.42])
+        assert all(tr["ordereredfreq"].data == freq)
