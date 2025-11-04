@@ -755,10 +755,10 @@ def tsys_weight(exposure, delta_freq, tsys):
     # precision over the calculation used by GBTIDL:
     # weight = abs(delta_freq) * exposure / tsys**2.
     weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
-    if type(weight) == u.Quantity:  # noqa: E721
-        return weight.value.astype(np.float64)
+    if isinstance(weight, u.Quantity):
+        return weight.value
     else:
-        return weight.astype(np.float64)
+        return weight
 
 
 def mean_data(data, fedge=0.1, nedge=None, median=False):
@@ -835,10 +835,11 @@ def fft_pad(y):
     pow2 += 1
     newsize = 2**pow2
 
-    padded = np.empty(newsize, dtype=y.dtype)
+    padded = np.ma.empty(newsize, dtype=y.dtype)
     npad = newsize - nch
     nskip = npad // 2
     padded[nskip : nskip + nch] = y
+    padded[nskip : nskip + nch].mask = y.mask
     padded[0:nskip] = padded[nskip]
     padded[nskip + nch :] = padded[nskip + nch]
 
@@ -883,9 +884,10 @@ def fft_shift(
     """
 
     nch = len(y)
+    y = deepcopy(y)
 
     # Pad if requested.
-    # Padding reduces aliasing, but is more expensivep.
+    # Padding reduces aliasing, but it requires more resources.
     if pad:
         padded, nskip = fft_pad(y)
     else:
@@ -904,7 +906,7 @@ def fft_shift(
         return NotImplemented
 
     # Take the inverse FFT.
-    ifft = np.fft.ifft(yf)
+    ifft = np.fft.ifft(yf.filled(fill_value))
 
     # Split into amplitude and phase.
     amp = abs(ifft)
@@ -926,7 +928,7 @@ def fft_shift(
     shifted_y = np.fft.fft(shifted_ifft)
 
     # Remove padding and take the real part.
-    new_y = shifted_y[nskip : nskip + nch].real
+    new_y = np.ma.masked_invalid(shifted_y.real[nskip : nskip + nch])
     new_nan_mask = nan_mask[nskip : nskip + nch]
 
     # Shift NaN elements.
@@ -1182,7 +1184,7 @@ def data_fshift(y, fshift, method="fft", pad=False, window=True):
     if method == "fft":
         new_y = fft_shift(y, fshift, pad=pad, window=window)
     elif method == "interpolate":
-        new_y = ndimage.shift(y, [fshift])
+        new_y = ndimage.shift(y.filled(0.0), [fshift])
 
     return new_y
 

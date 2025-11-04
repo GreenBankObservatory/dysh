@@ -140,7 +140,7 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
         :shadow: md
         :margin: 2 2 0 0
 
-        :material-outlined:`troubleshoot;3em;green` **Merging SDFITS**
+        :octicon:`versions;3em;green` **Merging SDFITS**
 
         How to merge SDFITS files
 
@@ -151,6 +151,23 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
             :click-parent:
 
             Merging SDFITS Files
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`network_ping;3em;green` **Aperture Efficiency and Surface Error**
+
+        How to provide aperture efficiency or surface error
+
+
+        .. button-link:: examples/apeff_surferr.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            How to provide aperture efficiency or surface error
+
 
 .. toctree::
    :maxdepth: 4
@@ -165,3 +182,4 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/repeated_scans
    examples/gauss_fit
    examples/merge_sdfits
+   examples/apeff_surferr
