@@ -398,6 +398,25 @@ class TestSpectrum:
         assert np.all(trimmed_sp.flux == self.ps0.flux[s])
         assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
 
+    def test_radiometer(self):
+        """Test the radiometer equation"""
+        # radiometer test over a flat portion of the standard getps()
+        c0 = 5000
+        c1 = 15000
+        r0 = self.ps0[c0:c1].radiometer()
+        r1 = self.ps1[c0:c1].radiometer()
+        assert r0==pytest.approx(1.0534482473)
+        assert r1==1.0599168769431548
+        assert r1==pytest.approx(1.0599168769)
+        # radiometer test after smoothing ; see issue 800
+        width = 5
+        r0b = self.ps0.smooth("box", width)[c0//width:c1//width].radiometer()
+        r0g = self.ps0.smooth("gau", width)[c0//width:c1//width].radiometer()
+        r0h = self.ps0.smooth("han", width)[c0//width:c1//width].radiometer()
+        assert r0b==pytest.approx(1.083694320)
+        assert r0g==pytest.approx(0.907075534)
+        assert r0h==pytest.approx(0.948124804)
+
     def test_smooth(self):
         """Test for smooth with `decimate=0`"""
         width = 10

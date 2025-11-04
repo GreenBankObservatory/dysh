@@ -430,6 +430,25 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         return out
 
+    def radiometer(self):
+        """
+        Check the radiometer equation, and return the dimensionless ratio of the
+        measured vs. expected noise. Generally this number of 1.0 or higher, unless
+        for example channels were hanning correlated.
+
+        User is responsible for selecting the channels, via e.g. indexing:
+
+             r1 = sp0[1000:2000].radiometer()
+
+        """
+        dt = self.meta["EXPOSURE"]
+        df = abs(self.meta["CDELT1"])
+        tsys = self.meta["TSYS"]
+        rms0 = self.stats()["rms"].value
+        rms1 = tsys / np.sqrt(df*dt)
+        rms2 = self.stats(roll=1)["rms"].value/np.sqrt(2)
+        return rms0/rms1
+
     @log_call_to_history
     def decimate(self, n):
         """
