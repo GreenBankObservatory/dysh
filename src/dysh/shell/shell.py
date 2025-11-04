@@ -118,7 +118,7 @@ def open_sdfits_files(paths: list[Path], loader_class_name="GBTFITSLoad") -> lis
 def main():
     args, remaining_args = parse_args()
     if args.version:
-        print(__version__)
+        print(f"dysh: v{__version__}")
         sys.exit(0)
     init_logging(verbosity=args.verbosity, path=args.log, quiet=args.quiet)
 
