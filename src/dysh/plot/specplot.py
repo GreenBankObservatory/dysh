@@ -188,7 +188,6 @@ class SpectrumPlot(PlotBase):
             self._sa, sf, color=this_plot_kwargs["color"], lw=lw, drawstyle=this_plot_kwargs["drawstyle"]
         )
         self._line = lines[0]
-        self._line.set_visible(not hist)
 
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
@@ -685,8 +684,12 @@ class Menu:
 
     def _hist_enable(self, event=None):
         # print('zline!')
-        self.specplot._line.set_visible(not self.specplot._line.get_visible())
-        self.specplot._histline.set_visible(not self.specplot._histline.get_visible())
+        hist = self.specplot._line.get_drawstyle() == 'steps-mid'
+        if hist:
+            self.specplot._line.set_drawstyle('default')
+        else:
+            self.specplot._line.set_drawstyle('steps-mid')
+        #self.specplot._histline.set_visible(not self.specplot._histline.get_visible())
         # self.specplot._zline._axis.canvas.draw_idle()
 
     def _regionshow_enable(self, event=None):
@@ -759,20 +762,20 @@ class Menu:
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 
-    def open_voffset_radio(self, event=None):
-        print("choose voffset")
-        self.voffset_radio_ax.set_visible(True)
-        self.voffset_radio = RadioButtons(self.voffset_radio_ax, ("vsrc", "0"))
-        self.voffset_radio.on_clicked(self.choose_voffset)
-        self.specplot._plt.draw()
-        self.specplot._axis.figure.canvas.draw_idle()
+    # def open_voffset_radio(self, event=None):
+    #     print("choose voffset")
+    #     self.voffset_radio_ax.set_visible(True)
+    #     self.voffset_radio = RadioButtons(self.voffset_radio_ax, ("vsrc", "0"))
+    #     self.voffset_radio.on_clicked(self.choose_voffset)
+    #     self.specplot._plt.draw()
+    #     self.specplot._axis.figure.canvas.draw_idle()
 
-    def choose_voffset(self, choice):
-        print(choice)
-        self.voffset_radio = None
-        self.voffset_radio_ax.set_visible(False)
-        self.specplot._plt.draw()
-        self.specplot._axis.figure.canvas.draw_idle()
+    # def choose_voffset(self, choice):
+    #     print(choice)
+    #     self.voffset_radio = None
+    #     self.voffset_radio_ax.set_visible(False)
+    #     self.specplot._plt.draw()
+    #     self.specplot._axis.figure.canvas.draw_idle()
 
     def choose_vdef(self, choice):
         self.vdef_ind += 1
@@ -783,6 +786,8 @@ class Menu:
         self.specplot.spectrum.set_frame(self.specplot._plot_kwargs["vel_frame"])
 
         self.specplot._sa = self.specplot._spectrum.velocity_axis_to(
+            unit=self.specplot._xunit,
+            toframe=self.specplot._plot_kwargs["vel_frame"],
             doppler_convention=self.specplot._plot_kwargs["doppler_convention"],
         )
         self.specplot._spectrum._spectral_axis = self.specplot._sa
@@ -796,17 +801,17 @@ class Menu:
         self.specplot._plt.draw()
         self.specplot._axis.figure.canvas.draw_idle()
 
-    def open_centfreq_radio(self, event=None):
-        print("choose centfreq")
-        self.centfreq_radio_ax.set_visible(True)
-        self.centfreq_radio = RadioButtons(self.centfreq_radio_ax, ("abs", "rel"))
-        self.centfreq_radio.on_clicked(self.choose_centfreq)
-        self.specplot._plt.draw()
-        self.specplot._axis.figure.canvas.draw_idle()
+    # def open_centfreq_radio(self, event=None):
+    #     print("choose centfreq")
+    #     self.centfreq_radio_ax.set_visible(True)
+    #     self.centfreq_radio = RadioButtons(self.centfreq_radio_ax, ("abs", "rel"))
+    #     self.centfreq_radio.on_clicked(self.choose_centfreq)
+    #     self.specplot._plt.draw()
+    #     self.specplot._axis.figure.canvas.draw_idle()
 
-    def choose_centfreq(self, choice):
-        print(choice)
-        self.centfreq_radio = None
-        self.centfreq_radio_ax.set_visible(False)
-        self.specplot._plt.draw()
-        self.specplot._axis.figure.canvas.draw_idle()
+    # def choose_centfreq(self, choice):
+    #     print(choice)
+    #     self.centfreq_radio = None
+    #     self.centfreq_radio_ax.set_visible(False)
+    #     self.specplot._plt.draw()
+    #     self.specplot._axis.figure.canvas.draw_idle()
