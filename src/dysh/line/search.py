@@ -304,6 +304,7 @@ class SpectralLineSearchClass:
             # get species id returns string but 'species_id' column in tables returned by splatalogue is int!
             splist = list(map(int, species.values()))
         df = _table.to_pandas()
+        print(df.columns)
 
         # Select the frequency range
         # fmt: off
@@ -341,7 +342,7 @@ class SpectralLineSearchClass:
         if intensity_lower_limit is not None:
             if intensity_type is None:
                 raise ValueError(
-                    "If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                    f"If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
                 )
             elif (
                 intensity_type := minimum_string_match(intensity_type, Splatalogue.VALID_INTENSITY_TYPES, casefold=True)
@@ -350,7 +351,8 @@ class SpectralLineSearchClass:
                     f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
                 )
             else:
-                df = df[df["intensity_type"] >= intensity_lower_limit]
+                print(f'{df["intintensity"].dtype=}')
+                df = df[df["intintensity"] >= intensity_lower_limit]
         table = Table.from_pandas(df)
         # @todo Should we add units to the table?
         if columns is not None:
