@@ -17,6 +17,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 # from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
@@ -1610,12 +1611,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
         start_freq = self.spectral_axis[0].to("Hz", equivalencies=u.spectral())
         end_freq = self.spectral_axis[-1].to("Hz", equivalencies=u.spectral())
         if start_freq < end_freq:
-            return [start_freq, end_freq]
+            return Quantity([start_freq, end_freq])
         else:
-            return [end_freq, start_freq]
+            return Quantity([end_freq, start_freq])
 
     def query_lines(
-        self, chemical_name: str, intensity_lower_limit: float | None = None, cat: str = "splatalogue"
+        self, chemical_name: str | None = None, intensity_lower_limit: float | None = None, cat: str = "gbtlines"
     ) -> Table:
         """
         Query locally or remotely for lines and return a table object. The query returns lines
@@ -1625,7 +1626,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        chemical_name : str
+        chemical_name : str, optional
             Name of the chemical to search for. Treated as a regular
             expression.  An empty set ('', (), [], {}) will match *any*
             species. Examples:
@@ -1660,10 +1661,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         minf, maxf = self._min_max_freq()
         return SpectralLineSearch.query_lines(
-            min_frequency=minf, max_frequency=maxf, intensity_lower_limit=intensity_lower_limit, cat=cat
+            min_frequency=minf,
+            max_frequency=maxf,
+            intensity_lower_limit=intensity_lower_limit,
+            cat=cat,
+            intensity_type="CDMS/JPL (log)",
         )
 
-    def recomb(self, line, intensity_lower_limit: float | None = None, cat: str = "splatalogue") -> Table:
+    def recomb(self, line, cat: str = "gbtrecomb") -> Table:
         """
         Search for recombination lines of H, He, and C in the frequency range of this Spectrum.
 
@@ -1671,8 +1676,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         line : str
            A string describing the line or series to search for, e.g. "Hydrogen", "Halpha", "Hebeta", "C", "carbon".
-        intensity_lower_limit : float, optional
-                Lower limit on the intensity in the logarithmic CDMS/JPL scale
+
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter.
@@ -1689,17 +1693,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         minf, maxf = self._min_max_freq()
         return SpectralLineSearch.recomb(
-            min_frequency=minf, max_frequency=maxf, line=line, intensity_lower_limit=intensity_lower_limit, cat=cat
+            min_frequency=minf,
+            max_frequency=maxf,
+            line=line,
+            cat=cat,
         )
 
-    def recomball(self, intensity_lower_limit: float | None = None, cat: str = "splatalogue") -> Table:
+    def recomball(self, cat: str = "gbtrecomb") -> Table:
         """
         Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog.
 
         Parameters
         ----------
-        intensity_lower_limit : float, optional
-                Lower limit on the intensity in the logarithmic CDMS/JPL scale
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter.
@@ -1715,9 +1720,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.recomball(
-            min_frequency=minf, max_frequency=maxf, intensity_lower_limit=intensity_lower_limit, cat=cat
-        )
+        return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat)
 
 
 # @todo figure how how to document write()
