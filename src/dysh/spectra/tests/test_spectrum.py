@@ -1037,3 +1037,34 @@ class TestSpectrum:
         assert s1["npt"] == 1024
         assert s2["npt"] == 1022
         assert s1["nan"] == 0
+
+    def test_line_search(self):
+        f = Spectrum.fake_spectrum(32768)
+        tr = f.recomb(line="Hbeta")
+        assert len(tr) == 1
+        assert tr["species_id"][0] == 1155
+        assert tr["orderedfreq"][0] == pytest.approx(1400.13748758174)
+
+        tr = f.recomball()
+        assert len(tr) == 17
+        out = [
+            "H&zeta;",
+            "H&delta;",
+            "He&delta;",
+            "H&epsilon;",
+            "H&alpha;",
+            "He&alpha;",
+            "C&alpha;",
+            "H&beta;",
+            "He&beta;",
+            "H&gamma;",
+            "C&beta;",
+            "He&gamma;",
+            "C&gamma;",
+            "H&zeta;",
+            "H&epsilon;",
+            "H&delta;",
+            "He&delta;",
+        ]
+        assert list(tr["name"]) == out
+        tr = f.query_lines(intensity_lower_limit=-8)
