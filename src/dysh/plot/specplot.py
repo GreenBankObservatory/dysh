@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
-from matplotlib.widgets import Button, CheckButtons, RadioButtons, SpanSelector
+from matplotlib.widgets import Button, CheckButtons, SpanSelector
 
 from ..coordinates import (
     decode_veldef,
@@ -676,20 +676,20 @@ class Menu:
     #     print("pass")
 
     def _zline_enable(self, event=None):
-        print(f'zline is now {not self.specplot._zline.get_visible()}')
+        print(f"zline is now {not self.specplot._zline.get_visible()}")
         self.specplot._zline.set_visible(not self.specplot._zline.get_visible())
         # self.zline_button.set_active(not self.zline_button.get_active())
         # self.specplot._axis.figure.canvas.draw_idle()
         # self.specplot._zline._axis.canvas.draw_idle()
 
     def _hist_enable(self, event=None):
-        hist = self.specplot._line.get_drawstyle() == 'steps-mid'
-        print(f'hist is now {not hist}')
+        hist = self.specplot._line.get_drawstyle() == "steps-mid"
+        print(f"hist is now {not hist}")
         if hist:
-            self.specplot._line.set_drawstyle('default')
+            self.specplot._line.set_drawstyle("default")
         else:
-            self.specplot._line.set_drawstyle('steps-mid')
-        #self.specplot._histline.set_visible(not self.specplot._histline.get_visible())
+            self.specplot._line.set_drawstyle("steps-mid")
+        # self.specplot._histline.set_visible(not self.specplot._histline.get_visible())
         # self.specplot._zline._axis.canvas.draw_idle()
 
     def _regionshow_enable(self, event=None):
