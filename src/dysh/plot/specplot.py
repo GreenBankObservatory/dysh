@@ -562,9 +562,9 @@ class Menu:
         vsize = 0.04
 
         # Button to write an ASCII file.
-        self.writeascii_button_ax = self.canvas.figure.add_axes([hcoords[0], vcoords[0], hsize, vsize])
-        self.writeascii_button = Button(self.writeascii_button_ax, "Write ASCII")
-        self.writeascii_button.on_clicked(self._writeascii)
+        # self.writeascii_button_ax = self.canvas.figure.add_axes([hcoords[0], vcoords[0], hsize, vsize])
+        # self.writeascii_button = Button(self.writeascii_button_ax, "Write ASCII")
+        # self.writeascii_button.on_clicked(self._writeascii)
 
         # CheckButton to show zline
         self.zline_button_ax = self.canvas.figure.add_axes([hcoords[1], vcoords[0], hsize, vsize])
@@ -672,19 +672,19 @@ class Menu:
         # zorder=100)
         # self.centfreq_radio_ax.set_visible(False)
 
-    def _writeascii(self, event=None):
-        print("oop no file dialog window yet")
+    # def _writeascii(self, event=None):
+    #     print("pass")
 
     def _zline_enable(self, event=None):
-        # print('zline!')
+        print(f'zline is now {not self.specplot._zline.get_visible()}')
         self.specplot._zline.set_visible(not self.specplot._zline.get_visible())
         # self.zline_button.set_active(not self.zline_button.get_active())
         # self.specplot._axis.figure.canvas.draw_idle()
         # self.specplot._zline._axis.canvas.draw_idle()
 
     def _hist_enable(self, event=None):
-        # print('zline!')
         hist = self.specplot._line.get_drawstyle() == 'steps-mid'
+        print(f'hist is now {not hist}')
         if hist:
             self.specplot._line.set_drawstyle('default')
         else:
