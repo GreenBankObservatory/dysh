@@ -17,6 +17,7 @@ from ..coordinates import (
     crval4_to_pol,
     ra2ha,
 )
+from ..util.core import abbreviate_to
 
 _KMS = u.km / u.s
 
@@ -27,9 +28,9 @@ class PlotBase:
     def __init__(self, **kwargs):
         self.reset()
         self._figure = None
-        # self._axis = None
         self._plt = plt
         self._plt.rcParams["font.family"] = "monospace"
+        self._scan_numbers = None
 
     def _plot_type(self):
         """The plot object"""
@@ -44,6 +45,13 @@ class PlotBase:
     def figure(self):
         """The underlying :class:`~matplotlib.Figure` object"""
         return self._figure
+
+    def fmt_scans(self, abbreviate=True):
+        """Format the scan numbers."""
+        csl = ",".join(map(str, map(int, self._scan_numbers)))
+        if abbreviate:
+            csl = abbreviate_to(10, csl)
+        return csl
 
     def _set_header(self, s):
         move_vcoords_bool = 0.1 * (self._plot_type() == "ScanPlot")
@@ -75,7 +83,7 @@ class PlotBase:
             return out_ra, out_dec
 
         # col 1
-        self._axis.annotate(f"Scan     {s.meta['SCAN']}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"Scan(s) {self.fmt_scans():>10}", (hcoords[0], vcoords[0]), xycoords=xyc, size=fsize_small)
         self._axis.annotate(f"{s.meta['DATE-OBS'][:10]}", (hcoords[0], vcoords[1]), xycoords=xyc, size=fsize_small)
         self._axis.annotate(f"{s.meta['OBSERVER']}", (hcoords[0], vcoords[2]), xycoords=xyc, size=fsize_small)
 

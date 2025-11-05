@@ -41,6 +41,9 @@ nb = [
   "jupyterlab",
   "ipympl",
   "jupyter-nbextensions-configurator>=0.6.4",
+  "jupyterlab-templates>=0.5.3",
+  "jupyter-app-launcher>=0.3.1",
+  "jupyterlab-lsp>=5.2.0",
 ]
 all = ["dysh[nb]"]
 
@@ -119,6 +122,10 @@ exclude = [
   "/dist",
   "/notebooks",
 ]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/dysh/lab_templates" = "dysh/lab_templates"
+
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dysh"]
