@@ -430,24 +430,115 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         return out
 
-    def radiometer(self):
+    def radiometer(self, roll=0):
         """
         Check the radiometer equation, and return the dimensionless ratio of the
         measured vs. expected noise. Generally this number of 1.0 or higher, unless
-        for example channels were hanning correlated.
+        for example channels were hanning correlated, measured noise will be lower.
 
         User is responsible for selecting the channels, via e.g. indexing:
 
              r1 = sp0[1000:2000].radiometer()
 
+        Parameters:
+        -----------
+        roll : int
+             roll the data by a small (1 or 2 is good) in order to get a better estimate
+             of the RMS in case the baseline is bad or there is a channel-to-channel
+             correlation.
+             The default is 0 (no roll)
+        Returns:
+        --------
+        ratio : real
+             The ratio of measured to expected RMS.
         """
         dt = self.meta["EXPOSURE"]
         df = abs(self.meta["CDELT1"])
         tsys = self.meta["TSYS"]
-        rms0 = self.stats()["rms"].value
+        if roll == 0:
+            rms0 = self.stats()["rms"].value
+        else:
+            rms0 = self.stats(roll=roll)["rms"].value/np.sqrt(2)
         rms1 = tsys / np.sqrt(df*dt)
-        rms2 = self.stats(roll=1)["rms"].value/np.sqrt(2)
         return rms0/rms1
+
+    def roll(self, rollmax=1):
+        """ rolling data to check for channel correllations and channel-to-channel
+            correllations
+
+        Parameters:
+        -----------
+        rollmax : int
+             roll the data by values 1 through rollmax
+             The default is 1.
+        Returns:
+        --------
+        ratio : list
+             The ratios
+         """
+        rms0 = self.stats()['rms'].value
+        r = []
+        for n in range(1,rollmax+1):
+            r.append(  rms0/(self.stats(roll=n)['rms'].value/np.sqrt(2)) )
+        return r
+
+    def snr(self, peak=True, flux=False, rms=None):
+        """
+        Signal/Noise ratio, measured either in channel or total flux mode.
+
+        Parameters:
+        -----------
+        peak : bool
+               If true, the largest positive  deviation from the mean is compared to the rms
+               If false, the largest negative deviation from the mean is compared to the rms
+
+               For normal noise the value depends on the number of channels via the error function.
+
+        flux : bool
+               If true, the integrated flux over the spectrum is compared to the expected
+               flux given pure noise.
+               If false, channel based snr is computed, also controlled by the value of the
+               peak.
+
+               See also https://specutils.readthedocs.io/en/stable/analysis.html#
+
+        Returns
+        -------
+        ratio : real
+            The S/N, either flux or channel based
+        """
+        s0 = self.stats()
+        s1 = self.stats(roll=1)
+        if rms == None:
+            rms = s1["rms"] / np.sqrt(2)
+        if flux:
+            # @todo https://specutils.readthedocs.io/en/stable/analysis.html#
+            snr = s0["mean"]/rms
+        else:
+            if peak:
+                snr = (s0["max"] - s0["mean"])/rms
+            else:
+                snr = (s0["mean"] - s0["min"])/rms
+        return snr.value
+
+    def sratio(self, mean=0.0):
+        """ signal ratio:   (psum+nsum)/(psum-nsum)
+
+        Parameters:
+        -----------
+        mean : real
+               At your own risk, don't use this, should do a baseline subtraction before.
+               If not, this could be used as a cheat.
+
+        Returns
+        -------
+        ratio : real
+               The signal ratio, between -1 and 1, 0 being pure noise.
+        """
+        sp = self.flux.value - mean
+        psum = sp[ sp > 0.0 ].sum()
+        nsum = sp[ sp < 0.0 ].sum()
+        return (psum+nsum)/(psum-nsum)
 
     @log_call_to_history
     def decimate(self, n):
