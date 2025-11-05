@@ -458,12 +458,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if roll == 0:
             rms0 = self.stats()["rms"].value
         else:
-            rms0 = self.stats(roll=roll)["rms"].value/np.sqrt(2)
-        rms1 = tsys / np.sqrt(df*dt)
-        return rms0/rms1
+            rms0 = self.stats(roll=roll)["rms"].value / np.sqrt(2)
+        rms1 = tsys / np.sqrt(df * dt)
+        return rms0 / rms1
 
     def roll(self, rollmax=1):
-        """ rolling data to check for channel correllations and channel-to-channel
+        """rolling data to check for channel correllations and channel-to-channel
             correllations
 
         Parameters:
@@ -475,11 +475,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         --------
         ratio : list
              The ratios
-         """
-        rms0 = self.stats()['rms'].value
+        """
+        rms0 = self.stats()["rms"].value
         r = []
-        for n in range(1,rollmax+1):
-            r.append(  rms0/(self.stats(roll=n)['rms'].value/np.sqrt(2)) )
+        for n in range(1, rollmax + 1):
+            r.append(rms0 / (self.stats(roll=n)["rms"].value / np.sqrt(2)))
         return r
 
     def snr(self, peak=True, flux=False, rms=None):
@@ -513,16 +513,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             rms = s1["rms"] / np.sqrt(2)
         if flux:
             # @todo https://specutils.readthedocs.io/en/stable/analysis.html#
-            snr = s0["mean"]/rms
+            snr = s0["mean"] / rms
+        elif peak:
+            snr = (s0["max"] - s0["mean"]) / rms
         else:
-            if peak:
-                snr = (s0["max"] - s0["mean"])/rms
-            else:
-                snr = (s0["mean"] - s0["min"])/rms
+            snr = (s0["mean"] - s0["min"]) / rms
         return snr.value
 
     def sratio(self, mean=0.0):
-        """ signal ratio:   (psum+nsum)/(psum-nsum)
+        """signal ratio:   (psum+nsum)/(psum-nsum)
 
         Parameters:
         -----------
@@ -536,9 +535,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
                The signal ratio, between -1 and 1, 0 being pure noise.
         """
         sp = self.flux.value - mean
-        psum = sp[ sp > 0.0 ].sum()
-        nsum = sp[ sp < 0.0 ].sum()
-        return (psum+nsum)/(psum-nsum)
+        psum = sp[sp > 0.0].sum()
+        nsum = sp[sp < 0.0].sum()
+        return (psum + nsum) / (psum - nsum)
 
     @log_call_to_history
     def decimate(self, n):
@@ -1187,7 +1186,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         rng = np.random.default_rng(seed)
         if normal:
-            data = rng.normal(0.1,0.1,nchan) * u.K
+            data = rng.normal(0.1, 0.1, nchan) * u.K
         else:
             data = rng.random(nchan) * u.K
         meta = {
@@ -1195,7 +1194,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "BANDWID": 23437500.0,
             "DATE-OBS": "2021-02-10T07:38:37.50",
             "DURATION": 0.9982445,
-            "EXPOSURE": 44.949832229522286, # fixed by radiometer equation
+            "EXPOSURE": 44.949832229522286,  # fixed by radiometer equation
             "TSYS": 17.930595470605255,
             "CTYPE1": "FREQ-OBS",
             "CRVAL1": 1402544936.7749996,
