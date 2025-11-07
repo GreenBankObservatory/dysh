@@ -1504,15 +1504,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # Slicing uses NumPY ordering by default.
         sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
 
+        new_flux = self.flux[start_idx:stop_idx]
+
         # Update meta.
         meta = self.meta.copy()
         head = sliced_wcs.to_header()
         for k in ["CRPIX1", "CRVAL1"]:
             meta[k] = head[k]
+        meta["BANDWID"] = abs(meta["CDELT1"]) * (len(new_flux) - 1)  # Hz
 
         # New Spectrum.
         return self.make_spectrum(
-            Masked(self.flux[start_idx:stop_idx], self.mask[start_idx:stop_idx]),
+            Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
             observer_location=Observatory[meta["TELESCOP"]],
         )
