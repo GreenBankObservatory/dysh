@@ -180,6 +180,15 @@ class TestSpectrum:
         assert division.velocity_frame == self.ps0.velocity_frame
         compare_spectrum(self.ps0, division)
 
+    def test_rdiv_scalar(self):
+        """Test that we can divide a scalar by a `Spectrum`."""
+        division = 1.0 / self.ps0
+
+        assert np.all(division.flux.value == (1.0 / self.ps0.flux.value))
+        assert division.flux.unit == 1 / self.ps0.flux.unit
+        assert division.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, division)
+
     def test_write_read_fits(self, tmp_path):
         """Test that we can read fits files written by dysh"""
         s = self.ps1
