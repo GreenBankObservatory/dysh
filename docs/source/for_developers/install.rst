@@ -8,7 +8,7 @@ we recommend the use of a python virtual environment. The example below uses `uv
 Using `uv`
 ----------
 
-#. Clone the repo, install ``dysh`` and its required packages. This will use the uv.lock file containing the exact dependencies as well as a virtual environment directory in `dysh/.venv`.
+#. Clone the repo, install ``dysh`` and its required packages. This will use the uv.lock file containing the exact dependencies to create a new virtual environment in `dysh/.venv`.
 
     .. code-block:: bash
 
