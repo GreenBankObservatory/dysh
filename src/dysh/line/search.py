@@ -172,13 +172,13 @@ class SpectralLineSearchClass:
         # we are overlaying this kwarg with a parameter to expose that we are changing the default.
         kwargs.update({"only_NRAO_recommended": only_NRAO_recommended})
         # user-friendly keywords
-        if "line_lists" in kwargs:
+        if kwargs.get("line_lists", None) is not None:
             kwargs["line_lists"] = minimum_list_match(kwargs["line_lists"], Splatalogue.ALL_LINE_LISTS, casefold=True)
-        if "line_strengths" in kwargs:
+        if kwargs.get("line_strengths", None) is not None:
             kwargs["line_strengths"] = minimum_list_match(
                 kwargs["line_strengths"], Splatalogue.VALID_LINE_STRENGTHS, casefold=True
             )
-        if "intensity_type" in kwargs:
+        if kwargs.get("intensity_type", None) is not None:
             kwargs["intensity_type"] = minimum_string_match(
                 kwargs["intensity_type"], Splatalogue.VALID_INTENSITY_TYPES, casefold=True
             )
@@ -335,20 +335,22 @@ class SpectralLineSearchClass:
         # line lists
         if line_lists is not None:
             if (line_lists := minimum_list_match(line_lists, Splatalogue.ALL_LINE_LISTS, casefold=True)) is None:
-                raise ValueError(f"list_lists must be one or more of {Splatalogue.ALL_LINE_LISTS} (case insensitive).")
+                raise ValueError(
+                    f"list_lists must be one or more of {Splatalogue.ALL_LINE_LISTS} (case insensitive, minimum match)."
+                )
             line_lists = self._patch_line_lists(line_lists)
             df = df[df["linelist"].isin(line_lists)]
         # line strengths
         if intensity_lower_limit is not None:
             if intensity_type is None:
                 raise ValueError(
-                    f"If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                    f"If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive, minimum_match)."
                 )
             elif (
                 intensity_type := minimum_string_match(intensity_type, Splatalogue.VALID_INTENSITY_TYPES, casefold=True)
             ) is None:
                 raise ValueError(
-                    f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                    f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive, minimum match ."
                 )
             else:
                 print(f'{df["intintensity"].dtype=}')
