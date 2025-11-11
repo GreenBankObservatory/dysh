@@ -24,4 +24,4 @@ If the package is needed for notebooks, add it to the `nb` optional dependencies
 
 Do not remove any packages without prior discussion with the `dysh` maintainers.
 
-Once the changed files files are pushed to GitHub, verify that all GitHub Actions tests pass to ensure that these requirements work for all supported versions of Python and all supported operating systems.
+Once the changed files are pushed to GitHub, verify that all GitHub Actions tests pass to ensure that these requirements work for all supported versions of Python and all supported operating systems.
