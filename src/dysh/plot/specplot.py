@@ -7,6 +7,7 @@ from copy import deepcopy
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.coordinates import EarthLocation
 from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, CheckButtons, SpanSelector
@@ -231,8 +232,8 @@ class SpectrumPlot(PlotBase):
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
-        # if xlabel is not None:
-        #     return xlabel
+        if xlabel is not None:
+            return xlabel
         if kwargs["doppler_convention"] == "radio":
             subscript = "_{rad}"
         elif kwargs["doppler_convention"] == "optical":
@@ -554,6 +555,7 @@ class Menu:
         self.specplot = specplot
         self.canvas = self.specplot._axis.figure.canvas
         self.regionshow = True
+        self.gbtloc = EarthLocation.of_site('Green Bank Telescope')
 
         hcoords = [0.08, 0.21, 0.34, 0.47, 0.60, 0.73]
         vcoords = [0.93, 0.88]
@@ -750,6 +752,9 @@ class Menu:
         self.vframe_button.label.set_text(list(self.vframe_cycle)[i])
         self.specplot._plot_kwargs["vel_frame"] = list(self.vframe_cycle.values())[i]
 
+        # if i == 0:
+        #     self.specplot.spectrum.set_frame(self.gbtloc)
+        # else:
         self.specplot.spectrum.set_frame(self.specplot._plot_kwargs["vel_frame"])
 
         self.specplot._sa = self.specplot.spectrum.spectral_axis
