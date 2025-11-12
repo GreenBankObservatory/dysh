@@ -1,256 +1,43 @@
-***************************
-Installation for Developers
-***************************
+************************************
+Installation and Virtual Environment
+************************************
 
-Here are the steps to install ``dysh`` if you want to develop code.
+For developing `dysh` code,
+we recommend the use of a python virtual environment. The example below uses `uv <https://docs.astral.sh/uv/>`_.   Before installing `dysh`, developers should install `uv` following one of the methods in the `uv docs <https://docs.astral.sh/uv/getting-started/installation/>`_.  `uv` is the only tool that can sync the environment to the lockfile, so to install the known working development environment, `uv` is needed.
 
-We use `hatch <https://hatch.pypa.io/>`_ to manage the build environment.
-The usual caveats apply how you set up your python development environment.
+Using `uv`
+----------
 
-#. Clone the repo and install hatch.
-
-    .. code-block:: bash
-
-        $ git clone git@github.com:GreenBankObservatory/dysh.git
-        $ cd dysh
-        $ pip install hatch
-
-#. Create and activate a virtual environment with hatch and install the packages required for development.
-   The virtual environment will be created the first time; subsequent invoking ``hatch shell`` will simply load the created environment.
+#. Clone the repo, install ``dysh`` and its required packages. This will use the uv.lock file containing the exact dependencies to create a new virtual environment in `dysh/.venv`.
 
     .. code-block:: bash
 
-        $ hatch shell
-        (dysh) $ pip install -r requirements_dev.txt
+       $ git clone git@github.com:GreenBankObservatory/dysh.git
+       $ cd dysh
+       $ uv sync --all-extras
 
-#. Build and install the package
-
-    .. code-block:: bash
-
-        (dysh) $ hatch build
-        (dysh) $ pip install -e .
-
-#. You can exit this environment (which effectively had started a new shell).
+#. Verify the installation.  Below, `uv run` is used to execute commands, however one could also run `source .venv/bin/activate` which eliminates the need to prepend `uv run` to each command.
 
     .. code-block:: bash
 
-        (dysh) $ exit
-        $
+       # should point to $CWD/.venv/bin/dysh
+       $ uv run which dysh
 
-#. Each time when you come back in this directory without being in this virtual environment, you'll need to load the virtual environment.
+       # should print dysh version and exit
+       $ uv run dysh --version
+
+#. Optional: run the test suite
 
     .. code-block:: bash
 
-        $ hatch shell
+       $ uv run pytest
 
-Notice you can *only* do that from within the original install directory tree.
+  You can optionally add `-n auto` to spawn multiple runners for pytest.
 
+#. Optional: build the documentation locally
 
-Additional Installation Options
--------------------------------
+    .. code:: bash
 
-The previous instructions (and the ``dysh`` README) suggest a route to install ``dysh`` using `hatch`.
-However, there are several ways how you can install ``dysh`` for development.
-We give a few practical examples, all based on having "dyshN" directories in a ~/GBT directory.
-It is imperative that a developer install takes place in a shielded environment, generally using a virtual environment.
-
-We list a few, but if you found another approach, please share.
-
-.. _dysh1:
-
-dysh1: native Python
-^^^^^^^^^^^^^^^^^^^^
-
-Here is an example using native python on a vanilla Ubuntu system (python version 3.11 may be different).
-You will need initial admin privilages for this.
-
-.. code:: bash
-
-     # first ensure your native python has at least a way to run pip and allow a venv
-     sudo apt install python3 python3-pip ipython3 python3.11-venv jupyter-core
-
-     # setup a venv, for example in a $HOME/venv hierarchy
-     mkdir -p $HOME/venv
-     python3 -m venv $HOME/venv/dysh1
-
-     # activate this venv
-     source $HOME/venv/dysh1/bin/activate
-
-     # install hatch
-     pip install hatch notebook
-
-After this dysh can be installed in a virtual environment controlled by hatch
-
-.. code:: bash
-
-     mkdir ~/GBT/dysh1
-     cd ~/GBT/dysh1
-     git clone https://github.com/GreenBankObservatory/dysh
-     cd dysh
-
-     # setup dysh with hatch (be sure to be in the dysh directory)
-     hatch shell
-     pip install -r requirements_dev.txt
-         # some warning about running ipython
-     pip install -r docs/requirements.txt
-     hatch build
-     pip install -e .
-     ipython            # this initially gave a matplotlib error, but it went away
-     exit
-
-Any time development is needed:
-
-.. code:: bash
-
-     source $HOME/venv/dysh1/bin/activate
-     cd ~/GBT/dysh1/dysh
-     hatch shell
-
-and as always, verify it's there:
-
-.. code:: bash
-
-     python -c 'import dysh; print(dysh.__version__)'
-     echo "git BRANCH: $(git branch --show-current)   HEAD: $(git rev-list --count HEAD)"
-
-and when done, exit the hatch sub-shell
-
-.. code:: bash
-
-     exit
-
-this will still return to the native virtual environment, so one more exit is needed to kill this shell
-
-.. code:: bash
-
-     exit
-
-.. _dysh2:
-
-dysh2: anaconda3 python
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Here is an example using an anaconda3 python, no virtual environments, no hatch, no nothing.
-Simple and self-contained, but with an anaconda3 to maintain.
-
-.. code:: bash
-
-     mkdir ~/GBT/dysh2
-     cd ~/GBT/dysh2
-
-     ../install_anaconda3                # DM me for a copy
-     source python_start.sh
-
-     git clone https://github.com/GreenBankObservatory/dysh
-     cd dysh
-     pip install -r requirements_dev.txt
-     pip install -r docs/requirements.txt
-     pip install -e .
-
-any time development is needed:
-
-.. code:: bash
-
-     source ~/GBT/dysh2/python_start.sh
-
-and verify
-
-.. code:: bash
-
-     python -c 'import dysh; print(dysh.__version__)'
-     echo "git BRANCH: $(git branch --show-current)   HEAD: $(git rev-list --count HEAD)"
-
-and when done, exit will terminate the shell
-
-.. code:: bash
-
-     exit
-
-.. _dysh3:
-
-dysh3: anaconda3 python with virtual environment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Here is an example using an anaconda3 python, but now using hatch
-
-.. code:: bash
-
-     mkdir ~/GBT/dysh3
-     cd ~/GBT/dysh3
-
-     ../install_anaconda3                # DM me for a copy
-     source python_start.sh
-
-     pip install hatch
-
-After this dysh can be installed in a virtual environment controlled by hatch,
-pretty much following what we did in :ref:`dysh1`:
-
-.. code:: bash
-
-     git clone https://github.com/GreenBankObservatory/dysh
-     cd dysh
-
-     # setup dysh with hatch (be sure to be in the dysh directory)
-     hatch shell
-     pip install -r requirements_dev.txt
-     pip install -r docs/requirements.txt
-     hatch build
-     pip install -e .
-
-and verify
-
-.. code:: bash
-
-     python -c 'import dysh; print(dysh.__version__)'
-     echo "git BRANCH: $(git branch --show-current)   HEAD: $(git rev-list --count HEAD)"
-
-and when done, exit will terminate the shell
-
-.. code:: bash
-
-     exit
-
-
-Any time development is needed:
-
-.. code:: bash
-
-     source $HOME/GBT/dysh3/python_start.sh
-     cd ~/GBT/dysh3/dysh
-     hatch shell
-
-
-Sample workflows
-----------------
-
-Minor issue:  with hatch, if you're not in the code tree (much like git) you don't know
-where your code tree is. Do we need peter's "rc" files. Do we need a module file?
-
-
-Simple ``dysh`` Commands
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code:: bash
-
-     python -c 'import dysh; print(dysh.__version__)'
-     python -c 'import dysh; print(dysh.__file__)'
-
-Building Documentation
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. code:: bash
-
-     cd dysh/docs
-     make html
-     xdg-open _build/html/index.html
-
-Testing
-=======
-
-We use `pytest` for unit and integration testing.
-From the top-level dysh directory, run:
-
-.. code-block:: bash
-
-    $ pytest
+      $ cd docs/source
+      $ uv run make html
+      $ xdg-open _build/html/index.html
