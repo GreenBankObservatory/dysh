@@ -555,7 +555,7 @@ class Menu:
         self.specplot = specplot
         self.canvas = self.specplot._axis.figure.canvas
         self.regionshow = True
-        self.gbtloc = EarthLocation.of_site('Green Bank Telescope')
+        self.gbtloc = EarthLocation.of_site("Green Bank Telescope")
 
         hcoords = [0.08, 0.21, 0.34, 0.47, 0.60, 0.73]
         vcoords = [0.93, 0.88]
