@@ -6,81 +6,112 @@ Single Dish Math
 
 Here we briefly review some of the equations governing Single Dish math.
 
+The Model
+=========
 
-Getting the system temperature
+The power being recorded by a backend can be described by
 
+.. math::
 
-.. math::  :label: eq_sdmath1
+   P=G\left(T_{\mathrm{A}}+T_{\mathrm{sys}}\right)
 
-   T_{sys} = T_{amb} { { SKY } \over { HOT - SKY } }
+with :math:`G` the telescope gain, :math:`T_{\mathrm{A}}` the antenna temperature and :math:`T_{\mathrm{sys}}` the system temperature.
 
-or
+During observations, a noise diode or a hot load can be used to determine the telescope gain or system temperature.
+When the noise diode is firing, the power becomes
 
-.. math:: :label: eq_sdmath2
+.. math::
 
-   T_{sys} = T_{cal} { { <SKY> } \over { <HOT - SKY> } } + T_{cal}/2
+   P^{\mathrm{cal}}=G\left(T_{\mathrm{A}}+T_{\mathrm{sys}}+T_{\mathrm{cal}}\right)
 
-where the :math:`< >` operator averages over the center (typically 80%) portion of the spectrum.
-This way :math:`T_{sys}` is a scalar. The routine :py:func:`dysh.spectra.core.mean_tsys`
-computes this.  The HOT and SKY are also referred to sometimes as CAL and SIG.
+with :math:`T_{\mathrm{cal}}` the equivalent temperature of the noise diode or hot load, a quantity that is known beforehand or that must be derived from calibration observations.
 
-.. modules/dysh.spectra.html#dysh.spectra.core.mean_tsys
+System Temperature
+==================
+
+For observations with a noise diode or hot load the system temperature can be computed using
+
+.. math::
+
+   T_{\mathrm{sys}}=T_{\rm{cal}}\left[\frac{P_{\rm{ref}}}{P_{\rm{ref}}^{\rm{cal}}-P_{\rm{ref}}}\right]+\frac{T_{\rm{cal}}}{2}
+
+where :math:`P_{\rm{ref}}` is the power measured towards a reference position, a region without signal.
+The factor :math:`T_{\rm{cal}}/2` accounts for the noise diode being fired half of the time — this factor is ommited if using a hot load.
+To minimize the "noise" in the computation, dysh takes the average of the numerator and the denominator over the inner 80% of the channels.
+So, in practice the system temperature is computed as
+
+.. math::
+
+   T_{\mathrm{sys}}=T_{\rm{cal}}\left[\frac{\langle P_{\rm{ref}}\rangle}{\langle P_{\rm{ref}}^{\rm{cal}}-P_{\rm{ref}}\rangle}\right]+\frac{T_{\rm{cal}}}{2}
+
+where the :math:`\langle\rangle` operator denotes an average. Thus, the system temperatures computed are scalars. In dysh the function responsible for this calculation is :py:func:`dysh.spectra.core.mean_tsys`.
+For more details on how to compute :math:`T_{\mathrm{cal}}` for a hot load see `GBT memo #302 <https://library.nrao.edu/public/memos/gbt/GBT_302.pdf>`_.
+
+Antenna Temperature
+===================
+
+The antenna temperature is computed using
 
 .. math:: :label: eq_sdmath3
 
-   T_A = T_{sys}  {   { SIG - REF } \over {REF} }
+   T_{\rm{A}}=T_{\rm{sys}}\frac{P-P_{\rm{ref}}}{P_{\rm{ref}}}
 
-All of these have values for each channel. How exactly the :math:`T_{sys}` is computed (scalar, vector,
-mean/median) can vary with different implementations.
+with :math:`P` the power of the signal (e.g., towards the target in a position switched observation).
 
-Note in some places you may see the SIG/REF referred to as ON/OFF.
-
-
+Radiometer Equation
+===================
 
 The radiometer equation equates the noise to the system temperature, integration time and bandwidth
 
 .. math:: :label: eq_radiometer
 
+   \sigma(T)=\frac{T_{\rm{sys}}}{\sqrt{\Delta t \Delta\nu}}
 
-   \Delta T =  \frac{T_{\rm{sys}}}{\sqrt{\Delta t \Delta\nu}}
+with :math:`\Delta t` the integration time and :math:`\Delta\nu` the bandwidth.
+This is the standard deviation of the signal if it was purely thermal noise.
 
+Weights
+-------
 
-The effective beam (see also GBT memo 296, and gbtpipe/Gridding.py - at 109 GHz)
+By default, dysh uses the inverse variance of the thermal noise as weights
 
-..  1.18 * (c / nu0 / 100.0) * 180 / np.pi  # in degrees
+.. math::
 
-.. math:: :label: eq_beam109
+   w=\frac{\Delta t \Delta\nu}{T_{\rm{sys}}^{2}}.
 
-    1.18 {\lambda \over D}
+Brightness Scales
+=================
 
-with D=100 m.
-
-
-Reduction of noise with **smoothref=N** is an option to most of the calibration routines,
-e.g. :py:func:`dysh.fits.GBTFITSLoad.getps`
-
-
-.. math:: :label: eq_smoothref
-
-     \sigma_N = \sigma_1 \sqrt{   {N+1} \over  {2N}  }
-
-.. @todo fix this one if the EXPOSURES in ON and OFF are not the same
+The definitions of the brightness scales used by dysh are in `GBT memo #302 <https://library.nrao.edu/public/memos/gbt/GBT_302.pdf>`_.
 
 
-Weight factors are 1/:math:`\sqrt(RMS)` following the radiometer equation
+Misc
+====
 
-.. math:: :label: eq_sdmath5
+Smoothing the Reference
+-----------------------
 
-      \frac{\Delta t \Delta\nu}{T_{\rm{sys}}^{2}}
+During calibration it is possible to smooth the reference using the ``smoothref`` argument (this is an argument to the calibration routines, e.g., :py:func:`~dysh.fits.GBTFITSLoad.getps`).
+For purely thermal noise this would reduce the noise in the calibrated spectrum by a factor
 
-Effective exposure time in an ON/OFF observation
+.. math::
+
+   \sqrt{\frac{N+1}{2N}}
+
+where :math:`N` is the width, in channels, of the smoothing kernel.
+So, if using ``smoothref=3`` the noise should be reduced by :math:`\sqrt{4/6}`.
+
+Exposure Time
+-------------
+
+Effective exposure time after calibrating using a noisy reference power
 
 .. math:: :label: eq_sdmath6
 
-  { t_{ON} * t_{OFF} } \over {  t_{ON} + t_{OFF}  }
+   \Delta t=\frac{t_{\rm{sig}}t_{\rm{ref}}}{t_{\rm{sig}}+t_{\rm{ref}}}.
 
-.. @todo fix this for unequal EXPOSURE
-..       as well as issue 800
+Ruze Equation
+-------------
 
 The Ruze equation relates the gain of an antenna to the root mean
 square (:math:`\delta`) of the antenna's random surface errors.
@@ -91,14 +122,4 @@ square (:math:`\delta`) of the antenna's random surface errors.
 
 but the associated beam spreading is a different story.
 
-
-
 .. Something about Doppler and Velocity Frames?
-
-
-See also  :ref:`cog` for math behind the Curve of Growth method.
-
-
-Temperature scales:   Ta, Ta', Ta*, Tmb -
-Correcting for Atmospheric Opacity -
-see https://library.nrao.edu/public/memos/gbt/GBT_302.pdf

@@ -9,25 +9,23 @@ In this glossary we also note overloaded terms.
 
 
 .. glossary::
+    :sorted:
 
     Argus
-      A 16-:term:`pixel` W-band (74-116 GHz) focal plane array in use at the GBT. Named after a mythical figure
-      with 100 eyes. See also https://www.gb.nrao.edu/argus/
+      A 16-:term:`pixel` W-band (74-116 GHz) focal plane array in use at the GBT.
+      Named after a mythical figure with 100 eyes. See also https://www.gb.nrao.edu/argus/
 
     band
-      A coherent section of channels in frequency space, all with
-      the same channel width. Sometimes called an IF band. In radio
-      astronomy bands are often referred to by an alphabetical designation,
-      e.g. L-band covers 1-2 GHz. A summary
-      of the bands commonly used at GBO can be found on
+      A contiguous section of the radio spectrum.
+      In radio astronomy bands are often referred to by an alphabetical designation,
+      e.g. L-band covers 1-2 GHz.
+      A summary of the bands commonly used at GBO can be found on
       https://gbtdocs.readthedocs.io/en/latest/references/receivers.html
 
-      See also :term:`ifnum` and :term:`IF`
-
     bank
-      Overloaded term for a **band**, possibly referring to hardware.
-      A VEGAS bank (hardware-wise) is a single ROACH-2 board with 2 inputs,
-      typically for two polarizations of one subband.
+      A VEGAS bank is a single ROACH-2 board with 2 inputs,
+      typically for two polarizations of one :term:`IF`.
+      A VEGAS bank can produce between one and eight :term:`spectral windows <spectral window>`, which are identified by an :term:`ifnum`.
 
     baseline
       Baseline is a generic term usually taken to mean the
@@ -38,40 +36,40 @@ In this glossary we also note overloaded terms.
     beam
       The footprint of one receiver horn on the sky.
 
-      See also :term:`fdnum`,  :term:`multi-beam`, and :term:`horn`
+      See also :term:`fdnum`, :term:`multi-beam`, and :term:`horn`.
 
     beam switching
       This is a variation on :term:`position switching` using a receiver
-      with multiple beams. The :term:`SIG` and :term:`REF`
-      positions on the sky are
-      calculated so that at least one feed of the multi-beam receiver is always
-      pointing at the source. This is most useful for point sources.
+      with multiple beams. The signal and reference positions are chosen so
+      that one of the feeds is always pointing at the source. Using this method
+      requires that the source be smaller than the on-sky separation between feeds.
+      :term:`Nodding <nod>` and :term:`subreflector beam nodding <subbeamnod>` are forms of beam switching.
 
-      See also :term:`position switching`
+      See also :term:`position switching`.
 
     BINTABLE
-      Binary table. In dysh data, `bintable is an index running from 0 to N-1,
-      where N is the number of binary tables in the SDFITS file.
+      Binary table. In dysh, ``bintable`` is an index running from 0 to N-1,
+      where N is the number of binary tables in the :term:`SDFITS` file.
 
-      See also :term:`FITS`
+      See also :term:`FITS`.
 
     blanking
-      blanking is a term used in the (VEGAS) correllator, where bad data has been replaced
-      with a Not-a-Number value. Not to be confused with the concepts :term:`flagging`
-      and :term:`masking` in dysh.
+      Blanking is the process of replacing data values with a blank.
+      For :term:`SDFITS` files, the blanking value is Not-a-Number (NaN).
+      For example :term:`VEGAS` will blank data while it is switching states (`Kepley et al. 2015 <https://library.nrao.edu/public/memos/gbt/GBT_288.pdf>`_).
+      Not to be confused with the concepts :term:`flagging` and :term:`masking` in dysh.
 
     CAL
-      overloaded term, sometimes used to refer to the :term:`REF` position (or OFF in the
-      :term:`ON/OFF` notation).
+      Column in :term:`SDFITS` files indicating if the noise diode was being fired at a particular time.
 
     caloff
-      Signal with no calibration diode in the signal path.
+      Signal with no calibration diode in the signal path (`CAL="F"`).
 
     calon
-      Signal with a calibration diode in the signal path.
+      Signal with a calibration diode in the signal path (`CAL="T"`).
 
     Chebyshev
-      a type of orthogonal polynomial that is commonly used in
+      A type of orthogonal polynomial that is commonly used in
       numerical methods due to its optimal convergence properties and
       connection to the Fourier transform. One of the options in
       baseline fitting in dysh.
@@ -93,29 +91,29 @@ In this glossary we also note overloaded terms.
       See also https://github.com/astropy/astropy-APEs/blob/main/APE6.rst
 
     fdnum
-      Feed Number in dysh, starting at 0, used
-      as the **fdnum=** keyword in the :term:`getXX()` routines.
+      Feed number. An integer, starting at 0, used to identify different :term:`beams <beam>`.
+      Also used as the ``fdnum`` keyword in the :term:`getXX()` routines.
+      For example, to select the first :term:`beam` one would use ``fdnum=0``.
 
-      See also :term:`beam`
+      See also :term:`beam`.
 
     FITS
       Flexible Image Transport System: the export format
-      for data-cubes, although there is also a waterfall cube
-      (time-freq-pixel) cube available in dysh.
+      for data-cubes and images.
 
     flagging
-      flagging is a non-destructive operation, where data in the
-      time-frequency domain is flagged to be skipped.
+      Flagging is a non-destructive operation, where data in the
+      time-frequency domain is flagged to be skipped, :term:`masked <masking>` or :term:`blanked <blanking>`.
 
-      Flagging specific to the VEGAS backend, which has bad channels
-      also known as 'spurs' at regular channel intervals. VEGAS
+      Flagging specific to the :term:`VEGAS` backend, which has bad channels
+      also known as 'spurs' at regular channel intervals. :term:`VEGAS`
       flagging is done automatically by
       :class:`~dysh.fits.gbtfitsload.GBTFITSLoad`.
 
-      The data are flagged by GBTFITSLoad (or the user). Blanking is
-      the application of flags using apply_flags().
+      The data are flagged by :class:`~dysh.fits.gbtfitsload.GBTFITSLoad` (or the user).
+      Masking is the application of flags using ``apply_flags``.
 
-      See also :term:`masking`
+      See also :term:`masking` and :term:`blanking`.
 
     flag files
       SDFITS files created by GBTIDL can have a separate ASCII flag
@@ -136,9 +134,7 @@ In this glossary we also note overloaded terms.
 
 
     frequency switching
-      This is a variation on position switching using a receiver
-      where the IF is alternating.
-      See also :term:`position switching`
+      This is an observing technique in which a local oscillator is alternated to switch the :term:`IF` into signal and reference states.
 
     GBTIDL
       Green Bank Telescope Interactive Data Language. The GBT data
@@ -147,7 +143,6 @@ In this glossary we also note overloaded terms.
 
     getXX()
       Generic name for any of the dysh calibration routines, e.g. getps, getfs, getnod etc.
-      after an sdfits object has been obtained.
 
     horn
       Another term used for :term:`beam` or :term:`pixel`.
@@ -158,21 +153,21 @@ In this glossary we also note overloaded terms.
 
     IF
       Intermediate Frequency, is a frequency to which a carrier wave is shifted as
-      an intermediate step in transmission or reception. The terms
-      :term:`band` and :term:`window` are often used as well, where they
-      mean an IF band.
+      an intermediate step in transmission or reception.
+      The term :term:`window` is often used as well, where it means the contiguous range of frequencies being recorded by the spectrometer (e.g., :term:`VEGAS`).
 
-      See also :term:`ifnum`
+      See also :term:`ifnum`.
 
     ifnum
-      IF number (0,1,...)
-      Also used as the **ifnum=** keyword in :term:`getXX()`.
+      IF number (0,1,...). These are used to identify :term:`spectral windows <spectral window>`.
+      Also used as the ``ifnum`` keyword in :term:`getXX()`. For example, to select the first spectral
+      window one would use ``ifnum=0``.
 
-      See also :term:`band` and :term:`window`
+      See also :term:`band` and :term:`window`.
 
     intnum
-      Integration number, starting at 0, used as the **intnum=** keyword in the
-      :term:`getXX()` routines.
+      Integration number, starting at 0. Also used as the ``intnum`` keyword in the
+      :term:`getXX()` routines. For example, to select the first integration one would use ``intnum=0``.
 
     KFPA
       K-band Focal Plane Array, a hexagonal set of beams, with a central beam. Covers 18-26 GHz.
@@ -180,44 +175,48 @@ In this glossary we also note overloaded terms.
       for more details.
 
     masking
-      Masking removes or hides the value in the spectrum. As in numpy,
+      Masking hides the value in the spectrum. As in numpy,
       as mask value of True means the underlying value is not used. In
       dysh masks are set on individual integrations during calibration
       [getXX()]; resultant spectra will have the final mask set in
-      Spectrum.mask.
+      ``Spectrum.mask``.
 
-      See also :term:`flagging`
+      See also :term:`flagging`.
 
 
     metadata
-      describes data. Examples for a spectrum are the RA and DEC associated with the spectrum.
+      Describes data. Examples for a spectrum are the right ascencion (RA) and declination (DEC) associated with the spectrum.
       Typically GBT spectra have 70 items in the metadata, implemented as columns in the
       :term:`BINTABLE`
       and accessed via keyword in :class:`~dysh.fits.gbtfitsload.GBTFITSLoad`, e.g., sdf["object"].
 
-      dysh spectra have metadata in Spectrum.meta and Scans in Scan.meta.
+      dysh spectra have metadata in `Spectrum.meta` and Scans in `Scan.meta`.
 
     multi-beam
-      If an instrument has multiple :term:`beam`s that typically point to different sky locations
+      If an instrument has multiple :term:`beams <beam>` that typically point to different sky locations
       (e.g. :term:`Argus` in a 4x4 configuration, and :term:`KFPA` in a 7 beam hexagonal shape).
 
-    Nod or Nodding
+    nod
       An observing mode where two beams alternatingly look at source and (different) sky.
 
-    Noise Diode
-      A device with known effective temperature that is coupled to the
-      telescope system to give a measure of system temperature
-      (Tsys). When the telescope is pointed on blank sky, the noise
-      diode is alternating in On and Off states to determine the
-      system temperature. This device is also refered to as the "Cal".
+      See also :term:`position switching` and :term:`beam switching`.
 
-      See also :term:`calon` and :term:`caloff`
+    noise diode
+      A device with known effective temperature (see :term:`tcal`) that is coupled to the
+      receiver to give a measure of system temperature (TSYS).
+      When the telescope is pointed on blank sky, the noise diode can be set toalternate between
+      on and off states to determine the system temperature.
+      This device is also refered to as the "Cal".
+
+      See also :term:`calon` and :term:`caloff`.
 
     ON/OFF
+      In the context of position switching, the on-source (target or signal) and off-source (reference) positions.
+      In the context of the noise diode, it being on (firing) or off (not firing).
       The ON/OFF references are an overloaded term for when we refer to the
-      :term:`SIG` and  :term:`REF` resp.
+      :term:`SIG` and :term:`REF` respectively.
 
-    OTF Mapping
+    OTF mapping
       On-the-fly mapping: in this procedure the telescope is scanned across the sky to
       sample the emission. The samples are "gridded" on to a map using the tool
       `gbtgridder <https://github.com/GreenBankObservatory/gbtgridder>`_. The gridding
@@ -230,10 +229,10 @@ In this glossary we also note overloaded terms.
       is commonly referred to as a *picture element*.
 
     plnum
-      Polarization number (0,1,...). Usually 0 and 1, but of course up to 4 values could be present
-      for a full Stokes. Averaging the two polarizations will reduce the noise by :math:`sqrt{2}`
+      Polarization number (0,1,...). An integer used to identify the polarization. Usually 0 and 1, but of course up to 4 values could be present
+      for full Stokes observations. Averaging two orthogonal polarizations should reduce the noise by :math:`\sqrt{2}`
 
-      Also used as the **plnum=** keyword in :term:`getXX()`.
+      Also used as the ``plnum`` keyword in :term:`getXX()`. For example, one would use ``plnum=0`` to select the first polarization.
 
     position switching
       This is a standard way to obtain spectra by switching
@@ -246,70 +245,82 @@ In this glossary we also note overloaded terms.
 
       .. See also :numref:`eq_sdmath3`
 
-    Project Code
+    project code
       A code designating the year and proposal number, e.g. GBT21B-024.  Data associated with
       a project are found in /home/sdfits (or $SDFITS_DATA), with a slight twist of the name.
       In the example this becomes AGBT21B_024.
-      See below :ref:`data_org`
+
+      See also :ref:`data_org`
 
     REF
       Reference point, meant to have no signal.
 
-      See also :term:`CAL`  and  :ref:`sdmath`
+      See also :ref:`sdmath`.
 
-    Region
-      Region or regions of spectrum, used for flagging/masking,baseline subtraction.
+    region
+      Region or regions of spectrum, used for flagging/masking, or baseline subtraction.
 
-    Scan
+    scan
        A unit of observing, usually in some common mode, with one or more integrations.
-       GBT differentiates between different types of scans. Scans are referred to as
-       1-based integers.
+       Scans are referred to as 1-based integers. The observing procedures (e.g., OnOff or Track)
+       are commonly referred to as scans (e.g., an OnOff scan or a Track scan).
+       A scan can contain multiple integrations.
 
     ScanBlock
-      A container for a series of :term:`Scan`'s.
+      A container for a series of :term:`scans <scan>`.
+
+      See also :ref:`scanblocks` for more details.
 
     SDFITS
-      Single Dish **FITS** format, normally used to store
-      raw or even calibrated spectra in a FITS binary table (BINTABLE) format.  Each
+      Single Dish :term:`FITS` format, normally used to store
+      raw or even calibrated spectra in a :term:`FITS` binary table (BINTABLE) format.  Each
       row in a BINTABLE has an attached RA,DEC (and other meta-data),
       plus the whole spectrum. This standard was drafted in 1995 (Liszt),
       and has been implemented by many telescopes (Arecibo, FAST, GBT, Parkes, ....),
-      albeit with slightly different conventions.  Also to note is that an SDFITS file
-      can have more than one BINTABLE extension.
+      albeit with slightly different conventions.
+      An SDFITS file can have more than one BINTABLE extension.
 
-      See also :ref:`sdfits-reference`
+      See also :ref:`sdfits-reference`.
 
     SDFITS_DATA
-      (optional) environment variable pointing to a directory where SDFITS
+      (optional) environment variable pointing to a directory where :term:`SDFITS`
       project directories and files are stored.
 
-    SESSION
-      Or Session ID.  This is the number (starting at index 01) denoting the observing sessions
-      within a given :ref:`Project Code`.
-      See also :ref:`data_org`
+    session
+      Or Session ID. This is the number (starting at index 01) denoting the observing sessions
+      within a given project. It is concatenated with the :term:`project code` to define a unique
+      observing session, for example AGBT21B_024_01.
+
+      See also :ref:`data_org`.
 
     SIG
-      signal, but also overloaded the ON in ON/OFF.
+      Signal.
+      In the context of position switching the ON or target position in an ON/OFF observation.
+      In the context of frequency switching, the signal state has SIG="T" and the reference state SIG="F".
 
-      See also :ref:`sdmath`
+      See also :ref:`sdmath`.
 
-    Spectral Window
-      This is closest to what we call a **bank**,
-      or **band**, a set of linearly spaced channels.
+    spectral window
+      Subdivision of a :term:`band` or :term:`bank` to a set of linearly spaced channels in frequency space.
+      For GBT data a spectral window is also refered to as an IF.
 
-      See also :term:`ifnum`
+      See also :term:`ifnum`.
 
-    Spectrum
+    spectrum
       A coherent section in frequency space, with its own unique meta-data (such as polarization,
-      ra, dec, time). Normally the smallest portion of data we can assign. A spectrum is
+      right ascencion, declination, and time). Normally the smallest portion of data we can assign. A spectrum is
       defined by its own seting of *(crval, crpix, cdelt)* in a FITS WCS sense.
 
-    SubBeamNod
-      Subreflector Beam Nodding, one of the :term:`getXX()` routines
+    subbeamnod
+      Subreflector beam nodding.
+      In this observing method the subreflector is used to alternate the signal and reference positions between one or more :term:`beams <beam>`.
 
-    tcal
-      Derive the noise diode temperature from observations. Also: the calibration temperature
-      input to a :term:`calon` - :term:`caloff` calibration.
+      See also :term:`beam switching`.
+
+    TCAL
+      Equivalent temperature of the :term:`noise diode`. Usually given in K.
+      This is a function of frequency and time. It is stored as a single value in :term:`SDFITS` as the TCAL column.
+      This single value is the average of the noise diode frequency-resolved temperature measurements over the corresponding :term:`IF`.
 
     VEGAS
       Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
@@ -317,8 +328,8 @@ In this glossary we also note overloaded terms.
     waterfall plot
       A plot (or two-dimensional image) that shows time vs. frequency.
 
-    Window
-      See :term:`Spectral Window`
+    window
+      See :term:`spectral window`.
 
 
 ..    The velocity of a source using the relativistic definition of the velocity-frequency relationship.
@@ -334,9 +345,9 @@ Data : Project Code / Session ID
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Generally projects are assigned a project code, e.g. *AGBT21B-024*, which is
-then observed in a number of sessions, numbered starting with 1. The SDFITS data associated
-with these are stored under **$SDFITS_DATA**, e.g. for session 5 in this example, this would be
-in **$SDFITS_DATA/AGBT21B_024_05/**.
+then observed in a number of sessions, numbered starting with 01. The :term:`SDFITS` data associated
+with these are stored under ``$SDFITS_DATA``, e.g. for session 5 in this example, this would be
+in ``$SDFITS_DATA/AGBT21B_024_05/``.
 
 Possible confusion: a project code "GBT21B-024", is labeled "AGBT21B_024" as the
 filename prefix for file storage, which is the name that users need for dysh.
