@@ -958,9 +958,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_history
     def flag_channel(self, channel, tag=None):
         """
-        Select channels and/or channel ranges. These are NOT used in :meth:`final`
-        but rather will be used to create a mask for
-        flagging. Single arrays/tuples will be treated as channel lists;
+        Flag channels and/or channel ranges. These will be used to create a mask for
+        data when calibrating (see :meth:`apply_flags`). Single arrays/tuples will be treated as channel lists;
         nested arrays will be treated as ranges, for instance
 
         .. code::
@@ -1493,6 +1492,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ref : int or Spectrum
             The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.  If an integer is given,
             the reference spectrum will be the total power time-averaged spectrum using the weights given.
+            If `channel` is given, the reference spectrum will be trimmed to the `channel` range before calibration.
         fdnum : int
             The feed number.
         ifnum : int
@@ -2187,6 +2187,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
             trimmed to `[firstchan,lastchan]`. If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+
+            **Note**: With certain choices of `channel`, folding the data with `shift_method='fft'` can result in
+            a numpy array broadcast exception. If this occurs, either change `shift_method` to 'interpolate' or change
+            the channel range by one channel to avoid the error.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
