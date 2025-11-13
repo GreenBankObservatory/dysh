@@ -233,3 +233,5 @@ Some references on git workflows:
 * http://physics.mnstate.edu/craig/git-novice-pyastro/
 * https://www.sitepoint.com/quick-tip-sync-your-fork-with
 * https://how-to.dev/how-git-stores-data
+
+Moravec test
