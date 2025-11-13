@@ -1850,7 +1850,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 d = {"ON": on, "OFF": off}
                 if _bintable is None:
                     _bintable = self._get_bintable(_ondf)
-                print(f"getps {channel=}")
                 g = PSScan(
                     self._sdf[i],
                     scan=d,

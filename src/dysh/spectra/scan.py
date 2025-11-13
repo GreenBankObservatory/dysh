@@ -265,7 +265,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._channel_slice = slice(channel[0], channel[1])
         else:
             self._channel_slice = slice(0, None)
-        print(f"channel slice={self._channel_slice}")
         # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
