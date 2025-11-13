@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.io import fits
+from astropy.units.quantity import Quantity
 
 from dysh.log import logger
 
@@ -1336,6 +1337,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used.
+
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1450,6 +1452,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys=None,
         t_cal=None,
         nocal: bool = False,
+        ap_eff: float | None = None,
+        surface_error: Quantity | None = None,
         **kwargs,
     ) -> ScanBlock:
         r"""
@@ -1492,13 +1496,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used. If `t_sys` is provided, `t_cal` will be ignored.
-        weights: str
-            Weighting scheme to use when averaging the signal and reference scans
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
+        nocal : bool, optional
+            Is the noise diode being fired? False means the noise diode was firing.
+            By default it will figure this out by looking at the "CAL" column.
+            It can be set to True to override this.
+        ap_eff : float or None
+            Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+            can be provided.
+        surface_error: Quantity or None
+            Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            can be provided.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1516,7 +1526,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         ScanBase._check_tscale(units)
-        if units.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_gain_factors(ap_eff, surface_error)
+        if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
         if not isinstance(ref, int) and not isinstance(ref, Spectrum):
             raise TypeError("Reference scan ('ref') must be either an integer scan number or a Spectrum object")
@@ -1633,6 +1644,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     nocal=_nocal,
                     tsys=_tsys,
                     tcal=_tcal,
+                    ap_eff=ap_eff,
+                    surface_error=surface_error,
                 )
                 g._refscan = ref
                 g.merge_commentary(self)
@@ -1662,6 +1675,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys=None,
         nocal=False,
         t_cal=None,
+        ap_eff: float | None = None,
+        surface_error: Quantity | None = None,
         **kwargs,
     ) -> ScanBlock:
         """
@@ -1700,6 +1715,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
             It can be set to True to override this. Default: False
+        ap_eff : float or None
+            Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+            can be provided.
+        surface_error: Quantity or None
+            Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            can be provided.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1716,7 +1740,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
         """
         ScanBase._check_tscale(units)
-        if units.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_gain_factors(ap_eff, surface_error)
+        if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         prockey = "OBSTYPE"
@@ -1801,6 +1826,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     nocal=_nocal,
                     tsys=_tsys,
                     tcal=_tcal,
+                    ap_eff=ap_eff,
+                    surface_error=surface_error,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
@@ -1829,6 +1856,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         nocal=False,
         units="ta",
         zenith_opacity=None,
+        ap_eff: float | None = None,
+        surface_error: Quantity | None = None,
         **kwargs,
     ):
         """
@@ -1871,6 +1900,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
             It can be set to True to override this. Default: False
+        surface_error: Quantity | None = None,
+        ap_eff : float or None
+            Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+            can be provided.
+        surface_error: Quantity or None
+            Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            can be provided.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1891,9 +1930,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
 
         ScanBase._check_tscale(units)
-        if units.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_gain_factors(ap_eff, surface_error)
+        if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
-
         if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
             raise TypeError(f"fdnum={fdnum} not valid, need a list with two feeds")
 
@@ -1999,6 +2038,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         tcal=_tcal,
                         tscale=units,
                         zenith_opacity=zenith_opacity,
+                        ap_eff=ap_eff,
+                        surface_error=surface_error,
                     )
                     g.merge_commentary(self)
                     scanblock.append(g)
@@ -2033,6 +2074,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys=None,
         t_cal=None,
         nocal: bool = False,
+        ap_eff: float | None = None,
+        surface_error: Quantity | None = None,
         **kwargs,
     ):
         """
@@ -2080,6 +2123,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
             It can be set to True to override this.
+        ap_eff : float or None
+            Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+            can be provided.
+        surface_error: Quantity or None
+            Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            can be provided.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2098,7 +2150,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
 
         ScanBase._check_tscale(units)
-        if units.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_gain_factors(ap_eff, surface_error)
+        if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
@@ -2174,6 +2227,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tsys=_tsys,
                     tcal=_tcal,
                     nocal=_nocal,
+                    ap_eff=ap_eff,
+                    surface_error=surface_error,
                 )
                 g.merge_commentary(self)
                 scanblock.append(g)
@@ -2221,6 +2276,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         name=None,
         fluxscale=None,
         method_kwargs: None | dict = None,
+        ap_eff=None,
+        surface_error=None,
         **kwargs,
     ):
         """
@@ -2261,6 +2318,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "Perley-Butler 2017" and "Ott 1994" are known to dysh, although the user can provide other scales.
         method_kwargs : dict
             Dictionary with additional keywords to pass to the calibration `method`.
+        ap_eff : float or None
+            Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+            can be provided.
+        surface_error: Quantity or None
+            Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            can be provided.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2326,6 +2392,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "zenith_opacity": zenith_opacity,
             "t_cal": 1.0,
             "units": "flux",
+            "ap_eff": ap_eff,
+            "surface_error": surface_error,
         }
         if ref is not None:
             method_args["ref"] = ref
@@ -2345,7 +2413,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return tcal
 
-    # @todo sig/cal no longer needed?
     @log_call_to_result
     def subbeamnod(
         self,
@@ -2353,8 +2420,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ifnum: int,
         plnum: int,
         method="cycle",
-        sig=None,
-        cal=None,
         calibrate: bool = True,
         weights="tsys",
         smoothref: int = 1,
@@ -2363,6 +2428,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zenith_opacity=None,
         t_sys=None,
         t_cal=None,
+        ap_eff=None,
+        surface_error=None,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -2379,10 +2446,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Method to use when processing. One of 'cycle' or 'scan'.
             'cycle' (default) treats each SUBREF_STATE independently, resulting in multiple signal and reference states per scan..
             'scan' averages the SUBREF_STATE rows resulting in one signal and reference state per scan.
-        sig : bool
-            True to indicate if this is the signal scan, False if reference.
-        cal : bool
-            True if calibration (diode) is on, False if off.
         calibrate : bool
             Whether or not to calibrate the data.
         weights : str or None
@@ -2420,7 +2483,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
 
         ScanBase._check_tscale(units)
-        if units.lower() != "ta" and zenith_opacity is None:
+        ScanBase._check_gain_factors(ap_eff, surface_error)
+        if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         _bintable = kwargs.get("bintable", None)
@@ -2428,7 +2492,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
 
         tsys = _parse_tsys(t_sys, scans)
-        _tsys = None
         _tcal = t_cal
 
         scanblock = ScanBlock()
@@ -2547,6 +2610,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         zenith_opacity=zenith_opacity,
                         weights=weights,
                         tcal=_tcal,
+                        ap_eff=ap_eff,
+                        surface_error=surface_error,
                     )
                     sb.merge_commentary(self)
                     scanblock.append(sb)
@@ -2599,6 +2664,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tscale=units,
                     zenith_opacity=zenith_opacity,
                     weights=weights,
+                    ap_eff=ap_eff,
+                    surface_error=surface_error,
                     tcal=tpoff[0].getspec(0).meta["TCAL"],
                 )
                 sb.merge_commentary(self)
@@ -2771,10 +2838,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 for c in self.comments:
                     outhdu[0].header["COMMENT"] = c
                 if verbose:
-                    print(f"Writing {this_rows_written} rows to {outfile}.")
+                    logger.info(f"Writing {this_rows_written} rows to {outfile}.")
                 outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             if verbose:
-                print(f"Total of {total_rows_written} rows written to files.")
+                logger.info(f"Total of {total_rows_written} rows written to files.")
         else:
             hdu = self._sdf[fi[0]]._hdu[0].copy()
             outhdu = fits.HDUList(hdu)
@@ -2805,7 +2872,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if total_rows_written == 0:  # shouldn't happen, caught earlier
                 raise Exception("Your selection resulted in no rows to be written")
             elif verbose:
-                print(f"Writing {total_rows_written} to {fileobj}")
+                logger.info(f"Writing {total_rows_written} to {fileobj}")
             # outhdu.update_extend()  # possibly unneeded
             outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
             outhdu.close()
@@ -3490,7 +3557,7 @@ class GBTOnline(GBTFITSLoad):
                 sdfits_root = "/home/sdfits"
             logger.debug(f"Using SDFITS_DATA {sdfits_root}")
 
-            if not os.path.isdir(sdfits_root):
+            if not os.path.isdir(sdfits_root):  # @todo shouldn't this be an exception?
                 logger.info(f"Cannot find {sdfits_root}")
                 return None
 

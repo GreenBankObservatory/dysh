@@ -60,6 +60,8 @@ extensions = [
     "sphinx_copybutton",
 ]
 
+numfig = True
+
 numpydoc_show_class_members = True
 autosummary_generate = True
 

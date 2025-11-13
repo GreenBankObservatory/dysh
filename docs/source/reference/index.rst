@@ -57,6 +57,40 @@
 
             Dysh for GBTIDL Users
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        **Glossary**
+
+        A dysh Glossary
+
+        .. button-link:: glossary.html
+            :color: primary
+            :tooltip: Glossary
+            :outline:
+            :click-parent:
+
+            Glossary
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :octicon:`file;3em;green` **SDMATH**
+
+        Single Dish math
+
+        .. button-link:: sdmath.html
+            :color: primary
+            :tooltip: Single Dish math
+            :outline:
+            :click-parent:
+
+            SDMATH
+
+
+
 .. toctree::
     :maxdepth: 3
     :hidden:
@@ -64,3 +98,5 @@
     modules/index
     sdfits_files/index
     dysh-for-gbtidl-users
+    glossary
+    sdmath
