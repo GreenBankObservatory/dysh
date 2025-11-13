@@ -735,6 +735,17 @@ class TestFSScan:
         assert fs_cal.meta["TSYS"] == pytest.approx(fs_org.meta["TSYS"] / fs_org.meta["TCAL"])
         assert fs_cal.meta["TCAL"] == 1.0
 
+    def test_vane(self):
+        """
+        Test for getfs with vane argument.
+        """
+        sdf_file = util.get_project_testdata() / "TGBT22A_603_05/TGBT22A_603_05.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=2, vane=10, t_atm=273, zenith_opacity=0.1)
+        assert fs_sb.tscale == "Ta*"
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSCALE"] == "Ta*"
+
 
 class TestNodScan:
     def test_nodscan(self):

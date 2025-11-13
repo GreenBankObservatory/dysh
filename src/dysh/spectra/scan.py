@@ -32,6 +32,7 @@ from .core import (
     tsys_weight,
 )
 from .spectrum import Spectrum, average_spectra
+from .vane import VaneSpectrum
 
 
 class SpectralAverageMixin:
@@ -457,8 +458,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     @log_call_to_history
     def scale(self, tscale, zenith_opacity=None):
         """
-        Scale the data to the given brightness scale (temperature of flux density) and zenith opacity. If data are already
-        scaled, they will be unscaled first.
+        Scale the data to the given brightness scale (temperature or flux density) using the zenith opacity.
+        If data are already scaled, they will be unscaled first.
 
         Parameters
         ----------
@@ -2418,6 +2419,7 @@ class FSScan(ScanBase):
         tsys=None,
         tcal=None,
         nocal: bool = False,
+        vane: VaneSpectrum | None = None,
     ):
         ScanBase.__init__(
             self,
@@ -2441,6 +2443,7 @@ class FSScan(ScanBase):
         self._folded = False
         self._use_sig = use_sig
         self._nocal = nocal
+        self._vane = vane
         self._smoothref = smoothref
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._sigrows["ON"]))))
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._sigrows["ON"]))))
@@ -2681,7 +2684,6 @@ class FSScan(ScanBase):
                     self._tsys[i] = tsys_sig
         else:
             for i in range(nspect):
-                tsys = self._tsys[i]
                 tp_sig = self._sigcaloff[i]
                 tp_ref = self._refcaloff[i]
                 if self._smoothref > 1:
@@ -2689,6 +2691,19 @@ class FSScan(ScanBase):
                         tp_ref, _meta = core.smooth(tp_ref, "boxcar", self._smoothref)
                     else:
                         tp_sig, _meta = core.smooth(tp_sig, "boxcar", self._smoothref)
+                if self._vane is not None:
+                    mjd = Time(self._meta[i]["DATE-OBS"]).mjd
+                    self._tcal[i] = self._vane._get_tcal(
+                        self._meta[i]["OBSFREQ"] * u.Hz,
+                        mjd,
+                        self._meta[i]["ELEVATIO"] * u.deg,
+                        zenith_opacity=self._zenith_opacity,
+                    )
+                    if self._use_sig:
+                        self._tsys[i] = self._vane._get_tsys(tp_ref, self._tcal[i])
+                    else:
+                        self._tsys[i] = self._vane._get_tsys(tp_sig, self._tcal[i])
+                tsys = self._tsys[i]
                 cal_sig = do_sig_ref(tp_sig, tp_ref, tsys)
                 cal_ref = do_sig_ref(tp_ref, tp_sig, tsys)
                 if _fold:

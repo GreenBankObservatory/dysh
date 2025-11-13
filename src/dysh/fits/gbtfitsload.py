@@ -32,6 +32,7 @@ from ..spectra.scan import (
     TPScan,
 )
 from ..spectra.tcal import TCal
+from ..spectra.vane import VaneSpectrum
 from ..util import (
     Flag,
     Selection,
@@ -2080,6 +2081,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         nocal: bool = False,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        vane: int | VaneSpectrum | None = None,
+        t_atm: float | None = None,
+        t_bkg: float | None = None,
+        t_warm: float | None = None,
         **kwargs,
     ):
         """
@@ -2132,10 +2137,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
-        surface_error: Quantity or None
+        surface_error : Quantity or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
+            Vane scalibration scan. This will be used to derive the system temperature.
+        t_atm : float or None
+            Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the atmospheric temperature. If not provided and `vane` is an `int`, `~dysh.spectra.vane.VaneSpectrum` will try to fetch a
+            value from the GBO weather forecast script (only available at GBO).
+        t_bkg : float or None
+            Background temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the background temperature. If not provided, it will take a default value of 2.725 K, i.e., the CMB at 3 mm.
+        t_warm : float or None
+            Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
+            If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2155,6 +2175,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
+
+        if vane is not None:
+            vane, units, requested_units, zenith_opacity = self._vane_setup(
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+            )
+
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
@@ -2233,7 +2259,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     nocal=_nocal,
                     ap_eff=ap_eff,
                     surface_error=surface_error,
+                    vane=vane,
                 )
+                # If calibrated with a vane change the units (so ugly >.<).
+                if vane is not None:
+                    self._set_scale_vane(g, requested_units, zenith_opacity)
                 g.merge_commentary(self)
                 scanblock.append(g)
                 # Reset these variables for the next scan.
@@ -3301,7 +3331,69 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return tsys, g
 
-    # @todo PJT feeds->fdnum and add other standard args
+    def getvane(
+        self,
+        scan: int,
+        fdnum: int,
+        ifnum: int,
+        plnum: int,
+        tcal: float | None = None,
+        zenith_opacity: float | None = None,
+        tatm: float | None = None,
+        twarm: float | None = None,
+        tbkg: float = 2.725,
+        apply_flags=True,
+        **kwargs,
+    ):
+        """
+        Compute a `~dysh.spectra.vane.VaneSpectrum` used for calibrating observations with a vane.
+
+        Parameters
+        ----------
+        scan : int
+            Scan number for either the VANE object.
+        fdnum : int
+            The feed number.
+        ifnum : int
+            The intermediate frequency (IF) number.
+        plnum : int
+            The polarization number.
+        tcal : float, optional
+            Calibration temperature. If no value is provided, but `zenith_opacity` and `tatm` are provided, then
+            it will use Eq. (22) of [1]_. If `zenith_opacity` and `tatm` are not provided, it will first try to
+            retrieve them using the weather forecasts (only available at GBO), if that fails it will use the
+            ambient temperature, Eq. (23) of [1]_.
+        zenith_opacity : float, optional
+            Zenith opacity. If not provided it will try to fetch "Opacity" from the weather forecasts (only available at GBO).
+        tatm : float, optional
+            Atmospheric temperature in K. If not provided it will try to fetch "Tatm" from the weather forecasts (only available at GBO).
+        twarm : float, optional
+            Temperature of the VANE in K. If not provided it will use the value found in the "TWARM" column of the SDFITS for `scan`.
+        tbkg : float, optional
+            Background temperature in K.
+        apply_flags : bool, optional
+            If True, apply flags before deriving the system temperature.
+
+        Returns
+        -------
+        `~dysh.spectra.vane.VaneSpectrum`
+            A `~dysh.spectra.vane.VaneSpectrum` object which can be used to calibrate observations with a vane.
+        """
+
+        vane = self.gettp(
+            scan=scan,
+            fdnum=fdnum,
+            ifnum=ifnum,
+            plnum=plnum,
+            calibrate=True,
+            cal=False,
+            apply_flags=apply_flags,
+        ).timeaverage()
+
+        return VaneSpectrum.from_spectrum(
+            vane, scan, fdnum, ifnum, plnum, tcal=tcal, zenith_opacity=zenith_opacity, tatm=tatm, twarm=twarm, tbkg=tbkg
+        )
+
     def vanecal(
         self,
         scan,
@@ -3498,6 +3590,74 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if len(tcal_set) > 1:
             raise ValueError(f"More than one value for TCAL: {tcal_set}")
         return next(iter(tcal_set))
+
+    def _vane_setup(self, vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags):
+        """
+        Set up a `~dysh.spectra.vane.VaneSpectrum` for use in the calibration routines.
+        It also handles the hacks needed to get the units correctly when using a vane.
+        """
+
+        requested_units = copy.copy(units)  # Keep track of what the user wants.
+        if units.lower() not in ["ta*", "flux"]:
+            logger.info("Vane calibrated data will be calibrated to Ta* units by default.")
+            units = "Ta"  # Set to Ta to disable scaling during calibration. Vane calibrates to Ta* by default.
+            requested_units = (
+                "Ta*"  # Force to Ta* if the input was Ta. This will be used at the end to scale the ScanBase.
+            )
+        if isinstance(vane, VaneSpectrum):
+            if (
+                zenith_opacity is not None
+                and vane._zenith_opacity is not None
+                and zenith_opacity != vane._zenith_opacity
+            ):
+                vane._zenith_opacity = zenith_opacity
+                logger.info(
+                    f"Zenith opacity provided and present in vane, but they do not match. Will use the value provided ({zenith_opacity} nepers)"
+                )
+            elif zenith_opacity is None and vane._zenith_opacity is not None:
+                zenith_opacity = vane._zenith_opacity
+                logger.info(f"Will use a zenith opacity of {zenith_opacity} nepers. Taken from vane.")
+            if t_warm is not None:
+                logger.info("t_warm provided, but not used. To change this value, please create a new VaneSpectrum.")
+            if t_atm is not None:
+                logger.info("t_atm provided, but not used. To change this value, please create a new VaneSpectrum.")
+        elif isinstance(vane, int):
+            vane = self.getvane(
+                scan=vane,
+                fdnum=fdnum,
+                ifnum=ifnum,
+                plnum=plnum,
+                zenith_opacity=zenith_opacity,
+                twarm=t_warm,
+                tatm=t_atm,
+                tbkg=t_bkg,
+                apply_flags=apply_flags,
+            )
+        else:
+            raise TypeError(f"vane must be an int or VaneSpectrum. Got a {type(vane)} instead.")
+
+        return vane, units, requested_units, zenith_opacity
+
+    def _set_scale_vane(self, scan, units, zenith_opacity):
+        """
+        Force scale to be Ta* and then scale as needed.
+        This is used for calibration with a vane, because
+        it calibrates to Ta* and we do not have (?) a
+        way of handling this without this kludge.
+
+        Parameters
+        ----------
+        scan : `~dysh.spectra.scan.ScanBase`
+            Scan to have its scale updated.
+        units : str
+            Units of the updated `scan`.
+        zenith_opacity : float
+            Zenith opacity in nepers.
+        """
+        scan._tscale_fac[:] = 1.0
+        scan._tscale = "ta*"
+        scan._update_scale_meta()
+        scan.scale(units, zenith_opacity=zenith_opacity)
 
 
 class GBTOffline(GBTFITSLoad):
