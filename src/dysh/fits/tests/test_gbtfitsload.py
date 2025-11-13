@@ -1683,6 +1683,63 @@ class TestGBTFITSLoad:
         assert np.all(sdf._sdf[0]._flagmask[0] == saveflags0[0])
         assert np.all(sdf._sdf[1]._flagmask[0] == saveflags1[0])
 
+    def test_calibration_with_channels(self):
+        sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
+        n0 = 15000
+        n1 = 20000
+        chan_range = [n0, n1]
+        # PSSCAN
+        sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
+        s = sb.timeaverage()
+        assert s.nchan == n1 - n0
+        # TPSCAN
+        sb = sdf.gettp(scan=153, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
+        s = sb.timeaverage()
+        assert s.nchan == n1 - n0
+        # SIGREF
+        refspec = sdf.gettp(scan=153, fdnum=0, ifnum=0, plnum=0).timeaverage()
+        n0 = 10000
+        n1 = 24000
+        chan_range = [n0, n1]
+        sb = sdf.getsigref(scan=152, ref=refspec, fdnum=0, plnum=0, ifnum=0, channel=chan_range)
+        assert sb[0].nchan == n1 - n0
+        # NODSCAN
+        fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, skipflags=True)
+        n0 = 30000
+        n1 = 32768
+        chan_range = [n0, n1]
+        nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0, channel=chan_range)
+        assert nodsb.timeaverage().nchan == n1 - n0
+        # FSSCAN
+        sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
+        n0 = 15002
+        n1 = 28001
+        chan_range = [n0, n1]
+        sb = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, channel=chan_range, fold=False)
+        assert sb[0].nchan == n1 - n0
+        # default shift_method='fft' will fail because the sig and ref arrays come out different size
+        # if chan_shift rounds the wrong way.
+        sb = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, channel=chan_range, shift_method="interpolate")
+        # ok now try with power of 2 nchan and fft
+        n0 = 0
+        n1 = 16384
+        chan_range = [n0, n1]
+        sb = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, channel=chan_range)
+        assert sb[0].nchan == n1 - n0
+        # SUBBEAMMOD
+        sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        n0 = 501
+        n1 = 1025
+        chan_range = [n0, n1]
+        sb = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="cycle", channel=chan_range)
+        sb2 = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="scan", channel=chan_range)
+        assert sb[0].nchan == n1 - n0
+        assert sb2[0].nchan == n1 - n0
+
 
 def test_parse_tsys():
     """
