@@ -1693,10 +1693,20 @@ class TestGBTFITSLoad:
         sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
         s = sb.timeaverage()
         assert s.nchan == n1 - n0
+        # now do with with selection
+        sdf.select_channel([chan_range], tag="trim the channels")
+        sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0)
+        assert sb[0].nchan == n1 - n0
+        # now make sure the exception is raised if you try to do both selection and channel=
+        with pytest.raises(ValueError):
+            sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
+        sdf.clear_selection()
+
         # TPSCAN
         sb = sdf.gettp(scan=153, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
         s = sb.timeaverage()
         assert s.nchan == n1 - n0
+
         # SIGREF
         refspec = sdf.gettp(scan=153, fdnum=0, ifnum=0, plnum=0).timeaverage()
         n0 = 10000
@@ -1704,6 +1714,7 @@ class TestGBTFITSLoad:
         chan_range = [n0, n1]
         sb = sdf.getsigref(scan=152, ref=refspec, fdnum=0, plnum=0, ifnum=0, channel=chan_range)
         assert sb[0].nchan == n1 - n0
+
         # NODSCAN
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path, skipflags=True)
@@ -1712,6 +1723,7 @@ class TestGBTFITSLoad:
         chan_range = [n0, n1]
         nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0, channel=chan_range)
         assert nodsb.timeaverage().nchan == n1 - n0
+
         # FSSCAN
         sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
@@ -1729,6 +1741,7 @@ class TestGBTFITSLoad:
         chan_range = [n0, n1]
         sb = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, channel=chan_range)
         assert sb[0].nchan == n1 - n0
+
         # SUBBEAMMOD
         sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
