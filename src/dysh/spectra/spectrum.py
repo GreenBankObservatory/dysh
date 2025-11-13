@@ -136,11 +136,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._resolution = 1
 
-    def _len(self):
-        """return the size of the `Spectrum` in the spectral dimension.
-        @todo __len__  has unintended consquences, yuck.
-        """
-        return len(self.frequency)
+    # def _len(self):
+    #    """return the size of the `Spectrum` in the spectral dimension.
+    #    @todo __len__  has unintended consquences, yuck.
+    #    """
+    #    return self.nchan
 
     def _spectrum_property(self, prop: str):
         """
@@ -158,6 +158,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         return self.meta.get(prop, None)
+
+    @property
+    def nchan(self) -> int:
+        """The number of channels in the Spectrum"""
+        return len(self.frequency)
 
     @property
     def weights(self):
@@ -1078,6 +1083,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "DURATION": 0.9982445,
             "EXPOSURE": 732.1785161896237,
             "TSYS": 17.930595470605255,
+            "NAXIS1": nchan,
             "CTYPE1": "FREQ-OBS",
             "CRVAL1": 1402544936.7749996,
             "CRPIX1": float(nchan) / 2.0,
