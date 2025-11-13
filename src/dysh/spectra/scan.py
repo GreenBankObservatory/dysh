@@ -355,7 +355,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         i : int
             The index into the calibrated array
         use_wcs : bool
-            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
+            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
+            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
 
         Returns
         -------
@@ -820,12 +822,14 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
 
             Default: 'tsys'
         use_wcs : bool
-            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
+            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
+            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
 
         Returns
         -------
         spectrum : `~dysh.spectra.spectrum.Spectrum`
-            The time-averaged spectrum
+            The time-averaged spectrum.
 
         .. note::
 
@@ -1127,12 +1131,14 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
             Default: 'tsys'
         use_wcs : bool
-            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
+            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
+            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
 
         Returns
         -------
         timeaverage : `~dysh.spectra.spectrum.Spectrum`
-            Time-averaged spectra.
+            Time-averaged spectrum.
 
         .. note::
 
