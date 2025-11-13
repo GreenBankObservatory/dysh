@@ -1083,7 +1083,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "DURATION": 0.9982445,
             "EXPOSURE": 732.1785161896237,
             "TSYS": 17.930595470605255,
-            "NAXIS1": nchan,
             "CTYPE1": "FREQ-OBS",
             "CRVAL1": 1402544936.7749996,
             "CRPIX1": float(nchan) / 2.0,

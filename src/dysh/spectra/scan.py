@@ -873,6 +873,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["TCAL"] = self._tcal[i]
             # self._meta[i]["EXPOSURE"] = self._exposure[i]
+            # I'm not really sure we should be setting NAXIS1 as this is a FITS reserve keyword.
+            # For not leave it in as some tests depend on it.
+            # @todo ask PJT
             self._meta[i]["NAXIS1"] = len(self._calibrated[i])
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
