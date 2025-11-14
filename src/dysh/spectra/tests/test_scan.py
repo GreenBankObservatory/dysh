@@ -780,6 +780,13 @@ class TestNodScan:
         assert nod_cal.meta["TSYS"] == pytest.approx(nod_org.meta["TSYS"] / nod_org.meta["TCAL"])
         assert nod_cal.meta["TCAL"] == 1.0
 
+    def test_vane(self):
+        fits_path = util.get_project_testdata() / "AGBT22A_325_23/AGBT22A_325_23.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(ifnum=0, plnum=0, vane=43, t_atm=265.48, zenith_opacity=0.21)
+        assert nodsb[0].tsys.mean() == 195.85427050034397
+        assert nodsb[1].tsys.mean() == 185.7013266638696
+
 
 class TestScanBlock:
     def test_scanblock_write_read(self, tmp_path):
