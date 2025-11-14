@@ -2592,15 +2592,6 @@ class FSScan(ScanBase):
 
             return freq * cunit1
 
-        def do_total_power(no_cal, cal, tcal):
-            """ """
-
-        def vec_mean_tsys(on, off, tcal):
-            """
-            mean_tsys implements this, albeit only in 1D
-            """
-            pass
-
         def do_sig_ref(sig, ref, tsys, smooth=False):
             """
             smooth=True would implement smoothing the reference (or something)
@@ -2609,7 +2600,7 @@ class FSScan(ScanBase):
 
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
             """ """
-            chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
+            chan_shift = (ref_freq[0] - sig_freq[0]) / np.diff(sig_freq).mean()
             logger.debug(f"do_fold: {sig_freq[0]}, {ref_freq[0]},{chan_shift}")
             ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
@@ -2622,7 +2613,6 @@ class FSScan(ScanBase):
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._calc_exposure()
-        sig_freq = self._sigcaloff[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]
         logger.debug(f"df_sig {type(df_sig)} len(df_sig)")
