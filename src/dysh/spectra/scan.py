@@ -20,7 +20,7 @@ from dysh.spectra import core
 from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..plot import scanplot as sp
-from ..util import minimum_string_match
+from ..util import isot_to_mjd, minimum_string_match
 from ..util.gaincorrection import GBTGainCorrection
 from .core import (
     available_smooth_methods,
@@ -532,6 +532,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         for i in range(len(self._meta)):
             self._meta[i][key] = value
 
+    def _get_all_meta(self, key):
+        return [x[key] for x in self._meta]
+
     def _check_model(self, model, c0, sa, tol):
         # make sure flux units match
         if model.return_units != c0.unit:
@@ -889,6 +892,20 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def calibrate(self, **kwargs):  ## SCANBASE
         """Calibrate the Scan data"""
         pass
+
+    def get_vane_tcal(self):
+        """Get the tcal value for the vane."""
+        dateobs = self._get_all_meta("DATE-OBS")
+        mjd = isot_to_mjd(dateobs)
+        obsfreq = np.mean(self._get_all_meta("OBSFREQ"))
+        elevation = self._get_all_meta("ELEVATIO")
+        tcal = self._vane._get_tcal(
+            obsfreq * u.Hz,
+            mjd,
+            elevation * u.deg,
+            zenith_opacity=self._zenith_opacity,
+        )
+        return tcal
 
     @log_call_to_history
     def timeaverage(self, weights="tsys"):  ## SCANBASE
@@ -1811,6 +1828,7 @@ class PSScan(ScanBase):
         surface_error=None,
         tcal=None,
         nocal=False,
+        vane: VaneSpectrum | None = None,
     ):
         ScanBase.__init__(
             self,
@@ -1841,6 +1859,7 @@ class PSScan(ScanBase):
             self._has_refspec = False
         self._sigspec = None
         self._nocal = nocal
+        self._vane = vane
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -1957,23 +1976,25 @@ class PSScan(ScanBase):
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
 
+        if self._vane is not None:
+            self._tcal[:] = self.get_vane_tcal()
+
         if self._has_refspec:
             if self._smoothref > 1:
                 ref, _meta = core.smooth(self.refspec.data, "boxcar", self._smoothref)
             else:
                 ref = self.refspec.data
             for i in range(nspect):
-                tsys = self._tsys[i]
                 if not self._nocal:
                     sig = 0.5 * (self._sigcalon[i] + self._sigcaloff[i])
                 else:
                     sig = self._sigcaloff[i]
+                if self._vane is not None:
+                    self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
+                tsys = self._tsys[i]
                 self._calibrated[i] = tsys * (sig - ref) / ref
-                self._tsys[i] = tsys
         else:
-            tcal = (
-                self._tcal
-            )  # self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["TCAL"].to_numpy()
+            tcal = self._tcal
             if len(tcal) != nspect:
                 raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
             if not self._nocal:
@@ -1990,11 +2011,13 @@ class PSScan(ScanBase):
                     self._tsys[i] = tsys
             else:
                 for i in range(nspect):
-                    tsys = self._tsys[i]
                     sig = self._sigcaloff[i]
                     ref = self._refcaloff[i]
                     if self._smoothref > 1:
                         ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
+                    if self._vane is not None:
+                        self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
+                    tsys = self._tsys[i]
                     self._calibrated[i] = tsys * (sig - ref) / ref
         logger.debug(f"Calibrated {nspect} PSScan spectra")
 
@@ -2155,6 +2178,7 @@ class NodScan(ScanBase):
         surface_error=None,
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
+        vane: VaneSpectrum | None = None,
     ):
         ScanBase.__init__(
             self,
@@ -2176,6 +2200,7 @@ class NodScan(ScanBase):
         self._nrows = len(self._scanrows["ON"])
         self._beam1 = beam1
         self._nocal = nocal
+        self._vane = vane
 
         # calrows perhaps not needed as input since we can get it from gbtfits object?
         # calrows['ON'] are rows with noise diode was on, regardless of sig or ref
@@ -2243,6 +2268,8 @@ class NodScan(ScanBase):
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._calc_exposure()
+        if self._vane is not None:
+            self._tcal[:] = self.get_vane_tcal()
         tcal = self._tcal
         if len(tcal) != nspect:
             raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
@@ -2260,11 +2287,13 @@ class NodScan(ScanBase):
                 self._tsys[i] = tsys
         else:
             for i in range(nspect):
-                tsys = self._tsys[i]
                 sig = self._sigcaloff[i]
                 ref = self._refcaloff[i]
                 if self._smoothref > 1:
                     ref, _meta = core.smooth(ref, "boxcar", self._smoothref)
+                if self._vane is not None:
+                    self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
+                tsys = self._tsys[i]
                 self._calibrated[i] = tsys * (sig - ref) / ref
         logger.debug(f"Calibrated {nspect} NODScan spectra")
 
@@ -2634,6 +2663,9 @@ class FSScan(ScanBase):
         chan_shift = abs(sig_freq[0, 0] - ref_freq[0, 0]) / np.abs(np.diff(sig_freq)).mean()
         logger.debug(f"FS: shift={chan_shift:g}  nchan={self._nchan:g}")
 
+        if self._vane is not None:
+            self._tcal[:] = self.get_vane_tcal()
+
         #  tcal is the same for REF and SIG, and the same for all integrations actually.
         tcal = self._tcal
         logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
@@ -2692,13 +2724,6 @@ class FSScan(ScanBase):
                     else:
                         tp_sig, _meta = core.smooth(tp_sig, "boxcar", self._smoothref)
                 if self._vane is not None:
-                    mjd = Time(self._meta[i]["DATE-OBS"]).mjd
-                    self._tcal[i] = self._vane._get_tcal(
-                        self._meta[i]["OBSFREQ"] * u.Hz,
-                        mjd,
-                        self._meta[i]["ELEVATIO"] * u.deg,
-                        zenith_opacity=self._zenith_opacity,
-                    )
                     if self._use_sig:
                         self._tsys[i] = self._vane._get_tsys(tp_ref, self._tcal[i])
                     else:
@@ -2847,6 +2872,8 @@ class SubBeamNodScan(ScanBase):
         tcal=None,
         observer_location=Observatory["GBT"],
         weights="tsys",
+        nocal=False,
+        vane: VaneSpectrum | None = None,
         **kwargs,
     ):
         ScanBase.__init__(
@@ -2875,6 +2902,7 @@ class SubBeamNodScan(ScanBase):
         self._nchan = len(reftp[0]._calibrated[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
         self._nint = self._nrows
+        self._vane = vane
         # Take the first reference scan for each sigtp as the row to use for creating metadata.
         meta_rows = []
         for r in self._sigtp:
@@ -2899,14 +2927,21 @@ class SubBeamNodScan(ScanBase):
         self._delta_freq = np.empty(nspect, dtype=float)
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype=float)
 
+        if self._vane is not None:
+            self._tcal[:] = self.get_vane_tcal()
+
         for i in range(nspect):
             sig = self._sigtp[i].timeaverage(weights=kwargs["weights"])
             ref = self._reftp[i].timeaverage(weights=kwargs["weights"])
             if self._smoothref > 1:
                 ref = ref.smooth("box", self._smoothref, decimate=-1)
-            # Combine sig and ref.
-            ta = ((sig - ref) / ref).flux.value * ref.meta["WTTSYS"]
+            # Set system temperature.
             self._tsys[i] = ref.meta["WTTSYS"]
+            if self._vane is not None:
+                self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
+            tsys = self._tsys[i]
+            # Combine sig and ref.
+            ta = ((sig - ref) / ref).flux.value * tsys
             self._exposure[i] = sig.meta["EXPOSURE"]
             self._delta_freq[i] = sig.meta["CDELT1"]
             self._calibrated[i] = ta

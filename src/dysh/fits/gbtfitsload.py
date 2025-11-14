@@ -1308,6 +1308,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags: bool = True,
         t_sys=None,
         t_cal=None,
+        vane=None,
         **kwargs,
     ):
         """
@@ -1338,7 +1339,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used.
-
+        vane : None
+            Used to suppress info message about use of TSYS column in case this is being used to make a `~dysh.spectra.vane.VaneSpectrum`.
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1387,7 +1389,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if len(calrows["ON"]) == 0:
                     if tsys is None:
                         _tsys = dfcalF["TSYS"].to_numpy()
-                        logger.info("Using TSYS column")
+                        if vane is None:
+                            logger.info("Using TSYS column")
                         logger.debug(f"Scan: {scan}")
                 # Use user provided system temperature.
                 if tsys is not None:
@@ -1459,6 +1462,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         nocal: bool = False,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        vane: int | VaneSpectrum | None = None,
+        t_atm: float | None = None,
+        t_bkg: float | None = None,
+        t_warm: float | None = None,
         **kwargs,
     ) -> ScanBlock:
         r"""
@@ -1510,10 +1517,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
-        surface_error: Quantity or None
+        surface_error : `~astropy.units.Quantity` or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
+            Vane scalibration scan. This will be used to derive the system temperature.
+        t_atm : float or None
+            Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the atmospheric temperature. If not provided and `vane` is an `int`, `~dysh.spectra.vane.VaneSpectrum` will try to fetch a
+            value from the GBO weather forecast script (only available at GBO).
+        t_bkg : float or None
+            Background temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the background temperature. If not provided, it will take a default value of 2.725 K, i.e., the CMB at 3 mm.
+        t_warm : float or None
+            Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
+            If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1532,6 +1554,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
+
+        if vane is not None:
+            vane, units, requested_units, zenith_opacity = self._vane_setup(
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+            )
+
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
         if not isinstance(ref, int) and not isinstance(ref, Spectrum):
@@ -1544,7 +1572,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             warnings.warn("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
 
         scanlist = {}
-        if type(scan) == int:  # noqa: E721
+        if isinstance(scan, int):
             scan = [scan]
         elif isinstance(scan, np.ndarray):
             scan = list(scan)
@@ -1573,6 +1601,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calibrate=calibrate,
                 apply_flags=apply_flags,
                 t_cal=t_cal,
+                vane=vane,
                 **kwargs,
             ).timeaverage(weights=weights)
         else:
@@ -1624,7 +1653,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if tsys is None:
                         dfoncalF = select_from("CAL", "F", _ondf)
                         _tsys = dfoncalF["TSYS"].to_numpy()
-                        logger.info("Using TSYS column")
+                        if vane is None:
+                            logger.info("Using TSYS column")
                 # Use user provided system temperature.
                 if tsys is not None:
                     try:
@@ -1651,8 +1681,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tcal=_tcal,
                     ap_eff=ap_eff,
                     surface_error=surface_error,
+                    vane=vane,
                 )
                 g._refscan = ref
+                # If calibrated with a vane change the units (so ugly >.<).
+                if vane is not None:
+                    self._set_scale_vane(g, requested_units, zenith_opacity)
                 g.merge_commentary(self)
                 scanblock.append(g)
                 # Reset these variables in case they change for the next scan.
@@ -1682,6 +1716,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_cal=None,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        vane: int | VaneSpectrum | None = None,
+        t_atm: float | None = None,
+        t_bkg: float | None = None,
+        t_warm: float | None = None,
         **kwargs,
     ) -> ScanBlock:
         """
@@ -1725,10 +1763,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
-        surface_error: Quantity or None
+        surface_error : `~astropy.units.Quantity` or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
+            Vane scalibration scan. This will be used to derive the system temperature.
+        t_atm : float or None
+            Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the atmospheric temperature. If not provided and `vane` is an `int`, `~dysh.spectra.vane.VaneSpectrum` will try to fetch a
+            value from the GBO weather forecast script (only available at GBO).
+        t_bkg : float or None
+            Background temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the background temperature. If not provided, it will take a default value of 2.725 K, i.e., the CMB at 3 mm.
+        t_warm : float or None
+            Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
+            If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1746,6 +1799,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
+
+        if vane is not None:
+            vane, units, requested_units, zenith_opacity = self._vane_setup(
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+            )
+
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
@@ -1804,7 +1863,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if tsys is None:
                         dfoncalF = select_from("CAL", "F", _ondf)
                         _tsys = dfoncalF["TSYS"].to_numpy()
-                        logger.info("Using TSYS column")
+                        if vane is None:
+                            logger.info("Using TSYS column")
                 # Use user provided system temperature.
                 if tsys is not None:
                     try:
@@ -1833,7 +1893,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tcal=_tcal,
                     ap_eff=ap_eff,
                     surface_error=surface_error,
+                    vane=vane,
                 )
+                # If calibrated with a vane change the units (so ugly >.<).
+                if vane is not None:
+                    self._set_scale_vane(g, requested_units, zenith_opacity)
                 g.merge_commentary(self)
                 scanblock.append(g)
                 # Reset these variables for the next scan.
@@ -1863,6 +1927,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zenith_opacity=None,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        vane: int | VaneSpectrum | None = None,
+        t_atm: float | None = None,
+        t_bkg: float | None = None,
+        t_warm: float | None = None,
         **kwargs,
     ):
         """
@@ -1905,16 +1973,30 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Is the noise diode being fired? False means the noise diode was firing.
             By default it will figure this out by looking at the "CAL" column.
             It can be set to True to override this. Default: False
-        surface_error: Quantity | None = None,
         ap_eff : float or None
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
             efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
-        surface_error: Quantity or None
+        surface_error : `~astropy.units.Quantity` or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
+            Vane scalibration scan. This will be used to derive the system temperature.
+        t_atm : float or None
+            Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the atmospheric temperature. If not provided and `vane` is an `int`, `~dysh.spectra.vane.VaneSpectrum` will try to fetch a
+            value from the GBO weather forecast script (only available at GBO).
+        t_bkg : float or None
+            Background temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the background temperature. If not provided, it will take a default value of 2.725 K, i.e., the CMB at 3 mm.
+        t_warm : float or None
+            Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
+            If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -1982,6 +2064,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     _df = select_from("FDNUM", f, df0)
                     if len(_df) == 0:  # skip IF's and beams not part of the nodding pair.
                         continue
+
+                    if vane is not None:
+                        # Each beam needs its own vane, and we might not know the fdnums before this point.
+                        _vane, units, requested_units, zenith_opacity = self._vane_setup(
+                            vane, f, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                        )
+                    else:
+                        _vane = None
+
                     beam1_selected = f == _fdnum[0]
                     logger.debug(f"SCANLIST {scanlist}")
                     logger.debug(f"FEED {f} {beam1_selected} {_fdnum[0]}")
@@ -2018,7 +2109,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         if tsys is None:
                             dfoncalF = select_from("CAL", "F", _ondf)
                             _tsys = dfoncalF["TSYS"].to_numpy()
-                            logger.info("Using TSYS column")
+                            if vane is None:
+                                logger.info("Using TSYS column")
                     # Use user provided system temperature.
                     if tsys is not None:
                         _tsys = tsys[on][j]
@@ -2045,7 +2137,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         zenith_opacity=zenith_opacity,
                         ap_eff=ap_eff,
                         surface_error=surface_error,
+                        vane=_vane,
                     )
+                    # If calibrated with a vane change the units (so ugly >.<).
+                    if vane is not None:
+                        self._set_scale_vane(g, requested_units, zenith_opacity)
                     g.merge_commentary(self)
                     scanblock.append(g)
                     # Reset these variables for the next scan.
@@ -2137,7 +2233,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
             :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
             can be provided.
-        surface_error : Quantity or None
+        surface_error : `~astropy.units.Quantity` or None
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
@@ -2232,7 +2328,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     # User did not provide a system temperature.
                     if tsys is None:
                         _tsys = dfcalF["TSYS"].to_numpy()
-                        logger.info("Using TSYS column")
+                        if vane is None:
+                            logger.info("Using TSYS column")
                 # User provided a system temperature.
                 if tsys is not None:
                     _tsys = tsys[scan][0]
@@ -2462,8 +2559,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zenith_opacity=None,
         t_sys=None,
         t_cal=None,
-        ap_eff=None,
-        surface_error=None,
+        nocal: bool = False,
+        ap_eff: float | None = None,
+        surface_error: Quantity | None = None,
+        vane: int | VaneSpectrum | None = None,
+        t_atm: float | None = None,
+        t_bkg: float | None = None,
+        t_warm: float | None = None,
         **kwargs,
     ):
         """Get a subbeam nod power scan, optionally calibrating it.
@@ -2505,6 +2607,30 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used.
+        ap_eff : float or None
+            Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
+            efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
+            :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+            can be provided.
+        surface_error : `~astropy.units.Quantity` or None
+            Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
+            aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
+            can be provided.
+        vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
+            Vane scalibration scan. This will be used to derive the system temperature.
+        t_atm : float or None
+            Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the atmospheric temperature. If not provided and `vane` is an `int`, `~dysh.spectra.vane.VaneSpectrum` will try to fetch a
+            value from the GBO weather forecast script (only available at GBO).
+        t_bkg : float or None
+            Background temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
+            the background temperature. If not provided, it will take a default value of 2.725 K, i.e., the CMB at 3 mm.
+        t_warm : float or None
+            Vane temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
+            If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for the vane temperature.
+            If not provided and `vane` is an `int`, it will take the value found in the "TWARM" column of the SDFITS.
         **kwargs : dict
             Optional additional selection keyword arguments, typically
             given as key=value, though a dictionary works too.
@@ -2518,6 +2644,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
+
+        if vane is not None:
+            vane, units, requested_units, zenith_opacity = self._vane_setup(
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+            )
+
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
@@ -2646,7 +2778,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         tcal=_tcal,
                         ap_eff=ap_eff,
                         surface_error=surface_error,
+                        vane=vane,
                     )
+                    # If calibrated with a vane change the units (so ugly >.<).
+                    if vane is not None:
+                        self._set_scale_vane(sb, requested_units, zenith_opacity)
                     sb.merge_commentary(self)
                     scanblock.append(sb)
                     _bintable = kwargs.get("bintable", None)
@@ -2701,7 +2837,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     ap_eff=ap_eff,
                     surface_error=surface_error,
                     tcal=tpoff[0].getspec(0).meta["TCAL"],
+                    vane=vane,
                 )
+                # If calibrated with a vane change the units (so ugly >.<).
+                if vane is not None:
+                    self._set_scale_vane(sb, requested_units, zenith_opacity)
                 sb.merge_commentary(self)
                 scanblock.append(sb)
         if len(scanblock) == 0:
@@ -3346,7 +3486,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         **kwargs,
     ):
         """
-        Compute a `~dysh.spectra.vane.VaneSpectrum` used for calibrating observations with a vane.
+        Return a `~dysh.spectra.vane.VaneSpectrum` used for calibrating observations with a vane.
+        Uses the Equations provided in [1]_. For the most accurate results `zenith_opacity` and `tatm` should be provided.
+        Otherwise, it will try to fetch these values from the GBT weather forecast scripts (only available at GBO).
 
         Parameters
         ----------
@@ -3378,6 +3520,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
         `~dysh.spectra.vane.VaneSpectrum`
             A `~dysh.spectra.vane.VaneSpectrum` object which can be used to calibrate observations with a vane.
+
+        .. [1] `D. Frayer et al., "Calibration of Argus and the 4mm Receiver on the GBT" <https://ui.adsabs.harvard.edu/abs/2019nrao.reptE...1F/abstract>`_
         """
 
         vane = self.gettp(
@@ -3388,6 +3532,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             calibrate=True,
             cal=False,
             apply_flags=apply_flags,
+            vane=True,
         ).timeaverage()
 
         return VaneSpectrum.from_spectrum(

@@ -229,25 +229,27 @@ class VaneSpectrum(Spectrum):
             zenith_opacity = self._zenith_opacity
         if zenith_opacity is None:
             if self._gbtwf is not None:
-                _, _, zenith_opacity = self._gbtwf.fetch(
+                result = self._gbtwf.fetch(
                     vartype="Opacity",
                     specval=freq,
                     mjd=mjd,
                 )
-                logger.info(f"Zenith opacity: {zenith_opacity:.2f} nepers")
+                zenith_opacity = result[:, -1]
+                logger.info(f"Mean zenith opacity: {np.mean(zenith_opacity):.2f} nepers")
             else:
                 logger.debug("Could not get forecasted zenith opacity ")
-        logger.debug(f"Zenith opacity: {zenith_opacity:.2f} nepers")
+        logger.debug(f"Zenith opacity: {zenith_opacity} nepers")
 
         if tatm is None:
             tatm = self._tatm
         if tatm is None:
             if self._gbtwf is not None:
-                _, _, tatm = self._gbtwf.fetch(vartype="Tatm", specval=freq, mjd=mjd)
-                logger.info(f"Atmospheric temperature: {tatm:.2f} K")
+                result = self._gbtwf.fetch(vartype="Tatm", specval=freq, mjd=mjd)
+                tatm = result[:, -1]
+                logger.info(f"Mean atmospheric temperature: {np.mean(tatm):.2f} K")
             else:
                 logger.debug("Could not get forecasted atmospheric temperature ")
-        logger.debug(f"Atmospheric temperature: {tatm:.2f} K")
+        logger.debug(f"Atmospheric temperature: {tatm} K")
 
         if tatm is not None and zenith_opacity is not None:
             airmass = self._gbtgc.airmass(elevation, zd=False)
@@ -264,7 +266,8 @@ class VaneSpectrum(Spectrum):
                 f"No {missing} available. Will approximate the calibration temperature to the vane temperature {tcal:.2f} K"
             )
 
-        logger.info(f"Calibration temperature (tcal): {tcal:.2f} K")
+        logger.info(f"Mean calibration temperature (tcal): {np.mean(tcal):.2f} K")
+        logger.debug(f"Calibration temperature (tcal): {tcal} K")
 
         return tcal
 
