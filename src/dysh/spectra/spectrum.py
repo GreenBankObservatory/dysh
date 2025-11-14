@@ -1608,12 +1608,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
 
     def _min_max_freq(self):
-        start_freq = self.spectral_axis[0].to("Hz", equivalencies=u.spectral())
-        end_freq = self.spectral_axis[-1].to("Hz", equivalencies=u.spectral())
-        if start_freq < end_freq:
-            return Quantity([start_freq, end_freq])
-        else:
-            return Quantity([end_freq, start_freq])
+        start_freq = self.spectral_axis.quantity[0].to("Hz", equivalencies=u.spectral())
+        end_freq = self.spectral_axis.quantity[-1].to("Hz", equivalencies=u.spectral())
+        return Quantity(np.sort([start_freq, end_freq]), unit=start_freq.unit)
 
     def query_lines(
         self, chemical_name: str | None = None, intensity_lower_limit: float | None = None, cat: str = "gbtlines"
