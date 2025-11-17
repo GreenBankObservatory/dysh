@@ -1859,14 +1859,14 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
 
     upols = set(pols)  # unique crval4's being averaged (polarizations)
     numpols = len(upols)
-    if numpols == 1:  # only one pol being averaged, can just keep the pol value of the first spectrum
-        new_meta["CRVAL4"] = spectra[0].meta["CRVAL4"]
-    elif numpols == 2:  # two pols being averaged, check that it is XX and YY or LL and RR
-        if (upols == {-5, -6}) or (upols == {-1, -2}):
-            new_meta["CRVAL4"] = 1
+    if numpols == 1: # only one pol being averaged, no change needed
+        new_meta["CRVAL4"] = list(upols)[0]  # noqa: RUF015
+    elif numpols == 2: # two pols being averaged, check that it is XX and YY or LL and RR, invalid otherwise
+        if ( upols == {-5,-6} ) or ( upols == {-1,-2} ):
+            new_meta['CRVAL4'] = 1
         else:
             new_meta["CRVAL4"] = 0
-    elif numpols >= 3:
+    elif numpols >= 3:  # 3 or more pols, invalid
         new_meta["CRVAL4"] = 0
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
