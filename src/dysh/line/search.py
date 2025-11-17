@@ -56,6 +56,7 @@ _default_columns_to_return = [
     #'requestnumber']
 ]
 
+
 _allowable_remote_cats = ["splatalogue"]
 _allowable_local_cats = [
     "gbtlines",  # note gbtlines does not include recombination lines
@@ -75,6 +76,12 @@ _all_cats = _allowable_remote_cats + _allowable_local_cats
 # Grab splatalogue keywords from its query method so we are always in sync with it.
 # Remove description and first two frequency parameters since we have our own.
 __splatdoc__ = Splatalogue.query_lines.__doc__
+
+
+def all_cats():
+    # needed to access dunder variable from outside this module
+    return _all_cats
+
 
 # Remove the first part of splatalogue doc in favor of our own
 i = __splatdoc__.index("chemical_name")
@@ -304,7 +311,6 @@ class SpectralLineSearchClass:
             # get species id returns string but 'species_id' column in tables returned by splatalogue is int!
             splist = list(map(int, species.values()))
         df = _table.to_pandas()
-        print(df.columns)
 
         # Select the frequency range
         # fmt: off
@@ -353,7 +359,6 @@ class SpectralLineSearchClass:
                     f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive, minimum match ."
                 )
             else:
-                print(f'{df["intintensity"].dtype=}')
                 df = df[df["intintensity"] >= intensity_lower_limit]
         table = Table.from_pandas(df)
         # @todo Should we add units to the table?
