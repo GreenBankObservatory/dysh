@@ -1833,7 +1833,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         surface_error[i] = s.meta["SURF_ERR"]
         # if data are in Ta units, then there  normally wouldn't be a zenith opacity provided
         zenith_opacity[i] = s.meta.get("TAU_Z", -1)
-        pols.append(s.meta['CRVAL4'])
+        pols.append(s.meta["CRVAL4"])
     _mask = np.isnan(data_array.data) | data_array.mask
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data = np.ma.average(data_array, axis=0, weights=wts)
@@ -1857,17 +1857,17 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     if not hasattr(ze, "mask"):
         new_meta["TAU_Z"] = ze
 
-    upols = set(pols) # unique crval4's being averaged (polarizations)
+    upols = set(pols)  # unique crval4's being averaged (polarizations)
     numpols = len(upols)
-    if numpols == 1: # only one pol being averaged, can just keep the pol value of the first spectrum
-        new_meta['CRVAL4'] = spectra[0].meta['CRVAL4']
-    elif numpols == 2: # two pols being averaged, check that it is XX and YY or LL and RR
-        if ( upols == {-5,-6} ) or ( upols == {-1,-2} ):
-            new_meta['CRVAL4'] = 1
+    if numpols == 1:  # only one pol being averaged, can just keep the pol value of the first spectrum
+        new_meta["CRVAL4"] = spectra[0].meta["CRVAL4"]
+    elif numpols == 2:  # two pols being averaged, check that it is XX and YY or LL and RR
+        if (upols == {-5, -6}) or (upols == {-1, -2}):
+            new_meta["CRVAL4"] = 1
         else:
-            new_meta['CRVAL4'] = 0
+            new_meta["CRVAL4"] = 0
     elif numpols >= 3:
-        new_meta['CRVAL4'] = 0
+        new_meta["CRVAL4"] = 0
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
 
