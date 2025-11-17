@@ -39,9 +39,13 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     veldef_to_convention,
 )
 from ..line import SpectralLineSearch
+from ..line.search import all_cats
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
-from ..util import minimum_string_match
+from ..util import (
+    docstring_parameter,
+    minimum_string_match,
+)
 from ..util.docstring_manip import copy_docstring
 from . import (
     FWHM_TO_STDDEV,
@@ -1608,10 +1612,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
 
     def _min_max_freq(self):
+        """Return the sorted min and max frequency (in Hz) of the spectrum, regardless of the units of its axis"""
         start_freq = self.spectral_axis.quantity[0].to("Hz", equivalencies=u.spectral())
         end_freq = self.spectral_axis.quantity[-1].to("Hz", equivalencies=u.spectral())
-        return Quantity(np.sort([start_freq, end_freq]), unit=start_freq.unit)
+        return Quantity(np.sort([start_freq.value, end_freq.value]), unit=start_freq.unit)
 
+    @docstring_parameter(str(all_cats()))
     def query_lines(
         self, chemical_name: str | None = None, intensity_lower_limit: float | None = None, cat: str = "gbtlines"
     ) -> Table:
@@ -1625,7 +1631,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         chemical_name : str, optional
             Name of the chemical to search for. Treated as a regular
-            expression.  An empty set ('', (), [], {}) will match *any*
+            expression.  An empty set will match *any*
             species. Examples:
 
             ``'H2CO'`` - 13 species have H2CO somewhere in their formula.
@@ -1641,7 +1647,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             ``' H2CO '`` - Just 1 species, H2CO. The spaces prevent including
                            others.
         intensity_lower_limit : float, optional
-                Lower limit on the intensity in the logarithmic CDMS/JPL scale
+                Lower limit on the intensity in the logarithmic CDMS/JPL scale.  This corresponds to the 'intintensity' column in the returned table.
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter.
@@ -1652,7 +1658,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        Table
+        ~astropy.table.Table
             An astropy table containing the results of the search
 
         """
@@ -1665,6 +1671,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             intensity_type="CDMS/JPL (log)",
         )
 
+    @docstring_parameter(str(all_cats()))
     def recomb(self, line, cat: str = "gbtrecomb") -> Table:
         """
         Search for recombination lines of H, He, and C in the frequency range of this Spectrum.
@@ -1684,7 +1691,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        Table
+        ~astropy.table.Table
             An astropy table containing the results of the search
 
         """
@@ -1696,6 +1703,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             cat=cat,
         )
 
+    @docstring_parameter(str(all_cats()))
     def recomball(self, cat: str = "gbtrecomb") -> Table:
         """
         Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog.
@@ -1712,7 +1720,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        Table
+        ~astropy.table.Table
             An astropy table containing the results of the search
 
         """
