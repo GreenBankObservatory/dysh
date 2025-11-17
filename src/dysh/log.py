@@ -8,140 +8,117 @@ from abc import ABC
 from collections.abc import Callable  # , Self # not available until 3.11
 from datetime import datetime
 from functools import wraps
-from io import StringIO
 from pathlib import Path
 from typing import NewType
 
-from astropy import log
+from astropy import log as astropy_logger
 from astropy.io.fits.header import _HeaderCommentaryCards
 from astropy.logger import AstropyLogger
+from platformdirs import user_log_dir
 
 from . import version
 from .ascii import ensure_ascii
 
 # Set Astropy logging level to warning.
-log.setLevel("WARNING")
+astropy_logger.setLevel("WARNING")
 
-LOGGING_INITIALIZED = False
-logger = logging.getLogger("dysh")
+DYSH = "dysh"
+USER_LOG_DIR = Path(user_log_dir(DYSH))
+
+# avoid "No handler" warnings in certain contexts
+logging.getLogger(DYSH).addHandler(logging.NullHandler())
+
+logger = logging.getLogger(DYSH)
+logger._configured = False
 dhlogger = AstropyLogger("dysh_history", level=logging.INFO)
+dhlogger._configured = False
 
+global_logger = logging.getLogger(f"{DYSH}_global")
+instance_logger = logging.getLogger(f"{DYSH}_instance")
 # Environment variable to disable logging decorators for performance benchmarking
 DISABLE_HISTORY_LOGGING = os.getenv("DYSH_DISABLE_HISTORY_LOGGING", "0") == "1"
 
-_DYSH_LOG_DIR = os.getenv("DYSH_LOG_DIR", ".")
-try:
-    DYSH_LOG_DIR = Path(_DYSH_LOG_DIR)
-except ValueError as error:
-    raise ValueError(f"DYSH_LOG_DIR must be set to a valid path! Got {_DYSH_LOG_DIR}") from error
-
-_DYSH_HOME = os.getenv("DYSH_HOME", ".")
-try:
-    DYSH_HOME = Path(_DYSH_HOME)
-except ValueError as error:
-    raise ValueError(f"DYSH_HOME must be set to a valid path! Got {_DYSH_HOME}") from error
-
-
-class DatestampFileHandler(logging.FileHandler):
-    def __init__(self, filename, mode="w", encoding=None, delay=False):
-        if not filename:
-            raise ValueError("Must provide a filename!")
-
-        super().__init__(filename=datetime.now().strftime(str(filename)), mode=mode, encoding=encoding, delay=delay)
-
-
-class StringHandler(logging.StreamHandler):
-    def __init__(self):
-        string_stream = StringIO()
-        super().__init__(stream=string_stream)
-
 
 dysh_date_format = "%Y-%m-%dT%H:%M:%S%z"
+FORMATTERS = {
+    "verbose": logging.Formatter(
+        "%(asctime)s %(levelname).1s %(process)d %(name)s:%(lineno)d %(message)s",
+        "%Y-%m-%dT%H:%M:%S%z",
+    ),
+    "simple": logging.Formatter("%(asctime)s.%(msecs).3d %(levelname).1s %(message)s", "%H:%M:%S"),
+    "history": logging.Formatter(
+        fmt="%(asctime)s - %(levelname)s - %(modName)s.%(fName)s(%(message)s, %(extra)s)", datefmt=dysh_date_format
+    ),
+}
 dysh_version = version()
-dysh_history_formatter = logging.Formatter(
-    fmt="%(asctime)s - %(levelname)s - %(modName)s.%(fName)s(%(message)s, %(extra)s)", datefmt=dysh_date_format
-)
 
 
 def dysh_date():
     return datetime.now().strftime(dysh_date_format)
 
 
-config = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "extra_verbose": {
-            "format": "%(asctime)s - %(pathname)s:%(lineno)s - %(message)s",
-            "datefmt": dysh_date_format,
-        },
-        "verbose": {
-            "format": "%(asctime)s - %(levelname)s - %(module)s - %(message)s",
-            "datefmt": dysh_date_format,
-        },
-        "simple": {
-            "format": "%(levelname)s %(message)s",
-        },
-        "super_simple": {
-            "format": "%(message)s",
-        },
-        #        "data_history": {
-        #            "format": "%(asctime)s - %(levelname)s - %(modName)s.%(fName)s(%(message)s, %(extra)s)",
-        #           "datefmt": dysh_date_format,
-        #        },
-    },
-    "handlers": {
-        "stderr": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-            "formatter": "simple",
-        },
-        "dysh_global_log_file": {
-            "level": "INFO",
-            "formatter": "verbose",
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": str(DYSH_HOME / "dysh.log"),
-            "mode": "a",
-        },
-        "dysh_instance_log_file": {
-            "level": "DEBUG",
-            "formatter": "verbose",
-            "class": "dysh.log.DatestampFileHandler",
-            # Pull the log path from the environment. If this isn't set, an error
-            # will be thrown. To log to the current directory, set this to .
-            "filename": str(DYSH_LOG_DIR / "dysh.%Y_%m_%d_%H_%M_%S.log"),
-            # Don't create the file until messages are written to it
-            "delay": True,
-        },
-        #        "dysh_instance_string": {
-        #            "level": "INFO",
-        #           "formatter": "data_history",
-        #            "class": "dysh.log.StringHandler",
-        #        },
-    },
-    "loggers": {
-        "dysh": {
-            "handlers": [],
-            "level": "WARNING",
-        },
-        #        "dysh_history": {
-        #            "handlers": [],
-        #            "level": "INFO",
-        #        },
-    },
-}
+def init_console_log(level):
+    try:
+        level_val = getattr(logging, str(level).upper())
+    except AttributeError:
+        level_val = int(level)
+
+    logger.setLevel(level_val)
+
+    console_handler = logging.StreamHandler(stream=sys.stderr)
+    console_handler.setLevel(level_val)
+    console_handler.setFormatter(FORMATTERS["simple"])
+    logger.addHandler(console_handler)
 
 
-def init_logging(verbosity: int, level: int | None = None, path: Path | None = None, quiet=False):
-    global LOGGING_INITIALIZED
-    if LOGGING_INITIALIZED is True:
-        logger.warning(
-            "dysh logging has already been initialized! Continuing, but this behavior is not well defined, "
-            "and you will likely end up with duplicate log handlers"
-        )
+def init_global_log(
+    global_log_path: Path | None = None, rotate_bytes: int = 10_000_000, backups: int = 5, level: str | int = "INFO"
+) -> Path:
+    log_path = Path(global_log_path) if global_log_path else USER_LOG_DIR / f"{DYSH}.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_path, maxBytes=rotate_bytes, backupCount=backups, encoding="utf-8"
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(FORMATTERS["verbose"])
+    # Make sure we can actually write it!
+    log_path.touch()
+    logger.addHandler(file_handler)
+    global_logger.addHandler(file_handler)
+    global_logger.setLevel(logging.DEBUG)
 
-    LOGGING_INITIALIZED = True
-    if verbosity == 0:
+    return log_path
+
+
+def init_instance_log(instance_log_dir: Path = Path("."), level: str | int = "INFO") -> Path:
+    instance_log_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_path = instance_log_dir / f"{DYSH}-{os.getpid()}-{ts}.log"
+    # Make sure we can actually write it!
+    log_path.touch()
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(FORMATTERS["verbose"])
+    logger.addHandler(file_handler)
+    instance_logger.addHandler(file_handler)
+    instance_logger.setLevel(logging.DEBUG)
+    return log_path
+
+
+def init_logging(verbosity: int | None = None, level: int | None = None, path: Path | None = None, quiet=False):
+    # Clear existing handlers to avoid duplicates when re-initializing
+    if logger._configured:
+        logger.handlers.clear()
+    if dhlogger._configured:
+        dhlogger.handlers.clear()
+
+    # If verbosity not provided, check environment variable
+    if verbosity is None:
+        verbosity = int(os.environ.get("DYSH_VERBOSITY", "2"))
+
+    if quiet:
+        level = logging.WARNING
+    elif verbosity == 0:
         level = logging.ERROR
     elif verbosity == 1:
         level = logging.WARNING
@@ -152,53 +129,26 @@ def init_logging(verbosity: int, level: int | None = None, path: Path | None = N
     else:
         raise ValueError(f"Invalid verbosity: {verbosity}")
 
-    if level is None:
-        raise ValueError("One of verbosity or level must be given!")
-
-    config["loggers"]["dysh"]["handlers"] = ["stderr", "dysh_global_log_file"]
-    # config["loggers"]["dysh_history"]["handlers"] = ["dysh_instance_string"]
-
-    if quiet:
-        config["handlers"]["stderr"]["level"] = "WARNING"
+    init_console_log(level)
+    logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
+    try:
+        global_log_path = init_global_log()
+    except Exception as e:
+        logger.warning(f"Failed to initialize dysh_global_log_file: {e}")
+    else:
+        logger.debug(f"Global file for {DYSH}: {global_log_path}")
 
     if path:
-        config["handlers"]["dysh_instance_log_file"]["filename"] = path
-        config["loggers"]["dysh"]["handlers"].append("dysh_instance_log_file")
+        try:
+            instance_log_path = init_instance_log()
+        except Exception as e:
+            raise ValueError(f"Failed to initialize requested instance log file in {path}") from e
+        logger.info(f"Log file for this instance of {DYSH}: {instance_log_path.absolute()}")
+    else:
+        logger.debug("Instance log file not requested; disabling")
 
-    # Init logging - try with configured handlers, fall back if files can't be written
-    try:
-        logging.config.dictConfig(config)
-        logging.getLogger().setLevel(level)
-        logger.setLevel(level)
-        logger.debug(f"Logging has been set to verbosity {verbosity} / level {logging.getLevelName(level)}")
-        if path:
-            logger.info(f"Log file for this instance of dysh: {path}")
-    except (OSError, PermissionError, ValueError) as e:
-        # If we can't create a log file, try to continue with just stderr
-        # First try removing the instance log file if it was requested
-        if path and "dysh_instance_log_file" in config["loggers"]["dysh"]["handlers"]:
-            config["loggers"]["dysh"]["handlers"].remove("dysh_instance_log_file")
-            try:
-                logging.config.dictConfig(config)
-                logging.getLogger().setLevel(level)
-                logger.setLevel(level)
-                logger.warning(f"Could not create instance log file {path}: {e}. Continuing without instance log file.")
-                return
-            except (OSError, PermissionError, ValueError):
-                # Still failing, probably the global log file
-                pass
-
-        # If we still can't initialize, remove the global log file handler too
-        if "dysh_global_log_file" in config["loggers"]["dysh"]["handlers"]:
-            config["loggers"]["dysh"]["handlers"].remove("dysh_global_log_file")
-            try:
-                logging.config.dictConfig(config)
-                logging.getLogger().setLevel(level)
-                logger.setLevel(level)
-                logger.warning(f"Could not create log files: {e}. Continuing with stderr logging only.")
-            except (OSError, PermissionError, ValueError) as e2:
-                # Can't even log to stderr, something is seriously wrong
-                raise RuntimeError(f"Failed to initialize logging: {e2}") from e2
+    logger._configured = True
+    dhlogger._configured = True
 
 
 def log_function_call(log_level: str = "info"):
@@ -425,7 +375,6 @@ def log_call_to_history(func: Callable):
                 else:
                     extra = {"modName": func.__module__, "className": classname, "fName": func.__name__, "extra": {}}
                 with dhlogger.log_to_list() as log_list:
-                    # dhlogger.handlers[0].setFormatter(dysh_history_formatter)
                     dhlogger.info(f"DYSH v{dysh_version}", *args, extra=extra)
                     log_str = [format_dysh_log_record(i) for i in log_list]
                     self._history.extend(log_str)

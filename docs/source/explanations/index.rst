@@ -6,9 +6,6 @@
 
 Big-picture explanations of higher-level concepts. Most useful for building understanding of a particular topic.
 
-dysh
-====
-
 .. grid:: 1 2 2 2
 
     .. grid-item-card::
@@ -42,11 +39,6 @@ dysh
             :click-parent:
 
             Curve of Growth
-
-SDFITS
-======
-
-.. grid:: 1 2 2 2
 
     .. grid-item-card::
         :shadow: md
