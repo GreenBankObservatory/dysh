@@ -111,6 +111,7 @@ class ScanPlot(PlotBase):
         interpolation = kwargs.get("interpolation", "nearest")
         vmin = kwargs.get("vmin", None)
         vmax = kwargs.get("vmax", None)
+        norm = kwargs.get("norm", None)
 
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
@@ -121,7 +122,7 @@ class ScanPlot(PlotBase):
         self._set_header(self._spectrum)
 
         self.im = self._axis.imshow(
-            self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax
+            self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax, norm=norm
         )
 
         # address intnum labelling for len(scanblock) > 1
@@ -248,3 +249,14 @@ class ScanPlot(PlotBase):
             cmap used for the color scale. Default: "inferno".
         """
         self.im.set_cmap(cmap)
+
+    def set_norm(self,norm=None):
+        """
+        Set the norm, or zscale of the image.
+
+        Parameters
+        ----------
+        norm : str
+            norm used for the color scale. Default: "None", for linear scaling.
+        """
+        self.im.set_norm(norm)
