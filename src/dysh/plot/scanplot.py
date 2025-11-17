@@ -109,8 +109,8 @@ class ScanPlot(PlotBase):
 
         cmap = kwargs.get("cmap", "inferno")
         interpolation = kwargs.get("interpolation", "nearest")
-        vmin = kwargs.get("vmin",None)
-        vmax = kwargs.get("vmax",None)
+        vmin = kwargs.get("vmin", None)
+        vmax = kwargs.get("vmax", None)
 
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
@@ -120,7 +120,9 @@ class ScanPlot(PlotBase):
         self._figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
         self._set_header(self._spectrum)
 
-        self.im = self._axis.imshow(self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax)
+        self.im = self._axis.imshow(
+            self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax
+        )
 
         # address intnum labelling for len(scanblock) > 1
         self._axis.set_xticks(np.arange(self.spectrogram.shape[1]), self._xtick_labels)
