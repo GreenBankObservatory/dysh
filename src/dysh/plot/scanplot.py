@@ -18,8 +18,8 @@ _KMS = u.km / u.s
 class ScanPlot(PlotBase):
     r"""
     The ScanPlot class is for simple plotting of a `~scan.Scan` or `~scan.ScanBlock`
-    using matplotlib functions. Plots attributes are modified using keywords
-    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    using matplotlib functions. Plot attributes are modified using keywords
+    (\*\*kwargs) described below. SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
 
     Parameters
@@ -98,10 +98,11 @@ class ScanPlot(PlotBase):
 
         Parameters
         ----------
-        spectral_unit : `~astropy.unit.Unit`
-            The units to use on the frequency axis. Default: MHz if below 1 GHz, GHz if above.
+        spectral_unit : `~astropy.units.Unit`
+            The units to use on the frequency axis. Default: MHz if below 1 GHz, GHz if above. Otherwise, can be any valid frequency unit.
         **kwargs : various
-            keyword=value arguments (need to describe these in a central place)
+            keyword=value arguments drawn from `~matplotlib.axes.Axes.imshow` kwargs.
+            Currently implemented kwargs include `cmap`, `interpolation`, `vmin`, `vmax`, and `norm`.
         """
 
         this_plot_kwargs = deepcopy(self._plot_kwargs)
