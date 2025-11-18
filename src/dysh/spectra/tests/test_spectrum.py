@@ -1028,13 +1028,13 @@ class TestSpectrum:
 
         # Pol designation.
         fa = f1.average(f2)
-        assert fa.meta['CRVAL4'] == 1 # two compatible pols are averaged to form stokes I/2
+        assert fa.meta["CRVAL4"] == 1  # two compatible pols are averaged to form stokes I/2
         fa = f1.average(f1)
-        assert fa.meta['CRVAL4'] == f1.meta['CRVAL4'] # single pol averaged returns itself
-        fa = f1.average([f2,f3])
-        assert fa.meta['CRVAL4'] == 0 # 3 different pols returns invalid
+        assert fa.meta["CRVAL4"] == f1.meta["CRVAL4"]  # single pol averaged returns itself
+        fa = f1.average([f2, f3])
+        assert fa.meta["CRVAL4"] == 0  # 3 different pols returns invalid
         fa = f1.average(f3)
-        assert fa.meta['CRVAL4'] == 0 # 2 incompatible pols returns invalid
+        assert fa.meta["CRVAL4"] == 0  # 2 incompatible pols returns invalid
 
     def test_stats(self):
         """
