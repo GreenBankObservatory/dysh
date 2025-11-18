@@ -13,6 +13,7 @@ from ..util import (
     get_project_data,
     minimum_list_match,
     minimum_string_match,
+    replace_col_astype,
 )
 
 _VALID_EXCLUDE = ("potential", "atmospheric", "probable", "known", "none")
@@ -56,6 +57,7 @@ _default_columns_to_return = [
     #'requestnumber']
 ]
 
+
 _allowable_remote_cats = ["splatalogue"]
 _allowable_local_cats = [
     "gbtlines",  # note gbtlines does not include recombination lines
@@ -75,6 +77,12 @@ _all_cats = _allowable_remote_cats + _allowable_local_cats
 # Grab splatalogue keywords from its query method so we are always in sync with it.
 # Remove description and first two frequency parameters since we have our own.
 __splatdoc__ = Splatalogue.query_lines.__doc__
+
+
+def all_cats():
+    # needed to access dunder variable from outside this module
+    return _all_cats
+
 
 # Remove the first part of splatalogue doc in favor of our own
 i = __splatdoc__.index("chemical_name")
@@ -159,7 +167,7 @@ class SpectralLineSearchClass:
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
-            columns: str or list
+        columns: str or list
             The query result columns to include in the returned table.  Any of {1}. The default is all columns.
         cache: bool
             For a local file query, make an in-memory copy of the input catalog to be used in subsequent queries to this catalog.
@@ -172,13 +180,13 @@ class SpectralLineSearchClass:
         # we are overlaying this kwarg with a parameter to expose that we are changing the default.
         kwargs.update({"only_NRAO_recommended": only_NRAO_recommended})
         # user-friendly keywords
-        if "line_lists" in kwargs:
+        if kwargs.get("line_lists", None) is not None:
             kwargs["line_lists"] = minimum_list_match(kwargs["line_lists"], Splatalogue.ALL_LINE_LISTS, casefold=True)
-        if "line_strengths" in kwargs:
+        if kwargs.get("line_strengths", None) is not None:
             kwargs["line_strengths"] = minimum_list_match(
                 kwargs["line_strengths"], Splatalogue.VALID_LINE_STRENGTHS, casefold=True
             )
-        if "intensity_type" in kwargs:
+        if kwargs.get("intensity_type", None) is not None:
             kwargs["intensity_type"] = minimum_string_match(
                 kwargs["intensity_type"], Splatalogue.VALID_INTENSITY_TYPES, casefold=True
             )
@@ -196,7 +204,7 @@ class SpectralLineSearchClass:
         else:
             # search a local table
             return self.localquery(min_frequency, max_frequency, cat=mc, columns=columns, cache=cache, **kwargs)
-
+        replace_col_astype(table, "intintensity", float, -1e20)
         if columns is not None and len(table) != 0:
             return table[columns]
         else:
@@ -334,23 +342,25 @@ class SpectralLineSearchClass:
         # line lists
         if line_lists is not None:
             if (line_lists := minimum_list_match(line_lists, Splatalogue.ALL_LINE_LISTS, casefold=True)) is None:
-                raise ValueError(f"list_lists must be one or more of {Splatalogue.ALL_LINE_LISTS} (case insensitive).")
+                raise ValueError(
+                    f"list_lists must be one or more of {Splatalogue.ALL_LINE_LISTS} (case insensitive, minimum match)."
+                )
             line_lists = self._patch_line_lists(line_lists)
             df = df[df["linelist"].isin(line_lists)]
         # line strengths
         if intensity_lower_limit is not None:
             if intensity_type is None:
                 raise ValueError(
-                    "If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                    f"If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive, minimum_match)."
                 )
             elif (
                 intensity_type := minimum_string_match(intensity_type, Splatalogue.VALID_INTENSITY_TYPES, casefold=True)
             ) is None:
                 raise ValueError(
-                    f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                    f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive, minimum match ."
                 )
             else:
-                df = df[df["intensity_type"] >= intensity_lower_limit]
+                df = df[df["intintensity"] >= intensity_lower_limit]
         table = Table.from_pandas(df)
         # @todo Should we add units to the table?
         if columns is not None:
