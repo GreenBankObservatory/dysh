@@ -8,7 +8,7 @@ import pandas as pd
 from astropy.table import vstack
 from astroquery.splatalogue import Splatalogue
 
-from dysh.util import get_project_data
+from dysh.util import get_project_data, replace_col_astype
 
 parser = argparse.ArgumentParser(
     prog=sys.argv[0],
@@ -92,6 +92,8 @@ if args.line is not None:
             )
             t = vstack([t, t2])
 
+    # now replace intintensity string column with a float.
+    replace_col_astype(t, "intintensity", float, -1e20)
     t.write(args.line, format="ascii.ecsv", overwrite=args.overwrite)
     print(
         f"Total species written {len(set(sx) - set(skip))}.\nNumber species skipped: {len(skip)}.\nLength of final line table {args.line} = {len(t)}"
@@ -103,6 +105,7 @@ if args.recomb is not None:
         maxfreq = 60 * u.micron
         if args.verbose:
             print("Including high-z recomb lines")
-    t3 = Splatalogue.query_lines(lowfreq, maxfreq, chemical_name="Recombination")
-    t3.write(args.recomb, format="ascii.ecsv", overwrite=args.overwrite)
-    print(f"Length of final recomb table {args.recomb} = {len(t3)}")
+    t = Splatalogue.query_lines(lowfreq, maxfreq, chemical_name="Recombination")
+    replace_col_astype(t, "intintensity", float, -1e20)
+    t.write(args.recomb, format="ascii.ecsv", overwrite=args.overwrite)
+    print(f"Length of final recomb table {args.recomb} = {len(t)}")

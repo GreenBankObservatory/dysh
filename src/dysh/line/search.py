@@ -13,6 +13,7 @@ from ..util import (
     get_project_data,
     minimum_list_match,
     minimum_string_match,
+    replace_col_astype,
 )
 
 _VALID_EXCLUDE = ("potential", "atmospheric", "probable", "known", "none")
@@ -203,7 +204,7 @@ class SpectralLineSearchClass:
         else:
             # search a local table
             return self.localquery(min_frequency, max_frequency, cat=mc, columns=columns, cache=cache, **kwargs)
-
+        replace_col_astype(table, "intintensity", float, -1e20)
         if columns is not None and len(table) != 0:
             return table[columns]
         else:
