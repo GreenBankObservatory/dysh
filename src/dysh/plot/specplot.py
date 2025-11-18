@@ -460,7 +460,7 @@ class InteractiveSpanSelector:
         self.cid_press = self.canvas.mpl_connect("button_press_event", self.on_press)
         self.cid_release = self.canvas.mpl_connect("button_release_event", self.on_release)
         self.cid_motion = self.canvas.mpl_connect("motion_notify_event", self.on_motion)
-        self.cid_key = plt.gcf().canvas.mpl_connect("key_press_event", self.on_key_press)
+        self.cid_key = self.canvas.mpl_connect("key_press_event", self.on_key_press)
 
     def onselect(self, vmin, vmax):
         if abs(vmax - vmin) < 1e-6:
@@ -475,7 +475,7 @@ class InteractiveSpanSelector:
         )
         self.ax.add_patch(rect)
         self.regions.append(rect)
-        self.canvas.draw()
+        self.canvas.draw_idle()
 
     def on_press(self, event):
         if event.inaxes != self.ax:
