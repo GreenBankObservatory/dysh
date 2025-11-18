@@ -424,7 +424,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         nan2 = self.mask.sum()
         if nan1 != nan2:
             logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
-        else:
+        elif nan1 > 0:
             logger.info(f"Note: found {nan1} NaN (masked) values")
 
         out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
