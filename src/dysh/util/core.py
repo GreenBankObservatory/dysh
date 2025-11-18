@@ -11,6 +11,8 @@ from itertools import zip_longest
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
+from astropy.table import Table
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
@@ -712,3 +714,13 @@ def get_valid_channel_range(channel: list | np.ndarray) -> list:
     if first > last:
         raise ValueError(f"In channel range {channel}, first channel is greater than last channel.")
     return [first, last]
+def replace_col_astype(t: Table, colname: str, astype, fill_value):
+    if hasattr(t[colname], "mask"):
+        savemask = t[colname].mask.copy()
+    else:
+        savemask = False
+    q = np.ma.masked_array(pd.to_numeric(t[colname]), savemask, fill_value=fill_value, dtype=astype)
+    t[colname].fill_value = fill_value
+    t.replace_column(colname, q)
+    if hasattr(t, "mask"):
+        t[colname].mask = savemask
