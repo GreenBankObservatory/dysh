@@ -252,11 +252,13 @@ class ScanPlot(PlotBase):
 
     def set_norm(self, norm=None):
         """
-        Set the norm, or zscale of the image.
+        Set the normalization of the image colormap.
+        Can be any value supported by the `~matplotlib.axes.Axes.imshow` `norm` keyword,
+        e.g. 'linear', 'log' etc or a Normalize object.
 
         Parameters
         ----------
-        norm : str
+        norm : str | Normalize | None
             norm used for the color scale. Default: "None", for linear scaling.
         """
         self.im.set_norm(norm)
