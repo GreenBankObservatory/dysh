@@ -714,6 +714,8 @@ def get_valid_channel_range(channel: list | np.ndarray) -> list:
     if first > last:
         raise ValueError(f"In channel range {channel}, first channel is greater than last channel.")
     return [first, last]
+
+
 def replace_col_astype(t: Table, colname: str, astype, fill_value):
     if hasattr(t[colname], "mask"):
         savemask = t[colname].mask.copy()

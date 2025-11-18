@@ -1438,7 +1438,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 tsys=_tsys,
                 tcal=_tcal,
                 tscale=tscale[0],
-                channel=channel,     
+                channel=channel,
             )
             tscalefac = _sifdf.get("TSCALFAC", None)
             if tscalefac is not None:
