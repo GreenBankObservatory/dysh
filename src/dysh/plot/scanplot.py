@@ -250,7 +250,7 @@ class ScanPlot(PlotBase):
         """
         self.im.set_cmap(cmap)
 
-    def set_norm(self,norm=None):
+    def set_norm(self, norm=None):
         """
         Set the norm, or zscale of the image.
 
