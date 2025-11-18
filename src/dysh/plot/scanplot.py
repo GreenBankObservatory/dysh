@@ -215,16 +215,16 @@ class ScanPlot(PlotBase):
             self._colorbar.set_label(z_label + rf"($\times10^{{{e}}}$)")
             self._colorbar.ax.yaxis.offsetText.set_visible(False)
 
-    def set_clim(self, vmin, vmax):
+    def set_clim(self, vmin=None, vmax=None):
         """
         Set the vmin and vmax parameters of the image.
 
         Parameters
         ----------
         vmin : float
-            The minimum value of the color scale.
+            The minimum value of the color scale. Default None; to autoscale.
         vmax : float
-            The maximum value of the color scale.
+            The maximum value of the color scale. Default None; to autoscale.
         """
         self.im.set_clim(vmin=vmin, vmax=vmax)
 
