@@ -111,6 +111,7 @@ class ScanPlot(PlotBase):
         interpolation = kwargs.get("interpolation", "nearest")
         vmin = kwargs.get("vmin", None)
         vmax = kwargs.get("vmax", None)
+        norm = kwargs.get("norm", None)
 
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
@@ -121,7 +122,7 @@ class ScanPlot(PlotBase):
         self._set_header(self._spectrum)
 
         self.im = self._axis.imshow(
-            self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax
+            self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax, norm=norm
         )
 
         # address intnum labelling for len(scanblock) > 1
@@ -214,16 +215,16 @@ class ScanPlot(PlotBase):
             self._colorbar.set_label(z_label + rf"($\times10^{{{e}}}$)")
             self._colorbar.ax.yaxis.offsetText.set_visible(False)
 
-    def set_clim(self, vmin, vmax):
+    def set_clim(self, vmin=None, vmax=None):
         """
         Set the vmin and vmax parameters of the image.
 
         Parameters
         ----------
         vmin : float
-            The minimum value of the color scale.
+            The minimum value of the color scale. Default None; to autoscale.
         vmax : float
-            The maximum value of the color scale.
+            The maximum value of the color scale. Default None; to autoscale.
         """
         self.im.set_clim(vmin=vmin, vmax=vmax)
 
@@ -248,3 +249,16 @@ class ScanPlot(PlotBase):
             cmap used for the color scale. Default: "inferno".
         """
         self.im.set_cmap(cmap)
+
+    def set_norm(self, norm=None):
+        """
+        Set the normalization of the image colormap.
+        Can be any value supported by the `~matplotlib.axes.Axes.imshow` `norm` keyword,
+        e.g. 'linear', 'log' etc or a Normalize object.
+
+        Parameters
+        ----------
+        norm : str | Normalize | None
+            norm used for the color scale. Default: "None", for linear scaling.
+        """
+        self.im.set_norm(norm)
