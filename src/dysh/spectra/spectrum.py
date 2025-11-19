@@ -95,6 +95,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._velocity_frame = None
         self._observer = kwargs.pop("observer", None)
+        _ = kwargs.pop("psf", None)  # Hack to enable rdiv.
         Spectrum1D.__init__(self, *args, **kwargs)
         # Try making a target from meta. If it fails, don't worry about it.
         if False:
@@ -1340,9 +1341,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
         if isinstance(other, NDCube):
-            result = op(other, **{"handle_meta": handle_meta})
+            result = op(other, **{"handle_meta": handle_meta}, **kwargs)
         else:
-            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
+            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False}, **kwargs)
         self._copy_attributes(result)
         return result
 
@@ -1410,6 +1411,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
+    def __rtruediv__(self, other):
+        op = self.divide
+        handle_meta = self._rdiv_meta
+        if not isinstance(other, NDCube):
+            other = u.Quantity(other)
+        result = self._arithmetic_apply(
+            other, op, handle_meta, operand2=self, compare_wcs="no, but I don't like your defaults", wcs_use_self=False
+        )
+        # Set compare_wcs to something, so self._arithmetic_wcs is used.
+        return result
+
     def _add_meta(self, operand, operand2, **kwargs):
         kwargs.setdefault("other_meta", True)
         meta = deepcopy(operand)
@@ -1426,6 +1438,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def _div_meta(self, operand, operand2=None, **kwargs):
         # TBD
         return deepcopy(operand)
+
+    def _rdiv_meta(self, operand, operand2=None, **kwargs):
+        return deepcopy(operand2)
+
+    def _arithmetic_wcs(self, operation, operand, compare_wcs, **kwargs):
+        # Had to overrride
+        # astropy/nddata/mixins/ndarithmetic.NDArithmeticMixin._arithmetic_wcs
+        # since it does not provide enough flexibility to take the wcs from
+        # operand2. Notice that this function is called with self as either
+        # self or operand, and operand as either operand or operand2 depending
+        # on the type of operand2 in NDArithmeticMixin._prepare_then_do_arithmetic.
+        kwarg_opts = {"use_self": True}
+        kwarg_opts.update(kwargs)
+        if kwarg_opts["use_self"]:
+            return deepcopy(self.wcs)
+        else:
+            return deepcopy(operand.wcs)
 
     def __getitem__(self, item):
         def q2idx(q, wcs, spectral_axis, coo, sto):
