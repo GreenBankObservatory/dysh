@@ -51,6 +51,10 @@ class TestSpecplot:
         self.tpplot = self.tp.plot(oshow=tp1)
         self.tpplot.oshow(tp2, color="r", linestyle="--")
 
+    def test_kwargs(self):
+        self.tp.plot(vel_frame="lsrk", doppler_convention="radio")
+        self.tp.plot(title="testing")
+
 
 class TestScanplot:
     def setup_method(self):
