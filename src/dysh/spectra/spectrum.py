@@ -95,6 +95,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._velocity_frame = None
         self._observer = kwargs.pop("observer", None)
+        _ = kwargs.pop("psf", None)  # Hack to enable rdiv.
         Spectrum1D.__init__(self, *args, **kwargs)
         # Try making a target from meta. If it fails, don't worry about it.
         if False:
@@ -1334,9 +1335,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
         if isinstance(other, NDCube):
-            result = op(other, **{"handle_meta": handle_meta})
+            result = op(other, **{"handle_meta": handle_meta}, **kwargs)
         else:
-            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
+            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False}, **kwargs)
         self._copy_attributes(result)
         return result
 
@@ -1404,6 +1405,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
+    def __rtruediv__(self, other):
+        op = self.divide
+        handle_meta = self._rdiv_meta
+        if not isinstance(other, NDCube):
+            other = u.Quantity(other)
+        result = self._arithmetic_apply(
+            other, op, handle_meta, operand2=self, compare_wcs="no, but I don't like your defaults", wcs_use_self=False
+        )
+        # Set compare_wcs to something, so self._arithmetic_wcs is used.
+        return result
+
     def _add_meta(self, operand, operand2, **kwargs):
         kwargs.setdefault("other_meta", True)
         meta = deepcopy(operand)
@@ -1420,6 +1432,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def _div_meta(self, operand, operand2=None, **kwargs):
         # TBD
         return deepcopy(operand)
+
+    def _rdiv_meta(self, operand, operand2=None, **kwargs):
+        return deepcopy(operand2)
+
+    def _arithmetic_wcs(self, operation, operand, compare_wcs, **kwargs):
+        # Had to overrride
+        # astropy/nddata/mixins/ndarithmetic.NDArithmeticMixin._arithmetic_wcs
+        # since it does not provide enough flexibility to take the wcs from
+        # operand2. Notice that this function is called with self as either
+        # self or operand, and operand as either operand or operand2 depending
+        # on the type of operand2 in NDArithmeticMixin._prepare_then_do_arithmetic.
+        kwarg_opts = {"use_self": True}
+        kwarg_opts.update(kwargs)
+        if kwarg_opts["use_self"]:
+            return deepcopy(self.wcs)
+        else:
+            return deepcopy(operand.wcs)
 
     def __getitem__(self, item):
         def q2idx(q, wcs, spectral_axis, coo, sto):
@@ -1928,6 +1957,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     observer = spectra[0].observer
     units = spectra[0].flux.unit
     seunit = spectra[0].meta.get("SE_UNIT", "")
+    pols = []
     for i, s in enumerate(spectra):
         if not isinstance(s, Spectrum):
             raise ValueError(f"Element {i} of `spectra` is not a `Spectrum`. {type(s)}")
@@ -1956,6 +1986,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         surface_error[i] = s.meta["SURF_ERR"]
         # if data are in Ta units, then there  normally wouldn't be a zenith opacity provided
         zenith_opacity[i] = s.meta.get("TAU_Z", -1)
+        pols.append(s.meta["CRVAL4"])
     _mask = np.isnan(data_array.data) | data_array.mask
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data, sum_of_weights = np.ma.average(data_array, axis=0, weights=wts, returned=True)
@@ -1978,6 +2009,18 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     new_meta["SE_UNIT"] = seunit
     if not hasattr(ze, "mask"):
         new_meta["TAU_Z"] = ze
+
+    upols = set(pols)  # unique crval4's being averaged (polarizations)
+    numpols = len(upols)
+    if numpols == 1:  # only one pol being averaged, no change needed
+        new_meta["CRVAL4"] = next(iter(upols))
+    elif numpols == 2:  # two pols being averaged, check that it is XX and YY or LL and RR, invalid otherwise
+        if (upols == {-5, -6}) or (upols == {-1, -2}):
+            new_meta["CRVAL4"] = 1
+        else:
+            new_meta["CRVAL4"] = 0
+    elif numpols >= 3:  # 3 or more pols, invalid
+        new_meta["CRVAL4"] = 0
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
     averaged._weights = sum_of_weights
