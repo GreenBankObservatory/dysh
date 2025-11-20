@@ -21,6 +21,7 @@ from ..coordinates import Observatory
 from ..log import HistoricalBase, log_call_to_history, logger
 from ..plot import scanplot as sp
 from ..util import minimum_string_match
+from ..util.docstring_manip import copy_docstring
 from ..util.gaincorrection import GBTGainCorrection
 from .core import (
     available_smooth_methods,
@@ -141,28 +142,37 @@ class SpectralAverageMixin:
         pass
 
     @log_call_to_history
-    def timeaverage(self, weights=None):
-        r"""Compute the time-averaged spectrum for this scan.
+    def timeaverage(self, weights: str | np.ndarray = "tsys", use_wcs=True) -> Spectrum:
+        r"""Compute the time-averaged spectrum. For a Scan this will average all the integrations in the Scan,
+        according to the given weights.
+        For a ScanBlock, it will average all the integrations in all Scans contained in the ScanBlock.
 
         Parameters
         ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: None, str or ~numpy.ndarray
+            If None, the channel weights will be equal and set to unity.
+
+            If 'tsys' the channel weights will be calculated as:
 
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-            Default: 'tsys'
+            If an array, it must have shape `(N,)` or `(N,nchan)` where `N` is the number
+            of integrations in the Scan or  the number of Scans in the ScanBlock and `nchan` is the number of channels in the Scan. If the weights
+            shape is `(N,)` then the `i-th` weight value will be replicated for all channels in integration/Scan `i`, e.g., with `np.tile(weights.reshape(N,1)),nchan)`.
 
+        use_wcs : bool
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
+            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
+            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
 
         Returns
         -------
         spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
+            The time-averaged spectrum. The weights array of the Spectrum will be set to the sum of the input weights.
 
         .. note::
 
            Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-
 
         """
         pass
@@ -209,6 +219,14 @@ class SpectralAverageMixin:
         :math:`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
         """
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
+
+    @property
+    def weights(self):
+        """
+        The weights for each integration after an averaging operation.  If `Scan.timeaverage()' has not been
+        called, the weights will be unity.
+        """
+        return self._weights
 
 
 class ScanBase(HistoricalBase, SpectralAverageMixin):
@@ -334,6 +352,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._tscale_fac = np.ones(self._nint)
         self._init_tsys(tsys)
         self._init_tcal(tcal)
+        self._weights = np.ones(self.nint)
         self._calc_exposure()
         self._calc_delta_freq()
         if self._calibrate:
@@ -895,53 +914,48 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         pass
 
     @log_call_to_history
+    @copy_docstring(SpectralAverageMixin.timeaverage)
     def timeaverage(self, weights="tsys", use_wcs=True):  ## SCANBASE
-        r"""Compute the time-averaged spectrum for this set of FSscans.
-
-        Parameters
-        ----------
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        use_wcs : bool
-            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
-            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
-            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
-
-        Returns
-        -------
-        spectrum : `~dysh.spectra.spectrum.Spectrum`
-            The time-averaged spectrum.
-
-        .. note::
-
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-
-        """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
         self._timeaveraged = deepcopy(self.getspec(0, use_wcs=use_wcs))
         data = self._calibrated
-        if weights == "tsys":
+        w = None
+        if isinstance(weights, np.ndarray):
+            ws = weights.shape
+            if ws != len(self) and ws != self.tsys_weight.shape and ws != (len(self), self.nchan):
+                raise ValueError(f"Bad shape for weight array: {weights.shape} {ws}")
+            if w is None:
+                w = weights
+        elif weights == "tsys":
             w = self.tsys_weight
-        else:
+        elif weights is None:
             w = np.ones_like(self.tsys_weight)
-        self._timeaveraged._data = np.ma.average(data, axis=0, weights=w)
+        else:
+            raise ValueError("Unrecognized weights: must be 'tsys', None, or an array of numbers")
+        self._timeaveraged._data, sum_of_weights = np.ma.average(data, axis=0, weights=w, returned=True)
         self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
+        if w.shape == (len(self), self.nchan):
+            w_collapsed = np.average(w, axis=1)
+        else:
+            w_collapsed = w
         self._timeaveraged.meta["MEANTSYS"] = np.mean(self._tsys[non_blanks])
-        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(self._tsys[non_blanks], axis=0, weights=w[non_blanks])
+        self._timeaveraged.meta["WTTSYS"] = sq_weighted_avg(
+            self._tsys[non_blanks], axis=0, weights=w_collapsed[non_blanks]
+        )
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
-        self._timeaveraged.meta["AP_EFF"] = sq_weighted_avg(self.ap_eff[non_blanks], axis=0, weights=w[non_blanks])
+        self._timeaveraged.meta["AP_EFF"] = sq_weighted_avg(
+            self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks]
+        )
         self._timeaveraged.meta["SURF_ERR"] = sq_weighted_avg(
-            self.surface_error[non_blanks].value, axis=0, weights=w[non_blanks]
+            self.surface_error[non_blanks].value, axis=0, weights=w_collapsed[non_blanks]
         )
         if self.zenith_opacity is not None:
             self._timeaveraged.meta["TAU_Z"] = self.zenith_opacity
+        self._timeaveraged._weights = sum_of_weights
+        self._weights = w
         return self._timeaveraged
 
     def _make_bintable(self, flags: bool) -> BinTableHDU:
@@ -1149,6 +1163,20 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         """
         return self._aggregate_scan_property("exposure")
 
+    @property
+    def nchan(self):
+        """
+        The number of channels in the first Scan in this ScanBlock.
+        (Assumes number of channels in each enclosed Scan are the same).
+
+        Returns
+        -------
+        int
+            The number of channels in this ScanBlock.
+
+        """
+        return self.data[0].nchan
+
     @log_call_to_history
     def calibrate(self, **kwargs):
         """Calibrate all scans in this ScanBlock"""
@@ -1210,32 +1238,8 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.smooth(method, width, decimate, kernel)
 
     @log_call_to_history
+    @copy_docstring(SpectralAverageMixin.timeaverage)
     def timeaverage(self, weights="tsys", use_wcs: bool = True):  ## SCANBLOCK
-        r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
-
-        Parameters
-        ----------
-        weights : str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
-
-             :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
-
-            Default: 'tsys'
-        use_wcs : bool
-            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
-            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
-            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
-
-        Returns
-        -------
-        timeaverage : `~dysh.spectra.spectrum.Spectrum`
-            Time-averaged spectrum.
-
-        .. note::
-
-           Data that are masked will have values set to zero.  This is a feature of `numpy.ma.average`. Data mask fill value is NaN (np.nan)
-        """
-        # warnings.simplefilter("ignore", NoVelocityWarning)
         # average of the averages
         self._timeaveraged = []
         for scan in self.data:
