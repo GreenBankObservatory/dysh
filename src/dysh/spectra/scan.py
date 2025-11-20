@@ -224,7 +224,8 @@ class SpectralAverageMixin:
     def weights(self):
         """
         The weights for each integration after an averaging operation.  If `Scan.timeaverage()' has not been
-        called, the weights will be unity.
+        called, the weights will be unity.  The weights array can have shape `(nint,)` or `(nint,nchan)` depending on
+        how `timeaverage()` was called.
         """
         return self._weights
 
@@ -1176,6 +1177,22 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         """
         return self.data[0].nchan
+
+    @property
+    def weights(self) -> list:
+        """
+        The weights associated with the Scans and integrations in this ScanBlock
+
+        Returns
+        -------
+        list
+            A list containing the weight arrays for each scan. Because Scans can have different numbers of integrations,
+            this is a list instead of a numpy array.
+        """
+        weights = []
+        for scan in self.data:
+            weights.append(scan.weights)
+        return weights
 
     @log_call_to_history
     def calibrate(self, **kwargs):
