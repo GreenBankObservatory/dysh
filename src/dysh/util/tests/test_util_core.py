@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import dysh.util as du
 
@@ -51,3 +52,18 @@ class TestUtil:
         r = [(1 * u.GHz, 2 * u.GHz), (1.5 * u.GHz, 3 * u.GHz)]
         assert list(du.merge_ranges(r)) == [(1 * u.GHz, 3 * u.GHz)]
         assert list(du.merge_ranges([])) == []
+
+    def test_get_valid_channel_range(self):
+        a = [100, 200]
+        assert du.get_valid_channel_range(a) == a
+        a = [400, 100]
+        with pytest.raises(ValueError):
+            du.get_valid_channel_range(a)
+        a = [1, [24, 99], 33]
+        with pytest.raises(ValueError):
+            du.get_valid_channel_range(a)
+        a = [4567, 9678]
+        assert du.get_valid_channel_range(np.array(a)) == a
+        b = [a]
+        assert du.get_valid_channel_range(b) == a
+        assert du.get_valid_channel_range(np.array(b)) == a

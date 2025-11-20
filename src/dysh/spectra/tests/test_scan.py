@@ -640,7 +640,7 @@ class TestFSScan:
             sp = data[1]
         # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
         level = 5e-3
-        print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
+        # print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
         diff1 = sp - ta.flux.value.astype(np.float32)
         nm = np.nanmean(diff1[15000:20000])  # Use channel range around the line.
         assert abs(nm) <= level
