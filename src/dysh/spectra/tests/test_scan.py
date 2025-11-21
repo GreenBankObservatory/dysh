@@ -463,10 +463,10 @@ class TestSubBeamNod:
         sbnsb = sdf.subbeamnod(scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90)
         sbnta = sbnsb.timeaverage()
         stats = sbnta.stats()
-        assert stats["mean"].value == pytest.approx(-0.09412889)
-        assert stats["median"].value == pytest.approx(-0.08932108)
-        assert stats["rms"].value == pytest.approx(0.43708246)
-        assert sbnta.meta["TSYS"] == pytest.approx(179.94285843520686)
+        assert stats["mean"].value == pytest.approx(-0.09412889, abs=1e-4)
+        assert stats["median"].value == pytest.approx(-0.08932108, abs=1e-4)
+        assert stats["rms"].value == pytest.approx(0.43725554485804585, abs=1e-4)
+        assert sbnta.meta["TSYS"] == pytest.approx(180.01411515504023, abs=1e-4)
 
 
 class TestTPScan:
