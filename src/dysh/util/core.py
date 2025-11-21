@@ -682,7 +682,7 @@ def isot_to_mjd(isot):
     MSEC_IN_A_DAY = 86400e3
     return np.array(isot, dtype="datetime64[ms]").astype("int64") / MSEC_IN_A_DAY + EPOCH_MJD
 
-  
+
 def replace_col_astype(t: Table, colname: str, astype, fill_value):
     if hasattr(t[colname], "mask"):
         savemask = t[colname].mask.copy()
