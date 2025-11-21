@@ -296,6 +296,6 @@ class VaneSpectrum(Spectrum):
         """
 
         if tcal is None:
-            tcal = self.compute_tcal(ref)
+            tcal = self.get_tcal(ref)
 
         return self._get_tsys(ref.data, tcal)

@@ -2938,7 +2938,7 @@ class SubBeamNodScan(ScanBase):
             # Set system temperature.
             self._tsys[i] = ref.meta["WTTSYS"]
             if self._vane is not None:
-                self._tsys[i] = self._vane._get_tsys(ref, self._tcal[i])
+                self._tsys[i] = self._vane._get_tsys(ref.data, self._tcal[i])
             tsys = self._tsys[i]
             # Combine sig and ref.
             ta = ((sig - ref) / ref).flux.value * tsys

@@ -3633,18 +3633,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if zenith_opacity is None:
             try:
                 gbwf = GBTWeatherForecast()
-                _, _, zenith_opacity = gbwf.fetch(
+                result = gbwf.fetch(
                     vartype="Opacity",
                     specval=sky.spectral_axis.quantity.mean(),
                     mjd=sky.obstime.mjd,
                 )
+                zenith_opacity = result[:, -1]
             except ValueError as e:
                 logger.debug("Could not get forecasted zenith opacity ", e)
 
         if tatm is None:
             try:
                 gbwf = GBTWeatherForecast()
-                _, _, tatm = gbwf.fetch(vartype="Tatm", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd)
+                result = gbwf.fetch(vartype="Tatm", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd)
+                tatm = result[:, -1]
             except ValueError as e:
                 logger.debug("Could not get forecasted atmospheric temperature ", e)
 

@@ -242,6 +242,32 @@ class TestPSScan:
         x = sb1.timeaverage()
         assert pytest.approx(x.meta["TAU_Z"] / 0.1) == 1
 
+    def test_vane(self, data_dir):
+        """Test for getps with vane."""
+        data_path = f"{data_dir}/TGBT24B_615_01/TGBT24B_615_01.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(data_path)
+        pssb = sdf.getps(scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85)
+        psta = pssb.timeaverage()
+        stats = psta.stats()
+        assert stats["mean"].value == pytest.approx(-1.1362548)
+        assert stats["median"].value == pytest.approx(-1.13077666)
+        assert stats["rms"].value == pytest.approx(0.46247303)
+        assert psta.meta["TSYS"] == pytest.approx(362.06692565749125)
+        assert psta.meta["EXPOSURE"] == 29.732832173595035
+
+    def test_getsigref_vane(self, data_dir):
+        """Test for getsigref with vane."""
+        data_path = f"{data_dir}/TGBT24B_615_01/TGBT24B_615_01.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(data_path)
+        srsb = sdf.getsigref(scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85, ref=87)
+        srta = srsb.timeaverage()
+        stats = srta.stats()
+        assert stats["mean"].value == pytest.approx(-1.13895029)
+        assert stats["median"].value == pytest.approx(-1.1328646)
+        assert stats["rms"].value == pytest.approx(0.46335996)
+        assert srta.meta["TSYS"] == pytest.approx(361.4042152542293)
+        assert srta.meta["EXPOSURE"] == 58.5011952833595
+
 
 class TestSubBeamNod:
     def test_compare_with_GBTIDL(self, data_dir):
@@ -429,6 +455,18 @@ class TestSubBeamNod:
         # Line amplitude.
         assert pytest.approx(sbn_cycle.data.max() - tcont, rms_cycle.value) == a
         assert pytest.approx(sbn_scan.data.max() - tcont, rms_scan.value) == a
+
+    def test_vane(self, data_dir):
+        """Test for subbeamnod with vane."""
+        sdf_file = f"{data_dir}/AGBT18B_357_04/AGBT18B_357_04.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
+        sbnsb = sdf.subbeamnod(scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90)
+        sbnta = sbnsb.timeaverage()
+        stats = sbnta.stats()
+        assert stats["mean"].value == pytest.approx(-0.09412889)
+        assert stats["median"].value == pytest.approx(-0.08932108)
+        assert stats["rms"].value == pytest.approx(0.43708246)
+        assert sbnta.meta["TSYS"] == pytest.approx(179.94285843520686)
 
 
 class TestTPScan:
