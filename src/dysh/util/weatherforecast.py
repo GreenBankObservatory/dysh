@@ -635,7 +635,7 @@ class GBTForecastScriptInterface:
         if np.any(values == -9999.0):
             logger.warn(f"In fetching {vartype} a value of -9999 was detected. Be careful.")
         # remove any extra zero length dimensions added in parsing.
-        return np.squeeze(values)
+        return np.atleast_2d(np.squeeze(values))
 
     @property
     def valid_vartypes(self) -> list:
