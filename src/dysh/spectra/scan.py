@@ -361,13 +361,17 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             f"Delta Freq (channel width) calculation for {self.__class__.__name__} needs to be implemented."
         )
 
-    def getspec(self, i):  ##SCANBASE
+    def getspec(self, i, use_wcs=True):  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
 
         Parameters
         ----------
         i : int
             The index into the calibrated array
+        use_wcs : bool
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
+            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
+            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
 
         Returns
         -------
@@ -380,6 +384,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             ),
             meta=self.meta[i],
             observer_location=self._observer_location,
+            use_wcs=use_wcs,
         )
         s.merge_commentary(self)
         s._baseline_model = self._baseline_model
@@ -908,7 +913,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return tcal
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):  ## SCANBASE
+    def timeaverage(self, weights="tsys", use_wcs=True):  ## SCANBASE
         r"""Compute the time-averaged spectrum for this set of FSscans.
 
         Parameters
@@ -919,12 +924,15 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
-
+        use_wcs : bool
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
+            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
+            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
 
         Returns
         -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum
+        spectrum : `~dysh.spectra.spectrum.Spectrum`
+            The time-averaged spectrum.
 
         .. note::
 
@@ -933,7 +941,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         if self._calibrated is None or len(self._calibrated) == 0:
             raise Exception("You can't time average before calibration.")
-        self._timeaveraged = deepcopy(self.getspec(0))
+        self._timeaveraged = deepcopy(self.getspec(0, use_wcs=use_wcs))
         data = self._calibrated
         if weights == "tsys":
             w = self.tsys_weight
@@ -957,8 +965,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def _make_bintable(self, flags: bool) -> BinTableHDU:
         """
         Create a :class:`~astropy.io.fits.BinaryTableHDU` from the calibrated data of this Scan.
-
-
 
         Returns
         -------
@@ -1222,23 +1228,26 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.smooth(method, width, decimate, kernel)
 
     @log_call_to_history
-    def timeaverage(self, weights="tsys"):  ## SCANBLOCK
+    def timeaverage(self, weights="tsys", use_wcs: bool = True):  ## SCANBLOCK
         r"""Compute the time-averaged spectrum for all scans in this ScanBlock.
 
         Parameters
         ----------
-        weights: str
+        weights : str
             'tsys' or None.  If 'tsys' the weight will be calculated as:
 
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
             Default: 'tsys'
-
+        use_wcs : bool
+            Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
+            Creating a WCS object adds computation time to the creation of a `~dysh.spectra.spectrum.Spectrum` object.
+            There may be cases where the WCS is not needed, so setting this boolean to False will save computation.
 
         Returns
         -------
-        timeaverage: list of `~spectra.spectrum.Spectrum`
-            List of all the time-averaged spectra
+        timeaverage : `~dysh.spectra.spectrum.Spectrum`
+            Time-averaged spectrum.
 
         .. note::
 
@@ -1248,7 +1257,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         # average of the averages
         self._timeaveraged = []
         for scan in self.data:
-            self._timeaveraged.append(scan.timeaverage(weights))
+            self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
         s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
@@ -2624,15 +2633,6 @@ class FSScan(ScanBase):
 
             return freq * cunit1
 
-        def do_total_power(no_cal, cal, tcal):
-            """ """
-
-        def vec_mean_tsys(on, off, tcal):
-            """
-            mean_tsys implements this, albeit only in 1D
-            """
-            pass
-
         def do_sig_ref(sig, ref, tsys, smooth=False):
             """
             smooth=True would implement smoothing the reference (or something)
@@ -2641,7 +2641,7 @@ class FSScan(ScanBase):
 
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
             """ """
-            chan_shift = (sig_freq[0] - ref_freq[0]) / np.abs(np.diff(sig_freq)).mean()
+            chan_shift = (ref_freq[0] - sig_freq[0]) / np.diff(sig_freq).mean()
             logger.debug(f"do_fold: {sig_freq[0]}, {ref_freq[0]},{chan_shift}")
             ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
@@ -2654,7 +2654,6 @@ class FSScan(ScanBase):
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
         self._calc_exposure()
-        sig_freq = self._sigcaloff[0]
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]
         logger.debug(f"df_sig {type(df_sig)} len(df_sig)")

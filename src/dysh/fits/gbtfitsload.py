@@ -1360,83 +1360,79 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         TF = {True: "T", False: "F"}
         scanblock = ScanBlock()
         calrows = {}
-        for i in range(len(self._sdf)):
-            _df = select_from("FITSINDEX", i, _sf)
-            if len(_df) == 0:  # If nothing was selected go to next file.
+        for scan in scans:
+            _sifdf = select_from("SCAN", scan, _sf)
+            if len(_sifdf) == 0:
                 continue
-            for scan in scans:
-                _sifdf = select_from("SCAN", scan, _df)
-                if len(_sifdf) == 0:
-                    continue
-                dfcalT = select_from("CAL", "T", _sifdf)
-                dfcalF = select_from("CAL", "F", _sifdf)
-                calrows["ON"] = list(dfcalT["ROW"])
-                calrows["OFF"] = list(dfcalF["ROW"])
-                if len(calrows["ON"]) != len(calrows["OFF"]):
-                    if len(calrows["ON"]) > 0:
-                        raise Exception(f"unbalanced calrows {len(calrows['ON'])} != {len(calrows['OFF'])}")
-                # sig and cal are treated specially since
-                # they are not in kwargs and in SDFITS header
-                # they are not booleans but chars
-                if sig is not None:
-                    _sifdf = select_from("SIG", TF[sig], _sifdf)
-                if _bintable is None:
-                    _bintable = self._get_bintable(_sifdf)
-                if t_cal is not None:
-                    _tcal = t_cal
-                else:
-                    _tcal = self._get_tcal(dfcalF["TCAL"])
-                if len(calrows["ON"]) == 0:
-                    if tsys is None:
-                        _tsys = dfcalF["TSYS"].to_numpy()
-                        if vane is None:
-                            logger.info("Using TSYS column")
-                        logger.debug(f"Scan: {scan}")
-                # Use user provided system temperature.
-                if tsys is not None:
-                    _tsys = tsys[scan][0]
-                # The rows with the selected sig state and all cal states.
-                tprows = list(_sifdf["ROW"])
-                logger.debug(f"TPROWS len={len(tprows)}")
-                logger.debug(f"CALROWS on len={len(calrows['ON'])}")
-                logger.debug(f"fitsindex={i}")
-                if len(tprows) == 0:
-                    continue
-                if "TSCALE" in _sifdf:
-                    tscale = list(set(_sifdf["TSCALE"]))
-                else:
-                    tscale = ["Raw"]
-                if len(tscale) > 1:
-                    raise ValueError(
-                        f"More than one TSCALE value in the previously-calibrated input file {tscale}; can't create a TPScan."
-                    )
-                g = TPScan(
-                    self._sdf[i],
-                    scan,
-                    sig,
-                    cal,
-                    tprows,
-                    calrows,
-                    fdnum=fdnum,
-                    ifnum=ifnum,
-                    plnum=plnum,
-                    bintable=_bintable,
-                    calibrate=calibrate,
-                    apply_flags=apply_flags,
-                    tsys=_tsys,
-                    tcal=_tcal,
-                    tscale=tscale[0],
-                )
-                tscalefac = _sifdf.get("TSCALFAC", None)
-                if tscalefac is not None:
-                    # the data were previously calibrated, preserve the scale factor
-                    g._tscale_fac = np.array(tscalefac)
-                g.merge_commentary(self)
-                scanblock.append(g)
-                # Reset these variables for the next scan.
-                _tsys = tsys
+            dfcalT = select_from("CAL", "T", _sifdf)
+            dfcalF = select_from("CAL", "F", _sifdf)
+            calrows["ON"] = dfcalT["ROW"].to_numpy()
+            calrows["OFF"] = dfcalF["ROW"].to_numpy()
+            if len(calrows["ON"]) != len(calrows["OFF"]):
+                if len(calrows["ON"]) > 0:
+                    raise Exception(f"unbalanced calrows {len(calrows['ON'])} != {len(calrows['OFF'])}")
+            # sig and cal are treated specially since
+            # they are not in kwargs and in SDFITS header
+            # they are not booleans but chars
+            if sig is not None:
+                _sifdf = select_from("SIG", TF[sig], _sifdf)
+            if _bintable is None:
+                _bintable = self._get_bintable(_sifdf)
+            if t_cal is not None:
                 _tcal = t_cal
-                _bintable = kwargs.get("bintable", None)
+            else:
+                _tcal = self._get_tcal(dfcalF["TCAL"])
+            if len(calrows["ON"]) == 0:
+                if tsys is None:
+                    _tsys = dfcalF["TSYS"].to_numpy()
+                    if vane is None:
+                        logger.info("Using TSYS column")
+                    logger.debug(f"Scan: {scan}")
+            # Use user provided system temperature.
+            if tsys is not None:
+                _tsys = tsys[scan][0]
+            # The rows with the selected sig state and all cal states.
+            tprows = _sifdf["ROW"].to_numpy()
+            logger.debug(f"TPROWS len={len(tprows)}")
+            logger.debug(f"CALROWS on len={len(calrows['ON'])}")
+            logger.debug(f"fitsindex={_sifdf['FITSINDEX'].iloc[0]}")
+            if len(tprows) == 0:
+                continue
+            if "TSCALE" in _sifdf:
+                tscale = _sifdf["TSCALE"].unique()
+            else:
+                tscale = ["Raw"]
+            if len(tscale) > 1:
+                raise ValueError(
+                    f"More than one TSCALE value in the previously-calibrated input file {tscale}; can't create a TPScan."
+                )
+            g = TPScan(
+                self._sdf[_sifdf["FITSINDEX"].iloc[0]],
+                scan,
+                sig,
+                cal,
+                tprows,
+                calrows,
+                fdnum=fdnum,
+                ifnum=ifnum,
+                plnum=plnum,
+                bintable=_bintable,
+                calibrate=calibrate,
+                apply_flags=apply_flags,
+                tsys=_tsys,
+                tcal=_tcal,
+                tscale=tscale[0],
+            )
+            tscalefac = _sifdf.get("TSCALFAC", None)
+            if tscalefac is not None:
+                # the data were previously calibrated, preserve the scale factor
+                g._tscale_fac = np.array(tscalefac)
+            g.merge_commentary(self)
+            scanblock.append(g)
+            # Reset these variables for the next scan.
+            _tsys = tsys
+            _tcal = t_cal
+            _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
             raise Exception("Didn't find any scans matching the input selection criteria.")
         scanblock.merge_commentary(self)
@@ -2384,7 +2380,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         See issue #160 https://github.com/GreenBankObservatory/dysh/issues/160
         """
         # Check if we are dealing with Ka data before the beam switch.
-        rx = set(self["FRONTEND"])
+        rx = self["FRONTEND"].unique()
         if "Rcvr26_40" not in rx:
             return
 
@@ -2505,10 +2501,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         )
 
         if name is None:
-            name = next(iter(set(_sf["OBJECT"])))
+            name = _sf["OBJECT"].unique()[0]
         target = Calibrator.from_name(name, scale=fluxscale)
 
-        proc = next(iter(set(_sf["PROC"])))
+        proc = _sf["PROC"].unique()[0]
 
         if method is None:
             method = valid_procs[proc]
@@ -2859,7 +2855,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         }
         scan_selection = {"ON": [], "OFF": []}
         df = selection[selection["SCAN"].isin(scans)]
-        procset = set(df["PROC"])
+        procset = df["PROC"].unique()
         lenprocset = len(procset)
         if lenprocset == 0:
             # This is ok since not all files in a set have all the polarizations, feeds, or IFs
@@ -2969,7 +2965,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             _final = selection
         if len(_final) == 0:
             raise Exception("Your selection resulted in no rows to be written")
-        fi = list(set(_final["FITSINDEX"]))
+        fi = _final["FITSINDEX"].unique()
         logger.debug(f"fitsindex {fi} ")
         total_rows_written = 0
         if multifile:
@@ -2981,9 +2977,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 outhdu = fits.HDUList(hdu)
                 # get the bintables rows as new bintables.
                 df = select_from("FITSINDEX", k, _final)
-                bintables = list(set(df.BINTABLE))
+                bintables = df.BINTABLE.unique()
                 for b in bintables:  # loop over the bintables in this fitsfile
-                    rows = list(set(df.ROW))
+                    rows = df.ROW.unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
@@ -3021,9 +3017,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             outhdu = fits.HDUList(hdu)
             for k in fi:
                 df = select_from("FITSINDEX", k, _final)
-                bintables = list(set(df.BINTABLE))
+                bintables = df.BINTABLE.unique()
                 for b in bintables:
-                    rows = list(set(df.ROW))
+                    rows = df.ROW.unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
@@ -3616,7 +3612,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             calibrate=True,
             cal=False,
             apply_flags=apply_flags,
-        ).timeaverage()
+        ).timeaverage(use_wcs=False)
         sky = self.gettp(
             scan=sky_scan,
             fdnum=fdnum,
@@ -3625,7 +3621,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             calibrate=True,
             cal=False,
             apply_flags=apply_flags,
-        ).timeaverage()
+        ).timeaverage(use_wcs=False)
 
         if twarm is None:
             twarm = sky.meta["TWARM"] + 273.15  # TWARM is recorded in Celsius when using RcvrArray75_115 (Argus).
@@ -3697,14 +3693,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If there is more than one unique value in the "BINTABLE" column of `df`.
         """
 
-        bintable = set(df["BINTABLE"])
+        bintable = df["BINTABLE"].unique()
         # I do not know if this is possible, but just in case.
         if len(bintable) > 1:
             raise TypeError(
                 "Selection crosses binary tables. Please provide more details during data selection (e.g., bintable=x)."
             )
-        bintable = next(iter(bintable))  # Get the first element of the set.
-        return bintable
+        return bintable[0]
 
     def _get_refspec_tsys(self, refspec):
         """
@@ -3733,10 +3728,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ValueError
             If there's more than one value for TCAL.
         """
-        tcal_set = set(tcal)
+        tcal_set = tcal.unique()
         if len(tcal_set) > 1:
             raise ValueError(f"More than one value for TCAL: {tcal_set}")
-        return next(iter(tcal_set))
+        return tcal_set[0]
 
     def _vane_setup(self, vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags):
         """

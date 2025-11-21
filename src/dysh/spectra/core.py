@@ -312,7 +312,7 @@ def exclude_to_spectral_region(exclude, refspec):
             # In that case use the spectral axis to define the exclusion regions.
         except ValueError:
             # Make sure all the channels are within bounds.
-            exclude = np.array(exclude)
+            exclude = np.array(exclude, dtype=int)
             exclude[exclude >= len(sa)] = len(sa) - 1
             sr = SpectralRegion(sa.quantity[exclude])
 
@@ -755,10 +755,10 @@ def tsys_weight(exposure, delta_freq, tsys):
     # precision over the calculation used by GBTIDL:
     # weight = abs(delta_freq) * exposure / tsys**2.
     weight = abs(delta_freq) * exposure * np.power(tsys, -2.0)
-    if type(weight) == u.Quantity:  # noqa: E721
-        return weight.value.astype(np.float64)
+    if isinstance(weight, u.Quantity):
+        return weight.value
     else:
-        return weight.astype(np.float64)
+        return weight
 
 
 def mean_data(data, fedge=0.1, nedge=None, median=False):

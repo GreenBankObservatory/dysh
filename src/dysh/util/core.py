@@ -11,6 +11,8 @@ from itertools import zip_longest
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
+from astropy.table import Table
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
@@ -474,11 +476,11 @@ def convert_array_to_mask(a, length, value=True):
     return mask
 
 
-def abbreviate_to(length, value, squeeze=True):
+def abbreviate_to(length, value, squeeze=True) -> str:
     """
     Abbreviate a value for display in limited space. The abbreviated
     value will have initial characters, ellipsis, and final characters, e.g.
-    '[(a,b),(c,d)...(w,x),(y,z)]'.
+    '[(a,b),(c,d),...,(w,x),(y,z)]'.
 
     Parameters
     ----------
@@ -492,16 +494,25 @@ def abbreviate_to(length, value, squeeze=True):
     Returns
     -------
     strv : str
-        Abbreviated string representation of the input value
-
+        Abbreviated string representation of the input value.
     """
     strv = str(value)
+    sep = ", "
     if squeeze:
         strv = strv.replace(", ", ",")
+        sep = ","
     if len(strv) > length:
-        bc = int(length / 2) - 1
-        ec = bc - 1
-        strv = strv[0:bc] + "..." + strv[-ec:]
+        try:
+            bc = strv.rindex(sep, 0, length // 2 - 1)
+        except ValueError:
+            bc = strv.index(sep)
+        try:
+            ec = strv[-length // 2 + 1 :].index(sep)
+            eci = -length // 2 + 1
+        except ValueError:
+            ec = strv.rindex(sep)
+            eci = None
+        strv = strv[:bc] + sep + "..." + strv[eci:][ec:]
     return strv
 
 
@@ -670,3 +681,15 @@ def isot_to_mjd(isot):
     EPOCH_MJD = 40587
     MSEC_IN_A_DAY = 86400e3
     return np.array(isot, dtype="datetime64[ms]").astype("int64") / MSEC_IN_A_DAY + EPOCH_MJD
+
+  
+def replace_col_astype(t: Table, colname: str, astype, fill_value):
+    if hasattr(t[colname], "mask"):
+        savemask = t[colname].mask.copy()
+    else:
+        savemask = False
+    q = np.ma.masked_array(pd.to_numeric(t[colname]), savemask, fill_value=fill_value, dtype=astype)
+    t[colname].fill_value = fill_value
+    t.replace_column(colname, q)
+    if hasattr(t, "mask"):
+        t[colname].mask = savemask

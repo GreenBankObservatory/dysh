@@ -18,8 +18,8 @@ _KMS = u.km / u.s
 class ScanPlot(PlotBase):
     r"""
     The ScanPlot class is for simple plotting of a `~scan.Scan` or `~scan.ScanBlock`
-    using matplotlib functions. Plots attributes are modified using keywords
-    (\*\*kwargs) described below SpectrumPlot will attempt to make smart default
+    using matplotlib functions. Plot attributes are modified using keywords
+    (\*\*kwargs) described below. SpectrumPlot will attempt to make smart default
     choices for the plot if no additional keywords are given.
 
     Parameters
@@ -40,7 +40,6 @@ class ScanPlot(PlotBase):
         self._scanblock_or_scan = scanblock_or_scan
         self._plot_kwargs.update(kwargs)
         self._axis2 = None
-        # self._title = self._plot_kwargs["title"]# todo: deal with when refactoring
         acceptable_types = ["PSScan", "TPScan", "NodScan", "FSScan", "SubBeamNodScan"]
         self._spectrum = self._scanblock_or_scan.timeaverage()
         self._sa = self._spectrum.spectral_axis
@@ -50,14 +49,15 @@ class ScanPlot(PlotBase):
         if self._type == "ScanBlock":
             self._scanblock = scanblock_or_scan
             self._num_scans = len(self._scanblock)
+            self._scan_numbers = np.empty(self._num_scans, dtype=int)
         elif self._type in acceptable_types:
             self._scan = scanblock_or_scan
+            self._scan_numbers = np.empty(1, dtype=int)
         else:
             raise Exception(f"Plotter input {self._type} does not appear to be a valid input object type")
 
         # handle scanblocks
         if self._type == "ScanBlock":
-            self._scan_nos = []  # scan numbers in the scan block
             self._nint_nos = []  # number of integrations in each scan
             self._timestamps = []  # 0-indexed timestamps in sec for every integration
             xtick_labels = []  # intnum labels for multiple-scan scanblocks
@@ -66,7 +66,7 @@ class ScanPlot(PlotBase):
                     self.spectrogram = scan._calibrated
                 else:
                     self.spectrogram = np.append(self.spectrogram, scan._calibrated, axis=0)
-                self._scan_nos.append(scan.scan)
+                self._scan_numbers[i] = scan.scan
                 self._nint_nos.append(scan.nint)  # not sure if I need this
                 xtick_labels.append(np.r_[0 : scan.nint])
                 # TODO: figure out how to deal with generating a "time" axis
@@ -76,8 +76,8 @@ class ScanPlot(PlotBase):
 
         # handle scans
         elif self._type in acceptable_types:
+            self._scan_numbers[0] = self._scan.scan
             self.spectrogram = self._scan._calibrated
-            self._scan_nos = [self._scan.scan]
             self._nint_nos = [self._scan.nint]
             xtick_labels = np.r_[0 : self._scan.nint]
 
@@ -98,10 +98,11 @@ class ScanPlot(PlotBase):
 
         Parameters
         ----------
-        spectral_unit : `~astropy.unit.Unit`
-            The units to use on the frequency axis. Default: MHz if below 1 GHz, GHz if above.
+        spectral_unit : `~astropy.units.Unit`
+            The units to use on the frequency axis. Default: MHz if below 1 GHz, GHz if above. Otherwise, can be any valid frequency unit.
         **kwargs : various
-            keyword=value arguments (need to describe these in a central place)
+            keyword=value arguments drawn from `~matplotlib.axes.Axes.imshow` kwargs.
+            Currently implemented kwargs include `cmap`, `interpolation`, `vmin`, `vmax`, and `norm`.
         """
 
         this_plot_kwargs = deepcopy(self._plot_kwargs)
@@ -109,6 +110,9 @@ class ScanPlot(PlotBase):
 
         cmap = kwargs.get("cmap", "inferno")
         interpolation = kwargs.get("interpolation", "nearest")
+        vmin = kwargs.get("vmin", None)
+        vmax = kwargs.get("vmax", None)
+        norm = kwargs.get("norm", None)
 
         if True:
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
@@ -118,7 +122,9 @@ class ScanPlot(PlotBase):
         self._figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
         self._set_header(self._spectrum)
 
-        self.im = self._axis.imshow(self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation)
+        self.im = self._axis.imshow(
+            self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax, norm=norm
+        )
 
         # address intnum labelling for len(scanblock) > 1
         self._axis.set_xticks(np.arange(self.spectrogram.shape[1]), self._xtick_labels)
@@ -149,7 +155,7 @@ class ScanPlot(PlotBase):
             tick_locs.append(acc)
             acc += numints
         self._axis3.set_xticks(tick_locs)
-        self._axis3.set_xticklabels(self._scan_nos)
+        self._axis3.set_xticklabels(self._scan_numbers)
         fsize = 15
         x1_alt_padding = self._plt.rcParams["axes.labelpad"] + fsize
         self._axis3.tick_params(
@@ -210,16 +216,16 @@ class ScanPlot(PlotBase):
             self._colorbar.set_label(z_label + rf"($\times10^{{{e}}}$)")
             self._colorbar.ax.yaxis.offsetText.set_visible(False)
 
-    def set_clim(self, vmin, vmax):
+    def set_clim(self, vmin=None, vmax=None):
         """
         Set the vmin and vmax parameters of the image.
 
         Parameters
         ----------
         vmin : float
-            The minimum value of the color scale.
+            The minimum value of the color scale. Default None; to autoscale.
         vmax : float
-            The maximum value of the color scale.
+            The maximum value of the color scale. Default None; to autoscale.
         """
         self.im.set_clim(vmin=vmin, vmax=vmax)
 
@@ -244,3 +250,16 @@ class ScanPlot(PlotBase):
             cmap used for the color scale. Default: "inferno".
         """
         self.im.set_cmap(cmap)
+
+    def set_norm(self, norm=None):
+        """
+        Set the normalization of the image colormap.
+        Can be any value supported by the `~matplotlib.axes.Axes.imshow` `norm` keyword,
+        e.g. 'linear', 'log' etc or a Normalize object.
+
+        Parameters
+        ----------
+        norm : str | Normalize | None
+            norm used for the color scale. Default: "None", for linear scaling.
+        """
+        self.im.set_norm(norm)
