@@ -1566,6 +1566,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
+            If 'spectral', the weights in each Spectrum will be used.
+
             If an array, it must have shape `(len(spectra)+1,)` or `(len(spectra)+1,nchan)` where `nchan` is the
             number of channels in the spectra.
             The first element ofthe weights array will be applied to the current spectrum.
@@ -1927,6 +1929,8 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
 
          :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
+        If 'spectral', the `weights` array in each Spectrum will be used.
+
         If an array, it must have shape `(len(spectra),)` or `(len(spectra),nchan)` where `nchan` is the number of channels in the spectra.
     align : bool
         If `True` align the `spectra` to the first element.
@@ -1976,8 +1980,11 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
             wts[i] = weights[i]
         elif weights == "tsys":
             wts[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
+        elif weights == "spectral":
+            wts[i] = s.weights
         else:
             wts[i] = 1.0
+
         exposures[i] = s.meta["EXPOSURE"]
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]

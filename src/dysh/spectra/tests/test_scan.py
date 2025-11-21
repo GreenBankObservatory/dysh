@@ -431,6 +431,25 @@ class TestSubBeamNod:
         assert pytest.approx(sbn_scan.data.max() - tcont, rms_scan.value) == a
 
 
+class TestWeights:
+    def test_weights(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/NGC2782/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
+        x = sb.timeaverage(weights="tsys")
+        assert np.all(x.weights - (sb._timeaveraged[0].weights + sb._timeaveraged[1].weights) == 0)
+        sdf_file = f"{data_dir}/AGBT20B_014_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getfs(scan=6, fdnum=0, plnum=0, ifnum=0)
+        w = np.ones((3, sb.nchan))
+        x = sb.timeaverage(weights=w)
+        assert x.weights[3071] == 2
+        assert set(x.weights) == set([2.0, 3.0])
+
+        x = sb.timeaverage(weights="tsys")
+        assert np.ma.mean(x.weights) == pytest.approx(274.7940106210527)
+
+
 class TestTPScan:
     def test_len_and_units(self, data_dir):
         """

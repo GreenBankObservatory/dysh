@@ -925,7 +925,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if isinstance(weights, np.ndarray):
             ws = weights.shape
             if ws != len(self) and ws != self.tsys_weight.shape and ws != (len(self), self.nchan):
-                raise ValueError(f"Bad shape for weight array: {weights.shape} {ws}")
+                raise ValueError(
+                    f"Bad shape for weight array: {ws}. Was expecting {len(self)}, {self.tsys_weight.shape}, or ({len(self)}, {self.nchan})."
+                )
             if w is None:
                 w = weights
         elif weights == "tsys":
@@ -1261,7 +1263,10 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         self._timeaveraged = []
         for scan in self.data:
             self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
-        s = average_spectra(self._timeaveraged, weights=weights)
+        if isinstance(weights, np.ndarray):
+            s = average_spectra(self._timeaveraged, weights="spectral")
+        else:
+            s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
 
