@@ -6,6 +6,7 @@ import warnings
 from collections.abc import Sequence
 
 import astropy.units as u
+import fitsio
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -16,6 +17,9 @@ from astropy.utils.masked import Masked
 from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
+
+# Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
+from . import fitsio_unicode_patch  # noqa: F401
 
 
 class SDFITSLoad:
@@ -34,7 +38,7 @@ class SDFITSLoad:
 
     """
 
-    def __init__(self, filename, source=None, hdu=None, **kwargs):
+    def __init__(self, filename: str, source: str | None = None, hdu: int | list[int] | None = None, **kwargs):
         kwargs_opts = {
             "fix": False,  # fix non-standard header elements
             "verbose": False,
@@ -149,7 +153,7 @@ class SDFITSLoad:
             df = df[df["BINTABLE"] == bintable]
         return df
 
-    def create_index(self, hdu=None, skipindex=["DATA", "FLAGS"]):  # noqa: B006
+    def create_index(self, hdu: int | list[int] | None = None, skipindex=("DATA", "FLAGS")):
         """
         Create the index of the SDFITS file.
 
@@ -169,16 +173,19 @@ class SDFITSLoad:
         self._index = None
         for i in ldu:
             # Create a DataFrame without the data column.
-            df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, skipindex))
+            # Use fitsio to read only the columns we need, avoiding loading DATA/FLAGS into memory
+            all_columns = self._hdu[i].columns.names
+            columns_to_read = [col for col in all_columns if col not in skipindex]
+            with fitsio.FITS(self._filename) as fits_file:
+                data = fits_file[i].read(columns=columns_to_read)
+            df = pd.DataFrame(data)
             # Select columns that are strings, decode them and remove white spaces.
+            # The fitsio_unicode_patch handles latin-1 decoding automatically
             df_obj = df.select_dtypes(["object"])
-            df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
-            # --- this doesn't actually work how we want---
-            # convert them to actual string types because FITS will want that later.
-            # This doe
-            # cols = list(df_obj.columns)
-            # df[cols] = df[cols].astype("string")
-            # ---
+            for col in df_obj.columns:
+                # FITS strings are NULL-padded, so truncate at NULL byte first
+                # Then remove any remaining control characters and strip whitespace
+                df[col] = df[col].str.split("\x00").str[0].str.strip()
             ones = np.ones(len(df.index), dtype=int)
             # create columns to track HDU and BINTABLE numbers and original row index
             df["HDU"] = i * ones
