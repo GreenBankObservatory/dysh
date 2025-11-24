@@ -407,6 +407,25 @@ class TestSpectrum:
         assert np.all(trimmed_sp.flux == self.ps0.flux[s])
         assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
 
+    def test_radiometer(self):
+        """Test the radiometer equation"""
+        # radiometer test over a flat portion of the standard getps()
+        c0 = 5000
+        c1 = 15000
+        r0 = self.ps0[c0:c1].radiometer()
+        r1 = self.ps1[c0:c1].radiometer()
+        assert r0 == pytest.approx(1.0534482473)
+        assert r1 == 1.0599168769431548
+        assert r1 == pytest.approx(1.0599168769)
+        # radiometer test after smoothing ; see issue 800
+        width = 5
+        r0b = self.ps0.smooth("box", width)[c0 // width : c1 // width].radiometer()
+        r0g = self.ps0.smooth("gau", width)[c0 // width : c1 // width].radiometer()
+        r0h = self.ps0.smooth("han", width)[c0 // width : c1 // width].radiometer()
+        assert r0b == pytest.approx(1.083694320)
+        assert r0g == pytest.approx(0.907075534)
+        assert r0h == pytest.approx(0.948124804)
+
     def test_smooth(self):
         """Test for smooth with `decimate=0`"""
         width = 10
@@ -541,7 +560,7 @@ class TestSpectrum:
         filename = get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
         sdf = GBTFITSLoad(filename, flag_vegas=False)
         nchan = sdf["DATA"].shape[-1]
-        spec = Spectrum.fake_spectrum(nchan=nchan, seed=1)
+        spec = Spectrum.fake_spectrum(nchan=nchan, seed=1, normal=False)
         spec.data[nchan // 2 - 5 : nchan // 2 + 6] = 10
         org_spec = spec._copy()
         # The next two lines were used to create the input for GBTIDL.
@@ -1052,8 +1071,8 @@ class TestSpectrum:
         f1 = Spectrum.fake_spectrum(nchan=1024, seed=123)
         s1 = f1.stats()
         s2 = f1.stats(roll=1)
-        assert s1["rms"].value == pytest.approx(0.28470637)
-        assert s2["rms"].value == pytest.approx(0.40211407)
+        assert s1["rms"].value == pytest.approx(0.10086297)
+        assert s2["rms"].value == pytest.approx(0.14006544)
         assert s1["npt"] == 1024
         assert s2["npt"] == 1022
         assert s1["nan"] == 0
