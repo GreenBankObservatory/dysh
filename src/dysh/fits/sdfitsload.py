@@ -19,7 +19,7 @@ from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 
 # Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
-from . import fitsio_unicode_patch  # noqa: F401
+from . import fitsio_unicode_patch, index_file  # noqa: F401
 
 
 class SDFITSLoad:
@@ -42,6 +42,7 @@ class SDFITSLoad:
         kwargs_opts = {
             "fix": False,  # fix non-standard header elements
             "verbose": False,
+            "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
         }
         kwargs_opts.update(kwargs)
         if kwargs_opts["verbose"]:
@@ -52,6 +53,8 @@ class SDFITSLoad:
         self._filename = filename
         self._bintable = []
         self._index = None
+        self._index_source = None  # Track whether index was loaded from "index_file" or "fits"
+        self._index_file_threshold = kwargs_opts.get("index_file_threshold", 100 * 1024 * 1024)
         self._binheader = []
         self._hdu = fits.open(filename)
         self._header = self._hdu[0].header
@@ -153,9 +156,12 @@ class SDFITSLoad:
             df = df[df["BINTABLE"] == bintable]
         return df
 
-    def create_index(self, hdu: int | list[int] | None = None, skipindex=("DATA", "FLAGS")):
+    def create_index(self, hdu: int | list[int] | None = None, skipindex=("DATA", "FLAGS"), force_fits: bool = False):
         """
         Create the index of the SDFITS file.
+
+        This method will first attempt to load from a .index file (fast path).
+        If no .index file is found, it falls back to reading from the FITS file.
 
         Parameters
         ----------
@@ -164,8 +170,63 @@ class SDFITSLoad:
             skipindex : list
                 List of str column names to not put in the index.  The default are
                 the multidimensional columns DATA and FLAGS
+            force_fits : bool
+                If True, skip .index file and always load from FITS. Default: False.
+                Used internally for lazy loading when .index columns are insufficient.
 
         """
+        # Check FITS file size to decide whether to use .index file
+        import os
+
+        fits_size = os.path.getsize(self._filename)
+        fits_size_mb = fits_size / (1024 * 1024)
+        threshold_mb = self._index_file_threshold / (1024 * 1024)
+
+        # Determine whether to use .index file based on size threshold
+        use_index_file = fits_size >= self._index_file_threshold and not force_fits
+
+        if use_index_file:
+            logger.info(
+                f"📊 FITS file size: {fits_size_mb:.1f} MB >= {threshold_mb:.1f} MB threshold. "
+                f"Will attempt to use .index file for faster loading."
+            )
+        elif force_fits:
+            logger.debug(f"🔧 force_fits=True: Loading directly from FITS file ({fits_size_mb:.1f} MB)")
+        else:
+            logger.info(
+                f"📊 FITS file size: {fits_size_mb:.1f} MB < {threshold_mb:.1f} MB threshold. "
+                f"Loading directly from FITS file (no .index file needed for small files)."
+            )
+
+        # Try to load from .index file first (fast path for large files)
+        index_path = index_file.get_index_path(self._filename)
+        if index_path.exists() and use_index_file:
+            try:
+                logger.info(f"⚡ Loading index from .index file: {index_path}")
+                self._index = index_file.parse_sdfits_index_file(index_path)
+
+                # Reconstruct BINTABLE column (= HDU - 1)
+                if "HDU" in self._index.columns:
+                    self._index["BINTABLE"] = self._index["HDU"] - 1
+                else:
+                    logger.warning("⚠️  .index file missing HDU column - cannot reconstruct BINTABLE")
+
+                # Log info about lazy loading
+                logger.info(
+                    "📋 Index loaded from .index file (44/93 columns). "
+                    "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
+                    "from FITS file when first accessed."
+                )
+
+                logger.info(f"   Loaded {len(self._index)} rows, {len(self._index.columns)} columns from .index file")
+                self._index_source = "index_file"
+                return
+
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to load .index file: {e}. Falling back to FITS file.")
+                # Fall through to FITS reading
+
+        # Fall back to reading from FITS file
         if hdu is not None:
             ldu = list([hdu])
         else:
@@ -196,6 +257,7 @@ class SDFITSLoad:
             else:
                 self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
+        self._index_source = "fits"
 
     def _add_primary_hdu(self):
         """
@@ -1096,6 +1158,23 @@ class SDFITSLoad:
                     return self._bintable[0].data[multikey]
                 else:
                     return np.vstack([b.data[multikey] for b in self._bintable])
+
+        # Lazy loading: if column(s) missing and loaded from .index file, trigger full load
+        if isinstance(items, str):
+            missing_keys = [items] if items not in self._index.columns else []
+        else:
+            missing_keys = [k for k in items if k not in self._index.columns]
+
+        if missing_keys and self._index_source == "index_file":
+            logger.info(
+                f"🔄 Column(s) {missing_keys} not available in .index file. "
+                f"Triggering full FITS index load to access all columns..."
+            )
+            # Force full reload from FITS (skip .index file)
+            self._index_source = None  # Reset to prevent infinite loop
+            self.create_index(force_fits=True)
+            logger.info(f"   ✓ Full index loaded: {len(self._index.columns)} columns now available")
+
         return self._index[items]
 
     def __setitem__(self, items, values):

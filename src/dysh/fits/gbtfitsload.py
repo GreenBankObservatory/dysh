@@ -99,6 +99,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "index": True,
             "verbose": False,
             "fix_ka": True,
+            "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
         }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
