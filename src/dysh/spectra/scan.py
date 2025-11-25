@@ -1577,8 +1577,8 @@ class TPScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
-        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
         goodrows = np.intersect1d(nb1, nb2)
@@ -1863,8 +1863,8 @@ class PSScan(ScanBase):
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         # noise diode off, signal position
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigoffrows)
 
         if self._has_refspec:
             self._refoffrows = None
@@ -1878,8 +1878,8 @@ class PSScan(ScanBase):
             self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
             # noise diode off, reference position
             self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)
 
             # Catch blank integrations.
             if not self._nocal:
@@ -2202,15 +2202,15 @@ class NodScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         if beam1:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigoffrows)
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)
         else:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigoffrows)
 
         # Catch blank integrations.
 
@@ -2478,10 +2478,10 @@ class FSScan(ScanBase):
         logger.debug(f"bintable index is {self._bintable_index}")
 
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigonrows)
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._sigoffrows)
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refonrows)
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags, rows=self._refoffrows)
 
         # Catch blank integrations.
         if not self._nocal:

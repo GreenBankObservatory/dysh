@@ -503,9 +503,18 @@ class SDFITSLoad:
         """
         # Auto-select backend if not specified
         if fits_backend is None:
-            # Use fitsio when rows are specified (efficient selective loading)
-            # Use astropy otherwise (memory-mapped full array access)
-            fits_backend = FITSBackend.FITSIO if rows is not None else FITSBackend.ASTROPY
+            # Check if data is already loaded in memory via astropy
+            data_is_cached = getattr(self._bintable[bintable], "_data_loaded", False)
+
+            if data_is_cached:
+                # Data is in memory - use astropy to slice cached data (no disk I/O)
+                fits_backend = FITSBackend.ASTROPY
+            elif rows is not None:
+                # Data not cached and specific rows requested - use fitsio for efficient selective loading
+                fits_backend = FITSBackend.FITSIO
+            else:
+                # Full load without cache - use astropy (memory-mapped)
+                fits_backend = FITSBackend.ASTROPY
 
         if fits_backend == FITSBackend.FITSIO:
             return self._rawspectra_fitsio(bintable, rows=rows, setmask=setmask)
