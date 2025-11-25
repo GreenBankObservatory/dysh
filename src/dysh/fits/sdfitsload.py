@@ -4,6 +4,8 @@
 
 import warnings
 from collections.abc import Sequence
+from enum import Enum
+from typing import TYPE_CHECKING
 
 import astropy.units as u
 import fitsio
@@ -14,12 +16,22 @@ from astropy.io.fits import BinTableHDU, Column
 from astropy.table import Table
 from astropy.utils.masked import Masked
 
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike
+
 from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 
 # Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
 from . import fitsio_unicode_patch, index_file  # noqa: F401
+
+
+class FITSBackend(Enum):
+    """Backend options for reading FITS data."""
+
+    ASTROPY = "astropy"
+    FITSIO = "fitsio"
 
 
 class SDFITSLoad:
@@ -459,29 +471,129 @@ class SDFITSLoad:
         """
         return (self._index.iloc[row]["BINTABLE"], self._index.iloc[row]["ROW"])
 
-    def rawspectra(self, bintable, setmask=False):
+    def rawspectra(
+        self,
+        bintable: int,
+        setmask: bool = False,
+        rows: "ArrayLike | None" = None,
+        fits_backend: FITSBackend | None = None,
+    ) -> np.ma.MaskedArray:
         """
         Get the raw (unprocessed) spectra from the input bintable.
 
         Parameters
         ----------
-            bintable :  int
-                The index of the `bintable` attribute
-            setmask : bool
-                If True, set the data mask according to the current flags in the `_flagmask` attribute. If False, set the data mask to False.
+        bintable : int
+            The index of the `bintable` attribute
+        setmask : bool
+            If True, set the data mask according to the current flags in the `_flagmask` attribute.
+            If False, set the data mask to False.
+        rows : array-like or None
+            If provided, load only these rows. If None, load all rows.
+        fits_backend : FITSBackend or None
+            Backend to use for reading data. Options:
+            - None (default): auto-select (fitsio when rows specified, astropy otherwise)
+            - FITSBackend.ASTROPY: force astropy (memory-mapped, efficient for full loads)
+            - FITSBackend.FITSIO: force fitsio (efficient for selective row loading)
 
         Returns
         -------
-            rawspectra : ~numpy.ma.MaskedArray
-                The DATA column of the input bintable, masked according to `setmask`
+        rawspectra : ~numpy.ma.MaskedArray
+            The DATA column of the input bintable, masked according to `setmask`
+        """
+        # Auto-select backend if not specified
+        if fits_backend is None:
+            # Use fitsio when rows are specified (efficient selective loading)
+            # Use astropy otherwise (memory-mapped full array access)
+            fits_backend = FITSBackend.FITSIO if rows is not None else FITSBackend.ASTROPY
 
+        if fits_backend == FITSBackend.FITSIO:
+            return self._rawspectra_fitsio(bintable, rows=rows, setmask=setmask)
+        else:
+            return self._rawspectra_astropy(bintable, rows=rows, setmask=setmask)
+
+    def _rawspectra_astropy(
+        self, bintable: int, rows: "ArrayLike | None" = None, setmask: bool = False
+    ) -> np.ma.MaskedArray:
+        """
+        Load DATA column via astropy (memory-mapped, efficient for full array access).
+
+        Parameters
+        ----------
+        bintable : int
+            The index of the `bintable` attribute
+        rows : array-like or None
+            If provided, slice these rows after loading. If None, load all rows.
+        setmask : bool
+            If True, set the data mask according to flags.
+
+        Returns
+        -------
+        np.ma.MaskedArray
+            The raw spectra data
         """
         data = self._bintable[bintable].data[:]["DATA"]
-        if setmask:
-            rawspec = np.ma.MaskedArray(data, mask=self._flagmask[bintable])
+
+        if rows is not None:
+            rows_array = np.asarray(rows)
+            if len(rows_array) == 0:
+                nchan = self.nchan(bintable)
+                return np.ma.MaskedArray(np.empty((0, nchan)), mask=False)
+            data = data[rows_array]
+            if setmask:
+                mask = self._flagmask[bintable][rows_array]
+            else:
+                mask = False
+        elif setmask:
+            mask = self._flagmask[bintable]
         else:
-            rawspec = np.ma.MaskedArray(data, mask=False)
-        return rawspec
+            mask = False
+
+        return np.ma.MaskedArray(data, mask=mask)
+
+    def _rawspectra_fitsio(
+        self, bintable: int, rows: "ArrayLike | None" = None, setmask: bool = False
+    ) -> np.ma.MaskedArray:
+        """
+        Load DATA column via fitsio (efficient for selective row loading).
+
+        Parameters
+        ----------
+        bintable : int
+            The index of the `bintable` attribute
+        rows : array-like or None
+            If provided, load only these rows. If None, load all rows.
+        setmask : bool
+            If True, set the data mask according to flags.
+
+        Returns
+        -------
+        np.ma.MaskedArray
+            The raw spectra data
+        """
+        # Get HDU index - bintables start at HDU 1 (HDU 0 is primary)
+        hdu_index = bintable + 1
+
+        with fitsio.FITS(self._filename) as fits_file:
+            if rows is not None:
+                rows_array = np.asarray(rows)
+                if len(rows_array) == 0:
+                    nchan = self.nchan(bintable)
+                    return np.ma.MaskedArray(np.empty((0, nchan)), mask=False)
+                # fitsio can read specific rows efficiently
+                data = fits_file[hdu_index].read(columns=["DATA"], rows=rows_array)["DATA"]
+                if setmask:
+                    mask = self._flagmask[bintable][rows_array]
+                else:
+                    mask = False
+            else:
+                data = fits_file[hdu_index].read(columns=["DATA"])["DATA"]
+                if setmask:
+                    mask = self._flagmask[bintable]
+                else:
+                    mask = False
+
+        return np.ma.MaskedArray(data, mask=mask)
 
     def rawspectrum(self, i, bintable=0, setmask=False):
         """

@@ -15,6 +15,7 @@ import pandas as pd
 from astropy import units as u
 from astropy.io import fits
 from astropy.units.quantity import Quantity
+from numpy.typing import ArrayLike
 
 from dysh.log import logger
 
@@ -50,7 +51,7 @@ from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
 from ..util.weatherforecast import GBTWeatherForecast
 from . import conf, core
-from .sdfitsload import SDFITSLoad
+from .sdfitsload import FITSBackend, SDFITSLoad
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
@@ -369,7 +370,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return s
 
     # override sdfits version
-    def rawspectra(self, bintable, fitsindex, setmask=False):
+    def rawspectra(
+        self,
+        bintable: int,
+        fitsindex: int,
+        setmask: bool = False,
+        rows: ArrayLike | None = None,
+        fits_backend: FITSBackend | None = None,
+    ) -> np.ma.MaskedArray:
         """
         Get the raw (unprocessed) spectra from the input bintable.
 
@@ -381,6 +389,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
         setmask : boolean
             If True, set the mask according to the current flags. Default:False
+        rows : array-like or None
+            If provided, load only these specific rows. If None, load all rows.
+            This is an internal parameter used by Scan classes.
+        fits_backend : FITSBackend or None
+            Backend to use for reading data. Options:
+            - None (default): auto-select (fitsio when rows specified, astropy otherwise)
+            - FITSBackend.ASTROPY: force astropy (memory-mapped, efficient for full loads)
+            - FITSBackend.FITSIO: force fitsio (efficient for selective row loading)
 
         Returns
         -------
@@ -388,7 +404,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The DATA column of the input bintable, masked according to `setmask`
 
         """
-        return self._sdf[fitsindex].rawspectra(bintable, setmask=setmask)
+        return self._sdf[fitsindex].rawspectra(bintable, setmask=setmask, rows=rows, fits_backend=fits_backend)
 
     def rawspectrum(self, i, bintable=0, fitsindex=0, setmask=False):
         """
