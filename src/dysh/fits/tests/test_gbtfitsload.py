@@ -1760,3 +1760,211 @@ def test_parse_tsys():
     with pytest.raises(TypeError) as excinfo:
         _tsys = gbtfitsload._parse_tsys(tsys, scans)
     assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
+
+
+class TestOnlineGBTFITSLoad:
+    """Tests for OnlineGBTFITSLoad (GBTOnline) functionality."""
+
+    def setup_method(self):
+        self.data_dir = util.get_project_testdata()
+
+    def test_reload_detects_file_growth(self, tmp_path):
+        """Test that _reload() detects when a file grows."""
+        import time
+
+        import fitsio
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        initial_rows = len(online._index)
+        assert initial_rows == 4  # This file has 4 rows
+
+        # Sleep to ensure mtime difference
+        time.sleep(0.1)
+
+        # Append duplicate rows (same data, just to grow the file)
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            existing_data = f[1].read()
+            f[-1].append(existing_data[:2])  # Append 2 rows
+
+        # _reload should detect the change
+        result = online._reload()
+        assert result is True, "_reload() should return True when file changed"
+        assert len(online._index) == 6, "Should have 6 rows after append"
+
+    def test_reload_handles_missing_file(self, tmp_path, caplog):
+        """Test that _reload() handles missing files gracefully."""
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        assert len(online._index) == 4
+
+        # Delete the file
+        fits_file.unlink()
+
+        # _reload should handle this gracefully (not raise, just warn)
+        with caplog.at_level(logging.WARNING):
+            result = online._reload()
+
+        assert result is False, "_reload() should return False when file missing"
+        assert "Watched file unavailable" in caplog.text
+
+    def test_reload_recovers_after_file_recreated_with_fewer_rows(self, tmp_path):
+        """Test that monitoring recovers after file is deleted and recreated with fewer rows."""
+        import time
+
+        import fitsio
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        # First, grow the file so we have more rows to compare against
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            existing_data = f[1].read()
+            f[-1].append(existing_data)  # Double the rows
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        initial_rows = len(online._index)
+        assert initial_rows == 8  # 4 original + 4 appended
+
+        # Delete file
+        fits_file.unlink()
+
+        # _reload handles missing file
+        result = online._reload()
+        assert result is False
+
+        # Recreate with original file (FEWER rows - simulates new session starting)
+        time.sleep(0.1)
+        shutil.copy(source_file, fits_file)
+
+        # _reload should detect the new file
+        result = online._reload()
+        assert result is True, "Should detect recreated file"
+
+        # Now verify we have fewer rows (the data reset scenario)
+        current_rows = len(online._index)
+        assert current_rows == 4, "Should have 4 rows from new file"
+        assert current_rows < initial_rows, "New file should have fewer rows than original"
+
+    def test_path_does_not_exist_raises(self, tmp_path):
+        """Test that GBTOnline raises FileNotFoundError for non-existent path."""
+        nonexistent = tmp_path / "does_not_exist"
+
+        with pytest.raises(FileNotFoundError, match="Path does not exist"):
+            gbtfitsload.GBTOnline(str(nonexistent))
+
+    def test_detect_duplicate_scans_after_file_recreated(self, tmp_path):
+        """Test that we can detect duplicate scan numbers after file recreation.
+
+        This tests the scenario where a session restarts and reuses scan numbers.
+        The monitor should be able to detect this by comparing current scans
+        against previously seen scans.
+        """
+        import time
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+
+        # Get initial scan numbers
+        initial_scans = set(online._index["SCAN"].unique())
+        assert len(initial_scans) > 0, "Should have at least one scan"
+
+        # Track seen scans (simulating what the CLI does)
+        seen_scans = initial_scans.copy()
+
+        # Delete and recreate file (simulating session restart with same scan numbers)
+        fits_file.unlink()
+        time.sleep(0.1)
+        shutil.copy(source_file, fits_file)
+
+        # Reload
+        result = online._reload()
+        assert result is True
+
+        # Get new scan numbers
+        current_scans = set(online._index["SCAN"].unique())
+
+        # Detect duplicates: new rows added but no new scan numbers means duplicates
+        new_scan_nums = current_scans - seen_scans
+
+        # Since we recreated the exact same file, all scans should be "seen" already
+        # This indicates duplicate scan numbers (session restart)
+        assert len(new_scan_nums) == 0, "Should detect no new scan numbers (all duplicates)"
+        assert current_scans == initial_scans, "Scan numbers should be same as before"
+
+    def test_detect_scan_number_regression(self, tmp_path):
+        """Test detection of scan number regression (current scan < previous scan).
+
+        This tests the scenario where a new scan has a lower number than the previous
+        scan, which indicates an unexpected scan sequence (e.g., operator manually
+        restarting scans or data from multiple sessions being mixed).
+        """
+        import time
+
+        import fitsio
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+
+        # Get the scan numbers and find the last scan
+        scans = online._index["SCAN"].to_numpy()
+        last_scan_num = int(scans[-1])
+
+        # Read all data
+        with fitsio.FITS(str(fits_file), "r") as f:
+            data = f[1].read()
+
+        # Create a modified version with a lower scan number in the last row
+        # Simulate: last scan was 10, new scan is 5 (regression)
+        modified_data = data.copy()
+
+        # Overwrite file with data that has scan regression
+        # Append a row with scan number = 1 (lower than anything)
+        new_row = modified_data[:1].copy()
+        new_row["SCAN"] = 1  # Force a low scan number
+
+        time.sleep(0.1)  # Ensure mtime differs
+
+        # Append the row with low scan number
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            f[-1].append(new_row)
+
+        # Reload
+        result = online._reload()
+        assert result is True
+
+        # Get the new last scan
+        new_scans = online._index["SCAN"].to_numpy()
+        current_scan_num = int(new_scans[-1])
+
+        # Verify scan regression: current scan (1) < previous last scan
+        assert current_scan_num == 1, "New scan should be 1"
+        assert current_scan_num < last_scan_num, f"Scan regression: {current_scan_num} < {last_scan_num}"

@@ -8,6 +8,7 @@ import platform
 import time
 import warnings
 from collections.abc import Sequence
+from enum import StrEnum
 from pathlib import Path
 
 import numpy as np
@@ -56,6 +57,29 @@ from .sdfitsload import FITSBackend, SDFITSLoad
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
+
+
+class GBTBackend(StrEnum):
+    """GBT spectrometer backends."""
+
+    VEGAS = "vegas"
+    ACS = "acs"
+    SP = "sp"
+    DCR = "dcr"  # continuum
+    ZPEC = "zpec"  # continuum
+
+    @classmethod
+    def spectral_line_backends(cls) -> set["GBTBackend"]:
+        """Return backends used for spectral line observations."""
+        return {cls.VEGAS, cls.ACS, cls.SP}
+
+    @classmethod
+    def from_string(cls, s: str) -> "GBTBackend | None":
+        """Parse backend from string (case-insensitive)."""
+        try:
+            return cls(s.lower())
+        except ValueError:
+            return None
 
 
 class GBTFITSLoad(SDFITSLoad, HistoricalBase):
@@ -3544,28 +3568,52 @@ class GBTOnline(GBTFITSLoad):
 
     Use dysh_data('?') to display all filenames in the "sdfits" area.
 
+    Parameters
+    ----------
+    fileobj : str or None
+        Project name or path to monitor. If None, auto-discovers most recent observation.
+    backend : GBTBackend, str, or None
+        Filter to specific backend (vegas, acs, sp). Only used in auto-discover mode.
+
+    Examples
+    --------
+    >>> sdf = GBTOnline()                          # Auto-discover most recent
+    >>> sdf = GBTOnline(backend=GBTBackend.VEGAS)  # Most recent VEGAS
+    >>> sdf = GBTOnline(backend='vegas')           # Same, using string
+    >>> sdf = GBTOnline('AGBT21B_024_01')          # Monitor specific project
     """
 
     @log_call_to_history
-    def __init__(self, fileobj=None, *args, **kwargs):
+    def __init__(self, fileobj=None, *args, backend: GBTBackend | str | None = None, **kwargs):
         self._online = fileobj
         self._args = args
+        # Disable index file loading for online mode - we need all columns for Selection
+        kwargs.setdefault("index_file_threshold", float("inf"))
         self._kwargs = kwargs
         self._platform = platform.system()  # cannot update in "Windows", see #447
+
+        # Convert string backend to enum
+        if isinstance(backend, str):
+            backend = GBTBackend.from_string(backend)
+        self._backend = backend
+
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
-                GBTFITSLoad.__init__(self, fileobj, *args, **kwargs)
-            else:
+                self._online = fileobj
+                GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
+            elif os.path.exists(fileobj):
                 self._online = dysh_data(fileobj)
                 GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
+            else:
+                raise FileNotFoundError(f"Path does not exist: {fileobj}")
             logger.info(f"Connecting to explicit file: {self._online} - will be monitoring this")
 
         else:
-            self._online_mode = 2  #  monitor all files?
+            self._online_mode = 2  # auto-discover mode
             logger.debug("Testing online mode, finding most recent file")
             if "SDFITS_DATA" in os.environ:
-                logger.debug("warning: using SDITS_DATA")
+                logger.debug("warning: using SDFITS_DATA")
                 sdfits_root = os.environ["SDFITS_DATA"]
             elif "DYSH_DATA" in os.environ:
                 sdfits_root = os.environ["DYSH_DATA"] + "/sdfits"
@@ -3578,30 +3626,38 @@ class GBTOnline(GBTFITSLoad):
                 logger.info(f"Cannot find {sdfits_root}")
                 return None
 
-            # 1. check the status_file ?
-            status_file = "sdfitsStatus.txt"
-            if os.path.exists(sdfits_root + "/" + status_file):
-                logger.debug(f"Found {status_file} but not using it yet")
+            # 1. Fast path: try sdfitsStatus.txt file
+            status_file_path = os.path.join(sdfits_root, "sdfitsStatus.txt")
+            status_info = _parse_sdfits_status_file(status_file_path, backend=self._backend)
+            if status_info:
+                project_dir = os.path.join(sdfits_root, status_info["project"])
+                self._online = project_dir
+                logger.info(f"Found active session via status file: {status_info['project']}")
+                GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
+                self._mtime = os.path.getmtime(self.filenames()[0])
+            else:
+                # 2. Fallback: directory walk to find most recent FITS file
+                if os.path.exists(status_file_path):
+                    logger.debug("Status file exists but no matching entry, falling back to directory scan")
+                n = 0
+                mtime_max = 0
+                project = None
+                for dirname, subdirs, files in os.walk(sdfits_root):
+                    if len(subdirs) == 0:
+                        n = n + 1
+                        for fname in files:
+                            if fname.split(".")[-1] == "fits":
+                                mtime = os.path.getmtime(dirname + "/" + fname)
+                                if mtime > mtime_max:
+                                    mtime_max = mtime
+                                    project = dirname
+                                break
+                if n == 0 or project is None:
+                    return None
 
-            # 2. visit each directory where the final leaf contains fits files, and find the most recent one
-            n = 0
-            mtime_max = 0
-            for dirname, subdirs, files in os.walk(sdfits_root):
-                if len(subdirs) == 0:
-                    n = n + 1
-                    for fname in files:
-                        if fname.split(".")[-1] == "fits":
-                            mtime = os.path.getmtime(dirname + "/" + fname)
-                            if mtime > mtime_max:
-                                mtime_max = mtime
-                                project = dirname
-                            break
-            if n == 0:
-                return None
-
-            self._online = project
-            GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
-            self._mtime = os.path.getmtime(self.filenames()[0])
+                self._online = project
+                GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
+                self._mtime = os.path.getmtime(self.filenames()[0])
 
         # we only test the first filename in the list, assuming they're all being written
 
@@ -3618,17 +3674,32 @@ class GBTOnline(GBTFITSLoad):
         """force a reload of the latest"""
         if self._platform == "Windows":
             logger.warning("Cannot reload on Windows, see issue #447")
-            return
+            return False
         if not force:
+            mtime = self._mtime
+            files_missing = False
             for f in self.filenames():
-                mtime = max(self._mtime, os.path.getmtime(f))
+                try:
+                    mtime = max(mtime, os.path.getmtime(f))
+                except OSError as e:
+                    # File disappeared - log warning but keep watching
+                    logger.warning(f"Watched file unavailable: {f} ({e})")
+                    files_missing = True
+            if files_missing:
+                # Can't reload if files are missing, but keep watching
+                return False
             if mtime > self._mtime:
                 self._mtime = mtime
-                logger.debug("NEW MTIME:", self._mtime)
+                logger.debug("NEW MTIME: %s", self._mtime)
                 force = True
         if force:
             logger.info(f"Reload {self._online}")
-            GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
+            try:
+                GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
+            except FileNotFoundError as e:
+                # Directory came back but files not ready yet
+                logger.warning(f"Reload failed, will retry: {e}")
+                return False
         return force
 
     # examples of catchers for reloading
@@ -3721,3 +3792,95 @@ def _tsys_dict_to_dict(tsys, scans):
         else:
             tsys_dict[scan] = tsys[scan]
     return tsys_dict
+
+
+def _parse_sdfits_status_file(
+    status_file_path: str,
+    backend: GBTBackend | str | None = None,
+) -> dict | None:
+    """
+    Parse sdfitsStatus.txt file to find active observations.
+
+    Parameters
+    ----------
+    status_file_path : str
+        Path to the sdfitsStatus.txt file
+    backend : GBTBackend, str, or None
+        If provided, filter to this specific backend. Can be enum or string.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with keys: backend (GBTBackend), project, scan, timestamp, file, index, age_minutes
+        Returns None if file doesn't exist or no matching entries found.
+    """
+    from datetime import datetime
+
+    if not os.path.exists(status_file_path):
+        return None
+
+    # Convert string to enum if needed
+    if isinstance(backend, str):
+        backend = GBTBackend.from_string(backend)
+        if backend is None:
+            # Invalid backend string - no matching entries possible
+            return None
+
+    spectral_backends = GBTBackend.spectral_line_backends()
+    entries = []
+
+    try:
+        with open(status_file_path) as f:
+            for line in f:
+                line = line.strip()
+                # Skip comments and empty lines
+                if not line or line.startswith("#"):
+                    continue
+
+                parts = line.split(",")
+                if len(parts) < 7:
+                    continue
+
+                backend_str, project, scan, timestamp, _datetime_str, file, index = parts[:7]
+
+                # Parse backend
+                entry_backend = GBTBackend.from_string(backend_str)
+                if entry_backend is None:
+                    continue
+
+                # Filter to spectral line backends only (unless specific backend requested)
+                if backend is None and entry_backend not in spectral_backends:
+                    continue
+
+                # Filter to specific backend if requested
+                if backend is not None and entry_backend != backend:
+                    continue
+
+                # Parse timestamp and calculate age
+                try:
+                    ts = datetime.fromisoformat(timestamp)
+                    age_minutes = (datetime.now() - ts).total_seconds() / 60.0
+                except ValueError:
+                    age_minutes = float("inf")
+
+                entries.append(
+                    {
+                        "backend": entry_backend,
+                        "project": project,
+                        "scan": scan,
+                        "timestamp": timestamp,
+                        "file": file,
+                        "index": index,
+                        "age_minutes": age_minutes,
+                    }
+                )
+
+    except OSError as e:
+        logger.warning(f"Error reading status file {status_file_path}: {e}")
+        return None
+
+    if not entries:
+        return None
+
+    # Return most recent entry (smallest age)
+    return min(entries, key=lambda x: x["age_minutes"])
