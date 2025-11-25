@@ -448,6 +448,14 @@ class TestWeights:
 
         x = sb.timeaverage(weights="tsys")
         assert np.ma.mean(x.weights) == pytest.approx(274.7940106210527)
+        # now do a custom weight array
+        scale = 100
+        w = scale * np.random.rand(sb.nint, sb.nchan)
+        x = sb.timeaverage(weights=w)
+        # average weight should be roughly nint*np.mean(w) which should
+        # also be 1/2 nint*scale.  1/2 because the mean of the random range (0,1) is 0.5
+        assert np.mean(x.weights) == pytest.approx(sb.nint * np.mean(w), rel=1e-2)
+        assert np.mean(x.weights) == pytest.approx(0.5 * sb.nint * scale, rel=1e-2)
 
 
 class TestTPScan:
