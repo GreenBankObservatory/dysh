@@ -180,6 +180,15 @@ class TestSpectrum:
         assert division.velocity_frame == self.ps0.velocity_frame
         compare_spectrum(self.ps0, division)
 
+    def test_rdiv_scalar(self):
+        """Test that we can divide a scalar by a `Spectrum`."""
+        division = 1.0 / self.ps0
+
+        assert np.all(division.flux.value == (1.0 / self.ps0.flux.value))
+        assert division.flux.unit == 1 / self.ps0.flux.unit
+        assert division.velocity_frame == self.ps0.velocity_frame
+        compare_spectrum(self.ps0, division)
+
     def test_write_read_fits(self, tmp_path):
         """Test that we can read fits files written by dysh"""
         s = self.ps1
@@ -996,8 +1005,9 @@ class TestSpectrum:
         * Test that masks are propagated.
         * Test that history is propagated.
         """
-        f1 = Spectrum.fake_spectrum()
-        f2 = Spectrum.fake_spectrum()
+        f1 = Spectrum.fake_spectrum(CRVAL4=-6)
+        f2 = Spectrum.fake_spectrum(CRVAL4=-5)
+        f3 = Spectrum.fake_spectrum(CRVAL4=-4)
         assert f1.mask.sum() == 0
         assert f2.mask.sum() == 0
 
@@ -1024,6 +1034,16 @@ class TestSpectrum:
         # Check that original Spectrum history did not change.
         assert "baseline" in f1.history[-1]
         assert "__init__" in f2.history[-1]
+
+        # Pol designation.
+        fa = f1.average(f2)
+        assert fa.meta["CRVAL4"] == 1  # two compatible pols are averaged to form stokes I/2
+        fa = f1.average(f1)
+        assert fa.meta["CRVAL4"] == f1.meta["CRVAL4"]  # single pol averaged returns itself
+        fa = f1.average([f2, f3])
+        assert fa.meta["CRVAL4"] == 0  # 3 different pols returns invalid
+        fa = f1.average(f3)
+        assert fa.meta["CRVAL4"] == 0  # 2 incompatible pols returns invalid
 
     def test_stats(self):
         """
