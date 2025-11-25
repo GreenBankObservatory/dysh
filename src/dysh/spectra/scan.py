@@ -149,16 +149,15 @@ class SpectralAverageMixin:
 
         Parameters
         ----------
-        weights: None, str or ~numpy.ndarray
+        weights: None, str or `~numpy.ndarray`
             If None, the channel weights will be equal and set to unity.
 
             If 'tsys' the channel weights will be calculated as:
 
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-            If an array, it must have shape `(N,)` or `(N,nchan)` where `N` is the number
-            of integrations in the Scan or  the number of Scans in the ScanBlock and `nchan` is the number of channels in the Scan. If the weights
-            shape is `(N,)` then the `i-th` weight value will be replicated for all channels in integration/Scan `i`, e.g., with `np.tile(weights.reshape(N,1)),nchan)`.
+            If an array, it must have shape `(Nint,)` or `(Nint,nchan)` where `Nint` is the number
+            of integrations in the Scan or ScanBlock and `nchan` is the number of channels in the Scan.
 
         use_wcs : bool
             Create a WCS object for the resulting `~dysh.spectra.spectrum.Spectrum`.
@@ -167,8 +166,8 @@ class SpectralAverageMixin:
 
         Returns
         -------
-        spectrum : :class:`~spectra.spectrum.Spectrum`
-            The time-averaged spectrum. The weights array of the Spectrum will be set to the sum of the input weights.
+        spectrum : :class:`~dysh.spectra.spectrum.Spectrum`
+            The time-averaged spectrum. The weights array of the Spectrum will have shape `(nchan,)` and will be set to the sum of the input weights.
 
         .. note::
 
@@ -178,19 +177,19 @@ class SpectralAverageMixin:
         pass
 
     @property
-    def exposure(self):
+    def exposure(self) -> np.ndarray:
         """The array of exposure (integration) times. How the exposure is calculated
         varies for different derived classes.  See :meth:`_calc_exposure`,
 
         Returns
         -------
-        exposure : ~numpy.ndarray
+        exposure : `~numpy.ndarray`
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
         return self._exposure
 
     @property
-    def delta_freq(self):
+    def delta_freq(self) -> np.ndarray:
         """The array of channel frequency width.  How the channel width is calculated varies for different derived classes. See :meth:`_calc_delta_freq`.
 
 
@@ -214,16 +213,16 @@ class SpectralAverageMixin:
         return self._tsys
 
     @property
-    def tsys_weight(self):
+    def tsys_weight(self) -> np.ndarray:
         r"""The system temperature weighting array computed from current
         :math:`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
         """
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
 
     @property
-    def weights(self):
+    def weights(self) -> np.ndarray:
         """
-        The weights for each integration after an averaging operation.  If `Scan.timeaverage()' has not been
+        The weights for each integration after an averaging operation.  If `Scan.timeaverage()` has not been
         called, the weights will be unity.  The weights array can have shape `(nint,)` or `(nint,nchan)` depending on
         how `timeaverage()` was called.
         """
@@ -380,7 +379,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             f"Delta Freq (channel width) calculation for {self.__class__.__name__} needs to be implemented."
         )
 
-    def getspec(self, i, use_wcs=True):  ##SCANBASE
+    def getspec(self, i: int, use_wcs: bool = True) -> Spectrum:  ##SCANBASE
         """Return the i-th calibrated Spectrum from this Scan.
 
         Parameters
@@ -411,7 +410,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return s
 
     @property
-    def is_scaled(self):
+    def is_scaled(self) -> bool:
         r"""Is this Scan scaled to something other than antenna temperature :math:`T_A`.
 
         Returns
@@ -422,7 +421,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._tscale.lower() != "ta"
 
     @property
-    def tscale(self):
+    def tscale(self) -> str:
         """
         The descriptive brightness unit of the data. One of
             - 'Raw' : raw value, e.g., count
@@ -439,7 +438,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._tscale[0].upper() + self._tscale[1:]
 
     @property
-    def tscale_fac(self):
+    def tscale_fac(self) -> np.ndarray:
         """
         The factor(s) by which the data have been scale from antenna temperature to corrected antenna temperature
         or flux density.
@@ -453,7 +452,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._tscale_fac
 
     @property
-    def tunit(self):
+    def tunit(self) -> u.Unit:
         """The brightness unit (temperature or flux density)  of this Scan's data
 
         Returns
@@ -480,7 +479,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._calibrated = self._calibrated * (np.array([factor]).T)
 
     @log_call_to_history
-    def scale(self, tscale, zenith_opacity=None):
+    def scale(self, tscale: str, zenith_opacity: float | None = None):
         """
         Scale the data to the given brightness scale (temperature of flux density) and zenith opacity. If data are already
         scaled, they will be unscaled first.
@@ -572,7 +571,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             raise ValueError(f"Baseline model would extrapolate on spectral axis by more than {tol} channels.")
 
     @log_call_to_history
-    def subtract_baseline(self, model, tol=1, force=False):
+    def subtract_baseline(self, model, tol: int = 1, force: bool = False):
         """
         Subtract a (previously computed) baseline model from every integration in this Scan.
 
@@ -638,12 +637,12 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._baseline_model
 
     @property
-    def calibrated(self):
+    def calibrated(self) -> np.ndarray:
         """Returns the calibrated integrations in the Scan as a numpy array."""
         return self._calibrated
 
     @property
-    def subtracted(self):
+    def subtracted(self) -> bool:
         """Has a baseline model been subtracted?
 
         Returns
@@ -653,7 +652,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._subtracted
 
     @property
-    def scan(self):
+    def scan(self) -> int:
         """
         The scan number
 
@@ -665,13 +664,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._scan
 
     @property
-    def ap_eff(self):
+    def ap_eff(self) -> np.ndarray:
         """
         The aperture efficiencies for the integrations in this Scan
 
         Returns
         -------
-        ap_eff : `~np.ndarray`
+        ap_eff : `~numpy.ndarray`
             The aperture efficiencies, an array of floats between 0 and 1, one value per integration.
         """
         # compute it the first time if not computed.
@@ -690,13 +689,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._ap_eff_array
 
     @property
-    def surface_error(self):
+    def surface_error(self) -> u.quantity.Quantity:
         """
         The dish surface errors for the integrations in this Scan
 
         Returns
         -------
-        surface_error : `~astropy.units.quanity.Quantity`
+        surface_error : `~astropy.units.quantity.Quantity`
             The surface_errors with dimension length, one value per integration.
         """
         # compute it the first time if not computed.
@@ -714,7 +713,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._surface_error_array
 
     @property
-    def zenith_opacity(self):
+    def zenith_opacity(self) -> float | None:
         """
         The zenith opacity of this Scan, used to calculated aperture efficiency.
 
@@ -726,7 +725,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._zenith_opacity
 
     @property
-    def nchan(self):
+    def nchan(self) -> int:
         """
         The number of channels in this scan.
 
@@ -739,7 +738,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._nchan
 
     @property
-    def nint(self):
+    def nint(self) -> int:
         """
         The number of integrations in this scan.
 
@@ -751,7 +750,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._nint
 
     @property
-    def nrows(self):
+    def nrows(self) -> int:
         """
         The number of rows in this scan.
 
@@ -763,7 +762,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._nrows
 
     @property
-    def ifnum(self):
+    def ifnum(self) -> int:
         """
         The intermediate frequency (IF) number.
 
@@ -775,7 +774,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._ifnum
 
     @property
-    def fdnum(self):
+    def fdnum(self) -> int:
         """
         The feed number.
 
@@ -787,7 +786,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._fdnum
 
     @property
-    def plnum(self):
+    def plnum(self) -> int:
         """
         The polarization number.
 
@@ -811,7 +810,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     #    return self._pols
 
     @property
-    def is_calibrated(self):
+    def is_calibrated(self) -> bool:
         """
         Have the data been calibrated?
 
@@ -824,7 +823,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         return self._calibrated is not None
 
     @property
-    def meta(self):
+    def meta(self) -> dict:
         """
         The metadata of this Scan. The metadata is a list of dictionaries, the length of which is
         equal to the number of calibrated integrations in the Scan.
@@ -1181,6 +1180,18 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         return self.data[0].nchan
 
     @property
+    def nint(self):
+        """The total number of integrations in this Scanblock
+
+        Returns
+        -------
+        int
+            The number of integerationsin this ScanBlock.
+
+        """
+        return np.sum([i.nint for i in self])
+
+    @property
     def weights(self) -> list:
         """
         The weights associated with the Scans and integrations in this ScanBlock
@@ -1260,12 +1271,23 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     @copy_docstring(SpectralAverageMixin.timeaverage)
     def timeaverage(self, weights="tsys", use_wcs: bool = True):  ## SCANBLOCK
         # average of the averages
-        self._timeaveraged = []
-        for scan in self.data:
-            self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
+        ary = False
         if isinstance(weights, np.ndarray):
+            ws = weights.shape
+            ary = True
+            if ws != (self.nint,) and ws != (self.nint, self.nchan):
+                raise ValueError(f"Bad shape for weight array: {ws}. Was expecting {len(self)},)  or ({self.nint},).")
+        self._timeaveraged = []
+        index = 0
+        if ary:
+            for scan in self.data:
+                w = weights[index : index + scan.nint]
+                index += scan.nint
+                self._timeaveraged.append(scan.timeaverage(w, use_wcs=use_wcs))
             s = average_spectra(self._timeaveraged, weights="spectral")
         else:
+            for scan in self.data:
+                self._timeaveraged.append(scan.timeaverage(weights, use_wcs=use_wcs))
             s = average_spectra(self._timeaveraged, weights=weights)
         s.merge_commentary(self)
         return s
@@ -1349,7 +1371,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
     # the integrations in that Scan.
 
     @log_call_to_history
-    def subtract_baseline(self, model, tol=1, force=False):
+    def subtract_baseline(self, model, tol: int = 1, force: bool = False):
         """
         Subtract a (previously computed) baseline model from every integration of every Scan in this ScanBlock.
 
@@ -2747,7 +2769,7 @@ class FSScan(ScanBase):
 
         Returns
         -------
-        exposure : ~numpy.ndarray
+        exposure : `~numpy.ndarray`
             The exposure time in units of the EXPOSURE keyword in the SDFITS header
         """
         exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
