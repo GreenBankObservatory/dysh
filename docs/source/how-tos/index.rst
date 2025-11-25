@@ -195,6 +195,7 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/dataIO
    examples/align_spectra
    examples/flagging
+   examples/using_spectral_weights
    examples/repeated_scans
    examples/gauss_fit
    examples/merge_sdfits
