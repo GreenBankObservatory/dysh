@@ -1185,6 +1185,9 @@ all = [
     { name = "jupyterlab-lsp" },
     { name = "jupyterlab-templates" },
 ]
+fast = [
+    { name = "rsdfits" },
+]
 nb = [
     { name = "ipympl" },
     { name = "jupyter" },
@@ -1249,11 +1252,12 @@ requires-dist = [
     { name = "pandas" },
     { name = "platformdirs", specifier = ">=4.5.0" },
     { name = "rich" },
+    { name = "rsdfits", marker = "extra == 'fast'", editable = "../rsdfits" },
     { name = "scipy" },
     { name = "specutils", specifier = ">=2" },
     { name = "tenacity" },
 ]
-provides-extras = ["all", "nb"]
+provides-extras = ["all", "fast", "nb"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4168,6 +4172,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/26/ca/f5a344c534214cc2d41118c0699fffbdc2c1bc7046f2a2b9609765ab9c92/rpds_py-0.27.1-pp311-pypy311_pp73-musllinux_1_2_i686.whl", hash = "sha256:df8b74962e35c9249425d90144e721eed198e6555a0e22a563d29fe4486b51f6", size = 590482, upload-time = "2025-08-27T12:16:10.137Z" },
     { url = "https://files.pythonhosted.org/packages/ce/08/4349bdd5c64d9d193c360aa9db89adeee6f6682ab8825dca0a3f535f434f/rpds_py-0.27.1-pp311-pypy311_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:dc23e6820e3b40847e2f4a7726462ba0cf53089512abe9ee16318c366494c17a", size = 556523, upload-time = "2025-08-27T12:16:12.188Z" },
 ]
+
+[[package]]
+name = "rsdfits"
+version = "0.1.0"
+source = { editable = "../rsdfits" }
 
 [[package]]
 name = "ruamel-yaml"

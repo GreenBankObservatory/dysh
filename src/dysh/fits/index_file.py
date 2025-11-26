@@ -4,6 +4,9 @@ SDFITS .index file support
 This module provides functions to read and write SDFITS .index files
 which contain metadata from SDFITS files in ASCII format for fast access.
 The format is compatible with GBTIDL's index format.
+
+Optional fast parsing is available via the rsdfits package (Rust implementation).
+Install rsdfits from ~/repos/rsdfits for ~100x faster index file parsing.
 """
 
 from __future__ import annotations
@@ -15,6 +18,27 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+
+# Optional fast Rust-based parser
+try:
+    from rsdfits import parse_sdfits_index_file as _rsdfits_parse
+
+    _RSDFITS_AVAILABLE = True
+except ImportError:
+    _rsdfits_parse = None
+    _RSDFITS_AVAILABLE = False
+
+
+def is_rsdfits_available() -> bool:
+    """Check if the fast Rust-based index parser (rsdfits) is available.
+
+    Returns
+    -------
+    bool
+        True if rsdfits is installed and importable, False otherwise.
+    """
+    return _RSDFITS_AVAILABLE
+
 
 # SDFITS index file section markers and constants
 HEADER_SECTION_ID = "[header]"
@@ -130,7 +154,7 @@ def parse_table_header(line: str) -> dict[str, list[str] | list[int]]:
     return {"cols": cols, "starts": starts, "ends": ends}
 
 
-def parse_sdfits_index_file(path: Path) -> pd.DataFrame:
+def parse_sdfits_index_file(path: Path, use_rust: bool | None = None) -> pd.DataFrame:
     """Given a path to an SDFITS index file, parse it into a DataFrame
 
     Returns DataFrame with column names mapped from SDFITS index convention to dysh convention
@@ -138,8 +162,49 @@ def parse_sdfits_index_file(path: Path) -> pd.DataFrame:
 
     This function is used internally by sdfitsload.py which expects dysh column names.
     For raw SDFITS index format, use read_index() instead.
-    """
 
+    Parameters
+    ----------
+    path : Path
+        Path to the SDFITS .index file
+    use_rust : bool or None, optional
+        Whether to use the fast Rust parser (rsdfits). If None (default), uses Rust
+        if available, otherwise falls back to Python. Set to False to force Python
+        parser even when rsdfits is installed.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with dysh column names and header metadata in df.attrs
+    """
+    # Determine whether to use Rust parser
+    if use_rust is None:
+        use_rust = _RSDFITS_AVAILABLE
+    elif use_rust and not _RSDFITS_AVAILABLE:
+        raise ImportError("rsdfits package not available. Install from ~/repos/rsdfits or set use_rust=False")
+
+    if use_rust:
+        return _parse_with_rsdfits(path)
+    else:
+        return _parse_with_python(path)
+
+
+def _parse_with_rsdfits(path: Path) -> pd.DataFrame:
+    """Parse index file using fast Rust implementation."""
+    df = _rsdfits_parse(path)
+
+    # Rename #INDEX# to INDEX if present (rsdfits may or may not do this)
+    if "#INDEX#" in df.columns:
+        df = df.rename(columns={"#INDEX#": "INDEX"})
+
+    # Apply column name mapping from SDFITS index convention to dysh convention
+    df = df.rename(columns=SDFITS_INDEX_TO_DYSH_MAP)
+
+    return df
+
+
+def _parse_with_python(path: Path) -> pd.DataFrame:
+    """Parse index file using pure Python implementation."""
     header = {}
     with open(path) as file:
         header_section_id = next(file)
