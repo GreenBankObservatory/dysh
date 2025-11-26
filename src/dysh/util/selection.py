@@ -1024,16 +1024,6 @@ class Selection(SelectionBase):
                 The value to select
 
         """
-        if False:
-            chan = kwargs.pop("channel", None)
-            if chan is not None:
-                if isinstance(chan, numbers.Number):
-                    chan = [int(chan)]
-                self._check_numbers(chan=chan)
-            if len(kwargs) == 0:
-                # The user only entered channel as a keyword, so just call select_channel
-                self.select_channel(channel=chan, tag=tag)
-                return
         self._base_select(tag, check=check, **kwargs)
 
     def select_range(self, tag=None, **kwargs):

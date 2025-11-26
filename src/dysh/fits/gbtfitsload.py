@@ -839,7 +839,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             select_channel([[1,10]])
             # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
             select_channel([[1,10], [47,56], 75)])
-            # tuples also work, though can be harder for a human to read
+            # tuples also work
             select_channel(((1,10), [47,56], 75))
 
 
@@ -972,7 +972,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             flag_channel([[1,10]])
             # flags channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
             flag_channel([[1,10], [47,56], 75)])
-            # tuples also work, though can be harder for a human to read
+            # tuples also work
             flag_channel(((1,10), [47,56], 75))
 
 
@@ -1355,7 +1355,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         channel: list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
-            trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+            trimmed to `[firstchan,lastchan]` before any smoothing. If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         **kwargs : dict
             Optional additional selection  keyword arguments, typically
@@ -3729,7 +3729,7 @@ def _parse_tsys(tsys: float | np.ndarray | list | dict, scans: list) -> dict:
 
     Parameters
     ----------
-    tsys : float|np.ndarray|list|dict
+    tsys : float or `~numpy.ndarray` or list or dict
         The system temperature(s)
     scans : list
         list of scan numbers associated with the system temperature(s)

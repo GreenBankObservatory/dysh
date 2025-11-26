@@ -143,12 +143,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._resolution = 1
 
-    # def _len(self):
-    #    """return the size of the `Spectrum` in the spectral dimension.
-    #    @todo __len__  has unintended consquences, yuck.
-    #    """
-    #    return self.nchan
-
     def _spectrum_property(self, prop: str):
         """
         Utility method to return a header value as a property.
