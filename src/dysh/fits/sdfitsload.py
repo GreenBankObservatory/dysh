@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
+from ..util.timers import Benchmark
 
 # Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
 from . import fitsio_unicode_patch, index_file  # noqa: F401
@@ -199,14 +200,14 @@ class SDFITSLoad:
 
         if use_index_file:
             logger.info(
-                f"📊 FITS file size: {fits_size_mb:.1f} MB >= {threshold_mb:.1f} MB threshold. "
+                f"FITS file size: {fits_size_mb:.1f} MB >= {threshold_mb:.1f} MB threshold. "
                 f"Will attempt to use .index file for faster loading."
             )
         elif force_fits:
-            logger.debug(f"🔧 force_fits=True: Loading directly from FITS file ({fits_size_mb:.1f} MB)")
+            logger.debug(f"force_fits=True: Loading directly from FITS file ({fits_size_mb:.1f} MB)")
         else:
             logger.info(
-                f"📊 FITS file size: {fits_size_mb:.1f} MB < {threshold_mb:.1f} MB threshold. "
+                f"FITS file size: {fits_size_mb:.1f} MB < {threshold_mb:.1f} MB threshold. "
                 f"Loading directly from FITS file (no .index file needed for small files)."
             )
 
@@ -214,18 +215,20 @@ class SDFITSLoad:
         index_path = index_file.get_index_path(self._filename)
         if index_path.exists() and use_index_file:
             try:
-                logger.info(f"⚡ Loading index from .index file: {index_path}")
-                self._index = index_file.parse_sdfits_index_file(index_path)
+                logger.info(f"Loading index from .index file: {index_path}")
+                with Benchmark("   parse .index file", logger=logger.debug):
+                    self._index = index_file.parse_sdfits_index_file(index_path)
 
-                # Reconstruct BINTABLE column (= HDU - 1)
-                if "HDU" in self._index.columns:
-                    self._index["BINTABLE"] = self._index["HDU"] - 1
-                else:
-                    logger.warning("⚠️  .index file missing HDU column - cannot reconstruct BINTABLE")
+                with Benchmark("   reconstruct BINTABLE column", logger=logger.debug):
+                    # Reconstruct BINTABLE column (= HDU - 1)
+                    if "HDU" in self._index.columns:
+                        self._index["BINTABLE"] = self._index["HDU"] - 1
+                    else:
+                        logger.warning(".index file missing HDU column - cannot reconstruct BINTABLE")
 
                 # Log info about lazy loading
                 logger.info(
-                    "📋 Index loaded from .index file (44/93 columns). "
+                    "Index loaded from .index file (44/93 columns). "
                     "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
                     "from FITS file when first accessed."
                 )
@@ -235,7 +238,7 @@ class SDFITSLoad:
                 return
 
             except Exception as e:
-                logger.warning(f"⚠️  Failed to load .index file: {e}. Falling back to FITS file.")
+                logger.warning(f"Failed to load .index file: {e}. Falling back to FITS file.")
                 # Fall through to FITS reading
 
         # Fall back to reading from FITS file
@@ -249,25 +252,31 @@ class SDFITSLoad:
             # Use fitsio to read only the columns we need, avoiding loading DATA/FLAGS into memory
             all_columns = self._hdu[i].columns.names
             columns_to_read = [col for col in all_columns if col not in skipindex]
-            with fitsio.FITS(self._filename) as fits_file:
-                data = fits_file[i].read(columns=columns_to_read)
-            df = pd.DataFrame(data)
+            logger.debug(f"   Reading {len(columns_to_read)} columns from HDU {i} via fitsio...")
+            with Benchmark(f"   fitsio.read ({len(columns_to_read)} cols)", logger=logger.debug):
+                with fitsio.FITS(self._filename) as fits_file:
+                    data = fits_file[i].read(columns=columns_to_read)
+            logger.debug(f"   fitsio returned {len(data)} rows")
+            with Benchmark("   pd.DataFrame", logger=logger.debug):
+                df = pd.DataFrame(data)
             # Select columns that are strings, decode them and remove white spaces.
             # The fitsio_unicode_patch handles latin-1 decoding automatically
             df_obj = df.select_dtypes(["object"])
-            for col in df_obj.columns:
-                # FITS strings are NULL-padded, so truncate at NULL byte first
-                # Then remove any remaining control characters and strip whitespace
-                df[col] = df[col].str.split("\x00").str[0].str.strip()
-            ones = np.ones(len(df.index), dtype=int)
-            # create columns to track HDU and BINTABLE numbers and original row index
-            df["HDU"] = i * ones
-            df["BINTABLE"] = (i - 1) * ones
-            df["ROW"] = np.arange(len(df))
-            if self._index is None:
-                self._index = df
-            else:
-                self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
+            with Benchmark(f"   string cleanup ({len(df_obj.columns)} cols)", logger=logger.debug):
+                for col in df_obj.columns:
+                    # FITS strings are NULL-padded, so truncate at NULL byte first
+                    # Then remove any remaining control characters and strip whitespace
+                    df[col] = df[col].str.split("\x00").str[0].str.strip()
+            with Benchmark("   add columns + concat", logger=logger.debug):
+                ones = np.ones(len(df.index), dtype=int)
+                # create columns to track HDU and BINTABLE numbers and original row index
+                df["HDU"] = i * ones
+                df["BINTABLE"] = (i - 1) * ones
+                df["ROW"] = np.arange(len(df))
+                if self._index is None:
+                    self._index = df
+                else:
+                    self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
         self._index_source = "fits"
 

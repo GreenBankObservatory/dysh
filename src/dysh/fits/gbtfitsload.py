@@ -2293,6 +2293,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         See issue #160 https://github.com/GreenBankObservatory/dysh/issues/160
         """
+        # Check if FRONTEND column exists (may be missing when loaded from .index file)
+        # TODO: Implement lazy loading of missing columns from FITS file when accessed.
+        # Currently, many "fix" functions assume full FITS data is available, but .index
+        # files only contain a subset of columns. See: FRONTEND, CTYPE2/3, OBSMODE, etc.
+        if "FRONTEND" not in self._index.columns:
+            logger.warning("Skipping Ka receiver fix: FRONTEND column not in index (loaded from .index file?)")
+            return
+
         # Check if we are dealing with Ka data before the beam switch.
         rx = self["FRONTEND"].unique()
         if "Rcvr26_40" not in rx:
@@ -2964,6 +2972,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             This will be used to determine where `GBTFITSLoad[key] == value`.
             Multiple keys and values will be combined using `numpy.logical_and`.
         """
+        # Check if all required columns exist in the index
+        # TODO: Implement lazy loading of missing columns from FITS file when accessed.
+        # This can happen when loading from .index files which don't have all columns.
+        for col in mask_dict.keys():
+            if col.upper() not in self._index.columns:
+                logger.warning(f"Skipping _fix_column for {column}: mask column {col} not in index (loaded from .index file?)")
+                return
+
         _mask = self._column_mask(mask_dict)
         if _mask.sum() == 0:
             return

@@ -1,6 +1,7 @@
 import pathlib
 
 import astropy.units as u
+import pandas as pd
 import pytest
 from astropy.time import Time
 
@@ -8,8 +9,91 @@ import dysh
 from dysh import util
 from dysh.fits import gbtfitsload
 from dysh.util.files import dysh_data
+from dysh.util.selection import Selection, Flag
 
 dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
+
+
+class TestSelectionWithPartialData:
+    """Test Selection with partial data (e.g., from .index files)"""
+
+    def test_selection_with_missing_alias_targets(self):
+        """
+        Test that Selection can be created when default alias targets are missing.
+
+        Regression test for issue where loading from .index files failed because
+        CRVAL1, CRVAL2, CRVAL3, SUBREF_STATE columns don't exist in the GBTIDL
+        index file format.
+        """
+        # Simulate columns from a GBTIDL .index file (missing CRVAL1/2/3, SUBREF_STATE)
+        df = pd.DataFrame(
+            {
+                "SCAN": [1, 2, 3],
+                "OBJECT": ["test", "test2", "test3"],
+                "ELEVATIO": [45.0, 50.0, 55.0],
+                "PLNUM": [0, 0, 1],
+                "DATE-OBS": ["2024-01-01T00:00:00", "2024-01-01T00:01:00", "2024-01-01T00:02:00"],
+            }
+        )
+
+        # This should NOT raise an error
+        sel = Selection(df)
+
+        # Only aliases for existing columns should be set up
+        assert "ELEVATION" in sel._aliases
+        assert "SOURCE" in sel._aliases
+        assert "POL" in sel._aliases
+        assert sel._aliases["ELEVATION"] == "ELEVATIO"
+        assert sel._aliases["SOURCE"] == "OBJECT"
+        assert sel._aliases["POL"] == "PLNUM"
+
+        # Aliases for missing columns should NOT be set up
+        assert "FREQ" not in sel._aliases  # crval1 doesn't exist
+        assert "RA" not in sel._aliases  # crval2 doesn't exist
+        assert "DEC" not in sel._aliases  # crval3 doesn't exist
+        assert "SUBREF" not in sel._aliases  # subref_state doesn't exist
+
+    def test_flag_with_missing_alias_targets(self):
+        """Test that Flag can also be created with missing alias targets."""
+        df = pd.DataFrame(
+            {
+                "SCAN": [1, 2],
+                "OBJECT": ["src1", "src2"],
+                "ELEVATIO": [30.0, 35.0],
+                "DATE-OBS": ["2024-01-01T00:00:00", "2024-01-01T00:01:00"],
+            }
+        )
+
+        # This should NOT raise an error
+        flag = Flag(df)
+
+        # Only aliases for existing columns should be set up
+        assert "ELEVATION" in flag._aliases
+        assert "SOURCE" in flag._aliases
+
+    def test_selection_works_with_existing_aliases(self):
+        """Test that aliases that DO exist still work correctly."""
+        df = pd.DataFrame(
+            {
+                "SCAN": [1, 2, 3, 4],
+                "OBJECT": ["NGC1", "NGC1", "NGC2", "NGC2"],
+                "ELEVATIO": [30.0, 35.0, 40.0, 45.0],
+                "PLNUM": [0, 1, 0, 1],
+                "DATE-OBS": ["2024-01-01T00:00:00", "2024-01-01T00:01:00", "2024-01-01T00:02:00", "2024-01-01T00:03:00"],
+            }
+        )
+
+        sel = Selection(df)
+
+        # Test using alias 'source' for 'OBJECT'
+        sel.select(source="NGC1")
+        assert len(sel.final) == 2
+
+        sel.clear()
+
+        # Test using alias 'pol' for 'PLNUM'
+        sel.select(pol=0)
+        assert len(sel.final) == 2
 
 
 class TestSelection:

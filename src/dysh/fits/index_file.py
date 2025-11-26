@@ -68,7 +68,9 @@ SDFITS_INDEX_TO_DYSH_MAP = {
     "SOURCE": "OBJECT",  # .index calls it SOURCE, dysh calls it OBJECT
     "PROCEDURE": "PROC",  # .index has full name, dysh uses abbreviation
     "ELEVATION": "ELEVATIO",  # .index has correct spelling, dysh has typo
-    # Add other mappings as needed
+    "LONGITUDE": "CRVAL2",  # .index LONGITUDE = FITS CRVAL2 (lon-like coordinate)
+    "LATITUDE": "CRVAL3",  # .index LATITUDE = FITS CRVAL3 (lat-like coordinate)
+    "CENTFREQ": "CRVAL1",  # .index CENTFREQ = FITS CRVAL1 (center frequency)
 }
 
 DYSH_TO_SDFITS_INDEX_MAP = {v: k for k, v in SDFITS_INDEX_TO_DYSH_MAP.items()}
