@@ -1500,6 +1500,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
             scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
             in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+            If `vane` is provided, then `t_sys` will be ignored and `vane` will be used to derive the system temperature.
         t_cal : None or float
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
@@ -1519,6 +1520,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             can be provided.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
+            If provided, `t_sys` will be ignored.
         t_atm : float or None
             Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
@@ -1550,6 +1552,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
+        self._check_vane_and_t_sys_args(vane, t_sys)
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
@@ -1746,6 +1749,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys : float
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+            If `vane` is provided, then `t_sys` will be ignored and `vane` will be used to derive the system temperature.
         t_cal : None or float
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
@@ -1765,6 +1769,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             can be provided.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
+            If provided, `t_sys` will be ignored.
         t_atm : float or None
             Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
@@ -1795,6 +1800,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
+        self._check_vane_and_t_sys_args(vane, t_sys)
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
@@ -1961,6 +1967,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             For example, `t_sys = np.array([[30], [50]])` would use a system temperature of 30 K for
             the first feed and 50 K for the second feed. Another example, `t_sys = {1: [[50, 60]], 2: [[45],[65]], 3: [[60],[70]]}`
             would use a system temperature of 50 K for the first feed in scan 1, 60 K for the second feed in scan 1, 45 K for the first feed in scan 2, 65 K for the second feed in scan 2, 60 K for the first feed in scan 3, and 70 K for the second feed in scan 3. If passing a dict it should contain an item for every scan.
+            If `vane` is provided, then `t_sys` will be ignored and `vane` will be used to derive the system temperature.
         t_cal : None or float
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
@@ -1979,7 +1986,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
-            Vane scalibration scan. This will be used to derive the system temperature.
+            Vane calibration scan. This will be used to derive the system temperature.
+            If provided, `t_sys` will be ignored.
         t_atm : float or None
             Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
@@ -2018,6 +2026,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise ValueError("Can't scale the data without a valid zenith opacity")
         if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
             raise TypeError(f"fdnum={fdnum} not valid, need a list with two feeds")
+        self._check_vane_and_t_sys_args(vane, t_sys)
 
         prockey = "PROCSEQN"
         procvals = {"ON": 1, "OFF": 2}
@@ -2216,6 +2225,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys : float, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+            If `vane` is provided, then `t_sys` will be ignored and `vane` will be used to derive the system temperature.
         t_cal : None or float
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
@@ -2235,6 +2245,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             can be provided.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
+            If provided, `t_sys` will be ignored.
         t_atm : float or None
             Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
@@ -2267,6 +2278,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
+        self._check_vane_and_t_sys_args(vane, t_sys)
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
@@ -2564,7 +2576,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_warm: float | None = None,
         **kwargs,
     ):
-        """Get a subbeam nod power scan, optionally calibrating it.
+        """Calibrate a SubBeamNod scan.
 
         Parameters
         ----------
@@ -2599,6 +2611,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_sys : float, optional
             System temperature. If provided, it overrides the value computed using the noise diode.
             If no noise diode is fired, and `t_sys=None`, then the column "TSYS" will be used instead.
+            If `vane` is provided, then `t_sys` will be ignored and `vane` will be used to derive the system temperature.
         t_cal : None or float
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
@@ -2614,6 +2627,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             can be provided.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
+            If provided, `t_sys` will be ignored.
         t_atm : float or None
             Atmospheric temperature in K. If `vane` is a `~dysh.spectra.vane.VaneSpectrum` it won't be used.
             If `vane` is an `int`, then the resulting `~dysh.spectra.vane.VaneSpectrum` will use this value for
@@ -2640,6 +2654,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
+        self._check_vane_and_t_sys_args(vane, t_sys)
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
@@ -3779,6 +3794,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise TypeError(f"vane must be an int or VaneSpectrum. Got a {type(vane)} instead.")
 
         return vane, units, requested_units, zenith_opacity
+
+    def _check_vane_and_t_sys_args(self, vane, t_sys):
+        """Check if both arguments were provided."""
+        if t_sys is not None and vane is not None:
+            logger.warning("Both t_sys and vane provided. Ignoring t_sys.")
+            t_sys = None
 
     def _set_scale_vane(self, scan, units, zenith_opacity):
         """

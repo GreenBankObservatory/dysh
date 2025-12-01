@@ -1804,6 +1804,7 @@ class PSScan(ScanBase):
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
         scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+        If `vane` is provided, `tsys` will be ignored.
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
@@ -1813,6 +1814,9 @@ class PSScan(ScanBase):
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
         aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
         can be provided.
+    vane : `~dysh.spectra.vane.VaneSpectrum` or None
+        Vane calibration spectrum. This will be used to derive the system temperature.
+        If provided, `tsys` will be ignored.
     """
 
     def __init__(
@@ -2138,6 +2142,7 @@ class NodScan(ScanBase):
         If True, apply flags before calibration.
     tsys : float
         User provided value for the system temperature.
+        If `vane` is provided, `tsys` will be ignored.
     nocal : bool
         True if the noise diode was not fired. False if it was fired.
     tscale : str, optional
@@ -2162,7 +2167,9 @@ class NodScan(ScanBase):
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
-
+    vane : `~dysh.spectra.vane.VaneSpectrum` or None
+        Vane calibration spectrum. This will be used to derive the system temperature.
+        If provided, `tsys` will be ignored.
     """
 
     def __init__(
@@ -2431,6 +2438,10 @@ class FSScan(ScanBase):
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
         scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+        If `vane` is provided, `tsys` will be ignored.
+    vane : `~dysh.spectra.vane.VaneSpectrum` or None
+        Vane calibration spectrum. This will be used to derive the system temperature.
+        If provided, `tsys` will be ignored.
     """
 
     def __init__(
@@ -2852,6 +2863,8 @@ class SubBeamNodScan(ScanBase):
          :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
         Default: 'tsys'
+    vane : `~dysh.spectra.vane.VaneSpectrum` or None
+        Vane calibration spectrum. This will be used to derive the system temperature.
     """
 
     def __init__(

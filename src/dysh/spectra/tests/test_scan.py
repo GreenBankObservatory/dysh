@@ -254,6 +254,12 @@ class TestPSScan:
         assert stats["rms"].value == pytest.approx(0.46247303)
         assert psta.meta["TSYS"] == pytest.approx(362.06692565749125)
         assert psta.meta["EXPOSURE"] == 29.732832173595035
+        assert psta.meta["TSCALE"] == "Ta*"
+        assert psta.meta["TSCALFAC"] == 1.0
+        psta = sdf.getps(
+            scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85, units="flux"
+        ).timeaverage()
+        assert psta.meta["TSCALE"] == "flux"
 
     def test_getsigref_vane(self, data_dir):
         """Test for getsigref with vane."""
@@ -467,6 +473,8 @@ class TestSubBeamNod:
         assert stats["median"].value == pytest.approx(-0.08932108, abs=1e-4)
         assert stats["rms"].value == pytest.approx(0.43725554485804585, abs=1e-4)
         assert sbnta.meta["TSYS"] == pytest.approx(180.01411515504023, abs=1e-4)
+        assert sbnta.meta["TSCALE"] == "Ta*"
+        assert sbnta.meta["TSCALFAC"] == 1.0
 
 
 class TestTPScan:
@@ -824,6 +832,10 @@ class TestNodScan:
         nodsb = sdf.getnod(ifnum=0, plnum=0, vane=43, t_atm=265.48, zenith_opacity=0.21)
         assert nodsb[0].tsys.mean() == 195.85427050034397
         assert nodsb[1].tsys.mean() == 185.7013266638696
+        assert nodsb.timeaverage().meta["TSCALE"] == "Ta*"
+        assert nodsb.timeaverage().meta["TSCALFAC"] == 1.0
+        nodsb = sdf.getnod(ifnum=0, plnum=0, vane=43, t_atm=265.48, zenith_opacity=0.21, units="flux")
+        assert nodsb.timeaverage().meta["TSCALE"] == "flux"
 
 
 class TestScanBlock:
