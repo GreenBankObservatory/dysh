@@ -20,7 +20,7 @@ def parse_args():
 def main():
     args, remaining_args = parse_args()
     if args.version:
-        print(__version__)
+        print(f"dysh-lab: v{__version__}")
         sys.exit(0)
 
     template_notebooks = files("dysh") / "lab_templates"

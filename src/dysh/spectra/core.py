@@ -312,7 +312,7 @@ def exclude_to_spectral_region(exclude, refspec):
             # In that case use the spectral axis to define the exclusion regions.
         except ValueError:
             # Make sure all the channels are within bounds.
-            exclude = np.array(exclude)
+            exclude = np.array(exclude, dtype=int)
             exclude[exclude >= len(sa)] = len(sa) - 1
             sr = SpectralRegion(sa.quantity[exclude])
 
