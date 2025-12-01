@@ -157,7 +157,7 @@ class SpectrumPlot(PlotBase):
 
         lw = this_plot_kwargs["linewidth"]
         self._xunit = this_plot_kwargs["xaxis_unit"]  # need to kick back a ref to xunit for baseline overlays
-        yunit = this_plot_kwargs["yaxis_unit"]
+        self._yunit = this_plot_kwargs["yaxis_unit"]
         if self._xunit is None:
             self._xunit = str(sa.unit)  # noqa: F821
         if "vel_frame" not in this_plot_kwargs:
@@ -180,8 +180,8 @@ class SpectrumPlot(PlotBase):
             )
 
         sf = s.flux
-        if yunit is not None:
-            sf = s.flux.to(yunit)
+        if self._yunit is not None:
+            sf = s.flux.to(self._yunit)
         sf = Masked(sf, s.mask)
 
         lines = self._axis.plot(
