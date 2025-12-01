@@ -114,6 +114,8 @@ class SpectrumPlot(PlotBase):
             "drawstyle": "default",
             "color": None,
             "title": None,
+            "doppler_convention": None,
+            "vel_frame": None,
         }
 
     def reset(self):
