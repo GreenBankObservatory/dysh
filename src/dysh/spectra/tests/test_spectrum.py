@@ -1,5 +1,6 @@
 import warnings
 
+import astropy.constants as ac
 import astropy.units as u
 import numpy as np
 import pytest
@@ -1091,3 +1092,16 @@ class TestSpectrum:
         assert len(tr) == 7
         freq = np.array([1405.0142, 1390.8698, 1393.8448, 1406.519, 1392.42, 1392.42, 1392.42])
         assert all(tr["orderedfreq"].data == freq)
+
+    def test_set_doppler_rest(self):
+        """Test that setting doppler_rest works."""
+        s = Spectrum.fake_spectrum()
+        v = s.axis_velocity()
+        d = s.doppler_rest.copy()  # Copy so it is not modified.
+        # Change doppler_rest.
+        s.doppler_rest *= 1.2
+        vm = s.axis_velocity()
+        # Check.
+        diff = ((vm - v) * s.spectral_axis.quantity) / ac.c
+        assert np.all(diff.to("Hz").value == pytest.approx(0.2 * d.to("Hz").value))
+        assert s.meta["RESTFREQ"] == pytest.approx(1.2 * d.to("Hz").value)

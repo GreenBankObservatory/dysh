@@ -797,6 +797,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """String representation of the velocity (Doppler) convention"""
         return self.velocity_convention
 
+    @property
+    def doppler_rest(self):
+        """Rest frequency used in velocity conversions."""
+        return self.spectral_axis.doppler_rest
+
+    @doppler_rest.setter
+    def doppler_rest(self, value):
+        """Set the `doppler_rest` property."""
+        self._spectral_axis._doppler_rest = value
+        self.meta["RESTFREQ"] = value.to("Hz").value
+
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
         *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
