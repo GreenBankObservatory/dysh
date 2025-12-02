@@ -517,7 +517,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         s0 = self.stats()
         s1 = self.stats(roll=1)
-        if rms == None:
+        if rms is None:
             rms = s1["rms"] / np.sqrt(2)
         if flux:
             # @todo https://specutils.readthedocs.io/en/stable/analysis.html#
