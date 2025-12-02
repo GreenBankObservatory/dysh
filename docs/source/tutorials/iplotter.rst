@@ -2,13 +2,74 @@
 dysh Interactive Plotter Tutorial
 *********************************
 
-
-
-
 In this tutorial, we will walk through the features of the interactive plotter offered by dysh.
+There are two types of interactive plots: waterfall/spectrogram plots, and 1-dimensional spectrum plots.
+
+
+
+=========================
+ScanBlock Waterfall plots
+=========================
+
+In this section, we describe how to create and interact with waterfall plots.
 First, we download data from an HI survey and open it with dysh.
 
+.. code-block::
 
+    from dysh.fits.gbtfitsload import GBTFITSLoad
+    from pathlib import Path
+    from dysh.util.download import from_url
+
+
+.. code-block::
+
+    url = "http://www.gb.nrao.edu/dysh/example_data/rfi-L/data/AGBT17A_404_01.raw.vegas/AGBT17A_404_01.raw.vegas.A.fits"
+    savepath = Path.cwd() / "data"
+    filename = from_url(url, savepath)
+    sdfits = GBTFITSLoad(filename)
+
+
+Now, we grab a position-switched scan with GPS interference but we don't time average it, leaving it as a full ScanBlock with one PSScan.
+Waterfall plots can be created using single Scans or Scanblocks that contain many scans. The process is identical.
+
+
+.. code-block::
+
+    ps = sdfits.getps(scan=19, plnum=0, fdnum=0, ifnum=0)
+    psplt = ps.plot()
+
+.. image:: files/sb_plot1.png
+
+Since we keep a reference to the plotter object `psplt`, we can do several things at the command line to change its aspects.
+Let's change the lower limit of the color scale to see the clean data and the extent of the GPS RFI a little better.
+
+.. code-block::
+
+    psplt.set_clim(vmin = -2)
+
+.. image:: files/sb_plot2.png
+
+Other CLI options include `set_interpolation()`, `set_cmap()`, and `set_norm()`.
+All of the kwargs associated with these functions can be added to the initial plot instantiation as well.
+See the `matplotlib documentation <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.imshow.html>`_ for more details on these kwargs.
+
+You can also do waterfall plots of scanblocks with more than one scan.
+
+.. code-block::
+
+    tp = sdfits.gettp(scan=[19,20], plnum=0, fdnum=0, ifnum=0)
+    tpplt = tp.plot(interpolation='gaussian',cmap='hot',norm='log',vmin=3e8,vmax=4e8)
+
+Here we see clearly that the GPS RFI turns on towards the end of the second scan.
+The X-axis denotes the scan number on the bottom, and the integration number along the tick marks.
+The integration number resets to 0 at the beginning of each scan.
+
+.. image:: files/sb_plot3.png
+
+
+=========================
+Spectrum plots
+=========================
 
 
 .. code-block::
