@@ -1547,7 +1547,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         head = sliced_wcs.to_header()
         for k in ["CRPIX1", "CRVAL1"]:
             meta[k] = head[k]
-        meta["BANDWID"] = abs(meta["CDELT1"]) * (len(new_flux) - 1)  # Hz
+        meta["BANDWID"] = abs(meta["CDELT1"]) * len(new_flux)  # Hz
 
         # New Spectrum.
         return self.make_spectrum(

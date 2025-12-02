@@ -289,7 +289,9 @@ class TestSpectrum:
         # The slicing changes the values at the micro Hz level.
         assert np.all(trimmed.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         # Check that the bandwidth was updated.
-        assert trimmed.meta["BANDWID"] == abs((trimmed.spectral_axis[-1] - trimmed.spectral_axis[0]).to("Hz").value)
+        assert trimmed.meta["BANDWID"] == abs(
+            (trimmed.spectral_axis[-1] - trimmed.spectral_axis[0]).to("Hz").value
+        ) + abs(trimmed.meta["CDELT1"])
         # Check meta values. The trimmed spectrum has an additional
         # key: 'original_wcs'.
         for k, v in self.ps0.meta.items():
