@@ -720,7 +720,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def equivalencies(self):
         """Get the spectral axis equivalencies that can be used in converting the axis
         between km/s and frequency or wavelength"""
-        equiv = u.spectral()
+        equiv = deepcopy(u.spectral())
         sa = self.spectral_axis
         if sa.doppler_rest is not None:
             rfq = sa.doppler_rest

@@ -1095,13 +1095,14 @@ class TestSpectrum:
 
     def test_set_doppler_rest(self):
         """Test that setting doppler_rest works."""
-        s = Spectrum.fake_spectrum()
-        v = s.axis_velocity()
-        d = s.doppler_rest.copy()  # Copy so it is not modified.
-        # Change doppler_rest.
-        s.doppler_rest *= 1.2
-        vm = s.axis_velocity()
+        s1 = Spectrum.fake_spectrum()
+        v1 = s1.axis_velocity().copy()
+        d1 = s1.doppler_rest.copy()
+        # Create a new Spectrum and change its doppler_rest.
+        s2 = Spectrum.fake_spectrum()
+        s2.doppler_rest = 1.2 * d1
+        v2 = s2.axis_velocity().copy()
         # Check.
-        diff = ((vm - v) * s.spectral_axis.quantity) / ac.c
-        assert np.all(diff.to("Hz").value == pytest.approx(0.2 * d.to("Hz").value))
-        assert s.meta["RESTFREQ"] == pytest.approx(1.2 * d.to("Hz").value)
+        diff = ((v2 - v1) * s1.spectral_axis.quantity) / ac.c
+        assert np.all(diff.to("Hz").value == pytest.approx(0.2 * d1.to("Hz").value))
+        assert s2.meta["RESTFREQ"] == pytest.approx(1.2 * d1.to("Hz").value)
