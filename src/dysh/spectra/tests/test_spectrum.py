@@ -415,7 +415,6 @@ class TestSpectrum:
         r0 = self.ps0[c0:c1].radiometer()
         r1 = self.ps1[c0:c1].radiometer()
         assert r0 == pytest.approx(1.0534482473)
-        assert r1 == 1.0599168769431548
         assert r1 == pytest.approx(1.0599168769)
         # radiometer test after smoothing ; see issue 800
         width = 5
