@@ -34,3 +34,10 @@ TCal
    :members:
    :undoc-members:
    :show-inheritance:
+
+VaneSpectrum
+------------
+.. automodule:: dysh.spectra.vane
+   :members:
+   :undoc-members:
+   :show-inheritance:
