@@ -17,6 +17,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 # from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
@@ -37,9 +38,14 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     sanitize_skycoord,
     veldef_to_convention,
 )
+from ..line import SpectralLineSearch
+from ..line.search import all_cats
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
-from ..util import minimum_string_match
+from ..util import (
+    docstring_parameter,
+    minimum_string_match,
+)
 from ..util.docstring_manip import copy_docstring
 from . import (
     FWHM_TO_STDDEV,
@@ -89,6 +95,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._velocity_frame = None
         self._observer = kwargs.pop("observer", None)
+        _ = kwargs.pop("psf", None)  # Hack to enable rdiv.
         Spectrum1D.__init__(self, *args, **kwargs)
         # Try making a target from meta. If it fails, don't worry about it.
         if False:
@@ -1334,9 +1341,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def _arithmetic_apply(self, other, op, handle_meta, **kwargs):
         if isinstance(other, NDCube):
-            result = op(other, **{"handle_meta": handle_meta})
+            result = op(other, **{"handle_meta": handle_meta}, **kwargs)
         else:
-            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False})
+            result = op(other, **{"handle_meta": handle_meta, "meta_other_meta": False}, **kwargs)
         self._copy_attributes(result)
         return result
 
@@ -1404,6 +1411,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         result = self._arithmetic_apply(other, op, handle_meta)
         return result
 
+    def __rtruediv__(self, other):
+        op = self.divide
+        handle_meta = self._rdiv_meta
+        if not isinstance(other, NDCube):
+            other = u.Quantity(other)
+        result = self._arithmetic_apply(
+            other, op, handle_meta, operand2=self, compare_wcs="no, but I don't like your defaults", wcs_use_self=False
+        )
+        # Set compare_wcs to something, so self._arithmetic_wcs is used.
+        return result
+
     def _add_meta(self, operand, operand2, **kwargs):
         kwargs.setdefault("other_meta", True)
         meta = deepcopy(operand)
@@ -1420,6 +1438,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def _div_meta(self, operand, operand2=None, **kwargs):
         # TBD
         return deepcopy(operand)
+
+    def _rdiv_meta(self, operand, operand2=None, **kwargs):
+        return deepcopy(operand2)
+
+    def _arithmetic_wcs(self, operation, operand, compare_wcs, **kwargs):
+        # Had to overrride
+        # astropy/nddata/mixins/ndarithmetic.NDArithmeticMixin._arithmetic_wcs
+        # since it does not provide enough flexibility to take the wcs from
+        # operand2. Notice that this function is called with self as either
+        # self or operand, and operand as either operand or operand2 depending
+        # on the type of operand2 in NDArithmeticMixin._prepare_then_do_arithmetic.
+        kwarg_opts = {"use_self": True}
+        kwarg_opts.update(kwargs)
+        if kwarg_opts["use_self"]:
+            return deepcopy(self.wcs)
+        else:
+            return deepcopy(operand.wcs)
 
     def __getitem__(self, item):
         def q2idx(q, wcs, spectral_axis, coo, sto):
@@ -1505,15 +1540,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # Slicing uses NumPY ordering by default.
         sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
 
+        new_flux = self.flux[start_idx:stop_idx]
+
         # Update meta.
         meta = self.meta.copy()
         head = sliced_wcs.to_header()
         for k in ["CRPIX1", "CRVAL1"]:
             meta[k] = head[k]
+        meta["BANDWID"] = abs(meta["CDELT1"]) * len(new_flux)  # Hz
 
         # New Spectrum.
         return self.make_spectrum(
-            Masked(self.flux[start_idx:stop_idx], self.mask[start_idx:stop_idx]),
+            Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
             observer_location=Observatory[meta["TELESCOP"]],
         )
@@ -1605,6 +1643,122 @@ class Spectrum(Spectrum1D, HistoricalBase):
         x = self.spectral_axis.to(xunit)
         y = self.flux
         return curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
+
+    def _min_max_freq(self):
+        """Return the sorted min and max frequency (in Hz) of the spectrum, regardless of the units of its axis"""
+        start_freq = self.spectral_axis.quantity[0].to("Hz", equivalencies=u.spectral())
+        end_freq = self.spectral_axis.quantity[-1].to("Hz", equivalencies=u.spectral())
+        return Quantity(np.sort([start_freq.value, end_freq.value]), unit=start_freq.unit)
+
+    @docstring_parameter(str(all_cats()))
+    def query_lines(
+        self, chemical_name: str | None = None, intensity_lower_limit: float | None = None, cat: str = "gbtlines"
+    ) -> Table:
+        """
+        Query locally or remotely for lines and return a table object. The query returns lines
+        with rest frequencies in the range of this Spectrum's spectral_axis.
+
+        **Note:** If the search parameters result in no matches, a zero-length Table will be returned.
+
+        Parameters
+        ----------
+        chemical_name : str, optional
+            Name of the chemical to search for. Treated as a regular
+            expression.  An empty set will match *any*
+            species. Examples:
+
+            ``'H2CO'`` - 13 species have H2CO somewhere in their formula.
+
+            ``'Formaldehyde'`` - There are 8 isotopologues of Formaldehyde
+                                 (e.g., H213CO).
+
+            ``'formaldehyde'`` - Thioformaldehyde,Cyanoformaldehyde.
+
+            ``'formaldehyde',chem_re_flags=re.I`` - Formaldehyde,thioformaldehyde,
+                                                    and Cyanoformaldehyde.
+
+            ``' H2CO '`` - Just 1 species, H2CO. The spaces prevent including
+                           others.
+        intensity_lower_limit : float, optional
+                Lower limit on the intensity in the logarithmic CDMS/JPL scale.  This corresponds to the 'intintensity' column in the returned table.
+        cat : str or Path
+            The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
+            must have all the columns listed in the `columns` parameter.
+
+                - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
+
+                - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+
+        Returns
+        -------
+        ~astropy.table.Table
+            An astropy table containing the results of the search
+
+        """
+        minf, maxf = self._min_max_freq()
+        return SpectralLineSearch.query_lines(
+            min_frequency=minf,
+            max_frequency=maxf,
+            intensity_lower_limit=intensity_lower_limit,
+            cat=cat,
+            intensity_type="CDMS/JPL (log)",
+        )
+
+    @docstring_parameter(str(all_cats()))
+    def recomb(self, line, cat: str = "gbtrecomb") -> Table:
+        """
+        Search for recombination lines of H, He, and C in the frequency range of this Spectrum.
+
+        Parameters
+        ----------
+        line : str
+           A string describing the line or series to search for, e.g. "Hydrogen", "Halpha", "Hebeta", "C", "carbon".
+
+        cat : str or Path
+            The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
+            must have all the columns listed in the `columns` parameter.
+
+                - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
+
+                - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+
+        Returns
+        -------
+        ~astropy.table.Table
+            An astropy table containing the results of the search
+
+        """
+        minf, maxf = self._min_max_freq()
+        return SpectralLineSearch.recomb(
+            min_frequency=minf,
+            max_frequency=maxf,
+            line=line,
+            cat=cat,
+        )
+
+    @docstring_parameter(str(all_cats()))
+    def recomball(self, cat: str = "gbtrecomb") -> Table:
+        """
+        Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog.
+
+        Parameters
+        ----------
+        cat : str or Path
+            The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
+            must have all the columns listed in the `columns` parameter.
+
+                - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
+
+                - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+
+        Returns
+        -------
+        ~astropy.table.Table
+            An astropy table containing the results of the search
+
+        """
+        minf, maxf = self._min_max_freq()
+        return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat)
 
 
 # @todo figure how how to document write()
@@ -1806,6 +1960,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     observer = spectra[0].observer
     units = spectra[0].flux.unit
     seunit = spectra[0].meta.get("SE_UNIT", "")
+    pols = []
     for i, s in enumerate(spectra):
         if not isinstance(s, Spectrum):
             raise ValueError(f"Element {i} of `spectra` is not a `Spectrum`. {type(s)}")
@@ -1832,6 +1987,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         surface_error[i] = s.meta["SURF_ERR"]
         # if data are in Ta units, then there  normally wouldn't be a zenith opacity provided
         zenith_opacity[i] = s.meta.get("TAU_Z", -1)
+        pols.append(s.meta["CRVAL4"])
     _mask = np.isnan(data_array.data) | data_array.mask
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data = np.ma.average(data_array, axis=0, weights=wts)
@@ -1854,6 +2010,18 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     new_meta["SE_UNIT"] = seunit
     if not hasattr(ze, "mask"):
         new_meta["TAU_Z"] = ze
+
+    upols = set(pols)  # unique crval4's being averaged (polarizations)
+    numpols = len(upols)
+    if numpols == 1:  # only one pol being averaged, no change needed
+        new_meta["CRVAL4"] = next(iter(upols))
+    elif numpols == 2:  # two pols being averaged, check that it is XX and YY or LL and RR, invalid otherwise
+        if (upols == {-5, -6}) or (upols == {-1, -2}):
+            new_meta["CRVAL4"] = 1
+        else:
+            new_meta["CRVAL4"] = 0
+    elif numpols >= 3:  # 3 or more pols, invalid
+        new_meta["CRVAL4"] = 0
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
 

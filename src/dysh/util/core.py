@@ -11,6 +11,8 @@ from itertools import zip_longest
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
+from astropy.table import Table
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
@@ -670,3 +672,24 @@ def calc_vegas_spurs(
     # the input VSP values, so mask instead of dropping rows.
     a = np.ma.masked_array(a, mask=np.logical_or(a < 0, a > maxchan))
     return a.T
+
+
+def isot_to_mjd(isot):
+    """
+    Convert an ISOT string to MJD.
+    """
+    EPOCH_MJD = 40587
+    MSEC_IN_A_DAY = 86400e3
+    return np.array(isot, dtype="datetime64[ms]").astype("int64") / MSEC_IN_A_DAY + EPOCH_MJD
+
+
+def replace_col_astype(t: Table, colname: str, astype, fill_value):
+    if hasattr(t[colname], "mask"):
+        savemask = t[colname].mask.copy()
+    else:
+        savemask = False
+    q = np.ma.masked_array(pd.to_numeric(t[colname]), savemask, fill_value=fill_value, dtype=astype)
+    t[colname].fill_value = fill_value
+    t.replace_column(colname, q)
+    if hasattr(t, "mask"):
+        t[colname].mask = savemask

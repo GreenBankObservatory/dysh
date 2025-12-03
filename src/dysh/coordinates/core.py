@@ -148,6 +148,7 @@ velocity_convention_dict = {
 reverse_velocity_convention_dict = {"optical": "OPTI", "radio": "RADI", "relativistic": "VELO"}
 
 # dictionary to convert CRVAL4 to a polarization ID for plotting purposes
+# "zero" entry for more graceful handling downstream
 crval4_to_pol = {
     -1: "RR",
     -2: "LL",
@@ -157,6 +158,7 @@ crval4_to_pol = {
     -6: "YY",
     -7: "YX",
     -8: "XY",
+    0: "UNKNOWN",
     1: "I",
     2: "Q",
     3: "U",
