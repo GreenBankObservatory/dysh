@@ -460,8 +460,8 @@ class TestSpectrum:
         c0 = 15000
         c1 = 20000
         c2 = 25000
-        p1 = self.ps0[c0:c1].normalness()   # line
-        p2 = self.ps0[c1:c2].normalness()   # continuum
+        p1 = self.ps0[c0:c1].normalness()  # line
+        p2 = self.ps0[c1:c2].normalness()  # continuum
         assert p1 == pytest.approx(1.90045977e-06)
         assert p2 == pytest.approx(0.63552569)
 
