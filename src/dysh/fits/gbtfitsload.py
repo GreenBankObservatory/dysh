@@ -3948,6 +3948,14 @@ class GBTOnline(GBTFITSLoad):
         self._reload()
         return super().summary(*args, **kwargs)
 
+    def get_summary(self, *args, **kwargs):
+        self._reload()
+        return super().get_summary(*args, **kwargs)
+
+    def write(self, *args, **kwargs):
+        self._reload()
+        return super().write(*args, **kwargs)
+
     def gettp(self, *args, **kwargs):
         self._reload()
         return super().gettp(*args, **kwargs)
