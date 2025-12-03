@@ -22,6 +22,7 @@ from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
 from specutils import Spectrum as Spectrum1D
+from scipy.stats import anderson
 
 from dysh.log import logger
 from dysh.spectra import core
@@ -493,6 +494,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def snr(self, peak=True, flux=False, rms=None):
         """
         Signal/Noise ratio, measured either in channel or total flux mode.
+        Make sure the spectrum has been baseline substracted.
 
         Parameters:
         -----------
@@ -500,7 +502,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
                If true, the largest positive  deviation from the mean is compared to the rms
                If false, the largest negative deviation from the mean is compared to the rms
 
-               For normal noise the value depends on the number of channels via the error function.
+               For normal noise the returned snr value depends on the number of channels
+               via the error function.
 
         flux : bool
                If true, the integrated flux over the spectrum is compared to the expected
@@ -521,7 +524,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             rms = s1["rms"] / np.sqrt(2)
         if flux:
             # @todo https://specutils.readthedocs.io/en/stable/analysis.html#
-            snr = s0["mean"] / rms
+            snr = np.nansum(self.flux)/(rms * np.sqrt(len(self.flux)))
         elif peak:
             snr = (s0["max"] - s0["mean"]) / rms
         else:
@@ -533,7 +536,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters:
         -----------
-        mean : real
+        mean : reals
                At your own risk, don't use this, should do a baseline subtraction before.
                If not, this could be used as a cheat.
 
@@ -547,6 +550,24 @@ class Spectrum(Spectrum1D, HistoricalBase):
         nsum = sp[sp < 0.0].sum()
         return (psum + nsum) / (psum - nsum)
 
+    def normalness(self):
+        """Compute the p-value if the noise in a spectrum is gaussian
+           using the Anderson-Darling statistic
+           The p-value gives the probability that the spectrum is gaussian.
+           If p>0.05, the spectrum can be considered gaussian   
+        """
+        anderson_test=anderson(self.data)
+        #   see also  https://github.com/SJVeronese/nicci-package/ 
+        if anderson_test.statistic >= .6:
+            p = np.exp(1.2937 - 5.709 * anderson_test.statistic + .0186 * anderson_test.statistic**2)
+        elif anderson_test.statistic >= .34:
+            p = np.exp(0.9177 - 4.279 * anderson_test.statistic - 1.38 * anderson_test.statistic**2)
+        elif anderson_test.statistic >= .2:
+            p = 1-np.exp(-8.318 + 42.796 * anderson_test.statistic - 59.938 * anderson_test.statistic**2)
+        else:
+            p = 1-np.exp(-13.436 + 101.14 * anderson_test.statistic - 223.73 * anderson_test.statistic**2) 
+        return p
+        
     @log_call_to_history
     def decimate(self, n):
         """

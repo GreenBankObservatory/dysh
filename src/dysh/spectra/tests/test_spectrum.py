@@ -429,6 +429,42 @@ class TestSpectrum:
         assert r0g == pytest.approx(0.907075534)
         assert r0h == pytest.approx(0.948124804)
 
+    def test_snr(self):
+        # snr test over the line portion of the standard getps()
+        c0 = 13000
+        c1 = 16000
+        snr1 = self.ps0[c0:c1].snr(peak=True)
+        snr2 = self.ps0[c0:c1].snr(peak=False)
+        snr3 = self.ps0[c0:c1].snr(flux=True)
+        assert snr1 == pytest.approx(5.0085875570)
+        assert snr2 == pytest.approx(3.7973234434)
+        assert snr3 == pytest.approx(229.62581036)
+
+    def test_roll(self):
+        # roll test over a baseline portion of the standard getps()
+        c0 = 20000
+        c1 = 30000
+        roll = self.ps0[c0:c1].roll(4)
+        assert roll[0] == pytest.approx(0.9999156102)
+        assert roll[1] == pytest.approx(1.0108582258)
+        assert roll[2] == pytest.approx(1.0084001992)
+        assert roll[3] == pytest.approx(0.9975490041)
+
+    def test_sratio(self):
+        c0 = 10000
+        c1 = 20000
+        sratio = self.ps0[c0:c1].sratio()
+        assert sratio == pytest.approx(1.0)
+
+    def test_normalness(self):
+        c0 = 15000
+        c1 = 20000
+        c2 = 25000
+        p1 = self.ps0[c0:c1].normalness()   # line
+        p2 = self.ps0[c1:c2].normalness()   # continuum
+        assert p1 == pytest.approx(1.90045977e-06)
+        assert p2 == pytest.approx(0.63552569)
+
     def test_smooth(self):
         """Test for smooth with `decimate=0`"""
         width = 10
