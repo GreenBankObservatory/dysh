@@ -554,18 +554,21 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """Compute the p-value if the noise in a spectrum is gaussian
         using the Anderson-Darling statistic
         The p-value gives the probability that the spectrum is gaussian.
-        If p>0.05, the spectrum can be considered gaussian
+        If p>0.05, the spectrum can be considered gaussian.
+        See also "D'Agostino, R. B., & Stephens, M. A. (Eds.). (1986)
+        Goodness-of-fit techniques" , table 4.9
         """
         anderson_test = anderson(self.data)
         #   see also  https://github.com/SJVeronese/nicci-package/
-        if anderson_test.statistic >= 0.6:
-            p = np.exp(1.2937 - 5.709 * anderson_test.statistic + 0.0186 * anderson_test.statistic**2)
-        elif anderson_test.statistic >= 0.34:
-            p = np.exp(0.9177 - 4.279 * anderson_test.statistic - 1.38 * anderson_test.statistic**2)
-        elif anderson_test.statistic >= 0.2:
-            p = 1 - np.exp(-8.318 + 42.796 * anderson_test.statistic - 59.938 * anderson_test.statistic**2)
+        z = anderson_test.statistic
+        if z >= 0.6:
+            p = np.exp(1.2937 - 5.709 * z + 0.0186 * z**2)
+        elif z >= 0.34:
+            p = np.exp(0.9177 - 4.279 * z - 1.38 * z**2)
+        elif z >= 0.2:
+            p = 1 - np.exp(-8.318 + 42.796 * z - 59.938 * z**2)
         else:
-            p = 1 - np.exp(-13.436 + 101.14 * anderson_test.statistic - 223.73 * anderson_test.statistic**2)
+            p = 1 - np.exp(-13.436 + 101.14 * z - 223.73 * z**2)
         return p
 
     @log_call_to_history
