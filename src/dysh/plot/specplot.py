@@ -147,6 +147,18 @@ class SpectrumPlot(PlotBase):
         # Plot arguments for this call of plot(). i.e. non-sticky plot attributes
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
+
+        # Clean up old resources before creating new figure/selector
+        # This prevents accumulation of event handlers and figures in pyplot's registry
+        if self._selector is not None:
+            self._selector.disconnect()
+            self._selector = None
+
+        if self._figure is not None:
+            self._plt.close(self._figure)
+            self._figure = None
+            self._axis = None
+
         if True:  # @todo deal with plot reuse (notebook vs script)
             self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
 
@@ -450,7 +462,7 @@ class InteractiveSpanSelector:
         self.cid_press = self.canvas.mpl_connect("button_press_event", self.on_press)
         self.cid_release = self.canvas.mpl_connect("button_release_event", self.on_release)
         self.cid_motion = self.canvas.mpl_connect("motion_notify_event", self.on_motion)
-        self.cid_key = plt.gcf().canvas.mpl_connect("key_press_event", self.on_key_press)
+        self.cid_key = self.canvas.mpl_connect("key_press_event", self.on_key_press)
 
     def onselect(self, vmin, vmax):
         if abs(vmax - vmin) < 1e-6:
@@ -465,7 +477,7 @@ class InteractiveSpanSelector:
         )
         self.ax.add_patch(rect)
         self.regions.append(rect)
-        self.canvas.draw()
+        self.canvas.draw_idle()
 
     def on_press(self, event):
         if event.inaxes != self.ax:
@@ -543,3 +555,18 @@ class InteractiveSpanSelector:
 
     def get_selected_regions(self):
         return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]
+
+    def disconnect(self):
+        """Disconnect all event handlers to prevent memory leaks and dangling references."""
+        if hasattr(self, "cid_press") and self.cid_press is not None:
+            self.canvas.mpl_disconnect(self.cid_press)
+            self.cid_press = None
+        if hasattr(self, "cid_release") and self.cid_release is not None:
+            self.canvas.mpl_disconnect(self.cid_release)
+            self.cid_release = None
+        if hasattr(self, "cid_motion") and self.cid_motion is not None:
+            self.canvas.mpl_disconnect(self.cid_motion)
+            self.cid_motion = None
+        if hasattr(self, "cid_key") and self.cid_key is not None:
+            self.canvas.mpl_disconnect(self.cid_key)
+            self.cid_key = None
