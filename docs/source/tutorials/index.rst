@@ -107,6 +107,19 @@ Most useful when you want to get started reducing your data.
         :shadow: md
         :margin: 2 2 0 0
 
+        **Calibration with Vane**
+
+        .. button-link:: examples/vane.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Calibration with a vane for GBT Argus
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
         **Selecting Data**
 
         .. button-link:: examples/selection.html
@@ -141,5 +154,6 @@ Most useful when you want to get started reducing your data.
    examples/nodding
    examples/hi_survey
    examples/calseq
+   examples/vane
    examples/on_the_fly
    examples/selection

@@ -193,6 +193,7 @@ class VaneSpectrum(Spectrum):
             zenith_opacity=zenith_opacity,
             tatm=tatm,
             tbkg=tbkg,
+            tcal=tcal,
             flux=vane,
             wcs=spectrum.wcs,
             meta=spectrum.meta,
