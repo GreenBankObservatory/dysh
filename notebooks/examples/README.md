@@ -22,3 +22,4 @@ We recommend reading the ``dysh`` documentation at https://dysh.readthedocs.io, 
 | smoothing            | How to smooth spectra                                                     |
 | subbeamnod           | Calibration of subreflector beam nodding observations                     |
 | velocity\_frames     | How to manipulate spectral axes                                           |
+| vane                 | Calibration of Argus observations with a vane                             |

@@ -23,7 +23,7 @@ from dysh import __version__
 
 
 project = "dysh"
-copyright = "2023, Green Bank Observatory"
+copyright = "2023-2025, Green Bank Observatory"
 author = "Green Bank Observatory"
 
 # The short X.Y version
@@ -133,7 +133,7 @@ html_theme_options = {
     # "show_toc_level": 2,
     "use_source_button": True,
     "use_issues_button": True,
-    "use_download_button": False,
+    "use_download_button": True,
     "use_sidenotes": True,
     "show_toc_level": 2,
     "icon_links": [
@@ -257,6 +257,9 @@ html_css_files = [
     "css/custom.css",
 ]
 
+html_js_files = [
+    "js/download.js",
+]
 
 # Settings for myst_nb notebook rendering
 
