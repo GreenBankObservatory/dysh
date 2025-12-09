@@ -242,6 +242,38 @@ class TestPSScan:
         x = sb1.timeaverage()
         assert pytest.approx(x.meta["TAU_Z"] / 0.1) == 1
 
+    def test_vane(self, data_dir):
+        """Test for getps with vane."""
+        data_path = f"{data_dir}/TGBT24B_615_01/TGBT24B_615_01.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(data_path)
+        pssb = sdf.getps(scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85)
+        psta = pssb.timeaverage()
+        stats = psta.stats()
+        assert stats["mean"].value == pytest.approx(-1.1362548)
+        assert stats["median"].value == pytest.approx(-1.13077666)
+        assert stats["rms"].value == pytest.approx(0.46247303)
+        assert psta.meta["TSYS"] == pytest.approx(362.06692565749125)
+        assert psta.meta["EXPOSURE"] == 29.732832173595035
+        assert psta.meta["TSCALE"] == "Ta*"
+        assert psta.meta["TSCALFAC"] == 1.0
+        psta = sdf.getps(
+            scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85, units="flux"
+        ).timeaverage()
+        assert psta.meta["TSCALE"] == "flux"
+
+    def test_getsigref_vane(self, data_dir):
+        """Test for getsigref with vane."""
+        data_path = f"{data_dir}/TGBT24B_615_01/TGBT24B_615_01.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(data_path)
+        srsb = sdf.getsigref(scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85, ref=87)
+        srta = srsb.timeaverage()
+        stats = srta.stats()
+        assert stats["mean"].value == pytest.approx(-1.13895029)
+        assert stats["median"].value == pytest.approx(-1.1328646)
+        assert stats["rms"].value == pytest.approx(0.46335996)
+        assert srta.meta["TSYS"] == pytest.approx(361.4042152542293)
+        assert srta.meta["EXPOSURE"] == 58.5011952833595
+
 
 class TestSubBeamNod:
     def test_compare_with_GBTIDL(self, data_dir):
@@ -429,6 +461,47 @@ class TestSubBeamNod:
         # Line amplitude.
         assert pytest.approx(sbn_cycle.data.max() - tcont, rms_cycle.value) == a
         assert pytest.approx(sbn_scan.data.max() - tcont, rms_scan.value) == a
+
+    def test_vane(self, data_dir):
+        """Test for subbeamnod with vane."""
+        sdf_file = f"{data_dir}/AGBT18B_357_04/AGBT18B_357_04.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
+        sbnsb = sdf.subbeamnod(scan=3, vane=1, ifnum=0, plnum=0, fdnum=10, zenith_opacity=0.1, t_atm=257.90)
+        sbnta = sbnsb.timeaverage()
+        stats = sbnta.stats()
+        assert stats["mean"].value == pytest.approx(-0.09412889, abs=1e-4)
+        assert stats["median"].value == pytest.approx(-0.08932108, abs=1e-4)
+        assert stats["rms"].value == pytest.approx(0.43725554485804585, abs=1e-4)
+        assert sbnta.meta["TSYS"] == pytest.approx(180.01411515504023, abs=1e-4)
+        assert sbnta.meta["TSCALE"] == "Ta*"
+        assert sbnta.meta["TSCALFAC"] == 1.0
+
+
+class TestWeights:
+    def test_weights(self, data_dir):
+        sdf_file = f"{data_dir}/TGBT21A_501_11/NGC2782/TGBT21A_501_11_NGC2782.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[156, 158], ifnum=0, plnum=0, fdnum=0)
+        x = sb.timeaverage(weights="tsys")
+        assert np.all(x.weights - (sb._timeaveraged[0].weights + sb._timeaveraged[1].weights) == 0)
+        sdf_file = f"{data_dir}/AGBT20B_014_03.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getfs(scan=6, fdnum=0, plnum=0, ifnum=0)
+        w = np.ones((3, sb.nchan))
+        x = sb.timeaverage(weights=w)
+        assert x.weights[3071] == 2
+        assert set(x.weights) == set([2.0, 3.0])
+
+        x = sb.timeaverage(weights="tsys")
+        assert np.ma.mean(x.weights) == pytest.approx(274.7940106210527)
+        # now do a custom weight array
+        scale = 100
+        w = scale * np.random.rand(sb.nint, sb.nchan)
+        x = sb.timeaverage(weights=w)
+        # average weight should be roughly nint*np.mean(w) which should
+        # also be 1/2 nint*scale.  1/2 because the mean of the random range (0,1) is 0.5
+        assert np.mean(x.weights) == pytest.approx(sb.nint * np.mean(w), rel=1e-2)
+        assert np.mean(x.weights) == pytest.approx(0.5 * sb.nint * scale, rel=1e-2)
 
 
 class TestTPScan:
@@ -735,6 +808,17 @@ class TestFSScan:
         assert fs_cal.meta["TSYS"] == pytest.approx(fs_org.meta["TSYS"] / fs_org.meta["TCAL"])
         assert fs_cal.meta["TCAL"] == 1.0
 
+    def test_vane(self):
+        """
+        Test for getfs with vane argument.
+        """
+        sdf_file = util.get_project_testdata() / "TGBT22A_603_05/TGBT22A_603_05.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=2, vane=10, t_atm=273, zenith_opacity=0.1)
+        assert fs_sb.tscale == "Ta*"
+        fs = fs_sb.timeaverage()
+        assert fs.meta["TSCALE"] == "Ta*"
+
 
 class TestNodScan:
     def test_nodscan(self):
@@ -768,6 +852,17 @@ class TestNodScan:
         nod_cal = nod_sb_cal[1].timeaverage()
         assert nod_cal.meta["TSYS"] == pytest.approx(nod_org.meta["TSYS"] / nod_org.meta["TCAL"])
         assert nod_cal.meta["TCAL"] == 1.0
+
+    def test_vane(self):
+        fits_path = util.get_project_testdata() / "AGBT22A_325_23/AGBT22A_325_23.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        nodsb = sdf.getnod(ifnum=0, plnum=0, vane=43, t_atm=265.48, zenith_opacity=0.21)
+        assert nodsb[0].tsys.mean() == 195.85427050034397
+        assert nodsb[1].tsys.mean() == 185.7013266638696
+        assert nodsb.timeaverage().meta["TSCALE"] == "Ta*"
+        assert nodsb.timeaverage().meta["TSCALFAC"] == 1.0
+        nodsb = sdf.getnod(ifnum=0, plnum=0, vane=43, t_atm=265.48, zenith_opacity=0.21, units="flux")
+        assert nodsb.timeaverage().meta["TSCALE"] == "flux"
 
 
 class TestScanBlock:
