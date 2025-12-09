@@ -1690,6 +1690,8 @@ class TestGBTFITSLoad:
         n1 = 20000
         chan_range = [n0, n1]
         # PSSCAN
+        sballchan = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0)
+        sallchan = sballchan.timeaverage()
         sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
         s = sb.timeaverage()
         assert s.nchan == n1 - n0
@@ -1697,6 +1699,7 @@ class TestGBTFITSLoad:
         sdf.select_channel([chan_range], tag="trim the channels")
         sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0)
         assert sb[0].nchan == n1 - n0
+        assert s.meta["CRPIX1"] == sallchan.meta["CRPIX1"] - n0
         # now make sure the exception is raised if you try to do both selection and channel=
         with pytest.raises(ValueError):
             sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
