@@ -268,10 +268,17 @@ class TestPSScan:
         srsb = sdf.getsigref(scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85, ref=87)
         srta = srsb.timeaverage()
         stats = srta.stats()
-        assert stats["mean"].value == pytest.approx(-1.13895029)
-        assert stats["median"].value == pytest.approx(-1.1328646)
-        assert stats["rms"].value == pytest.approx(0.46335996)
-        assert srta.meta["TSYS"] == pytest.approx(361.4042152542293)
+        result = {
+            "mean": -1.14103931,
+            "median": -1.13494246,
+            "rms": 0.46420984,
+            "min": -7.71431927,
+            "max": 10.70582089,
+        }
+        for k in result:
+            assert stats[k].value == pytest.approx(result[k])
+        assert stats["nan"] == 31
+        assert srta.meta["TSYS"] == pytest.approx(362.0670888626437)
         assert srta.meta["EXPOSURE"] == 58.5011952833595
 
 
