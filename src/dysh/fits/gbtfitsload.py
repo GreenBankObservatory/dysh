@@ -1443,7 +1443,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 tsys=_tsys,
                 tcal=_tcal,
                 tscale=tscale[0],
-                channel=channel,
+                channel=_channel,
             )
             tscalefac = _sifdf.get("TSCALFAC", None)
             if tscalefac is not None:
@@ -1545,7 +1545,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         channel: list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
-            trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
@@ -1803,7 +1803,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         channel: list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
-            trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
@@ -2028,7 +2028,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         channel: list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
-            trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane calibration scan. This will be used to derive the system temperature.
@@ -2294,7 +2294,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         channel: list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
-            trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
 
             **Note**: With certain choices of `channel`, folding the data with `shift_method='fft'` can result in
@@ -2678,7 +2678,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         channel: list or None
             An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
             only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
-            trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
             :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         ap_eff : float or None
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
