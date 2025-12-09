@@ -1110,6 +1110,7 @@ class TestSpectrum:
         diff = ((v2 - v1) * s1.spectral_axis.quantity) / ac.c
         assert np.all(diff.to("Hz").value == pytest.approx(0.2 * d1.to("Hz").value))
         assert s2.meta["RESTFREQ"] == pytest.approx(1.2 * d1.to("Hz").value)
+
     def test_weights(self):
         s = []
         nspec = 10
