@@ -892,6 +892,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
             self._meta[i]["TSCALE"] = self.tscale
+            self._meta[i]["CRPIX1"] -= self._channel_slice.start  # adjustment for user trimmed channels
 
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
@@ -2752,6 +2753,7 @@ class FSScan(ScanBase):
 
             crval1 = df["CRVAL1"]
             crpix1 = df["CRPIX1"]
+
             cdelt1 = df["CDELT1"]
             vframe = df["VFRAME"]  # Use the velocity frame requested by the user.
 
@@ -2760,7 +2762,7 @@ class FSScan(ScanBase):
                 crpix1 = crpix1.to_numpy()
                 cdelt1 = cdelt1.to_numpy()
                 vframe = vframe.to_numpy()
-
+            crpix1 -= self._channel_slice.start
             freq = channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan[0], nint, ndim=ndim)
 
             # Apply units.
