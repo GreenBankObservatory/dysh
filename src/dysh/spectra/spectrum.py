@@ -418,7 +418,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             d = self[roll:] - self[:-roll]
             mean = d.mean()
             median = d.median()
-            rms = np.nanstd(d.flux)
+            rms = np.nanstd(d.flux) / np.sqrt(2)
             dmin = d.min()
             dmax = d.max()
             npt = len(self.flux) - 2
@@ -467,7 +467,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if roll == 0:
             rms0 = self.stats()["rms"].value
         else:
-            rms0 = self.stats(roll=roll)["rms"].value / np.sqrt(2)
+            rms0 = self.stats(roll=roll)["rms"].value
         rms1 = tsys / np.sqrt(df * dt)
         return rms0 / rms1
 
@@ -488,7 +488,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         rms0 = self.stats()["rms"].value
         r = []
         for n in range(1, rollmax + 1):
-            r.append(rms0 / (self.stats(roll=n)["rms"].value / np.sqrt(2)))
+            r.append(rms0 / self.stats(roll=n)["rms"].value)
         return r
 
     def snr(self, peak=True, flux=False, rms=None):
@@ -521,7 +521,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s0 = self.stats()
         s1 = self.stats(roll=1)
         if rms is None:
-            rms = s1["rms"] / np.sqrt(2)
+            rms = s1["rms"]
         if flux:
             # @todo https://specutils.readthedocs.io/en/stable/analysis.html#
             snr = np.nansum(self.flux) / (rms * np.sqrt(len(self.flux)))

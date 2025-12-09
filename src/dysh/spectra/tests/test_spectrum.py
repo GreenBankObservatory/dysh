@@ -1111,7 +1111,7 @@ class TestSpectrum:
         s1 = f1.stats()
         s2 = f1.stats(roll=1)
         assert s1["rms"].value == pytest.approx(0.10086297)
-        assert s2["rms"].value == pytest.approx(0.14006544)
+        assert s2["rms"].value == pytest.approx(0.14006544 / np.sqrt(2))
         assert s1["npt"] == 1024
         assert s2["npt"] == 1022
         assert s1["nan"] == 0
