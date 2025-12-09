@@ -67,6 +67,7 @@ class TestUtil:
         b = [a]
         assert du.get_valid_channel_range(b) == a
         assert du.get_valid_channel_range(np.array(b)) == a
+
     def test_isot_to_mjd(self):
         isot = [
             "2024-10-11T06:49:29.00",

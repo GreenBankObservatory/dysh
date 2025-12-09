@@ -1,6 +1,5 @@
 """Top-level package for dysh."""
 
-
 __version__ = "0.11.0"
 
 
