@@ -277,7 +277,7 @@ class TestSpectrum:
         plt.ioff()
 
         # General variables.
-        meta_ignore = ["CRPIX1", "CRVAL1"]
+        meta_ignore = ["CRPIX1", "CRVAL1", "BANDWID"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
         s = slice(1000, 1100, 1)
         tol = 1e-5  # Tolerance to compare spectral axes.
@@ -288,6 +288,10 @@ class TestSpectrum:
         assert np.all(trimmed.flux == self.ps0.flux[s])
         # The slicing changes the values at the micro Hz level.
         assert np.all(trimmed.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
+        # Check that the bandwidth was updated.
+        assert trimmed.meta["BANDWID"] == abs(
+            (trimmed.spectral_axis[-1] - trimmed.spectral_axis[0]).to("Hz").value
+        ) + abs(trimmed.meta["CDELT1"])
         # Check meta values. The trimmed spectrum has an additional
         # key: 'original_wcs'.
         for k, v in self.ps0.meta.items():
@@ -1091,3 +1095,13 @@ class TestSpectrum:
         assert len(tr) == 7
         freq = np.array([1405.0142, 1390.8698, 1393.8448, 1406.519, 1392.42, 1392.42, 1392.42])
         assert all(tr["orderedfreq"].data == freq)
+
+    def test_weights(self):
+        s = []
+        nspec = 10
+        for i in range(nspec):
+            q = Spectrum.fake_spectrum()
+            q._weights = np.full_like(q.weights, i + 1)
+            s.append(q)
+        x = average_spectra(s, weights="spectral")
+        assert np.all(x.weights == np.sum(np.arange(nspec + 1)))

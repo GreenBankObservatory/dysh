@@ -108,13 +108,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._spectral_axis._target = self._target
         if self.velocity_convention is None and "VELDEF" in self.meta:
             self._spectral_axis._doppler_convention = veldef_to_convention(self.meta["VELDEF"])
-        # if "uncertainty" not in kwargs:
-        # self._uncertainty = StdDevUncertainty(np.ones_like(self.data), unit=self.flux.unit)
-        # Weights are Non here because can be defined
-        # separately from uncertainty by the user. Not really recommended
-        # but they can do so. See self.weights()
-        # self._weights = None
-        self._weights = np.ones(self.flux.shape)
+        if "MEANTSYS" in self.meta and "EXPOSURE" in self.meta and "CDELT1" in self.meta:
+            w = core.tsys_weight(self.meta["EXPOSURE"], self.meta["CDELT1"], self.meta["MEANTSYS"])
+            self._weights = np.full(self.flux.shape, w)
+        else:
+            self._weights = np.ones(self.flux.shape)
         #  Get observer quantity from observer location.
         if "DATE-OBS" in self.meta:
             self._obstime = Time(self.meta["DATE-OBS"])
@@ -168,10 +166,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @property
     def weights(self):
         """The channel weights of this spectrum"""
-        # Cannot take power of NDUncertainty, so convert
-        # to a Quanity first.
-        # if self._weights is None:
-        #    return self._uncertainty.quantity**-2
         return self._weights
 
     @property
@@ -1539,21 +1533,24 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # Slicing uses NumPY ordering by default.
         sliced_wcs = wcs[0:1, 0:1, 0:1, start_idx:stop_idx]
 
+        new_flux = self.flux[start_idx:stop_idx]
+
         # Update meta.
         meta = self.meta.copy()
         head = sliced_wcs.to_header()
         for k in ["CRPIX1", "CRVAL1"]:
             meta[k] = head[k]
+        meta["BANDWID"] = abs(meta["CDELT1"]) * len(new_flux)  # Hz
 
         # New Spectrum.
         return self.make_spectrum(
-            Masked(self.flux[start_idx:stop_idx], self.mask[start_idx:stop_idx]),
+            Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
             observer_location=Observatory[meta["TELESCOP"]],
         )
 
     @log_call_to_result
-    def average(self, spectra, weights="tsys", align=False):
+    def average(self, spectra, weights: str | np.ndarray | None = "tsys", align=False):
         r"""
         Average this `Spectrum` with `spectra`.
         The resulting `average` will have an exposure equal to the sum of the exposures,
@@ -1564,12 +1561,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         spectra : list of `Spectrum`
             Spectra to be averaged. They must have the same number of channels.
             No checks are done to ensure they are aligned.
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: None, str or ~numpy.ndarray
+            If None, the channel weights will be equal and set to unity.
+
+            If 'tsys' the channel weights will be calculated as:
 
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-            Default: 'tsys'
+            If 'spectral', the weights in each Spectrum will be used.
+
+            If an array, it must have shape `(len(spectra)+1,)` or `(len(spectra)+1,nchan)` where `nchan` is the
+            number of channels in the spectra.
+            The first element ofthe weights array will be applied to the current spectrum.
         align : bool
             If `True` align the `spectra` to itself.
             This uses `Spectrum.align_to`.
@@ -1921,12 +1924,16 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     spectra : list of `Spectrum`
         Spectra to be averaged. They must have the same number of channels.
         No checks are done to ensure they are aligned.
-    weights: str
-        'tsys' or None.  If 'tsys' the weight will be calculated as:
+    weights: None, str or ~numpy.ndarray
+        If None, the channel weights will be equal and set to unity.
+
+        If 'tsys' the channel weights will be calculated as:
 
          :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-        Default: 'tsys'
+        If 'spectral', the `weights` array in each Spectrum will be used.
+
+        If an array, it must have shape `(len(spectra),)` or `(len(spectra),nchan)` where `nchan` is the number of channels in the spectra.
     align : bool
         If `True` align the `spectra` to the first element.
         This uses `Spectrum.align_to`.
@@ -1971,10 +1978,15 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         data_array[i].mask = s.mask
 
         # Assign a single weight to all channels in the Spectrum s
-        if weights == "tsys":
+        if isinstance(weights, np.ndarray):
+            wts[i] = weights[i]
+        elif weights == "tsys":
             wts[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
+        elif weights == "spectral":
+            wts[i] = s.weights
         else:
             wts[i] = 1.0
+
         exposures[i] = s.meta["EXPOSURE"]
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]
@@ -1986,7 +1998,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         pols.append(s.meta["CRVAL4"])
     _mask = np.isnan(data_array.data) | data_array.mask
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
-    data = np.ma.average(data_array, axis=0, weights=wts)
+    data, sum_of_weights = np.ma.average(data_array, axis=0, weights=wts, returned=True)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
     xcoo = np.ma.average(xcoos, axis=0, weights=wts[:, 0])
     ycoo = np.ma.average(ycoos, axis=0, weights=wts[:, 0])
@@ -2020,7 +2032,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         new_meta["CRVAL4"] = 0
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
-
+    averaged._weights = sum_of_weights
     if history is not None:
         # Keep previous history first.
         averaged._history = history + averaged._history

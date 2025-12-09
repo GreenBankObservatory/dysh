@@ -714,6 +714,13 @@ def get_valid_channel_range(channel: list | np.ndarray) -> list:
     if first > last:
         raise ValueError(f"In channel range {channel}, first channel is greater than last channel.")
     return [first, last]
+def isot_to_mjd(isot):
+    """
+    Convert an ISOT string to MJD.
+    """
+    EPOCH_MJD = 40587
+    MSEC_IN_A_DAY = 86400e3
+    return np.array(isot, dtype="datetime64[ms]").astype("int64") / MSEC_IN_A_DAY + EPOCH_MJD
 
 
 def replace_col_astype(t: Table, colname: str, astype, fill_value):

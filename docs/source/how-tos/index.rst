@@ -108,6 +108,22 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
         :shadow: md
         :margin: 2 2 0 0
 
+        :material-outlined:`balance;3em;green` **Spectral Weights**
+
+        How to set and use spectral weights
+
+
+        .. button-link:: examples/using_spectral_weights.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Spectral Weights
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
         :material-outlined:`123;3em;green` **Repeated Scan Numbers**
 
         How to work with repeated scan numbers
@@ -179,6 +195,7 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/dataIO
    examples/align_spectra
    examples/flagging
+   examples/using_spectral_weights
    examples/repeated_scans
    examples/gauss_fit
    examples/merge_sdfits
