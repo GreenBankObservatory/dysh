@@ -839,7 +839,7 @@ def fft_pad(y):
     npad = newsize - nch
     nskip = npad // 2
     padded[nskip : nskip + nch] = y
-    padded[nskip : nskip + nch].mask = y.mask
+    padded.mask[nskip : nskip + nch] = y.mask
     padded[0:nskip] = padded[nskip]
     padded[nskip + nch :] = padded[nskip + nch]
 
@@ -891,14 +891,14 @@ def fft_shift(
     if pad:
         padded, nskip = fft_pad(y)
     else:
-        padded, nskip = y.copy(), 0
+        padded, nskip = deepcopy(y), 0
 
     new_len = len(padded)
 
     phase_shift = 2.0 * np.pi * shift / new_len
 
     yf = padded.copy()
-    nan_mask = np.isnan(padded)
+    nan_mask = np.isnan(padded.data) | padded.mask
 
     if nan_treatment == "fill":
         yf[nan_mask] = fill_value
@@ -931,12 +931,16 @@ def fft_shift(
     new_y = np.ma.masked_invalid(shifted_y.real[nskip : nskip + nch])
     new_nan_mask = nan_mask[nskip : nskip + nch]
 
-    # Shift NaN elements.
+    # Shift NaN elements and mask.
     if keep_nan:
         if abs(shift) < 1:
+            new_nan_mask = mask_fshift(new_nan_mask, shift)
             new_y[new_nan_mask] = np.nan
+            new_y.mask[new_nan_mask] = True
         else:
-            new_y[np.roll(new_nan_mask, int(shift))] = np.nan
+            new_nan_mask = np.roll(new_nan_mask, int(shift))
+            new_y[new_nan_mask] = np.nan
+            new_y.mask[new_nan_mask] = True
 
     return new_y
 
@@ -1178,13 +1182,15 @@ def data_fshift(y, fshift, method="fft", pad=False, window=True):
         Only used if `method="fft"`.
     """
 
-    if abs(fshift) > 1:
+    if abs(fshift) >= 1:
         raise ValueError("abs(fshift) must be less than one: {fshift}")
 
     if method == "fft":
         new_y = fft_shift(y, fshift, pad=pad, window=window)
     elif method == "interpolate":
         new_y = ndimage.shift(y.filled(0.0), [fshift])
+        mask = mask_fshift(y.mask, fshift)
+        new_y = np.ma.masked_where(mask, new_y)
 
     return new_y
 
@@ -1233,6 +1239,43 @@ def data_shift(y, s, axis=-1, remove_wrap=True, fill_value=np.nan, method="fft",
         y_new = data_fshift(y_new, fshift, method=method, pad=pad, window=window)
 
     return y_new
+
+
+def mask_fshift(mask, fshift):
+    """
+    Shift `mask` by `fshift` channels.
+    This should only be used when `abs(fshift)<1`.
+    It expands the mask using binary dilation
+    to account for the spread of the masked values when
+    they are shifted by a fractional number of channels.
+
+    Parameters
+    ----------
+    mask : array_like
+        Array with masked values. Either ones and zeros or True and False.
+    fshift : float
+        Amount to shift by.
+
+    Returns
+    -------
+    new_mask : array_like
+        `mask` shifted by `fshift` channels.
+
+    Raises
+    ------
+    ValueError
+        If `abs(fshift)` is greather than 1.
+    """
+    if abs(fshift) >= 1:
+        raise ValueError(f"abs(fshift) greater than 1 ({fshift=})")
+    if fshift < 0:
+        structure = np.array([1, 1, 0], dtype=bool)
+    elif fshift > 0:
+        structure = np.array([0, 1, 1], dtype=bool)
+    else:
+        structure = np.array([0, 1, 0], dtype=bool)
+    new_mask = ndimage.binary_dilation(mask, structure=structure)
+    return new_mask
 
 
 def cog_slope(c, flat_tol=0.1):

@@ -2653,7 +2653,7 @@ class FSScan(ScanBase):
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
             """ """
             chan_shift = (ref_freq[0] - sig_freq[0]) / np.diff(sig_freq).mean()
-            logger.debug(f"do_fold: {sig_freq[0]}, {ref_freq[0]},{chan_shift}")
+            logger.debug(f"do_fold: sig_freq0={sig_freq[0]}, ref_freq0={ref_freq[0]}, chan_shift={chan_shift}")
             ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
             avg = (sig + ref_shift) / 2
@@ -2670,8 +2670,6 @@ class FSScan(ScanBase):
         logger.debug(f"df_sig {type(df_sig)} len(df_sig)")
         sig_freq = index_frequency(df_sig)
         ref_freq = index_frequency(df_ref)
-        chan_shift = abs(sig_freq[0, 0] - ref_freq[0, 0]) / np.abs(np.diff(sig_freq)).mean()
-        logger.debug(f"FS: shift={chan_shift:g}  nchan={self._nchan:g}")
 
         if self._vane is not None:
             self._tcal[:] = self.get_vane_tcal()
