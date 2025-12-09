@@ -713,7 +713,7 @@ def get_valid_channel_range(channel: list | np.ndarray) -> list:
         last = a[1]
     if first > last:
         raise ValueError(f"In channel range {channel}, first channel is greater than last channel.")
-    return [first, last]
+    return [int(first), int(last)]
 
 
 def isot_to_mjd(isot):
