@@ -1556,7 +1556,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
-                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
             )
 
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -1804,7 +1804,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
-                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
             )
 
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -2073,7 +2073,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if vane is not None:
                         # Each beam needs its own vane, and we might not know the fdnums before this point.
                         _vane, units, requested_units, zenith_opacity = self._vane_setup(
-                            vane, f, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                            vane, f, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
                         )
                     else:
                         _vane = None
@@ -2282,7 +2282,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
-                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
             )
 
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -2658,7 +2658,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
-                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
             )
 
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -3488,11 +3488,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int,
         ifnum: int,
         plnum: int,
-        tcal: float | None = None,
+        t_cal: float | None = None,
         zenith_opacity: float | None = None,
-        tatm: float | None = None,
-        twarm: float | None = None,
-        tbkg: float = 2.725,
+        t_atm: float | None = None,
+        t_warm: float | None = None,
+        t_bkg: float = 2.725,
         apply_flags=True,
         **kwargs,
     ):
@@ -3511,18 +3511,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The intermediate frequency (IF) number.
         plnum : int
             The polarization number.
-        tcal : float, optional
+        t_cal : float, optional
             Calibration temperature. If no value is provided, but `zenith_opacity` and `tatm` are provided, then
             it will use Eq. (22) of [1]_. If `zenith_opacity` and `tatm` are not provided, it will first try to
             retrieve them using the weather forecasts (only available at GBO), if that fails it will use the
             ambient temperature, Eq. (23) of [1]_.
         zenith_opacity : float, optional
             Zenith opacity. If not provided it will try to fetch "Opacity" from the weather forecasts (only available at GBO).
-        tatm : float, optional
+        t_atm : float, optional
             Atmospheric temperature in K. If not provided it will try to fetch "Tatm" from the weather forecasts (only available at GBO).
-        twarm : float, optional
+        t_warm : float, optional
             Temperature of the VANE in K. If not provided it will use the value found in the "TWARM" column of the SDFITS for `scan`.
-        tbkg : float, optional
+        t_bkg : float, optional
             Background temperature in K.
         apply_flags : bool, optional
             If True, apply flags before deriving the system temperature.
@@ -3547,7 +3547,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ).timeaverage()
 
         return VaneSpectrum.from_spectrum(
-            vane, scan, fdnum, ifnum, plnum, tcal=tcal, zenith_opacity=zenith_opacity, tatm=tatm, twarm=twarm, tbkg=tbkg
+            vane,
+            scan,
+            fdnum,
+            ifnum,
+            plnum,
+            tcal=t_cal,
+            zenith_opacity=zenith_opacity,
+            tatm=t_atm,
+            twarm=t_warm,
+            tbkg=t_bkg,
         )
 
     def vanecal(
@@ -3748,7 +3757,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise ValueError(f"More than one value for TCAL: {tcal_set}")
         return tcal_set[0]
 
-    def _vane_setup(self, vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags):
+    def _vane_setup(self, vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags):
         """
         Set up a `~dysh.spectra.vane.VaneSpectrum` for use in the calibration routines.
         It also handles the hacks needed to get the units correctly when using a vane.
@@ -3775,9 +3784,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 zenith_opacity = vane._zenith_opacity
                 logger.info(f"Will use a zenith opacity of {zenith_opacity} nepers. Taken from vane.")
             if t_warm is not None:
-                logger.info("t_warm provided, but not used. To change this value, please create a new VaneSpectrum.")
+                logger.info(
+                    "t_warm provided, but not used. To change this value, please create a new VaneSpectrum or call with vane as a scan number."
+                )
             if t_atm is not None:
-                logger.info("t_atm provided, but not used. To change this value, please create a new VaneSpectrum.")
+                logger.info(
+                    "t_atm provided, but not used. To change this value, please create a new VaneSpectrum or call with vane as a scan number."
+                )
+            if t_cal is not None:
+                logger.info(
+                    "t_cal provided, but not used. To change this value, please create a new VaneSpectrum or call with vane as a scan number."
+                )
         elif isinstance(vane, int):
             vane = self.getvane(
                 scan=vane,
@@ -3785,9 +3802,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 ifnum=ifnum,
                 plnum=plnum,
                 zenith_opacity=zenith_opacity,
-                twarm=t_warm,
-                tatm=t_atm,
-                tbkg=t_bkg,
+                t_warm=t_warm,
+                t_atm=t_atm,
+                t_bkg=t_bkg,
+                t_cal=t_cal,
                 apply_flags=apply_flags,
             )
         else:

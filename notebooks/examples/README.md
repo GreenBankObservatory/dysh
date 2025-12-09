@@ -23,3 +23,4 @@ We recommend reading the ``dysh`` documentation at https://dysh.readthedocs.io, 
 | subbeamnod           | Calibration of subreflector beam nodding observations                     |
 | using\_spectral\_weights | How to set and use weights in spectral averaging                      |
 | velocity\_frames     | How to manipulate spectral axes                                           |
+| vane                 | Calibration of Argus observations with a vane                             |
