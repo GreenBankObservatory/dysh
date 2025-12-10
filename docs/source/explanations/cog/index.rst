@@ -17,7 +17,7 @@ That is
 
 .. math::
 
-    v_{\mathrm{c}}=\frac{\sum_{i} T(v_{i})v_{i}}{\sum_{i} v_{i}},
+    v_{\mathrm{c}}=\frac{\sum_{i} T(v_{i})v_{i}}{\sum_{i} T(v_{i})},
 
 where :math:`T(v_{i})` are the flux values at channels :math:`v_{i}`.
 
