@@ -141,12 +141,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._resolution = 1
 
-    def _len(self):
-        """return the size of the `Spectrum` in the spectral dimension.
-        @todo __len__  has unintended consquences, yuck.
-        """
-        return len(self.frequency)
-
     def _spectrum_property(self, prop: str):
         """
         Utility method to return a header value as a property.
@@ -163,6 +157,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         return self.meta.get(prop, None)
+
+    @property
+    def nchan(self) -> int:
+        """The number of channels in the Spectrum"""
+        return len(self.frequency)
 
     @property
     def weights(self):
