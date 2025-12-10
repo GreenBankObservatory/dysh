@@ -714,7 +714,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def equivalencies(self):
         """Get the spectral axis equivalencies that can be used in converting the axis
         between km/s and frequency or wavelength"""
-        equiv = u.spectral()
+        equiv = deepcopy(u.spectral())
         sa = self.spectral_axis
         if sa.doppler_rest is not None:
             rfq = sa.doppler_rest
@@ -790,6 +790,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def doppler_convention(self):
         """String representation of the velocity (Doppler) convention"""
         return self.velocity_convention
+
+    @property
+    def doppler_rest(self):
+        """Rest frequency used in velocity conversions."""
+        return self.spectral_axis.doppler_rest
+
+    @doppler_rest.setter
+    def doppler_rest(self, value):
+        """Set the `doppler_rest` property."""
+        self._spectral_axis._doppler_rest = value
+        self.meta["RESTFREQ"] = value.to("Hz").value
 
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
