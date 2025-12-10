@@ -1095,3 +1095,13 @@ class TestSpectrum:
         assert len(tr) == 7
         freq = np.array([1405.0142, 1390.8698, 1393.8448, 1406.519, 1392.42, 1392.42, 1392.42])
         assert all(tr["orderedfreq"].data == freq)
+
+    def test_weights(self):
+        s = []
+        nspec = 10
+        for i in range(nspec):
+            q = Spectrum.fake_spectrum()
+            q._weights = np.full_like(q.weights, i + 1)
+            s.append(q)
+        x = average_spectra(s, weights="spectral")
+        assert np.all(x.weights == np.sum(np.arange(nspec + 1)))
