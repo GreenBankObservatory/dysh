@@ -3340,7 +3340,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def get_nod_beams(self, scan):
         """
         Find the FDNUM values for two nodding beams.
-        It relies on the SDFITS having the column 'PROCSCAN' set to 'BEAM1' or 'BEAM2'.
 
         Parameters
         ----------
@@ -3381,10 +3380,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         mask = mask & np.isclose(self["FEEDXOFF"], 0.0) & np.isclose(self["FEEDEOFF"], 0.0)
         if mask.sum() == 0:
             raise ValueError(f"Scan {scan} does not have a beam centered on the target.")
-        mask1 = mask & (self["PROCSCAN"] == "BEAM1")
-        mask2 = mask & (self["PROCSCAN"] == "BEAM2")
-        feed1 = self._get_beam(scan, mask1, bi=1)
-        feed2 = self._get_beam(scan, mask2, bi=2)
+        if "BEAM1" in set(self["PROCSCAN"][mask]) and "BEAM2" in set(self["PROCSCAN"][mask]):
+            mask1 = mask & (self["PROCSCAN"] == "BEAM1")
+            mask2 = mask & (self["PROCSCAN"] == "BEAM2")
+            feed1 = self._get_beam(scan, mask1, bi=1)
+            feed2 = self._get_beam(scan, mask2, bi=2)
+        elif len(set(self["FDNUM"][mask])) == 2:
+            feeds = iter(set(self["FDNUM"][mask]))
+            feed1 = next(feeds)
+            feed2 = next(feeds)
+        else:
+            raise ValueError("Cannot determine nodding beams. Please set fdnum manually.")
 
         return [feed1, feed2]
 

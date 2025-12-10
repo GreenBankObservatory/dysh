@@ -1683,6 +1683,33 @@ class TestGBTFITSLoad:
         assert np.all(sdf._sdf[0]._flagmask[0] == saveflags0[0])
         assert np.all(sdf._sdf[1]._flagmask[0] == saveflags1[0])
 
+    def test_nod_no_procname(self):
+        """
+        Test for getnod when the data has PROCNAME Unknown.
+        """
+        sdf_file = util.get_project_testdata() / "AGBT06C_035_01/AGBT06C_035_01.raw.acs"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        sb = sdf.getnod(scan=38, plnum=0, ifnum=0)
+        assert len(sb) == 2
+        ta = sb.timeaverage()
+        s = ta.stats()
+        expected = {
+            "mean": -0.05284084,
+            "median": -0.05295007,
+            "rms": 0.02304643,
+            "min": -0.16246362,
+            "max": 0.06368776,
+            "npt": 8192,
+            "nan": np.int64(0),
+        }
+        for k, v in s.items():
+            try:
+                assert v.value == pytest.approx(expected[k])
+            except AttributeError:
+                assert v == pytest.approx(expected[k])
+        assert np.all(sb[0]._get_all_meta("FDNUM") == [0] * len(sb[0]))
+        assert np.all(sb[1]._get_all_meta("FDNUM") == [1] * len(sb[1]))
+
 
 def test_parse_tsys():
     """
