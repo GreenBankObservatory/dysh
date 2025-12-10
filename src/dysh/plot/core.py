@@ -3,6 +3,7 @@ Plot a spectrum using matplotlib
 """
 
 import datetime as dt
+import re
 
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -206,3 +207,22 @@ def check_kwargs(known_kwargs, kwargs):
     diff = set(kwargs) - set(known_kwargs)
     if len(diff) > 0:
         logger.warning(f"Unknown kwargs: {', '.join(diff)}")
+
+def parse_html(s):
+    print(s)
+    #turn html-styled text from spectral line search to matplotlib mathtext
+
+    #handle subscripts and superscripts
+    s = s.replace("<sub>", "$_{")
+    s = s.replace("</sub>", "}$")
+
+    s = s.replace("<sup>", "$_{")
+    s = s.replace("</sup>", "}$")
+
+    #strip everything else
+    s = s.replace('<font color="red">', "").replace('</font>', "")
+    s = s.replace("<i>", "").replace("</i>", "")
+    #s = s.replace("<*b>", "")
+    print(s)
+
+    return s

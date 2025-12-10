@@ -8,6 +8,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.utils.masked import Masked
+from bs4 import BeautifulSoup
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, SpanSelector
 
@@ -16,7 +17,7 @@ from ..coordinates import (
     frame_to_label,
 )
 from ..util.docstring_manip import docstring_parameter
-from . import PlotBase, check_kwargs
+from . import PlotBase, check_kwargs, parse_html
 
 _KMS = u.km / u.s
 
@@ -421,6 +422,20 @@ class SpectrumPlot(PlotBase):
         self._axis.plot(sa, sf, color=color, linestyle=linestyle, gid="oshow")
 
         self.freexy()
+
+    def show_catalog_lines(self):
+        self.sl_tbl = self._spectrum.query_lines()
+
+        for line in self.sl_tbl:
+            #line_name = BeautifulSoup(line["name"],features="html5lib").get_text()
+            line_name = parse_html(line["name"])
+            line_freq = (line["orderedfreq"] * u.MHz).to(self._xunit).value
+            #line_freq = line["orderedfreq"]
+
+            vloc = self._spectrum.mean().value
+
+            self._axis.axvline(line_freq, c='k', linewidth=1, gid="catalogline")
+            self._axis.annotate(line_name, (line_freq, vloc),xycoords='data')
 
 
 class InteractiveSpanSelector:
