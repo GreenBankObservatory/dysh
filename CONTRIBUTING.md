@@ -224,12 +224,5 @@ Step 2 by the receiver of the PR:
 
 # References
 
-Some references on git workflows:
 
 * https://docs.github.com/en/github/getting-started-with-github/fork-a-repo
-* http://docs.astropy.org/en/stable/development/workflow/development_workflow.html
-* https://www.atlassian.com/git/tutorials/comparing-workflows
-* https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow
-* http://physics.mnstate.edu/craig/git-novice-pyastro/
-* https://www.sitepoint.com/quick-tip-sync-your-fork-with
-* https://how-to.dev/how-git-stores-data
