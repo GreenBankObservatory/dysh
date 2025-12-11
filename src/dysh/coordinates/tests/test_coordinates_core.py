@@ -77,8 +77,10 @@ class TestCore:
 
     def test_frame_switch(self):
         f = Spectrum.fake_spectrum()
+        assert f.velocity_frame == "itrs"
         fh = f.with_frame("hcrs")
-        print(f.velocity_frame)
-        print(fh.velocity_frame)
+        assert fh.velocity_frame == "hcrs"
         fhh = f.with_frame("heliocentric")
-        print(fhh.velocity_frame)  # wrong
+        assert fhh.velocity_frame == "hcrs"
+        fg = f.with_frame("geocentric")
+        assert fg.velocity_frame == "gcrs"
