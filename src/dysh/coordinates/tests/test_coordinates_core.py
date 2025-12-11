@@ -78,6 +78,6 @@ class TestCore:
     def test_frame_switch(self):
         f = Spectrum.fake_spectrum()
         assert f.velocity_frame == "itrs"
-        for k in astropy_convenience_frame_names:
+        for k, v in astropy_convenience_frame_names.items():
             fnew = f.with_frame(k)
-            assert fnew.velocity_frame == astropy_convenience_frame_names[k]
+            assert fnew.velocity_frame == v
