@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from dysh.log import logger
+
 # Optional fast Rust-based parser
 try:
     from rsdfits import parse_sdfits_index_file as _rsdfits_parse
@@ -184,8 +186,10 @@ def parse_sdfits_index_file(path: Path, use_rust: bool | None = None) -> pd.Data
         raise ImportError("rsdfits package not available. Install from ~/repos/rsdfits or set use_rust=False")
 
     if use_rust:
+        logger.debug(f"Parsing {path} with rsdfits parser (fast)")
         return _parse_with_rsdfits(path)
     else:
+        logger.debug(f"Parsing {path} with rsdfits parser (slow)")
         return _parse_with_python(path)
 
 

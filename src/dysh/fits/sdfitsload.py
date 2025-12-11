@@ -24,6 +24,22 @@ from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 from ..util.timers import Benchmark
 
+
+# Memory logging utility
+def _mem_gb():
+    """Return current process memory usage in GB"""
+    import os
+
+    import psutil
+
+    return psutil.Process(os.getpid()).memory_info().rss / (1024**3)
+
+
+def _log_mem(msg):
+    """Log memory usage with a message"""
+    logger.info(f"[MEM {_mem_gb():.2f} GB] {msg}")
+
+
 # Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
 from . import fitsio_unicode_patch, index_file  # noqa: F401
 
@@ -69,19 +85,24 @@ class SDFITSLoad:
         self._index_source = None  # Track whether index was loaded from "index_file" or "fits"
         self._index_file_threshold = kwargs_opts.get("index_file_threshold", 100 * 1024 * 1024)
         self._binheader = []
+        _log_mem(f"SDFITSLoad before fits.open({filename})")
         self._hdu = fits.open(filename)
+        _log_mem(f"SDFITSLoad after fits.open({filename})")
         self._header = self._hdu[0].header
         self.load(hdu, **kwargs_opts)
+        _log_mem("SDFITSLoad after load()")
         doindex = kwargs_opts.get("index", True)
         doflag = kwargs_opts.get("flags", True)  # for testing
         if doindex:
             self.create_index()
+            _log_mem("SDFITSLoad after create_index()")
         # add default channel masks
         # These are numpy masks where False is not flagged, True is flagged.
         # There is one 2-D flag mask arraywith shape NROWSxNCHANNELS per bintable
         self._flagmask = None
         if doflag:
             self._init_flags()
+            _log_mem("SDFITSLoad after _init_flags()")
 
     def __del__(self):
         # We need to ensure that any open HDUs are properly
@@ -100,6 +121,10 @@ class SDFITSLoad:
         for i in range(len(self._flagmask)):
             nc = self.nchan(i)
             nr = self.nrows(i)
+            array_size_mb = (nr * nc) / (1024**2)  # bool = 1 byte
+            _log_mem(
+                f"_init_flags bintable {i}: allocating 2x ({nr} rows x {nc} channels) = {2 * array_size_mb:.1f} MB"
+            )
             if "FLAGS" in self._bintable[i].data.columns.names:
                 self._flagmask[i] = self._bintable[i].data["FLAGS"].astype(bool)
             else:
@@ -550,7 +575,11 @@ class SDFITSLoad:
         np.ma.MaskedArray
             The raw spectra data
         """
+        nrows_req = len(rows) if rows is not None else self.nrows(bintable)
+        _log_mem(f"_rawspectra_astropy: loading DATA via astropy, {nrows_req} rows requested")
         data = self._bintable[bintable].data[:]["DATA"]
+        data_size_mb = data.nbytes / (1024**2)
+        _log_mem(f"_rawspectra_astropy: loaded {data.shape}, {data_size_mb:.1f} MB")
 
         if rows is not None:
             rows_array = np.asarray(rows)
@@ -558,11 +587,11 @@ class SDFITSLoad:
                 nchan = self.nchan(bintable)
                 return np.ma.MaskedArray(np.empty((0, nchan)), mask=False)
             data = data[rows_array]
-            if setmask:
+            if setmask and self._flagmask is not None:
                 mask = self._flagmask[bintable][rows_array]
             else:
                 mask = False
-        elif setmask:
+        elif setmask and self._flagmask is not None:
             mask = self._flagmask[bintable]
         else:
             mask = False
@@ -591,6 +620,8 @@ class SDFITSLoad:
         """
         # Get HDU index - bintables start at HDU 1 (HDU 0 is primary)
         hdu_index = bintable + 1
+        nrows_req = len(rows) if rows is not None else self.nrows(bintable)
+        _log_mem(f"_rawspectra_fitsio: loading DATA via fitsio, {nrows_req} rows requested")
 
         with fitsio.FITS(self._filename) as fits_file:
             if rows is not None:
@@ -600,18 +631,80 @@ class SDFITSLoad:
                     return np.ma.MaskedArray(np.empty((0, nchan)), mask=False)
                 # fitsio can read specific rows efficiently
                 data = fits_file[hdu_index].read(columns=["DATA"], rows=rows_array)["DATA"]
-                if setmask:
+                _log_mem(f"_rawspectra_fitsio: loaded {data.shape}, {data.nbytes / (1024**2):.1f} MB")
+                if setmask and self._flagmask is not None:
                     mask = self._flagmask[bintable][rows_array]
                 else:
                     mask = False
             else:
                 data = fits_file[hdu_index].read(columns=["DATA"])["DATA"]
-                if setmask:
+                _log_mem(f"_rawspectra_fitsio: loaded ALL rows {data.shape}, {data.nbytes / (1024**2):.1f} MB")
+                if setmask and self._flagmask is not None:
                     mask = self._flagmask[bintable]
                 else:
                     mask = False
 
         return np.ma.MaskedArray(data, mask=mask)
+
+    def load_full_rows(self, rows: np.ndarray, bintable: int = 0, exclude_data: bool = True) -> pd.DataFrame:
+        """
+        Load full rows (all columns) for specific row indices from FITS file.
+
+        This enables lazy loading when row data is needed - loads the entire row
+        once rather than column by column.
+
+        Parameters
+        ----------
+        rows : np.ndarray
+            Row indices to load
+        bintable : int
+            The bintable index (default 0)
+        exclude_data : bool
+            If True (default), exclude the DATA column (it's huge and loaded separately)
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with all columns for the requested rows
+        """
+        if len(rows) == 0:
+            return pd.DataFrame()
+
+        hdu_index = bintable + 1
+        rows_array = np.asarray(rows)
+        _log_mem(f"load_full_rows: loading {len(rows_array)} rows from bintable {bintable}")
+
+        with fitsio.FITS(self._filename) as fits_file:
+            available_cols = fits_file[hdu_index].get_colnames()
+
+            # Exclude DATA column (huge, loaded separately) and other problematic columns
+            cols_to_load = [c for c in available_cols if c.upper() not in ("DATA", "FLAGS")]
+            if not exclude_data:
+                cols_to_load = available_cols
+
+            data = fits_file[hdu_index].read(columns=cols_to_load, rows=rows_array)
+
+            # Convert to DataFrame
+            result = {}
+            for col in data.dtype.names:
+                val = data[col]
+                # Handle string columns - decode bytes and strip whitespace
+                if val.dtype.kind in ("S", "U"):
+                    if val.dtype.kind == "S":
+                        val = np.char.decode(val, "utf-8")
+                    val = np.char.strip(val)
+                result[col] = val
+
+            df = pd.DataFrame(result)
+
+            # Add DATE column from DATE-OBS if not present
+            # The Scan code expects DATE for aperture efficiency calculation,
+            # but DATE-OBS is the actual observation date per row
+            if "DATE" not in df.columns and "DATE-OBS" in df.columns:
+                # Extract just the date part (YYYY-MM-DD) from DATE-OBS
+                df["DATE"] = df["DATE-OBS"].str[:10]
+
+            return df
 
     def rawspectrum(self, i, bintable=0, setmask=False):
         """
@@ -633,15 +726,12 @@ class SDFITSLoad:
         """
         if bintable is None:
             (bt, row) = self._find_bintable_and_row(i)
-            data = self._bintable[bt].data[:]["DATA"][row]
         else:
-            data = self._bintable[bintable].data[:]["DATA"][i]
+            bt = bintable
             row = i
-        if setmask:
-            rawspec = np.ma.MaskedArray(data, mask=self._flagmask[bintable][row])
-        else:
-            rawspec = np.ma.MaskedArray(data, False)
-        return rawspec
+        # Use rawspectra with a single row to avoid triggering astropy's data cache
+        # This ensures fitsio is used for partial row loading
+        return self.rawspectra(bt, setmask=setmask, rows=[row])[0]
 
     def getrow(self, i, bintable=0):
         """
@@ -775,6 +865,20 @@ class SDFITSLoad:
                 Number channels in the first spectrum of the input bintable
 
         """
+        # Get nchan from FITS metadata without loading data
+        # This avoids triggering astropy's data cache which would cause
+        # subsequent rawspectra() calls to load the entire DATA column
+        try:
+            with fitsio.FITS(self._filename) as fits_file:
+                hdu_index = bintable + 1
+                dtype_info = fits_file[hdu_index].get_rec_dtype()[0]
+                # DATA column dtype is like ('DATA', '>f4', (16384,))
+                data_shape = dtype_info.fields["DATA"][0].shape
+                if data_shape:
+                    return data_shape[0]
+        except (KeyError, IndexError, AttributeError):
+            pass
+        # Fallback: load single row (this triggers astropy cache, but at least it works)
         return np.shape(self.rawspectrum(0, bintable))[0]
 
     def npol(self, bintable):

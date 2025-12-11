@@ -1423,7 +1423,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             nrows = nrows + thisshape[0]
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
         # astropy Tables can be concatenated with vstack thankfully.
-        table = vstack(tablelist, join_type="exact")
+        # Use join_type="outer" to handle scans with slightly different columns
+        # (e.g., from blanked integrations or different calibration states)
+        table = vstack(tablelist, join_type="outer")
         # need to preserve table.meta because it gets lost in created of "cd" ColDefs
         table_meta = table.meta
         cd = BinTableHDU(table, name="SINGLE DISH").columns

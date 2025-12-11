@@ -52,7 +52,7 @@ from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
 from ..util.weatherforecast import GBTWeatherForecast
 from . import conf, core
-from .sdfitsload import FITSBackend, SDFITSLoad
+from .sdfitsload import FITSBackend, SDFITSLoad, _log_mem
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
@@ -125,6 +125,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "verbose": False,
             "fix_ka": True,
             "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
+            "flags": not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
         }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
@@ -135,23 +136,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag = None
 
         self.GBT = Observatory["GBT"]
+        _log_mem(f"GBTFITSLoad.__init__ start for {fileobj}")
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
             self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
             if not hasattr(self, "_filename"):
                 self._filename = self._sdf[0].filename
+            _log_mem("GBTFITSLoad: loaded 1 file")
         elif path.is_dir():
             logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
             # because e.g., VEGAS does A,B,C,D,E
             nf = 0  # performance testing
-            for f in sorted(path.glob("*.fits")):
+            fits_files = sorted(path.glob("*.fits"))
+            _log_mem(f"GBTFITSLoad: found {len(fits_files)} FITS files in directory")
+            for f in fits_files:
                 logger.debug(f"Selecting {f} to load")
                 if kwargs.get("verbose", None):
                     print(f"Loading {f}")
                 if nf < kwargs.get("nfiles", 99999):  # performance testing limit number of files loaded
                     self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
                     nf += 1
+                    _log_mem(f"GBTFITSLoad: loaded file {nf}/{len(fits_files)}: {f.name}")
             if len(self._sdf) == 0:  # fixes issue 381
                 raise Exception(f"No FITS files found in {fileobj}.")
             if not hasattr(self, "_filename"):
@@ -1129,6 +1135,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def _apply_additional_flags(self):
         """apply the additional channel flags created by, e.g., flag_vegas"""
         for k in self._sdf:
+            # Check attributes exist (they won't if skipflags=True)
+            if not hasattr(k, "_additional_channel_mask") or not hasattr(k, "_flagmask"):
+                continue
             if k._additional_channel_mask is not None and k._flagmask is not None:
                 k._flagmask |= k._additional_channel_mask
 
@@ -1154,6 +1163,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if self._selection is not None:
             return
+        _log_mem("_create_index_if_needed: start")
         i = 0
         df = None
         if self._selection is None:
@@ -1167,6 +1177,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 else:
                     df = pd.concat([df, s._index], axis=0, ignore_index=True)
                 i = i + 1
+        index_mem_mb = df.memory_usage(deep=True).sum() / (1024**2)
+        _log_mem(f"_create_index_if_needed: combined index has {len(df)} rows, {index_mem_mb:.1f} MB")
         self._selection = Selection(df)
         self._flag = Flag(df)
         self._construct_procedure()
@@ -1193,6 +1205,152 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 found_flags = True
         if found_flags and len(self.flags._table) != 0:
             logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
+
+    def _load_full_rows_if_needed(self, df: pd.DataFrame, required_columns: list[str]) -> pd.DataFrame:
+        """
+        Load full rows from FITS files if any required columns are missing.
+
+        This is the proper lazy loading mechanism: when we need row data that
+        isn't in the .index file, load ALL columns for those rows at once.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Selected rows DataFrame (from _common_selection), must have ROW and FITSINDEX columns
+        required_columns : list[str]
+            Column names that must be present (triggers load if any are missing)
+
+        Returns
+        -------
+        pd.DataFrame
+            The input DataFrame with full row data loaded from FITS
+        """
+        # Check if any underlying SDFITSLoad was loaded from .index file (or is in hybrid mode)
+        has_index_loaded = any(getattr(s, "_index_source", None) in ("index_file", "hybrid") for s in self._sdf)
+        if not has_index_loaded:
+            return df  # All data loaded from FITS, columns should exist if valid
+
+        # Check which columns are missing
+        missing_cols = [c for c in required_columns if c.upper() not in df.columns]
+
+        # In hybrid mode, also check if the selected rows have NaN in any required column
+        # (columns may exist but specific rows may not have been loaded yet)
+        rows_need_loading = False
+        if not missing_cols:
+            for col in required_columns:
+                col_upper = col.upper()
+                if col_upper in df.columns and df[col_upper].isna().any():
+                    rows_need_loading = True
+                    break
+
+        if not missing_cols and not rows_need_loading:
+            return df  # All required columns already present with data
+
+        _log_mem(f"_load_full_rows_if_needed: lazy loading {len(df)} rows (missing cols: {missing_cols})")
+        logger.info(f"Lazy loading full rows for {len(df)} selected rows (missing: {missing_cols})...")
+
+        # Group rows by FITSINDEX (which SDFITSLoad they belong to)
+        # and load full rows from FITS
+        result_dfs = []
+
+        for fitsindex, group in df.groupby("FITSINDEX"):
+            sdf = self._sdf[int(fitsindex)]
+
+            # Only load if this SDFITSLoad was loaded from .index file or is in hybrid mode
+            if getattr(sdf, "_index_source", None) not in ("index_file", "hybrid"):
+                result_dfs.append(group)
+                continue
+
+            rows = group["ROW"].values
+            bintable = 0  # TODO: handle multiple bintables if needed
+
+            # Load full rows from FITS
+            fits_df = sdf.load_full_rows(rows, bintable)
+
+            if len(fits_df) == 0:
+                result_dfs.append(group)
+                continue
+
+            # IMPORTANT: Also update the underlying SDFITSLoad's _index
+            # This is needed because Scan classes access sdf.index() directly
+            # We need to add new columns to ALL SDFITSLoads, not just this one,
+            # because later operations might access different SDFITSLoads
+            for col in fits_df.columns:
+                col_dtype = fits_df[col].dtype
+                # Add column to ALL underlying SDFITSLoads if missing
+                for other_sdf in self._sdf:
+                    if col not in other_sdf._index.columns:
+                        if col_dtype == object or col_dtype.kind in ("U", "S"):
+                            # String columns: use object dtype with None
+                            other_sdf._index[col] = pd.Series([None] * len(other_sdf._index), dtype=object)
+                        elif col_dtype.kind in ("i", "u"):
+                            # Integer columns: can't hold NaN, use float64
+                            other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=np.float64)
+                        else:
+                            # Float columns: use NaN with the same dtype
+                            other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
+                # Update the specific rows we loaded in the current SDFITSLoad
+                sdf._index.loc[rows, col] = fits_df[col].values
+
+            # Mark that we've started loading from FITS (hybrid mode)
+            sdf._index_source = "hybrid"
+
+            # Merge: start with FITS data, then overlay .index data for columns that exist in both
+            # This ensures FITS data wins for any columns that might be different
+            merged = fits_df.copy()
+
+            # Preserve the original DataFrame index
+            merged.index = group.index
+
+            # Add columns from .index that aren't in FITS (like FITSINDEX, ROW)
+            for col in group.columns:
+                if col not in merged.columns:
+                    merged[col] = group[col].values
+
+            result_dfs.append(merged)
+
+        result = pd.concat(result_dfs, axis=0)
+        # Restore original row order
+        result = result.loc[df.index]
+
+        logger.info(f"   Loaded full rows. DataFrame now has {len(result.columns)} columns")
+
+        # Update self._selection with the newly loaded columns so that other code
+        # paths that access self._index (which returns self._selection) will see them
+        self._rebuild_merged_index()
+
+        return result
+
+    def _rebuild_merged_index(self):
+        """
+        Rebuild the merged index from all SDFITSLoad objects.
+
+        This is called after lazy loading triggers a full index load for some files,
+        to update the merged index with the newly available columns.
+        """
+        df = None
+        for i, s in enumerate(self._sdf):
+            # Make sure FITSINDEX is set
+            if "FITSINDEX" not in s._index.columns:
+                s._index["FITSINDEX"] = i * np.ones(len(s._index), dtype=int)
+            if df is None:
+                df = s._index.copy()
+            else:
+                df = pd.concat([df, s._index], axis=0, ignore_index=True)
+
+        # Update selection and flag with the new merged data
+        # Preserve existing selection rules if any
+        old_selection_rules = (
+            self._selection._selection_rules.copy() if hasattr(self._selection, "_selection_rules") else {}
+        )
+        old_flag_rules = self._flag._selection_rules.copy() if hasattr(self._flag, "_selection_rules") else {}
+
+        self._selection = Selection(df)
+        self._flag = Flag(df)
+
+        # Restore selection rules
+        self._selection._selection_rules = old_selection_rules
+        self._flag._selection_rules = old_flag_rules
 
     def _construct_procedure(self):
         """
@@ -1390,7 +1548,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             A ScanBlock containing one or more `~dysh.spectra.scan.TPScan`
 
         """
+        _log_mem(f"gettp: start (fdnum={fdnum}, ifnum={ifnum}, plnum={plnum})")
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
+        _log_mem(f"gettp: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
@@ -1566,6 +1728,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
 
         """
+        _log_mem(
+            f"getsigref: start (fdnum={fdnum}, ifnum={ifnum}, plnum={plnum}, scan count={len(scan) if hasattr(scan, '__len__') else 1})"
+        )
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -1592,6 +1757,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scan=scan,
             **kwargs,
         )
+        _log_mem(f"getsigref: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
@@ -1796,6 +1964,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             procvals=procvals,
             **kwargs,
         )
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = tsys
@@ -1969,7 +2139,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~dysh.spectra.scan.NodScan`.
 
         """
-
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -1988,6 +2157,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             procvals=procvals,
             **kwargs,
         )
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
@@ -2189,13 +2360,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more`~dysh.spectra.scan.FSScan`.
 
         """
-
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
@@ -2530,7 +2702,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         data : `~dysh.spectra.scan.ScanBlock`
             A ScanBlock containing one or more `~dysh.spectra.scan.SubBeamNodScan`
         """
-
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -2539,6 +2710,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _bintable = kwargs.get("bintable", None)
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
 
         tsys = _parse_tsys(t_sys, scans)
         _tcal = t_cal
@@ -2977,7 +3150,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # This can happen when loading from .index files which don't have all columns.
         for col in mask_dict.keys():
             if col.upper() not in self._index.columns:
-                logger.warning(f"Skipping _fix_column for {column}: mask column {col} not in index (loaded from .index file?)")
+                logger.warning(
+                    f"Skipping _fix_column for {column}: mask column {col} not in index (loaded from .index file?)"
+                )
                 return
 
         _mask = self._column_mask(mask_dict)
@@ -2998,12 +3173,35 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
+            items_list = [items]
         elif isinstance(items, (Sequence, np.ndarray)):
             items = [i.upper() for i in items]
+            items_list = items
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
         if "DATA" in items:
             return np.vstack([s["DATA"] for s in self._sdf])
+
+        # Lazy loading: if column(s) missing and any SDFITSLoad was loaded from .index file,
+        # trigger full load for those files to get the missing columns
+        missing_keys = [k for k in items_list if k not in self._index.columns]
+        if missing_keys:
+            # Check if any underlying SDFITSLoad was loaded from .index file
+            index_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "index_file"]
+            if index_loaded_sdfs:
+                logger.info(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
+                for sdf in index_loaded_sdfs:
+                    # Access the column through SDFITSLoad which has lazy loading
+                    # This will trigger the full index load for that file
+                    try:
+                        _ = sdf[missing_keys[0]]
+                    except KeyError:
+                        pass  # Column might truly not exist
+
+                # Rebuild merged index from updated SDFITSLoad indexes
+                self._rebuild_merged_index()
+                logger.info(f"   Loaded missing columns. Index now has {len(self._index.columns)} columns.")
+
         return self._selection[items]
 
     @log_call_to_history
