@@ -31,7 +31,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     Observatory,
     astropy_convenience_frame_names,
     astropy_frame_dict,
-    change_ctype,
+    change_veldef,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -282,7 +282,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             return
         if self._subtracted:
             if self._normalized:
-                warnings.warn("Cannot undo previously normalized baseline subtraction")  # noqa: B028
+                logger.warning("Cannot undo previously normalized baseline subtraction")
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
@@ -876,10 +876,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(tfl)
         self._observer = self._spectral_axis.observer
-        # This line is commented because:
-        # SDFITS defines CTYPE1 as always being the TOPO frequency.
-        # See Issue #373 on GitHub.
-        # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
         if isinstance(tfl, str):
             self._velocity_frame = tfl
         else:
@@ -887,7 +883,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF.
         # SDFITS defines CTYPE1 as always being the TOPO frequency.
         # See Issue #373 on GitHub.
-        self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
+        self.meta["VELDEF"] = change_veldef(self.meta["VELDEF"], self._velocity_frame)
 
     def with_frame(self, toframe):
         """Return a copy of this `Spectrum` with a new coordinate reference frame.
@@ -896,7 +892,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         toframe - str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.SkyCoord`
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
-            or an actual coordinate system instance
+            or an actual coordinate system instance.   The supported
 
         Returns
         -------
@@ -1020,7 +1016,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             t = Table(outarray, names=outnames, meta=meta, descriptions=description)
         # for now ignore complaints about keywords until we clean them up.
-        # There are some that are more than 8 chars that should be fixed in GBTFISLOAD
+        # There are some that are more than 8 chars that should be fixed in GBTFITSLOAD
         warnings.simplefilter("ignore", VerifyWarning)
         t.write(fileobj, format=format, **kwargs)
 
@@ -1307,7 +1303,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 attach_zero_velocities(observer_location.get_itrs(obstime=obstime))
             )
         else:
-            warnings.warn(  # noqa: B028
+            logger.warning(
                 "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
                 " frames"
             )
