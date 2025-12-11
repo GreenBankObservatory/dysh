@@ -133,6 +133,8 @@ reverse_frame_dict = {
     "itrs": "-OBS",
     "topo": "-OBS",
     "topocentric": "-OBS",
+    "fk5": "-BAR",
+    "fk4": "-BAR",
 }
 # Dictionary to convert from FITS velocity convention to specutils string.
 # At GBT, VELO was written by sdfits filler for some unknown amount of
