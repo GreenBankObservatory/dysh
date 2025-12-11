@@ -62,7 +62,7 @@ astropy_convenience_frame_names = {
     "bary": "icrs",
     "barycentric": "icrs",
     "heliocentric": "hcrs",
-    "helio": "icrs",
+    "helio": "hcrs",
     "geo": "gcrs",
     "geocentric": "gcrs",
     "topocentric": "itrs",

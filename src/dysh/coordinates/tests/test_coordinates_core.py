@@ -1,7 +1,7 @@
 from astropy.coordinates import EarthLocation, UnknownSiteException
 
 import dysh.coordinates as coords
-from dysh.coordinates import GBT, Observatory, decode_veldef
+from dysh.coordinates import GBT, Observatory, astropy_convenience_frame_names, decode_veldef
 from dysh.spectra.spectrum import Spectrum
 
 
@@ -78,9 +78,6 @@ class TestCore:
     def test_frame_switch(self):
         f = Spectrum.fake_spectrum()
         assert f.velocity_frame == "itrs"
-        fh = f.with_frame("hcrs")
-        assert fh.velocity_frame == "hcrs"
-        fhh = f.with_frame("heliocentric")
-        assert fhh.velocity_frame == "hcrs"
-        fg = f.with_frame("geocentric")
-        assert fg.velocity_frame == "gcrs"
+        for k in astropy_convenience_frame_names:
+            fnew = f.with_frame(k)
+            assert fnew.velocity_frame == astropy_convenience_frame_names[k]
