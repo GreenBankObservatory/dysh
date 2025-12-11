@@ -61,10 +61,10 @@ astropy_frame_dict = {
 astropy_convenience_frame_names = {
     "bary": "icrs",
     "barycentric": "icrs",
-    "heliocentric": "icrs",
+    "heliocentric": "hcrs",
     "helio": "icrs",
-    "geo": "icrs",
-    "geocentric": "icrs",
+    "geo": "gcrs",
+    "geocentric": "gcrs",
     "topocentric": "itrs",
     "topo": "itrs",
     "vlsr": "lsrk",

@@ -2,6 +2,7 @@ from astropy.coordinates import EarthLocation, UnknownSiteException
 
 import dysh.coordinates as coords
 from dysh.coordinates import GBT, Observatory, decode_veldef
+from dysh.spectra.spectrum import Spectrum
 
 
 class TestCore:
@@ -73,3 +74,11 @@ class TestCore:
 
         for k, v in pairs.items():
             assert coords.veldef_to_convention(k) == v
+
+    def test_frame_switch(self):
+        f = Spectrum.fake_spectrum()
+        fh = f.with_frame("hcrs")
+        print(f.velocity_frame)
+        print(fh.velocity_frame)
+        fhh = f.with_frame("heliocentric")
+        print(fhh.velocity_frame)  # wrong
