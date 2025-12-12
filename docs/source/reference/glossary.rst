@@ -325,6 +325,11 @@ In this glossary we also note overloaded terms.
     VEGAS
       Versatile GBT Astronomical Spectrometer - https://www.gb.nrao.edu/vegas/
 
+    VEGAS spurs
+      Artifacts introduced by VEGAS to the data.
+      These artifacts manifest as bad channels at known locations.
+      See https://gbtdocs.readthedocs.io/en/latest/references/backends/vegas.html#the-spurs for more details.
+
     waterfall plot
       A plot (or two-dimensional image) that shows time vs. frequency.
 
