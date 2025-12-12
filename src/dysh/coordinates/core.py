@@ -510,8 +510,6 @@ def change_veldef(ctype, toframe):
 
     if newpostfix == unknown:
         logger.warning(f"Could not determine VELDEF for given frame {toframe}. Setting to {newctype}.")
-    else:
-        logger.warning("did this show up?")
     return newctype
 
 
