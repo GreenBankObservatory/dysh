@@ -2,8 +2,6 @@
 Core functions/classes for spatial and velocity coordinates and reference frames
 """
 
-import warnings
-
 import astropy.coordinates as coord
 import astropy.units as u
 import numpy as np
@@ -11,6 +9,8 @@ from astropy.coordinates.spectral_coordinate import (
     DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
 )
 from astropy.time import Time
+
+from dysh.log import logger
 
 _PMZERO = 0.0 * u.mas / u.yr
 _PMZERORAD = 0.0 * u.rad / u.s
@@ -61,10 +61,10 @@ astropy_frame_dict = {
 astropy_convenience_frame_names = {
     "bary": "icrs",
     "barycentric": "icrs",
-    "heliocentric": "icrs",
-    "helio": "icrs",
-    "geo": "icrs",
-    "geocentric": "icrs",
+    "heliocentric": "hcrs",
+    "helio": "hcrs",
+    "geo": "gcrs",
+    "geocentric": "gcrs",
     "topocentric": "itrs",
     "topo": "itrs",
     "vlsr": "lsrk",
@@ -133,6 +133,10 @@ reverse_frame_dict = {
     "itrs": "-OBS",
     "topo": "-OBS",
     "topocentric": "-OBS",
+    "fk5": "-BAR",
+    "fk4": "-BAR",
+    "cirs": "-GEO",
+    "tete": "-GEO",
 }
 # Dictionary to convert from FITS velocity convention to specutils string.
 # At GBT, VELO was written by sdfits filler for some unknown amount of
@@ -365,7 +369,7 @@ def sanitize_skycoord(target):
             radial_velocity=_rv,
         )
     else:
-        warnings.warn(f"Can't sanitize {target}")  # noqa: B028
+        logger.warning(f"Can't sanitize {target}")
         return target
 
     _target.sanitized = True
@@ -498,12 +502,14 @@ def veltofreq(velocity, restfreq, veldef):
     return frequency
 
 
-def change_ctype(ctype, toframe):
-    # when changing frame, we should also change CTYPE1. Pretty sure GBTIDL does not do this
+def change_veldef(ctype, toframe):
+    unknown = "-UNK"
     prefix = ctype[0:4]
-    newpostfix = reverse_frame_dict[toframe]
+    newpostfix = reverse_frame_dict.get(toframe, unknown)
     newctype = prefix + newpostfix
-    # print(f"changing {ctype} to {newctype}")
+
+    if newpostfix == unknown:
+        logger.warning(f"Could not determine VELDEF for given frame {toframe}. Setting to {newctype}.")
     return newctype
 
 
