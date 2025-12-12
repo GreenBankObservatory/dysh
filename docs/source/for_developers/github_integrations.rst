@@ -13,14 +13,51 @@ Tests must be named `test_*.py` and located within a `tests` directory of their 
 Pre-Commit Hooks
 ================
 
-We have several pre-commit hooks that ensure committed code follows desired standards. They can be found in `dysh/.pre-commit-config.yaml`.   pre-commit is automatically installed if you used the `dev` dependency group to install dysh (`uv sync --dev`).  `pre-commit` will run whenever you commit code.
+We use `pre-commit <https://pre-commit.com/>` with
+hooks that ensure committed code follows desired standards. The hooks be found in `dysh/.pre-commit-config.yaml`.
+
+There two steps for enabling pre-commit in your repo: 1) installing the pre-commit package and 2) installing the hooks in your clone of the dysh repo.
+
+Installing the pre-commit package
+-----------------------------------------------
+
+You can install `pre-commit` globally, so that it is active for any of your projects that have hooks, or just locally for `dysh`.  For global install, in your normal environment:
+
+.. code-block:: bash
+
+    $ uv tool install pre-commit
+
+If you prefer local to `dysh`,  the `pre-commit` package is automatically installed with `dev` dependency group when installing `dysh`:
+
+.. code-block:: bash
+
+    (dysh) $ uv sync --dev
+
+Installing dysh's pre-commit hooks
+------------------------------------------------
+To install the pre-commit hooks into your repo (`.git/hooks/pre-commit`)
+
+Globally:
+
+.. code-block:: bash
+
+   pre-commit install
+
+Locally:
+
+.. code-block:: bash
+
+   (dysh) $uv run pre-commit install
+
+
+`pre-commit` will run  whenever you commit to make sure all of the staged files are formatted correctly.
 
 .. code-block:: bash
 
     (dysh) $ git add newfile.py
     (dysh) $ git commit -m "adding new python file" newfile.py
 
-The `pre-commit` will run  to make sure all of the staged files are formatted correctly. You'll see a message like this, then the information about your commit.
+You'll see a message like this, then the information about your commit.
 
 .. code-block:: bash
    :emphasize-lines: 11
