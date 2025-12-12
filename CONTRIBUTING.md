@@ -1,6 +1,8 @@
 The recommended way to develop dysh is to [fork](https://guides.github.com/activities/forking/) dysh
 from the *upstream*, work on your own clone of that fork, and issue a pull request when your new code is ready for review.   Below are two ways to do this. Ideally, you should write regression test(s) for your code that can be run in dysh's CI (i.e., by *pytest*). Be sure to occasionally sync your fork with upstream.
 
+Please see our [For Developers guide](https://dysh.readthedocs.io/en/latest/for_developers/index.html) for more detailed information.
+
 ## GitHub
 
 Follow the instructions in [github for creating a fork](https://guides.github.com/activities/forking/) and cloning your fork. Once your work is ready for review, [issue a pull request](https://docs.github.com/en/get-started/exploring-projects-on-github/contributing-to-a-project#making-a-pull-request).   You can optionally select a member of the dysh team to review it. If not, a reviewer will be assigned.
