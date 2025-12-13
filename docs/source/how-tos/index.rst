@@ -156,6 +156,22 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
         :shadow: md
         :margin: 2 2 0 0
 
+        :material-outlined:`line_curve;3em;green` **Custom Baseline Fitting**
+
+        How to fit a custom baseline model
+
+
+        .. button-link:: examples/custom_baseline.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Custom Baseline Fitting
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
         :octicon:`versions;3em;green` **Merging SDFITS**
 
         How to merge SDFITS files
@@ -198,5 +214,6 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/using_spectral_weights
    examples/repeated_scans
    examples/gauss_fit
+   examples/custom_baseline
    examples/merge_sdfits
    examples/apeff_surferr
