@@ -38,7 +38,7 @@ from .vane import VaneSpectrum
 
 class SpectralAverageMixin:
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):
+    def smooth(self, method="hanning", width=1, decimate=0):
         """
         Smooth or convolve the underlying calibrated data array, optionally decimating the data.
 
@@ -51,7 +51,7 @@ class SpectralAverageMixin:
 
         Parameters
         ----------.
-        method : string, optional
+        method : {'hanning', 'boxcar', 'gaussian'}, optional
             Smoothing method. Valid are: 'hanning', 'boxcar' and
             'gaussian'. Minimum match applies.
             The default is 'hanning'.
@@ -71,22 +71,15 @@ class SpectralAverageMixin:
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
             The default is 0, meaning decimation is by `width`
-        kernel : `~numpy.ndarray`, optional
-            A numpy array which is the kernel by which the signal is convolved.
-            Use with caution, as it is assumed the kernel is normalized to
-            one, and is symmetric. Since width is ill-defined here, the user
-            should supply an appropriate number manually.
-            NOTE: not implemented yet.
-            The default is None.
-        Raises
-        ------
-        Exception
-            If no valid smoothing method is given.
 
         Returns
         -------
         None
 
+        Raises
+        ------
+        ValueError
+            If no valid smoothing method is given.
         """
 
         valid_methods = available_smooth_methods()
@@ -95,7 +88,7 @@ class SpectralAverageMixin:
             raise ValueError(f"`width` ({width}) must be >=1.")
 
         if this_method is None:
-            raise Exception(f"smooth({method}): valid methods are {valid_methods}")
+            raise ValueError(f"Unrecognized method ({method}). Valid methods are {valid_methods}")
         if decimate == 0:
             # Take the default decimation by `width`.
             decimate = int(abs(width))
@@ -126,7 +119,7 @@ class SpectralAverageMixin:
             self._set_delta_freq_from_meta()
 
     def _set_delta_freq_from_meta(self):
-        """After decimation reset the delta_freq variable from the recomputed metadata"""
+        """After decimation reset the delta_freq variable from the recomputed metadata."""
         self._delta_freq = np.array([x["CDELT1"] for x in self._meta])
 
     @abstractmethod
@@ -144,9 +137,10 @@ class SpectralAverageMixin:
 
     @log_call_to_history
     def timeaverage(self, weights: str | np.ndarray = "tsys", use_wcs=True) -> Spectrum:
-        r"""Compute the time-averaged spectrum. For a Scan this will average all the integrations in the Scan,
+        r"""
+        Compute the time-averaged spectrum. For a Scan this will average all the integrations in the Scan,
         according to the given weights.
-        For a ScanBlock, it will average all the integrations in all Scans contained in the ScanBlock.
+        For a `~dysh.spectra.scan.ScanBlock`, it will average all the integrations in all Scans contained in the `~dysh.spectra.scan.ScanBlock`.
 
         Parameters
         ----------
@@ -167,7 +161,7 @@ class SpectralAverageMixin:
 
         Returns
         -------
-        spectrum : :class:`~dysh.spectra.spectrum.Spectrum`
+        spectrum : `~dysh.spectra.spectrum.Spectrum`
             The time-averaged spectrum. The weights array of the Spectrum will have shape `(nchan,)` and will be set to the sum of the input weights.
 
         .. note::
@@ -179,43 +173,61 @@ class SpectralAverageMixin:
 
     @property
     def exposure(self) -> np.ndarray:
-        """The array of exposure (integration) times. How the exposure is calculated
-        varies for different derived classes.  See :meth:`_calc_exposure`,
+        """
+        The array of exposure (integration) times. How the exposure is calculated
+        varies for different derived classes.  See :meth:`_calc_exposure`.
 
         Returns
         -------
         exposure : `~numpy.ndarray`
-            The exposure time in units of the EXPOSURE keyword in the SDFITS header
+            The exposure time in units of the EXPOSURE keyword in the SDFITS header.
         """
         return self._exposure
 
     @property
-    def delta_freq(self) -> np.ndarray:
-        """The array of channel frequency width.  How the channel width is calculated varies for different derived classes. See :meth:`_calc_delta_freq`.
+    def duration(self) -> np.ndarray:
+        """
+        The array of duration times. How the duration is calculated
+        varies for different derived classes.  See :meth:`_calc_exposure`.
+        Duration includes the blanking time, exposure does not, so `duration>=exposure`.
 
+        Returns
+        -------
+        duration : `~numpy.ndarray`
+            The duration time in units of the DURATION keyword in the SDFITS header.
+        """
+        return self._duration
+
+    @property
+    def delta_freq(self) -> np.ndarray:
+        """
+        The array of channel frequency width.
+        How the channel width is calculated varies for different derived classes. See :meth:`_calc_delta_freq`.
 
         Returns
         -------
         delta_freq: `~numpy.ndarray`
-            The channel frequency width in units of the CDELT1 keyword in the SDFITS header
+            The channel frequency width in units of the CDELT1 keyword in the SDFITS header.
 
         """
         return self._delta_freq
 
     @property
     def tsys(self):
-        """The system temperature array.
+        """
+        The system temperature array.
 
         Returns
         -------
         tsys : `~numpy.ndarray`
-            System temperature values in K
+            System temperature values in K.
         """
         return self._tsys
 
     @property
     def tsys_weight(self) -> np.ndarray:
-        r"""The system temperature weighting array computed from current
+        r"""
+        The system temperature weighting array computed from current
         :math:`T_{sys}`, :math:`t_{int}`, and :math:`\delta\nu`. See :meth:`tsys_weight`
         """
         return tsys_weight(self.exposure, self.delta_freq, self.tsys)
@@ -275,6 +287,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._surface_error_array = None
         self._zenith_opacity = zenith_opacity
         self._exposure = None
+        self._duration = None
         self._calibrated = None
         self._smoothref = smoothref
         self._apply_flags = apply_flags
@@ -891,6 +904,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             restfreq = rfq.to("Hz").value
             self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
+            self._meta[i]["TUNIT7"] = self._meta[i]["BUNIT"]
             self._meta[i]["TSCALE"] = self.tscale
             self._meta[i]["CRPIX1"] -= self._channel_slice.start  # adjustment for user trimmed channels
 
@@ -901,13 +915,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         for i in range(len(self._meta)):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["TCAL"] = self._tcal[i]
-            # self._meta[i]["EXPOSURE"] = self._exposure[i]
             # I'm not really sure we should be setting NAXIS1 as this is a FITS reserve keyword.
             # For not leave it in as some tests depend on it.
             # @todo ask PJT
             self._meta[i]["NAXIS1"] = len(self._calibrated[i])
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
+            self._meta[i]["DURATION"] = self.duration[i]
 
     def _update_scale_meta(self):
         """Update metadata that described how integrations were scaled to Ta, Ta*, or Flux"""
@@ -975,6 +989,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._tsys[non_blanks], axis=0, weights=w_collapsed[non_blanks]
         )
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
+        self._timeaveraged.meta["DURATION"] = np.sum(self._duration[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["AP_EFF"] = sq_weighted_avg(
             self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks]
@@ -1192,6 +1207,16 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             The exposure times for all scans in this ScanBlock
         """
         return self._aggregate_scan_property("exposure")
+
+    @property
+    def duration(self):
+        """
+        Returns
+        -------
+        duration : `~numpy.ndarray`
+            The duration times for all scans in this ScanBlock
+        """
+        return self._aggregate_scan_property("duration")
 
     @property
     def nchan(self):
@@ -1774,17 +1799,28 @@ class TPScan(ScanBase):
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
+            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+            )
 
         elif self.calstate:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = 0
+            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_off = 0
         elif self.calstate == False:  # noqa: E712
             exp_ref_on = 0
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
+            dur_ref_on = 0
+            dur_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+            )
 
         self._exposure = exp_ref_on + exp_ref_off
+        self._duration = dur_ref_on + dur_ref_off
 
     def _calc_delta_freq(self):  # TPSCAN
         """Calculate the channel width.
@@ -2138,30 +2174,47 @@ class PSScan(ScanBase):
         """
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        dur_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["DURATION"].to_numpy()
+        dur_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["DURATION"].to_numpy()
         if self._has_refspec:
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
+            dur_ref = self.refspec.meta.get("DURATION", None)
             if exp_ref is None:
                 raise ValueError(
                     "Can't set exposure time for PSScan integrations because reference spectrum has no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
+                )
+            if dur_ref is None:
+                raise ValueError(
+                    "Can't set duration time for PSScan integrations because reference spectrum has no duration time in its metadata. Solve with refspec.meta['DURATION']=value."
                 )
         else:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
+            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+            )
+
             if not self._nocal:
                 exp_ref = exp_ref_on + exp_ref_off
+                dur_ref = dur_ref_on + dur_ref_off
             else:
                 exp_ref = exp_ref_off
+                dur_ref = dur_ref_off
         if not self._nocal:
             exp_sig = exp_sig_on + exp_sig_off
+            dur_sig = dur_sig_on + dur_sig_off
         else:
             exp_sig = exp_sig_off
+            dur_sig = dur_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        self._duration = dur_sig * dur_ref * nsmooth / (dur_sig + dur_ref * nsmooth)
 
     def _calc_delta_freq(self):
         """calculate the channel width
@@ -2442,17 +2495,26 @@ class NodScan(ScanBase):
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+        dur_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+        dur_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["DURATION"].to_numpy()
+        dur_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["DURATION"].to_numpy()
         if not self._nocal:
             exp_ref = exp_ref_on + exp_ref_off
             exp_sig = exp_sig_on + exp_sig_off
+            dur_ref = dur_ref_on + dur_ref_off
+            dur_sig = dur_sig_on + dur_sig_off
         else:
             exp_ref = exp_ref_off
             exp_sig = exp_sig_off
+            dur_ref = dur_ref_off
+            dur_sig = dur_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        self._duration = dur_sig * dur_ref * nsmooth / (dur_sig + dur_ref * nsmooth)
 
     def _calc_delta_freq(self):
         """Get the array of channel frequency width
@@ -2795,7 +2857,6 @@ class FSScan(ScanBase):
         _fold = kwargs.get("fold", False)
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-        self._calc_exposure()
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]
         logger.debug(f"df_sig {type(df_sig)} len(df_sig)")
@@ -2888,6 +2949,7 @@ class FSScan(ScanBase):
 
         if _fold:
             self._exposure = 2 * self.exposure
+            self._duration = 2 * self.duration
         logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     def _calc_exposure(self):
@@ -2908,17 +2970,26 @@ class FSScan(ScanBase):
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+        dur_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+        dur_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["DURATION"].to_numpy()
+        dur_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["DURATION"].to_numpy()
         if not self._nocal:
             exp_ref = exp_ref_on + exp_ref_off
             exp_sig = exp_sig_on + exp_sig_off
+            dur_ref = dur_ref_on + dur_ref_off
+            dur_sig = dur_sig_on + dur_sig_off
         else:
             exp_ref = exp_ref_off
             exp_sig = exp_sig_off
+            dur_ref = dur_ref_off
+            dur_sig = dur_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        self._duration = dur_sig * dur_ref * nsmooth / (dur_sig + dur_ref * nsmooth)
 
     def _calc_delta_freq(self):
         """Get the array of channel frequency width
@@ -3066,6 +3137,7 @@ class SubBeamNodScan(ScanBase):
         nspect = len(self._reftp)
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
+        self._duration = np.empty(nspect, dtype=float)
         self._delta_freq = np.empty(nspect, dtype=float)
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype=float)
 
@@ -3091,6 +3163,12 @@ class SubBeamNodScan(ScanBase):
                 * ref.meta["EXPOSURE"]
                 * nsmooth
                 / (sig.meta["EXPOSURE"] + ref.meta["EXPOSURE"] * nsmooth)
+            )
+            self._duration[i] = (
+                sig.meta["DURATION"]
+                * ref.meta["DURATION"]
+                * nsmooth
+                / (sig.meta["DURATION"] + ref.meta["DURATION"] * nsmooth)
             )
             self._delta_freq[i] = sig.meta["CDELT1"]
             self._calibrated[i] = ta
