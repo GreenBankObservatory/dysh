@@ -180,14 +180,27 @@ class SpectralAverageMixin:
     @property
     def exposure(self) -> np.ndarray:
         """The array of exposure (integration) times. How the exposure is calculated
-        varies for different derived classes.  See :meth:`_calc_exposure`,
+        varies for different derived classes.  See :meth:`_calc_exposure`.
 
         Returns
         -------
         exposure : `~numpy.ndarray`
-            The exposure time in units of the EXPOSURE keyword in the SDFITS header
+            The exposure time in units of the EXPOSURE keyword in the SDFITS header.
         """
         return self._exposure
+
+    @property
+    def duration(self) -> np.ndarray:
+        """The array of duration (integration) times. How the duration is calculated
+        varies for different derived classes.  See :meth:`_calc_exposure`.
+        Duration is different from exposure in that it includes the blanking time (duration>=exposure).
+
+        Returns
+        -------
+        duration : `~numpy.ndarray`
+            The duration time in units of the DURATION keyword in the SDFITS header.
+        """
+        return self._duration
 
     @property
     def delta_freq(self) -> np.ndarray:
@@ -275,6 +288,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._surface_error_array = None
         self._zenith_opacity = zenith_opacity
         self._exposure = None
+        self._duration = None
         self._calibrated = None
         self._smoothref = smoothref
         self._apply_flags = apply_flags
@@ -891,6 +905,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             restfreq = rfq.to("Hz").value
             self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
+            self._meta[i]["TUNIT7"] = self._meta[i]["BUNIT"]
             self._meta[i]["TSCALE"] = self.tscale
             self._meta[i]["CRPIX1"] -= self._channel_slice.start  # adjustment for user trimmed channels
 
@@ -901,13 +916,13 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         for i in range(len(self._meta)):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["TCAL"] = self._tcal[i]
-            # self._meta[i]["EXPOSURE"] = self._exposure[i]
             # I'm not really sure we should be setting NAXIS1 as this is a FITS reserve keyword.
             # For not leave it in as some tests depend on it.
             # @todo ask PJT
             self._meta[i]["NAXIS1"] = len(self._calibrated[i])
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
+            self._meta[i]["DURATION"] = self.duration[i]
 
     def _update_scale_meta(self):
         """Update metadata that described how integrations were scaled to Ta, Ta*, or Flux"""
@@ -975,6 +990,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._tsys[non_blanks], axis=0, weights=w_collapsed[non_blanks]
         )
         self._timeaveraged.meta["EXPOSURE"] = np.sum(self._exposure[non_blanks])
+        self._timeaveraged.meta["DURATION"] = np.sum(self._duration[non_blanks])
         self._timeaveraged.meta["TSYS"] = self._timeaveraged.meta["WTTSYS"]
         self._timeaveraged.meta["AP_EFF"] = sq_weighted_avg(
             self.ap_eff[non_blanks], axis=0, weights=w_collapsed[non_blanks]
@@ -1192,6 +1208,16 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             The exposure times for all scans in this ScanBlock
         """
         return self._aggregate_scan_property("exposure")
+
+    @property
+    def duration(self):
+        """
+        Returns
+        -------
+        duration : `~numpy.ndarray`
+            The duration times for all scans in this ScanBlock
+        """
+        return self._aggregate_scan_property("duration")
 
     @property
     def nchan(self):
@@ -1774,17 +1800,28 @@ class TPScan(ScanBase):
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
+            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+            )
 
         elif self.calstate:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = 0
+            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_off = 0
         elif self.calstate == False:  # noqa: E712
             exp_ref_on = 0
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
+            dur_ref_on = 0
+            dur_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+            )
 
         self._exposure = exp_ref_on + exp_ref_off
+        self._duration = dur_ref_on + dur_ref_off
 
     def _calc_delta_freq(self):  # TPSCAN
         """Calculate the channel width.
@@ -2138,30 +2175,47 @@ class PSScan(ScanBase):
         """
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        dur_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["DURATION"].to_numpy()
+        dur_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["DURATION"].to_numpy()
         if self._has_refspec:
             exp_ref = self.refspec.meta.get("EXPOSURE", None)
+            dur_ref = self.refspec.meta.get("DURATION", None)
             if exp_ref is None:
                 raise ValueError(
                     "Can't set exposure time for PSScan integrations because reference spectrum has no exposure time in its metadata. Solve with refspec.meta['EXPOSURE']=value."
+                )
+            if dur_ref is None:
+                raise ValueError(
+                    "Can't set duration time for PSScan integrations because reference spectrum has no duration time in its metadata. Solve with refspec.meta['DURATION']=value."
                 )
         else:
             exp_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["EXPOSURE"].to_numpy()
             exp_ref_off = (
                 self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
             )
+            dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+            dur_ref_off = (
+                self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+            )
+
             if not self._nocal:
                 exp_ref = exp_ref_on + exp_ref_off
+                dur_ref = dur_ref_on + dur_ref_off
             else:
                 exp_ref = exp_ref_off
+                dur_ref = dur_ref_off
         if not self._nocal:
             exp_sig = exp_sig_on + exp_sig_off
+            dur_sig = dur_sig_on + dur_sig_off
         else:
             exp_sig = exp_sig_off
+            dur_sig = dur_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        self._duration = dur_sig * dur_ref * nsmooth / (dur_sig + dur_ref * nsmooth)
 
     def _calc_delta_freq(self):
         """calculate the channel width
@@ -2442,17 +2496,26 @@ class NodScan(ScanBase):
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+        dur_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+        dur_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["DURATION"].to_numpy()
+        dur_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["DURATION"].to_numpy()
         if not self._nocal:
             exp_ref = exp_ref_on + exp_ref_off
             exp_sig = exp_sig_on + exp_sig_off
+            dur_ref = dur_ref_on + dur_ref_off
+            dur_sig = dur_sig_on + dur_sig_off
         else:
             exp_ref = exp_ref_off
             exp_sig = exp_sig_off
+            dur_ref = dur_ref_off
+            dur_sig = dur_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        self._duration = dur_sig * dur_ref * nsmooth / (dur_sig + dur_ref * nsmooth)
 
     def _calc_delta_freq(self):
         """Get the array of channel frequency width
@@ -2795,7 +2858,6 @@ class FSScan(ScanBase):
         _fold = kwargs.get("fold", False)
         nspect = self._nint
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype="d")
-        self._calc_exposure()
         df_sig = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]
         df_ref = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]
         logger.debug(f"df_sig {type(df_sig)} len(df_sig)")
@@ -2888,6 +2950,7 @@ class FSScan(ScanBase):
 
         if _fold:
             self._exposure = 2 * self.exposure
+            self._duration = 2 * self.duration
         logger.debug(f"Calibrated {nspect} spectra with fold={_fold} and use_sig={self._use_sig}")
 
     def _calc_exposure(self):
@@ -2908,17 +2971,26 @@ class FSScan(ScanBase):
         exp_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["EXPOSURE"].to_numpy()
         exp_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["EXPOSURE"].to_numpy()
         exp_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["EXPOSURE"].to_numpy()
+        dur_ref_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._refonrows]["DURATION"].to_numpy()
+        dur_ref_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._refoffrows]["DURATION"].to_numpy()
+        dur_sig_on = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigonrows]["DURATION"].to_numpy()
+        dur_sig_off = self._sdfits.index(bintable=self._bintable_index).iloc[self._sigoffrows]["DURATION"].to_numpy()
         if not self._nocal:
             exp_ref = exp_ref_on + exp_ref_off
             exp_sig = exp_sig_on + exp_sig_off
+            dur_ref = dur_ref_on + dur_ref_off
+            dur_sig = dur_sig_on + dur_sig_off
         else:
             exp_ref = exp_ref_off
             exp_sig = exp_sig_off
+            dur_ref = dur_ref_off
+            dur_sig = dur_sig_off
         if self._smoothref > 1:
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
         self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
+        self._duration = dur_sig * dur_ref * nsmooth / (dur_sig + dur_ref * nsmooth)
 
     def _calc_delta_freq(self):
         """Get the array of channel frequency width
@@ -3066,6 +3138,7 @@ class SubBeamNodScan(ScanBase):
         nspect = len(self._reftp)
         self._tsys = np.empty(nspect, dtype=float)
         self._exposure = np.empty(nspect, dtype=float)
+        self._duration = np.empty(nspect, dtype=float)
         self._delta_freq = np.empty(nspect, dtype=float)
         self._calibrated = np.ma.empty((nspect, self._nchan), dtype=float)
 
@@ -3091,6 +3164,12 @@ class SubBeamNodScan(ScanBase):
                 * ref.meta["EXPOSURE"]
                 * nsmooth
                 / (sig.meta["EXPOSURE"] + ref.meta["EXPOSURE"] * nsmooth)
+            )
+            self._duration[i] = (
+                sig.meta["DURATION"]
+                * ref.meta["DURATION"]
+                * nsmooth
+                / (sig.meta["DURATION"] + ref.meta["DURATION"] * nsmooth)
             )
             self._delta_freq[i] = sig.meta["CDELT1"]
             self._calibrated[i] = ta
