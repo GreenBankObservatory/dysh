@@ -1490,13 +1490,19 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                 )
             # find any header keywords aren't present in all scan integrations
             for m in scan._meta:
-                diff.update(set(m.keys()) - defaultkeys)
+                sm = set(m.keys())
+                # need to check both ways. Either set may have more keys
+                diff.update(defaultkeys.symmetric_difference(sm))
 
             if nrows > 0:
                 tablelist.append(scan._meta_as_table())
             nrows = nrows + thisshape[0]
         if len(diff) > 0:
             logger.warning(
+                f"Scan header keywords are not all the same. These keywords were not present in all Scans/integrations: {diff} "
+                " and will be dropped from the final BinTableHDU"
+            )
+            print(
                 f"Scan header keywords are not all the same. These keywords were not present in all Scans/integrations: {diff} "
                 " and will be dropped from the final BinTableHDU"
             )
