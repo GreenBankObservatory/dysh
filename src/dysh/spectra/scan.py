@@ -963,7 +963,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             w = np.ones_like(self.tsys_weight)
         else:
             raise ValueError("Unrecognized weights: must be 'tsys', None, or an array of numbers")
-        self._timeaveraged._data, sum_of_weights = np.ma.average(data, axis=0, weights=w, returned=True)
+        data_avg, sum_of_weights = np.ma.average(data, axis=0, weights=w, returned=True)
+        self._timeaveraged._data = data_avg
+        self._timeaveraged.mask = data_avg.mask
         self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         if w.shape == (len(self), self.nchan):

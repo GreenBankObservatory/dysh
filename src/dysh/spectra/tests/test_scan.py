@@ -512,6 +512,33 @@ class TestWeights:
         assert np.mean(x.weights) == pytest.approx(0.5 * sb.nint * scale, rel=1e-2)
 
 
+class TestScanBase:
+    def test_timeaverage_flags(self):
+        """
+        Test that `ScanBase.timeaverage()` produces the correct flags.
+        """
+        sdf_file = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        channel = [2000, 6000]
+        intnums = list(np.r_[0:70])
+        chanslc = slice(channel[0], channel[1])
+        sdf.flag(scan=152, channel=[channel], int=intnums)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+        # Mask is properly applied.
+        assert np.all(tp_sb[0]._calibrated[intnums, chanslc].mask)
+        tp = tp_sb[0].timeaverage()
+        assert not np.all(tp[chanslc].mask)
+        assert np.all(
+            tp.weights[chanslc] == pytest.approx(tp_sb[0].tsys_weight.sum() - tp_sb[0].tsys_weight[intnums].sum())
+        )
+        assert np.all(
+            tp[chanslc].weights == pytest.approx(tp_sb[0].tsys_weight.sum() - tp_sb[0].tsys_weight[intnums].sum())
+        )
+        assert np.all(tp.weights[: channel[0]] == pytest.approx(tp_sb[0].tsys_weight.sum()))
+        # Channel selection in dysh is inclusive of the upper edge.
+        assert np.all(tp.weights[channel[1] + 1 :] == pytest.approx(tp_sb[0].tsys_weight.sum()))
+
+
 class TestTPScan:
     def test_len_and_units(self, data_dir):
         """
