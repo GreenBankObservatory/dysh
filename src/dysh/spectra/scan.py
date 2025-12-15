@@ -1477,6 +1477,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         datashape = np.shape(s0._calibrated)
         tablelist = [s0._meta_as_table()]
         nrows = 0
+        diff = set()
         for scan in self.data:  # [1:]:
             # check data shapes are the same
             thisshape = np.shape(scan._calibrated)
@@ -1487,19 +1488,21 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                     f"Data shapes of scans are not equal {thisshape}!={datashape}. Can't combine Scans into single"
                     " BinTableHDU"
                 )
-            # check that the header keywords are the same
-            diff = set(scan._meta[0].keys()) - defaultkeys
-            if len(diff) > 0:
-                raise Exception(
-                    f"Scan header keywords are not the same. These keywords were not present in all Scans: {diff}."
-                    " Can't combine Scans into single BinTableHDU"
-                )
+            # find any header keywords aren't present in all scan integrations
+            for m in scan._meta:
+                diff.update(set(m.keys()) - defaultkeys)
+
             if nrows > 0:
                 tablelist.append(scan._meta_as_table())
             nrows = nrows + thisshape[0]
+        if len(diff) > 0:
+            logger.warning(
+                f"Scan header keywords are not all the same. These keywords were not present in all Scans/integrations: {diff} "
+                " and will be dropped from the final BinTableHDU"
+            )
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
         # astropy Tables can be concatenated with vstack thankfully.
-        table = vstack(tablelist, join_type="exact")
+        table = vstack(tablelist, join_type="inner")
         # need to preserve table.meta because it gets lost in created of "cd" ColDefs
         table_meta = table.meta
         cd = BinTableHDU(table, name="SINGLE DISH").columns
