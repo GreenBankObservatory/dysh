@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import pytest
 from astropy import units as u
@@ -904,6 +906,18 @@ class TestScanBlock:
         sb.write(fileobj=testfile, overwrite=True)
         g2 = gbtfitsload.GBTFITSLoad(testfile)
         x = g2.summary()  # simple check that basic function works.  # noqa: F841
+
+    def test_write_missing_header_keys(self, data_dir, tmp_path, caplog):
+        # issue 883
+        # Check that a warning is issued if all Scans don't have the same keywords on write.
+        caplog.set_level(logging.WARNING)
+        data_path = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf_file = f"{data_path}/AGBT05B_047_01.raw.acs.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb = sdf.getps(scan=[51, 53], ifnum=0, plnum=0, fdnum=0)
+        sb[0].meta[0].pop("SURF_ERR")
+        sb.write(tmp_path / "junk.fits", overwrite=True)
+        assert "These keywords were not present" in caplog.text
 
     def test_baseline_subtraction(self, data_dir):
         """
