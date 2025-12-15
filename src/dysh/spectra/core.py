@@ -1341,7 +1341,7 @@ def cog_flux(c, flat_tol=0.1):
     return flux, flux_std, slope
 
 
-def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=1):
+def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=1) -> dict:
     """
     Curve of growth analysis based on Yu et al. (2020) [1]_.
 
@@ -1358,10 +1358,10 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         List of fractions of the total flux at which to compute the line width.
         If 0.25 and 0.85 are not included, they will be added to estimate the concentration
         as defined in [1]_.
-    bchan : int
+    bchan : None or int
         Beginning channel where there is signal.
         If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
-    echan : int
+    echan : None or int
         End channel where there is signal.
         If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
     flat_tol : float

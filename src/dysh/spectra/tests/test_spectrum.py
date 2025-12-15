@@ -1004,6 +1004,20 @@ class TestSpectrum:
         assert p["bchan"] == mean - 3 * fwhm
         assert p["echan"] == mean + 3 * fwhm
 
+        # Test using a different frame and Doppler convention.
+        p_dop = ss.cog(
+            vframe="lsrk",
+            doppler_convention="optical",
+            width_frac=[0.25, 0.68, 0.85],
+            bchan=mean - 3 * fwhm,
+            echan=mean + 3 * fwhm,
+        )
+        # Make sure the Spectrum did not change.
+        assert ss.doppler_convention == "radio"
+        assert ss.velocity_frame != "lsrk"
+        # Check that the results are different from the previous ones.
+        assert p_dop["vel"] != p["vel"]
+
     def test_average(self):
         """
         Test average method of Spectrum.
