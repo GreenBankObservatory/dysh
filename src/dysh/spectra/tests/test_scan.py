@@ -329,13 +329,13 @@ class TestSubBeamNod:
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0).timeaverage()
 
         assert sbn.data.std() == pytest.approx(0.00222391)
-        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["EXPOSURE"] == 2.402706191448039
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == 1.0
 
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.0).timeaverage()
 
-        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["EXPOSURE"] == 2.402706191448039
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == pytest.approx(105.0)
 
@@ -454,7 +454,8 @@ class TestSubBeamNod:
         assert pytest.approx(sbn_scan.data.mean(), rms_scan.value) == tcont
 
         # Compare exposure times.
-        assert sbn_cycle.meta["EXPOSURE"] == sbn_scan.meta["EXPOSURE"]
+        assert sbn_cycle.meta["EXPOSURE"] == 11.683568795384163
+        assert sbn_scan.meta["EXPOSURE"] == 11.717374602730942
 
         # Compare system temperature.
         assert pytest.approx(sbn_scan.meta["TSYS"], rms_scan.value) == sbn_cycle.meta["TSYS"]
@@ -511,6 +512,33 @@ class TestWeights:
         # also be 1/2 nint*scale.  1/2 because the mean of the random range (0,1) is 0.5
         assert np.mean(x.weights) == pytest.approx(sb.nint * np.mean(w), rel=1e-2)
         assert np.mean(x.weights) == pytest.approx(0.5 * sb.nint * scale, rel=1e-2)
+
+
+class TestScanBase:
+    def test_timeaverage_flags(self):
+        """
+        Test that `ScanBase.timeaverage()` produces the correct flags.
+        """
+        sdf_file = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        channel = [2000, 6000]
+        intnums = list(np.r_[0:70])
+        chanslc = slice(channel[0], channel[1])
+        sdf.flag(scan=152, channel=[channel], int=intnums)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+        # Mask is properly applied.
+        assert np.all(tp_sb[0]._calibrated[intnums, chanslc].mask)
+        tp = tp_sb[0].timeaverage()
+        assert not np.all(tp[chanslc].mask)
+        assert np.all(
+            tp.weights[chanslc] == pytest.approx(tp_sb[0].tsys_weight.sum() - tp_sb[0].tsys_weight[intnums].sum())
+        )
+        assert np.all(
+            tp[chanslc].weights == pytest.approx(tp_sb[0].tsys_weight.sum() - tp_sb[0].tsys_weight[intnums].sum())
+        )
+        assert np.all(tp.weights[: channel[0]] == pytest.approx(tp_sb[0].tsys_weight.sum()))
+        # Channel selection in dysh is inclusive of the upper edge.
+        assert np.all(tp.weights[channel[1] + 1 :] == pytest.approx(tp_sb[0].tsys_weight.sum()))
 
 
 class TestTPScan:

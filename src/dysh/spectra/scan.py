@@ -963,7 +963,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             w = np.ones_like(self.tsys_weight)
         else:
             raise ValueError("Unrecognized weights: must be 'tsys', None, or an array of numbers")
-        self._timeaveraged._data, sum_of_weights = np.ma.average(data, axis=0, weights=w, returned=True)
+        data_avg, sum_of_weights = np.ma.average(data, axis=0, weights=w, returned=True)
+        self._timeaveraged._data = data_avg
+        self._timeaveraged.mask = data_avg.mask
         self._timeaveraged._data.set_fill_value(np.nan)
         non_blanks = find_non_blanks(data)
         if w.shape == (len(self), self.nchan):
@@ -3080,8 +3082,10 @@ class SubBeamNodScan(ScanBase):
         for i in range(nspect):
             sig = self._sigtp[i].timeaverage(weights=kwargs["weights"])
             ref = self._reftp[i].timeaverage(weights=kwargs["weights"])
+            nsmooth = 1.0
             if self._smoothref > 1:
                 ref = ref.smooth("box", self._smoothref, decimate=-1)
+                nsmooth = self._smoothref
             # Set system temperature.
             self._tsys[i] = ref.meta["WTTSYS"]
             if self._vane is not None:
@@ -3089,6 +3093,11 @@ class SubBeamNodScan(ScanBase):
             tsys = self._tsys[i]
             # Combine sig and ref.
             ta = ((sig - ref) / ref).flux.value * tsys
-            self._exposure[i] = sig.meta["EXPOSURE"]
+            self._exposure[i] = (
+                sig.meta["EXPOSURE"]
+                * ref.meta["EXPOSURE"]
+                * nsmooth
+                / (sig.meta["EXPOSURE"] + ref.meta["EXPOSURE"] * nsmooth)
+            )
             self._delta_freq[i] = sig.meta["CDELT1"]
             self._calibrated[i] = ta
