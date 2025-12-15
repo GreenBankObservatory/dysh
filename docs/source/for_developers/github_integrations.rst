@@ -16,18 +16,18 @@ Pre-Commit Hooks
 We use `pre-commit <https://pre-commit.com/>` with
 hooks that ensure committed code follows desired standards. The hooks be found in `dysh/.pre-commit-config.yaml`.
 
-There two steps for enabling pre-commit in your repo: 1) installing the pre-commit package and 2) installing the hooks in your clone of the dysh repo.
+There are two steps for enabling pre-commit in your repo: 1) installing the pre-commit package and 2) installing the hooks in your clone of the dysh repo.
 
 Installing the pre-commit package
 -----------------------------------------------
 
-You can install `pre-commit` globally, so that it is active for any of your projects that have hooks, or just locally for `dysh`.  For global install, in your normal environment:
+You can install `pre-commit` globally, so that it is active for any of your projects that have hooks, or just locally for `dysh`.  For a global install, in your normal environment:
 
 .. code-block:: bash
 
     $ uv tool install pre-commit
 
-If you prefer local to `dysh`,  the `pre-commit` package is automatically installed with `dev` dependency group when installing `dysh`:
+If you prefer local to `dysh`,  the `pre-commit` package is automatically installed with the `dev` dependency group when installing `dysh`:
 
 .. code-block:: bash
 
