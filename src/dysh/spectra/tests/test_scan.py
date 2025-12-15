@@ -268,10 +268,17 @@ class TestPSScan:
         srsb = sdf.getsigref(scan=86, ifnum=0, plnum=0, fdnum=10, vane=84, zenith_opacity=0.14, t_atm=268.85, ref=87)
         srta = srsb.timeaverage()
         stats = srta.stats()
-        assert stats["mean"].value == pytest.approx(-1.13895029)
-        assert stats["median"].value == pytest.approx(-1.1328646)
-        assert stats["rms"].value == pytest.approx(0.46335996)
-        assert srta.meta["TSYS"] == pytest.approx(361.4042152542293)
+        result = {
+            "mean": -1.14103931,
+            "median": -1.13494246,
+            "rms": 0.46420984,
+            "min": -7.71431927,
+            "max": 10.70582089,
+        }
+        for k in result:
+            assert stats[k].value == pytest.approx(result[k])
+        assert stats["nan"] == 31
+        assert srta.meta["TSYS"] == pytest.approx(362.0670888626437)
         assert srta.meta["EXPOSURE"] == 58.5011952833595
 
 
@@ -711,9 +718,7 @@ class TestFSScan:
             data = table["DATA"]
             hdu.close()
             sp = data[1]
-        # @todo due to different shifting algorithms we tolerate a higher level, see issue 235
         level = 5e-3
-        print(f"WARNING: level={level} needs to be lowered when shifting is more accurately copying GBTIDL")
         diff1 = sp - ta.flux.value.astype(np.float32)
         nm = np.nanmean(diff1[15000:20000])  # Use channel range around the line.
         assert abs(nm) <= level
@@ -773,8 +778,8 @@ class TestFSScan:
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == 1.0
         assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
-        assert fs.stats()["mean"].value == pytest.approx(0.0011396648555837365)
-        assert fs.stats()["rms"].value == pytest.approx(0.011687166084964482)
+        assert fs.stats()["mean"].value == pytest.approx(0.0011403941433353717)
+        assert fs.stats()["rms"].value == pytest.approx(0.011686314570904896)
 
         # Test with system temperature.
         t_sys = 205.0
@@ -783,8 +788,8 @@ class TestFSScan:
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == pytest.approx(t_sys)
         assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
-        assert fs.stats()["mean"].value == pytest.approx(0.2336313)
-        assert fs.stats()["rms"].value == pytest.approx(2.395869046975605)
+        assert fs.stats()["mean"].value == pytest.approx(0.23378079938375124)
+        assert fs.stats()["rms"].value == pytest.approx(2.395694487035504)
 
         # Test with reference smoothing.
         fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, smoothref=256)
@@ -792,8 +797,8 @@ class TestFSScan:
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == 1.0
         assert fs.meta["EXPOSURE"] == pytest.approx(2.115174908755242)
-        assert fs.stats()["mean"].value == pytest.approx(0.0007359185384744827)
-        assert fs.stats()["rms"].value == pytest.approx(0.010336309743526804)
+        assert fs.stats()["mean"].value == pytest.approx(0.0007369155360709178)
+        assert fs.stats()["rms"].value == pytest.approx(0.010335320172352901)
 
     def test_tcal(self):
         """
@@ -818,6 +823,29 @@ class TestFSScan:
         assert fs_sb.tscale == "Ta*"
         fs = fs_sb.timeaverage()
         assert fs.meta["TSCALE"] == "Ta*"
+
+    def test_mask_fold(self):
+        """
+        Test that FSScan handles masks.
+        """
+        sdf_file = (
+            util.get_project_testdata() / "AGBT25A_504_03/AGBT25A_504_03.raw.vegas/AGBT25A_504_03.raw.vegas.A.fits"
+        )
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        # Using interpolation for the shift.
+        ta = sdf.getfs(scan=18, ifnum=0, plnum=1, fdnum=0, shift_method="interpolate").timeaverage()
+        stats = ta.stats()
+        assert stats["nan"] == 93
+        assert np.isnan(ta.flux[5120].value)  # Single channel from the signal state.
+        assert np.all(np.isnan(ta.flux[218:220].value))  # Two channels from the reference state.
+
+        # Now using FFT shift.
+        ta = sdf.getfs(scan=18, ifnum=0, plnum=1, fdnum=0, shift_method="fft").timeaverage()
+        stats = ta.stats()
+        assert stats["nan"] == 93
+        assert np.isnan(ta.flux[5120].value)  # Single channel from the signal state.
+        assert np.all(np.isnan(ta.flux[218:220].value))  # Two channels from the reference state.
 
 
 class TestNodScan:

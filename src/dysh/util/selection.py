@@ -1078,7 +1078,7 @@ class Selection(SelectionBase):
         """
         self._base_select_within(tag, **kwargs)
 
-    def select_channel(self, chan, tag=None):
+    def select_channel(self, channel, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
@@ -1102,7 +1102,7 @@ class Selection(SelectionBase):
 
         Parameters
         ----------
-        chan : number, or array-like
+        channel : number, or array-like
             The channels to select
 
         Returns
@@ -1110,7 +1110,7 @@ class Selection(SelectionBase):
         None.
 
         """
-        self._base_select_channel(chan, tag)
+        self._base_select_channel(channel, tag)
 
 
 class Flag(SelectionBase):

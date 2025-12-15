@@ -250,6 +250,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         ap_eff=None,
         surface_error=None,
         zenith_opacity=None,
+        channel=None,
     ):
         HistoricalBase.__init__(self)
         self._fdnum = fdnum
@@ -279,6 +280,10 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._tscale_to_unit = {"ta": u.K, "ta*": u.K, "flux": u.Jy, "raw": u.ct, "counts": u.ct, "count": u.ct}
+        if channel is not None:
+            self._channel_slice = slice(channel[0], channel[1])
+        else:
+            self._channel_slice = slice(0, None)
         # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
@@ -348,6 +353,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
             )
         self._calibrate = calibrate
+
         self._nint = len(meta_rows)
         self._make_meta(meta_rows)
         self._tscale_fac = np.ones(self._nint)
@@ -886,6 +892,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["RESTFRQ"] = restfreq  # WCS wants no E
             self._meta[i]["BUNIT"] = self._tscale_to_unit[self.tscale.lower()].to_string()
             self._meta[i]["TSCALE"] = self.tscale
+            self._meta[i]["CRPIX1"] -= self._channel_slice.start  # adjustment for user trimmed channels
 
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
@@ -895,6 +902,9 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["TCAL"] = self._tcal[i]
             # self._meta[i]["EXPOSURE"] = self._exposure[i]
+            # I'm not really sure we should be setting NAXIS1 as this is a FITS reserve keyword.
+            # For not leave it in as some tests depend on it.
+            # @todo ask PJT
             self._meta[i]["NAXIS1"] = len(self._calibrated[i])
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["EXPOSURE"] = self.exposure[i]
@@ -1568,7 +1578,11 @@ class TPScan(ScanBase):
             - 'Ta*' : Antenna temperature corrected to above the atmosphere
             - 'Flux'  : flux density in Jansky
         Default: 'Raw'
-
+    channel: list or None
+        An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+        only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+        trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
     Notes
     -----
     How the total power and system temperature are calculated, depending on signal and reference state parameters:
@@ -1611,8 +1625,11 @@ class TPScan(ScanBase):
         tcal=None,
         observer_location=Observatory["GBT"],
         tscale="Raw",  # @todo why is this even an exposed parameter for TPScan?
+        channel=None,
     ):
-        ScanBase.__init__(self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tcal=tcal)
+        ScanBase.__init__(
+            self, gbtfits, smoothref, apply_flags, observer_location, fdnum, ifnum, plnum, tcal=tcal, channel=channel
+        )
         self._sdfits = gbtfits  # parent class
         self._scan = scan
         self._sigstate = sigstate
@@ -1643,8 +1660,12 @@ class TPScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows))))
         # all cal=F states where sig=sigstate
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows))))
-        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+            self._refonrows, self._channel_slice
+        ]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+            self._refoffrows, self._channel_slice
+        ]
         nb1 = find_non_blanks(self._refcalon)
         nb2 = find_non_blanks(self._refcaloff)
         goodrows = np.intersect1d(nb1, nb2)
@@ -1661,7 +1682,7 @@ class TPScan(ScanBase):
             self._refoffrows = [
                 self._refoffrows[i] for i in goodrows
             ]  # why not self._refoffrows[goodrows] ?? -> because it is a list.
-            self._nchan = len(self._refcaloff[0])  # PJT
+            self._nchan = len(self._refcaloff[0])
         else:
             # Tell the user about blank integration(s) that will be ignored.
             if len(goodrows) != len(self._refcalon):
@@ -1862,6 +1883,11 @@ class PSScan(ScanBase):
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
         aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
         can be provided.
+    channel: list or None
+        An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+        only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+        trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
         If provided, `tsys` will be ignored.
@@ -1889,6 +1915,7 @@ class PSScan(ScanBase):
         surface_error=None,
         tcal=None,
         nocal=False,
+        channel=None,
         vane: VaneSpectrum | None = None,
     ):
         ScanBase.__init__(
@@ -1905,6 +1932,7 @@ class PSScan(ScanBase):
             surface_error=surface_error,
             zenith_opacity=zenith_opacity,
             tcal=tcal,
+            channel=channel,
         )
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         # self._history = deepcopy(gbtfits._history)
@@ -1916,6 +1944,7 @@ class PSScan(ScanBase):
         self._refspec = refspec
         if isinstance(self.refspec, Spectrum):
             self._has_refspec = True
+            self._refspec = self._refspec[self._channel_slice]
         else:
             self._has_refspec = False
         self._sigspec = None
@@ -1935,8 +1964,12 @@ class PSScan(ScanBase):
         self._sigonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["ON"]))))
         # noise diode off, signal position
         self._sigoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["ON"]))))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+            self._sigonrows, self._channel_slice
+        ]
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+            self._sigoffrows, self._channel_slice
+        ]
 
         if self._has_refspec:
             self._refoffrows = None
@@ -1950,8 +1983,12 @@ class PSScan(ScanBase):
             self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
             # noise diode off, reference position
             self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._refonrows, self._channel_slice
+            ]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._refoffrows, self._channel_slice
+            ]
 
             # Catch blank integrations.
             if not self._nocal:
@@ -1976,8 +2013,11 @@ class PSScan(ScanBase):
                 # Update number of rows after removing blanks.
                 nsigrows = len(self._sigoffrows)
                 self._nrows = nsigrows
-
-        self._nchan = gbtfits.nchan(self._bintable_index)
+        nchan = gbtfits.nchan(self._bintable_index)
+        if self._channel_slice == slice(0, None) or self._channel_slice == slice(0, nchan):
+            self._nchan = nchan
+        else:
+            self._nchan = len(self._sigcalon[0])
         self._finish_initialization(
             calibrate,
             None,
@@ -2215,6 +2255,11 @@ class NodScan(ScanBase):
         This will be transformed to `~astropy.coordinates.ITRS` using the time of
         observation DATE-OBS or MJD-OBS in
         the SDFITS header.  The default is the location of the GBT.
+    channel: list or None
+        An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+        only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+        trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
         If provided, `tsys` will be ignored.
@@ -2242,6 +2287,7 @@ class NodScan(ScanBase):
         surface_error=None,
         zenith_opacity=None,
         observer_location=Observatory["GBT"],
+        channel=None,
         vane: VaneSpectrum | None = None,
     ):
         ScanBase.__init__(
@@ -2258,6 +2304,7 @@ class NodScan(ScanBase):
             surface_error=surface_error,
             zenith_opacity=zenith_opacity,
             tcal=tcal,
+            channel=channel,
         )
         self._scan = scan["ON"]
         self._scanrows = scanrows
@@ -2283,15 +2330,31 @@ class NodScan(ScanBase):
         self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
         self._refoffrows = sorted(list(set(self._calrows["OFF"]).intersection(set(self._scanrows["OFF"]))))
         if beam1:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._sigonrows, self._channel_slice
+            ]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._sigoffrows, self._channel_slice
+            ]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._refonrows, self._channel_slice
+            ]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._refoffrows, self._channel_slice
+            ]
         else:
-            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
-            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
-            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
+            self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._refonrows, self._channel_slice
+            ]
+            self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._refoffrows, self._channel_slice
+            ]
+            self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._sigonrows, self._channel_slice
+            ]
+            self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+                self._sigoffrows, self._channel_slice
+            ]
 
         # Catch blank integrations.
 
@@ -2486,6 +2549,11 @@ class FSScan(ScanBase):
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
         scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
+    channel: list or None
+        An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+        only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+        trimmed to `[firstchan,lastchan]`. If channels have already been selected through
+        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         If `vane` is provided, `tsys` will be ignored.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
@@ -2516,6 +2584,7 @@ class FSScan(ScanBase):
         tsys=None,
         tcal=None,
         nocal: bool = False,
+        channel: list | None = None,
         vane: VaneSpectrum | None = None,
     ):
         ScanBase.__init__(
@@ -2532,6 +2601,7 @@ class FSScan(ScanBase):
             surface_error=surface_error,
             zenith_opacity=zenith_opacity,
             tcal=tcal,
+            channel=channel,
         )
         # The rows of the original bintable corresponding to ON (sig) and OFF (reg)
         self._scan = scan  # for FS everything is an "ON"
@@ -2569,10 +2639,18 @@ class FSScan(ScanBase):
         logger.debug(f"bintable index is {self._bintable_index}")
 
         self._scanrows = list(set(self._calrows["ON"])) + list(set(self._calrows["OFF"]))
-        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigonrows]
-        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._sigoffrows]
-        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refonrows]
-        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[self._refoffrows]
+        self._sigcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+            self._sigonrows, self._channel_slice
+        ]
+        self._sigcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+            self._sigoffrows, self._channel_slice
+        ]
+        self._refcalon = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+            self._refonrows, self._channel_slice
+        ]
+        self._refcaloff = gbtfits.rawspectra(self._bintable_index, setmask=apply_flags)[
+            self._refoffrows, self._channel_slice
+        ]
 
         # Catch blank integrations.
         if not self._nocal:
@@ -2596,8 +2674,12 @@ class FSScan(ScanBase):
 
         # Update number of rows after removing blanks.
         self._nrows = nsigrows
+        nchan = gbtfits.nchan(self._bintable_index)
+        if self._channel_slice == slice(0, None) or self._channel_slice == slice(0, nchan):
+            self._nchan = nchan
+        else:
+            self._nchan = len(self._sigcalon[0])
 
-        self._nchan = gbtfits.nchan(self._bintable_index)
         self._finish_initialization(
             calibrate,
             {"fold": fold, "shift_method": shift_method},
@@ -2671,6 +2753,7 @@ class FSScan(ScanBase):
 
             crval1 = df["CRVAL1"]
             crpix1 = df["CRPIX1"]
+
             cdelt1 = df["CDELT1"]
             vframe = df["VFRAME"]  # Use the velocity frame requested by the user.
 
@@ -2679,7 +2762,7 @@ class FSScan(ScanBase):
                 crpix1 = crpix1.to_numpy()
                 cdelt1 = cdelt1.to_numpy()
                 vframe = vframe.to_numpy()
-
+            crpix1 -= self._channel_slice.start
             freq = channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan[0], nint, ndim=ndim)
 
             # Apply units.
@@ -2701,7 +2784,7 @@ class FSScan(ScanBase):
         def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
             """ """
             chan_shift = (ref_freq[0] - sig_freq[0]) / np.diff(sig_freq).mean()
-            logger.debug(f"do_fold: {sig_freq[0]}, {ref_freq[0]},{chan_shift}")
+            logger.debug(f"do_fold: sig_freq0={sig_freq[0]}, ref_freq0={ref_freq[0]}, chan_shift={chan_shift}")
             ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
             # @todo weights
             avg = (sig + ref_shift) / 2
@@ -2718,8 +2801,6 @@ class FSScan(ScanBase):
         logger.debug(f"df_sig {type(df_sig)} len(df_sig)")
         sig_freq = index_frequency(df_sig)
         ref_freq = index_frequency(df_ref)
-        chan_shift = abs(sig_freq[0, 0] - ref_freq[0, 0]) / np.abs(np.diff(sig_freq)).mean()
-        logger.debug(f"FS: shift={chan_shift:g}  nchan={self._nchan:g}")
 
         if self._vane is not None:
             self._tcal[:] = self.get_vane_tcal()
@@ -2959,6 +3040,7 @@ class SubBeamNodScan(ScanBase):
         self._scan = sigtp[0]._scan
         self._sigtp = sigtp
         self._reftp = reftp
+        # If the user supplied channel= to subbeamnod(), then reftp will already have the correct channel range.
         self._nchan = len(reftp[0]._calibrated[0])
         self._nrows = np.sum([stp.nrows for stp in self._sigtp])
         self._nint = self._nrows

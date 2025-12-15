@@ -1,7 +1,8 @@
 from astropy.coordinates import EarthLocation, UnknownSiteException
 
 import dysh.coordinates as coords
-from dysh.coordinates import GBT, Observatory, decode_veldef
+from dysh.coordinates import GBT, Observatory, astropy_convenience_frame_names, decode_veldef
+from dysh.spectra.spectrum import Spectrum
 
 
 class TestCore:
@@ -73,3 +74,10 @@ class TestCore:
 
         for k, v in pairs.items():
             assert coords.veldef_to_convention(k) == v
+
+    def test_frame_switch(self):
+        f = Spectrum.fake_spectrum()
+        assert f.velocity_frame == "itrs"
+        for k, v in astropy_convenience_frame_names.items():
+            fnew = f.with_frame(k)
+            assert fnew.velocity_frame == v
