@@ -1502,10 +1502,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
                 f"Scan header keywords are not all the same. These keywords were not present in all Scans/integrations: {diff} "
                 " and will be dropped from the final BinTableHDU"
             )
-            print(
-                f"Scan header keywords are not all the same. These keywords were not present in all Scans/integrations: {diff} "
-                " and will be dropped from the final BinTableHDU"
-            )
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
         # astropy Tables can be concatenated with vstack thankfully.
         table = vstack(tablelist, join_type="inner")
