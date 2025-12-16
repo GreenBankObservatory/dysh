@@ -94,6 +94,7 @@ def init_global_log(
 def init_instance_log(
     instance_log_dir: Path = Path("."), instance_log_file: Path | None = None, level: str | int = "INFO"
 ) -> Path:
+    print(f"INIT LOG: {instance_log_dir=} {instance_log_file=} {level=}")
     instance_log_dir.mkdir(parents=True, exist_ok=True)
     if instance_log_file is None:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
