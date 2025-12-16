@@ -674,6 +674,48 @@ def calc_vegas_spurs(
     return a.T
 
 
+def get_valid_channel_range(channel: list | np.ndarray) -> list:
+    """
+    Check that a channel range (e.g., that was given to Selection) defines a contiguous range of channels and
+    return a list of length 2 if valid.  The returned list can be used in data calibration.
+    Unlike :meth:`~dysh.util.selection.Selection.select_channel`,
+    if the input `channel` list has
+    two elements, it will be assumed that channel[0] is the first chan and channel[1] is the last channel.
+    However, channel ranges specified identically to :meth:`~dysh.util.selection.Selection.select_channel` can also
+    be used as input.
+
+    Parameters
+    ----------
+    channel : list|np.ndarray
+        List of beginning and end channel
+
+    Raises
+    ------
+    ValueError
+        If the input channel list cannot be converted to [first,last]
+
+    Returns
+    -------
+    list
+        An inclusive list of [first_channel, last_channel]
+    """
+    try:
+        a = np.array(channel)
+    except ValueError as ve:
+        # it was some sort of compound list like [1,4,(30,40)]
+        raise ValueError(f"Could not parse {channel} into a valid,contiguous channel range.") from ve
+    ash = a.shape
+    if ash == (1, 2):
+        first = a[0][0]
+        last = a[0][1]
+    elif ash == (2,):
+        first = a[0]
+        last = a[1]
+    if first > last:
+        raise ValueError(f"In channel range {channel}, first channel is greater than last channel.")
+    return [int(first), int(last)]
+
+
 def isot_to_mjd(isot):
     """
     Convert an ISOT string to MJD.

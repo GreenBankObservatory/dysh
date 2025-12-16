@@ -32,7 +32,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     Observatory,
     astropy_convenience_frame_names,
     astropy_frame_dict,
-    change_ctype,
+    change_veldef,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -142,12 +142,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._resolution = 1
 
-    def _len(self):
-        """return the size of the `Spectrum` in the spectral dimension.
-        @todo __len__  has unintended consquences, yuck.
-        """
-        return len(self.frequency)
-
     def _spectrum_property(self, prop: str):
         """
         Utility method to return a header value as a property.
@@ -164,6 +158,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         """
         return self.meta.get(prop, None)
+
+    @property
+    def nchan(self) -> int:
+        """The number of channels in the Spectrum"""
+        return len(self.frequency)
 
     @property
     def weights(self):
@@ -284,7 +283,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             return
         if self._subtracted:
             if self._normalized:
-                warnings.warn("Cannot undo previously normalized baseline subtraction")  # noqa: B028
+                logger.warning("Cannot undo previously normalized baseline subtraction")
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
@@ -863,7 +862,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def equivalencies(self):
         """Get the spectral axis equivalencies that can be used in converting the axis
         between km/s and frequency or wavelength"""
-        equiv = u.spectral()
+        equiv = deepcopy(u.spectral())
         sa = self.spectral_axis
         if sa.doppler_rest is not None:
             rfq = sa.doppler_rest
@@ -940,6 +939,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """String representation of the velocity (Doppler) convention"""
         return self.velocity_convention
 
+    @property
+    def doppler_rest(self):
+        """Rest frequency used in velocity conversions."""
+        return self.spectral_axis.doppler_rest
+
+    @doppler_rest.setter
+    def doppler_rest(self, value):
+        """Set the `doppler_rest` property."""
+        self._spectral_axis._doppler_rest = value
+        self.meta["RESTFREQ"] = value.to("Hz").value
+
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
         *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
@@ -1015,10 +1025,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(tfl)
         self._observer = self._spectral_axis.observer
-        # This line is commented because:
-        # SDFITS defines CTYPE1 as always being the TOPO frequency.
-        # See Issue #373 on GitHub.
-        # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
         if isinstance(tfl, str):
             self._velocity_frame = tfl
         else:
@@ -1026,7 +1032,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF.
         # SDFITS defines CTYPE1 as always being the TOPO frequency.
         # See Issue #373 on GitHub.
-        self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
+        self.meta["VELDEF"] = change_veldef(self.meta["VELDEF"], self._velocity_frame)
 
     def with_frame(self, toframe):
         """Return a copy of this `Spectrum` with a new coordinate reference frame.
@@ -1035,7 +1041,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         toframe - str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.SkyCoord`
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
-            or an actual coordinate system instance
+            or an actual coordinate system instance.   The supported
 
         Returns
         -------
@@ -1159,7 +1165,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             t = Table(outarray, names=outnames, meta=meta, descriptions=description)
         # for now ignore complaints about keywords until we clean them up.
-        # There are some that are more than 8 chars that should be fixed in GBTFISLOAD
+        # There are some that are more than 8 chars that should be fixed in GBTFITSLOAD
         warnings.simplefilter("ignore", VerifyWarning)
         t.write(fileobj, format=format, **kwargs)
 
@@ -1261,7 +1267,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "TAMBIENT": 270.4,
             "PRESSURE": 696.2290227048372,
             "HUMIDITY": 0.949,
-            "RESTFREQ": 1420405751.7,
+            "RESTFREQ": 1420405751.786,
             "FREQRES": 715.2557373046875,
             "EQUINOX": 2000.0,
             "RADESYS": "FK5",
@@ -1284,7 +1290,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "QD_BAD": -1,
             "QD_METHOD": "",
             "VELOCITY": 3784000.0,
-            "DOPFREQ": 1420405751.7,
+            "DOPFREQ": 1420405751.786,
             "ADCSAMPF": 3000000000.0,
             "VSPDELT": 65536.0,
             "VSPRVAL": 19.203125,
@@ -1320,7 +1326,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "CUNIT1": "Hz",
             "CUNIT2": "deg",
             "CUNIT3": "deg",
-            "RESTFRQ": 1420405751.7,
+            "RESTFRQ": 1420405751.786,
             "MEANTSYS": 17.16746070048293,
             "WTTSYS": 17.16574907094451,
             "TSCALE": "Ta*",
@@ -1454,7 +1460,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 attach_zero_velocities(observer_location.get_itrs(obstime=obstime))
             )
         else:
-            warnings.warn(  # noqa: B028
+            logger.warning(
                 "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
                 " frames"
             )
@@ -1701,11 +1707,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
         meta["BANDWID"] = abs(meta["CDELT1"]) * len(new_flux)  # Hz
 
         # New Spectrum.
-        return self.make_spectrum(
+        new_spectrum = self.make_spectrum(
             Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
             observer_location=Observatory[meta["TELESCOP"]],
         )
+        new_spectrum._weights = self._weights[start_idx:stop_idx]
+        return new_spectrum
 
     @log_call_to_result
     def average(self, spectra, weights: str | np.ndarray | None = "tsys", align=False):
