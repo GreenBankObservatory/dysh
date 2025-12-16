@@ -398,7 +398,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         -------
         stats : dict
             Dictionary consisting of (mean,median,rms,datamin,datamax)
-
         """
 
         # note the Spectrum class has special nanXXX functions for most, but not std()
@@ -435,28 +434,30 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return out
 
     def radiometer(self, roll=0):
-        """Check the radiometer equation, and return the dimensionless ratio of the
-        measured vs. expected noise. Generally this number of 1.0 or higher, unless
+        """
+        Check the radiometer equation, and return the dimensionless ratio of the
+        measured vs. expected noise. Generally this number is 1.0 or higher, unless
         for example channels were hanning correlated, measured noise will be lower.
 
         User is responsible for selecting the channels, via e.g. indexing:
 
              r1 = sp0[1000:2000].radiometer()
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         roll : int
              Subtract the data of channel `i+roll` from channel `i`
              before computing the rms. This helps reduce artifacts due
              to bad baselines or channel-to-channel correlations. A
              value of 1 or 2 is recommended.
-             See also the roll function where a series of `roll` values
-             can be checked.
-             The default is 0 (no roll)
-        Returns:
-        --------
+             See also the `~dysh.spectra.spectrum.Spectrum.roll` function
+             where a series of `roll` values can be checked.
+             The default is 0 (no roll).
+
+        Returns
+        -------
         ratio : real
-             The ratio of measured to expected RMS.
+            The ratio of measured to expected RMS.
 
         """
         dt = self.meta["EXPOSURE"]
@@ -470,21 +471,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return rms0 / rms1
 
     def roll(self, rollmax=1):
-        """rolling data to check for channel correllations and channel-to-channel
-           correllations. For all roll's from 1 to rollmax the RMS in the rolled
-           data is compared to the raw RMS. For well behaved (and baseline subtracted)
-           data the ratio of the raw RMS to the rolled RMS should approach 1.0.
-           Note: rolling the data is shifting the data by "roll" channels.
+        """
+        Rolling data to check for channel correllations and channel-to-channel
+        correllations. For all roll's from 1 to rollmax the RMS in the rolled
+        data is compared to the raw RMS. For well behaved (and baseline subtracted)
+        data the ratio of the raw RMS to the rolled RMS should approach 1.0.
+        Note: rolling the data is shifting the data by "roll" channels.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         rollmax : int
-             roll the data by values 1 through rollmax
-             The default is 1.
-        Returns:
-        --------
+            Roll the data by values 1 through `rollmax`.
+            The default is 1.
+
+        Returns
+        -------
         ratio : list
-             The ratios of raw RMS by the rolled RMS. The list has a length of rollmax.
+            The ratios of raw RMS by the rolled RMS. The list has a length of `rollmax`.
         """
         rms0 = self.stats()["rms"].value
         r = []
@@ -502,23 +505,22 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Parameters:
         -----------
         peak : bool
-               If true, the largest positive  deviation from the mean is compared to the rms
-               If false, the largest negative deviation from the mean is compared to the rms
-
-               For normal noise the returned snr value depends on the number of channels
-               via the error function.
+            If True, the largest positive  deviation from the mean is compared to the rms.
+            If False, the largest negative deviation from the mean is compared to the rms.
+            For normal noise the returned snr value depends on the number of channels
+            via the error function.
 
         flux : bool
-               If true, the integrated flux over the spectrum is compared to the expected
-               flux given pure noise.
-               If false, channel based snr is computed, also controlled by the value of the
-               peak in the spectrum.
+            If True, the integrated flux over the spectrum is compared to the expected
+            flux given pure noise.
+            If False, channel based snr is computed, also controlled by the value of the
+            peak in the spectrum.
 
-               See also https://specutils.readthedocs.io/en/stable/analysis.html#
+            See also https://specutils.readthedocs.io/en/stable/analysis.html
 
-        rms:   {None, `astropy.units.Quantity`}
-               If given, this is the RMS used in the S/N computations. By default it is
-               determined from the roll=1 value of the Spectrum.
+        rms : None or `~astropy.units.Quantity`}
+            If given, this is the RMS used in the S/N computations. By default it is
+            determined from the `Spectrum.stats(roll=1)["rms"]` value of the `Spectrum`.
 
         Returns
         -------
@@ -539,20 +541,22 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return snr.value
 
     def sratio(self, mean=0.0):
-        """signal ratio:   (pSum+nSum)/(pSum-nSum)
-           Here pSum and nSum are the sum of positive and negative values resp.
-           in the spectrum.
+        """
+        Signal ratio:   (pSum+nSum)/(pSum-nSum)
+        Here pSum and nSum are the sum of positive and negative values respectively
+        in the spectrum. The `Spectrum` must have been baseline subtracted before using
+        this function, otherwise the results will not make sense.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         mean : float
-               At your own risk, don't use this, should do a baseline subtraction before.
-               If not, this could be used as a cheat.
+            At your own risk, don't use this, should do a baseline subtraction before.
+            If not, this could be used as a cheat.
 
         Returns
         -------
         ratio : real
-               The signal ratio, between -1 and 1, 0 being pure noise.
+            The signal ratio, between -1 and 1, 0 being pure noise.
         """
         sp = self.flux.value - mean
         psum = sp[sp > 0.0].sum()
@@ -560,7 +564,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return (psum + nsum) / (psum - nsum)
 
     def normalness(self):
-        """Compute the p-value if the noise in a spectrum is gaussian
+        """
+        Compute the p-value if the noise in a spectrum is gaussian
         using the Anderson-Darling statistic
         The p-value gives the probability that the spectrum is gaussian.
         If p>0.05, the spectrum can be considered gaussian.
@@ -1197,7 +1202,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return s
 
     @classmethod
-    def fake_spectrum(cls, nchan=1024, seed=None, normal=True, **kwargs):
+    def fake_spectrum(cls, nchan=1024, seed=None, normal=True, use_wcs=True, **kwargs):
         """
         Create a fake spectrum with gaussian noise, useful for simple testing.
         A default header is created, which may be modified with kwargs.
@@ -1206,7 +1211,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         nchan : int, optional
             Number of channels. The default is 1024.
-
         seed : {None, int, array_like[ints], `numpy.random.SeedSequence`, `numpy.random.BitGenerator`, `numpy.random.Generator`}, optional
             A seed to initialize the `BitGenerator`. If None, then fresh, unpredictable entropy will be pulled from the OS.
             If an int or array_like[ints] is passed, then all values must be non-negative and will be passed to
@@ -1214,11 +1218,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
             Additionally, when passed a `BitGenerator`, it will be wrapped by `Generator`. If passed a `Generator`, it will
             be returned unaltered.
             The default is `None`.
-
         normal : bool, optional
             If set, the noise is distributed normal with a mean 0.1 and dispersion 0.1.
+            If False, the noise is uniformly distributed between 0 and 1.
             The default is True.
-
+        use_wcs : bool, optional
+            If set, create a WCS object from the metadata.
+            This is computationally expensive, so setting it to False can speed things up when no WCS is needed.
+            The default is True.
         **kwargs: dict or key=value
             Metadata to put in the header.  If the key exists already in
             the default header, it will be replaced. Otherwise the key and value will be
@@ -1227,7 +1234,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Returns
         -------
         spectrum : `Spectrum`
-            The spectrum object
+            The spectrum object.
         """
 
         rng = np.random.default_rng(seed)
@@ -1341,7 +1348,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         for k, v in kwargs.items():
             meta[k.upper()] = v
         # @todo   fix for radiometer equation"EXPOSURE" "TSYS": "CDELT1"
-        return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"])
+        return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"], use_wcs=use_wcs)
 
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
