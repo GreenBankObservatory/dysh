@@ -387,6 +387,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             input array. Another advantage of rolled statistics it will
             remove most slow variations, thus RMS/sqrt(2) might be a better
             indication of the underlying RMS.
+            Note that for roll > 1, the RMS is already corrected by sqrt(2),
+            so they can be directly compared.
             Default: 0
         qac : bool
             If set, the returned simple string contains mean,rms,datamin,datamax
@@ -434,8 +436,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return out
 
     def radiometer(self, roll=0):
-        """
-        Check the radiometer equation, and return the dimensionless ratio of the
+        """Check the radiometer equation, and return the dimensionless ratio of the
         measured vs. expected noise. Generally this number of 1.0 or higher, unless
         for example channels were hanning correlated, measured noise will be lower.
 
@@ -446,14 +447,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Parameters:
         -----------
         roll : int
-             roll the data by a small (1 or 2 is good) in order to get a better estimate
-             of the RMS in case the baseline is bad or there is a channel-to-channel
-             correlation.
+             Subtract the data of channel `i+roll` from channel `i`
+             before computing the rms. This helps reduce artifacts due
+             to bad baselines or channel-to-channel correlations. A
+             value of 1 or 2 is recommended.
+             See also the roll function where a series of `roll` values
+             can be checked.
              The default is 0 (no roll)
         Returns:
         --------
         ratio : real
              The ratio of measured to expected RMS.
+
         """
         dt = self.meta["EXPOSURE"]
         df = abs(self.meta["CDELT1"])
@@ -467,7 +472,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def roll(self, rollmax=1):
         """rolling data to check for channel correllations and channel-to-channel
-            correllations
+           correllations. For all roll's from 1 to rollmax the RMS in the rolled
+           data is compared to the raw RMS. For well behaved (and baseline subtracted)
+           data the ratio of the raw RMS to the rolled RMS should approach 1.0.
+           Note: rolling the data is shifting the data by "roll" channels.
 
         Parameters:
         -----------
@@ -477,7 +485,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Returns:
         --------
         ratio : list
-             The ratios
+             The ratios of raw RMS by the rolled RMS. The list has a length of rollmax.
         """
         rms0 = self.stats()["rms"].value
         r = []
@@ -487,8 +495,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def snr(self, peak=True, flux=False, rms=None):
         """
-        Signal/Noise ratio, measured either in channel or total flux mode.
-        Make sure the spectrum has been baseline substracted.
+        Signal-to-noise (S/N) ratio, measured either in channel or total flux mode.
+        Make sure the spectrum has been baseline substracted, or the snr is
+        meaningless.
+        See also sratio(), the signal ratio.
 
         Parameters:
         -----------
@@ -503,21 +513,25 @@ class Spectrum(Spectrum1D, HistoricalBase):
                If true, the integrated flux over the spectrum is compared to the expected
                flux given pure noise.
                If false, channel based snr is computed, also controlled by the value of the
-               peak.
+               peak in the spectrum.
 
                See also https://specutils.readthedocs.io/en/stable/analysis.html#
+
+        rms:   {None, `astropy.units.Quantity`}
+               If given, this is the RMS used in the S/N computations. By default it is
+               determined from the roll=1 value of the Spectrum.
 
         Returns
         -------
         ratio : real
             The S/N, either flux or channel based
         """
+        # @todo  could check if the data has a baseline solution
         s0 = self.stats()
         s1 = self.stats(roll=1)
         if rms is None:
             rms = s1["rms"]
         if flux:
-            # @todo https://specutils.readthedocs.io/en/stable/analysis.html#
             snr = np.nansum(self.flux) / (rms * np.sqrt(len(self.flux)))
         elif peak:
             snr = (s0["max"] - s0["mean"]) / rms
@@ -526,11 +540,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return snr.value
 
     def sratio(self, mean=0.0):
-        """signal ratio:   (psum+nsum)/(psum-nsum)
+        """signal ratio:   (pSum+nSum)/(pSum-nSum)
+           Here pSum and nSum are the sum of positive and negative values resp.
+           in the spectrum.
 
         Parameters:
         -----------
-        mean : reals
+        mean : float
                At your own risk, don't use this, should do a baseline subtraction before.
                If not, this could be used as a cheat.
 
@@ -1177,8 +1193,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @classmethod
     def fake_spectrum(cls, nchan=1024, seed=None, normal=True, **kwargs):
         """
-        Create a fake spectrum, useful for simple testing. A default header is
-        created, which may be modified with kwargs.
+        Create a fake spectrum with gaussian noise, useful for simple testing.
+        A default header is created, which may be modified with kwargs.
 
         Parameters
         ----------
@@ -1194,10 +1210,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The default is `None`.
 
         normal : bool, optional
-            If set, the noise is distributed normal with a mean 0.1 and dispersion 0.1, and
-            the radiometer equation will be used to related EXPOSURUE, TSYS and CDELT1.
-            Otherwise noise is uniform from 0 to 1. Manual scaling will be needed
-            if different noise is needed.
+            If set, the noise is distributed normal with a mean 0.1 and dispersion 0.1.
             The default is True.
 
         **kwargs: dict or key=value
