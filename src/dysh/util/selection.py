@@ -1142,7 +1142,7 @@ class Flag(SelectionBase):
 
     GBTIDL Flags can be read in with :meth:`read`.
     """
-    
+
     @property
     def final(self):
         """
