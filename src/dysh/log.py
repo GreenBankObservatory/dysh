@@ -54,6 +54,7 @@ dysh_version = version()
 
 
 def dysh_date():
+    """A date formatted for dysh log messages: '%Y-%m-%dT%H:%M:%S%z'"""
     return datetime.now().strftime(dysh_date_format)
 
 
@@ -90,10 +91,15 @@ def init_global_log(
     return log_path
 
 
-def init_instance_log(instance_log_dir: Path = Path("."), level: str | int = "INFO") -> Path:
+def init_instance_log(
+    instance_log_dir: Path = Path("."), instance_log_file: Path | None = None, level: str | int = "INFO"
+) -> Path:
     instance_log_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = instance_log_dir / f"{DYSH}-{os.getpid()}-{ts}.log"
+    if instance_log_file is None:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_path = instance_log_dir / f"{DYSH}-{os.getpid()}-{ts}.log"
+    else:
+        log_path = instance_log_dir / instance_log_file
     # Make sure we can actually write it!
     log_path.touch()
     file_handler = logging.FileHandler(log_path, encoding="utf-8")
@@ -140,7 +146,7 @@ def init_logging(verbosity: int | None = None, level: int | None = None, path: P
 
     if path:
         try:
-            instance_log_path = init_instance_log()
+            instance_log_path = init_instance_log(instance_log_dir=path.parent, instance_log_file=path.name)
         except Exception as e:
             raise ValueError(f"Failed to initialize requested instance log file in {path}") from e
         logger.info(f"Log file for this instance of {DYSH}: {instance_log_path.absolute()}")
