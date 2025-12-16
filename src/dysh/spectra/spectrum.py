@@ -1550,11 +1550,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
         meta["BANDWID"] = abs(meta["CDELT1"]) * len(new_flux)  # Hz
 
         # New Spectrum.
-        return self.make_spectrum(
+        new_spectrum = self.make_spectrum(
             Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
             observer_location=Observatory[meta["TELESCOP"]],
         )
+        new_spectrum._weights = self._weights[start_idx:stop_idx]
+        return new_spectrum
 
     @log_call_to_result
     def average(self, spectra, weights: str | np.ndarray | None = "tsys", align=False):
