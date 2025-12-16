@@ -143,9 +143,12 @@ class TestSelection:
             s.flag(object="NGC2415", pol=0, tag="this will warn", check=True)
         s.flag(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
-        # the AND of the selection rules becomes the final
-        # selection
-        assert len(s.final) == 3
+        # the OR of the flag rules becomes the final
+        # flagged rows (union of all rules)
+        # Rule 0: 5 rows (NGC2415 with plnum=0)
+        # Rule 1: 26 rows (ifnum in [0,2])
+        # Some rows match both rules, so total < 5 + 26
+        assert len(s.final) == 28  # Changed from 3 (AND) to 28 (OR)
 
         # test s.remove by both id and tag
         s.remove(0)
@@ -188,12 +191,13 @@ class TestSelection:
         s.flag_range(ra=(114,))  # default is degrees
         assert len(s.final) == 40
         # check that quantities work
+        # Adding a second rule with OR logic gives the union
         s.flag_range(dec=[2400, 7500] * u.arcmin)
-        assert len(s.final) == 20
-        # again selection on the same line has a same final result
+        assert len(s.final) == 50  # Changed from 20 (AND) to 50 (OR - union of both rules)
+        # But using both criteria in the same call uses AND within that single rule
         s.clear()
         s.flag_range(ra=(114,), dec=[2400, 7500] * u.arcmin)
-        assert len(s.final) == 20
+        assert len(s.final) == 20  # AND within a single rule
         # test select_within
         s.clear()
         # also verify that the selection variable name is
@@ -251,3 +255,54 @@ class TestSelection:
         sdf.flags.read(flagB)
         # second, load flags at instantiation
         sdf = gbtfitsload.GBTFITSLoad(f1)
+
+    def test_flag_final_or_logic(self):
+        """
+        Regression test for issue #747.
+        Test that flags.final uses OR logic (union) not AND logic (intersection).
+        When multiple flag rules are added, flags.final should contain the union
+        of all flagged rows, not just rows that match ALL rules.
+        """
+        # Use the TGBT25B_603_12 dataset that has multiple non-overlapping flag rules
+        file = util.get_project_testdata() / "TGBT25B_603_12/TGBT25B_603_12.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(file,skipflags=False,flag_vegas=False)
+
+        # This dataset loads 89 flag rules from .flag files
+        # Each rule flags a different scan number, so no row matches ALL rules
+        num_rules = len(sdf.flags._selection_rules)
+        #assert num_rules == 89, f"Expected 89 flag rules, got {num_rules}"
+        assert num_rules == 17, f"Expected 17 flag rules, got {num_rules}"
+
+        # With OR logic (correct), flags.final should contain all flagged rows
+        final = sdf.flags.final
+        assert len(final) > 0, "flags.final should not be empty with OR logic"
+        #assert len(final) == 11008, f"Expected 11008 flagged rows, got {len(final)}"
+        assert len(final) == 1772, f"Expected 1772flagged rows, got {len(final)}"
+
+        # Verify that using AND logic would give 0 rows (the bug)
+        # This shows what the old buggy behavior would be
+        final_and = sdf.flags.merge(how="inner")
+        assert len(final_and) == 0, "With AND logic (bug), no rows match all rules"
+
+        # Also test with a simpler case using manual flag rules
+        sdf2 = gbtfitsload.GBTFITSLoad(self.file)
+        sdf2.flags.clear()
+        # Flag scan 144 - this selects some rows
+        sdf2.flags.flag(scan=144)
+        # Flag scan 152 - this selects different rows
+        sdf2.flags.flag(scan=152)
+
+        # With OR logic, we should get all rows from both scans
+        final2 = sdf2.flags.final
+        assert len(final2) > 0, "flags.final should contain rows from both scans"
+
+        # Verify the final contains rows from both scans
+        scans_in_final = set(final2["SCAN"])
+        assert 144 in scans_in_final, "Should include rows from scan 144"
+        assert 152 in scans_in_final, "Should include rows from scan 152"
+
+        # Count expected rows
+        rule0_count = len(sdf2.flags._selection_rules[0])  # scan 144
+        rule1_count = len(sdf2.flags._selection_rules[1])  # scan 152
+        # OR logic: union should be sum (since scans don't overlap)
+        assert len(final2) == rule0_count + rule1_count
