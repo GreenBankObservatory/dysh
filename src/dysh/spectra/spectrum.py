@@ -1427,17 +1427,27 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Skip warnings FITS keywords longer than 8 chars or containing
                 # illegal characters (like _).
                 warnings.filterwarnings("ignore", category=VerifyWarning)
-                # lists are problematic in constructor to WCS
-                # so temporarily remove history and comment values
-                savehist = _meta.pop("HISTORY", None)
-                savecomment = _meta.pop("COMMENT", None)
-                if savecomment is None:
-                    savecomment = _meta.pop("comments", None)
-                wcs = WCS(header=_meta)
-                if savehist is not None:
-                    _meta["HISTORY"] = savehist
-                if savecomment is not None:
-                    _meta["COMMENT"] = savecomment
+                wcs_meta_keys = [
+                    "CRPIX1",
+                    "CTYPE1",
+                    "CDELT1",
+                    "CRVAL1",
+                    "CUNIT1",
+                    "CRVAL2",
+                    "CTYPE2",
+                    "CUNIT2",
+                    "CRVAL3",
+                    "CTYPE3",
+                    "CUNIT3",
+                    "CTYPE4",
+                    "CRVAL4",
+                    "DATE-OBS",
+                ]
+                try:
+                    wcs_meta = {k: _meta[k] for k in wcs_meta_keys}
+                except KeyError as exc:
+                    raise KeyError(f"Missing item for {exc} in meta.") from exc
+                wcs = WCS(header=wcs_meta)
                 # It would probably be safer to add NAXISi to meta.
                 if wcs.naxis > 3:
                     wcs.array_shape = (0, 0, 0, len(data))
@@ -1447,7 +1457,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Reset warnings.
         else:
             wcs = None
-        # is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         target = make_target(_meta)
         vc = veldef_to_convention(_meta["VELDEF"])
 
