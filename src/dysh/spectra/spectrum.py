@@ -21,6 +21,7 @@ from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
+from scipy.stats import anderson
 from specutils import Spectrum as Spectrum1D
 
 from dysh.log import logger
@@ -31,7 +32,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     Observatory,
     astropy_convenience_frame_names,
     astropy_frame_dict,
-    change_ctype,
+    change_veldef,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -108,13 +109,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._spectral_axis._target = self._target
         if self.velocity_convention is None and "VELDEF" in self.meta:
             self._spectral_axis._doppler_convention = veldef_to_convention(self.meta["VELDEF"])
-        # if "uncertainty" not in kwargs:
-        # self._uncertainty = StdDevUncertainty(np.ones_like(self.data), unit=self.flux.unit)
-        # Weights are Non here because can be defined
-        # separately from uncertainty by the user. Not really recommended
-        # but they can do so. See self.weights()
-        # self._weights = None
-        self._weights = np.ones(self.flux.shape)
+        if "MEANTSYS" in self.meta and "EXPOSURE" in self.meta and "CDELT1" in self.meta:
+            w = core.tsys_weight(self.meta["EXPOSURE"], self.meta["CDELT1"], self.meta["MEANTSYS"])
+            self._weights = np.full(self.flux.shape, w)
+        else:
+            self._weights = np.ones(self.flux.shape)
         #  Get observer quantity from observer location.
         if "DATE-OBS" in self.meta:
             self._obstime = Time(self.meta["DATE-OBS"])
@@ -143,12 +142,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             self._resolution = 1
 
-    def _len(self):
-        """return the size of the `Spectrum` in the spectral dimension.
-        @todo __len__  has unintended consquences, yuck.
-        """
-        return len(self.frequency)
-
     def _spectrum_property(self, prop: str):
         """
         Utility method to return a header value as a property.
@@ -167,12 +160,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self.meta.get(prop, None)
 
     @property
+    def nchan(self) -> int:
+        """The number of channels in the Spectrum"""
+        return len(self.frequency)
+
+    @property
     def weights(self):
         """The channel weights of this spectrum"""
-        # Cannot take power of NDUncertainty, so convert
-        # to a Quanity first.
-        # if self._weights is None:
-        #    return self._uncertainty.quantity**-2
         return self._weights
 
     @property
@@ -289,7 +283,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             return
         if self._subtracted:
             if self._normalized:
-                warnings.warn("Cannot undo previously normalized baseline subtraction")  # noqa: B028
+                logger.warning("Cannot undo previously normalized baseline subtraction")
                 return
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
@@ -392,6 +386,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             input array. Another advantage of rolled statistics it will
             remove most slow variations, thus RMS/sqrt(2) might be a better
             indication of the underlying RMS.
+            Note that for roll > 1, the RMS is already corrected by sqrt(2),
+            so they can be directly compared.
             Default: 0
         qac : bool
             If set, the returned simple string contains mean,rms,datamin,datamax
@@ -402,7 +398,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         -------
         stats : dict
             Dictionary consisting of (mean,median,rms,datamin,datamax)
-
         """
 
         # note the Spectrum class has special nanXXX functions for most, but not std()
@@ -417,7 +412,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             d = self[roll:] - self[:-roll]
             mean = d.mean()
             median = d.median()
-            rms = np.nanstd(d.flux)
+            rms = np.nanstd(d.flux) / np.sqrt(2)
             dmin = d.min()
             dmax = d.max()
             npt = len(self.flux) - 2
@@ -431,12 +426,164 @@ class Spectrum(Spectrum1D, HistoricalBase):
         nan2 = self.mask.sum()
         if nan1 != nan2:
             logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
-        else:
+        elif nan1 > 0:
             logger.info(f"Note: found {nan1} NaN (masked) values")
 
         out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
 
         return out
+
+    def radiometer(self, roll=0):
+        """
+        Check the radiometer equation, and return the dimensionless ratio of the
+        measured vs. expected noise. Generally this number is 1.0 or higher, unless
+        for example channels were hanning correlated, measured noise will be lower.
+
+        User is responsible for selecting the channels, via e.g. indexing:
+
+             r1 = sp0[1000:2000].radiometer()
+
+        Parameters
+        ----------
+        roll : int
+             Subtract the data of channel `i+roll` from channel `i`
+             before computing the rms. This helps reduce artifacts due
+             to bad baselines or channel-to-channel correlations. A
+             value of 1 or 2 is recommended.
+             See also the `~dysh.spectra.spectrum.Spectrum.roll` function
+             where a series of `roll` values can be checked.
+             The default is 0 (no roll).
+
+        Returns
+        -------
+        ratio : real
+            The ratio of measured to expected RMS.
+
+        """
+        dt = self.meta["EXPOSURE"]
+        df = abs(self.meta["CDELT1"])
+        tsys = self.meta["TSYS"]
+        if roll == 0:
+            rms0 = self.stats()["rms"].value
+        else:
+            rms0 = self.stats(roll=roll)["rms"].value
+        rms1 = tsys / np.sqrt(df * dt)
+        return rms0 / rms1
+
+    def roll(self, rollmax=1):
+        """
+        Rolling data to check for channel correllations and channel-to-channel
+        correllations. For all roll's from 1 to rollmax the RMS in the rolled
+        data is compared to the raw RMS. For well behaved (and baseline subtracted)
+        data the ratio of the raw RMS to the rolled RMS should approach 1.0.
+        Note: rolling the data is shifting the data by "roll" channels.
+
+        Parameters
+        ----------
+        rollmax : int
+            Roll the data by values 1 through `rollmax`.
+            The default is 1.
+
+        Returns
+        -------
+        ratio : list
+            The ratios of raw RMS by the rolled RMS. The list has a length of `rollmax`.
+        """
+        rms0 = self.stats()["rms"].value
+        r = []
+        for n in range(1, rollmax + 1):
+            r.append(rms0 / self.stats(roll=n)["rms"].value)
+        return r
+
+    def snr(self, peak=True, flux=False, rms=None):
+        """
+        Signal-to-noise (S/N) ratio, measured either in channel or total flux mode.
+        Make sure the spectrum has been baseline substracted, or the snr is
+        meaningless.
+        See also sratio(), the signal ratio.
+
+        Parameters:
+        -----------
+        peak : bool
+            If True, the largest positive  deviation from the mean is compared to the rms.
+            If False, the largest negative deviation from the mean is compared to the rms.
+            For normal noise the returned snr value depends on the number of channels
+            via the error function.
+
+        flux : bool
+            If True, the integrated flux over the spectrum is compared to the expected
+            flux given pure noise.
+            If False, channel based snr is computed, also controlled by the value of the
+            peak in the spectrum.
+
+            See also https://specutils.readthedocs.io/en/stable/analysis.html
+
+        rms : None or `~astropy.units.Quantity`}
+            If given, this is the RMS used in the S/N computations. By default it is
+            determined from the `Spectrum.stats(roll=1)["rms"]` value of the `Spectrum`.
+
+        Returns
+        -------
+        ratio : real
+            The S/N, either flux or channel based
+        """
+        # @todo  could check if the data has a baseline solution
+        s0 = self.stats()
+        s1 = self.stats(roll=1)
+        if rms is None:
+            rms = s1["rms"]
+        if flux:
+            snr = np.nansum(self.flux) / (rms * np.sqrt(len(self.flux)))
+        elif peak:
+            snr = (s0["max"] - s0["mean"]) / rms
+        else:
+            snr = (s0["mean"] - s0["min"]) / rms
+        return snr.value
+
+    def sratio(self, mean=0.0):
+        """
+        Signal ratio:   (pSum+nSum)/(pSum-nSum)
+        Here pSum and nSum are the sum of positive and negative values respectively
+        in the spectrum. The `Spectrum` must have been baseline subtracted before using
+        this function, otherwise the results will not make sense.
+
+        Parameters
+        ----------
+        mean : float
+            At your own risk, don't use this, should do a baseline subtraction before.
+            If not, this could be used as a cheat.
+
+        Returns
+        -------
+        ratio : real
+            The signal ratio, between -1 and 1, 0 being pure noise.
+        """
+        sp = self.flux.value - mean
+        psum = sp[sp > 0.0].sum()
+        nsum = sp[sp < 0.0].sum()
+        return (psum + nsum) / (psum - nsum)
+
+    def normalness(self):
+        """
+        Compute the p-value if the noise in a spectrum is gaussian
+        using the Anderson-Darling statistic
+        The p-value gives the probability that the spectrum is gaussian.
+        If p>0.05, the spectrum can be considered gaussian.
+        See also "D'Agostino, R. B., & Stephens, M. A. (Eds.). (1986)
+        Goodness-of-fit techniques" , table 4.9
+        """
+        anderson_test = anderson(self.data)
+        #   see also  https://github.com/SJVeronese/nicci-package/
+        z = anderson_test.statistic
+        if z >= 0.6:
+            p = np.exp(1.2937 - 5.709 * z + 0.0186 * z**2)
+        elif z >= 0.34:
+            p = np.exp(0.9177 - 4.279 * z - 1.38 * z**2)
+        elif z >= 0.2:
+            p = 1 - np.exp(-8.318 + 42.796 * z - 59.938 * z**2)
+        else:
+            p = 1 - np.exp(-13.436 + 101.14 * z - 223.73 * z**2)
+        return p
 
     @log_call_to_history
     def decimate(self, n):
@@ -720,7 +867,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def equivalencies(self):
         """Get the spectral axis equivalencies that can be used in converting the axis
         between km/s and frequency or wavelength"""
-        equiv = u.spectral()
+        equiv = deepcopy(u.spectral())
         sa = self.spectral_axis
         if sa.doppler_rest is not None:
             rfq = sa.doppler_rest
@@ -797,6 +944,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """String representation of the velocity (Doppler) convention"""
         return self.velocity_convention
 
+    @property
+    def doppler_rest(self):
+        """Rest frequency used in velocity conversions."""
+        return self.spectral_axis.doppler_rest
+
+    @doppler_rest.setter
+    def doppler_rest(self, value):
+        """Set the `doppler_rest` property."""
+        self._spectral_axis._doppler_rest = value
+        self.meta["RESTFREQ"] = value.to("Hz").value
+
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
         *Note*: This is not the same as `Spectrum.velocity`, which includes the source radial velocity.
@@ -872,10 +1030,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         self._spectral_axis = self._spectral_axis.with_observer_stationary_relative_to(tfl)
         self._observer = self._spectral_axis.observer
-        # This line is commented because:
-        # SDFITS defines CTYPE1 as always being the TOPO frequency.
-        # See Issue #373 on GitHub.
-        # self._meta["CTYPE1"] = change_ctype(self._meta["CTYPE1"], toframe)
         if isinstance(tfl, str):
             self._velocity_frame = tfl
         else:
@@ -883,7 +1037,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # While it is incorrect to change CTYPE1, it is reasonable to change VELDEF.
         # SDFITS defines CTYPE1 as always being the TOPO frequency.
         # See Issue #373 on GitHub.
-        self.meta["VELDEF"] = change_ctype(self.meta["VELDEF"], self._velocity_frame)
+        self.meta["VELDEF"] = change_veldef(self.meta["VELDEF"], self._velocity_frame)
 
     def with_frame(self, toframe):
         """Return a copy of this `Spectrum` with a new coordinate reference frame.
@@ -892,7 +1046,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         toframe - str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.SkyCoord`
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
-            or an actual coordinate system instance
+            or an actual coordinate system instance.   The supported
 
         Returns
         -------
@@ -1016,7 +1170,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             t = Table(outarray, names=outnames, meta=meta, descriptions=description)
         # for now ignore complaints about keywords until we clean them up.
-        # There are some that are more than 8 chars that should be fixed in GBTFISLOAD
+        # There are some that are more than 8 chars that should be fixed in GBTFITSLOAD
         warnings.simplefilter("ignore", VerifyWarning)
         t.write(fileobj, format=format, **kwargs)
 
@@ -1048,16 +1202,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return s
 
     @classmethod
-    def fake_spectrum(cls, nchan=1024, seed=None, **kwargs):
+    def fake_spectrum(cls, nchan=1024, seed=None, normal=True, use_wcs=True, **kwargs):
         """
-        Create a fake spectrum, useful for simple testing. A default header is
-        created, which may be modified with kwargs.
+        Create a fake spectrum with gaussian noise, useful for simple testing.
+        A default header is created, which may be modified with kwargs.
 
         Parameters
         ----------
         nchan : int, optional
             Number of channels. The default is 1024.
-
         seed : {None, int, array_like[ints], `numpy.random.SeedSequence`, `numpy.random.BitGenerator`, `numpy.random.Generator`}, optional
             A seed to initialize the `BitGenerator`. If None, then fresh, unpredictable entropy will be pulled from the OS.
             If an int or array_like[ints] is passed, then all values must be non-negative and will be passed to
@@ -1065,7 +1218,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
             Additionally, when passed a `BitGenerator`, it will be wrapped by `Generator`. If passed a `Generator`, it will
             be returned unaltered.
             The default is `None`.
-
+        normal : bool, optional
+            If set, the noise is distributed normal with a mean 0.1 and dispersion 0.1.
+            If False, the noise is uniformly distributed between 0 and 1.
+            The default is True.
+        use_wcs : bool, optional
+            If set, create a WCS object from the metadata.
+            This is computationally expensive, so setting it to False can speed things up when no WCS is needed.
+            The default is True.
         **kwargs: dict or key=value
             Metadata to put in the header.  If the key exists already in
             the default header, it will be replaced. Otherwise the key and value will be
@@ -1074,17 +1234,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Returns
         -------
         spectrum : `Spectrum`
-            The spectrum object
+            The spectrum object.
         """
 
         rng = np.random.default_rng(seed)
-        data = rng.random(nchan) * u.K
+        if normal:
+            data = rng.normal(0.1, 0.1, nchan) * u.K
+        else:
+            data = rng.random(nchan) * u.K
         meta = {
             "OBJECT": "NGC2415",
             "BANDWID": 23437500.0,
             "DATE-OBS": "2021-02-10T07:38:37.50",
             "DURATION": 0.9982445,
-            "EXPOSURE": 732.1785161896237,
+            "EXPOSURE": 44.949832229522286,  # fixed by radiometer equation
             "TSYS": 17.930595470605255,
             "CTYPE1": "FREQ-OBS",
             "CRVAL1": 1402544936.7749996,
@@ -1111,7 +1274,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "TAMBIENT": 270.4,
             "PRESSURE": 696.2290227048372,
             "HUMIDITY": 0.949,
-            "RESTFREQ": 1420405751.7,
+            "RESTFREQ": 1420405751.786,
             "FREQRES": 715.2557373046875,
             "EQUINOX": 2000.0,
             "RADESYS": "FK5",
@@ -1134,7 +1297,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "QD_BAD": -1,
             "QD_METHOD": "",
             "VELOCITY": 3784000.0,
-            "DOPFREQ": 1420405751.7,
+            "DOPFREQ": 1420405751.786,
             "ADCSAMPF": 3000000000.0,
             "VSPDELT": 65536.0,
             "VSPRVAL": 19.203125,
@@ -1170,7 +1333,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "CUNIT1": "Hz",
             "CUNIT2": "deg",
             "CUNIT3": "deg",
-            "RESTFRQ": 1420405751.7,
+            "RESTFRQ": 1420405751.786,
             "MEANTSYS": 17.16746070048293,
             "WTTSYS": 17.16574907094451,
             "TSCALE": "Ta*",
@@ -1184,7 +1347,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         }
         for k, v in kwargs.items():
             meta[k.upper()] = v
-        return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"])
+        # @todo   fix for radiometer equation"EXPOSURE" "TSYS": "CDELT1"
+        return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"], use_wcs=use_wcs)
 
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
@@ -1303,7 +1467,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 attach_zero_velocities(observer_location.get_itrs(obstime=obstime))
             )
         else:
-            warnings.warn(  # noqa: B028
+            logger.warning(
                 "'meta' does not contain DATE-OBS or MJD-OBS. Spectrum won't be convertible to certain coordinate"
                 " frames"
             )
@@ -1550,14 +1714,16 @@ class Spectrum(Spectrum1D, HistoricalBase):
         meta["BANDWID"] = abs(meta["CDELT1"]) * len(new_flux)  # Hz
 
         # New Spectrum.
-        return self.make_spectrum(
+        new_spectrum = self.make_spectrum(
             Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
             observer_location=Observatory[meta["TELESCOP"]],
         )
+        new_spectrum._weights = self._weights[start_idx:stop_idx]
+        return new_spectrum
 
     @log_call_to_result
-    def average(self, spectra, weights="tsys", align=False):
+    def average(self, spectra, weights: str | np.ndarray | None = "tsys", align=False):
         r"""
         Average this `Spectrum` with `spectra`.
         The resulting `average` will have an exposure equal to the sum of the exposures,
@@ -1568,12 +1734,18 @@ class Spectrum(Spectrum1D, HistoricalBase):
         spectra : list of `Spectrum`
             Spectra to be averaged. They must have the same number of channels.
             No checks are done to ensure they are aligned.
-        weights: str
-            'tsys' or None.  If 'tsys' the weight will be calculated as:
+        weights: None, str or ~numpy.ndarray
+            If None, the channel weights will be equal and set to unity.
+
+            If 'tsys' the channel weights will be calculated as:
 
              :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-            Default: 'tsys'
+            If 'spectral', the weights in each Spectrum will be used.
+
+            If an array, it must have shape `(len(spectra)+1,)` or `(len(spectra)+1,nchan)` where `nchan` is the
+            number of channels in the spectra.
+            The first element ofthe weights array will be applied to the current spectrum.
         align : bool
             If `True` align the `spectra` to itself.
             This uses `Spectrum.align_to`.
@@ -1925,12 +2097,16 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     spectra : list of `Spectrum`
         Spectra to be averaged. They must have the same number of channels.
         No checks are done to ensure they are aligned.
-    weights: str
-        'tsys' or None.  If 'tsys' the weight will be calculated as:
+    weights: None, str or ~numpy.ndarray
+        If None, the channel weights will be equal and set to unity.
+
+        If 'tsys' the channel weights will be calculated as:
 
          :math:`w = t_{exp} \times \delta\nu/T_{sys}^2`
 
-        Default: 'tsys'
+        If 'spectral', the `weights` array in each Spectrum will be used.
+
+        If an array, it must have shape `(len(spectra),)` or `(len(spectra),nchan)` where `nchan` is the number of channels in the spectra.
     align : bool
         If `True` align the `spectra` to the first element.
         This uses `Spectrum.align_to`.
@@ -1975,10 +2151,15 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         data_array[i].mask = s.mask
 
         # Assign a single weight to all channels in the Spectrum s
-        if weights == "tsys":
+        if isinstance(weights, np.ndarray):
+            wts[i] = weights[i]
+        elif weights == "tsys":
             wts[i] = core.tsys_weight(s.meta["EXPOSURE"], s.meta["CDELT1"], s.meta["TSYS"])
+        elif weights == "spectral":
+            wts[i] = s.weights
         else:
             wts[i] = 1.0
+
         exposures[i] = s.meta["EXPOSURE"]
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]
@@ -1990,7 +2171,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         pols.append(s.meta["CRVAL4"])
     _mask = np.isnan(data_array.data) | data_array.mask
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
-    data = np.ma.average(data_array, axis=0, weights=wts)
+    data, sum_of_weights = np.ma.average(data_array, axis=0, weights=wts, returned=True)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
     xcoo = np.ma.average(xcoos, axis=0, weights=wts[:, 0])
     ycoo = np.ma.average(ycoos, axis=0, weights=wts[:, 0])
@@ -2024,7 +2205,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         new_meta["CRVAL4"] = 0
 
     averaged = Spectrum.make_spectrum(Masked(data * units, data.mask), meta=new_meta, observer=observer)
-
+    averaged._weights = sum_of_weights
     if history is not None:
         # Keep previous history first.
         averaged._history = history + averaged._history

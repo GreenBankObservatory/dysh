@@ -5,22 +5,66 @@ Testing & GitHub Integrations
 Test Code
 =========
 
-All new features **must** have accompanying test code that verifies their correctness; no PR will be accepted without it.  A jupyter notebook explaining how to use the new feature is also strongly recommended.   Bug fixes should have a regression test added to verify the issue is fixed and doesn't return.  Tests must be runnable by pytest.   If a test writes a file to disk, it **must** use`pytest's `tmp_path  fixture <https://docs.pytest.org/en/latest/how-to/tmp_path.html>`_ to ensure the file is removed after the test.   The `dysh` development team can provide help developing regression tests for bug fixes.
+All new features **must** have accompanying test code that verifies their correctness; no PR will be accepted without it.
+A jupyter notebook explaining how to use the new feature is also strongly recommended.
+Bug fixes should have a regression test added to verify the issue is fixed and doesn't return.
+Tests must be runnable by pytest.
+If a test writes a file to disk, it **must** use pytest's `tmp_path  fixture <https://docs.pytest.org/en/latest/how-to/tmp_path.html>`_ to ensure the file is removed after the test.
+The dysh development team can provide help developing regression tests for bug fixes.
 
-Tests must be named `test_*.py` and located within a `tests` directory of their parent module. All tests are run as a GitHub Workflow in dysh's continuous integration suite defined in `dysh/.github/workflows/ci.yml`.
+Tests must be named ``test_*.py`` and located within a ``tests`` directory of their parent module.
+All tests are run as a GitHub Workflow in dysh's continuous integration suite defined in `dysh/.github/workflows/ci.yml <https://github.com/GreenBankObservatory/dysh/blob/main/.github/workflows/ci.yml>`_.
 
 
 Pre-Commit Hooks
 ================
 
-We have several pre-commit hooks that ensure committed code follows desired standards. They can be found in `dysh/.pre-commit-config.yaml`.   pre-commit is automatically installed if you used the `dev` dependency group to install dysh (`uv sync --dev`).  `pre-commit` will run whenever you commit code.
+We use `pre-commit <https://pre-commit.com/>`_ with hooks that ensure committed code follows desired standards.
+The hooks can be found in `dysh/.pre-commit-config.yaml <https://github.com/GreenBankObservatory/dysh/blob/main/.pre-commit-config.yaml>`_.
+
+There are two steps for enabling pre-commit in your repo: 1) installing the pre-commit package and 2) installing the hooks in your clone of the dysh repo.
+
+Installing the pre-commit package
+---------------------------------
+
+You can install ``pre-commit`` globally, so that it is active for any of your projects that have hooks, or just locally for dysh.
+For a global install, in your normal environment:
+
+.. code-block:: bash
+
+    $ uv tool install pre-commit
+
+If you prefer local to dysh, the ``pre-commit`` package is automatically installed with the ``dev`` dependency group when installing dysh:
+
+.. code-block:: bash
+
+    (dysh) $ uv sync --dev
+
+Installing dysh's pre-commit hooks
+----------------------------------
+To install the pre-commit hooks into your repo (``dysh/.git/hooks/pre-commit``)
+
+Globally:
+
+.. code-block:: bash
+
+   pre-commit install
+
+Locally:
+
+.. code-block:: bash
+
+   (dysh) $ uv run pre-commit install
+
+
+``pre-commit`` will run whenever you commit to make sure all of the staged files are formatted correctly.
 
 .. code-block:: bash
 
     (dysh) $ git add newfile.py
     (dysh) $ git commit -m "adding new python file" newfile.py
 
-The `pre-commit` will run  to make sure all of the staged files are formatted correctly. You'll see a message like this, then the information about your commit.
+You'll see a message like this, then the information about your commit.
 
 .. code-block:: bash
    :emphasize-lines: 11
