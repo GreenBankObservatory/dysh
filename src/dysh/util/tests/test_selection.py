@@ -265,18 +265,18 @@ class TestSelection:
         """
         # Use the TGBT25B_603_12 dataset that has multiple non-overlapping flag rules
         file = util.get_project_testdata() / "TGBT25B_603_12/TGBT25B_603_12.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(file,skipflags=False,flag_vegas=False)
+        sdf = gbtfitsload.GBTFITSLoad(file, skipflags=False, flag_vegas=False)
 
         # This dataset loads 89 flag rules from .flag files
         # Each rule flags a different scan number, so no row matches ALL rules
         num_rules = len(sdf.flags._selection_rules)
-        #assert num_rules == 89, f"Expected 89 flag rules, got {num_rules}"
+        # assert num_rules == 89, f"Expected 89 flag rules, got {num_rules}"
         assert num_rules == 17, f"Expected 17 flag rules, got {num_rules}"
 
         # With OR logic (correct), flags.final should contain all flagged rows
         final = sdf.flags.final
         assert len(final) > 0, "flags.final should not be empty with OR logic"
-        #assert len(final) == 11008, f"Expected 11008 flagged rows, got {len(final)}"
+        # assert len(final) == 11008, f"Expected 11008 flagged rows, got {len(final)}"
         assert len(final) == 1772, f"Expected 1772flagged rows, got {len(final)}"
 
         # Verify that using AND logic would give 0 rows (the bug)
