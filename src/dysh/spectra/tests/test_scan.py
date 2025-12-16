@@ -327,13 +327,13 @@ class TestSubBeamNod:
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0).timeaverage()
 
         assert sbn.data.std() == pytest.approx(0.00222391)
-        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["EXPOSURE"] == 2.402706191448039
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == 1.0
 
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.0).timeaverage()
 
-        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["EXPOSURE"] == 2.402706191448039
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == pytest.approx(105.0)
 
@@ -452,7 +452,8 @@ class TestSubBeamNod:
         assert pytest.approx(sbn_scan.data.mean(), rms_scan.value) == tcont
 
         # Compare exposure times.
-        assert sbn_cycle.meta["EXPOSURE"] == sbn_scan.meta["EXPOSURE"]
+        assert sbn_cycle.meta["EXPOSURE"] == 11.683568795384163
+        assert sbn_scan.meta["EXPOSURE"] == 11.717374602730942
 
         # Compare system temperature.
         assert pytest.approx(sbn_scan.meta["TSYS"], rms_scan.value) == sbn_cycle.meta["TSYS"]

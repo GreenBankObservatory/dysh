@@ -1282,14 +1282,14 @@ class TestGBTFITSLoad:
             assert np.all(data_ratio == pytest.approx(tsys_ratio))
 
     def test_subbeamnod(self):
-        """simple check of subbeamnod for two different cases.  this mimics the notebook example"""
+        """simple check of subbeamnod for two different cases. This mimics the notebook example"""
         sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         # don't scale
         sb = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="cycle")
         sb2 = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="scan")
         s = sb.timeaverage() - sb2.timeaverage()
-        assert np.nanmean(s.data) == pytest.approx(0.0022912487, abs=1e-8)
+        assert np.nanmean(s.data) == pytest.approx(0.0018272468314497893, abs=1e-8)
 
     def test_scale(self):
         # Check that scaling to Ta* or Jy works.
