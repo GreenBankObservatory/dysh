@@ -3996,7 +3996,6 @@ class GBTOnline(GBTFITSLoad):
                 self._online = dysh_data(fileobj)
                 GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
             logger.info(f"Connecting to explicit file: {self._online} - will be monitoring this")
-            self._checkfn = inspect.getmembers(GBTFITSLoad, predicate=inspect.isfunction)
 
         else:
             self._online_mode = 2  #  monitor all files?
