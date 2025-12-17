@@ -2127,6 +2127,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     data_array = np.ma.MaskedArray(_data, mask=_mask, dtype=float, fill_value=np.nan)
     wts = np.empty(shape, dtype=float)
     exposures = np.empty(nspec, dtype=float)
+    durations = np.empty(nspec, dtype=float)
     tsyss = np.empty(nspec, dtype=float)
     xcoos = np.empty(nspec, dtype=float)
     ycoos = np.empty(nspec, dtype=float)
@@ -2161,6 +2162,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
             wts[i] = 1.0
 
         exposures[i] = s.meta["EXPOSURE"]
+        durations[i] = s.meta["DURATION"]
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
@@ -2180,10 +2182,12 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     zenith_opacity = np.ma.masked_where(zenith_opacity < 0, zenith_opacity)
     ze = np.ma.average(zenith_opacity, axis=0, weights=wts[:, 0])
     exposure = exposures.sum(axis=0)
+    duration = durations.sum(axis=0)
 
     new_meta = deepcopy(spectra[0].meta)
     new_meta["TSYS"] = tsys
     new_meta["EXPOSURE"] = exposure
+    new_meta["DURATION"] = duration
     new_meta["CRVAL2"] = xcoo
     new_meta["CRVAL3"] = ycoo
     new_meta["AP_EFF"] = ap
