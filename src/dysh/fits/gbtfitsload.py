@@ -1,13 +1,13 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
+import inspect
 import itertools
 import numbers
 import os
 import platform
 import time
 import warnings
-import inspect
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -3939,8 +3939,9 @@ class GBTOffline(GBTFITSLoad):
 # NOTE: if GBTFITSLoad has new functions added, they may need to be added in GBTOnline() as well
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
-_skip_functions = ['velocity_convention', 'velocity_frame']
+_skip_functions = ["velocity_convention", "velocity_frame"]
 _need_functions = 55
+
 
 def _check_functions(verbose=False):
     """
@@ -3952,15 +3953,18 @@ def _check_functions(verbose=False):
     n = 0
     for i in range(len(fns)):
         fn = fns[i][0]
-        if fn[0] == '_': continue
-        if fn in _skip_functions: continue
+        if fn[0] == "_":
+            continue
+        if fn in _skip_functions:
+            continue
         n = n + 1
-        if verbose: print(n, fn)
+        if verbose:
+            print(n, fn)
     if n != need:
         # this means GBTOnline may need to have the new
         logger.warning(f"GBTOnline: parent GBTFITSLoad() was expected have {need} functions, but found {n}.")
     # return values for tests
-    return (need,n)
+    return (need, n)
 
 
 class GBTOnline(GBTFITSLoad):
