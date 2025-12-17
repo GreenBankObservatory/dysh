@@ -1070,6 +1070,9 @@ class TestGBTFITSLoad:
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
 
     def test_online(self, tmp_path):
+        (n,need) = gbtfitsload._check_functions()
+        assert n == need
+        #
         f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
         sdfits = tmp_path / "sdfits"
