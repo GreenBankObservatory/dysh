@@ -2179,6 +2179,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         zenith_opacity[i] = s.meta.get("TAU_Z", -1)
         pols.append(s.meta["CRVAL4"])
     _mask = np.isnan(data_array.data) | data_array.mask
+    wts = np.ma.masked_invalid(wts)
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data, sum_of_weights = np.ma.average(data_array, axis=0, weights=wts, returned=True)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
@@ -2188,7 +2189,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     se = np.ma.average(surface_error, axis=0, weights=wts[:, 0])
     zenith_opacity = np.ma.masked_where(zenith_opacity < 0, zenith_opacity)
     ze = np.ma.average(zenith_opacity, axis=0, weights=wts[:, 0])
-    exposure = exposures.sum(axis=0)
+    exposure = exposures[~wts.mask[:, 0]].sum(axis=0)
 
     new_meta = deepcopy(spectra[0].meta)
     new_meta["TSYS"] = tsys
