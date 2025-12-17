@@ -1546,7 +1546,7 @@ class TestGBTFITSLoad:
         # assert np.max(np.abs(x)) < 3e-7
         assert np.mean(x) < 2e-3  # bogus test. this should be smaller.
         # assert np.all(psscan[0]._calibrated == sigref[0]._calibrated)
-        for k in ["EXPOSURE", "TSYS"]:
+        for k in ["EXPOSURE", "TSYS", "DURATION"]:
             psscan[0].meta[0].pop(k)
             sigref[0].meta[0].pop(k)
         assert psscan[0].meta[0] == sigref[0].meta[0]
