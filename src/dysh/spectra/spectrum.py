@@ -33,6 +33,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     astropy_convenience_frame_names,
     astropy_frame_dict,
     change_veldef,
+    frame_to_label,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -972,21 +973,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
         """
+        Convert the spectral axis to `unit` in `toframe` using `doppler_convention`
+        if converting from frequency/wavelength to velocity.
+
         Parameters
         ----------
-        unit : `~astropy.units.Quantity` or str that can be converted to Quantity
-            The unit to which the axis is to be converted
-
+        unit : `~astropy.units.Quantity` or str that can be converted to `~astropy.units.Quantity`
+            The unit to which the spectral axis is to be converted.
         toframe : str
-            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'
-
-        doppler_convention : str
-            The Doppler velocity covention to use, one of 'optical', 'radio', or 'rest'
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
+        doppler_convention : None or {'optical', 'radio', 'relativistic'}
+            The Doppler convention to use when converting to velocity.
+            One of 'optical', 'radio', or 'relativistic'.
 
         Returns
         -------
-        test_spectrum.pyvelocity : `~astropy.units.Quantity`
-            The converted spectral axis velocity
+        velocity : `~astropy.units.Quantity`
+            The converted spectral axis in units of `unit`.
         """
         if toframe is not None and toframe != self.velocity_frame:
             s = self.with_frame(toframe)
@@ -1772,7 +1775,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
         flat_tol=0.1,
         fw=1,
         xunit="km/s",
-    ):
+        vframe=None,
+        doppler_convention=None,
+    ) -> dict:
         """
         Curve of growth (CoG) analysis based on Yu et al. (2020) [1]_.
 
@@ -1780,7 +1785,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         vc : float
             Central velocity of the line.
-            If not provided, it will be estimated from the moment 1 of the `x` and `y` values.
+            If not provided, it will be estimated from the moment 1 of the `Spectrum`.
         width_frac : list
             List of fractions of the total flux at which to compute the line width.
             If 0.25 and 0.85 are not included, they will be added to estimate the concentration
@@ -1798,6 +1803,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             When estimating the line-free range, use `fw` times the largest width.
         xunit : str or `~astropy.units.quantity`
             Units for the x axis when computing the CoG.
+        vframe : None or str
+            Velocity frame to use.
+            The results will be provided in this velocity frame.
+            If None, the velocity frame of the `Spectrum` will be used.
+            The velocity frame of the `Spectrum` won't be changed.
+        doppler_convention : None or {'radio', 'optical', 'relativistic'}
+            The Doppler velocity covention to use when converting to velocity units.
+            If a string, one of 'optical', 'radio', or 'relativistic'.
+            If None, it will use the `Spectrum.doppler_convention`.
 
         Returns
         -------
@@ -1812,9 +1826,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         if width_frac is None:
             width_frac = [0.25, 0.65, 0.75, 0.85, 0.95]
-        x = self.spectral_axis.to(xunit)
         y = self.flux
-        return curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
+        x = self.velocity_axis_to(unit=xunit, toframe=vframe, doppler_convention=doppler_convention)
+        vframe = x.observer.name
+        logger.info(f"Velocity frame: {frame_to_label[vframe]}")
+        doppler_convention = x.doppler_convention
+        logger.info(f"Doppler convention: {doppler_convention}")
+        rdict = curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
+        rdict.update({"vframe": vframe, "doppler_convention": doppler_convention})
+        return rdict
 
     def _min_max_freq(self):
         """Return the sorted min and max frequency (in Hz) of the spectrum, regardless of the units of its axis"""
@@ -2127,6 +2147,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     data_array = np.ma.MaskedArray(_data, mask=_mask, dtype=float, fill_value=np.nan)
     wts = np.empty(shape, dtype=float)
     exposures = np.empty(nspec, dtype=float)
+    durations = np.empty(nspec, dtype=float)
     tsyss = np.empty(nspec, dtype=float)
     xcoos = np.empty(nspec, dtype=float)
     ycoos = np.empty(nspec, dtype=float)
@@ -2161,6 +2182,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
             wts[i] = 1.0
 
         exposures[i] = s.meta["EXPOSURE"]
+        durations[i] = s.meta["DURATION"]
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
@@ -2180,10 +2202,12 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     zenith_opacity = np.ma.masked_where(zenith_opacity < 0, zenith_opacity)
     ze = np.ma.average(zenith_opacity, axis=0, weights=wts[:, 0])
     exposure = exposures.sum(axis=0)
+    duration = durations.sum(axis=0)
 
     new_meta = deepcopy(spectra[0].meta)
     new_meta["TSYS"] = tsys
     new_meta["EXPOSURE"] = exposure
+    new_meta["DURATION"] = duration
     new_meta["CRVAL2"] = xcoo
     new_meta["CRVAL3"] = ycoo
     new_meta["AP_EFF"] = ap
