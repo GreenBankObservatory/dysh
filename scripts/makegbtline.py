@@ -36,7 +36,7 @@ parser.add_argument(
 # this is the original line from grom GBTIDL. We use this to get the names of the molecules to search for.
 gbtidl_file = get_project_data() / "GBTIDL_RRF_w_Kup.csv.gz"
 # add $ to regex to eliminate, e.g., "Carbon Monoxide Ion" as a match
-redshift_lines = ["Carbon Monoxide$", "Atomic Hydrogen", "Atomic Carbon", "Atomic Oxygen", "Carbon Monosulfide$", r"HCO\+", " HCN "]
+redshift_lines = ["Carbon Monoxide$", "Atomic Hydrogen", "Atomic Carbon", "Atomic Oxygen", "Atomic Helium", "Atomic Deuterium", "Carbon Monosulfide$", r"HCO\+", " HCN "]
 redshift_recomb_lines = ["Recombination"]
 
 args = parser.parse_args()
