@@ -8,7 +8,6 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.utils.masked import Masked
-from bs4 import BeautifulSoup
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, SpanSelector
 
@@ -424,18 +423,24 @@ class SpectrumPlot(PlotBase):
         self.freexy()
 
     def show_catalog_lines(self):
+        """
+        Overlay spectral lines from various catalogs on the plot, with annotations.
+        """
+
         self.sl_tbl = self._spectrum.query_lines()
 
-        for line in self.sl_tbl:
-            #line_name = BeautifulSoup(line["name"],features="html5lib").get_text()
+        fsize = 9
+        fracstep = 0.04
+        ystart = 0.7 - 2*fracstep
+
+        for i,line in enumerate(self.sl_tbl):
             line_name = parse_html(line["name"])
             line_freq = (line["orderedfreq"] * u.MHz).to(self._xunit).value
-            #line_freq = line["orderedfreq"]
 
-            vloc = self._spectrum.mean().value
+            vloc =  ystart + (i%7)*fracstep
 
             self._axis.axvline(line_freq, c='k', linewidth=1, gid="catalogline")
-            self._axis.annotate(line_name, (line_freq, vloc),xycoords='data')
+            self._axis.annotate(line_name, (line_freq, vloc),xycoords=('data','axes fraction'),size=fsize)
 
 
 class InteractiveSpanSelector:
