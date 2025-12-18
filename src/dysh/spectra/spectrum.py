@@ -21,6 +21,7 @@ from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
 from ndcube import NDCube
+from scipy.stats import anderson
 from specutils import Spectrum as Spectrum1D
 
 from dysh.log import logger
@@ -32,6 +33,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     astropy_convenience_frame_names,
     astropy_frame_dict,
     change_veldef,
+    frame_to_label,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -385,6 +387,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             input array. Another advantage of rolled statistics it will
             remove most slow variations, thus RMS/sqrt(2) might be a better
             indication of the underlying RMS.
+            Note that for roll > 1, the RMS is already corrected by sqrt(2),
+            so they can be directly compared.
             Default: 0
         qac : bool
             If set, the returned simple string contains mean,rms,datamin,datamax
@@ -395,7 +399,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         -------
         stats : dict
             Dictionary consisting of (mean,median,rms,datamin,datamax)
-
         """
 
         # note the Spectrum class has special nanXXX functions for most, but not std()
@@ -410,7 +413,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             d = self[roll:] - self[:-roll]
             mean = d.mean()
             median = d.median()
-            rms = np.nanstd(d.flux)
+            rms = np.nanstd(d.flux) / np.sqrt(2)
             dmin = d.min()
             dmax = d.max()
             npt = len(self.flux) - 2
@@ -424,12 +427,164 @@ class Spectrum(Spectrum1D, HistoricalBase):
         nan2 = self.mask.sum()
         if nan1 != nan2:
             logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
-        else:
+        elif nan1 > 0:
             logger.info(f"Note: found {nan1} NaN (masked) values")
 
         out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
 
         return out
+
+    def radiometer(self, roll=0):
+        """
+        Check the radiometer equation, and return the dimensionless ratio of the
+        measured vs. expected noise. Generally this number is 1.0 or higher, unless
+        for example channels were hanning correlated, measured noise will be lower.
+
+        User is responsible for selecting the channels, via e.g. indexing:
+
+             r1 = sp0[1000:2000].radiometer()
+
+        Parameters
+        ----------
+        roll : int
+             Subtract the data of channel `i+roll` from channel `i`
+             before computing the rms. This helps reduce artifacts due
+             to bad baselines or channel-to-channel correlations. A
+             value of 1 or 2 is recommended.
+             See also the `~dysh.spectra.spectrum.Spectrum.roll` function
+             where a series of `roll` values can be checked.
+             The default is 0 (no roll).
+
+        Returns
+        -------
+        ratio : real
+            The ratio of measured to expected RMS.
+
+        """
+        dt = self.meta["EXPOSURE"]
+        df = abs(self.meta["CDELT1"])
+        tsys = self.meta["TSYS"]
+        if roll == 0:
+            rms0 = self.stats()["rms"].value
+        else:
+            rms0 = self.stats(roll=roll)["rms"].value
+        rms1 = tsys / np.sqrt(df * dt)
+        return rms0 / rms1
+
+    def roll(self, rollmax=1):
+        """
+        Rolling data to check for channel correllations and channel-to-channel
+        correllations. For all roll's from 1 to rollmax the RMS in the rolled
+        data is compared to the raw RMS. For well behaved (and baseline subtracted)
+        data the ratio of the raw RMS to the rolled RMS should approach 1.0.
+        Note: rolling the data is shifting the data by "roll" channels.
+
+        Parameters
+        ----------
+        rollmax : int
+            Roll the data by values 1 through `rollmax`.
+            The default is 1.
+
+        Returns
+        -------
+        ratio : list
+            The ratios of raw RMS by the rolled RMS. The list has a length of `rollmax`.
+        """
+        rms0 = self.stats()["rms"].value
+        r = []
+        for n in range(1, rollmax + 1):
+            r.append(rms0 / self.stats(roll=n)["rms"].value)
+        return r
+
+    def snr(self, peak=True, flux=False, rms=None):
+        """
+        Signal-to-noise (S/N) ratio, measured either in channel or total flux mode.
+        Make sure the spectrum has been baseline substracted, or the snr is
+        meaningless.
+        See also sratio(), the signal ratio.
+
+        Parameters:
+        -----------
+        peak : bool
+            If True, the largest positive  deviation from the mean is compared to the rms.
+            If False, the largest negative deviation from the mean is compared to the rms.
+            For normal noise the returned snr value depends on the number of channels
+            via the error function.
+
+        flux : bool
+            If True, the integrated flux over the spectrum is compared to the expected
+            flux given pure noise.
+            If False, channel based snr is computed, also controlled by the value of the
+            peak in the spectrum.
+
+            See also https://specutils.readthedocs.io/en/stable/analysis.html
+
+        rms : None or `~astropy.units.Quantity`}
+            If given, this is the RMS used in the S/N computations. By default it is
+            determined from the `Spectrum.stats(roll=1)["rms"]` value of the `Spectrum`.
+
+        Returns
+        -------
+        ratio : real
+            The S/N, either flux or channel based
+        """
+        # @todo  could check if the data has a baseline solution
+        s0 = self.stats()
+        s1 = self.stats(roll=1)
+        if rms is None:
+            rms = s1["rms"]
+        if flux:
+            snr = np.nansum(self.flux) / (rms * np.sqrt(len(self.flux)))
+        elif peak:
+            snr = (s0["max"] - s0["mean"]) / rms
+        else:
+            snr = (s0["mean"] - s0["min"]) / rms
+        return snr.value
+
+    def sratio(self, mean=0.0):
+        """
+        Signal ratio:   (pSum+nSum)/(pSum-nSum)
+        Here pSum and nSum are the sum of positive and negative values respectively
+        in the spectrum. The `Spectrum` must have been baseline subtracted before using
+        this function, otherwise the results will not make sense.
+
+        Parameters
+        ----------
+        mean : float
+            At your own risk, don't use this, should do a baseline subtraction before.
+            If not, this could be used as a cheat.
+
+        Returns
+        -------
+        ratio : real
+            The signal ratio, between -1 and 1, 0 being pure noise.
+        """
+        sp = self.flux.value - mean
+        psum = sp[sp > 0.0].sum()
+        nsum = sp[sp < 0.0].sum()
+        return (psum + nsum) / (psum - nsum)
+
+    def normalness(self):
+        """
+        Compute the p-value if the noise in a spectrum is gaussian
+        using the Anderson-Darling statistic
+        The p-value gives the probability that the spectrum is gaussian.
+        If p>0.05, the spectrum can be considered gaussian.
+        See also "D'Agostino, R. B., & Stephens, M. A. (Eds.). (1986)
+        Goodness-of-fit techniques" , table 4.9
+        """
+        anderson_test = anderson(self.data)
+        #   see also  https://github.com/SJVeronese/nicci-package/
+        z = anderson_test.statistic
+        if z >= 0.6:
+            p = np.exp(1.2937 - 5.709 * z + 0.0186 * z**2)
+        elif z >= 0.34:
+            p = np.exp(0.9177 - 4.279 * z - 1.38 * z**2)
+        elif z >= 0.2:
+            p = 1 - np.exp(-8.318 + 42.796 * z - 59.938 * z**2)
+        else:
+            p = 1 - np.exp(-13.436 + 101.14 * z - 223.73 * z**2)
+        return p
 
     @log_call_to_history
     def decimate(self, n):
@@ -818,21 +973,23 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def velocity_axis_to(self, unit=KMS, toframe=None, doppler_convention=None):
         """
+        Convert the spectral axis to `unit` in `toframe` using `doppler_convention`
+        if converting from frequency/wavelength to velocity.
+
         Parameters
         ----------
-        unit : `~astropy.units.Quantity` or str that can be converted to Quantity
-            The unit to which the axis is to be converted
-
+        unit : `~astropy.units.Quantity` or str that can be converted to `~astropy.units.Quantity`
+            The unit to which the spectral axis is to be converted.
         toframe : str
-            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'
-
-        doppler_convention : str
-            The Doppler velocity covention to use, one of 'optical', 'radio', or 'rest'
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
+        doppler_convention : None or {'optical', 'radio', 'relativistic'}
+            The Doppler convention to use when converting to velocity.
+            One of 'optical', 'radio', or 'relativistic'.
 
         Returns
         -------
-        test_spectrum.pyvelocity : `~astropy.units.Quantity`
-            The converted spectral axis velocity
+        velocity : `~astropy.units.Quantity`
+            The converted spectral axis in units of `unit`.
         """
         if toframe is not None and toframe != self.velocity_frame:
             s = self.with_frame(toframe)
@@ -1048,16 +1205,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return s
 
     @classmethod
-    def fake_spectrum(cls, nchan=1024, seed=None, **kwargs):
+    def fake_spectrum(cls, nchan=1024, seed=None, normal=True, use_wcs=True, **kwargs):
         """
-        Create a fake spectrum, useful for simple testing. A default header is
-        created, which may be modified with kwargs.
+        Create a fake spectrum with gaussian noise, useful for simple testing.
+        A default header is created, which may be modified with kwargs.
 
         Parameters
         ----------
         nchan : int, optional
             Number of channels. The default is 1024.
-
         seed : {None, int, array_like[ints], `numpy.random.SeedSequence`, `numpy.random.BitGenerator`, `numpy.random.Generator`}, optional
             A seed to initialize the `BitGenerator`. If None, then fresh, unpredictable entropy will be pulled from the OS.
             If an int or array_like[ints] is passed, then all values must be non-negative and will be passed to
@@ -1065,7 +1221,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
             Additionally, when passed a `BitGenerator`, it will be wrapped by `Generator`. If passed a `Generator`, it will
             be returned unaltered.
             The default is `None`.
-
+        normal : bool, optional
+            If set, the noise is distributed normal with a mean 0.1 and dispersion 0.1.
+            If False, the noise is uniformly distributed between 0 and 1.
+            The default is True.
+        use_wcs : bool, optional
+            If set, create a WCS object from the metadata.
+            This is computationally expensive, so setting it to False can speed things up when no WCS is needed.
+            The default is True.
         **kwargs: dict or key=value
             Metadata to put in the header.  If the key exists already in
             the default header, it will be replaced. Otherwise the key and value will be
@@ -1074,17 +1237,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Returns
         -------
         spectrum : `Spectrum`
-            The spectrum object
+            The spectrum object.
         """
 
         rng = np.random.default_rng(seed)
-        data = rng.random(nchan) * u.K
+        if normal:
+            data = rng.normal(0.1, 0.1, nchan) * u.K
+        else:
+            data = rng.random(nchan) * u.K
         meta = {
             "OBJECT": "NGC2415",
             "BANDWID": 23437500.0,
             "DATE-OBS": "2021-02-10T07:38:37.50",
             "DURATION": 0.9982445,
-            "EXPOSURE": 732.1785161896237,
+            "EXPOSURE": 44.949832229522286,  # fixed by radiometer equation
             "TSYS": 17.930595470605255,
             "CTYPE1": "FREQ-OBS",
             "CRVAL1": 1402544936.7749996,
@@ -1184,7 +1350,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         }
         for k, v in kwargs.items():
             meta[k.upper()] = v
-        return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"])
+        # @todo   fix for radiometer equation"EXPOSURE" "TSYS": "CDELT1"
+        return Spectrum.make_spectrum(data, meta, observer_location=Observatory["GBT"], use_wcs=use_wcs)
 
     # @todo allow observer or observer_location.  And/or sort this out in the constructor.
     @classmethod
@@ -1608,7 +1775,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
         flat_tol=0.1,
         fw=1,
         xunit="km/s",
-    ):
+        vframe=None,
+        doppler_convention=None,
+    ) -> dict:
         """
         Curve of growth (CoG) analysis based on Yu et al. (2020) [1]_.
 
@@ -1616,7 +1785,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         vc : float
             Central velocity of the line.
-            If not provided, it will be estimated from the moment 1 of the `x` and `y` values.
+            If not provided, it will be estimated from the moment 1 of the `Spectrum`.
         width_frac : list
             List of fractions of the total flux at which to compute the line width.
             If 0.25 and 0.85 are not included, they will be added to estimate the concentration
@@ -1634,6 +1803,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             When estimating the line-free range, use `fw` times the largest width.
         xunit : str or `~astropy.units.quantity`
             Units for the x axis when computing the CoG.
+        vframe : None or str
+            Velocity frame to use.
+            The results will be provided in this velocity frame.
+            If None, the velocity frame of the `Spectrum` will be used.
+            The velocity frame of the `Spectrum` won't be changed.
+        doppler_convention : None or {'radio', 'optical', 'relativistic'}
+            The Doppler velocity covention to use when converting to velocity units.
+            If a string, one of 'optical', 'radio', or 'relativistic'.
+            If None, it will use the `Spectrum.doppler_convention`.
 
         Returns
         -------
@@ -1648,9 +1826,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         if width_frac is None:
             width_frac = [0.25, 0.65, 0.75, 0.85, 0.95]
-        x = self.spectral_axis.to(xunit)
         y = self.flux
-        return curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
+        x = self.velocity_axis_to(unit=xunit, toframe=vframe, doppler_convention=doppler_convention)
+        vframe = x.observer.name
+        logger.info(f"Velocity frame: {frame_to_label[vframe]}")
+        doppler_convention = x.doppler_convention
+        logger.info(f"Doppler convention: {doppler_convention}")
+        rdict = curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
+        rdict.update({"vframe": vframe, "doppler_convention": doppler_convention})
+        return rdict
 
     def _min_max_freq(self):
         """Return the sorted min and max frequency (in Hz) of the spectrum, regardless of the units of its axis"""
@@ -1963,6 +2147,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     data_array = np.ma.MaskedArray(_data, mask=_mask, dtype=float, fill_value=np.nan)
     wts = np.empty(shape, dtype=float)
     exposures = np.empty(nspec, dtype=float)
+    durations = np.empty(nspec, dtype=float)
     tsyss = np.empty(nspec, dtype=float)
     xcoos = np.empty(nspec, dtype=float)
     ycoos = np.empty(nspec, dtype=float)
@@ -1997,6 +2182,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
             wts[i] = 1.0
 
         exposures[i] = s.meta["EXPOSURE"]
+        durations[i] = s.meta["DURATION"]
         tsyss[i] = s.meta["TSYS"]
         xcoos[i] = s.meta["CRVAL2"]
         ycoos[i] = s.meta["CRVAL3"]
@@ -2016,10 +2202,12 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     zenith_opacity = np.ma.masked_where(zenith_opacity < 0, zenith_opacity)
     ze = np.ma.average(zenith_opacity, axis=0, weights=wts[:, 0])
     exposure = exposures.sum(axis=0)
+    duration = durations.sum(axis=0)
 
     new_meta = deepcopy(spectra[0].meta)
     new_meta["TSYS"] = tsys
     new_meta["EXPOSURE"] = exposure
+    new_meta["DURATION"] = duration
     new_meta["CRVAL2"] = xcoo
     new_meta["CRVAL3"] = ycoo
     new_meta["AP_EFF"] = ap

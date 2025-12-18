@@ -185,6 +185,22 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
             How to provide aperture efficiency or surface error
 
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`query_stats;3em;green` **Data Quality Checks**
+
+        How to use data quality functions
+
+
+        .. button-link:: examples/quality.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            How to use data quality functions
+
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -200,3 +216,4 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/gauss_fit
    examples/merge_sdfits
    examples/apeff_surferr
+   examples/quality
