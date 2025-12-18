@@ -254,6 +254,7 @@ class TestPSScan:
         assert stats["rms"].value == pytest.approx(0.46247303)
         assert psta.meta["TSYS"] == pytest.approx(362.06692565749125)
         assert psta.meta["EXPOSURE"] == 29.732832173595035
+        assert psta.meta["DURATION"] > psta.meta["EXPOSURE"]
         assert psta.meta["TSCALE"] == "Ta*"
         assert psta.meta["TSCALFAC"] == 1.0
         psta = sdf.getps(
@@ -280,6 +281,7 @@ class TestPSScan:
         assert stats["nan"] == 31
         assert srta.meta["TSYS"] == pytest.approx(362.0670888626437)
         assert srta.meta["EXPOSURE"] == 58.5011952833595
+        assert srta.meta["DURATION"] > srta.meta["EXPOSURE"]
 
 
 class TestSubBeamNod:
@@ -327,13 +329,15 @@ class TestSubBeamNod:
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0).timeaverage()
 
         assert sbn.data.std() == pytest.approx(0.00222391)
-        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["EXPOSURE"] == 2.402706191448039
+        assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == 1.0
 
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, t_sys=105.0).timeaverage()
 
-        assert sbn.meta["EXPOSURE"] == 3.9524324983358383
+        assert sbn.meta["EXPOSURE"] == 2.402706191448039
+        assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == pytest.approx(105.0)
 
@@ -342,11 +346,13 @@ class TestSubBeamNod:
 
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == 1.0
+        assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
 
         sbn = sdf.subbeamnod(scan=20, ifnum=0, fdnum=10, plnum=0, method="scan", t_sys=100.0).timeaverage()
 
         assert sbn.meta["SCAN"] == 20
         assert sbn.meta["TSYS"] == pytest.approx(100.0)
+        assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
 
         # Equal weights.
         sbn_eq = sdf.subbeamnod(
@@ -356,6 +362,7 @@ class TestSubBeamNod:
         assert (sbn.data - sbn_eq.data).sum() > 0.15
         assert sbn_eq.meta["SCAN"] == 20
         assert sbn_eq.meta["TSYS"] == pytest.approx(100.0)
+        assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
 
         # Smooth reference.
         sbn_smref = sdf.subbeamnod(
@@ -367,6 +374,7 @@ class TestSubBeamNod:
         assert sbn_smref.meta["SCAN"] == 20
         assert sbn_smref.meta["TSYS"] == pytest.approx(100.0)
         assert sbn_smref[s].stats()["rms"].value == pytest.approx(0.17582152178367458)
+        assert sbn.meta["DURATION"] > sbn.meta["EXPOSURE"]
 
     def test_tcal(self, data_dir):
         """
@@ -452,7 +460,8 @@ class TestSubBeamNod:
         assert pytest.approx(sbn_scan.data.mean(), rms_scan.value) == tcont
 
         # Compare exposure times.
-        assert sbn_cycle.meta["EXPOSURE"] == sbn_scan.meta["EXPOSURE"]
+        assert sbn_cycle.meta["EXPOSURE"] == 11.683568795384163
+        assert sbn_scan.meta["EXPOSURE"] == 11.717374602730942
 
         # Compare system temperature.
         assert pytest.approx(sbn_scan.meta["TSYS"], rms_scan.value) == sbn_cycle.meta["TSYS"]
@@ -509,6 +518,33 @@ class TestWeights:
         # also be 1/2 nint*scale.  1/2 because the mean of the random range (0,1) is 0.5
         assert np.mean(x.weights) == pytest.approx(sb.nint * np.mean(w), rel=1e-2)
         assert np.mean(x.weights) == pytest.approx(0.5 * sb.nint * scale, rel=1e-2)
+
+
+class TestScanBase:
+    def test_timeaverage_flags(self):
+        """
+        Test that `ScanBase.timeaverage()` produces the correct flags.
+        """
+        sdf_file = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_scan_152_ifnum_0_plnum_0.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        channel = [2000, 6000]
+        intnums = list(np.r_[0:70])
+        chanslc = slice(channel[0], channel[1])
+        sdf.flag(scan=152, channel=[channel], int=intnums)
+        tp_sb = sdf.gettp(scan=152, ifnum=0, plnum=0, fdnum=0)
+        # Mask is properly applied.
+        assert np.all(tp_sb[0]._calibrated[intnums, chanslc].mask)
+        tp = tp_sb[0].timeaverage()
+        assert not np.all(tp[chanslc].mask)
+        assert np.all(
+            tp.weights[chanslc] == pytest.approx(tp_sb[0].tsys_weight.sum() - tp_sb[0].tsys_weight[intnums].sum())
+        )
+        assert np.all(
+            tp[chanslc].weights == pytest.approx(tp_sb[0].tsys_weight.sum() - tp_sb[0].tsys_weight[intnums].sum())
+        )
+        assert np.all(tp.weights[: channel[0]] == pytest.approx(tp_sb[0].tsys_weight.sum()))
+        # Channel selection in dysh is inclusive of the upper edge.
+        assert np.all(tp.weights[channel[1] + 1 :] == pytest.approx(tp_sb[0].tsys_weight.sum()))
 
 
 class TestTPScan:
@@ -652,6 +688,7 @@ class TestTPScan:
 
         # Check that we know how to add.
         assert tpavg.meta["EXPOSURE"] == tp[0].exposure.sum()
+        assert tpavg.meta["DURATION"] == tp[0].duration.sum()
 
         # Load GBTIDL result.
         hdu = fits.open(gbtidl_file)
@@ -661,6 +698,7 @@ class TestTPScan:
 
         # Compare Dysh and GBTIDL.
         assert table["EXPOSURE"][0] == tpavg.meta["EXPOSURE"]
+        assert table["DURATION"][0] == pytest.approx(tpavg.meta["DURATION"])
         assert abs(table["TSYS"][0] - tpavg.meta["TSYS"]) < 2**-32
         assert np.all((data[0] - tpavg.flux.value.astype(np.float32)) == 0.0)
 
@@ -734,6 +772,7 @@ class TestFSScan:
         fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256)
         fs = fs_sb.timeaverage()
         assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
+        assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.meta["TSYS"] == pytest.approx(26.83285745447353)
         assert fs.stats()["mean"].value == pytest.approx(0.19299398411039015)
         assert fs.stats()["rms"].value == pytest.approx(5.4871938402480795)
@@ -742,6 +781,7 @@ class TestFSScan:
         fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True)
         fs = fs_sb.timeaverage()
         assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
+        assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.meta["TSYS"] == pytest.approx(1.0)
         assert fs.stats()["mean"].value == pytest.approx(0.007543638921500274)
         assert fs.stats()["rms"].value == pytest.approx(0.20901151397310902)
@@ -751,6 +791,7 @@ class TestFSScan:
         fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, t_sys=t_sys)
         fs = fs_sb.timeaverage()
         assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
+        assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.meta["TSYS"] == pytest.approx(t_sys)
         assert fs.stats()["mean"].value == pytest.approx(0.878913979866379)
         assert fs.stats()["rms"].value == pytest.approx(25.31681410111804)
@@ -760,6 +801,7 @@ class TestFSScan:
         fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True, t_sys=t_sys)
         fs = fs_sb.timeaverage()
         assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
+        assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.meta["TSYS"] == pytest.approx(t_sys)
         assert fs.stats()["mean"].value == pytest.approx(0.9052366705561161)
         assert fs.stats()["rms"].value == pytest.approx(25.081381667649197)
@@ -778,6 +820,7 @@ class TestFSScan:
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == 1.0
         assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
+        assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.stats()["mean"].value == pytest.approx(0.0011403941433353717)
         assert fs.stats()["rms"].value == pytest.approx(0.011686314570904896)
 
@@ -797,6 +840,7 @@ class TestFSScan:
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == 1.0
         assert fs.meta["EXPOSURE"] == pytest.approx(2.115174908755242)
+        assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.stats()["mean"].value == pytest.approx(0.0007369155360709178)
         assert fs.stats()["rms"].value == pytest.approx(0.010335320172352901)
 
@@ -863,6 +907,7 @@ class TestNodScan:
         stats = nod_sp[int(2**15 * 0.1) : int(2**15 * 0.9)].stats()
         assert stats["rms"].value == pytest.approx(0.3502195954575188)
         assert stats["mean"].value == pytest.approx(0.21385395659416562)
+        assert nod_sp.meta["DURATION"] > nod_sp.meta["EXPOSURE"]
 
     def test_tcal(self):
         """
