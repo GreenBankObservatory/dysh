@@ -33,10 +33,10 @@ parser.add_argument(
     required=False,
 )
 
-# this is the origina line from grom GBTIDL. We use this to get the names of the molecules to search for.
+# this is the original line from grom GBTIDL. We use this to get the names of the molecules to search for.
 gbtidl_file = get_project_data() / "GBTIDL_RRF_w_Kup.csv.gz"
 # add $ to regex to eliminate, e.g., "Carbon Monoxide Ion" as a match
-redshift_lines = ["Carbon Monoxide$", "Atomic Carbon", "Atomic Oxygen", "Carbon Monosulfide$", r"HCO\+", " HCN "]
+redshift_lines = ["Carbon Monoxide$", "Atomic Hydrogen", "Atomic Carbon", "Atomic Oxygen", "Carbon Monosulfide$", r"HCO\+", " HCN "]
 redshift_recomb_lines = ["Recombination"]
 
 args = parser.parse_args()
@@ -69,11 +69,15 @@ if args.line is not None:
     )
     for i in sx[1:]:
         try:
+            if "Atomic" in i:
+                ill = None
+            else:
+                ill=-9
             t2 = Splatalogue.query_lines(
                 min_frequency=lowfreq,
                 max_frequency=maxfreq,
                 chemical_name=f"{i}",
-                intensity_lower_limit=-9,
+                intensity_lower_limit=ill,
                 intensity_type="CDMS/JPL (log)",
             )
         except Exception as e:
