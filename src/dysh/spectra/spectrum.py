@@ -1258,7 +1258,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "CTYPE3": "DEC",
             "CRVAL3": 35.24315395841497,
             "CRVAL4": -6,
-            "OBSERVER": "Michael Fanelli",
+            "OBSERVER": "A. Dysh User",
             "OBSID": "unknown",
             "SCAN": 152,
             "OBSMODE": "OnOff:PSWITCHON:TPWCAL",
