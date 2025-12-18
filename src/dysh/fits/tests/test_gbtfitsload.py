@@ -849,6 +849,27 @@ class TestGBTFITSLoad:
         # from the comparison
         assert_frame_equal(org_sdf._index, new_sdf._index.drop(columns="HISTORY"))
 
+    def test_write_repeated_scans(self, tmp_path):
+        """Test that we can write files with repeated scan numbers"""
+        p = util.get_project_testdata() / "TRFI_090125_S1/TRFI_090125_S1.raw.vegas/"
+        sdf = gbtfitsload.GBTFITSLoad(p, skipflags=True, flag_vegas=False)
+        # Multifile case.
+        sdf.write(tmp_path / "test_m.fits", multifile=True)
+        sdf_m = gbtfitsload.GBTFITSLoad(tmp_path / "test_m.fits")
+        pd.testing.assert_frame_equal(sdf._index, sdf_m._index[sdf._index.columns])
+        # Non-multifile case.
+        sdf.write(tmp_path / "test.fits", multifile=False)
+        sdf_s = gbtfitsload.GBTFITSLoad(tmp_path / "test.fits")
+        pd.testing.assert_frame_equal(sdf._index, sdf_s._index[sdf._index.columns])
+        # Single integration.
+        sdf.write(tmp_path / "test_int.fits", intnum=1)
+        sdf_i = gbtfitsload.GBTFITSLoad(tmp_path / "test_int.fits")
+        # Drop row column, since it is not unique.
+        pd.testing.assert_frame_equal(
+            sdf._index[sdf._index.INTNUM == 1].reset_index(drop=True).drop("ROW", axis=1),
+            sdf_i._index[sdf._index.columns].drop("ROW", axis=1),
+        )
+
     def test_get_item(self):
         f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
         g = gbtfitsload.GBTFITSLoad(f)
