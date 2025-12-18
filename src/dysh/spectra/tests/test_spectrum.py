@@ -925,6 +925,8 @@ class TestSpectrum:
 
         p = ss[mean - 3 * fwhm : mean + 3 * fwhm].cog(width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95])
 
+        assert p["flux"].unit == u.K * u.km / u.s
+        assert p["rms"].unit == u.K
         flux = p["flux"].value
         flux_err = p["flux_std"].value
         assert area.value == pytest.approx(flux, abs=3 * flux_err)

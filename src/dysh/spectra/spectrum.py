@@ -32,6 +32,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     astropy_convenience_frame_names,
     astropy_frame_dict,
     change_veldef,
+    frame_to_label,
     get_velocity_in_frame,
     make_target,
     replace_convention,
@@ -1659,9 +1660,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         if width_frac is None:
             width_frac = [0.25, 0.65, 0.75, 0.85, 0.95]
-        x = self.velocity_axis_to(unit=xunit, toframe=vframe, doppler_convention=doppler_convention)
         y = self.flux
-        return curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
+        x = self.velocity_axis_to(unit=xunit, toframe=vframe, doppler_convention=doppler_convention)
+        vframe = x.observer.name
+        logger.info(f"Velocity frame: {frame_to_label[vframe]}")
+        doppler_convention = x.doppler_convention
+        logger.info(f"Doppler convention: {doppler_convention}")
+        rdict = curve_of_growth(x, y, vc=vc, width_frac=width_frac, bchan=bchan, echan=echan, flat_tol=flat_tol, fw=fw)
+        rdict.update({"vframe": vframe, "doppler_convention": doppler_convention})
+        return rdict
 
     def _min_max_freq(self):
         """Return the sorted min and max frequency (in Hz) of the spectrum, regardless of the units of its axis"""
