@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -6,7 +7,6 @@ import astropy.units as u
 from astropy.table import Table
 from astropy.units.quantity import Quantity
 from astroquery.splatalogue import Splatalogue
-import re
 
 from ..util import (
     append_docstr_nosections,

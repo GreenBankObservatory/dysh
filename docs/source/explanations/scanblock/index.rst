@@ -54,7 +54,7 @@ For example, you can do the following:
 
 .. code:: python3
 
-    # Calibrate plnum 1 and 2 data, then average. 
+    # Calibrate plnum 1 and 2 data, then average.
     sb0 = sdfits.getps(scan=1, ifnum=0, plnum=0, fdnum=0)
     sb1 = sdfits.getps(scan=1, ifnum=0, plnum=1, fdnum=0)
     sb0.extend(sb1)
