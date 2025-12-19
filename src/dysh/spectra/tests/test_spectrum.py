@@ -1208,7 +1208,7 @@ class TestSpectrum:
         assert np.all(diff.to("Hz").value == pytest.approx(0.2 * d1.to("Hz").value))
         assert s2.meta["RESTFREQ"] == pytest.approx(1.2 * d1.to("Hz").value)
         assert s2.meta["RESTFRQ"] == pytest.approx(1.2 * d1.to("Hz").value)
-        
+
     def test_weights(self):
         s = []
         nspec = 10

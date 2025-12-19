@@ -109,7 +109,7 @@ class PlotBase:
         # TODO: need to understand frequencies to assign correct title
         # instead of just forcing to GHz with 5 decimal points
         ljust = 5
-        f0 = np.around(s.rest_value.to(u.GHz),5)
+        f0 = np.around(s.rest_value.to(u.GHz), 5)
         self._axis.annotate(f"{'F0':<{ljust}}:  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
         fsky = np.around(s.meta["OBSFREQ"] * 1e-9, 5) * u.GHz  # or CRVAL1?
         self._axis.annotate(f"{'Fsky':<{ljust}}:  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)

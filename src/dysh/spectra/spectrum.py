@@ -503,7 +503,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         meaningless.
         See also :meth:`~dysh.spectra.Spectrum.sratio`, the signal ratio.
 
- 
+
         Parameters
         ----------
         peak : bool
@@ -947,8 +947,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self.velocity_convention
 
     @property
-    def rest_value(self) -> Quantity :
-        """ Rest frequency used in velocity conversions.
+    def rest_value(self) -> Quantity:
+        """Rest frequency used in velocity conversions.
 
         Returns
         -------
@@ -958,14 +958,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self.spectral_axis.doppler_rest
 
     @rest_value.setter
-    def rest_value(self, value:Quantity ):
+    def rest_value(self, value: Quantity):
         """
         "Set the rest frequency property and update the `Spectrum` metadata.
 
         Parameters
         ----------
         value : ~astropy.units.quanityt.Quantity
-            A frequency-like quantity. 
+            A frequency-like quantity.
 
         """
         self._spectral_axis._doppler_rest = value
@@ -1016,15 +1016,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             return s.axis_velocity(unit)
 
-    def get_velocity_in_frame(self, toframe:str ) -> Quantity:
+    def get_velocity_in_frame(self, toframe: str) -> Quantity:
         """Compute the radial velocity of the `Spectrum.target` in a new velocity frame.
         See :meth:`~dysh.coordinates.core.get_velocity_in_frame`.
-        
+
         Parameters
         ----------
         toframe : str
             The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
-        
+
         Returns
         -------
         radial_velocity : `~astropy.units.quantity.Quantity`

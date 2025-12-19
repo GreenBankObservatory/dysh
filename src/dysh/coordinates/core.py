@@ -252,7 +252,7 @@ def sanitize_skycoord(target):
     """Method to enforce certain attributes of input SkyCoordinate in
     order to workaround astropy bug that distance and proper motions
     need to be explicitly set for certain coordinate conversions, even
-    if they are zero.  See `explanation here 
+    if they are zero.  See `explanation here
     <https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2>_` and
     and `Astropy GitHub issue 12371 <https://github.com/astropy/astropy/issues/12731>`_.
 
