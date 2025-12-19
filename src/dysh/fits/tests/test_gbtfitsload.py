@@ -789,7 +789,11 @@ class TestGBTFITSLoad:
             if k in ["DURATION", "TUNIT7", "VSPRPIX", "CAL"]:
                 continue
             try:
-                assert v == pytest.approx(table[k][0])
+                try:
+                    np.isnan(v)
+                    assert np.isclose(v, table[k][0], equal_nan=True)
+                except TypeError:
+                    assert v == pytest.approx(table[k][0])
             except KeyError:
                 continue
 
@@ -1550,7 +1554,12 @@ class TestGBTFITSLoad:
         sigref = sdf.getsigref(scan=152, ref=153, fdnum=0, ifnum=0, plnum=0)
         x = psscan[0]._calibrated - sigref[0]._calibrated
         assert np.max(np.abs(x)) < 3e-7
-        assert psscan[0].meta == sigref[0].meta
+        for k, v in psscan[0].meta[0].items():
+            try:
+                np.isnan(v)
+                assert np.isclose(v, sigref[0].meta[0][k], equal_nan=True)
+            except TypeError:
+                assert v == sigref[0].meta[0][k]
         assert psscan[0].refscan == sigref[0].refscan
         assert psscan[0].sigscan == sigref[0].sigscan
         assert psscan[0].refscan == 153
@@ -1568,7 +1577,12 @@ class TestGBTFITSLoad:
         for k in ["EXPOSURE", "TSYS", "DURATION"]:
             psscan[0].meta[0].pop(k)
             sigref[0].meta[0].pop(k)
-        assert psscan[0].meta[0] == sigref[0].meta[0]
+        for k, v in psscan[0].meta[0].items():
+            try:
+                np.isnan(v)
+                assert np.isclose(v, sigref[0].meta[0][k], equal_nan=True)
+            except TypeError:
+                assert v == sigref[0].meta[0][k]
         assert psscan[0].refscan == sigref[0].refscan
         assert psscan[0].sigscan == sigref[0].sigscan
         assert psscan[0].refscan == 52

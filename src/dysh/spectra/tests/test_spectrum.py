@@ -297,7 +297,11 @@ class TestSpectrum:
         # key: 'original_wcs'.
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
-                assert trimmed.meta[k] == v
+                try:
+                    np.isnan(v)
+                    assert np.isclose(v, trimmed.meta[k], equal_nan=True)
+                except TypeError:
+                    assert trimmed.meta[k] == v
         # Check additional object properties.
         # Not all of them make sense, since their shapes will be different.
         for k in spec_pars:
@@ -323,7 +327,11 @@ class TestSpectrum:
         assert np.all(trimmed_nu.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
-                assert trimmed_nu.meta[k] == v
+                try:
+                    np.isnan(v)
+                    assert np.isclose(v, trimmed_nu.meta[k], equal_nan=True)
+                except TypeError:
+                    assert trimmed_nu.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
         trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", interactive=False)
@@ -335,7 +343,11 @@ class TestSpectrum:
         assert np.all(trimmed_vel.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
-                assert trimmed_vel.meta[k] == v
+                try:
+                    np.isnan(v)
+                    assert np.isclose(v, trimmed_vel.meta[k], equal_nan=True)
+                except TypeError:
+                    assert trimmed_vel.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
         trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", interactive=False)
@@ -889,6 +901,7 @@ class TestSpectrum:
         """
 
         meta = {
+            "CTYPE4": "Stokes",
             "CTYPE3": "DEC",
             "CTYPE2": "RA",
             "CTYPE1": "FREQ-OBS",
@@ -899,8 +912,10 @@ class TestSpectrum:
             "CUNIT3": "deg",
             "CRVAL1": 1e9,
             "CDELT1": 0.1e9,
+            "CRPIX1": 1,
             "CRVAL2": 121.0,
             "CRVAL3": 15.0,
+            "CRVAL4": -1,
             "RADECSYS": "FK5",
             "VELDEF": "OPTI-HEL",
             "DATE-OBS": "2021-02-10T07:38:37.50",
@@ -916,7 +931,19 @@ class TestSpectrum:
         assert excinfo.type is ValueError
         assert excinfo.value.args == ("Header (meta) is missing one or more required keywords: {'RESTFRQ'}",)
 
+        crval4 = meta.pop("CRVAL4")
         meta["RESTFRQ"] = 1e9
+        with pytest.raises(KeyError) as excinfo:
+            s = Spectrum.make_spectrum(
+                data=np.arange(64) * u.K,
+                meta=meta,
+                use_wcs=True,
+                observer_location=Observatory["GBT"],
+            )
+        assert excinfo.type is KeyError
+        assert excinfo.value.args == ("Missing item for 'CRVAL4' in meta.",)
+
+        meta["CRVAL4"] = crval4
         s = Spectrum.make_spectrum(
             data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
         )
