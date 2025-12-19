@@ -517,7 +517,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             If False, channel based snr is computed, also controlled by the value of the
             peak in the spectrum.
 
-            See also `Specutils Analysis <https://specutils.readthedocs.io/en/stable/analysis.html>_`.
+            See also `Specutils Analysis <https://specutils.readthedocs.io/en/stable/analysis.html>`_.
 
         rms : None or `~astropy.units.quantity.Quantity`}
             If given, this is the RMS used in the S/N computations. By default it is

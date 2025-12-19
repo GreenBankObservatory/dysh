@@ -254,7 +254,7 @@ def sanitize_skycoord(target):
     need to be explicitly set for certain coordinate conversions, even
     if they are zero.  See `explanation here 
     <https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2>_` and
-    and `Astropy GitHub issue 12371 <https://github.com/astropy/astropy/issues/12731>_`.
+    and `Astropy GitHub issue 12371 <https://github.com/astropy/astropy/issues/12731>`_.
 
 
     Parameters
@@ -586,8 +586,7 @@ class GB20M:
 def gbt_location():
     """
     Create an astropy `~astropy.coordinates.EarthLocation` for the GBT using the same established by GBO.
-    See page 3 of `The GBT Tracking Local Oscillator FITS Keyword
-Definitions <https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf>_`
+    See page 3 of `The GBT Tracking Local Oscillator FITS Keyword Definitions <https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf>`_
 
     * latitude    = 38d 25m 59.265s N
 
