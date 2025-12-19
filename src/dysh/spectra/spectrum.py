@@ -501,10 +501,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Signal-to-noise (S/N) ratio, measured either in channel or total flux mode.
         Make sure the spectrum has been baseline substracted, or the snr is
         meaningless.
-        See also sratio(), the signal ratio.
+        See also :meth:`~dysh.spectra.Spectrum.sratio`, the signal ratio.
 
-        Parameters:
-        -----------
+ 
+        Parameters
+        ----------
         peak : bool
             If True, the largest positive  deviation from the mean is compared to the rms.
             If False, the largest negative deviation from the mean is compared to the rms.
@@ -525,8 +526,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        ratio : real
-            The S/N, either flux or channe:20l based
+        ratio : float
+            The S/N, either flux or channel based
         """
         # @todo  could check if the data has a baseline solution
         s0 = self.stats()
@@ -1041,9 +1042,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        toframe - str, or ~astropy.coordinates.BaseCoordinateFrame, or ~astropy.coordinates.SkyCoord
-            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
-            or an actual coordinate system instance
+        toframe : str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.sky_coordinate.SkyCoord`
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs',
+            an actual coordinate system instance, or a sky coordinate instance.
         """
 
         tfl = toframe
@@ -1075,9 +1076,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        toframe - str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.SkyCoord`
-            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
-            or an actual coordinate system instance.   The supported
+        toframe : str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.sky_coordinate.SkyCoord`
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs',
+            an actual coordinate system instance, or a sky coordinate instance.
 
         Returns
         -------
@@ -1095,11 +1096,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         with a new spectral axis with the input velocity convention.  The header 'VELDEF' value will
         be changed accordingly.
 
-        To make a copy of this `Spectrum` with a new velocity convention instead, use `with_velocity_convention`.
+        To make a copy of this `Spectrum` with a new velocity convention instead, use `Spectrum.with_velocity_convention`.
 
         Parameters
         ----------
-        doppler_convention - str
+        doppler_convention : str
             The velocity convention, one of 'radio', 'optical', 'relativistic'
 
         """
@@ -1115,7 +1116,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        doppler_convention - str
+        doppler_convention : str
             The velocity convention, one of 'radio', 'optical', 'relativistic'
 
         Returns
