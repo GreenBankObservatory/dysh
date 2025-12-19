@@ -300,7 +300,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        True if a baseline model has been subtracted, False otherwise
+            True if a baseline model has been subtracted, False otherwise
         """
         return self._subtracted
 
