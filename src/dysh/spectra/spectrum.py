@@ -1430,17 +1430,27 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Skip warnings FITS keywords longer than 8 chars or containing
                 # illegal characters (like _).
                 warnings.filterwarnings("ignore", category=VerifyWarning)
-                # lists are problematic in constructor to WCS
-                # so temporarily remove history and comment values
-                savehist = _meta.pop("HISTORY", None)
-                savecomment = _meta.pop("COMMENT", None)
-                if savecomment is None:
-                    savecomment = _meta.pop("comments", None)
-                wcs = WCS(header=_meta)
-                if savehist is not None:
-                    _meta["HISTORY"] = savehist
-                if savecomment is not None:
-                    _meta["COMMENT"] = savecomment
+                wcs_meta_keys = [
+                    "CRPIX1",
+                    "CTYPE1",
+                    "CDELT1",
+                    "CRVAL1",
+                    "CUNIT1",
+                    "CRVAL2",
+                    "CTYPE2",
+                    "CUNIT2",
+                    "CRVAL3",
+                    "CTYPE3",
+                    "CUNIT3",
+                    "CTYPE4",
+                    "CRVAL4",
+                    "DATE-OBS",
+                ]
+                try:
+                    wcs_meta = {k: _meta[k] for k in wcs_meta_keys}
+                except KeyError as exc:
+                    raise KeyError(f"Missing item for {exc} in meta.") from exc
+                wcs = WCS(header=wcs_meta)
                 # It would probably be safer to add NAXISi to meta.
                 if wcs.naxis > 3:
                     wcs.array_shape = (0, 0, 0, len(data))
@@ -1450,7 +1460,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 # Reset warnings.
         else:
             wcs = None
-        # is_topo = is_topocentric(meta["CTYPE1"])  # GBT-specific to use CTYPE1 instead of VELDEF
         target = make_target(_meta)
         vc = veldef_to_convention(_meta["VELDEF"])
 
@@ -2192,6 +2201,7 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
         zenith_opacity[i] = s.meta.get("TAU_Z", -1)
         pols.append(s.meta["CRVAL4"])
     _mask = np.isnan(data_array.data) | data_array.mask
+    wts = np.ma.masked_invalid(wts)
     data_array = np.ma.MaskedArray(data_array, mask=_mask, fill_value=np.nan)
     data, sum_of_weights = np.ma.average(data_array, axis=0, weights=wts, returned=True)
     tsys = np.ma.average(tsyss, axis=0, weights=wts[:, 0])
@@ -2201,8 +2211,8 @@ def average_spectra(spectra, weights="tsys", align=False, history=None):
     se = np.ma.average(surface_error, axis=0, weights=wts[:, 0])
     zenith_opacity = np.ma.masked_where(zenith_opacity < 0, zenith_opacity)
     ze = np.ma.average(zenith_opacity, axis=0, weights=wts[:, 0])
-    exposure = exposures.sum(axis=0)
-    duration = durations.sum(axis=0)
+    exposure = exposures[~wts.mask[:, 0]].sum(axis=0)
+    duration = durations[~wts.mask[:, 0]].sum(axis=0)
 
     new_meta = deepcopy(spectra[0].meta)
     new_meta["TSYS"] = tsys
