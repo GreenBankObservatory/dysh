@@ -1191,7 +1191,7 @@ class TestSpectrum:
         assert list(tr["name"]) == out
         tr = f.query_lines(intensity_lower_limit=-8, cat="gbtlines")
         assert len(tr) == 7
-        freq = np.array([1405.0142, 1390.8698, 1393.8448, 1406.519, 1392.42, 1392.42, 1392.42])
+        freq = np.array([1392.42, 1392.42, 1392.42, 1390.8698, 1393.8448, 1406.519, 1405.0142])
         assert all(tr["orderedfreq"].data == freq)
 
     def test_set_doppler_rest(self):
