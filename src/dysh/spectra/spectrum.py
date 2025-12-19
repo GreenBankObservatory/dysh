@@ -183,11 +183,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @property
     def flux(self):
         """
-        Converts the stored data and unit and mask into a `~astropy.units.Quantity` object.
+        Converts the stored data and unit and mask into a `~astropy.units.quantity.Quantity` object.
 
         Returns
         -------
-        `~astropy.units.Quantity`
+        `~astropy.units.quantity.Quantity`
             Spectral data as a quantity. Masked values are filled with NaN.
         """
         return Masked(self.data * self.unit, mask=self.mask).filled(np.nan)
@@ -207,7 +207,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         degree : int
             The degree of the polynomial series, a.k.a. baseline order
-        exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        exclude : list of 2-tuples of int or `~astropy.units.quantity.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
 
             Examples:
@@ -216,13 +216,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
             Two channel-based regions: [(11,51),(99,123)].
 
-            One `~astropy.units.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
+            One `~astropy.units.quantity.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
 
             One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
             Default: no exclude region
 
-        include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        include : list of 2-tuples of int or `~astropy.units.quantity.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
         color : str
@@ -310,13 +310,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+        exclude : list of 2-tuples of int or ~astropy.units.quantity.Quantity, or ~specutils.SpectralRegion
             List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
             In channel units.
 
             Examples: One channel-based region: [11,51],
                       Two channel-based regions: [(11,51),(99,123)].
-                      One `~astropy.units.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
+                      One `~astropy.units.quantity.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
                       One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
         """
@@ -517,16 +517,16 @@ class Spectrum(Spectrum1D, HistoricalBase):
             If False, channel based snr is computed, also controlled by the value of the
             peak in the spectrum.
 
-            See also https://specutils.readthedocs.io/en/stable/analysis.html
+            See also `Specutils Analysis <https://specutils.readthedocs.io/en/stable/analysis.html>_`.
 
-        rms : None or `~astropy.units.Quantity`}
+        rms : None or `~astropy.units.quantity.Quantity`}
             If given, this is the RMS used in the S/N computations. By default it is
             determined from the `Spectrum.stats(roll=1)["rms"]` value of the `Spectrum`.
 
         Returns
         -------
         ratio : real
-            The S/N, either flux or channel based
+            The S/N, either flux or channe:20l based
         """
         # @todo  could check if the data has a baseline solution
         s0 = self.stats()
@@ -797,7 +797,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         other : `Spectrum`
             Target `Spectrum` to align to.
-        units : {None, `astropy.units.Quantity`}
+        units : {None, `astropy.units.quantity.Quantity`}
             Find the shift to align the two `Spectra` in these units.
             If `None`, the `Spectra` will be aligned using the units of
             `other`.
@@ -844,7 +844,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         other : `Spectrum`
             Target `Spectrum` to align to.
-        units : {None, `astropy.units.Quantity`}
+        units : {None, `astropy.units.quantity.Quantity`}
             Find the shift to align the two `Spectra` in these units.
             If `None`, the `Spectra` will be aligned using the units of
             `other`.
@@ -936,23 +936,37 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self._observer
 
     @property
-    def velocity_frame(self):
+    def velocity_frame(self) -> str:
         """String representation of the velocity frame"""
         return self._velocity_frame
 
     @property
-    def doppler_convention(self):
+    def doppler_convention(self) -> str:
         """String representation of the velocity (Doppler) convention"""
         return self.velocity_convention
 
     @property
-    def rest_value(self):
-        """Rest frequency used in velocity conversions."""
+    def rest_value(self) -> Quantity :
+        """ Rest frequency used in velocity conversions.
+
+        Returns
+        -------
+        ~astropy.units.quantity.Quantity.Quantity
+            The rest frequency as a Quantity object
+        """
         return self.spectral_axis.doppler_rest
 
     @rest_value.setter
-    def rest_value(self, value):
-        """Set the rest frequency property and update the `Spectrum` metadata."""
+    def rest_value(self, value:Quantity ):
+        """
+        "Set the rest frequency property and update the `Spectrum` metadata.
+
+        Parameters
+        ----------
+        value : ~astropy.units.quanityt.Quantity
+            A frequency-like quantity. 
+
+        """
         self._spectral_axis._doppler_rest = value
         self.meta["RESTFREQ"] = value.to("Hz").value
         self.meta["RESTFRQ"] = value.to("Hz").value
@@ -963,11 +977,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        unit : `~astropy.units.Quantity` or str that can be converted to Quantity
+        unit : `~astropy.units.quantity.Quantity` or str that can be converted to Quantity
                 The unit to which the axis is to be converted
         Returns
         -------
-        velocity : `~astropy.units.Quantity`
+        velocity : `~astropy.units.quantity.Quantity.Quantity`
                 The converted spectral axis velocity
         """
         return self._spectral_axis.to(unit)
@@ -979,7 +993,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        unit : `~astropy.units.Quantity` or str that can be converted to `~astropy.units.Quantity`
+        unit : `~astropy.units.quantity.Quantity` or str that can be converted to `~astropy.units.quantity.Quantity`
             The unit to which the spectral axis is to be converted.
         toframe : str
             The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
@@ -989,7 +1003,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        velocity : `~astropy.units.Quantity`
+        velocity : `~astropy.units.quantity.Quantity`
             The converted spectral axis in units of `unit`.
         """
         if toframe is not None and toframe != self.velocity_frame:
@@ -1001,7 +1015,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             return s.axis_velocity(unit)
 
-    def get_velocity_shift_to(self, toframe):
+    def get_velocity_in_frame(self, toframe:str ) -> Quantity:
+        """Compute the radial velocity of the `Spectrum.target` in a new velocity frame.
+        See :meth:`~dysh.coordinates.core.get_velocity_in_frame`.
+        
+        Parameters
+        ----------
+        toframe : str
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
+        
+        Returns
+        -------
+        radial_velocity : `~astropy.units.quantity.Quantity`
+            The radial velocity of the source in `toframe`
+        """
         if self._target is None:
             raise Exception("Can't calculate velocity because Spectrum.target is None")
         return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
@@ -1811,7 +1838,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The curve of growth will be considered flat when it's slope is within `flat_tol` times the standard deviation of the slope from zero.
         fw : float
             When estimating the line-free range, use `fw` times the largest width.
-        xunit : str or `~astropy.units.quantity`
+        xunit : str or `~astropy.units.quantity.Quantity`
             Units for the x axis when computing the CoG.
         vframe : None or str
             Velocity frame to use.
