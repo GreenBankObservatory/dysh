@@ -946,15 +946,16 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self.velocity_convention
 
     @property
-    def doppler_rest(self):
+    def rest_value(self):
         """Rest frequency used in velocity conversions."""
         return self.spectral_axis.doppler_rest
 
-    @doppler_rest.setter
-    def doppler_rest(self, value):
-        """Set the `doppler_rest` property."""
+    @rest_value.setter
+    def rest_value(self, value):
+        """Set the rest frequency property and update the `Spectrum` metadata."""
         self._spectral_axis._doppler_rest = value
         self.meta["RESTFREQ"] = value.to("Hz").value
+        self.meta["RESTFRQ"] = value.to("Hz").value
 
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
