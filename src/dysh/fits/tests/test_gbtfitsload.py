@@ -714,7 +714,7 @@ class TestGBTFITSLoad:
         with pytest.raises(ValueError):
             df = sdf.get_summary(columns=["MYCOL"])
 
-    def test_contruct_integration_number(self, tmp_path, tmp_path_factory):
+    def test_construct_integration_number(self, tmp_path, tmp_path_factory, caplog):
         """
         Tests for _construct_integration_number.
         * Test that construction of integration number (intnum) during FITS load matches
@@ -762,8 +762,9 @@ class TestGBTFITSLoad:
         sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=1)
         sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=2)
         # This should fail.
-        with pytest.raises(Exception), pytest.warns(UserWarning):
+        with pytest.raises(Exception):
             sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=3)
+            assert "no data" in caplog.text
 
     def test_getps_smoothref(self):
         """ """
@@ -1671,7 +1672,7 @@ class TestGBTFITSLoad:
         assert sdf.get_nod_beams(scan=333) == [1, 9]
         assert sdf.get_nod_beams(scan=334) == [1, 9]
 
-    def test_calseq(self):
+    def test_calseq(self,caplog):
         """Test for calseq"""
 
         sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
@@ -1682,9 +1683,9 @@ class TestGBTFITSLoad:
         assert gain == pytest.approx(8.811870868732733e-07)
 
         # Make it error.
-        with pytest.warns(UserWarning):
-            with pytest.raises(Exception):
-                sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+        with pytest.raises(Exception):
+             sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+             assert "no data" in caplog.text
 
     def test_vanecal(self):
         """Test for vanecal"""
