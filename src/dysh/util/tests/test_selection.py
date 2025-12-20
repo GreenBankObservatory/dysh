@@ -20,7 +20,7 @@ class TestSelection:
         self.sdf = gbtfitsload.GBTFITSLoad(self.file)
         self.gbtidl_flag_file = ""
 
-    def test_selection_class(self):
+    def test_selection_class(self,caplog):
         """
         Test that the Selection class selects as expected.
         We check that on each selection, the number of selected rows
@@ -34,8 +34,8 @@ class TestSelection:
         # in a warning.  Note here, we are
         # also testing that the alias 'pol' is interpreted
         # as plnum.
-        with pytest.warns(UserWarning):
-            s.select(object="NGC2415", pol=0, tag="this will warn", check=True)
+        s.select(object="NGC2415", pol=0, tag="this will warn", check=True)
+        assert "identical selection" in caplog.text
         s.select(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
         # the AND of the selection rules becomes the final
@@ -68,12 +68,12 @@ class TestSelection:
         s.select(sig=True)
         assert len(s.final) == 50
         s.clear()
-        with pytest.warns(UserWarning):  # There's no sig=F data.
-            s.select(sig=False)
+        s.select(sig=False)
+        assert "no data" in caplog.text
         assert len(s.final) == 0
         s.clear()
-        with pytest.warns(UserWarning):  # There's no sig=F data.
-            s.select(sig="F")
+        s.select(sig="F")
+        assert "no data" in caplog.text
         assert len(s.final) == 0
         s.clear()
 
@@ -125,7 +125,7 @@ class TestSelection:
         with pytest.raises(Exception):
             s.select_channel(["10", "a", 103])
 
-    def test_flag_class(self):
+    def test_flag_class(self,caplog):
         """
         Test that the Selection class selects as expected.
         We check that on each selection, the number of selected rows
@@ -139,8 +139,8 @@ class TestSelection:
         # in a warning.  Note here, we are
         # also testing that the alias 'pol' is interpreted
         # as plnum.
-        with pytest.warns(UserWarning):
-            s.flag(object="NGC2415", pol=0, tag="this will warn", check=True)
+        s.flag(object="NGC2415", pol=0, tag="this will warn", check=True)
+        assert "identical selection" in caplog.text
         s.flag(ifnum=[0, 2], tag="ifnums")
         assert len(s._selection_rules[1]) == 26
         # the OR of the flag rules becomes the final
@@ -175,12 +175,12 @@ class TestSelection:
         s.flag(sig=True)
         assert len(s.final) == 50
         s.clear()
-        with pytest.warns(UserWarning):  # There's no sig=F data.
-            s.flag(sig=False)
+        s.flag(sig=False)
+        assert "no data" in caplog.text
         assert len(s.final) == 0
         s.clear()
-        with pytest.warns(UserWarning):  # There's no sig=F data.
-            s.flag(sig="F")
+        s.flag(sig="F")
+        assert "no data" in caplog.text
         assert len(s.final) == 0
         s.clear()
 
