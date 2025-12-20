@@ -610,7 +610,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-        if selected and len(self.selection._selection_rules)>0:
+        if selected and len(self.selection._selection_rules) > 0:
             df = self.selection.final[cols].copy().astype(col_dtypes)
         else:
             df = self[cols].copy().astype(col_dtypes)
@@ -656,7 +656,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return df
 
-    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None, selected=False):
+    def summary(
+        self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None, selected=False
+    ):
         """
         Show a summary of the `~dysh.fits.GBTFITSLoad` object.
         To retrieve the underlying `~pandas.DataFrame` use
