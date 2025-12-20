@@ -657,7 +657,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return df
 
-    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None, selected=False):
+    def summary(
+        self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None, selected=False
+    ):
         """
         Show a summary of the `~dysh.fits.GBTFITSLoad` object.
         To retrieve the underlying `~pandas.DataFrame` use

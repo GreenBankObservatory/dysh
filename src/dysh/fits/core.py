@@ -192,7 +192,7 @@ def summary_column_definitions():
         "RVSYS": ColDef("mean", float, scale=1e-3),
         "OBSFREQ": ColDef("mean", float, scale=1e-9),
         "LST": ColDef("mean", float),
-        "UTC": ColDef("mean",object),
+        "UTC": ColDef("mean", object),
         "FREQRES": ColDef("mean", float, scale=1e-9),
         "EQUINOX": str_col,
         "CALTYPE": str_col,

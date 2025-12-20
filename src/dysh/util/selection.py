@@ -640,11 +640,11 @@ class SelectionBase(DataFrame):
         elif multi_value_queries is not None and single_value_queries is None:
             query = multi_value_queries
         else:
-            logger.warning("There was no data selection")  # should never happen 
+            logger.warning("There was no data selection")  # should never happen
             return False
         df = df.query(query)
         if df.empty:
-            logger.warning("Your selection rule resulted in no data being selected. Ignoring.")  
+            logger.warning("Your selection rule resulted in no data being selected. Ignoring.")
             return False
         df.loc[:, "CHAN"] = proposed_channel_rule  # this column is normally None so no need to check if None first.
         self._addrow(row, df, tag, check=check)
@@ -1393,7 +1393,7 @@ class Flag(SelectionBase):
                     # its the header
                     colnames = l[1:].split(",")
                     if colnames != header:
-                        raise IOError(f"Column names {colnames} in {fileobj} do not match expected {header}")
+                        raise OSError(f"Column names {colnames} in {fileobj} do not match expected {header}")
                     found_header = True
             else:
                 values = l.split("|")
