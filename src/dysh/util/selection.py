@@ -470,7 +470,7 @@ class SelectionBase(DataFrame):
             tag = self._table.loc[_id]["TAG"]
             if s.equals(df):
                 tag = self._table.loc[_id]["TAG"]
-                warnings.warn(  # noqa: B028
+                logger.warning(
                     f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
                     " Ignoring."
                 )
@@ -640,11 +640,11 @@ class SelectionBase(DataFrame):
         elif multi_value_queries is not None and single_value_queries is None:
             query = multi_value_queries
         else:
-            warnings.warn("There was no data selection")  # should never happen  # noqa: B028
+            logger.warning("There was no data selection")  # should never happen 
             return False
         df = df.query(query)
         if df.empty:
-            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
+            logger.warning("Your selection rule resulted in no data being selected. Ignoring.")  
             return False
         df.loc[:, "CHAN"] = proposed_channel_rule  # this column is normally None so no need to check if None first.
         self._addrow(row, df, tag, check=check)
@@ -712,7 +712,7 @@ class SelectionBase(DataFrame):
             elif len(v) == 1:  # lower limit given
                 df = pd.merge(df, df[(df[ku] >= v[0])], how="inner")
             else:
-                raise Exception(f"Couldn't parse value tuple {v} for key {k} as a range.")
+                raise ValueError(f"Couldn't parse value tuple {v} for key {k} as a range.")
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
             return
@@ -787,7 +787,7 @@ class SelectionBase(DataFrame):
         # This also avoids the side effect of using self to
         # compute "# Selected" in _addrow
         if self._channel_selection is not None:
-            raise Exception(
+            raise ValueError(
                 "You can only have one channel selection rule. Remove the old rule before creating a new one."
             )
         self._check_numbers(chan=channel)
@@ -819,9 +819,9 @@ class SelectionBase(DataFrame):
                 An identifying tag by which the rule may be referred to later.
         """
         if id is not None and tag is not None:
-            raise Exception("You can only specify one of id or tag")
+            raise ValueError("You can only specify one of id or tag")
         if id is None and tag is None:
-            raise Exception("You must specify either id or tag")
+            raise ValueError("You must specify either id or tag")
         if id is not None:
             if id in self._selection_rules:
                 # We will assume that selection_rules and table
@@ -905,7 +905,6 @@ class SelectionBase(DataFrame):
 
         """
         if len(self._selection_rules.values()) == 0:
-            # warnings.warn("Selection.merge(): upselecting now")
             return DataFrame()
         final = None
         for df in self._selection_rules.values():
@@ -1394,7 +1393,7 @@ class Flag(SelectionBase):
                     # its the header
                     colnames = l[1:].split(",")
                     if colnames != header:
-                        raise Exception(f"Column names {colnames} do not match expectated {header}")
+                        raise IOError(f"Column names {colnames} in {fileobj} do not match expected {header}")
                     found_header = True
             else:
                 values = l.split("|")
