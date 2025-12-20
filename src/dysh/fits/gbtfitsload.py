@@ -514,7 +514,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         col_defs : dict
             Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
         selected: bool
-            Show only those rows that are selected by the final selection (AND of all selection rules).
+            Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules 
+            have been set, this will display an empty summary.
         Returns
         -------
         summary : `~pandas.DataFrame`
@@ -610,7 +611,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-        if selected and len(self.selection._selection_rules)>0:
+        if selected:
             df = self.selection.final[cols].copy().astype(col_dtypes)
         else:
             df = self[cols].copy().astype(col_dtypes)
@@ -691,7 +692,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             If `columns` is not None, then this will be ignored.
             If a string, multiple column names must be comma separated.
         selected: bool
-            Show only those rows that are selected by the final selection (AND of all selection rules).
+            Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules 
+            have been set, this will display an empty summary.
         """
 
         df = self.get_summary(scan=scan, verbose=verbose, columns=columns, add_columns=add_columns, selected=selected)
