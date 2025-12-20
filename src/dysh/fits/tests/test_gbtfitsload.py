@@ -1672,7 +1672,7 @@ class TestGBTFITSLoad:
         assert sdf.get_nod_beams(scan=333) == [1, 9]
         assert sdf.get_nod_beams(scan=334) == [1, 9]
 
-    def test_calseq(self,caplog):
+    def test_calseq(self, caplog):
         """Test for calseq"""
 
         sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
@@ -1684,8 +1684,8 @@ class TestGBTFITSLoad:
 
         # Make it error.
         with pytest.raises(Exception):
-             sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
-             assert "no data" in caplog.text
+            sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+            assert "no data" in caplog.text
 
     def test_vanecal(self):
         """Test for vanecal"""

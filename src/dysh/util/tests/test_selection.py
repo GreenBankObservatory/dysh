@@ -20,7 +20,7 @@ class TestSelection:
         self.sdf = gbtfitsload.GBTFITSLoad(self.file)
         self.gbtidl_flag_file = ""
 
-    def test_selection_class(self,caplog):
+    def test_selection_class(self, caplog):
         """
         Test that the Selection class selects as expected.
         We check that on each selection, the number of selected rows
@@ -125,7 +125,7 @@ class TestSelection:
         with pytest.raises(Exception):
             s.select_channel(["10", "a", 103])
 
-    def test_flag_class(self,caplog):
+    def test_flag_class(self, caplog):
         """
         Test that the Selection class selects as expected.
         We check that on each selection, the number of selected rows
