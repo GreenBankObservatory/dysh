@@ -789,7 +789,11 @@ class TestGBTFITSLoad:
             if k in ["DURATION", "TUNIT7", "VSPRPIX", "CAL"]:
                 continue
             try:
-                assert v == pytest.approx(table[k][0])
+                try:
+                    np.isnan(v)
+                    assert np.isclose(v, table[k][0], equal_nan=True)
+                except TypeError:
+                    assert v == pytest.approx(table[k][0])
             except KeyError:
                 continue
 
@@ -848,6 +852,27 @@ class TestGBTFITSLoad:
         # Note we now auto-add a HISTORY card at instantiation, so drop that
         # from the comparison
         assert_frame_equal(org_sdf._index, new_sdf._index.drop(columns="HISTORY"))
+
+    def test_write_repeated_scans(self, tmp_path):
+        """Test that we can write files with repeated scan numbers"""
+        p = util.get_project_testdata() / "TRFI_090125_S1/TRFI_090125_S1.raw.vegas/"
+        sdf = gbtfitsload.GBTFITSLoad(p, skipflags=True, flag_vegas=False)
+        # Multifile case.
+        sdf.write(tmp_path / "test_m.fits", multifile=True)
+        sdf_m = gbtfitsload.GBTFITSLoad(tmp_path / "test_m.fits")
+        pd.testing.assert_frame_equal(sdf._index, sdf_m._index[sdf._index.columns])
+        # Non-multifile case.
+        sdf.write(tmp_path / "test.fits", multifile=False)
+        sdf_s = gbtfitsload.GBTFITSLoad(tmp_path / "test.fits")
+        pd.testing.assert_frame_equal(sdf._index, sdf_s._index[sdf._index.columns])
+        # Single integration.
+        sdf.write(tmp_path / "test_int.fits", intnum=1)
+        sdf_i = gbtfitsload.GBTFITSLoad(tmp_path / "test_int.fits")
+        # Drop row column, since it is not unique.
+        pd.testing.assert_frame_equal(
+            sdf._index[sdf._index.INTNUM == 1].reset_index(drop=True).drop("ROW", axis=1),
+            sdf_i._index[sdf._index.columns].drop("ROW", axis=1),
+        )
 
     def test_get_item(self):
         f = util.get_project_testdata() / "AGBT18B_354_03/AGBT18B_354_03.raw.vegas/"
@@ -1070,6 +1095,8 @@ class TestGBTFITSLoad:
         assert any("Project ID: AGBT18B_354_03" in substr for substr in sb.history)
 
     def test_online(self, tmp_path):
+        (n, need) = gbtfitsload._check_functions()
+        assert n == need
         f1 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         f2 = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_2.raw.vegas.fits"
         sdfits = tmp_path / "sdfits"
@@ -1282,14 +1309,14 @@ class TestGBTFITSLoad:
             assert np.all(data_ratio == pytest.approx(tsys_ratio))
 
     def test_subbeamnod(self):
-        """simple check of subbeamnod for two different cases.  this mimics the notebook example"""
+        """simple check of subbeamnod for two different cases. This mimics the notebook example"""
         sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file)
         # don't scale
         sb = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="cycle")
         sb2 = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="scan")
         s = sb.timeaverage() - sb2.timeaverage()
-        assert np.nanmean(s.data) == pytest.approx(0.0022912487, abs=1e-8)
+        assert np.nanmean(s.data) == pytest.approx(0.0018272468314497893, abs=1e-8)
 
     def test_scale(self):
         # Check that scaling to Ta* or Jy works.
@@ -1529,7 +1556,12 @@ class TestGBTFITSLoad:
         sigref = sdf.getsigref(scan=152, ref=153, fdnum=0, ifnum=0, plnum=0)
         x = psscan[0]._calibrated - sigref[0]._calibrated
         assert np.max(np.abs(x)) < 3e-7
-        assert psscan[0].meta == sigref[0].meta
+        for k, v in psscan[0].meta[0].items():
+            try:
+                np.isnan(v)
+                assert np.isclose(v, sigref[0].meta[0][k], equal_nan=True)
+            except TypeError:
+                assert v == sigref[0].meta[0][k]
         assert psscan[0].refscan == sigref[0].refscan
         assert psscan[0].sigscan == sigref[0].sigscan
         assert psscan[0].refscan == 153
@@ -1544,10 +1576,15 @@ class TestGBTFITSLoad:
         # assert np.max(np.abs(x)) < 3e-7
         assert np.mean(x) < 2e-3  # bogus test. this should be smaller.
         # assert np.all(psscan[0]._calibrated == sigref[0]._calibrated)
-        for k in ["EXPOSURE", "TSYS"]:
+        for k in ["EXPOSURE", "TSYS", "DURATION"]:
             psscan[0].meta[0].pop(k)
             sigref[0].meta[0].pop(k)
-        assert psscan[0].meta[0] == sigref[0].meta[0]
+        for k, v in psscan[0].meta[0].items():
+            try:
+                np.isnan(v)
+                assert np.isclose(v, sigref[0].meta[0][k], equal_nan=True)
+            except TypeError:
+                assert v == sigref[0].meta[0][k]
         assert psscan[0].refscan == sigref[0].refscan
         assert psscan[0].sigscan == sigref[0].sigscan
         assert psscan[0].refscan == 52

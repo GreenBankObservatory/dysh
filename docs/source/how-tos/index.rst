@@ -201,6 +201,39 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
             How to provide aperture efficiency or surface error
 
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`query_stats;3em;green` **Data Quality Checks**
+
+        How to use data quality functions
+
+
+        .. button-link:: examples/quality.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            How to use data quality functions
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`align_vertical_bottom;3em;green` **Spectral Line Search**
+
+        Search for potential spectral lines
+
+
+        .. button-link:: examples/line_search.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            How to use search for potential spectral lines, including within
+            a given Spectrum.
+
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -217,3 +250,5 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/custom_baseline
    examples/merge_sdfits
    examples/apeff_surferr
+   examples/quality
+   examples/line_search
