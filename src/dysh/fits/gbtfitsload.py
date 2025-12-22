@@ -3063,7 +3063,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
                 for b in bintables:  # loop over the bintables in this fitsfile
-                    rows = df.ROW.unique()
+                    rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
@@ -3103,7 +3103,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
                 for b in bintables:
-                    rows = df.ROW.unique()
+                    rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:

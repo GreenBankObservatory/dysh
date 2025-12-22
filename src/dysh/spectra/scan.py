@@ -888,9 +888,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         None
 
         """
-        # FITS can't handle NaN in a header, so just drop any column where NaN appears
-        # Ideally this should be done on the individual record level in say, Spectrum.make_spectrum.
-        df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices].dropna(axis=1, how="any")
+        df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices]
         self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
         for i in range(len(self._meta)):
             if "CUNIT1" not in self._meta[i]:

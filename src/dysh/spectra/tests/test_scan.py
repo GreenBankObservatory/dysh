@@ -1037,3 +1037,28 @@ class TestScanBlock:
         tsys_weights = sb.tsys_weight
         tsys_weights_scan = sb[0].tsys_weight
         assert all(tsys_weights[0] == tsys_weights_scan)
+
+    def test_write_with_nan(self, data_dir, tmp_path):
+        """Test that we can write a ScanBlock with NaN values."""
+        sdf_file = f"{data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
+        sb0 = sdf.getps(
+            scan=152,
+            fdnum=0,
+            ifnum=0,
+            plnum=0,
+        )
+        assert np.all(np.isnan(sb0[0]._get_all_meta("QD_EL")))
+        with pytest.warns(UserWarning):
+            sdf["QD_EL"] = 1
+            sdf["QD_XEL"] = 1
+        sb1 = sdf.getps(
+            scan=152,
+            fdnum=0,
+            ifnum=0,
+            plnum=0,
+        )
+        assert np.all(sb1[0]._get_all_meta("QD_EL") == [1])
+        assert np.all(sb1[0]._get_all_meta("QD_XEL") == [1])
+        sb0.append(sb1[0])
+        sb0.write(tmp_path / "test.fits", overwrite=True)
