@@ -11,6 +11,7 @@ import pandas as pd
 from astropy.coordinates import ITRS, SkyCoord, SpectralCoord, StokesCoord
 from astropy.coordinates.spectral_coordinate import attach_zero_velocities
 from astropy.io import registry
+from astropy.io.fits import BinTableHDU, Column
 from astropy.io.fits.verify import VerifyWarning
 from astropy.modeling.fitting import LinearLSQFitter
 
@@ -1961,6 +1962,68 @@ class Spectrum(Spectrum1D, HistoricalBase):
         minf, maxf = self._min_max_freq()
         return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat)
 
+    def meta_as_table(self):
+        """
+        Return `Spectrum.meta` as an `~astropy.table.Table`.
+        """
+
+        meta_array = {k: [v] for k, v in self.meta.items()}
+        # TDIM7 gets lost somewhere. Add it back.
+        if "TDIM7" not in meta_array.keys():
+            meta_array["TDIM7"] = [f"({len(self.data), 1, 1, 1})"]
+        d = {}
+        d["HISTORY"] = self.history
+        d["COMMENT"] = self.comments
+        return Table(meta_array, meta=d)
+
+    def _make_bintable(self, flags: bool) -> BinTableHDU:
+        """
+        Create a :class:`~astropy.io.fits.BinaryTableHDU` from the data of this `Spectrum`.
+        """
+
+        cd = BinTableHDU(data=self.meta_as_table(), name="SINGLE DISH").columns
+        data_format = f"{np.shape(self.data)[0]}E"
+        cd.add_col(Column(name="DATA", format=data_format, array=[self.data]))
+        # Re-arrange so DATA is column 7.
+        cd1 = cd[:6] + cd[-1] + cd[6:-1]
+        if flags:
+            flags = self.mask.astype(np.uint8)
+            flag_format = f"{np.shape(flags)[0]}B"
+            cd1.add_col(Column(name="FLAGS", format=flag_format, array=[flags]))
+        return BinTableHDU.from_columns(cd1, name="SINGLE DISH")
+
+    def _write_sdfits(
+        self, fileobj, flags: bool = True, output_verify="exception", overwrite: bool = False, checksum: bool = False
+    ) -> None:
+        """
+        Write this `Spectrum` as an SDFITS.
+
+        Parameters
+        ----------
+        fileobj : str, file-like or `pathlib.Path`
+            File to write to.  If a file object, must be opened in a
+            writeable mode.
+        flags : bool, optional
+            Write the mask as flags.
+        output_verify : str
+            Output verification option.  Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or
+            ``"exception"``.  May also be any combination of ``"fix"`` or
+            ``"silentfix"`` with ``"+ignore"``, ``+warn``, or ``+exception"
+            (e.g. ``"fix+warn"``).  See https://docs.astropy.org/en/latest/io/fits/api/verification.html for more info
+        overwrite : bool, optional
+            If ``True``, overwrite the output file if it exists. Raises an
+            ``OSError`` if ``False`` and the output file exists. Default is
+            ``False``.
+        checksum : bool
+            When `True` adds both ``DATASUM`` and ``CHECKSUM`` cards
+            to the headers of all HDU's written to the file.
+        """
+
+        self._make_bintable(flags=flags).writeto(
+            name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
+        )
+
 
 # @todo figure how how to document write()
 ####################################################################
@@ -2000,6 +2063,10 @@ def spectrum_writer_mrt(spectrum, fileobj, **kwargs):
 
 def spectrum_writer_fits(spectrum, fileobj, **kwargs):
     spectrum._write_table(fileobj, format="fits", **kwargs)
+
+
+def spectrum_writer_sdfits(spectrum, fileobj, **kwargs):
+    spectrum._write_sdfits(fileobj, **kwargs)
 
 
 def _read_table(fileobj, format, **kwargs):
@@ -2092,6 +2159,7 @@ with registry.delay_doc_updates(Spectrum):
     registry.register_writer("ECSV", Spectrum, spectrum_writer_ecsv)
     registry.register_writer("mrt", Spectrum, spectrum_writer_mrt)
     registry.register_writer("fits", Spectrum, spectrum_writer_fits)
+    registry.register_writer("sdfits", Spectrum, spectrum_writer_sdfits)
     # UnifiedOutputRegistry.write uses retrurns tabular-fits if format
     # not specified and it believes the desired output is fits.
     registry.register_writer("tabular-fits", Spectrum, spectrum_writer_fits)
