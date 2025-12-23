@@ -7,6 +7,7 @@ from astropy.table import Table
 from astropy.units.quantity import Quantity
 from astroquery.splatalogue import Splatalogue
 
+from ..coordinates import obsfreq, restfreq
 from ..util import (
     append_docstr_nosections,
     docstring_parameter,
@@ -15,8 +16,6 @@ from ..util import (
     minimum_string_match,
     replace_col_astype,
 )
-
-from ..coordinates import restfreq, obsfreq
 
 _VALID_EXCLUDE = ("potential", "atmospheric", "probable", "known", "none")
 
@@ -144,13 +143,13 @@ class SpectralLineSearchClass:
         # cat: Literal[*_all_cats] | Path = "splatalogue",  # * in index allowed in Python 3.11+
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
         columns: str | list | None = None,
-        redshift: float = 0.,
+        redshift: float = 0.0,
         asynchronous: bool = False,
         cache: bool = True,
         format: str = "ascii.ecsv",
         only_NRAO_recommended=True,
         **kwargs,
-    ) -> Table: 
+    ) -> Table:
         """Query locally or remotely for lines and return a table object. The query returns lines
         with rest frequencies in the range [`min_frequency`,`max_frequency`].
 
@@ -197,8 +196,8 @@ class SpectralLineSearchClass:
             kwargs["intensity_type"] = minimum_string_match(
                 kwargs["intensity_type"], Splatalogue.VALID_INTENSITY_TYPES, casefold=True
             )
-        minfreq = restfreq(min_frequency,redshift)
-        maxfreq = restfreq(max_frequency,redshift)
+        minfreq = restfreq(min_frequency, redshift)
+        maxfreq = restfreq(max_frequency, redshift)
         if mc == "splatalogue":
             if asynchronous:
                 table = Splatalogue._parse_result(
@@ -212,12 +211,14 @@ class SpectralLineSearchClass:
                 table = Splatalogue.query_lines(minfreq, maxfreq, **kwargs)
             # add a rest frequency column if an online query.
             # localquery() will add this itself, so keep in this if clause.
-            if len(table)>0:
-                obscol=obsfreq(table['orderedfreq'], redshift)
-                table.add_column(obscol, name='obs_frequency')
+            if len(table) > 0:
+                obscol = obsfreq(table["orderedfreq"], redshift)
+                table.add_column(obscol, name="obs_frequency")
         else:
             # search a local table
-            table = self.localquery(min_frequency, max_frequency, cat=mc, columns=columns, redshift=redshift, cache=cache, **kwargs)
+            table = self.localquery(
+                min_frequency, max_frequency, cat=mc, columns=columns, redshift=redshift, cache=cache, **kwargs
+            )
         if "intintensity" in table.colnames:
             replace_col_astype(table, "intintensity", float, -1e20)
 
@@ -235,7 +236,7 @@ class SpectralLineSearchClass:
         max_frequency: Quantity,
         cat: Literal[(x for x in _allowable_local_cats)] | Path = "gbtlines",
         columns: str | list | None = None,
-        redshift: float = 0.,
+        redshift: float = 0.0,
         chemical_name: str | None = None,
         chem_re_flags: int = re.I,
         energy_min: float | None = None,
@@ -332,8 +333,8 @@ class SpectralLineSearchClass:
             # get species id returns string but 'species_id' column in tables returned by splatalogue is int!
             splist = list(map(int, species.values()))
         df = _table.to_pandas()
-        minfreq = restfreq(min_frequency,redshift)
-        maxfreq = restfreq(max_frequency,redshift)
+        minfreq = restfreq(min_frequency, redshift)
+        maxfreq = restfreq(max_frequency, redshift)
 
         # Select the frequency range
         # fmt: off
@@ -384,9 +385,9 @@ class SpectralLineSearchClass:
             else:
                 df = df[df["intintensity"] >= intensity_lower_limit]
         table = Table.from_pandas(df)
-        if len(table)>0:
-            obscol=obsfreq(table['orderedfreq'], redshift)
-            table.add_column(obscol, name='obs_frequency')
+        if len(table) > 0:
+            obscol = obsfreq(table["orderedfreq"], redshift)
+            table.add_column(obscol, name="obs_frequency")
         if columns is not None:
             return table[columns]
         else:
@@ -472,17 +473,17 @@ class SpectralLineSearchClass:
             "carbon": "Carbon",
             "helium": "Helium",
         }
-        
+
     @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
     def recomb(
         self,
         min_frequency: Quantity,
         max_frequency: Quantity,
-        line: str, 
+        line: str,
         # cat: Literal[*_all_cats] | Path = "splatalogue",  # allowed in Python 3.11+
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
         columns: str | list | None = None,
-        redshift: float = 0.,
+        redshift: float = 0.0,
         convert_to_unicode: bool = True,
         only_NRAO_recommended: bool = True,
         **kwargs,
@@ -536,7 +537,7 @@ class SpectralLineSearchClass:
             chem_re_flags=re.I,
             **kwargs,
         )
-    
+
     @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
     def recomball(
         self,
@@ -544,7 +545,7 @@ class SpectralLineSearchClass:
         max_frequency: Quantity,
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
         columns: str | list | None = None,
-        redshift=0.,
+        redshift=0.0,
         cache: bool = False,
         only_NRAO_recommended: bool = True,
         **kwargs,
