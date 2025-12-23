@@ -1607,7 +1607,7 @@ class TPScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     Notes
     -----
     How the total power and system temperature are calculated, depending on signal and reference state parameters:
@@ -1856,7 +1856,7 @@ class TPScan(ScanBase):
 
         Returns
         -------
-        spectrum : `~spectra.spectrum.Spectrum`
+        spectrum : `~dysh.spectra.spectrum.Spectrum`
         """
         return self.getspec(i)
 
@@ -1902,18 +1902,18 @@ class PSScan(ScanBase):
         If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations. Default: None
-    refspec : int or `~spectra.spectrum.Spectrum`, optional
+    refspec : int or `~dysh.spectra.spectrum.Spectrum`, optional
         If given, the Spectrum will be used as the reference rather than using scan data.
     tsys : float or `~numpy.ndarray`
         If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
-        scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+        scan and the noise diode. If not given, and the reference is a `~dysh.spectra.spectrum.Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
         If `vane` is provided, `tsys` will be ignored.
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -1923,7 +1923,7 @@ class PSScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
         If provided, `tsys` will be ignored.
@@ -2295,7 +2295,7 @@ class NodScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -2312,7 +2312,7 @@ class NodScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
         If provided, `tsys` will be ignored.
@@ -2594,7 +2594,7 @@ class FSScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -2609,13 +2609,13 @@ class FSScan(ScanBase):
     tsys : float or `~numpy.ndarray`
         If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
-        scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+        scan and the noise diode. If not given, and the reference is a `~dysh.spectra.spectrum.Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
     channel: list or None
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
         If `vane` is provided, `tsys` will be ignored.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
@@ -3043,7 +3043,7 @@ class SubBeamNodScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
