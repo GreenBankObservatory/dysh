@@ -6,6 +6,7 @@ import warnings
 from copy import deepcopy
 
 import astropy.units as u
+from astropy.io import fits
 import numpy as np
 from matplotlib.text import OffsetFrom
 from matplotlib.ticker import AutoLocator, MaxNLocator
@@ -91,6 +92,29 @@ class ScanPlot(PlotBase):
             "cmap": "inferno",
             "interpolation": "nearest",
         }
+
+    def write(self, filename, avechan=1):
+        """
+        Write the current spectrogram as a FITS image.
+        Quick and Dirty: no WCS.
+        The current version uses the first axis for the number of integrations,
+        the second axis as the number of channels.
+        """
+        print("new write code")
+        # skip mask for now
+        # @todo check if this is really a 2D array?
+        data = self.spectrogram.data
+        if avechan == 1:
+            hdu = fits.PrimaryHDU(data)
+        else:
+            (ny,nx) = data.shape
+            if ny%avechan != 0:
+                print(f"{ny} not a multiple of {avechan}")
+                return
+            data = data.reshape((ny//avechan,nx, avechan)).mean(axis=2)
+            hdu = fits.PrimaryHDU(data)
+        hdu.writeto(filename, overwrite=True)
+        print(f"Wrote {filename} with size {data.shape[1]} x {data.shape[0]}")
 
     def plot(self, spectral_unit=None, **kwargs):
         r"""
