@@ -253,8 +253,9 @@ def sanitize_skycoord(target):
     """Method to enforce certain attributes of input SkyCoordinate in
     order to workaround astropy bug that distance and proper motions
     need to be explicitly set for certain coordinate conversions, even
-    if they are zero.  See
-    https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2
+    if they are zero.  See `explanation here
+    <https://community.openastronomy.org/t/exception-raised-when-converting-from-lsrk-to-other-frames/841/2>_` and
+    and `Astropy GitHub issue 12371 <https://github.com/astropy/astropy/issues/12731>`_.
 
 
     Parameters
@@ -401,7 +402,7 @@ def topocentric_velocity_to_frame(target, toframe, observer, obstime):
 
     Returns
     -------
-    radial_velocity : `~astropy.units.Quantity`
+    radial_velocity : `~astropy.units.quantity.Quantity`
         The radial velocity of the source in `toframe`
 
     """
@@ -434,7 +435,8 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
         toframe: str
             The frame into which `coord` should be transformed, e.g.,  'icrs', 'lsrk', 'hcrs'.
             The string 'topo' is interpreted as 'itrs'.
-            See astropy-supported reference frames (link)
+            See `astropy-supported reference frames
+            <https://docs.astropy.org/en/stable/coordinates/index.html#module-astropy.coordinates.builtin_frames>`_.
 
         observer: `~astropy.coordinates.EarthLocation`
             The location of the observer required for certain transformations (e.g. to/from GCRS or ITRS)
@@ -444,7 +446,7 @@ def get_velocity_in_frame(target, toframe, observer=None, obstime=None):
 
     Returns
     -------
-        radial_velocity : `~astropy.units.Quantity`
+        radial_velocity : `~astropy.units.quantity.Quantity`
             The radial velocity of the source in `toframe`
 
     """
@@ -471,16 +473,16 @@ def veltofreq(velocity, restfreq, veldef):
     Parameters
     ----------
 
-    velocity: `~astropy.units.Quantity`
+    velocity: `~astropy.units.quantity.Quantity`
         The velocity values
-    restfreq: `~astropy.units.Quantity`
+    restfreq: `~astropy.units.quantity.Quantity`
         The rest frequency
     veldef : str
         Velocity definition from FITS header, e.g., 'OPTI-HELO', 'VELO-LSR'.
 
     Returns
     -------
-    frequency: `~astropy.units.Quantity`
+    frequency: `~astropy.units.quantity.Quantity`
         The velocity values converted to frequency using `restfreq` and `veldef`.
 
     """
@@ -585,7 +587,7 @@ class GB20M:
 def gbt_location():
     """
     Create an astropy `~astropy.coordinates.EarthLocation` for the GBT using the same established by GBO.
-    See page 3 of https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf
+    See page 3 of `The GBT Tracking Local Oscillator FITS Keyword Definitions <https://www.gb.nrao.edu/GBT/MC/doc/dataproc/gbtLOFits/gbtLOFits.pdf>`_
 
     * latitude    = 38d 25m 59.265s N
 
@@ -675,7 +677,7 @@ class Observatory:
         lat : `~astropy.coordinates.Latitude` or float
             Earth latitude.  Can be anything that initialises an
             `~astropy.coordinates.Latitude` object (if float, in degrees).
-        height : `~astropy.units.Quantity` ['length'] or float, optional
+        height : `~astropy.units.quantity.Quantity` ['length'] or float, optional
             Height above reference ellipsoid (if float, in meters; default: 0).
         ellipsoid : str, optional
             Name of the reference ellipsoid to use (default: 'WGS84').
