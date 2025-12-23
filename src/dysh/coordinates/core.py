@@ -4,6 +4,7 @@ Core functions/classes for spatial and velocity coordinates and reference frames
 
 import astropy.coordinates as coord
 import astropy.units as u
+from astropy.units.quantity import Quantity
 import numpy as np
 from astropy.coordinates.spectral_coordinate import (
     DEFAULT_DISTANCE as _DEFAULT_DISTANCE,
@@ -767,3 +768,38 @@ def ra2ha(lst, ra):
     elif ha < -180:
         ha += 360
     return np.around(ha / 15, 2)
+
+def obsfreq(restfreq:Quantity|float, z:float) -> Quantity|float:
+    """
+    The observed frequency for a give rest frequency `restfreq` at redshift `z`.
+    Parameters
+    ----------
+    restfreq : Quantity
+        The rest frequency of the source line
+    z : float
+        The redshift of the source 
+
+    Returns
+    -------
+    obsfreq: Quantity or float, depending on what was input
+        The frequency at which `restfreq` would be observed.
+
+    """   
+    return restfreq/(1.0+z)
+
+def restfreq(obsfreq:Quantity|float, z:float) -> Quantity|float:
+    """
+    The rest frequency at redfshift `z` for a give observed frequency `obsfreq`.
+    Parameters
+    ----------
+    obsfreq : Quantity
+        The observed frequency of the source line
+    z : float
+        The redfshift of the source 
+
+    Returns
+    -------
+    restfreq: Quantity or float, depending on what was input
+        The rest frequency corresponding to `obsfreq` at redshift `z`.
+    """   
+    return obsfreq*(1.0+z)

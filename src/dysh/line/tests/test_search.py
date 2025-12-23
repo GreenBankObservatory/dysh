@@ -1,5 +1,6 @@
 import astropy.units as u
 import pytest
+import numpy as np
 from astroquery.splatalogue import Splatalogue
 
 from dysh.line import SpectralLineSearch
@@ -59,3 +60,21 @@ class TestSearch:
         # all recombination lines from a local GBT specific catalog
         z = SpectralLineSearch.recomball(min_frequency=500 * u.MHz, max_frequency=1 * u.GHz, cat="gbtrecomb")
         assert len(z) == 867
+    
+    def test_search_with_redshift(self):
+        redshift=0
+        z = SpectralLineSearch.recomb(line="Halpha", min_frequency=1.022 * u.GHz, max_frequency=8.322 * u.GHz, redshift=redshift)
+        diff=(z['obs_frequency']*(1.0+redshift)-z['orderedfreq']).data
+        redshift=1.5
+        z = SpectralLineSearch.recomb(line="Calpha", min_frequency=1 * u.GHz, max_frequency=10 * u.GHz, redshift=redshift)
+        diff=(z['obs_frequency']*(1.0+redshift)-z['orderedfreq']).data
+        assert np.all(np.isclose(diff,0.,rtol=1E-8))
+        redshift=5.0
+        z = SpectralLineSearch.query_lines(cat='gbtlines',min_frequency=1 * u.GHz, max_frequency=10 * u.GHz, redshift=redshift)
+        diff=(z['obs_frequency']*(1.0+redshift)-z['orderedfreq']).data
+        assert np.all(np.isclose(diff,0.,rtol=1E-8))
+        redshift=1
+        z = SpectralLineSearch.query_lines(chemical_name='Carbon Monoxide', min_frequency=100 * u.GHz, max_frequency=120 * u.GHz, redshift=redshift)
+        
+        
+        
