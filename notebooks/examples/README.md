@@ -24,4 +24,5 @@ We recommend reading the ``dysh`` documentation at https://dysh.readthedocs.io, 
 | using\_spectral\_weights | How to set and use weights in spectral averaging                      |
 | velocity\_frames     | How to manipulate spectral axes                                           |
 | vane                 | Calibration of Argus observations with a vane                             |
+| custom\_baseline     | How to fit a custom baseline model                                        |
 | line\_search         | How to search for potential spectral lines                                |
