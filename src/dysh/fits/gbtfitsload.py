@@ -1,6 +1,7 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
+import inspect
 import itertools
 import numbers
 import os
@@ -3946,6 +3947,37 @@ class GBTOffline(GBTFITSLoad):
         GBTFITSLoad.__init__(self, self._filename, *args, **kwargs)
 
 
+# NOTE: if GBTFITSLoad has new functions added, they may need to be added in GBTOnline() as well
+#       these two variables with _check_functions() will warn in runtime, but fail in pytest
+#       If you add more to _skip_functions, deduct the number in _need_functions
+_skip_functions = ["velocity_convention", "velocity_frame"]
+_need_functions = 55
+
+
+def _check_functions(verbose=False):
+    """
+    check if number of functions in GBTFITSLoad() didn't change from
+    the last time we (manually) recorded this.
+    """
+    fns = inspect.getmembers(GBTFITSLoad, predicate=inspect.isfunction)
+    need = _need_functions
+    n = 0
+    for i in range(len(fns)):
+        fn = fns[i][0]
+        if fn[0] == "_":
+            continue
+        if fn in _skip_functions:
+            continue
+        n = n + 1
+        if verbose:
+            print(n, fn)
+    if n != need:
+        # this means GBTOnline may need to have the new
+        logger.warning(f"GBTOnline: parent GBTFITSLoad() was expected have {need} functions, but found {n}.")
+    # return values for tests
+    return (need, n)
+
+
 class GBTOnline(GBTFITSLoad):
     """
     GBTOnline('foo')   monitors project 'foo' as if it could be online
@@ -3966,6 +3998,7 @@ class GBTOnline(GBTFITSLoad):
         self._args = args
         self._kwargs = kwargs
         self._platform = platform.system()  # cannot update in "Windows", see #447
+        _check_functions()  # check if # functions if GBTFITSLoad didn't change
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
@@ -4050,6 +4083,14 @@ class GBTOnline(GBTFITSLoad):
     def summary(self, *args, **kwargs):
         self._reload()
         return super().summary(*args, **kwargs)
+
+    def get_summary(self, *args, **kwargs):
+        self._reload()
+        return super().get_summary(*args, **kwargs)
+
+    def write(self, *args, **kwargs):
+        self._reload()
+        return super().write(*args, **kwargs)
 
     def gettp(self, *args, **kwargs):
         self._reload()

@@ -253,6 +253,13 @@ class TestSpectrum:
         assert s2.flux[0].value == -0.1042543
         assert s2.spectral_axis.unit == u.Unit("km/s")
 
+    def test_write_sdfits(self, tmp_path):
+        """Test that we can write SDFITS files from Spectrum objects."""
+        s = self.ps1
+        s.write(tmp_path / "sdfits_test.fits", format="sdfits")
+        sdf = GBTFITSLoad(tmp_path / "sdfits_test.fits")
+        assert np.all(s.data.astype(np.float32) == sdf["DATA"][0])
+
     def test_history_and_comments(self):
         s = self.ps1
         s.baseline(2, remove=True)
