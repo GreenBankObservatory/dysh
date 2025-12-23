@@ -1207,6 +1207,7 @@ class TestSpectrum:
                1405.29144958, 1405.29144958, 1407.15863488, 1399.04343877,
                1406.6757932 , 1406.6757932 , 1412.36641316])
         assert np.all(np.isclose(tr["obs_frequency"].data - freq,0))
+
     def test_set_doppler_rest(self):
         """Test that setting doppler_rest works."""
         s1 = Spectrum.fake_spectrum()
