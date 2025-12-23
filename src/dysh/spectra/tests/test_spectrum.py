@@ -1172,35 +1172,41 @@ class TestSpectrum:
         tr = f.recomb(line="Hbeta")
         assert len(tr) == 1
         assert tr["species_id"][0] == 1155
-        assert tr["orderedfreq"][0] == pytest.approx(1400.13748758174)
-
+        restfreq = 1420.2354594106603	
+        obsfreq = 1402.3494324453736
+        assert tr["orderedfreq"][0] == pytest.approx(restfreq)
+        assert tr["obs_frequency"][0] == pytest.approx(obsfreq)
         tr = f.recomball()
-        assert len(tr) == 17
-        out = [
-            "H&zeta;",
-            "H&delta;",
-            "He&delta;",
-            "H&epsilon;",
-            "H&alpha;",
-            "He&alpha;",
-            "C&alpha;",
-            "H&beta;",
-            "He&beta;",
-            "H&gamma;",
-            "C&beta;",
-            "He&gamma;",
-            "C&gamma;",
-            "H&zeta;",
-            "H&epsilon;",
-            "H&delta;",
-            "He&delta;",
-        ]
+        assert len(tr) == 16
+        out =['H&epsilon;',
+                'H&delta;',
+                'He&delta;',
+                'H&gamma;',
+                'H&zeta;',
+                'He&gamma;',
+                'C&gamma;',
+                'H&beta;',
+                'He&beta;',
+                'C&beta;',
+                'H&alpha;',
+                'He&alpha;',
+                'C&alpha;',
+                'H&epsilon;',
+                'H&delta;',
+                'He&delta;']
+
         assert list(tr["name"]) == out
         tr = f.query_lines(intensity_lower_limit=-8, cat="gbtlines")
-        assert len(tr) == 7
-        freq = np.array([1392.42, 1392.42, 1392.42, 1390.8698, 1393.8448, 1406.519, 1405.0142])
-        assert all(tr["orderedfreq"].data == freq)
-
+        assert len(tr) == 15
+        freq = np.array([1418.1976, 1419.1013, 1414.898 , 1415.462 , 1416.725 , 1417.696 ,
+                   1423.215 , 1423.215 , 1423.215 , 1423.215 , 1425.106 , 1416.8873,
+                   1424.617 , 1424.617 , 1430.3802])
+        assert np.all(np.isclose(tr["orderedfreq"].data - freq,0))   
+        freq=np.array([1400.33723724, 1401.2295563 , 1397.07919143, 1397.63608858,
+               1398.88318273, 1399.84195424, 1405.29144958, 1405.29144958,
+               1405.29144958, 1405.29144958, 1407.15863488, 1399.04343877,
+               1406.6757932 , 1406.6757932 , 1412.36641316])
+        assert np.all(np.isclose(tr["obs_frequency"].data - freq,0))
     def test_set_doppler_rest(self):
         """Test that setting doppler_rest works."""
         s1 = Spectrum.fake_spectrum()

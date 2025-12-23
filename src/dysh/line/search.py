@@ -143,7 +143,7 @@ class SpectralLineSearchClass:
         max_frequency: Quantity,
         # cat: Literal[*_all_cats] | Path = "splatalogue",  # * in index allowed in Python 3.11+
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
-        columns: str | list = _default_columns_to_return,
+        columns: str | list | None = None,
         redshift: float = 0.,
         asynchronous: bool = False,
         cache: bool = True,
@@ -171,8 +171,8 @@ class SpectralLineSearchClass:
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
-        columns: str or list
-            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
         redshift: float
             Search for redshifted lines.  The given redshift will used find lines that would be redshifted into the range `[min_frequency, max_frequency]`.  This option is
             not available if `cat='splatalogue'.
@@ -214,8 +214,7 @@ class SpectralLineSearchClass:
             # localquery() will add this itself, so keep in this if clause.
             if len(table)>0:
                 obscol=obsfreq(table['orderedfreq'], redshift)
-                obscol.name = 'obs_frequency'
-                table.add_column(obscol)
+                table.add_column(obscol, name='obs_frequency')
         else:
             # search a local table
             table = self.localquery(min_frequency, max_frequency, cat=mc, columns=columns, redshift=redshift, cache=cache, **kwargs)
@@ -235,7 +234,7 @@ class SpectralLineSearchClass:
         min_frequency: Quantity,
         max_frequency: Quantity,
         cat: Literal[(x for x in _allowable_local_cats)] | Path = "gbtlines",
-        columns: str | list = _default_columns_to_return,
+        columns: str | list | None = None,
         redshift: float = 0.,
         chemical_name: str | None = None,
         chem_re_flags: int = re.I,
@@ -265,8 +264,8 @@ class SpectralLineSearchClass:
         cat : str
             The catalog to use.  One of: {0}  (minimum string match) or a valid local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter.  The default is a GBT-specific line catalog, 'gbtlines'.
-        columns: str or list
-            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
         redshift: float
             Search for redshifted lines.  The given redshift will used find lines that would be redshifted into the range `[min_frequency, max_frequency]`.  This option is
             not available if `cat='splatalogue'.
@@ -387,8 +386,7 @@ class SpectralLineSearchClass:
         table = Table.from_pandas(df)
         if len(table)>0:
             obscol=obsfreq(table['orderedfreq'], redshift)
-            obscol.name = 'obs_frequency'
-            table.add_column(obscol)
+            table.add_column(obscol, name='obs_frequency')
         if columns is not None:
             return table[columns]
         else:
@@ -474,7 +472,8 @@ class SpectralLineSearchClass:
             "carbon": "Carbon",
             "helium": "Helium",
         }
-
+        
+    @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
     def recomb(
         self,
         min_frequency: Quantity,
@@ -482,7 +481,7 @@ class SpectralLineSearchClass:
         line: str, 
         # cat: Literal[*_all_cats] | Path = "splatalogue",  # allowed in Python 3.11+
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
-        columns: str | list = _default_columns_to_return,
+        columns: str | list | None = None,
         redshift: float = 0.,
         convert_to_unicode: bool = True,
         only_NRAO_recommended: bool = True,
@@ -502,8 +501,8 @@ class SpectralLineSearchClass:
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
-        columns: str or list
-            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
         redshift: float
             Search for redshifted lines.  The given redshift will used find lines that would be redshifted into the range `[min_frequency, max_frequency]`.  This option is
             not available if `cat='splatalogue'.
@@ -537,13 +536,14 @@ class SpectralLineSearchClass:
             chem_re_flags=re.I,
             **kwargs,
         )
-
+    
+    @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
     def recomball(
         self,
         min_frequency: Quantity,
         max_frequency: Quantity,
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
-        columns: str | list = _default_columns_to_return,
+        columns: str | list | None = None,
         redshift=0.,
         cache: bool = False,
         only_NRAO_recommended: bool = True,
@@ -561,7 +561,7 @@ class SpectralLineSearchClass:
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
-        columns: str or list
+        columns: str or list or None
             The query result columns to include in the returned table.  Any of {1}. The default is all columns.
         redshift: float
             Search for redshifted lines.  The given redshift will used find lines that would be redshifted into the range `[min_frequency, max_frequency]`.  This option is
