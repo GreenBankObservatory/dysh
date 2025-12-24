@@ -756,31 +756,39 @@ class SelectionBase(DataFrame):
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
         flagging. Single arrays/tuples will be treated as channel lists;
-        nested arrays will be treated as  *inclusive* ranges. For instance:
-
-        ``
-        # select channel 24
-        select_channel(24)
-        # selects channels 1 and 10
-        select_channel([1,10])
-        # selects channels 1 thru 10 inclusive
-        select_channel([[1,10]])
-        # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
-        select_channel([[1,10], [47,56], 75)])
-        # tuples also work, though can be harder for a human to read
-        select_channel(((1,10), [47,56], 75))
-        ``
-
-        *Note* : channel numbers start at zero.
+        nested arrays will be treated as *inclusive* ranges. Channel numbers start at zero.
 
         Parameters
         ----------
         channel : number, or array-like
             The channels to select
+
         Returns
         -------
-        None.
+        None
 
+        Examples
+        --------
+
+        Select channel 24.
+
+        >>> select_channel(24)
+
+        Select channels 1 and 10.
+
+        >>> select_channel([1,10])
+
+        Select channels 1 thru 10 inclusive.
+
+        >>> select_channel([[1,10]])
+
+        Select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75.
+
+        >>> select_channel([[1,10], [47,56], 75)])
+
+        Tuples also work. To select the same as above.
+
+        >>> select_channel(((1,10), [47,56], 75))
         """
         # We don't want to get into trying to merge
         # different, possibly exclusive, channel selections.
@@ -1082,22 +1090,7 @@ class Selection(SelectionBase):
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
         flagging. Single arrays/tuples will be treated as channel lists;
-        nested arrays will be treated as  *inclusive* ranges. For instance:
-
-        ``
-        # select channel 24
-        select_channel(24)
-        # selects channels 1 and 10
-        select_channel([1,10])
-        # selects channels 1 thru 10 inclusive
-        select_channel([[1,10]])
-        # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
-        select_channel([[1,10], [47,56], 75)])
-        # tuples also work, though can be harder for a human to read
-        select_channel(((1,10), [47,56], 75))
-        ``
-
-        *Note* : channel numbers start at zero.
+        nested arrays will be treated as *inclusive* ranges. Channel numbers start at zero.
 
         Parameters
         ----------
@@ -1106,9 +1099,32 @@ class Selection(SelectionBase):
 
         Returns
         -------
-        None.
+        None
 
+        Examples
+        --------
+
+        Select channel 24.
+
+        >>> select_channel(24)
+
+        Select channels 1 and 10.
+
+        >>> select_channel([1,10])
+
+        Select channels 1 thru 10 inclusive.
+
+        >>> select_channel([[1,10]])
+
+        Select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75.
+
+        >>> select_channel([[1,10], [47,56], 75)])
+
+        Tuples also work. To select the same as above.
+
+        >>> select_channel(((1,10), [47,56], 75))
         """
+
         self._base_select_channel(channel, tag)
 
 
