@@ -1219,7 +1219,7 @@ class TestSpectrum:
                 1430.3802,
             ]
         )
-        assert np.all(np.isclose(tr["orderedfreq"].data - freq, 0,atol=1E-7))
+        assert np.all(np.isclose(tr["orderedfreq"].data - freq, 0, atol=1e-7))
         freq = np.array(
             [
                 1400.33723724,
@@ -1239,7 +1239,7 @@ class TestSpectrum:
                 1412.36641316,
             ]
         )
-        assert np.all(np.isclose(tr["obs_frequency"].data - freq, 0, atol=1E-7))
+        assert np.all(np.isclose(tr["obs_frequency"].data - freq, 0, atol=1e-7))
 
     def test_set_rest_value(self):
         """Test that setting rest_value works."""
