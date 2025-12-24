@@ -449,12 +449,12 @@ class InteractiveSpanSelector:
         )
 
         # Button to clear all selections.
-        self.region_clear_button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
+        self.region_clear_button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04], gid="button")
         self.region_clear_button = Button(self.region_clear_button_ax, "Clear Regions")
         self.region_clear_button.on_clicked(self.clear_regions)
 
         # Button to clear a single region.
-        self.region_del_button_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04])
+        self.region_del_button_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04], gid="button")
         self.region_del_button = Button(self.region_del_button_ax, "Delete Region")
         self.region_del_button.on_clicked(self.clear_region)
 
