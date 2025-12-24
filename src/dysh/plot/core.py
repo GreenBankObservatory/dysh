@@ -191,11 +191,13 @@ class PlotBase:
         # TODO: put buttons in a sub/different axes so we only have to hide the axes object instead of
         # a list of all the buttons and plots
         if hidebuttons:
-            for button in self.figure._localaxes[1:]:
-                button.set_visible(False)
+            for button in self.figure._localaxes:
+                if button.get_gid() == "button":
+                    button.set_visible(False)
             self.figure.savefig(file, *kwargs)
-            for button in self.figure._localaxes[1:]:
-                button.set_visible(True)
+            for button in self.figure._localaxes:
+                if button.get_gid() == "button":
+                    button.set_visible(True)
         else:
             self.figure.savefig(file, *kwargs)
 
