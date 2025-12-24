@@ -988,11 +988,10 @@ def decimate(data, n, meta=None):
 # @todo it would be nice if this could take a 2-D array of N spectra. astropy.convolve can handle it.
 def smooth(
     data,
-    method="hanning",
+    kernel="hanning",
     width=1,
     ndecimate=0,
     meta=None,
-    kernel=None,
     mask=None,
     boundary="extend",
     nan_treatment="fill",
@@ -1011,8 +1010,8 @@ def smooth(
     data : `~numpy.ndarray`
         Input data array to smooth. Note smoothing array does not need a
         WCS since it is channel based.
-    method : string, optional
-        Smoothing method. Valid are: 'hanning', 'boxcar' and
+    kernel : {"hanning", "boxcar", "gaussian"}, optional
+        Smoothing kernel. Valid are: 'hanning', 'boxcar' and
         'gaussian'. Minimum match applies.
         The default is 'hanning'.
     width : int or float, optional
@@ -1029,13 +1028,6 @@ def smooth(
         Decimation factor of the spectrum by returning every `ndecimate`-th channel.
     meta: dict
          metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
-    kernel : `~numpy.ndarray`, optional
-        A numpy array which is the kernel by which the signal is convolved.
-        Use with caution, as it is assumed the kernel is normalized to
-        one, and is symmetric. Since width is ill-defined here, the user
-        should supply an appropriate number manually.
-        NOTE: not implemented yet.
-        The default is None.
     mask : None or `~numpy.ndarray`, optional
         A "mask" array.  Shape must match ``array``, and anything that is masked
         (i.e., not 0/`False`) will be set to NaN for the convolution.  If
@@ -1080,18 +1072,15 @@ def smooth(
         The new convolved spectrum.
 
     """
-    if kernel is not None:
-        raise NotImplementedError("Custom kernels are not yet implemented.")
-
     asm = available_smooth_methods()
-    method = minimum_string_match(method, asm)
-    if method is None:
-        raise ValueError(f"Unrecognized input method {method}. Must be one of {asm}")
+    kernel_name = minimum_string_match(kernel, asm)
+    if kernel_name is None:
+        raise ValueError(f"Unrecognized input kernel ({kernel}). Must be one of {asm}")
 
     if not float(ndecimate).is_integer():
         raise ValueError("`decimate ({ndecimate})` must be an integer.")
 
-    kernel = _available_smooth_methods[method](width)
+    kernel = _available_smooth_methods[kernel_name](width)
     # Notes:
     # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
     # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
@@ -1116,7 +1105,7 @@ def smooth(
     new_data = np.ma.masked_array(new_data, mask)
     new_meta = deepcopy(meta)
     if new_meta is not None:
-        if method == "gaussian":
+        if kernel_name == "gaussian":
             width = width * FWHM_TO_STDDEV
         new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
     if ndecimate > 0:
