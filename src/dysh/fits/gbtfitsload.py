@@ -485,7 +485,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return columns
 
-    def get_summary(self, scan=None, verbose=False, columns=None, add_columns=None, col_defs=None):
+    def get_summary(self, scan=None, verbose=False, columns=None, add_columns=None, col_defs=None, selected=False):
         """
         Create a summary of the input dataset as a `~pandas.DataFrame`.
 
@@ -510,10 +510,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         add_columns : list
             List of columns to be added to the default `columns`.
             If `columns` is not None, then this will be ignored.
-            If a string, multiple column names must be comma separated.
+            If a string, mul
+            tiple column names must be comma separated.
         col_defs : dict
             Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
-
+        selected: bool
+            Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules
+            have been set, this will display an empty summary.
         Returns
         -------
         summary : `~pandas.DataFrame`
@@ -609,7 +612,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-        df = self[cols].copy().astype(col_dtypes)
+        if selected:
+            df = self.selection.final[cols].copy().astype(col_dtypes)
+        else:
+            df = self[cols].copy().astype(col_dtypes)
 
         # Scale columns.
         for cn in columns:
@@ -652,7 +658,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return df
 
-    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None):
+    def summary(
+        self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None, selected=False
+    ):
         """
         Show a summary of the `~dysh.fits.GBTFITSLoad` object.
         To retrieve the underlying `~pandas.DataFrame` use
@@ -686,9 +694,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             List of columns to be added to the default `columns`.
             If `columns` is not None, then this will be ignored.
             If a string, multiple column names must be comma separated.
+        selected: bool
+            Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules
+            have been set, this will display an empty summary.
         """
 
-        df = self.get_summary(scan=scan, verbose=verbose, columns=columns, add_columns=add_columns)
+        df = self.get_summary(scan=scan, verbose=verbose, columns=columns, add_columns=add_columns, selected=selected)
 
         if max_rows == -1:
             max_rows = conf.summary_max_rows
