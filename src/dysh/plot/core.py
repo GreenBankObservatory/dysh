@@ -194,12 +194,12 @@ class PlotBase:
             for button in self.figure._localaxes:
                 if button.get_gid() == "button":
                     button.set_visible(False)
-            self.figure.savefig(file, *kwargs)
+            self.figure.savefig(file, **kwargs)
             for button in self.figure._localaxes:
                 if button.get_gid() == "button":
                     button.set_visible(True)
         else:
-            self.figure.savefig(file, *kwargs)
+            self.figure.savefig(file, **kwargs)
 
 
 def check_kwargs(known_kwargs, kwargs):
