@@ -989,7 +989,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             flag_channel(((1,10), [47,56], 75))
 
 
-        See `~dysh.util.selection.Flag`.
+        .. note::
+            
+            If 80% of more of the inner channels in an integration are flagged, the rest of the channels will be flagged. 
+            This is because the system temperature calculation uses the inner 80% of channels.
+        
+        For a further description of flagging, see `~dysh.util.selection.Flag`.
 
         Parameters
         ----------
