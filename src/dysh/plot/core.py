@@ -206,18 +206,19 @@ def check_kwargs(known_kwargs, kwargs):
     if len(diff) > 0:
         logger.warning(f"Unknown kwargs: {', '.join(diff)}")
 
+
 def parse_html(s):
     """Turn html-styled text from spectral line search to matplotlib mathtext"""
 
-    #handle subscripts and superscripts
+    # handle subscripts and superscripts
     s = s.replace("<sub>", "$_{")
     s = s.replace("</sub>", "}$")
 
     s = s.replace("<sup>", "$_{")
     s = s.replace("</sup>", "}$")
 
-    #strip everything else, maybe
-    s = s.replace('<font color="red">', "").replace('</font>', "")
+    # strip everything else, maybe
+    s = s.replace('<font color="red">', "").replace("</font>", "")
     s = s.replace("<i>", "").replace("</i>", "")
 
     return s
