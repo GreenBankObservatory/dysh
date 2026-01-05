@@ -990,10 +990,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
 
         .. note::
-            
-            If 80% of more of the inner channels in an integration are flagged, the rest of the channels will be flagged. 
+
+            If 80% of more of the inner channels in an integration are flagged, the rest of the channels will be flagged.
             This is because the system temperature calculation uses the inner 80% of channels.
-        
+
         For a further description of flagging, see `~dysh.util.selection.Flag`.
 
         Parameters
@@ -1081,9 +1081,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Parameters
         ----------
-        
+
         flag_outer : bool
-            If the inner 80% of channels has been flagged, flag the rest.  This defaults to `True` because the 
+            If the inner 80% of channels has been flagged, flag the rest.  This defaults to `True` because the
             system temperature calculation uses the inner 80% of channels.
 
         Returns
@@ -1121,13 +1121,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # now any additional channel flags, i.e. VEGAS flags
         self._apply_additional_flags()
 
-
     def _apply_additional_flags(self):
         """apply the additional channel flags created by, e.g., flag_vegas"""
         for k in self._sdf:
             if k._additional_channel_mask is not None and k._flagmask is not None:
                 k._flagmask |= k._additional_channel_mask
-        
+
     @log_call_to_history
     def clear_flags(self):
         """Clear all flags for these data"""
