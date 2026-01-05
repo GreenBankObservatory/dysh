@@ -675,8 +675,6 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     calon.mask |= np.ma.masked_where(np.isnan(calon),calon).mask
     caloff = np.ma.masked_array(caloff,keep_mask=True, dtype=np.float64)
     caloff.mask |= np.ma.masked_where(np.isnan(caloff),caloff).mask   
-    print(f"{type(caloff)=} {type(calon)=} {caloff.dtype=} {calon.dtype=}")
-    print(f"{np.all(caloff.mask==True)=} {np.all(calon.mask==True)=}")
     
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.ma.mean(caloff[chrng])
@@ -688,7 +686,6 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
 
     # meandiff can sometimes be negative, which makes Tsys negative!
     # GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)
-    print(f"{np.ma.abs(meanTsys)=}")
     return np.ma.abs(meanTsys)
 
 
