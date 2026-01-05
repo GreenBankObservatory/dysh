@@ -55,6 +55,10 @@ class TestSpecplot:
         self.tp.plot(vel_frame="lsrk", doppler_convention="radio")
         self.tp.plot(title="testing")
 
+    def test_cataloglines(self):
+        tp_plt = self.tp.plot()
+        tp_plt.show_catalog_lines()
+        tp_plt.clear_overlays()
 
 class TestScanplot:
     def setup_method(self):
