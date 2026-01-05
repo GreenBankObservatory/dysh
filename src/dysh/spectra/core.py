@@ -671,21 +671,25 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     # Define the channel range once.
     chrng = slice(nedge, -(nedge - 1), 1)
 
-    # Make them doubles. Probably not worth it.
-    caloff = caloff.astype("d")
-    calon = calon.astype("d")
-
+    calon = np.ma.masked_array(calon,keep_mask=True, dtype=np.float64)
+    calon.mask |= np.ma.masked_where(np.isnan(calon),calon).mask
+    caloff = np.ma.masked_array(caloff,keep_mask=True, dtype=np.float64)
+    caloff.mask |= np.ma.masked_where(np.isnan(caloff),caloff).mask   
+    print(f"{type(caloff)=} {type(calon)=} {caloff.dtype=} {calon.dtype=}")
+    print(f"{np.all(caloff.mask==True)=} {np.all(calon.mask==True)=}")
+    
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
-        meanoff = np.nanmean(caloff[chrng])
-        meandiff = np.nanmean(calon[chrng] - caloff[chrng])
+        meanoff = np.ma.mean(caloff[chrng])
+        meandiff = np.ma.mean(calon[chrng] - caloff[chrng])
         meanTsys = meanoff / meandiff * tcal + tcal / 2.0
     else:
-        meanTsys = np.nanmean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
+        meanTsys = np.ma.mean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
         meanTsys = meanTsys * tcal + tcal / 2.0
 
     # meandiff can sometimes be negative, which makes Tsys negative!
     # GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)
-    return np.abs(meanTsys)
+    print(f"{np.ma.abs(meanTsys)=}")
+    return np.ma.abs(meanTsys)
 
 
 def sq_weighted_avg(a, axis=0, weights=None):
