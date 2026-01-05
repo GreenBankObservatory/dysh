@@ -1928,7 +1928,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
@@ -1965,7 +1965,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
@@ -1993,7 +1993,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
