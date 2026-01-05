@@ -1409,7 +1409,7 @@ class Flag(SelectionBase):
                     # its the header
                     colnames = l[1:].split(",")
                     if colnames != header:
-                        raise OSError(f"Column names {colnames} in {fileobj} do not match expected {header}")
+                        raise ValueError(f"Column names {colnames} in {fileobj} do not match expected {header}")
                     found_header = True
             else:
                 values = l.split("|")
