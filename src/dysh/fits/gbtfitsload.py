@@ -1069,10 +1069,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
 
     @log_call_to_history
-    def apply_flags(self):
+    def apply_flags(self, flag_outer=True):
         """
         Set the channel flags according to the rules specified in the `flags` attribute.
         This sets numpy masks in the underlying `SDFITSLoad` objects.
+
+        Parameters
+        ----------
+        
+        flag_outer : bool
+            If the inner 80% of channels has been flagged, flag the rest.  This defaults to `True` because the 
+            system temperature calculation uses the inner 80% of channels.
 
         Returns
         -------
@@ -1083,6 +1090,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # have the same key as the flag rules.
         # For all SDFs in each flag rule, set the flag mask(s)
         # for their rows.  The index of the sdf._flagmask array is the bintable index
+
         for key, chan in self._flag._flag_channel_selection.items():
             selection = self._flag.get(key)
             # chan will be a list or a list of lists
@@ -1095,16 +1103,26 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
+                if flag_outer:
+                    nchan = np.shape(self._sdf[fi]._flagmask[bi])[1]
+                    nedge = int(nchan * 0.1)
+                    # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
+                    # Therefore we have to add a channel to the upper edge of the range
+                    # below in order to reproduce exactly what GBTIDL gets for Tsys.
+                    chrng = slice(nedge, -(nedge - 1), 1)
+                    if np.all(chan_mask[chrng]):
+                        chan_mask[:] = True
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
         # now any additional channel flags, i.e. VEGAS flags
         self._apply_additional_flags()
+
 
     def _apply_additional_flags(self):
         """apply the additional channel flags created by, e.g., flag_vegas"""
         for k in self._sdf:
             if k._additional_channel_mask is not None and k._flagmask is not None:
                 k._flagmask |= k._additional_channel_mask
-
+        
     @log_call_to_history
     def clear_flags(self):
         """Clear all flags for these data"""
