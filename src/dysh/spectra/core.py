@@ -671,21 +671,11 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     # Define the channel range once.
     chrng = slice(nedge, -(nedge - 1), 1)
 
-<<<<<<< HEAD
     calon = np.ma.masked_array(calon,keep_mask=True, dtype=np.float64)
     calon.mask |= np.ma.masked_where(np.isnan(calon),calon).mask
     caloff = np.ma.masked_array(caloff,keep_mask=True, dtype=np.float64)
     caloff.mask |= np.ma.masked_where(np.isnan(caloff),caloff).mask   
     
-=======
-    calon = np.ma.masked_array(calon, keep_mask=True, dtype=np.float64)
-    calon.mask |= np.ma.masked_where(np.isnan(calon), calon).mask
-    caloff = np.ma.masked_array(caloff, keep_mask=True, dtype=np.float64)
-    caloff.mask |= np.ma.masked_where(np.isnan(caloff), caloff).mask
-    print(f"{type(caloff)=} {type(calon)=} {caloff.dtype=} {calon.dtype=}")
-    print(f"{np.all(caloff.mask==True)=} {np.all(calon.mask==True)=}")
-
->>>>>>> e15e3b24880b8d8895260035937d3fd884b269a7
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.ma.mean(caloff[chrng])
         meandiff = np.ma.mean(calon[chrng] - caloff[chrng])
@@ -740,7 +730,7 @@ def tsys_weight(exposure, delta_freq, tsys):
 
 
      >>> import astropy.units as u
-     >>> [3*u.s, 4*u.s]   ### WRONG
+     >>> [3*ueighty.s, 4*u.s]   ### WRONG
 
     Rather, if using `~astropy.units.Quantity`, they have to be `~astropy.units.Quantity` objects, e.g.,
 
