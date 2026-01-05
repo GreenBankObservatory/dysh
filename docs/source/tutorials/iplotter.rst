@@ -164,3 +164,24 @@ in the future and will be addressed. We can check the stats before and after to 
     ps.savefig('my_spectrum.png')
 
 .. image:: files/iplotter8.png
+
+
+
+Overlaying Catalog Lines
+------------------------
+
+You can overlay the molecular spectral lines found from the
+`spectral line search feature <https://dysh.readthedocs.io/en/latest/how-tos/examples/line_search.html>`_
+on your plot with the following command:
+
+.. code-block::
+
+    plot.show_catalog_lines()
+
+.. image:: files/specplot_cataloglines.png
+
+Just like any other overlays, you can clear these with:
+
+.. code-block::
+
+    plot.clear_overlays()

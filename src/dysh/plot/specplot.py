@@ -349,24 +349,35 @@ class SpectrumPlot(PlotBase):
             Remove catalog spectral lines overlaid on the plot. Default: True
         """
         if blines:
-            self.clear_lines("baseline")
+            self._clear_overlay_objects("lines", "baseline")
         if oshows:
-            self.clear_lines("oshow")
+            self._clear_overlay_objects("lines", "oshow")
         if catalog:
-            self.clear_lines("cataloglines")
-    def clear_lines(self, gid):
+            self._clear_overlay_objects("lines", "catalogline")
+            self._clear_overlay_objects("texts", "catalogtext")
+
+
+
+    def _clear_overlay_objects(self, otype, gid):
         """
         Clears lines with `gid` from the plot.
 
         Parameters
         ----------
+        otype : str
+            Type of overlay. Can be "lines" or "texts".
         gid : str
             Group id for the lines to be cleared.
         """
+        if otype == "lines":
+            tgt_list = self._axis.lines
+        elif otype == "texts":
+            tgt_list = self._axis.texts
 
-        for b in self._axis.lines:
+        for b in tgt_list:
             if b.get_gid() == gid:
                 b.remove()
+
 
     def oshow(self, spectra, color=None, linestyle=None):
         """
@@ -445,12 +456,12 @@ class SpectrumPlot(PlotBase):
 
         for i,line in enumerate(self.sl_tbl):
             line_name = parse_html(line["name"])
-            line_freq = (line["orderedfreq"] * u.MHz).to(self._xunit).value
+            line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit).value
 
             vloc =  ystart + (i%7)*fracstep
 
             self._axis.axvline(line_freq, c='k', linewidth=1, gid="catalogline")
-            self._axis.annotate(line_name, (line_freq, vloc),xycoords=('data','axes fraction'),size=fsize,gid="catalogline")
+            self._axis.annotate(line_name, (line_freq, vloc),xycoords=('data','axes fraction'),size=fsize,gid="catalogtext")
 
 
 class InteractiveSpanSelector:
