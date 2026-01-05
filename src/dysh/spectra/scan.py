@@ -363,7 +363,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     ):
         if len(meta_rows) == 0:
             raise Exception(
-                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
+                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection. If the inner 80% of channels has been flagged, system temperature cannot be calculated."
             )
         self._calibrate = calibrate
 
