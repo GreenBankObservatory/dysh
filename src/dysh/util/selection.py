@@ -1078,7 +1078,7 @@ class Selection(SelectionBase):
         """
         self._base_select_within(tag, **kwargs)
 
-    def select_channel(self, chan, tag=None):
+    def select_channel(self, channel, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
@@ -1102,7 +1102,7 @@ class Selection(SelectionBase):
 
         Parameters
         ----------
-        chan : number, or array-like
+        channel : number, or array-like
             The channels to select
 
         Returns
@@ -1110,7 +1110,7 @@ class Selection(SelectionBase):
         None.
 
         """
-        self._base_select_channel(chan, tag)
+        self._base_select_channel(channel, tag)
 
 
 class Flag(SelectionBase):
@@ -1142,6 +1142,21 @@ class Flag(SelectionBase):
 
     GBTIDL Flags can be read in with :meth:`read`.
     """
+
+    @property
+    def final(self):
+        """
+        Create the final flag selection. This is done by a logical OR of each
+        of the flag rules (specifically `pandas.merge(how='outer')`).
+        Unlike Selection which uses AND logic to progressively narrow down data,
+        Flag uses OR logic to cumulatively flag any data matching any rule.
+
+        Returns
+        -------
+        final : DataFrame
+            The resultant flagged rows from all the rules.
+        """
+        return self.merge(how="outer")
 
     def flag(self, tag=None, check=False, **kwargs):
         """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`

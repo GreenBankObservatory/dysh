@@ -1,6 +1,7 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
+import inspect
 import itertools
 import numbers
 import os
@@ -40,6 +41,7 @@ from ..util import (
     consecutive,
     convert_array_to_mask,
     eliminate_flagged_rows,
+    get_valid_channel_range,
     keycase,
     select_from,
     show_dataframe,
@@ -839,7 +841,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             select_channel([[1,10]])
             # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
             select_channel([[1,10], [47,56], 75)])
-            # tuples also work, though can be harder for a human to read
+            # tuples also work
             select_channel(((1,10), [47,56], 75))
 
 
@@ -854,6 +856,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         -------
         None.
         """
+
         self._selection.select_channel(tag=tag, channel=channel)
 
     @log_call_to_history
@@ -957,9 +960,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_history
     def flag_channel(self, channel, tag=None):
         """
-        Select channels and/or channel ranges. These are NOT used in :meth:`final`
-        but rather will be used to create a mask for
-        flagging. Single arrays/tuples will be treated as channel lists;
+        Flag channels and/or channel ranges. These will be used to create a mask for
+        data when calibrating (see :meth:`apply_flags`). Single arrays/tuples will be treated as channel lists;
         nested arrays will be treated as ranges, for instance
 
         .. code::
@@ -972,7 +974,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             flag_channel([[1,10]])
             # flags channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
             flag_channel([[1,10], [47,56], 75)])
-            # tuples also work, though can be harder for a human to read
+            # tuples also work
             flag_channel(((1,10), [47,56], 75))
 
 
@@ -1217,6 +1219,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._selection["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
 
+    def _normalize_channel_range(self, channel: list) -> list | None:
+        """Ensure channel range is [first,last] for calibration"""
+        if channel is None and self._selection._channel_selection is None:
+            return None
+        elif channel is not None and self._selection._channel_selection is not None:
+            raise ValueError(
+                f"A channel selection was previously made: {self._selection._channel_selection}.  Clear that selection before attempting to calibrate with a different channel range."
+            )
+        elif channel is None and self._selection._channel_selection is not None:
+            return get_valid_channel_range(self._selection._channel_selection)
+        else:
+            return get_valid_channel_range(channel)
+
     def _common_selection(self, ifnum, plnum, fdnum, **kwargs):
         """Do selection and flag application common to all calibration methods.
         Flags are not applied unless selection results in non-zero length data selection.
@@ -1237,9 +1252,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         scan_df : tuple
             A tuple consisting of a list of scan numbers selected and a `~pandas.DataFrame` of the selection.
         """
-
         kwargs = keycase(kwargs)
         apply_flags = kwargs.pop("APPLY_FLAGS", True)
+
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
@@ -1308,6 +1323,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         apply_flags: bool = True,
         t_sys=None,
         t_cal=None,
+        channel: list | None = None,
         vane=None,
         **kwargs,
     ):
@@ -1339,6 +1355,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used.
+        channel: list or None
+            An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+            only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+            trimmed to `[firstchan,lastchan]` before any smoothing. If channels have already been selected through
+            :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : None
             Used to suppress info message about use of TSYS column in case this is being used to make a `~dysh.spectra.vane.VaneSpectrum`.
         **kwargs : dict
@@ -1352,6 +1373,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             A ScanBlock containing one or more `~dysh.spectra.scan.TPScan`
 
         """
+        _channel = self._normalize_channel_range(channel)
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
@@ -1422,6 +1444,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 tsys=_tsys,
                 tcal=_tcal,
                 tscale=tscale[0],
+                channel=_channel,
             )
             tscalefac = _sifdf.get("TSCALFAC", None)
             if tscalefac is not None:
@@ -1458,6 +1481,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         nocal: bool = False,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        channel: list | None = None,
         vane: int | VaneSpectrum | None = None,
         t_atm: float | None = None,
         t_bkg: float | None = None,
@@ -1474,6 +1498,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ref : int or Spectrum
             The reference scan number or a `~dysh.spectra.spectrum.Spectrum` object.  If an integer is given,
             the reference spectrum will be the total power time-averaged spectrum using the weights given.
+            If `channel` is given, the reference spectrum will be trimmed to the `channel` range before calibration.
         fdnum : int
             The feed number.
         ifnum : int
@@ -1518,6 +1543,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        channel: list or None
+            An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+            only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
+            :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
             If provided, `t_sys` will be ignored.
@@ -1556,7 +1586,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
-                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
             )
 
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -1567,6 +1597,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise TypeError(
                 "Spectrum object not allowed for 'scan'.  You can use Spectrum arithmetic if both 'scan' and 'ref' are Spectrum objects"
             )
+        _channel = self._normalize_channel_range(channel)
         if t_sys is not None and t_cal is not None:
             warnings.warn("Both t_cal and t_sys were set. Only t_sys will be used.", stacklevel=2)
 
@@ -1600,6 +1631,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 calibrate=calibrate,
                 apply_flags=apply_flags,
                 t_cal=t_cal,
+                channel=_channel,
                 vane=vane,
                 **kwargs,
             ).timeaverage(weights=weights)
@@ -1680,6 +1712,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tcal=_tcal,
                     ap_eff=ap_eff,
                     surface_error=surface_error,
+                    channel=_channel,
                     vane=vane,
                 )
                 g._refscan = ref
@@ -1715,6 +1748,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         t_cal=None,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        channel: list | None = None,
         vane: int | VaneSpectrum | None = None,
         t_atm: float | None = None,
         t_bkg: float | None = None,
@@ -1767,6 +1801,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        channel: list or None
+            An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+            only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
+            :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
             If provided, `t_sys` will be ignored.
@@ -1804,11 +1843,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
-                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
             )
 
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
+        _channel = self._normalize_channel_range(channel)
 
         prockey = "OBSTYPE"
         procvals = {"ON": "PSWITCHON", "OFF": "PSWITCHOFF"}
@@ -1821,7 +1861,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             procvals=procvals,
             **kwargs,
         )
-
         tsys = _parse_tsys(t_sys, scans)
         _tsys = tsys
         _tcal = t_cal
@@ -1895,6 +1934,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     tcal=_tcal,
                     ap_eff=ap_eff,
                     surface_error=surface_error,
+                    channel=_channel,
                     vane=vane,
                 )
                 # If calibrated with a vane change the units (so ugly >.<).
@@ -1929,6 +1969,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zenith_opacity=None,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        channel: list | None = None,
         vane: int | VaneSpectrum | None = None,
         t_atm: float | None = None,
         t_bkg: float | None = None,
@@ -1985,6 +2026,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        channel: list or None
+            An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+            only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
+            :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane calibration scan. This will be used to derive the system temperature.
             If provided, `t_sys` will be ignored.
@@ -2026,6 +2072,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise ValueError("Can't scale the data without a valid zenith opacity")
         if fdnum is not None and (type(fdnum) is int or len(fdnum) != 2):
             raise TypeError(f"fdnum={fdnum} not valid, need a list with two feeds")
+        _channel = self._normalize_channel_range(channel)
         self._check_vane_and_t_sys_args(vane, t_sys)
 
         prockey = "PROCSEQN"
@@ -2073,7 +2120,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if vane is not None:
                         # Each beam needs its own vane, and we might not know the fdnums before this point.
                         _vane, units, requested_units, zenith_opacity = self._vane_setup(
-                            vane, f, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                            vane, f, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
                         )
                     else:
                         _vane = None
@@ -2142,6 +2189,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         zenith_opacity=zenith_opacity,
                         ap_eff=ap_eff,
                         surface_error=surface_error,
+                        channel=_channel,
                         vane=_vane,
                     )
                     # If calibrated with a vane change the units (so ugly >.<).
@@ -2182,6 +2230,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         nocal: bool = False,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        channel: list | None = None,
         vane: int | VaneSpectrum | None = None,
         t_atm: float | None = None,
         t_bkg: float | None = None,
@@ -2243,6 +2292,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
             aperture efficiency.  If None, `dysh` will use the known GBT surface error model.  Only one of `ap_eff` or `surface_error`
             can be provided.
+        channel: list or None
+            An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+            only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
+            :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+
+            **Note**: With certain choices of `channel`, folding the data with `shift_method='fft'` can result in
+            a numpy array broadcast exception. If this occurs, either change `shift_method` to 'interpolate' or change
+            the channel range by one channel to avoid the error.
         vane : int or `~dysh.spectra.vane.VaneSpectrum` or None
             Vane scalibration scan. This will be used to derive the system temperature.
             If provided, `t_sys` will be ignored.
@@ -2282,12 +2340,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
-                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
             )
 
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
-
+        _channel = self._normalize_channel_range(channel)
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
 
         tsys = _parse_tsys(t_sys, scans)
@@ -2364,6 +2422,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     nocal=_nocal,
                     ap_eff=ap_eff,
                     surface_error=surface_error,
+                    channel=_channel,
                     vane=vane,
                 )
                 # If calibrated with a vane change the units (so ugly >.<).
@@ -2567,9 +2626,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         zenith_opacity=None,
         t_sys=None,
         t_cal=None,
-        nocal: bool = False,
         ap_eff: float | None = None,
         surface_error: Quantity | None = None,
+        channel: list | None = None,
+        nocal: bool = False,
         vane: int | VaneSpectrum | None = None,
         t_atm: float | None = None,
         t_bkg: float | None = None,
@@ -2616,6 +2676,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Noise diode temperature. If provided, this value is used instead of the value found in the
             TCAL column of the SDFITS file. If no value is provided, default, then the TCAL column is
             used.
+        channel: list or None
+            An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
+            only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
+            trimmed to `[firstchan,lastchan]`.  System temperature calculation will use 80% of the trimmed channel range.  If channels have already been selected through
+            :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
         ap_eff : float or None
             Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
             efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
@@ -2658,12 +2723,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if vane is not None:
             vane, units, requested_units, zenith_opacity = self._vane_setup(
-                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags
+                vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags
             )
 
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
-
+        _channel = self._normalize_channel_range(channel)
         _bintable = kwargs.get("bintable", None)
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
@@ -2751,6 +2816,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             calibrate=calibrate,
                             apply_flags=apply_flags,
                             tcal=_tcal,
+                            channel=_channel,
                         )
                         if tsys is not None:
                             _reftp._tsys[:] = tsys[scan][0]
@@ -2772,6 +2838,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 calibrate=calibrate,
                                 apply_flags=apply_flags,
                                 tcal=_tcal,
+                                channel=_channel,
                             )
                         )
                     sb = SubBeamNodScan(
@@ -2816,6 +2883,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     calibrate=calibrate,
                     apply_flags=apply_flags,
                     t_cal=t_cal,
+                    channel=_channel,
                     **kwargs,
                 )
                 sigtp.append(tpon[0])
@@ -2830,6 +2898,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     apply_flags=apply_flags,
                     t_sys=t_sys,
                     t_cal=t_cal,
+                    channel=_channel,
                     **kwargs,
                 )
                 reftp.append(tpoff[0])
@@ -2994,7 +3063,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
                 for b in bintables:  # loop over the bintables in this fitsfile
-                    rows = df.ROW.unique()
+                    rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
@@ -3034,7 +3103,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
                 for b in bintables:
-                    rows = df.ROW.unique()
+                    rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
@@ -3340,7 +3409,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def get_nod_beams(self, scan):
         """
         Find the FDNUM values for two nodding beams.
-        It relies on the SDFITS having the column 'PROCSCAN' set to 'BEAM1' or 'BEAM2'.
 
         Parameters
         ----------
@@ -3381,10 +3449,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         mask = mask & np.isclose(self["FEEDXOFF"], 0.0) & np.isclose(self["FEEDEOFF"], 0.0)
         if mask.sum() == 0:
             raise ValueError(f"Scan {scan} does not have a beam centered on the target.")
-        mask1 = mask & (self["PROCSCAN"] == "BEAM1")
-        mask2 = mask & (self["PROCSCAN"] == "BEAM2")
-        feed1 = self._get_beam(scan, mask1, bi=1)
-        feed2 = self._get_beam(scan, mask2, bi=2)
+        if "BEAM1" in set(self["PROCSCAN"][mask]) and "BEAM2" in set(self["PROCSCAN"][mask]):
+            mask1 = mask & (self["PROCSCAN"] == "BEAM1")
+            mask2 = mask & (self["PROCSCAN"] == "BEAM2")
+            feed1 = self._get_beam(scan, mask1, bi=1)
+            feed2 = self._get_beam(scan, mask2, bi=2)
+        elif len(set(self["FDNUM"][mask])) == 2:
+            feeds = iter(set(self["FDNUM"][mask]))
+            feed1 = next(feeds)
+            feed2 = next(feeds)
+        else:
+            raise ValueError("Cannot determine nodding beams. Please set fdnum manually.")
 
         return [feed1, feed2]
 
@@ -3488,11 +3563,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         fdnum: int,
         ifnum: int,
         plnum: int,
-        tcal: float | None = None,
+        t_cal: float | None = None,
         zenith_opacity: float | None = None,
-        tatm: float | None = None,
-        twarm: float | None = None,
-        tbkg: float = 2.725,
+        t_atm: float | None = None,
+        t_warm: float | None = None,
+        t_bkg: float = 2.725,
         apply_flags=True,
         **kwargs,
     ):
@@ -3511,18 +3586,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The intermediate frequency (IF) number.
         plnum : int
             The polarization number.
-        tcal : float, optional
+        t_cal : float, optional
             Calibration temperature. If no value is provided, but `zenith_opacity` and `tatm` are provided, then
             it will use Eq. (22) of [1]_. If `zenith_opacity` and `tatm` are not provided, it will first try to
             retrieve them using the weather forecasts (only available at GBO), if that fails it will use the
             ambient temperature, Eq. (23) of [1]_.
         zenith_opacity : float, optional
             Zenith opacity. If not provided it will try to fetch "Opacity" from the weather forecasts (only available at GBO).
-        tatm : float, optional
+        t_atm : float, optional
             Atmospheric temperature in K. If not provided it will try to fetch "Tatm" from the weather forecasts (only available at GBO).
-        twarm : float, optional
+        t_warm : float, optional
             Temperature of the VANE in K. If not provided it will use the value found in the "TWARM" column of the SDFITS for `scan`.
-        tbkg : float, optional
+        t_bkg : float, optional
             Background temperature in K.
         apply_flags : bool, optional
             If True, apply flags before deriving the system temperature.
@@ -3547,7 +3622,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         ).timeaverage()
 
         return VaneSpectrum.from_spectrum(
-            vane, scan, fdnum, ifnum, plnum, tcal=tcal, zenith_opacity=zenith_opacity, tatm=tatm, twarm=twarm, tbkg=tbkg
+            vane,
+            scan,
+            fdnum,
+            ifnum,
+            plnum,
+            tcal=t_cal,
+            zenith_opacity=zenith_opacity,
+            tatm=t_atm,
+            twarm=t_warm,
+            tbkg=t_bkg,
         )
 
     def vanecal(
@@ -3748,7 +3832,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise ValueError(f"More than one value for TCAL: {tcal_set}")
         return tcal_set[0]
 
-    def _vane_setup(self, vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, apply_flags):
+    def _vane_setup(self, vane, fdnum, ifnum, plnum, units, zenith_opacity, t_warm, t_atm, t_bkg, t_cal, apply_flags):
         """
         Set up a `~dysh.spectra.vane.VaneSpectrum` for use in the calibration routines.
         It also handles the hacks needed to get the units correctly when using a vane.
@@ -3775,9 +3859,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 zenith_opacity = vane._zenith_opacity
                 logger.info(f"Will use a zenith opacity of {zenith_opacity} nepers. Taken from vane.")
             if t_warm is not None:
-                logger.info("t_warm provided, but not used. To change this value, please create a new VaneSpectrum.")
+                logger.info(
+                    "t_warm provided, but not used. To change this value, please create a new VaneSpectrum or call with vane as a scan number."
+                )
             if t_atm is not None:
-                logger.info("t_atm provided, but not used. To change this value, please create a new VaneSpectrum.")
+                logger.info(
+                    "t_atm provided, but not used. To change this value, please create a new VaneSpectrum or call with vane as a scan number."
+                )
+            if t_cal is not None:
+                logger.info(
+                    "t_cal provided, but not used. To change this value, please create a new VaneSpectrum or call with vane as a scan number."
+                )
         elif isinstance(vane, int):
             vane = self.getvane(
                 scan=vane,
@@ -3785,9 +3877,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 ifnum=ifnum,
                 plnum=plnum,
                 zenith_opacity=zenith_opacity,
-                twarm=t_warm,
-                tatm=t_atm,
-                tbkg=t_bkg,
+                t_warm=t_warm,
+                t_atm=t_atm,
+                t_bkg=t_bkg,
+                t_cal=t_cal,
                 apply_flags=apply_flags,
             )
         else:
@@ -3843,6 +3936,37 @@ class GBTOffline(GBTFITSLoad):
         GBTFITSLoad.__init__(self, self._filename, *args, **kwargs)
 
 
+# NOTE: if GBTFITSLoad has new functions added, they may need to be added in GBTOnline() as well
+#       these two variables with _check_functions() will warn in runtime, but fail in pytest
+#       If you add more to _skip_functions, deduct the number in _need_functions
+_skip_functions = ["velocity_convention", "velocity_frame"]
+_need_functions = 55
+
+
+def _check_functions(verbose=False):
+    """
+    check if number of functions in GBTFITSLoad() didn't change from
+    the last time we (manually) recorded this.
+    """
+    fns = inspect.getmembers(GBTFITSLoad, predicate=inspect.isfunction)
+    need = _need_functions
+    n = 0
+    for i in range(len(fns)):
+        fn = fns[i][0]
+        if fn[0] == "_":
+            continue
+        if fn in _skip_functions:
+            continue
+        n = n + 1
+        if verbose:
+            print(n, fn)
+    if n != need:
+        # this means GBTOnline may need to have the new
+        logger.warning(f"GBTOnline: parent GBTFITSLoad() was expected have {need} functions, but found {n}.")
+    # return values for tests
+    return (need, n)
+
+
 class GBTOnline(GBTFITSLoad):
     """
     GBTOnline('foo')   monitors project 'foo' as if it could be online
@@ -3863,6 +3987,7 @@ class GBTOnline(GBTFITSLoad):
         self._args = args
         self._kwargs = kwargs
         self._platform = platform.system()  # cannot update in "Windows", see #447
+        _check_functions()  # check if # functions if GBTFITSLoad didn't change
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
@@ -3948,6 +4073,14 @@ class GBTOnline(GBTFITSLoad):
         self._reload()
         return super().summary(*args, **kwargs)
 
+    def get_summary(self, *args, **kwargs):
+        self._reload()
+        return super().get_summary(*args, **kwargs)
+
+    def write(self, *args, **kwargs):
+        self._reload()
+        return super().write(*args, **kwargs)
+
     def gettp(self, *args, **kwargs):
         self._reload()
         return super().gettp(*args, **kwargs)
@@ -3985,8 +4118,27 @@ class GBTOnline(GBTFITSLoad):
         return super().gettcal(*args, **kwargs)
 
 
-def _parse_tsys(tsys, scans):
-    """ """
+def _parse_tsys(tsys: float | np.ndarray | list | dict, scans: list) -> dict:
+    """
+    Parse the system temperatures for a list of scans.
+
+    Parameters
+    ----------
+    tsys : float or `~numpy.ndarray` or list or dict
+        The system temperature(s)
+    scans : list
+        list of scan numbers associated with the system temperature(s)
+
+    Raises
+    ------
+    TypeError
+        If there is a mismatch between number of system temperatures and number of scans
+
+    Returns
+    -------
+    dict
+        Dictionary of system temperatures with scan number as keys
+    """
     if isinstance(tsys, numbers.Real):
         tsys = _tsys_1Darray_to_dict(tsys, scans)
     if isinstance(tsys, list):
@@ -4007,6 +4159,7 @@ def _parse_tsys(tsys, scans):
 
 
 def _tsys_1Darray_to_dict(tsys, scans):
+    """Convert 1D array of system temperatures to a dictionary with scan number as keys"""
     tsys_dict = {}
     for scan in scans:
         tsys_dict[scan] = np.vstack((tsys, tsys))

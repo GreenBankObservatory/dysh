@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -220,7 +221,7 @@ class SpectralLineSearchClass:
         cat: Literal[(x for x in _allowable_local_cats)] | Path = "gbtlines",
         columns: str | list = _default_columns_to_return,
         chemical_name: str | None = None,
-        chem_re_flags: int = 0,
+        chem_re_flags: int = re.I,
         energy_min: float | None = None,
         energy_max: float | None = None,
         energy_type: Literal[(x for x in Splatalogue.VALID_ENERGY_TYPES)] | None = None,
@@ -306,7 +307,7 @@ class SpectralLineSearchClass:
         # The easiest way to do this through pandas; using the Table interface
         # is too cumbersome.
         if chemical_name is not None:
-            species = self.get_species_ids(species_regex=chemical_name)
+            species = self.get_species_ids(species_regex=chemical_name, reflags=chem_re_flags)
             if len(species) == 0:
                 raise ValueError(f"Unable to find species matching {chemical_name}")
             # get species id returns string but 'species_id' column in tables returned by splatalogue is int!
@@ -503,6 +504,7 @@ class SpectralLineSearchClass:
             line_lists=["Recomb"],
             columns=columns,
             only_NRAO_recommended=only_NRAO_recommended,
+            chem_re_flags=re.I,
             **kwargs,
         )
 

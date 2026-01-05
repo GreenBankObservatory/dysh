@@ -202,3 +202,17 @@ class TestBaseline:
         core.exclude_to_spectral_region([1 * u.m, 10 * u.m, 20 * u.m, 30 * u.m], s)
         core.exclude_to_spectral_region([[1 * u.m, 10 * u.m], [20 * u.m, 30 * u.m]], s)
         core.exclude_to_spectral_region([(1 * u.m, 10 * u.m), (20 * u.m, 30 * u.m)], s)
+
+
+def test_mask_fshift():
+    a = np.zeros(5, dtype=bool)
+    a[2] = True
+    assert np.all(a == [False, False, True, False, False])
+    r = core.mask_fshift(a, 0)
+    assert np.all(r == a)
+    r = core.mask_fshift(a, 0.5)
+    assert np.all(r == [False, False, True, True, False])
+    r = core.mask_fshift(a, -0.5)
+    assert np.all(r == [False, True, True, False, False])
+    with pytest.raises(ValueError):
+        r = core.mask_fshift(a, 1)

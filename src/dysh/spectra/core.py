@@ -839,7 +839,7 @@ def fft_pad(y):
     npad = newsize - nch
     nskip = npad // 2
     padded[nskip : nskip + nch] = y
-    padded[nskip : nskip + nch].mask = y.mask
+    padded.mask[nskip : nskip + nch] = y.mask
     padded[0:nskip] = padded[nskip]
     padded[nskip + nch :] = padded[nskip + nch]
 
@@ -891,14 +891,14 @@ def fft_shift(
     if pad:
         padded, nskip = fft_pad(y)
     else:
-        padded, nskip = y.copy(), 0
+        padded, nskip = deepcopy(y), 0
 
     new_len = len(padded)
 
     phase_shift = 2.0 * np.pi * shift / new_len
 
     yf = padded.copy()
-    nan_mask = np.isnan(padded)
+    nan_mask = np.isnan(padded.data) | padded.mask
 
     if nan_treatment == "fill":
         yf[nan_mask] = fill_value
@@ -931,12 +931,16 @@ def fft_shift(
     new_y = np.ma.masked_invalid(shifted_y.real[nskip : nskip + nch])
     new_nan_mask = nan_mask[nskip : nskip + nch]
 
-    # Shift NaN elements.
+    # Shift NaN elements and mask.
     if keep_nan:
         if abs(shift) < 1:
+            new_nan_mask = mask_fshift(new_nan_mask, shift)
             new_y[new_nan_mask] = np.nan
+            new_y.mask[new_nan_mask] = True
         else:
-            new_y[np.roll(new_nan_mask, int(shift))] = np.nan
+            new_nan_mask = np.roll(new_nan_mask, int(shift))
+            new_y[new_nan_mask] = np.nan
+            new_y.mask[new_nan_mask] = True
 
     return new_y
 
@@ -1178,13 +1182,15 @@ def data_fshift(y, fshift, method="fft", pad=False, window=True):
         Only used if `method="fft"`.
     """
 
-    if abs(fshift) > 1:
+    if abs(fshift) >= 1:
         raise ValueError("abs(fshift) must be less than one: {fshift}")
 
     if method == "fft":
         new_y = fft_shift(y, fshift, pad=pad, window=window)
     elif method == "interpolate":
         new_y = ndimage.shift(y.filled(0.0), [fshift])
+        mask = mask_fshift(y.mask, fshift)
+        new_y = np.ma.masked_where(mask, new_y)
 
     return new_y
 
@@ -1233,6 +1239,43 @@ def data_shift(y, s, axis=-1, remove_wrap=True, fill_value=np.nan, method="fft",
         y_new = data_fshift(y_new, fshift, method=method, pad=pad, window=window)
 
     return y_new
+
+
+def mask_fshift(mask, fshift):
+    """
+    Shift `mask` by `fshift` channels.
+    This should only be used when `abs(fshift)<1`.
+    It expands the mask using binary dilation
+    to account for the spread of the masked values when
+    they are shifted by a fractional number of channels.
+
+    Parameters
+    ----------
+    mask : array_like
+        Array with masked values. Either ones and zeros or True and False.
+    fshift : float
+        Amount to shift by.
+
+    Returns
+    -------
+    new_mask : array_like
+        `mask` shifted by `fshift` channels.
+
+    Raises
+    ------
+    ValueError
+        If `abs(fshift)` is greather than 1.
+    """
+    if abs(fshift) >= 1:
+        raise ValueError(f"abs(fshift) greater than 1 ({fshift=})")
+    if fshift < 0:
+        structure = np.array([1, 1, 0], dtype=bool)
+    elif fshift > 0:
+        structure = np.array([0, 1, 1], dtype=bool)
+    else:
+        structure = np.array([0, 1, 0], dtype=bool)
+    new_mask = ndimage.binary_dilation(mask, structure=structure)
+    return new_mask
 
 
 def cog_slope(c, flat_tol=0.1):
@@ -1292,13 +1335,13 @@ def cog_flux(c, flat_tol=0.1):
         The median value of the slope for the curve of growth before it becomes flat.
     """
     slope, _slope_rms, flat_idx0 = cog_slope(c, flat_tol)
-    flux = np.nanmedian(c[flat_idx0:])
+    flux = np.nanmedian(c.filled(np.nan)[flat_idx0:])
     flux_std = np.nanstd(c[flat_idx0:])
-    slope = np.nanmedian(slope[:flat_idx0])
+    slope = np.nanmedian(slope.filled(np.nan)[:flat_idx0])
     return flux, flux_std, slope
 
 
-def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=1):
+def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=1) -> dict:
     """
     Curve of growth analysis based on Yu et al. (2020) [1]_.
 
@@ -1315,10 +1358,10 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         List of fractions of the total flux at which to compute the line width.
         If 0.25 and 0.85 are not included, they will be added to estimate the concentration
         as defined in [1]_.
-    bchan : int
+    bchan : None or int
         Beginning channel where there is signal.
         If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
-    echan : int
+    echan : None or int
         End channel where there is signal.
         If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
     flat_tol : float
@@ -1337,14 +1380,22 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     .. [1] `N. Yu, L. Ho & J. Wang, "On the Determination of Rotation Velocity and Dynamical Mass of Galaxies Based on Integrated H I Spectra"
        <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_.
     """
+
+    # Save units for latter.
+    # These will be stripped,
+    # as quantities and masked arrays are not compatible.
+    y_unit = y.unit
+    x_unit = x.unit
+
     if width_frac is None:
         width_frac = [0.25, 0.65, 0.75, 0.85, 0.95]
     # Sort data values.
     p = 1
     if x[0] > x[1]:
         p = -1
-    _x = x[::p]
-    _y = y[::p]
+    # Strip units.
+    _x = x[::p].value
+    _y = np.ma.masked_invalid(y[::p].value)
     # Use channel ranges if provided.
     # Slice the end first to keep the meaning of bchan.
     if echan is not None:
@@ -1357,16 +1408,17 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     ydx = _y[:-1] * dx
 
     # Find initial guess for central velocity.
-    _vc = vc
-    if _vc is None:
+    if vc is not None:
+        _vc = vc.to(x_unit).value
+    else:
         _vc = (_x * _y).sum() / _y.sum()
     vc_idx = np.argmin(abs(_x - _vc))
 
     # Compute curve of growth.
-    b = np.cumsum(ydx[:vc_idx][::-1])  # Blue.
-    bp = np.cumsum(ydx[: vc_idx + 1][::-1])
-    r = np.cumsum(ydx[vc_idx:])  # Red.
-    rp = np.cumsum(ydx[vc_idx + 1 :])
+    b = np.ma.cumsum(ydx[:vc_idx][::-1])  # Blue.
+    bp = np.ma.cumsum(ydx[: vc_idx + 1][::-1])
+    r = np.ma.cumsum(ydx[vc_idx:])  # Red.
+    rp = np.ma.cumsum(ydx[vc_idx + 1 :])
     s = min(len(b), len(r))
     t = b[:s] + r[:s]
     dx = dx[:s]
@@ -1402,18 +1454,18 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     _, _, flat_idx0 = cog_slope(t, flat_tol)
     nt = t[:flat_idx0] / flux
     for f in width_frac:
-        idx = np.argmin(abs(nt - f))
+        idx = np.nanargmin(abs(nt - f))
         widths[f] = xt[idx]
 
     # Estimate rms from line-free channels.
     if bchan is None:
-        _bchan = np.argmin(abs(x - (_vc - fw * widths[max(width_frac)])))
+        _bchan = np.nanargmin(abs(x.value - (_vc - fw * widths[max(width_frac)])))
         if _bchan <= 0:
             _bchan = 0
     else:
         _bchan = bchan
     if echan is None:
-        _echan = np.argmin(abs(x - (_vc + fw * widths[max(width_frac)])))
+        _echan = np.nanargmin(abs(x.value - (_vc + fw * widths[max(width_frac)])))
         if _echan >= len(x):
             _echan = len(x)
     else:
@@ -1421,10 +1473,10 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     _bchan, _echan = np.sort([_bchan, _echan])
 
     # Use y values without channel crop.
-    rms = np.nanstd(np.hstack((y[:_bchan], y[_echan:])))
+    rms = np.nanstd(np.hstack((y.value[:_bchan], y.value[_echan:])))
 
     # Estimate error on line centroid.
-    vc_std = 0 * x.unit
+    vc_std = 0
     if vc is None:
         fac1 = _vc / (_y * _x).sum() * np.sqrt(np.sum((_x * rms) ** 2))
         fac2 = np.sqrt(len(_x)) * rms * _vc / _y.sum()
@@ -1434,13 +1486,13 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     nt_std = np.sqrt((nt / t[:flat_idx0] * rms * dx[:flat_idx0]) ** 2 + (nt / flux * flux_std) ** 2)
     widths_std = dict.fromkeys(width_frac)
     for f in width_frac:
-        idx = np.argmin(abs(nt - f))
+        idx = np.nanargmin(abs(nt - f))
         std = nt_std[idx]
-        idx_m = np.argmin(abs(nt - std - f))
-        idx_p = np.argmin(abs(nt + std - f))
+        idx_m = np.nanargmin(abs(nt - std - f))
+        idx_p = np.nanargmin(abs(nt + std - f))
         std_m = xt[idx_m] - xt[idx]
         std_p = xt[idx] - xt[idx_p]
-        widths_std[f] = np.nanmax((std_m.value, std_p.value, dx[idx].value)) * dx.unit
+        widths_std[f] = np.nanmax((std_m, std_p, dx[idx]))
         widths_std[f] = np.sqrt(
             widths_std[f] ** 2 + (widths[f] * 0.01) ** 2
         )  # Empirically, the widths are in error by <1%.
@@ -1458,23 +1510,25 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     # Concentration.
     c_v = widths[0.85] / widths[0.25]
 
+    flux_unit = y_unit * x_unit
+
     results = {
-        "flux": flux,
-        "flux_std": flux_std,
-        "flux_r": flux_r,
-        "flux_r_std": flux_r_std,
-        "flux_b": flux_b,
-        "flux_b_std": flux_b_std,
-        "width": widths,
-        "width_std": widths_std,
-        "A_F": a_f.value,
-        "A_C": a_c.value,
-        "C_V": c_v.value,
-        "rms": rms,
+        "flux": flux * flux_unit,
+        "flux_std": flux_std * flux_unit,
+        "flux_r": flux_r * flux_unit,
+        "flux_r_std": flux_r_std * flux_unit,
+        "flux_b": flux_b * flux_unit,
+        "flux_b_std": flux_b_std * flux_unit,
+        "width": {k: v * x_unit for k, v in widths.items()},
+        "width_std": {k: v * x_unit for k, v in widths_std.items()},
+        "A_F": a_f,
+        "A_C": a_c,
+        "C_V": c_v,
+        "rms": rms * y_unit,
         "bchan": _bchan,
         "echan": _echan,
-        "vel": _vc,
-        "vel_std": vc_std,
+        "vel": _vc * x_unit,
+        "vel_std": vc_std * x_unit,
     }
 
     return results
