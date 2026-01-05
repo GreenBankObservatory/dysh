@@ -102,7 +102,7 @@ If you do not wish to have the interactive plotter and prefer a static plot, add
 .. code-block::
 
     ps = sdfits.getps(scan=19, plnum=0, fdnum=0, ifnum=0).timeaverage()
-    plot = ps.plot()
+    ps_plot = ps.plot()
 
 
 .. image:: files/iplotter-2.png
@@ -133,7 +133,7 @@ Once a region is selected its borders will turn purple, and you can delete it wi
 
 .. admonition:: Note
 
-    All buttons on the plot will disappear when using the ``ps.savefig()`` command.
+    All buttons on the plot will disappear when using the ``ps_plot.savefig()`` command.
     However, they will still remain in screenshots.
 
 
@@ -166,7 +166,7 @@ We can check the stats before and after to see they've improved.
     print(f"{ps[210:2871].stats()['mean']:.4f}, {ps[210:2871].stats()['rms']:.4f}")
     -0.0000 K, 0.0204 K
 
-    ps.savefig('my_spectrum.png')
+    ps_plot.savefig('my_spectrum.png')
 
 .. image:: files/iplotter8.png
 
@@ -180,7 +180,7 @@ We also give it a label, ``label="slice"``, an ``alpha`` value of 0.5, a magenta
 
 .. code:: Python
 
-   plot.oshow(ps[210:2871]-1, label="slice", alpha=0.5, color="m", linestyle=":")
+   ps_plot.oshow(ps[210:2871]-1, label="slice", alpha=0.5, color="m", linestyle=":")
 
 .. image:: files/iplotter_oshow.png
 
@@ -188,7 +188,7 @@ To clear the "oshows" use `~dysh.plot.specplot.SpectrumPlot.clear_overlays`:
 
 .. code:: Python
 
-    plot.clear_overlays(oshows=True)
+    ps_plot.clear_overlays(oshows=True)
 
 It is possible to overplot multiple spectra in a single call.
 In this case, the arguments must be lists, with one value per spectrum being plotted.
@@ -196,11 +196,23 @@ For example:
 
 .. code:: Python
 
-    plot.oshow([ps[210:2871]-1,
-                ps[210:2871]-2],
-               label=["slice-1", "slice-2"],
-               alpha=[0.5, 0.8],
-               color=["y", "c"],
-               linestyle=[":", "--"])
+    ps_plot.oshow([ps[210:2871]-1,
+                   ps[210:2871]-2],
+                  label=["slice-1", "slice-2"],
+                  alpha=[0.5, 0.8],
+                  color=["y", "c"],
+                  linestyle=[":", "--"])
 
 .. image:: files/iplotter_oshow_2.png
+
+The same result can be obtained by directly using the ``oshow`` and ``oshow_kwargs`` in the call to `~dysh.spectra.spectrum.Spectrum.plot`:
+
+.. code:: Python
+
+    ps_plot2 = ps.plot(oshow=[ps[210:2871]-1,
+                              ps[210:2871]-2],
+                       oshow_kwargs={"label":["slice-1", "slice-2"],
+                                     "alpha": [0.5, 0.8],
+                                     "color": ["y", "c"],
+                                     "linestyle": [":", "--"]}
+                      )
