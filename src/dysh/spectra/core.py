@@ -671,11 +671,11 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     # Define the channel range once.
     chrng = slice(nedge, -(nedge - 1), 1)
 
-    calon = np.ma.masked_array(calon,keep_mask=True, dtype=np.float64)
-    calon.mask |= np.ma.masked_where(np.isnan(calon),calon).mask
-    caloff = np.ma.masked_array(caloff,keep_mask=True, dtype=np.float64)
-    caloff.mask |= np.ma.masked_where(np.isnan(caloff),caloff).mask   
-    
+    calon = np.ma.masked_array(calon, keep_mask=True, dtype=np.float64)
+    calon.mask |= np.ma.masked_where(np.isnan(calon), calon).mask
+    caloff = np.ma.masked_array(caloff, keep_mask=True, dtype=np.float64)
+    caloff.mask |= np.ma.masked_where(np.isnan(caloff), caloff).mask
+
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
         meanoff = np.ma.mean(caloff[chrng])
         meandiff = np.ma.mean(calon[chrng] - caloff[chrng])
