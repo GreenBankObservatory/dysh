@@ -774,7 +774,7 @@ def ra2ha(lst, ra):
 
 def obsfreq(restfreq: Quantity | float, z: float) -> Quantity | float:
     """
-    The observed frequency for a give rest frequency `restfreq` at redshift `z`.
+    The observed frequency for a given rest frequency `restfreq` at redshift `z`.
     Parameters
     ----------
     restfreq : Quantity
