@@ -336,19 +336,24 @@ class SpectrumPlot(PlotBase):
         self.freex()
         self.freey()
 
-    def clear_overlays(self, blines=True, oshows=True):
+    def clear_overlays(self, blines=True, oshows=True, catalog=True):
         """Clear Overlays from the plot.
 
         Parameters
         ----------
         blines : bool
-            Remove only baseline models overlaid on the plot. Default: True
+            Remove baseline models overlaid on the plot. Default: True
+        oshows : bool
+            Remove other spectra overlaid on the plot. Default: True
+        catalog : bool
+            Remove catalog spectral lines overlaid on the plot. Default: True
         """
         if blines:
             self.clear_lines("baseline")
         if oshows:
             self.clear_lines("oshow")
-
+        if catalog:
+            self.clear_lines("cataloglines")
     def clear_lines(self, gid):
         """
         Clears lines with `gid` from the plot.
@@ -422,9 +427,14 @@ class SpectrumPlot(PlotBase):
 
         self.freexy()
 
-    def show_catalog_lines(self):
+    def show_catalog_lines(self,show=True):
         """
         Overlay spectral lines from various catalogs on the plot, with annotations.
+
+        Parameters
+        ----------
+        show : bool
+            Show the lines or unshow them. Default: True
         """
 
         self.sl_tbl = self._spectrum.query_lines()
@@ -440,7 +450,7 @@ class SpectrumPlot(PlotBase):
             vloc =  ystart + (i%7)*fracstep
 
             self._axis.axvline(line_freq, c='k', linewidth=1, gid="catalogline")
-            self._axis.annotate(line_name, (line_freq, vloc),xycoords=('data','axes fraction'),size=fsize)
+            self._axis.annotate(line_name, (line_freq, vloc),xycoords=('data','axes fraction'),size=fsize,gid="catalogline")
 
 
 class InteractiveSpanSelector:
