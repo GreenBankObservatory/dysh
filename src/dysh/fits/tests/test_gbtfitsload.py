@@ -1172,7 +1172,7 @@ class TestGBTFITSLoad:
         sdf = gbtfitsload.GBTFITSLoad(fits_path, skipflags=True, flag_vegas=False)
         sdf.flag(scan=20, channel=[[1000,32000]])
         with pytest.raises(Exception):
-            sb=sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0)
+            sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0)
             
     def test_read_gbtidl_flags(self):
         """
