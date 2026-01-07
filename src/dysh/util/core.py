@@ -737,7 +737,7 @@ def replace_col_astype(t: Table, colname: str, astype, fill_value):
     if hasattr(t, "mask"):
         t[colname].mask = savemask
 
-def shrink_region(arr: NDArray[np.bool_], value: bool = True, percent: float = 0.1) -> NDArray[np.bool_]:
+def shrink_region(arr: NDArray[np.bool_], value: bool = True, percent: float = 0.2) -> NDArray[np.bool_]:
     """
     Shrink a contiguous region of specified boolean value.
     
@@ -752,7 +752,7 @@ def shrink_region(arr: NDArray[np.bool_], value: bool = True, percent: float = 0
         The boolean value to shrink (True or False), by default True.
     percent : float, optional
         Fraction of the region to remove, split evenly between both ends.
-        For example, 0.1 removes 10% total (5% from each end), by default 0.1.
+        For example, 0.2 removes 20% total (10% from each end).
     
     Returns
     -------
