@@ -46,7 +46,7 @@ class TestSearch:
         z = SpectralLineSearch.recomb(line="Calpha", min_frequency=1 * u.GHz, max_frequency=10 * u.GHz)
         assert len(z) == 100
         # check that requesting only certain column names works
-        columns = ["name", "orderedfreq"]
+        columns = ["name", "rest_frequency"]
         z = SpectralLineSearch.recomb(
             min_frequency=2 * u.GHz,
             max_frequency=8.4 * u.GHz,
@@ -66,18 +66,18 @@ class TestSearch:
         z = SpectralLineSearch.recomb(
             line="Halpha", min_frequency=1.022 * u.GHz, max_frequency=8.322 * u.GHz, redshift=redshift
         )
-        diff = (z["obs_frequency"] * (1.0 + redshift) - z["orderedfreq"]).data
+        diff = (z["obs_frequency"] * (1.0 + redshift) - z["rest_frequency"]).data
         redshift = 1.5
         z = SpectralLineSearch.recomb(
             line="Calpha", min_frequency=1 * u.GHz, max_frequency=10 * u.GHz, redshift=redshift
         )
-        diff = (z["obs_frequency"] * (1.0 + redshift) - z["orderedfreq"]).data
+        diff = (z["obs_frequency"] * (1.0 + redshift) - z["rest_frequency"]).data
         assert np.all(np.isclose(diff, 0.0, rtol=1e-8))
         redshift = 5.0
         z = SpectralLineSearch.query_lines(
             cat="gbtlines", min_frequency=1 * u.GHz, max_frequency=10 * u.GHz, redshift=redshift
         )
-        diff = (z["obs_frequency"] * (1.0 + redshift) - z["orderedfreq"]).data
+        diff = (z["obs_frequency"] * (1.0 + redshift) - z["rest_frequency"]).data
         assert np.all(np.isclose(diff, 0.0, rtol=1e-8))
         redshift = 1
         z = SpectralLineSearch.query_lines(
