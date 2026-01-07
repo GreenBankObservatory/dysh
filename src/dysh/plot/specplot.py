@@ -37,6 +37,10 @@ xlabel : str
     x-axis label.
 ylabel : str
     y-axis label.
+label : str
+    Label for legend.
+alpha : float
+    Alpha value for the plot. Between 0 and 1.
 grid : bool
     Show a plot grid or not.
 figsize : tuple
@@ -109,6 +113,8 @@ class SpectrumPlot(PlotBase):
             "xaxis_unit": None,
             "yaxis_unit": None,
             "grid": False,
+            "label": None,
+            "alpha": 1.0,
             "figsize": None,
             "linewidth": 2.0,
             "drawstyle": "default",
@@ -123,7 +129,7 @@ class SpectrumPlot(PlotBase):
         self._plot_kwargs = self.default_plot_kwargs()
 
     @docstring_parameter(kwargs_docstring)
-    def plot(self, show_header=True, select=True, oshow=None, **kwargs):
+    def plot(self, show_header=True, select=True, oshow=None, oshow_kwargs=None, **kwargs):
         """
         Plot the spectrum.
 
@@ -135,6 +141,9 @@ class SpectrumPlot(PlotBase):
             Allow selecting regions via click and drag.
         oshow : list or `~dysh.spectra.spectrum.Spectrum`
             Spectra to overlay in the plot.
+        oshow_kwargs : dict
+            Dictionary with parameters for `SpectrumPlot.oshow`.
+            These include color, linestyle, label, and alpha.
 
         Other Parameters
         ----------------
@@ -197,9 +206,18 @@ class SpectrumPlot(PlotBase):
         sf = Masked(sf, s.mask)
 
         lines = self._axis.plot(
-            self._sa, sf, color=this_plot_kwargs["color"], lw=lw, drawstyle=this_plot_kwargs["drawstyle"]
+            self._sa,
+            sf,
+            color=this_plot_kwargs["color"],
+            lw=lw,
+            drawstyle=this_plot_kwargs["drawstyle"],
+            label=this_plot_kwargs["label"],
+            alpha=this_plot_kwargs["alpha"],
         )
         self._line = lines[0]
+
+        if this_plot_kwargs["label"] is not None:
+            self._axis.legend()
 
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
@@ -234,7 +252,9 @@ class SpectrumPlot(PlotBase):
             for i, sp in enumerate(oshow):
                 if not isinstance(sp, type(self._spectrum)):
                     raise TypeError(f"Element {i} of oshow ({oshow}) is not a Spectrum")
-                self._oshow(sp)
+            if oshow_kwargs is None:
+                oshow_kwargs = {}
+            self.oshow(oshow, **oshow_kwargs)
 
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
@@ -363,7 +383,7 @@ class SpectrumPlot(PlotBase):
             if b.get_gid() == gid:
                 b.remove()
 
-    def oshow(self, spectra, color=None, linestyle=None):
+    def oshow(self, spectra, color=None, linestyle=None, label=None, alpha=None):
         """
         Add `spectra` to the current plot.
 
@@ -375,6 +395,10 @@ class SpectrumPlot(PlotBase):
             Colors for the spectra. There must be one element per spectra.
         linestyle : list of valid `matplotlib` linestyles or `matplotlib` linestyle
             Linestyles for the spectra. There must be one element per spectra.
+        label : list of str
+            Labels for the spectra. There must be one element per spectra.
+        alpha : list of float
+            Alpha values for the spectra, between 0 and 1. There must be one element per spectra.
         """
 
         # If a single Spectrum is the input, make everything a list.
@@ -384,6 +408,10 @@ class SpectrumPlot(PlotBase):
                 color = [color]
             if linestyle is not None:
                 linestyle = [linestyle]
+            if label is not None:
+                label = [label]
+            if alpha is not None:
+                alpha = [alpha]
 
         for i, s in enumerate(spectra):
             if not isinstance(s, type(self._spectrum)):
@@ -405,11 +433,23 @@ class SpectrumPlot(PlotBase):
             zargs += (linestyle,)
         else:
             zargs += ([None] * len(spectra),)
+        if label is not None:
+            if len(label) != len(spectra):
+                raise ValueError(f"How do I label {len(spectra)} spectra with {len(label)} labels?")
+            zargs += (label,)
+        else:
+            zargs += ([None] * len(spectra),)
+        if alpha is not None:
+            if len(alpha) != len(spectra):
+                raise ValueError(f"How do I set alpha for {len(spectra)} spectra with {len(label)} alpha values?")
+            zargs += (alpha,)
+        else:
+            zargs += ([None] * len(spectra),)
 
-        for s, c, ls in zip(*zargs, strict=True):
-            self._oshow(s, color=c, linestyle=ls)
+        for s, c, ls, l, a in zip(*zargs, strict=True):
+            self._oshow(s, color=c, linestyle=ls, label=l, alpha=a)
 
-    def _oshow(self, oshow_spectrum, color=None, linestyle=None):
+    def _oshow(self, oshow_spectrum, color=None, linestyle=None, label=None, alpha=None):
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         sf = oshow_spectrum.flux.to(self._spectrum.unit)
         sa = oshow_spectrum.velocity_axis_to(
@@ -418,8 +458,9 @@ class SpectrumPlot(PlotBase):
             doppler_convention=this_plot_kwargs["doppler_convention"],
         )
 
-        self._axis.plot(sa, sf, color=color, linestyle=linestyle, gid="oshow")
-
+        self._axis.plot(sa, sf, color=color, linestyle=linestyle, label=label, alpha=alpha, gid="oshow")
+        if label is not None:
+            self._axis.legend()
         self.freexy()
 
 
