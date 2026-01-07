@@ -209,7 +209,7 @@ class SpectralLineSearchClass:
                 )
             else:
                 table = Splatalogue.query_lines(minfreq, maxfreq, **kwargs)
-            table.rename_column("orderedfreq","rest_frequency")
+            table.rename_column("orderedfreq", "rest_frequency")
             # add a rest frequency column if an online query.
             # localquery() will add this itself, so keep in this if clause.
             if len(table) > 0:
@@ -386,7 +386,7 @@ class SpectralLineSearchClass:
             else:
                 df = df[df["intintensity"] >= intensity_lower_limit]
         table = Table.from_pandas(df)
-        table.rename_column("orderedfreq","rest_frequency")
+        table.rename_column("orderedfreq", "rest_frequency")
         if len(table) > 0:
             obscol = obsfreq(table["rest_frequency"], redshift)
             table.add_column(obscol, name="obs_frequency")
