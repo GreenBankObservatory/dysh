@@ -21,7 +21,7 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..spectra.core import mean_data
+from ..spectra.core import mean_data, make_channel_slice
 from ..spectra.scan import (
     FSScan,
     NodScan,
@@ -1126,7 +1126,26 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         for k in self._sdf:
             if k._additional_channel_mask is not None and k._flagmask is not None:
                 k._flagmask |= k._additional_channel_mask
-
+                
+    def _get_selected_mask(self,fitsindex:int, bintable:int) -> np.ndarray:
+        """Returns a boolean numpy array where the selected channels are False and all
+        other channels are True"""
+        if self.selection._channel_selection is None:
+            selected_slice = make_channel_slice(None)
+        else:
+            selected_slice = make_channel_slice(np.squeeze(self.selection._channel_selection))
+        
+        selected_mask = np.full_like(self._sdf[fitsindex]._flagmask[bintable],True,dtype=bool)
+        selected_mask[selected_slice] = False
+        return selected_mask
+    
+    def _check_no_data_to_calibrate(self, sig:dict, cal:dict, fitsindex:int, bintable:int):
+        """Check that the combination of channel selection and channel flagging leaves enough
+        channels to calibrate, taking into account the 80% rule for Tsys calculation
+        """
+        selected_mask = self._get_selected_mask(fitsindex,bintable)
+        # now take the inner 80% of the selection
+           
     @log_call_to_history
     def clear_flags(self):
         """Clear all flags for these data"""
@@ -2432,8 +2451,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # User provided a system temperature.
                 if tsys is not None:
                     _tsys = tsys[scan][0]
-
-                g = FSScan(
+                self._check_no_data_to_calibrate(sigrows,calrows,i,_bintable)
+                g = FSScan( 
                     self._sdf[i],
                     scan=scan,
                     sigrows=sigrows,
