@@ -1174,7 +1174,7 @@ class TestSpectrum:
         assert tr["species_id"][0] == 1155
         restfreq = 1420.2354594106603
         obsfreq = 1402.3494324453736
-        assert tr["orderedfreq"][0] == pytest.approx(restfreq)
+        assert tr["rest_frequency"][0] == pytest.approx(restfreq)
         assert tr["obs_frequency"][0] == pytest.approx(obsfreq)
         tr = f.recomball()
         assert len(tr) == 16
@@ -1219,7 +1219,7 @@ class TestSpectrum:
                 1430.3802,
             ]
         )
-        assert np.all(np.isclose(tr["orderedfreq"].data - freq, 0, atol=1e-7))
+        assert np.all(np.isclose(tr["rest_frequency"].data - freq, 0, atol=1e-7))
         freq = np.array(
             [
                 1400.33723724,
