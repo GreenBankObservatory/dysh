@@ -356,6 +356,10 @@ class SpectrumPlot(PlotBase):
             self._clear_overlay_objects("lines", "catalogline")
             self._clear_overlay_objects("texts", "catalogtext")
 
+
+    def clear_lines(self,gid):
+        self._clear_overlay_objects("lines", gid)
+
     def _clear_overlay_objects(self, otype, gid):
         """
         Clears lines with `gid` from the plot.
@@ -435,17 +439,16 @@ class SpectrumPlot(PlotBase):
 
         self.freexy()
 
-    def show_catalog_lines(self, show=True):
+    def show_catalog_lines(self, **kwargs):
         """
         Overlay spectral lines from various catalogs on the plot, with annotations.
 
         Parameters
         ----------
-        show : bool
-            Show the lines or unshow them. Default: True
+        **kwargs
         """
 
-        self.sl_tbl = self._spectrum.query_lines()
+        self.sl_tbl = self._spectrum.query_lines(**kwargs)
 
         fsize = 9
         fracstep = 0.04
