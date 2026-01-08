@@ -30,7 +30,9 @@ Loading Data
 ============
 
 dysh can read and write :ref:`SDFITS files <sdfits-explanation>`.
-Once inside the dysh shell loading an :ref:`SDFITS file <sdfits-explanation>` can be done using:
+Once inside the dysh shell loading an :ref:`SDFITS file <sdfits-explanation>` can be done using `~dysh.fits.gbtfitsload.GBTFITSLoad`.
+The following lines of code will download an SDFITS, and then open it using `~dysh.fits.gbtfitsload.GBTFITSLoad`.
+Downloading this data set is only required to follow this quick start as is.
 
 .. code:: Python
 
@@ -130,6 +132,26 @@ Plot again, but focus on the line-free regions:
     spec_plot = spectrum.plot(ymax=1, ymin=-1)
 
 .. image:: files/spectrum_plot_bsub.png
+
+Polarization Average
+====================
+
+Polarization averaging can be done at the spectrum level, that is, after time averaging the data.
+In this example we will calibrate the data for the second polarization (``plnum=1``) following the same steps as for the first one, and then average them together.
+Calibrate, time average and baseline subtract the second polarization.
+We use the same range of channels and baseline model to fit the baseline.
+
+.. code:: Python
+
+    scan_block1 = sdfits.getfs(fdnum=0, ifnum=0, plnum=1)
+    spectrum1 = scan_block1.timeaverage()
+    spectrum1.baseline(model="chebyshev", degree=17, remove=True, exclude=exclude)
+
+Now we proceed to average the spectra with the two polarizations, ``spectrum`` and ``spectrum1``:
+
+.. code:: Python
+
+    average = spectrum.average(spectrum1)
 
 Slicing a Spectrum
 ==================
