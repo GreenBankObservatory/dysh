@@ -318,7 +318,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             if v == -1:
                 unset.append(k)
         if len(unset) > 0:
-            raise Exception(
+            raise AttributeError(
                 f"The following required Scan attributes were not set by the derived class {self.__class__.__name__}:"
                 f" {unset}"
             )
@@ -909,7 +909,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
         if not self.is_calibrated:
-            raise Exception("Data have to be calibrated first to add calibration metadata")
+            raise AttributeError("Data have to be calibrated first to add calibration metadata")
         for i in range(len(self._meta)):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["TCAL"] = self._tcal[i]
@@ -1019,7 +1019,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # to figure it out oneself (which I spent far too much time trying to do before I
         # discovered this!)
         if self._calibrated is None:
-            raise Exception("Data must be calibrated before writing.")
+            raise AttributeError("Data must be calibrated before writing.")
         # Table metadata aren't preserved in BinTableHDU, so we
         # have to grab them here and add them
         # data_table = self._meta_as_table()
@@ -1607,7 +1607,7 @@ class TPScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     Notes
     -----
     How the total power and system temperature are calculated, depending on signal and reference state parameters:
@@ -1736,7 +1736,7 @@ class TPScan(ScanBase):
         elif self.calstate == False:  # noqa: E712
             self._calibrated = self._refcaloff.astype(float)
         else:
-            raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
+            raise AttributeError(f"Unrecognized cal state {self.calstate}")  # should never happen
         if np.all(np.isnan(self._tsys)):
             self._calc_tsys()
 
@@ -1774,7 +1774,7 @@ class TPScan(ScanBase):
             nspect = len(self._tcal)
             self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
             if len(self._tcal) != nspect:
-                raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
+                raise AttributeError(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
             for i in range(nspect):
                 tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
                 self._tsys[i] = tsys
@@ -1856,7 +1856,7 @@ class TPScan(ScanBase):
 
         Returns
         -------
-        spectrum : `~spectra.spectrum.Spectrum`
+        spectrum : `~dysh.spectra.spectrum.Spectrum`
         """
         return self.getspec(i)
 
@@ -1902,18 +1902,18 @@ class PSScan(ScanBase):
         If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations. Default: None
-    refspec : int or `~spectra.spectrum.Spectrum`, optional
+    refspec : int or `~dysh.spectra.spectrum.Spectrum`, optional
         If given, the Spectrum will be used as the reference rather than using scan data.
     tsys : float or `~numpy.ndarray`
         If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
-        scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+        scan and the noise diode. If not given, and the reference is a `~dysh.spectra.spectrum.Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
         If `vane` is provided, `tsys` will be ignored.
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -1923,7 +1923,7 @@ class PSScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
         If provided, `tsys` will be ignored.
@@ -2133,7 +2133,7 @@ class PSScan(ScanBase):
         else:
             tcal = self._tcal
             if len(tcal) != nspect:
-                raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+                raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
             if not self._nocal:
                 for i in range(nspect):
                     if not np.isnan(self._tsys[i]):
@@ -2295,7 +2295,7 @@ class NodScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -2312,7 +2312,7 @@ class NodScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
         If provided, `tsys` will be ignored.
@@ -2452,7 +2452,7 @@ class NodScan(ScanBase):
             self._tcal[:] = self.get_vane_tcal()
         tcal = self._tcal
         if len(tcal) != nspect:
-            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+            raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         if not self._nocal:
             for i in range(nspect):
                 if not np.isnan(self._tsys[i]):
@@ -2594,7 +2594,7 @@ class FSScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -2609,13 +2609,13 @@ class FSScan(ScanBase):
     tsys : float or `~numpy.ndarray`
         If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
-        scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+        scan and the noise diode. If not given, and the reference is a `~dysh.spectra.spectrum.Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
     channel: list or None
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
         If `vane` is provided, `tsys` will be ignored.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
@@ -2870,7 +2870,7 @@ class FSScan(ScanBase):
         tcal = self._tcal
         logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
         if len(tcal) != nspect:
-            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+            raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
 
         # @todo   the nspect loop could be replaced with clever numpy?
         if not self._nocal:
@@ -3043,7 +3043,7 @@ class SubBeamNodScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
