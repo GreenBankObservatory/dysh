@@ -10,6 +10,8 @@ from astropy.io import fits
 import numpy as np
 from matplotlib.text import OffsetFrom
 from matplotlib.ticker import AutoLocator, MaxNLocator
+# from dysh.log import init_logging
+from dysh.log import logger
 
 from . import PlotBase
 
@@ -93,28 +95,45 @@ class ScanPlot(PlotBase):
             "interpolation": "nearest",
         }
 
-    def write(self, filename, avechan=1):
-        """
-        Write the current spectrogram as a FITS image.
-        Quick and Dirty: no WCS.
+    def write(self, filename, avechan=1, chan=None, overwrite=False):
+        r"""
+        Write the current spectrogram as a FITS image. No WCS is maintained.
         The current version uses the first axis for the number of integrations,
         the second axis as the number of channels.
+
+        Parameters
+        ----------
+        filename : str
+           Filename of FITS file to be saved.  No default
+
+        avechan : int
+           Averaging number of channels.  Default: 1
+        
+        chan : [int,int]
+           If given, it will select this channel range for output.
+           Default: all channels will be selected
+           
+        overwrite : boolean
+           Overwrite existing file. Default: False
+
         """
-        print("new write code")
         # skip mask for now
         # @todo check if this is really a 2D array?
+        # add the dysh history?   not available here
         data = self.spectrogram.data
+        if chan is not None:
+            data = data[chan[0]:chan[1],:]
         if avechan == 1:
             hdu = fits.PrimaryHDU(data)
         else:
             (ny,nx) = data.shape
             if ny%avechan != 0:
-                print(f"{ny} not a multiple of {avechan}")
+                logger.info(f"{ny} not a multiple of {avechan}")
                 return
             data = data.reshape((ny//avechan,nx, avechan)).mean(axis=2)
             hdu = fits.PrimaryHDU(data)
-        hdu.writeto(filename, overwrite=True)
-        print(f"Wrote {filename} with size {data.shape[1]} x {data.shape[0]}")
+        hdu.writeto(filename, overwrite=overwrite)
+        logger.info(f"Wrote {filename} with size {data.shape[1]} x {data.shape[0]}")
 
     def plot(self, spectral_unit=None, **kwargs):
         r"""
