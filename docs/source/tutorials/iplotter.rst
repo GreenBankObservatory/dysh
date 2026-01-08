@@ -5,7 +5,7 @@ dysh Interactive Plotter Tutorial
 In this tutorial, we will walk through the features of the interactive plotter offered by dysh.
 There are two types of interactive plots: waterfall/spectrogram plots, and 1-dimensional spectrum plots.
 
-
+.. _scanblock-plots:
 
 =========================
 ScanBlock Waterfall plots
@@ -68,6 +68,8 @@ The integration number resets to 0 at the beginning of each scan.
 
 .. image:: files/sb_plot3.png
 
+
+.. _spectrum-plots:
 
 =========================
 Spectrum plots
