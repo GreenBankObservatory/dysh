@@ -118,9 +118,12 @@ class ScanPlot(PlotBase):
 
         """
         # skip mask for now
-        # @todo check if this is really a 2D array?
         # add the dysh history?   not available here
+        # @todo future multi-beams like argus could do 3D fits cube
         data = self.spectrogram.data
+        if len(data.shape) != 2:
+            logger.error(f"spectrogram is {len(data.shape)}D, cannot only write 2D now")
+            return
         if chan is not None:
             data = data[chan[0]:chan[1],:]
         if avechan == 1:
