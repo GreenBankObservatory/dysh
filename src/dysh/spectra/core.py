@@ -688,7 +688,7 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
 
     # meandiff can sometimes be negative, which makes Tsys negative!
     # GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)
-    #return np.ma.abs(meanTsys)
+    # return np.ma.abs(meanTsys)
     return meanTsys
 
 
