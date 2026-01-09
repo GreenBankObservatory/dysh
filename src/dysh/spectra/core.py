@@ -1534,7 +1534,8 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
 
     return results
 
-def make_channel_slice(channel:list|None):
+
+def make_channel_slice(channel: list | None):
     """
     Create a slice object from a [first,last] channel list.  If `channel` is None, then slice(0,None) is returned.
 
@@ -1546,7 +1547,7 @@ def make_channel_slice(channel:list|None):
     Returns
     -------
     slice
-        a slice object representing [first:last] 
+        a slice object representing [first:last]
 
     """
     if channel is not None:

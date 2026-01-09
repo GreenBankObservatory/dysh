@@ -11,12 +11,12 @@ from itertools import zip_longest
 from pathlib import Path
 
 import numpy as np
-from numpy.typing import NDArray
 import pandas as pd
 from astropy.table import Table
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
+from numpy.typing import NDArray
 
 ALL_CHANNELS = "all channels"
 
@@ -737,13 +737,14 @@ def replace_col_astype(t: Table, colname: str, astype, fill_value):
     if hasattr(t, "mask"):
         t[colname].mask = savemask
 
+
 def shrink_region(arr: NDArray[np.bool_], value: bool = True, percent: float = 0.2) -> NDArray[np.bool_]:
     """
     Shrink a contiguous region of specified boolean value.
-    
+
     Removes the outer portion of a contiguous True or False region by changing
     those values to their opposite. The removal is split evenly between both ends.
-    
+
     Parameters
     ----------
     arr : NDArray[np.bool_]
@@ -753,13 +754,13 @@ def shrink_region(arr: NDArray[np.bool_], value: bool = True, percent: float = 0
     percent : float, optional
         Fraction of the region to remove, split evenly between both ends.
         For example, 0.2 removes 20% total (10% from each end).
-    
+
     Returns
     -------
     NDArray[np.bool_]
         A copy of the input array with the outer portion of the target region
         changed to the opposite boolean value.
-    
+
     Examples
     --------
     >>> arr = np.array([False, False, True, True, True, True, False, False])
@@ -768,21 +769,21 @@ def shrink_region(arr: NDArray[np.bool_], value: bool = True, percent: float = 0
     """
     # Find the indices where values match the target
     target_indices = np.where(arr == value)[0]
-    
+
     if len(target_indices) == 0:
         return arr
-    
+
     # Find the contiguous range
     start_idx = target_indices[0]
     end_idx = target_indices[-1]
-    
+
     # Calculate how many elements to remove from each end
     total_target = end_idx - start_idx + 1
     remove_each_side = int(np.ceil(total_target * percent / 2))
-    
+
     # Create a copy and set the outer portions to opposite value
     result = arr.copy()
-    result[start_idx:start_idx + remove_each_side] = not value
-    result[end_idx - remove_each_side + 1:end_idx + 1] = not value
-    
+    result[start_idx : start_idx + remove_each_side] = not value
+    result[end_idx - remove_each_side + 1 : end_idx + 1] = not value
+
     return result
