@@ -220,13 +220,13 @@ def parse_html(s):
     s = s.replace("<sup>", "$^{")
     s = s.replace("</sup>", "}$")
 
-    #other formatting
-    s = s.replace("<i>", "$").replace("</i>", "$") # italics
-    s = s.replace("&", "$\\").replace(";", "$") # greek letters
+    # other formatting
+    s = s.replace("<i>", "$").replace("</i>", "$")  # italics
+    s = s.replace("&", "$\\").replace(";", "$")  # greek letters
 
     # strip everything else, maybe
     s = s.replace('<font color="red">', "").replace("</font>", "")
-    s = s.replace('<font face=monospace>', "")
+    s = s.replace("<font face=monospace>", "")
 
     s = s.replace("<b>", "").replace("</b>", "")
     s = s.replace(" (TopModel)", "")

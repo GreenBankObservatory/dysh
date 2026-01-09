@@ -376,8 +376,7 @@ class SpectrumPlot(PlotBase):
             self._clear_overlay_objects("lines", "catalogline")
             self._clear_overlay_objects("texts", "catalogtext")
 
-
-    def clear_lines(self,gid):
+    def clear_lines(self, gid):
         self._clear_overlay_objects("lines", gid)
 
     def _clear_overlay_objects(self, otype, gid):

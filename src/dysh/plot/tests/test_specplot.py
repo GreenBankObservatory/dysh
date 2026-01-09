@@ -60,6 +60,7 @@ class TestSpecplot:
         tp_plt.show_catalog_lines()
         tp_plt.clear_overlays()
 
+
 class TestScanplot:
     def setup_method(self):
         """
