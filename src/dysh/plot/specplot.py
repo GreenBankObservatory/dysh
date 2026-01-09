@@ -17,7 +17,7 @@ from ..coordinates import (
 )
 from ..util.docstring_manip import docstring_parameter
 from . import PlotBase, check_kwargs
-
+from dysh.log import logger
 _KMS = u.km / u.s
 
 
@@ -317,7 +317,22 @@ class SpectrumPlot(PlotBase):
             self.axis.set_ylabel(ylabel)
         else:
             # @todo It would be nice if yunit could be latex. e.g. T_A^* instead of Ta*
-            self.axis.set_ylabel(f"{self.spectrum.meta['TSCALE']} ({yunit})")
+            # @todo If other routines need TSCALE this code should be a self.spectrum._fix()
+            if 'TSCALE' in self.spectrum.meta:
+                ylabel = self.spectrum.meta['TSCALE']
+            elif 'TUNIT7' in self.spectrum.meta:
+                tunit7 = self.spectrum.meta['TUNIT7']
+                if tunit7 == 'Ta':
+                    ylabel = 'Ta'
+                    yunit = 'K'
+                elif tunit7 == 'Jy':
+                    ylabel = 'Flux'
+                    yunit = 'Jy'
+                else:
+                    ylabel = "Unknown"
+                    yunit = "()"
+            logger.info(f"Missing TSCALE: patching Y-axis as '{ylabel} ({yunit})'")
+            self.axis.set_ylabel(f"{ylabel} ({yunit})")
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
