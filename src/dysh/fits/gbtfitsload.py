@@ -45,6 +45,7 @@ from ..util import (
     keycase,
     select_from,
     show_dataframe,
+    shrink_region,
     uniq,
 )
 from ..util.calibrator import Calibrator
@@ -1127,24 +1128,54 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if k._additional_channel_mask is not None and k._flagmask is not None:
                 k._flagmask |= k._additional_channel_mask
                 
-    def _get_selected_mask(self,fitsindex:int, bintable:int) -> np.ndarray:
-        """Returns a boolean numpy array where the selected channels are False and all
-        other channels are True"""
-        if self.selection._channel_selection is None:
-            selected_slice = make_channel_slice(None)
-        else:
-            selected_slice = make_channel_slice(np.squeeze(self.selection._channel_selection))
+    def _get_selected_mask(self,chanrange:list|None, bintable:int, fitsindex:int) -> np.ndarray:
+        """Returns a boolean numpy array where the selected channels are True and all
+        other channels are False
         
-        selected_mask = np.full_like(self._sdf[fitsindex]._flagmask[bintable],True,dtype=bool)
-        selected_mask[selected_slice] = False
+        Parameters
+        ----------
+            chanrange : list or None
+                The normalized channel range `_channel` current to the getXX call
+            bintable :  int
+                The index of the `bintable` attribute, None means all bintables
+            fitsindex: int
+                The index of the FITS file contained in this GBTFITSLoad.
+                Default:None meaning return one index over all files.
+        """
+        # 
+        selected_slice =  convert_array_to_mask([chanrange],self._sdf[fitsindex].nchan(bintable))      
+        selected_mask = np.full_like(self._sdf[fitsindex]._flagmask[bintable],False,dtype=bool)
+        selected_mask[bintable][selected_slice] = True
         return selected_mask
     
-    def _check_no_data_to_calibrate(self, sig:dict, cal:dict, fitsindex:int, bintable:int):
+    def _check_no_data_to_calibrate(self, sig:dict, cal:dict, chanrange:list|None, bintable:int, fitsindex:int, ):
         """Check that the combination of channel selection and channel flagging leaves enough
         channels to calibrate, taking into account the 80% rule for Tsys calculation
+         
+        Parameters
+        ----------
+            chanrange : list or None
+                The normalized channel range `_channel` current to the getXX call
+            bintable :  int
+                The index of the `bintable` attribute, None means all bintables
+            fitsindex: int
+                The index of the FITS file contained in this GBTFITSLoad.
+                Default:None meaning return one index over all files.       
+        
         """
-        selected_mask = self._get_selected_mask(fitsindex,bintable)
+        # all the rows currently under consideration
+        rows = []
+        for k in sig:
+            rows.extend(sig[k])
+            rows.extend(cal[k])
+        rows = uniq(rows)
+        selected_mask = self._get_selected_mask(chanrange,bintable,fitsindex)
         # now take the inner 80% of the selection
+        selected_mask = shrink_region(selected_mask)
+        # now if all of the flags in the selected_mask are True, then there
+        # is no data left to calibrate
+        if np.all(self._sdf[fitsindex]._flagmask[bintable][rows,make_channel_slice(chanrange)]):
+            raise ValueError(f"No data left to calibrate because inner 80% of channels {chanrange} are flagged, so the system temperature can't be calculated.") 
            
     @log_call_to_history
     def clear_flags(self):
@@ -1967,6 +1998,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 d = {"ON": on, "OFF": off}
                 if _bintable is None:
                     _bintable = self._get_bintable(_ondf)
+                self._check_no_data_to_calibrate(rows,calrows,_channel,_bintable,i)
                 g = PSScan(
                     self._sdf[i],
                     scan=d,
@@ -2221,6 +2253,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
                     logger.debug(f"{i, f} SCANROWS {rows}")
                     logger.debug(f"BEAM1 {beam1_selected}")
+                    self._check_no_data_to_calibrate(rows,calrows,_channel,_bintable,i)
                     g = NodScan(
                         self._sdf[i],
                         scan=d,
@@ -2451,7 +2484,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # User provided a system temperature.
                 if tsys is not None:
                     _tsys = tsys[scan][0]
-                self._check_no_data_to_calibrate(sigrows,calrows,i,_bintable)
+                self._check_no_data_to_calibrate(sigrows,calrows,_channel,_bintable,i)
                 g = FSScan( 
                     self._sdf[i],
                     scan=scan,
@@ -2781,6 +2814,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
         _channel = self._normalize_channel_range(channel)
+        print(f"SB {_channel=}")
         _bintable = kwargs.get("bintable", None)
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
@@ -2854,6 +2888,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         # TODO: use gettp instead of TPScan.
                         calrows = {"ON": rgon, "OFF": rgoff}
                         tprows = np.sort(np.hstack((rgon, rgoff)))
+                        self._check_no_data_to_calibrate(calrows,calrows,_channel,_bintable,sdfi)
                         _reftp = TPScan(
                             self._sdf[sdfi],
                             scan,
@@ -2868,13 +2903,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             calibrate=calibrate,
                             apply_flags=apply_flags,
                             tcal=_tcal,
-                            channel=_channel,
+                            channel=_channel, 
                         )
                         if tsys is not None:
                             _reftp._tsys[:] = tsys[scan][0]
                         reftp.append(_reftp)
                         calrows = {"ON": sgon, "OFF": sgoff}
                         tprows = np.sort(np.hstack((sgon, sgoff)))
+                        self._check_no_data_to_calibrate(calrows,calrows,_channel,_bintable,sdfi)
                         sigtp.append(
                             TPScan(
                                 self._sdf[sdfi],
