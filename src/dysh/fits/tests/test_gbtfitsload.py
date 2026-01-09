@@ -1780,7 +1780,12 @@ class TestGBTFITSLoad:
         # now make sure the exception is raised if you try to do both selection and channel=
         with pytest.raises(ValueError):
             sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
+        # now make sure an exception is raised if you try to calibrate with >=80% flagged channels
+        sdf.flag_channel([[16000,19000]])
+        with pytest.raises(ValueError): 
+            sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
         sdf.clear_selection()
+        
 
         # TPSCAN
         sb = sdf.gettp(scan=153, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
