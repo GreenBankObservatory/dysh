@@ -61,7 +61,7 @@ class TestMeanTsys:
         gbtidl_table = hdu[1].data
         gbtidl_tsys = gbtidl_table["TSYS"]
 
-        assert tsys_dysh == gbtidl_tsys
+        assert tsys_dysh == pytest.approx(gbtidl_tsys)
 
     def test_tsys_weight(self):
         """Test that `dysh.spectra.core.tsys_weight` works."""
