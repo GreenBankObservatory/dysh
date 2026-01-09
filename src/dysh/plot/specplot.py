@@ -322,8 +322,11 @@ class SpectrumPlot(PlotBase):
                 ylabel = self.spectrum.meta['TSCALE']
             elif 'TUNIT7' in self.spectrum.meta:
                 tunit7 = self.spectrum.meta['TUNIT7']
-                if tunit7 == 'Ta':
+                if tunit7 == 'Ta':   # what about Ta*
                     ylabel = 'Ta'
+                    yunit = 'K'
+                elif tunit7 == 'Ta*':
+                    ylabel = 'Ta*'
                     yunit = 'K'
                 elif tunit7 == 'Jy':
                     ylabel = 'Flux'
@@ -331,7 +334,7 @@ class SpectrumPlot(PlotBase):
                 else:
                     ylabel = "Unknown"
                     yunit = "()"
-            logger.info(f"Missing TSCALE: patching Y-axis as '{ylabel} ({yunit})'")
+                logger.info(f"Missing TSCALE: patching Y-axis as '{ylabel} ({yunit})'")
             self.axis.set_ylabel(f"{ylabel} ({yunit})")
 
     def _show_exclude(self, **kwargs):
