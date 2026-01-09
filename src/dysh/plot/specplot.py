@@ -11,13 +11,15 @@ from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, SpanSelector
 
+from dysh.log import logger
+
 from ..coordinates import (
     decode_veldef,
     frame_to_label,
 )
 from ..util.docstring_manip import docstring_parameter
 from . import PlotBase, check_kwargs
-from dysh.log import logger
+
 _KMS = u.km / u.s
 
 
@@ -318,19 +320,19 @@ class SpectrumPlot(PlotBase):
         else:
             # @todo It would be nice if yunit could be latex. e.g. T_A^* instead of Ta*
             # @todo If other routines need TSCALE this code should be a self.spectrum._fix()
-            if 'TSCALE' in self.spectrum.meta:
-                ylabel = self.spectrum.meta['TSCALE']
-            elif 'TUNIT7' in self.spectrum.meta:
-                tunit7 = self.spectrum.meta['TUNIT7']
-                if tunit7 == 'Ta':   # what about Ta*
-                    ylabel = 'Ta'
-                    yunit = 'K'
-                elif tunit7 == 'Ta*':
-                    ylabel = 'Ta*'
-                    yunit = 'K'
-                elif tunit7 == 'Jy':
-                    ylabel = 'Flux'
-                    yunit = 'Jy'
+            if "TSCALE" in self.spectrum.meta:
+                ylabel = self.spectrum.meta["TSCALE"]
+            elif "TUNIT7" in self.spectrum.meta:
+                tunit7 = self.spectrum.meta["TUNIT7"]
+                if tunit7 == "Ta":  # what about Ta*
+                    ylabel = "Ta"
+                    yunit = "K"
+                elif tunit7 == "Ta*":
+                    ylabel = "Ta*"
+                    yunit = "K"
+                elif tunit7 == "Jy":
+                    ylabel = "Flux"
+                    yunit = "Jy"
                 else:
                     ylabel = "Unknown"
                     yunit = "()"
