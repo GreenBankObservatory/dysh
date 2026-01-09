@@ -170,6 +170,7 @@ We can check the stats before and after to see they've improved.
 
 .. image:: files/iplotter8.png
 
+
 Overplotting
 ------------
 
@@ -216,3 +217,23 @@ The same result can be obtained by directly using the ``oshow`` and ``oshow_kwar
                                      "color": ["y", "c"],
                                      "linestyle": [":", "--"]}
                       )
+
+
+Overlaying Catalog Lines
+------------------------
+
+You can overlay the molecular spectral lines found from the
+`spectral line search feature <https://dysh.readthedocs.io/en/latest/how-tos/examples/line_search.html>`_
+on your plot with the following command:
+
+.. code-block::
+
+    plot.show_catalog_lines()
+
+.. image:: files/specplot_cataloglines.png
+
+Just like any other overlays, you can clear these with:
+
+.. code-block::
+
+    plot.clear_overlays()

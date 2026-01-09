@@ -156,7 +156,7 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
         :shadow: md
         :margin: 2 2 0 0
 
-        :material-outlined:`line_curve;3em;green` **Custom Baseline Fitting**
+        :material-outlined:`timeline;3em;green` **Custom Baseline Fitting**
 
         How to fit a custom baseline model
 
