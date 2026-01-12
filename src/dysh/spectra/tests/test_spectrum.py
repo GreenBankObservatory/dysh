@@ -253,6 +253,13 @@ class TestSpectrum:
         assert s2.flux[0].value == -0.1042543
         assert s2.spectral_axis.unit == u.Unit("km/s")
 
+    def test_write_sdfits(self, tmp_path):
+        """Test that we can write SDFITS files from Spectrum objects."""
+        s = self.ps1
+        s.write(tmp_path / "sdfits_test.fits", format="sdfits")
+        sdf = GBTFITSLoad(tmp_path / "sdfits_test.fits")
+        assert np.all(s.data.astype(np.float32) == sdf["DATA"][0])
+
     def test_history_and_comments(self):
         s = self.ps1
         s.baseline(2, remove=True)
@@ -297,7 +304,11 @@ class TestSpectrum:
         # key: 'original_wcs'.
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
-                assert trimmed.meta[k] == v
+                try:
+                    np.isnan(v)
+                    assert np.isclose(v, trimmed.meta[k], equal_nan=True)
+                except TypeError:
+                    assert trimmed.meta[k] == v
         # Check additional object properties.
         # Not all of them make sense, since their shapes will be different.
         for k in spec_pars:
@@ -323,7 +334,11 @@ class TestSpectrum:
         assert np.all(trimmed_nu.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
-                assert trimmed_nu.meta[k] == v
+                try:
+                    np.isnan(v)
+                    assert np.isclose(v, trimmed_nu.meta[k], equal_nan=True)
+                except TypeError:
+                    assert trimmed_nu.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_nu)[k] == vars(self.ps0)[k]
         trimmed_nu.plot(xaxis_unit="km/s", yaxis_unit="mK", interactive=False)
@@ -335,7 +350,11 @@ class TestSpectrum:
         assert np.all(trimmed_vel.spectral_axis.value - self.ps0.spectral_axis[s].value < tol)
         for k, v in self.ps0.meta.items():
             if k not in meta_ignore:
-                assert trimmed_vel.meta[k] == v
+                try:
+                    np.isnan(v)
+                    assert np.isclose(v, trimmed_vel.meta[k], equal_nan=True)
+                except TypeError:
+                    assert trimmed_vel.meta[k] == v
         for k in spec_pars:
             assert vars(trimmed_vel)[k] == vars(self.ps0)[k]
         trimmed_vel.plot(xaxis_unit="MHz", yaxis_unit="mK", interactive=False)
@@ -411,6 +430,60 @@ class TestSpectrum:
         assert len(trimmed_sp.data) == len(self.ps0.data) - 100
         assert np.all(trimmed_sp.flux == self.ps0.flux[s])
         assert np.all((trimmed_sp.spectral_axis.quantity - self.ps0.spectral_axis.quantity[s]).value < tol)
+
+    def test_radiometer(self):
+        """Test the radiometer equation"""
+        # radiometer test over a flat portion of the standard getps()
+        c0 = 5000
+        c1 = 15000
+        r0 = self.ps0[c0:c1].radiometer()
+        r1 = self.ps1[c0:c1].radiometer()
+        assert r0 == pytest.approx(1.0534482473)
+        assert r1 == pytest.approx(1.0599168769)
+        # radiometer test after smoothing ; see issue 800
+        width = 5
+        r0b = self.ps0.smooth("box", width)[c0 // width : c1 // width].radiometer()
+        r0g = self.ps0.smooth("gau", width)[c0 // width : c1 // width].radiometer()
+        r0h = self.ps0.smooth("han", width)[c0 // width : c1 // width].radiometer()
+        assert r0b == pytest.approx(1.083694320)
+        assert r0g == pytest.approx(0.907075534)
+        assert r0h == pytest.approx(0.948124804)
+
+    def test_snr(self):
+        # snr test over the line portion of the standard getps()
+        c0 = 13000
+        c1 = 16000
+        snr1 = self.ps0[c0:c1].snr(peak=True)
+        snr2 = self.ps0[c0:c1].snr(peak=False)
+        snr3 = self.ps0[c0:c1].snr(flux=True)
+        assert snr1 == pytest.approx(5.0085875570)
+        assert snr2 == pytest.approx(3.7973234434)
+        assert snr3 == pytest.approx(229.62581036)
+
+    def test_roll(self):
+        # roll test over a baseline portion of the standard getps()
+        c0 = 20000
+        c1 = 30000
+        roll = self.ps0[c0:c1].roll(4)
+        assert roll[0] == pytest.approx(0.9999156102)
+        assert roll[1] == pytest.approx(1.0108582258)
+        assert roll[2] == pytest.approx(1.0084001992)
+        assert roll[3] == pytest.approx(0.9975490041)
+
+    def test_sratio(self):
+        c0 = 10000
+        c1 = 20000
+        sratio = self.ps0[c0:c1].sratio()
+        assert sratio == pytest.approx(1.0)
+
+    def test_normalness(self):
+        c0 = 15000
+        c1 = 20000
+        c2 = 25000
+        p1 = self.ps0[c0:c1].normalness()  # line
+        p2 = self.ps0[c1:c2].normalness()  # continuum
+        assert p1 == pytest.approx(1.90045977e-06)
+        assert p2 == pytest.approx(0.63552569)
 
     def test_smooth(self):
         """Test for smooth with `decimate=0`"""
@@ -546,7 +619,7 @@ class TestSpectrum:
         filename = get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11_ifnum_0_int_0-2_getps_152_plnum_0.fits"
         sdf = GBTFITSLoad(filename, flag_vegas=False)
         nchan = sdf["DATA"].shape[-1]
-        spec = Spectrum.fake_spectrum(nchan=nchan, seed=1)
+        spec = Spectrum.fake_spectrum(nchan=nchan, seed=1, normal=False)
         spec.data[nchan // 2 - 5 : nchan // 2 + 6] = 10
         org_spec = spec._copy()
         # The next two lines were used to create the input for GBTIDL.
@@ -835,6 +908,7 @@ class TestSpectrum:
         """
 
         meta = {
+            "CTYPE4": "Stokes",
             "CTYPE3": "DEC",
             "CTYPE2": "RA",
             "CTYPE1": "FREQ-OBS",
@@ -845,8 +919,10 @@ class TestSpectrum:
             "CUNIT3": "deg",
             "CRVAL1": 1e9,
             "CDELT1": 0.1e9,
+            "CRPIX1": 1,
             "CRVAL2": 121.0,
             "CRVAL3": 15.0,
+            "CRVAL4": -1,
             "RADECSYS": "FK5",
             "VELDEF": "OPTI-HEL",
             "DATE-OBS": "2021-02-10T07:38:37.50",
@@ -862,7 +938,19 @@ class TestSpectrum:
         assert excinfo.type is ValueError
         assert excinfo.value.args == ("Header (meta) is missing one or more required keywords: {'RESTFRQ'}",)
 
+        crval4 = meta.pop("CRVAL4")
         meta["RESTFRQ"] = 1e9
+        with pytest.raises(KeyError) as excinfo:
+            s = Spectrum.make_spectrum(
+                data=np.arange(64) * u.K,
+                meta=meta,
+                use_wcs=True,
+                observer_location=Observatory["GBT"],
+            )
+        assert excinfo.type is KeyError
+        assert excinfo.value.args == ("Missing item for 'CRVAL4' in meta.",)
+
+        meta["CRVAL4"] = crval4
         s = Spectrum.make_spectrum(
             data=np.arange(64) * u.K, meta=meta, use_wcs=True, observer_location=Observatory["GBT"]
         )
@@ -925,6 +1013,8 @@ class TestSpectrum:
 
         p = ss[mean - 3 * fwhm : mean + 3 * fwhm].cog(width_frac=[0.25, 0.65, 0.68, 0.76, 0.85, 0.95])
 
+        assert p["flux"].unit == u.K * u.km / u.s
+        assert p["rms"].unit == u.K
         flux = p["flux"].value
         flux_err = p["flux_std"].value
         assert area.value == pytest.approx(flux, abs=3 * flux_err)
@@ -1004,6 +1094,20 @@ class TestSpectrum:
         assert p["bchan"] == mean - 3 * fwhm
         assert p["echan"] == mean + 3 * fwhm
 
+        # Test using a different frame and Doppler convention.
+        p_dop = ss.cog(
+            vframe="lsrk",
+            doppler_convention="optical",
+            width_frac=[0.25, 0.68, 0.85],
+            bchan=mean - 3 * fwhm,
+            echan=mean + 3 * fwhm,
+        )
+        # Make sure the Spectrum did not change.
+        assert ss.doppler_convention == "radio"
+        assert ss.velocity_frame != "lsrk"
+        # Check that the results are different from the previous ones.
+        assert p_dop["vel"] != p["vel"]
+
     def test_average(self):
         """
         Test average method of Spectrum.
@@ -1057,8 +1161,8 @@ class TestSpectrum:
         f1 = Spectrum.fake_spectrum(nchan=1024, seed=123)
         s1 = f1.stats()
         s2 = f1.stats(roll=1)
-        assert s1["rms"].value == pytest.approx(0.28470637)
-        assert s2["rms"].value == pytest.approx(0.40211407)
+        assert s1["rms"].value == pytest.approx(0.10086297)
+        assert s2["rms"].value == pytest.approx(0.14006544 / np.sqrt(2))
         assert s1["npt"] == 1024
         assert s2["npt"] == 1022
         assert s1["nan"] == 0
@@ -1068,48 +1172,89 @@ class TestSpectrum:
         tr = f.recomb(line="Hbeta")
         assert len(tr) == 1
         assert tr["species_id"][0] == 1155
-        assert tr["orderedfreq"][0] == pytest.approx(1400.13748758174)
-
+        restfreq = 1420.2354594106603
+        obsfreq = 1402.3494324453736
+        assert tr["rest_frequency"][0] == pytest.approx(restfreq)
+        assert tr["obs_frequency"][0] == pytest.approx(obsfreq)
         tr = f.recomball()
-        assert len(tr) == 17
+        assert len(tr) == 16
         out = [
-            "H&zeta;",
+            "H&epsilon;",
             "H&delta;",
             "He&delta;",
-            "H&epsilon;",
+            "H&gamma;",
+            "H&zeta;",
+            "He&gamma;",
+            "C&gamma;",
+            "H&beta;",
+            "He&beta;",
+            "C&beta;",
             "H&alpha;",
             "He&alpha;",
             "C&alpha;",
-            "H&beta;",
-            "He&beta;",
-            "H&gamma;",
-            "C&beta;",
-            "He&gamma;",
-            "C&gamma;",
-            "H&zeta;",
             "H&epsilon;",
             "H&delta;",
             "He&delta;",
         ]
+
         assert list(tr["name"]) == out
         tr = f.query_lines(intensity_lower_limit=-8, cat="gbtlines")
-        assert len(tr) == 7
-        freq = np.array([1405.0142, 1390.8698, 1393.8448, 1406.519, 1392.42, 1392.42, 1392.42])
-        assert all(tr["orderedfreq"].data == freq)
+        assert len(tr) == 15
+        freq = np.array(
+            [
+                1418.1976,
+                1419.1013,
+                1414.898,
+                1415.462,
+                1416.725,
+                1417.696,
+                1423.215,
+                1423.215,
+                1423.215,
+                1423.215,
+                1425.106,
+                1416.8873,
+                1424.617,
+                1424.617,
+                1430.3802,
+            ]
+        )
+        assert np.all(np.isclose(tr["rest_frequency"].data - freq, 0, atol=1e-7))
+        freq = np.array(
+            [
+                1400.33723724,
+                1401.2295563,
+                1397.07919143,
+                1397.63608858,
+                1398.88318273,
+                1399.84195424,
+                1405.29144958,
+                1405.29144958,
+                1405.29144958,
+                1405.29144958,
+                1407.15863488,
+                1399.04343877,
+                1406.6757932,
+                1406.6757932,
+                1412.36641316,
+            ]
+        )
+        assert np.all(np.isclose(tr["obs_frequency"].data - freq, 0, atol=1e-7))
 
-    def test_set_doppler_rest(self):
-        """Test that setting doppler_rest works."""
+    def test_set_rest_value(self):
+        """Test that setting rest_value works."""
         s1 = Spectrum.fake_spectrum()
         v1 = s1.axis_velocity().copy()
-        d1 = s1.doppler_rest.copy()
-        # Create a new Spectrum and change its doppler_rest.
+        d1 = s1.rest_value.copy()
+        # Create a new Spectrum and change its rest_value.
         s2 = Spectrum.fake_spectrum()
-        s2.doppler_rest = 1.2 * d1
+        s2.rest_value = 1.2 * d1
         v2 = s2.axis_velocity().copy()
         # Check.
         diff = ((v2 - v1) * s1.spectral_axis.quantity) / ac.c
         assert np.all(diff.to("Hz").value == pytest.approx(0.2 * d1.to("Hz").value))
         assert s2.meta["RESTFREQ"] == pytest.approx(1.2 * d1.to("Hz").value)
+        assert s2.meta["RESTFRQ"] == pytest.approx(1.2 * d1.to("Hz").value)
 
     def test_weights(self):
         s = []

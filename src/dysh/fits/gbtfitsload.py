@@ -1,6 +1,7 @@
 """Load SDFITS files produced by the Green Bank Telescope"""
 
 import copy
+import inspect
 import itertools
 import numbers
 import os
@@ -484,7 +485,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return columns
 
-    def get_summary(self, scan=None, verbose=False, columns=None, add_columns=None, col_defs=None):
+    def get_summary(self, scan=None, verbose=False, columns=None, add_columns=None, col_defs=None, selected=False):
         """
         Create a summary of the input dataset as a `~pandas.DataFrame`.
 
@@ -509,10 +510,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         add_columns : list
             List of columns to be added to the default `columns`.
             If `columns` is not None, then this will be ignored.
-            If a string, multiple column names must be comma separated.
+            If a string, mul
+            tiple column names must be comma separated.
         col_defs : dict
             Dictionary with column definitions. See `~dysh.fits.core.summary_column_definitions` for the expected format.
-
+        selected: bool
+            Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules
+            have been set, this will display an empty summary.
         Returns
         -------
         summary : `~pandas.DataFrame`
@@ -608,7 +612,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-        df = self[cols].copy().astype(col_dtypes)
+        if selected:
+            df = self.selection.final[cols].copy().astype(col_dtypes)
+        else:
+            df = self[cols].copy().astype(col_dtypes)
 
         # Scale columns.
         for cn in columns:
@@ -651,7 +658,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return df
 
-    def summary(self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None):
+    def summary(
+        self, scan=None, verbose=False, max_rows=-1, show_index=False, columns=None, add_columns=None, selected=False
+    ):
         """
         Show a summary of the `~dysh.fits.GBTFITSLoad` object.
         To retrieve the underlying `~pandas.DataFrame` use
@@ -685,9 +694,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             List of columns to be added to the default `columns`.
             If `columns` is not None, then this will be ignored.
             If a string, multiple column names must be comma separated.
+        selected: bool
+            Show only those rows that are selected by the final selection (AND of all selection rules). Note if no selection rules
+            have been set, this will display an empty summary.
         """
 
-        df = self.get_summary(scan=scan, verbose=verbose, columns=columns, add_columns=add_columns)
+        df = self.get_summary(scan=scan, verbose=verbose, columns=columns, add_columns=add_columns, selected=selected)
 
         if max_rows == -1:
             max_rows = conf.summary_max_rows
@@ -3062,7 +3074,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
                 for b in bintables:  # loop over the bintables in this fitsfile
-                    rows = df.ROW.unique()
+                    rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
@@ -3102,7 +3114,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
                 for b in bintables:
-                    rows = df.ROW.unique()
+                    rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
@@ -3935,6 +3947,37 @@ class GBTOffline(GBTFITSLoad):
         GBTFITSLoad.__init__(self, self._filename, *args, **kwargs)
 
 
+# NOTE: if GBTFITSLoad has new functions added, they may need to be added in GBTOnline() as well
+#       these two variables with _check_functions() will warn in runtime, but fail in pytest
+#       If you add more to _skip_functions, deduct the number in _need_functions
+_skip_functions = ["velocity_convention", "velocity_frame"]
+_need_functions = 55
+
+
+def _check_functions(verbose=False):
+    """
+    check if number of functions in GBTFITSLoad() didn't change from
+    the last time we (manually) recorded this.
+    """
+    fns = inspect.getmembers(GBTFITSLoad, predicate=inspect.isfunction)
+    need = _need_functions
+    n = 0
+    for i in range(len(fns)):
+        fn = fns[i][0]
+        if fn[0] == "_":
+            continue
+        if fn in _skip_functions:
+            continue
+        n = n + 1
+        if verbose:
+            print(n, fn)
+    if n != need:
+        # this means GBTOnline may need to have the new
+        logger.warning(f"GBTOnline: parent GBTFITSLoad() was expected have {need} functions, but found {n}.")
+    # return values for tests
+    return (need, n)
+
+
 class GBTOnline(GBTFITSLoad):
     """
     GBTOnline('foo')   monitors project 'foo' as if it could be online
@@ -3955,6 +3998,7 @@ class GBTOnline(GBTFITSLoad):
         self._args = args
         self._kwargs = kwargs
         self._platform = platform.system()  # cannot update in "Windows", see #447
+        _check_functions()  # check if # functions if GBTFITSLoad didn't change
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
@@ -4039,6 +4083,14 @@ class GBTOnline(GBTFITSLoad):
     def summary(self, *args, **kwargs):
         self._reload()
         return super().summary(*args, **kwargs)
+
+    def get_summary(self, *args, **kwargs):
+        self._reload()
+        return super().get_summary(*args, **kwargs)
+
+    def write(self, *args, **kwargs):
+        self._reload()
+        return super().write(*args, **kwargs)
 
     def gettp(self, *args, **kwargs):
         self._reload()
