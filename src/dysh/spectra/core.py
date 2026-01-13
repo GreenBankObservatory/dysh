@@ -1,6 +1,4 @@
 """
-            if len(table) > 0:
-                obscol = obsfreq(table["rest_frequency"], redshift)
 Core functions for spectral data.
 """
 
