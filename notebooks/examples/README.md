@@ -33,6 +33,3 @@ However, if you want to skip directly into the notebooks, start with `README.ipy
 | using\_spectral\_weights | How to set and use weights in spectral averaging                      |
 | vane                 | Calibration of Argus observations with a vane                             |
 | velocity\_frames     | How to manipulate spectral axes                                           |
-
-
-
