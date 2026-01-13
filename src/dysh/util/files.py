@@ -37,7 +37,7 @@ valid_dysh_test = {
     "getps"       : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",                                  # NGC5291   old test1
     "getps2"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415   one int, 540k
     "getfs"       : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits", # W3OH
-    "subbeamnod2" : "TRCO_230413_Ka", 
+    "subbeamnod2" : "TRCO_230413_Ka",
 
 }
 
