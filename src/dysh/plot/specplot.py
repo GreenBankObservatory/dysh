@@ -505,7 +505,6 @@ class SpectrumPlot(PlotBase):
             line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit, equivalencies=self.spectrum.equivalencies).value
 
             vloc = ystart + (i % num_vsteps) * fracstep
-            print(vloc)
 
             self._axis.axvline(line_freq, c="k", linewidth=1, gid="catalogline")
             self._axis.annotate(
