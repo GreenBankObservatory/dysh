@@ -231,6 +231,6 @@ def parse_html(s):
     s = s.replace("<b>", "").replace("</b>", "")
     s = s.replace(" (TopModel)", "")
 
-    print(s)
+    #print(s)
 
     return s

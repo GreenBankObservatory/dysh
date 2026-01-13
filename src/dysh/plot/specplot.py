@@ -486,6 +486,7 @@ class SpectrumPlot(PlotBase):
         Parameters
         ----------
         **kwargs
+            All kwargs get passed to `dysh.line.query_lines`.
         """
 
         self.sl_tbl = self._spectrum.query_lines(**kwargs)
@@ -496,13 +497,14 @@ class SpectrumPlot(PlotBase):
 
         for i, line in enumerate(self.sl_tbl):
             line_name = parse_html(line["name"])
-            line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit).value
+            #line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit).value
+            line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit, equivalencies=self.spectrum.equivalencies).value
 
             vloc = ystart + (i % 7) * fracstep
 
             self._axis.axvline(line_freq, c="k", linewidth=1, gid="catalogline")
             self._axis.annotate(
-                line_name, (line_freq, vloc), xycoords=("data", "axes fraction"), size=fsize, gid="catalogtext"
+                line_name, (line_freq, vloc), xycoords=("data", "axes fraction"), size=fsize, gid="catalogtext", rotation=90
             )
 
 
