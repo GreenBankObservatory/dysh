@@ -479,32 +479,37 @@ class SpectrumPlot(PlotBase):
             self._axis.legend()
         self.freexy()
 
-    def show_catalog_lines(self, **kwargs):
+    def show_catalog_lines(self, rotation=0, **kwargs):
         """
         Overlay spectral lines from various catalogs on the plot, with annotations.
 
         Parameters
         ----------
+        rotation : float, degrees
+            Rotate the annotation text CCW to aid in readability. Default 0.
         **kwargs
-            All kwargs get passed to `dysh.line.query_lines`.
+            All other kwargs get passed to `dysh.line.query_lines`.
         """
 
         self.sl_tbl = self._spectrum.query_lines(**kwargs)
 
-        fsize = 9
-        fracstep = 0.04
-        ystart = 0.7 - 2 * fracstep
+        fsize = 9 # font size
+        num_vsteps = 7 # number of vertical steps of annotations
+        rot_factor = (rotation/90) * 0.3 / num_vsteps # adjust ylocs to avoid rotated text running into each other
+        fracstep = 0.04 + rot_factor
+        ystart = 0.86 - ( num_vsteps * fracstep )
 
         for i, line in enumerate(self.sl_tbl):
             line_name = parse_html(line["name"])
             #line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit).value
             line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit, equivalencies=self.spectrum.equivalencies).value
 
-            vloc = ystart + (i % 7) * fracstep
+            vloc = ystart + (i % num_vsteps) * fracstep
+            print(vloc)
 
             self._axis.axvline(line_freq, c="k", linewidth=1, gid="catalogline")
             self._axis.annotate(
-                line_name, (line_freq, vloc), xycoords=("data", "axes fraction"), size=fsize, gid="catalogtext", rotation=90
+                line_name, (line_freq, vloc), xycoords=("data", "axes fraction"), size=fsize, gid="catalogtext", rotation=rotation
             )
 
 
