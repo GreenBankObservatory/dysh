@@ -2822,7 +2822,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
             raise ValueError("Can't scale the data without a valid zenith opacity")
         _channel = self._normalize_channel_range(channel)
-        print(f"SB {_channel=}")
         _bintable = kwargs.get("bintable", None)
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
