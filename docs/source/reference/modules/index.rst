@@ -2,6 +2,9 @@
 Modules and APIs
 ****************
 
+Modules
+=======
+
 .. grid:: 1 2 2 2
 
     .. grid-item-card::
@@ -94,6 +97,13 @@ Modules and APIs
             :click-parent:
 
             Go to dysh.log
+
+
+Full API indices
+================
+
+* :ref:`genindex`
+* :ref:`modindex`
 
 .. toctree::
    :maxdepth: 2
