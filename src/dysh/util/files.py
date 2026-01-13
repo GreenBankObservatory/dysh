@@ -34,10 +34,10 @@ from ..util import minimum_string_match
 # $DYSH/testdata      @ todo   normalize names with the example= cases
 # ~300 MB
 valid_dysh_test = {
-    "getps"      : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",                                  # NGC5291   old test1
-    "getps2"     : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415   one int, 540k
-    "getfs"      : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits", # W3OH
-    "subbeamnod" : "TRCO_230413_Ka",
+    "getps"       : "AGBT05B_047_01/AGBT05B_047_01.raw.acs/",                                  # NGC5291   old test1
+    "getps2"      : "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits",                            # NGC2415   one int, 540k
+    "getfs"       : "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits", # W3OH
+    "subbeamnod2" : "TRCO_230413_Ka", 
 
 }
 
@@ -62,6 +62,8 @@ valid_dysh_example = {
     "subbeamnod2": "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas          # FS example in data_reduction (scan 64)
+    "nod2"       : "nod-KFPA/data/TGBT22A_503_02.raw.vegas.trim.fits",     # nodding notebook
+    "nod3"       : "nod-W/data/AGBT15B_244_07.raw.vegas.trim.fits",        # calseq notebook
     "align"      : "mixed-fs-ps/data/TGBT24B_613_04.raw.vegas.trim.fits",  #   MESSIER32  example/align_spectra
     "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",                     # tar.gz not yet supported?     A123606  example/flagging
     "survey"     : "hi-survey/data/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.fits",   # example/hi-survey
@@ -162,10 +164,9 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
     Notes
     -----
 
-    1) if $DYSH_DATA exist (and this is a new proposal), it will prepend
-       that to the argument of get_dysh_data() and check for existence
-       if $DYSH_DATA does not exist, but $SDFITS_DATA exists (a GBTIDL feature)
-       it will use that
+    1) if $DYSH_DATA exist, it will prepend that to the argument of get_dysh_data()
+       and check for existence if $DYSH_DATA does not exist, but $SDFITS_DATA exists
+       (a GBTIDL feature) it will use that
     2) if /home/dysh exists, it will prepend this and check for existence
        this will keep GBO people happy.  Offsite a symlink should also work.
     3) if none of those gave a valid name, it will fall back to making a URL
@@ -173,7 +174,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
        from_url for as long we want to support that.
        astropy caching is also an option
     4) directories (names not ending on .fits) cannot be downloaded using from_url
-    5) configuration TBD
+    5) configuration (not implemented yet)
 
     """
     # fmt:off
@@ -283,6 +284,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         my_test = minimum_string_match(test, list(valid_dysh_test.keys()))
         if my_test is not None:
             my_test = valid_dysh_test[my_test]
+            logger.info(f"Resolving test={test} -> {my_test}")
         else:
             my_test = test
         if dysh_data is not None:
@@ -309,6 +311,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         my_example = minimum_string_match(example, list(valid_dysh_example.keys()))
         if my_example is not None:
             my_example = valid_dysh_example[my_example]
+            logger.info(f"Resolving example={example} -> {my_example}")
         else:
             my_example = example
         if dysh_data is not None:
@@ -350,6 +353,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         my_accept = minimum_string_match(accept, list(valid_dysh_accept.keys()))
         if my_accept is not None:
             my_accept = valid_dysh_accept[my_accept]
+            logger.info(f"Resolving accept={accept} -> {my_accept}")
         else:
             my_accept = accept
         if dysh_data is not None:
