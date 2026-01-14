@@ -240,7 +240,7 @@ Contents
 
    index
    getting_started/index
-   users_guide
+   users_guide/index
    reference/index
    for_beta_testers/index
    for_developers/index
