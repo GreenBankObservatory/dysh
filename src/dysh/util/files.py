@@ -57,8 +57,8 @@ valid_dysh_example = {
     "getps2"     : "onoff-L/data/TGBT21A_501_11.raw.vegas.fits",    #  NGC2415   - old getps
     "getpslarge" : "onoff-L/data/TGBT21A_501_11.raw.vegas/",        #  NGC2415, NGC2782 etc. - total 15GB
     "getfs"      : "fs-L/data/AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A.fits",
-    "getfs2"     : "frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/",    #  W3OH    # staff training FS
-    "subbeamnod" : "subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/",   #  vIIzw31      example/subbeamnod    staff training SBN -- no signal?
+    "getfs2"     : "frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits",    #  W3OH    # staff training FS
+    "subbeamnod" : "subbeamnod/data/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits",   #  vIIzw31      example/subbeamnod    staff training SBN -- no signal?
     "subbeamnod2": "subbeamnod-Ka/data/TRCO_230413_Ka.raw.vegas/TRCO_230413_Ka.raw.vegas.A.fits",
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas          # FS example in data_reduction (scan 64)
