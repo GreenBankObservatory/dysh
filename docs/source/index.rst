@@ -9,9 +9,18 @@ It is intended to replace `GBTIDL <https://gbtidl.nrao.edu/>`_, GBO's current sp
 Installation
 ============
 
+Directly from github:
+
 .. code:: bash
 
     pip install "dysh[nb] @ git+https://github.com/GreenBankObservatory/dysh"
+
+Latest stable release on PyPI:
+
+.. code:: bash
+
+    pip install dysh
+
 
 Read on for a brief overview.
 
