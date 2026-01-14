@@ -184,11 +184,17 @@ Note that the setting the units, velocity frame or Doppler convention during plo
 Saving a Spectrum
 =================
 
-Save the spectrum to a FITS file:
+Save the spectrum to a FITS file (notice this is not SDFITS, for SDFITS use ``format=sdfits``):
 
 .. code:: Python
 
     oh_bright_spec.write("W3OH_1665MHz_pol0.fits", format="fits")
+
+Or to a text file:
+
+.. code:: Python
+
+    oh_bright_spec.write("W3OH_1665MHz_pol0.txt", format="basic")
 
 
 Reporting Issues

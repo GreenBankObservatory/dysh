@@ -172,6 +172,7 @@ We can check the stats before and after to see they've improved.
 
 .. image:: files/iplotter8.png
 
+
 Overplotting
 ------------
 
@@ -218,3 +219,25 @@ The same result can be obtained by directly using the ``oshow`` and ``oshow_kwar
                                      "color": ["y", "c"],
                                      "linestyle": [":", "--"]}
                       )
+
+
+Overlaying Catalog Lines
+------------------------
+
+You can overlay the molecular spectral lines found from the
+`spectral line search feature <https://dysh.readthedocs.io/en/latest/how-tos/examples/line_search.html>`_
+on your plot with the following command:
+
+.. code-block::
+
+    plot.show_catalog_lines()
+
+.. image:: files/specplot_cataloglines.png
+
+You can add kwargs that pass to `dysh.line.SpectralLineSearchClass.query_lines <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.line.html#dysh.line.SpectralLineSearchClass.query_lines>`_,
+such as ``chemical_name`` and ``intensity_lower_limit``. However, the minimum and maximum frequencies are taken from the underlying spectrum.
+Just like any other overlays, you can clear these with:
+
+.. code-block::
+
+    plot.clear_overlays()
