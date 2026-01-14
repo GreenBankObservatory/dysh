@@ -18,6 +18,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 # from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import UnitTypeError
 from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
@@ -1703,11 +1704,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
             # Use the WCS to convert from world to pixel values.
             wcs = self.wcs
             # We need a sky location to convert incorporating velocity shifts.
-            coo = SkyCoord(
-                wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
-                wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
-                frame="fk5",
-            )
+            try:
+                coo = SkyCoord(
+                    wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
+                    wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
+                    frame=self.meta["RADESYS"].lower(),
+                )
+            except UnitTypeError:
+                # Assume spatial coordinates are in axes 1 and 2.
+                coo = SkyCoord(
+                    wcs.wcs.crval[1] * wcs.wcs.cunit[1],
+                    wcs.wcs.crval[2] * wcs.wcs.cunit[2],
+                    frame=self.meta["RADESYS"].lower(),
+                )
+
             # Same for the Stokes axis.
             sto = StokesCoord(0)
             start = item.start
