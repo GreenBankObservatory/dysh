@@ -954,7 +954,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        ~astropy.units.quantity.Quantity.Quantity
+        ~astropy.units.quantity.quantity.Quantity
             The rest frequency as a Quantity object
         """
         return self.spectral_axis.doppler_rest
@@ -1044,7 +1044,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        toframe : str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.sky_coordinate.SkyCoord`
+        toframe : str or `~astropy.coordinates.BaseCoordinateFrame` or `~astropy.coordinates.sky_coordinate.SkyCoord`
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs',
             an actual coordinate system instance, or a sky coordinate instance.
         """
