@@ -27,6 +27,7 @@ from .core import (
     available_smooth_methods,
     find_non_blanks,
     find_nonblank_ints,
+    make_channel_slice,
     mean_tsys,
     smooth,
     sq_weighted_avg,
@@ -293,10 +294,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._tscale_to_unit = {"ta": u.K, "ta*": u.K, "flux": u.Jy, "raw": u.ct, "counts": u.ct, "count": u.ct}
-        if channel is not None:
-            self._channel_slice = slice(channel[0], channel[1])
-        else:
-            self._channel_slice = slice(0, None)
+        self._channel_slice = make_channel_slice(channel)
         # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
@@ -363,7 +361,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     ):
         if len(meta_rows) == 0:
             raise Exception(
-                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
+                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection. If the inner 80% of channels has been flagged, the system temperature cannot be calculated."
             )
         self._calibrate = calibrate
 
