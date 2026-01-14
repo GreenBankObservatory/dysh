@@ -233,7 +233,7 @@ on your plot with the following command:
 .. image:: files/specplot_cataloglines.png
 
 You can add kwargs that pass to `dysh.line.SpectralLineSearchClass.query_lines <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.line.html#dysh.line.SpectralLineSearchClass.query_lines>`_,
-such as `chemical_name` and `intensity_lower_limit`. However, the minimum and maximum frequencies are taken from the underyling spectrum.
+such as ``chemical_name`` and ``intensity_lower_limit``. However, the minimum and maximum frequencies are taken from the underlying spectrum.
 Just like any other overlays, you can clear these with:
 
 .. code-block::

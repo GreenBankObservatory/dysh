@@ -501,7 +501,6 @@ class SpectrumPlot(PlotBase):
 
         for i, line in enumerate(self.sl_tbl):
             line_name = parse_html(line["name"])
-            # line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit).value
             line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit, equivalencies=self.spectrum.equivalencies).value
 
             vloc = ystart + (i % num_vsteps) * fracstep
