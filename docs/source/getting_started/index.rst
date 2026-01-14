@@ -294,7 +294,6 @@ This quick example will download a 31 MB file to the current directory.
 
    .. code-block:: python
 
-        from dysh.util.files import dysh_data
         filename = dysh_data(example="getfs") # This will download 31 MB, if outside of GBO.
         sdfits = GBTFITSLoad(filename)
         sdfits.summary()
