@@ -98,9 +98,9 @@ class ScanPlot(PlotBase):
 
     def write(self, filename, avechan=1, chan=None, overwrite=False):
         r"""
-        Write the current spectrogram as a FITS image. No WCS is maintained.
-        The current version uses the first axis for the number of integrations,
-        the second axis as the number of channels.
+        Write the current spectrogram as a FITS image. No WCS is maintained yet.
+        The current version uses the first axis for the integrations,
+        the second axis for the channels.
 
         Parameters
         ----------
