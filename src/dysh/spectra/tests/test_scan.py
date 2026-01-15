@@ -1020,13 +1020,13 @@ class TestScanBlock:
 
             mean = np.nanmean(sb[0]._calibrated)
             std = np.std(sb[0]._calibrated)
-            sb[0].smooth(method="box", width=width, decimate=-1)
+            sb[0].smooth(kernel="box", width=width, decimate=-1)
             hmean = np.nanmean(sb[0]._calibrated)
             hstd = np.std(sb[0]._calibrated)
             assert hmean == pytest.approx(mean, rel=1e-5)
             assert std / hstd == pytest.approx(np.sqrt(width), abs=1e-2)
             sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
-            sb[0].smooth(method="box", width=width, decimate=0)
+            sb[0].smooth(kernel="box", width=width, decimate=0)
             assert all(sb[0].delta_freq == np.array([x["CDELT1"] for x in sb[0].meta]))
 
     def test_tsys_weight(self, data_dir):

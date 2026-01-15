@@ -1,5 +1,5 @@
-.. |minver| replace:: ``0.8.3``
-.. |minpatch| replace:: ``0.8.4``
+.. |minver| replace:: ``0.11.0``
+.. |minpatch| replace:: ``0.11.1``
 .. |pymin| replace:: 3.10
 .. |pymax| replace:: 3.14
 
@@ -33,6 +33,7 @@ Should print |minver| or higher (e.g., |minpatch|).
 
 If you want to install your own version of ``dysh`` instead, read the following section.
 
+.. _installing-dysh:
 
 Installing ``dysh``
 ===================
@@ -293,7 +294,6 @@ This quick example will download a 31 MB file to the current directory.
 
    .. code-block:: python
 
-        from dysh.util.files import dysh_data
         filename = dysh_data(example="getfs") # This will download 31 MB, if outside of GBO.
         sdfits = GBTFITSLoad(filename)
         sdfits.summary()
