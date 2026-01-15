@@ -1,8 +1,9 @@
-.. _scanblocks:
 
 *************************
 Data Structures Explained
 *************************
+
+.. _usersguide-gbtfitsload:
 
 GBTFITSLoad 
 ===========
@@ -18,7 +19,7 @@ files were loaded.
 .. code:: Python
 
    sdfits = GBTFITSLoad(path)
-   sdfits.summary()  # A tabular summary of all the data
+   sdfits.summary()   # A tabular summary of all the data
 
 where ``path`` is a `path.Path` to a directory containing SDFITS files or a single SDFITS file.  
 
@@ -26,8 +27,8 @@ Once loaded, the columns of the binary table, except the DATA and FLAGS columns,
 
 .. code:: Python
 
-   sdfits["OBJECT"]      # The entire OBJECT column
-   set(sdfits["OBJECT"]) # The unique set of OBJECTS
+   sdfits["OBJECT"]         # The entire OBJECT column
+   set(sdfits["OBJECT"])    # The unique set of OBJECTS
    sdfits.selection         # The entire DataFrame  
 
 This mechanism can be used to :ref:`select data <data-selection>` for calibration.
@@ -36,18 +37,92 @@ Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfi
 
 .. code:: Python
 
-   sdfits.rawspectrum(10) #  get data array for row 10 
-   sdfits.getspec(10)     #  get a Spectrum for row 10 data and metadata
+   array = sdfits.rawspectrum(10) #  get data array for row 10 
+   spectrum = sdfits.getspec(10)  #  get a Spectrum for row 10 data and metadata
 
 
-`~dysh.fits.gbtfitsload.GBTOnline`
-`~dysh.fits.gbtfitsload.GBTOffline`
+GBTOnline and GBTOffline
+========================
+
+For users at GBO, `~dysh.fits.gbtfitsload.GBTOnline` connects directly to the SDFITS file(s) currently being observed/written at the GBT.  It functions exactly like  `~dysh.fits.gbtfitsload.GBTFITSLoad` and updates its contents automatically as new data are written.
+
+.. code:: Python
+
+   sdfits = GBTOnline()
+   sdfits.summary()   # A tabular summary of the current data
+
+
+`~dysh.fits.gbtfitsload.GBTOffline` connects to a given project on disk, by default in ``/home/sdfits`` (where project data live a GBO).  You can set the SDFITS_DATA environment variable to point to a different location.
+
+.. code:: Python
+
+   # load data from project id AGBT_22A_325_33
+   sdfits = GBTOnline('AGBT_22A_325_33') 
+   sdfits.summary()
+
+.. _usersguide-spectrum:
 
 Spectrum
 ========
 
+A `~dysh.spectra.spectrum.Spectrum` is a container representing a
+spectrum and its attributes, with data in a brightness unit (e.g.,
+`astropy.units.ct`, `astropy.units.K`, `astropy.units.Jy`) and a
+spectral axis in frequency or velocity units.  The data are accesible as a (unitless) `~numpy.ndarray` (`~specutils.Spectrum.data`) or as a
+`~astropy.units.quantity.Quantity` (`~dysh.spectra.spectrum.Spectrum.flux`).  Spectrum objects have a `~dysh.spectra.spectrum.Spectrum.mask` array which can be set with
+`flagging operations <https://dysh.readthedocs.io/en/latest/how-tos/examples/flagging.html>`_. It is based on specutils
+`~specutils.Spectrum` class.  It supports most common velocity reference
+frames supported by `astropy.coordinates.BaseCoordinateFrame` ('itrs' [topographic], 'lsrk','icrs','hcrs', etc).
+Spectra can be displayed with  `~dysh.spectra.spectrum.Spectrum.plot`, which opens up an interactive plot window.
+The frequency/velocity locations of spectral lines within the spectral window can be listed `~dysh.spectra.spectrum.Spectrum.query_lines`.
+
+Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog`.  Spectrum arithmetic is supported with common operators, e.g.:
+
+.. code:: Python
+
+    s1 = Spectrum.fake_spectrum(nchan=2048)   # default unit is K
+    s2 = Spectrum.fake_spectrum(nchan=2048)
+    s3 = s1+s2      # Sum of two spectra
+    ratio = s2/s1   # Unitless ratio
+
+`~dysh.spectra.spectrum.Spectrum` objects are returned by operations like `~dysh.spectra.scan.ScanBase.timeaverage` and `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec`.
+A useful method for creating dummy spectra is `~dysh.spectra.spectrum.Spectrum.fake_spectrum`.
+
+
+.. _usersguide-scan:
+
 Scan
 ====
+
+Scans are represented by subclasses of `~dysh.spectra.scan.ScanBase` specific to their observation type.  For instance  
+`~dysh.spectra.scan.PSScan` is position-switched, 
+`~dysh.spectra.scan.FSScan` is frequency-switched,
+`~dysh.spectra.scan.TPScan` is total power,
+`~dysh.spectra.scan.NodScan` is nodding.
+These are created by the corresponding calibration routine, e.g., `~dysh.fits.gbtfitsload.GBTFITSLoad.getps`,  `~dysh.fits.gbtfitsload.GBTFITSLoad.getfs`, `~dysh.fits.gbtfitsload.GBTFITSLoad.gettp`
+and collected into a common :ref:`usersguide-scanblock`.  Users generally will not interact with individual Scan objects, but rather collectively through the ScanBlock interface.  However, certain attributes and functions are common to all `Scan classes <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.spectra.html#dysh.spectra.scan.ScanBase>`_ are helpful for understanding the data.
+
+.. code:: Python
+
+   # load data from project id AGBT_22A_325_33
+   sdfits = GBTFITSLoad(path)
+
+   # get a ScanBlock containing some PSScans calibrated to Janskys
+   sb = sdfits.getps(scan=[23,25,27] ifnum=0,plnum=0,fdnum=0, units='flux', zenith_opacity=0.05) 
+
+   # Look at the scale factors and weights of all the Scans in the ScanBlock
+   for s in sb:
+       print(f"Scale factors for PSScan {s.scan} = {s.tscale_fac}")
+       print(f"Weights for PSScan {s.scan} = {s.weights}")
+
+   # examine the integrations in the first PSScan
+   for i in range(len(sb[0]):
+        sb[0].getspec(i).plot()
+
+   sb[0].add_comment("Integration 12 looks wonky.")
+
+.. _scanblocks:
+.. _usersguide-scanblock:
 
 ScanBlock
 =========

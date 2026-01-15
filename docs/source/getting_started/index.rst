@@ -3,9 +3,9 @@
 .. |pymin| replace:: 3.10
 .. |pymax| replace:: 3.14
 
-***************
-Starting `dysh`
-***************
+******************
+Installation Guide
+******************
 
 Using ``dysh`` at GBO
 =====================

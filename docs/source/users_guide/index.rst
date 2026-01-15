@@ -11,9 +11,8 @@ Users Guide
    :maxdepth: 2 
    :hidden:
  
-   loading_data
    data_structures
-   retrieving_data.rst
+   loading_data
    ../tutorials/examples/iplotter
    ../tutorials/how-tos/examples/velocity_frames
    ../tutorials/examples/selection
