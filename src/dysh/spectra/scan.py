@@ -39,39 +39,33 @@ from .vane import VaneSpectrum
 
 class SpectralAverageMixin:
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, decimate=0):
+    def smooth(self, kernel="hanning", width=1, decimate=0):
         """
         Smooth or convolve the underlying calibrated data array, optionally decimating the data.
 
-        A number of methods from astropy.convolution can be selected
-        with the `method` keyword.
-
-        Default smoothing is hanning.
+        A number of kernels from `astropy.convolution` can be selected
+        with the `kernel` keyword.
 
         Note: Any previously computed/removed baseline will remain unchanged.
 
         Parameters
         ----------.
-        method : {'hanning', 'boxcar', 'gaussian'}, optional
-            Smoothing method. Valid are: 'hanning', 'boxcar' and
-            'gaussian'. Minimum match applies.
+        kernel : {'hanning', 'boxcar', 'gaussian'}, optional
+            Smoothing kernel. Minimum match applies.
             The default is 'hanning'.
         width : int, optional
-            Effective width of the convolving kernel.  Should ideally be an
-            odd number.
+            Width of the convolving kernel.  Should ideally be an odd number.
             For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
-            signal at the edges, and will thus not reproduce GBTIDL.
-            For 'gaussian' this is the FWHM of the final beam. We normally
-            assume the input beam has FWHM=1, pending resolution on cases
-            where CDELT1 is not the same as FREQRES.
+            signal at the edges.
+            For 'gaussian' this is the FWHM of the desired spectral resolution.
             The default is 1.
         decimate : int, optional
-            Decimation factor of the spectrum by returning every decimate channel.
+            Decimation factor of the spectrum by returning every `decimate` channel.
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-            The default is 0, meaning decimation is by `width`
+            The default is 0, meaning decimation is by `width`.
 
         Returns
         -------
@@ -80,16 +74,16 @@ class SpectralAverageMixin:
         Raises
         ------
         ValueError
-            If no valid smoothing method is given.
+            If no valid smoothing `kernel` is given or if `width` is less than 1.
         """
 
         valid_methods = available_smooth_methods()
-        this_method = minimum_string_match(method, valid_methods)
+        this_kernel = minimum_string_match(kernel, valid_methods)
         if width < 1:
             raise ValueError(f"`width` ({width}) must be >=1.")
 
-        if this_method is None:
-            raise ValueError(f"Unrecognized method ({method}). Valid methods are {valid_methods}")
+        if this_kernel is None:
+            raise ValueError(f"Unrecognized kernel ({kernel}). Valid kernels are {valid_methods}")
         if decimate == 0:
             # Take the default decimation by `width`.
             decimate = int(abs(width))
@@ -103,10 +97,9 @@ class SpectralAverageMixin:
             c = self._calibrated[i]
             newdata, newmeta = smooth(
                 data=c,
-                method=method,
+                kernel=this_kernel,
                 width=width,
                 ndecimate=decimate,
-                kernel=None,
                 meta=self.meta[i],
             )
             if hasattr(newdata, "mask"):
@@ -1265,50 +1258,36 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):  # ScanBlock
+    def smooth(self, kernel="hanning", width=1, decimate=0):  # ScanBlock
         """
         Smooth all scans in this ScanBlock.
-        Smooth or convolve the  calibrated data arrays in contained Scans, optionally decimating the data.
-        A number of methods from astropy.convolution can be selected
-        with the `method` keyword.
+        Smooth or convolve the calibrated data arrays in the contained scans,
+        optionally decimating the data.
+        A number of kernels from `astropy.convolution` can be selected
+        with the `kernel` keyword.
 
-        Default smoothing is hanning.
+        Default smoothing kernel is hanning.
 
         Note: Any previously computed/removed baseline will remain unchanged.
 
         Parameters
-        ----------.
-        method : string, optional
-            Smoothing method. Valid are: 'hanning', 'boxcar' and
-            'gaussian'. Minimum match applies.
+        ----------
+        kernel : {'hanning', 'boxcar', 'gaussian'}, optional
+            Smoothing kernel. Minimum match applies.
             The default is 'hanning'.
         width : int, optional
-            Effective width of the convolving kernel.  Should ideally be an
-            odd number.
+            Width of the convolving kernel. Should ideally be an odd number.
             For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
-            signal at the edges, and will thus not reproduce GBTIDL.
-            For 'gaussian' this is the FWHM of the final beam. We normally
-            assume the input beam has FWHM=1, pending resolution on cases
-            where CDELT1 is not the same as FREQRES.
+            signal at the edges.
+            For 'gaussian' this is the FWHM of the final spectral resolution.
             The default is 1.
         decimate : int, optional
-            Decimation factor of the spectrum by returning every decimate channel.
+            Decimation factor of the spectrum by returning every `decimate` channel.
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-            The default is 0, meaning decimation is by `width`
-        kernel : `~numpy.ndarray`, optional
-            A numpy array which is the kernel by which the signal is convolved.
-            Use with caution, as it is assumed the kernel is normalized to
-            one, and is symmetric. Since width is ill-defined here, the user
-            should supply an appropriate number manually.
-            NOTE: not implemented yet.
-            The default is None.
-        Raises
-        ------
-        Exception
-            If no valid smoothing method is given.
+            The default is 0, meaning decimation is by `width`.
 
         Returns
         -------
@@ -1316,7 +1295,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         """
         for scan in self.data:
-            scan.smooth(method, width, decimate, kernel)
+            scan.smooth(kernel, width, decimate)
 
     @log_call_to_history
     @copy_docstring(SpectralAverageMixin.timeaverage)
