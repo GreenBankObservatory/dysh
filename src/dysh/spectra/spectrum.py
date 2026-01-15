@@ -18,6 +18,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 # from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import UnitTypeError
 from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
@@ -42,7 +43,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     veldef_to_convention,
 )
 from ..line import SpectralLineSearch
-from ..line.search import all_cats
+from ..line.search import _default_columns_to_return, all_cats
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import (
@@ -1703,11 +1704,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
             # Use the WCS to convert from world to pixel values.
             wcs = self.wcs
             # We need a sky location to convert incorporating velocity shifts.
-            coo = SkyCoord(
-                wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
-                wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
-                frame="fk5",
-            )
+            try:
+                coo = SkyCoord(
+                    wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
+                    wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
+                    frame=self.meta["RADESYS"].lower(),
+                )
+            except UnitTypeError:
+                # Assume spatial coordinates are in axes 1 and 2.
+                coo = SkyCoord(
+                    wcs.wcs.crval[1] * wcs.wcs.cunit[1],
+                    wcs.wcs.crval[2] * wcs.wcs.cunit[2],
+                    frame=self.meta["RADESYS"].lower(),
+                )
+
             # Same for the Stokes axis.
             sto = StokesCoord(0)
             start = item.start
@@ -1881,13 +1891,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         end_freq = self.spectral_axis.quantity[-1].to("Hz", equivalencies=u.spectral())
         return Quantity(np.sort([start_freq.value, end_freq.value]), unit=start_freq.unit)
 
-    @docstring_parameter(str(all_cats()))
+    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
     def query_lines(
-        self, chemical_name: str | None = None, intensity_lower_limit: float | None = None, cat: str = "gbtlines"
+        self,
+        chemical_name: str | None = None,
+        intensity_lower_limit: float | None = None,
+        cat: str = "gbtlines",
+        columns: str | list | None = None,
     ) -> Table:
         """
         Query locally or remotely for lines and return a table object. The query returns lines
-        with rest frequencies in the range of this Spectrum's spectral_axis.
+        with rest frequencies in the range of this Spectrum's spectral_axis.  The redshift value in the attribute `Spectrum.redshift` will be applied.
 
         **Note:** If the search parameters result in no matches, a zero-length Table will be returned.
 
@@ -1919,10 +1933,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
@@ -1932,13 +1948,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             max_frequency=maxf,
             intensity_lower_limit=intensity_lower_limit,
             cat=cat,
+            columns=columns,
             intensity_type="CDMS/JPL (log)",
+            redshift=self.redshift,
         )
 
-    @docstring_parameter(str(all_cats()))
-    def recomb(self, line, cat: str = "gbtrecomb") -> Table:
+    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
+    def recomb(self, line, cat: str = "gbtrecomb", columns: str | list | None = None) -> Table:
         """
-        Search for recombination lines of H, He, and C in the frequency range of this Spectrum.
+        Search for recombination lines of H, He, and C in the frequency range of this Spectrum. The redshift value in the attribute `Spectrum.redshift` will be applied.
 
         Parameters
         ----------
@@ -1952,25 +1970,24 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
         minf, maxf = self._min_max_freq()
         return SpectralLineSearch.recomb(
-            min_frequency=minf,
-            max_frequency=maxf,
-            line=line,
-            cat=cat,
+            min_frequency=minf, max_frequency=maxf, line=line, cat=cat, columns=columns, redshift=self.redshift
         )
 
-    @docstring_parameter(str(all_cats()))
-    def recomball(self, cat: str = "gbtrecomb") -> Table:
+    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
+    def recomball(self, cat: str = "gbtrecomb", columns: str | list | None = None) -> Table:
         """
-        Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog.
+        Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog. The redshift value in the attribute `Spectrum.redshift` will be applied.
 
         Parameters
         ----------
@@ -1981,15 +1998,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat)
+        return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat, redshift=self.redshift)
 
     def meta_as_table(self):
         """

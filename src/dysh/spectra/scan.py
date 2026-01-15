@@ -27,6 +27,7 @@ from .core import (
     available_smooth_methods,
     find_non_blanks,
     find_nonblank_ints,
+    make_channel_slice,
     mean_tsys,
     smooth,
     sq_weighted_avg,
@@ -286,10 +287,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._tscale_to_unit = {"ta": u.K, "ta*": u.K, "flux": u.Jy, "raw": u.ct, "counts": u.ct, "count": u.ct}
-        if channel is not None:
-            self._channel_slice = slice(channel[0], channel[1])
-        else:
-            self._channel_slice = slice(0, None)
+        self._channel_slice = make_channel_slice(channel)
         # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
@@ -311,7 +309,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             if v == -1:
                 unset.append(k)
         if len(unset) > 0:
-            raise Exception(
+            raise AttributeError(
                 f"The following required Scan attributes were not set by the derived class {self.__class__.__name__}:"
                 f" {unset}"
             )
@@ -356,7 +354,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     ):
         if len(meta_rows) == 0:
             raise Exception(
-                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
+                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection. If the inner 80% of channels has been flagged, the system temperature cannot be calculated."
             )
         self._calibrate = calibrate
 
@@ -902,7 +900,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
         if not self.is_calibrated:
-            raise Exception("Data have to be calibrated first to add calibration metadata")
+            raise AttributeError("Data have to be calibrated first to add calibration metadata")
         for i in range(len(self._meta)):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["TCAL"] = self._tcal[i]
@@ -1012,7 +1010,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # to figure it out oneself (which I spent far too much time trying to do before I
         # discovered this!)
         if self._calibrated is None:
-            raise Exception("Data must be calibrated before writing.")
+            raise AttributeError("Data must be calibrated before writing.")
         # Table metadata aren't preserved in BinTableHDU, so we
         # have to grab them here and add them
         # data_table = self._meta_as_table()
@@ -1715,7 +1713,7 @@ class TPScan(ScanBase):
         elif self.calstate == False:  # noqa: E712
             self._calibrated = self._refcaloff.astype(float)
         else:
-            raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
+            raise AttributeError(f"Unrecognized cal state {self.calstate}")  # should never happen
         if np.all(np.isnan(self._tsys)):
             self._calc_tsys()
 
@@ -1753,7 +1751,7 @@ class TPScan(ScanBase):
             nspect = len(self._tcal)
             self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
             if len(self._tcal) != nspect:
-                raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
+                raise AttributeError(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
             for i in range(nspect):
                 tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
                 self._tsys[i] = tsys
@@ -2112,7 +2110,7 @@ class PSScan(ScanBase):
         else:
             tcal = self._tcal
             if len(tcal) != nspect:
-                raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+                raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
             if not self._nocal:
                 for i in range(nspect):
                     if not np.isnan(self._tsys[i]):
@@ -2431,7 +2429,7 @@ class NodScan(ScanBase):
             self._tcal[:] = self.get_vane_tcal()
         tcal = self._tcal
         if len(tcal) != nspect:
-            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+            raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         if not self._nocal:
             for i in range(nspect):
                 if not np.isnan(self._tsys[i]):
@@ -2849,7 +2847,7 @@ class FSScan(ScanBase):
         tcal = self._tcal
         logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
         if len(tcal) != nspect:
-            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+            raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
 
         # @todo   the nspect loop could be replaced with clever numpy?
         if not self._nocal:

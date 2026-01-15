@@ -714,7 +714,7 @@ class TestGBTFITSLoad:
         with pytest.raises(ValueError):
             df = sdf.get_summary(columns=["MYCOL"])
 
-    def test_contruct_integration_number(self, tmp_path, tmp_path_factory):
+    def test_construct_integration_number(self, tmp_path, tmp_path_factory, caplog):
         """
         Tests for _construct_integration_number.
         * Test that construction of integration number (intnum) during FITS load matches
@@ -762,8 +762,9 @@ class TestGBTFITSLoad:
         sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=1)
         sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=2)
         # This should fail.
-        with pytest.raises(Exception), pytest.warns(UserWarning):
+        with pytest.raises(Exception):
             sdf_mod.gettp(scan=130, ifnum=sdf_mod.udata("IFNUM")[0], plnum=0, fdnum=sdf_mod.udata("FDNUM")[0], intnum=3)
+            assert "no data" in caplog.text
 
     def test_getps_smoothref(self):
         """ """
@@ -1162,6 +1163,18 @@ class TestGBTFITSLoad:
         sdf.flag_channel(channel=[[80000, 100000]])
         sdf.apply_flags()
         assert np.all(sdf._sdf[0]._flagmask[0] == flag1 | flag2)
+
+    def test_eighty_percent_flag(self, tmp_path):
+        # regression test for https://github.com/GreenBankObservatory/dysh/issues/867
+        # If 80% of inner channels are flagged, we should flag the rest.  This is now the default for apply flags.
+        # So inthe case below, an exception will be raised during calibration that there are no data left to calibrate.
+        fits_path = (
+            util.get_project_testdata() / "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
+        )
+        sdf = gbtfitsload.GBTFITSLoad(fits_path, skipflags=True, flag_vegas=False)
+        sdf.flag(scan=20, channel=[[1000, 32000]])
+        with pytest.raises(Exception):
+            sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0)
 
     def test_read_gbtidl_flags(self):
         """
@@ -1673,7 +1686,7 @@ class TestGBTFITSLoad:
         assert sdf.get_nod_beams(scan=333) == [1, 9]
         assert sdf.get_nod_beams(scan=334) == [1, 9]
 
-    def test_calseq(self):
+    def test_calseq(self, caplog):
         """Test for calseq"""
 
         sdf_file = f"{self.data_dir}/AGBT15B_244_07/AGBT15B_244_07_test"
@@ -1684,9 +1697,9 @@ class TestGBTFITSLoad:
         assert gain == pytest.approx(8.811870868732733e-07)
 
         # Make it error.
-        with pytest.warns(UserWarning):
-            with pytest.raises(Exception):
-                sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+        with pytest.raises(Exception):
+            sdf.calseq(scan=130, ifnum=1, plnum=0, fdnum=3)
+            assert "no data" in caplog.text
 
     def test_vanecal(self):
         """Test for vanecal"""
@@ -1765,6 +1778,10 @@ class TestGBTFITSLoad:
         assert sb[0].nchan == n1 - n0
         assert s.meta["CRPIX1"] == sallchan.meta["CRPIX1"] - n0
         # now make sure the exception is raised if you try to do both selection and channel=
+        with pytest.raises(ValueError):
+            sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
+        # now make sure an exception is raised if you try to calibrate with >=80% flagged channels
+        sdf.flag_channel([[16000, 19000]])
         with pytest.raises(ValueError):
             sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
         sdf.clear_selection()
