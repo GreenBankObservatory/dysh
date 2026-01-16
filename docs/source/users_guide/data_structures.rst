@@ -28,7 +28,7 @@ Once loaded, the columns of the binary table, except the DATA and FLAGS columns,
 .. code:: Python
 
    sdfits["OBJECT"]         # The entire OBJECT column
-   set(sdfits["OBJECT"])    # The unique set of OBJECTS
+   sdfits.udata("OBJECT")   # The unique set of OBJECTS
    sdfits.selection         # The entire DataFrame  
 
 This mechanism can be used to :ref:`select data <data-selection>` for calibration.
@@ -40,6 +40,9 @@ Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfi
    array = sdfits.rawspectrum(10) #  get data array for row 10 
    spectrum = sdfits.getspec(10)  #  get a Spectrum for row 10 data and metadata
 
+.. warning::
+
+   Be careful accessing the data with the "DATA" key!  You could overwrite the data with `sdfits["DATA"] = ...`
 
 GBTOnline and GBTOffline
 ========================
@@ -76,7 +79,7 @@ frames supported by `astropy.coordinates.BaseCoordinateFrame` ('itrs' [topograph
 Spectra can be displayed with  `~dysh.spectra.spectrum.Spectrum.plot`, which opens up an interactive plot window.
 The frequency/velocity locations of spectral lines within the spectral window can be listed `~dysh.spectra.spectrum.Spectrum.query_lines`.
 
-Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog`.  Spectrum arithmetic is supported with common operators, e.g.:
+Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog` (`Curve of Growth < The Notes section is out of data>`_).  Spectrum arithmetic is supported with common operators, e.g.:
 
 .. code:: Python
 
@@ -114,6 +117,10 @@ and collected into a common :ref:`usersguide-scanblock`.  Users generally will n
    for s in sb:
        print(f"Scale factors for PSScan {s.scan} = {s.tscale_fac}")
        print(f"Weights for PSScan {s.scan} = {s.weights}")
+
+   # get the weighted average of the integrations for the first PSScan
+   ta = sb[0].timeaverage()
+   ta.plot()
 
    # examine the integrations in the first PSScan
    for i in range(len(sb[0]):
