@@ -515,6 +515,30 @@ class SpectrumPlot(PlotBase):
                 rotation=rotation,
             )
 
+    def annotate_vline(self, xval, text="", rotation=0):
+        """
+        Add a single annotated vline to the plot. Can be cleared with the "catalogline" gid.
+
+        Parameters
+        ----------
+        xval : float
+            X value of the line, in the same units as the plot.
+        text : str
+            Associated text for the vline. Defaults to an empty string.
+        rotation : float
+            Rotate the text CCW degrees. Default 0.and
+        """
+        fsize=9
+        self._axis.axvline(xval, c="k", linewidth=1, gid="catalogline")
+        self._axis.annotate(
+            text,
+            (xval, 0.7),
+            xycoords=("data", "axes fraction"),
+            size=fsize,
+            gid="catalogtext",
+            rotation=rotation,
+        )
+
 
 class InteractiveSpanSelector:
     def __init__(self, ax):

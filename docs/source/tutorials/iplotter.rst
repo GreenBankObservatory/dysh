@@ -230,7 +230,7 @@ on your plot with the following command:
 
 .. code-block::
 
-    plot.show_catalog_lines()
+    ps_plot.show_catalog_lines()
 
 .. image:: files/specplot_cataloglines.png
 
@@ -240,4 +240,15 @@ Just like any other overlays, you can clear these with:
 
 .. code-block::
 
-    plot.clear_overlays()
+    ps_plot.clear_overlays()
+
+You can also add your own custom vline with `annotate_vline <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.annotate_vline>`_ to denote a single spectral line,
+or just anything of interest on the plot.
+
+.. code-block::
+    
+    ps_plot.annotate_vline(1.381e9, 'GPS-L3')
+
+.. image:: files/annotate_vline.png
+
+
