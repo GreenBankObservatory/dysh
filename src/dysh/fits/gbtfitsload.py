@@ -76,7 +76,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Header Data Unit to select from input file. Default: all HDUs
 
     skipflags: bool
-        If True, do not read any flag files associated with these data. Default:False
+        If True, do not read any flag files associated with these data. Default: True
 
     flag_vegas: bool
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
@@ -98,7 +98,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, source=None, hdu=None, skipflags=False, flag_vegas=True, **kwargs):
+    def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=True, **kwargs):
         kwargs_opts = {
             "index": True,
             "verbose": False,
@@ -109,7 +109,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         path = Path(fileobj)
         self._sdf = []
         self._selection = None
-        self._tpnocal = None  # should become True or False once known
         self._flag = None
 
         self.GBT = Observatory["GBT"]

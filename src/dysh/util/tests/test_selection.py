@@ -237,7 +237,7 @@ class TestSelection:
 
     def test_flag_read(self):
         file = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas/AGBT20B_014_03.raw.vegas.A6.fits"
-        g = gbtfitsload.GBTFITSLoad(file, flag_vegas=False)
+        g = gbtfitsload.GBTFITSLoad(file, flag_vegas=False, skipflags=False)
         assert len(g.flags._selection_rules) == 1
         assert g.flags._table["# SELECTED"][0] == 24
         assert g.flags._table["SCAN"][0] == "6"
