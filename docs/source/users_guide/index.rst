@@ -39,4 +39,5 @@ Users Guide
    ../how-tos/examples/dataIO
    ../how-tos/examples/merge_sdfits
    ../explanations/sdfits
+   ../tutorials/examples/hisurvey
 
