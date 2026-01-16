@@ -60,6 +60,10 @@ class TestSpecplot:
         tp_plt.show_catalog_lines()
         tp_plt.clear_overlays()
 
+    def test_annotations(self):
+        tp_plt = self.tp.plot()
+        tp_plt.annotate_vline(1.42e9, "HI is coooool", rotation=30)
+
 
 class TestScanplot:
     def setup_method(self):
