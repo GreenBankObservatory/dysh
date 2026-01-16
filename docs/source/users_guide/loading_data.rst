@@ -46,6 +46,16 @@ The most basic description of the data is from `~dysh.fits.gbtfitsload.GBTFITSLo
    # List the default columns plus additional ones
    sdfits.summary(add_columns=["TAMBIENT","VELDEF"])
 
+Data in the individual FITS files are accessible via the
+`~dysh.fits.gbtfitsload.GBTFITSLoad.sdf` attribute, a list
+`~dysh.fits.sdfitsload.SDFITSLoad` with length equal to the number of files.
+
+.. code:: Python
+
+   sdfits.sdf[0]
+   # get array of data from first FITS file, row 3
+   array = sdfits.sdf[0].rawspectrum(3)
+
 .. _usersguide-examining-metadata:
 
 Examining and Setting Metadata
@@ -84,15 +94,39 @@ Assignment also works. Assigned values will be used in any subsequent calibratio
    tcal = np.arange(sdfits.stats()['nrows'])
    sdfits["TCAL"] = tcal
 
+New columns can be created by assignment as well, either one value assigned to all rows, or with an array with length equal to the number of rows.
+
+.. code:: Python
+
+   sdfits["PI"] = np.pi
+   sdfits["RANDOM"] = np.random.rand(sdfits.stats()['nrows'])
+
+Columns can be renamed:
+
+.. code:: Python
+
+   sdfits.rename_column("PI","PIE")
+
 .. _usersguide-examining-raw-spectral-data:
 
 Examining the Raw Spectral Data
 --------------------------------
 
+GBTFITSLoad, GBTOnline, and GBTOffline have two methods to look at the uncalibrated integration, `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` returns a `~numpy.ndarray` for a given integration, while `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec` returns the data in a `~dysh.spectra.spectrum.Spectrum` object. 
+By default these retrieve the the record from the first FITS file; other files can be accessed with the `fitsindex` parameter (equivalent to, e.g.,  `sdfits.sdf[2].rawspectrum()`.
+
 .. code:: Python
 
-   array = sdfits.rawspectrum(10) #  get data array for row 10 
+   array = sdfits.rawspectrum(10) #  get data array for row 10 from the first FITS file 
+   array = sdfits.rawspectrum(10, fitsindex=2) #  get data array for row 10 from the third FITS file 
    spectrum = sdfits.getspec(10)  #  get a Spectrum for row 10 data and metadata
+   spectrum.plot()                #  Spectrum objects can always be plotted.
+
+The entire raw data array can be retrieved using the "DATA" keyword.  
+
+   allthedata = sdfits["DATA"]
+
+Note this is copy of the data not a reference to it, modifying `allthedata` does not affect the binary table data.
 
 .. _usersguide-adding-comments:
 
