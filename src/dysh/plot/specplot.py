@@ -517,7 +517,7 @@ class SpectrumPlot(PlotBase):
 
     def annotate_vline(self, xval, text="", rotation=0):
         """
-        Add a single annotated vline to the plot. Can be cleared with the "catalogline" gid.
+        Add a single annotated vline to the plot. Can be cleared with the "catalog" gid.
 
         Parameters
         ----------
@@ -526,7 +526,7 @@ class SpectrumPlot(PlotBase):
         text : str
             Associated text for the vline. Defaults to an empty string.
         rotation : float
-            Rotate the text CCW degrees. Default 0.and
+            Rotate the text CCW degrees. Default 0.
         """
         fsize = 9
         self._axis.axvline(xval, c="k", linewidth=1, gid="catalogline")
