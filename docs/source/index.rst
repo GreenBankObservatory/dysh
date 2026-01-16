@@ -253,7 +253,7 @@ Contents
 .. toctree::
    :maxdepth: 1
 
-   whatsnew/index
+   whatsnew/CHANGES
    index
    getting_started/index
    users_guide/index
