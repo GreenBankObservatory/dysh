@@ -139,7 +139,7 @@ def find_blanks(data):
     return np.where(integration_isnan(data))
 
 
-def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
+def find_nonblank_ints(cycle1, cycle2=None, cycle3=None, cycle4=None):
     """
     Find the indices of integrations that are not blanked.
 
@@ -149,6 +149,7 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
         Data for cycle 1. For example, signal with the noise diode off.
     cycle2 : `~numpy.ndarray`
         Data for cycle 2. For example, reference with the noise diode off.
+        Default is `None`.
     cycle3 : `~numpy.ndarray`
         Data for cycle 3. For example, signal with the noise diode on.
         Default is `None`.
@@ -163,7 +164,10 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     """
 
     nb1 = find_non_blanks(cycle1)
-    nb2 = find_non_blanks(cycle2)
+    if cycle2 is not None:
+        nb2 = find_non_blanks(cycle2)
+    else:
+        nb2 = nb1
     if cycle3 is not None:
         nb3 = find_non_blanks(cycle3)
     else:
@@ -171,7 +175,7 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     if cycle4 is not None:
         nb4 = find_non_blanks(cycle4)
     else:
-        nb4 = nb2
+        nb4 = nb1
     goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
 
     if len(goodrows) != len(cycle1):

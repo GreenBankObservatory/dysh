@@ -125,7 +125,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for f in sorted(path.glob("*.fits")):
                 logger.debug(f"Selecting {f} to load")
                 if kwargs.get("verbose", None):
-                    print(f"Loading {f}")
+                    logger.debug(f"Loading {f}")
                 if nf < kwargs.get("nfiles", 99999):  # performance testing limit number of files loaded
                     self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
                     nf += 1
@@ -170,11 +170,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         lsdf = len(self._sdf)
         if lsdf > 1:
-            print(f"Loaded {lsdf} FITS files")
+            logger.info(f"Loaded {lsdf} FITS files")
         if kwargs_opts["index"]:
             self.add_history(f"Project ID: {self.projectID}", add_time=True)
         else:
-            print("Reminder: No index created; many functions won't work.")
+            logger.warning("Reminder: No index created; many functions won't work.")
 
         self._qd_corrected = False
 
