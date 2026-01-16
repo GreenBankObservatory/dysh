@@ -246,9 +246,7 @@ You can also add your own custom vline with `annotate_vline <https://dysh.readth
 or just anything of interest on the plot.
 
 .. code-block::
-    
+
     ps_plot.annotate_vline(1.381e9, 'GPS-L3')
 
 .. image:: files/annotate_vline.png
-
-

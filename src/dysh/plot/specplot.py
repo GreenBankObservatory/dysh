@@ -528,7 +528,7 @@ class SpectrumPlot(PlotBase):
         rotation : float
             Rotate the text CCW degrees. Default 0.and
         """
-        fsize=9
+        fsize = 9
         self._axis.axvline(xval, c="k", linewidth=1, gid="catalogline")
         self._axis.annotate(
             text,
