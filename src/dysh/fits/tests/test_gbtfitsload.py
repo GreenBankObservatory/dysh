@@ -1166,8 +1166,8 @@ class TestGBTFITSLoad:
 
     def test_eighty_percent_flag(self, tmp_path):
         # regression test for https://github.com/GreenBankObservatory/dysh/issues/867
-        # If 80% of inner channels are flagged, we should flag the rest.  This is now the default for apply flags.
-        # So inthe case below, an exception will be raised during calibration that there are no data left to calibrate.
+        # If 80% of inner channels are flagged, we should flag the rest. This is now the default for apply flags.
+        # So in the case below, an exception will be raised during calibration that there are no data left to calibrate.
         fits_path = (
             util.get_project_testdata() / "TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
         )
@@ -1761,6 +1761,11 @@ class TestGBTFITSLoad:
         assert np.all(sb[1]._get_all_meta("FDNUM") == [1] * len(sb[1]))
 
     def test_calibration_with_channels(self):
+        """
+        Test that calibration using channel selection works.
+        It also checks that exceptions are raised if there's no data left to calibrate.
+        """
+        exp_exc = "Didn't find any unflagged data matching the input selection criteria."
         sdf_file = f"{self.data_dir}/TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, skipflags=True)
         n0 = 15000
@@ -1780,16 +1785,25 @@ class TestGBTFITSLoad:
         # now make sure the exception is raised if you try to do both selection and channel=
         with pytest.raises(ValueError):
             sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
-        # now make sure an exception is raised if you try to calibrate with >=80% flagged channels
-        sdf.flag_channel([[16000, 19000]])
-        with pytest.raises(ValueError):
-            sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
         sdf.clear_selection()
+        # now make sure an exception is raised if you try to calibrate with >=80% flagged channels
+        sdf.flag_channel([[int(0.1 * n1 + 0.9 * n0), round(0.9 * n1 + 0.1 * n0)]])
+        with pytest.raises(Exception) as exc:
+            sb = sdf.getps(scan=152, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
+        assert str(exc.value) == exp_exc
+        sdf.clear_selection()
+        sdf.clear_flags()
 
         # TPSCAN
         sb = sdf.gettp(scan=153, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
         s = sb.timeaverage()
         assert s.nchan == n1 - n0
+        # Check for exception with flags.
+        sdf.flag_channel([[int(0.1 * n1 + 0.9 * n0), round(0.9 * n1 + 0.1 * n0)]])
+        with pytest.raises(Exception) as exc:
+            sb = sdf.gettp(scan=153, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
+        assert str(exc.value) == exp_exc
+        sdf.clear_flags()
 
         # SIGREF
         refspec = sdf.gettp(scan=153, fdnum=0, ifnum=0, plnum=0).timeaverage()
@@ -1798,6 +1812,12 @@ class TestGBTFITSLoad:
         chan_range = [n0, n1]
         sb = sdf.getsigref(scan=152, ref=refspec, fdnum=0, plnum=0, ifnum=0, channel=chan_range)
         assert sb[0].nchan == n1 - n0
+        # Check for exception with flags.
+        sdf.flag_channel([[int(0.1 * n1 + 0.9 * n0), round(0.9 * n1 + 0.1 * n0)]])
+        with pytest.raises(Exception) as exc:
+            sb = sdf.getsigref(scan=152, ref=153, fdnum=0, ifnum=0, plnum=0, channel=chan_range)
+        assert str(exc.value) == exp_exc
+        sdf.clear_flags()
 
         # NODSCAN
         fits_path = util.get_project_testdata() / "TGBT22A_503_02/TGBT22A_503_02.raw.vegas"
@@ -1807,6 +1827,12 @@ class TestGBTFITSLoad:
         chan_range = [n0, n1]
         nodsb = sdf.getnod(scan=62, ifnum=0, plnum=0, channel=chan_range)
         assert nodsb.timeaverage().nchan == n1 - n0
+        # Check for exception with flags.
+        sdf.flag_channel([[int(0.1 * n1 + 0.9 * n0), round(0.9 * n1 + 0.1 * n0)]])
+        with pytest.raises(Exception) as exc:
+            sb = sdf.getnod(scan=62, ifnum=0, plnum=0, channel=chan_range)
+        assert str(exc.value) == exp_exc
+        sdf.clear_flags()
 
         # FSSCAN
         sdf_file = f"{self.data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
@@ -1825,6 +1851,12 @@ class TestGBTFITSLoad:
         chan_range = [n0, n1]
         sb = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, channel=chan_range)
         assert sb[0].nchan == n1 - n0
+        # Check for exception with flags.
+        sdf.flag_channel([[int(0.1 * n1 + 0.9 * n0), round(0.9 * n1 + 0.1 * n0)]])
+        with pytest.raises(Exception) as exc:
+            sb = sdf.getfs(scan=20, fdnum=0, ifnum=0, plnum=1, channel=chan_range)
+        assert str(exc.value) == exp_exc
+        sdf.clear_flags()
 
         # SUBBEAMMOD
         sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
@@ -1836,6 +1868,12 @@ class TestGBTFITSLoad:
         sb2 = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, method="scan", channel=chan_range)
         assert sb[0].nchan == n1 - n0
         assert sb2[0].nchan == n1 - n0
+        # Check for exception with flags.
+        sdf.flag_channel([[int(0.1 * n1 + 0.9 * n0), round(0.9 * n1 + 0.1 * n0)]])
+        with pytest.raises(Exception) as exc:
+            sb = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, channel=chan_range)
+        assert str(exc.value) == exp_exc
+        sdf.clear_flags()
 
 
 def test_parse_tsys():

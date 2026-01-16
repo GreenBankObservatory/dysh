@@ -16,7 +16,6 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
-from numpy.typing import NDArray
 
 ALL_CHANNELS = "all channels"
 
@@ -738,52 +737,25 @@ def replace_col_astype(t: Table, colname: str, astype, fill_value):
         t[colname].mask = savemask
 
 
-def shrink_region(arr: NDArray[np.bool_], value: bool = True, percent: float = 0.2) -> NDArray[np.bool_]:
+def inner_channel_slice(nchan: int, fedge: float = 0.1) -> slice:
     """
-    Shrink a contiguous region of specified boolean value.
-
-    Removes the outer portion of a contiguous True or False region by changing
-    those values to their opposite. The removal is split evenly between both ends.
+    Return a slice cropping `fedge` channels at each end.
+    This is inclusive on the upper end to reproduce GBTIDL results.
 
     Parameters
     ----------
-    arr : NDArray[np.bool_]
-        A boolean numpy array containing a contiguous region to shrink.
-    value : bool, optional
-        The boolean value to shrink (True or False), by default True.
-    percent : float, optional
-        Fraction of the region to remove, split evenly between both ends.
-        For example, 0.2 removes 20% total (10% from each end).
+    nchan : int
+        Number of channels.
+    fedge : float
+        Fraction of edges to crop on each end.
+        For example, `fedge=0.1` will crop 10% of the channels on each end.
 
     Returns
     -------
-    NDArray[np.bool_]
-        A copy of the input array with the outer portion of the target region
-        changed to the opposite boolean value.
-
-    Examples
-    --------
-    >>> arr = np.array([False, False, True, True, True, True, False, False])
-    >>> shrink_region(arr, value=True, percent=0.5)
-    array([False, False, False, True, True, False, False, False])
+    channel_slice : slice
+        Slice that will select the inner `1-fedge` channels.
     """
-    # Find the indices where values match the target
-    target_indices = np.where(arr == value)[0]
 
-    if len(target_indices) == 0:
-        return arr
-
-    # Find the contiguous range
-    start_idx = target_indices[0]
-    end_idx = target_indices[-1]
-
-    # Calculate how many elements to remove from each end
-    total_target = end_idx - start_idx + 1
-    remove_each_side = int(np.ceil(total_target * percent / 2))
-
-    # Create a copy and set the outer portions to opposite value
-    result = arr.copy()
-    result[start_idx : start_idx + remove_each_side] = not value
-    result[end_idx - remove_each_side + 1 : end_idx + 1] = not value
-
-    return result
+    start = round(nchan * fedge)
+    stop = -(start - 1)
+    return slice(start, stop, 1)
