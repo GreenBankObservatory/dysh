@@ -23,7 +23,7 @@ from dysh import __version__
 
 
 project = "dysh"
-copyright = "2023-2025, Green Bank Observatory"
+copyright = "2023-2026, Green Bank Observatory"
 author = "Green Bank Observatory"
 
 # The short X.Y version
@@ -193,7 +193,7 @@ latex_documents = [
         master_doc,
         "dysh.tex",
         "dysh Documentation",
-        ["Marc Pound", "Victoria Catlett", "Peter Teuben", "Pedro Salas", "Evan Smith", "Thomas Chamberlin"],
+        ["Marc Pound", "Peter Teuben", "Pedro Salas", "Evan Smith", "Thomas Chamberlin", "Victoria Catlett"],
         "manual",
     )
 ]
