@@ -5,7 +5,7 @@ dysh Interactive Plotter Tutorial
 In this tutorial, we will walk through the features of the interactive plotter offered by dysh.
 There are two types of interactive plots: waterfall/spectrogram plots, and 1-dimensional spectrum plots.
 
-
+.. _scanblock-plots:
 
 =========================
 ScanBlock Waterfall plots
@@ -68,6 +68,8 @@ The integration number resets to 0 at the beginning of each scan.
 
 .. image:: files/sb_plot3.png
 
+
+.. _spectrum-plots:
 
 =========================
 Spectrum plots
@@ -170,6 +172,7 @@ We can check the stats before and after to see they've improved.
 
 .. image:: files/iplotter8.png
 
+
 Overplotting
 ------------
 
@@ -216,3 +219,34 @@ The same result can be obtained by directly using the ``oshow`` and ``oshow_kwar
                                      "color": ["y", "c"],
                                      "linestyle": [":", "--"]}
                       )
+
+
+Overlaying Catalog Lines
+------------------------
+
+You can overlay the molecular spectral lines found from the
+`spectral line search feature <https://dysh.readthedocs.io/en/latest/how-tos/examples/line_search.html>`_
+on your plot with the following command:
+
+.. code-block::
+
+    ps_plot.show_catalog_lines()
+
+.. image:: files/specplot_cataloglines.png
+
+You can add kwargs that pass to `dysh.line.SpectralLineSearchClass.query_lines <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.line.html#dysh.line.SpectralLineSearchClass.query_lines>`_,
+such as ``chemical_name`` and ``intensity_lower_limit``. However, the minimum and maximum frequencies are taken from the underlying spectrum.
+Just like any other overlays, you can clear these with:
+
+.. code-block::
+
+    ps_plot.clear_overlays()
+
+You can also add your own custom vline with `annotate_vline <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.annotate_vline>`_ to denote a single spectral line,
+or just anything of interest on the plot.
+
+.. code-block::
+
+    ps_plot.annotate_vline(1.381e9, 'GPS-L3')
+
+.. image:: files/annotate_vline.png

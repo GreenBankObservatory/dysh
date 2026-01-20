@@ -18,6 +18,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 # from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import UnitTypeError
 from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
@@ -613,7 +614,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @log_call_to_history
     def smooth(
         self,
-        method="hanning",
+        kernel="hanning",
         width=1,
         decimate=0,
         meta=None,
@@ -630,7 +631,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        method : string
+        kernel : {"hanning", "boxcar", "gaussian"}
             Smoothing method. Valid are: 'hanning', 'boxcar' and
             'gaussian'. Minimum match applies.
             The default is 'hanning'.
@@ -684,7 +685,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Raises
         ------
         Exception
-            If no valid smoothing method is given.
+            If no valid smoothing kernel is given.
         ValueError
             If `width` is less than one.
             If `width` is less than the spectral resolution (in channels).
@@ -697,19 +698,19 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         valid_methods = available_smooth_methods()
-        this_method = minimum_string_match(method, valid_methods)
+        this_kernel = minimum_string_match(kernel, valid_methods)
         if width < 1:
             raise ValueError(f"`width` ({width}) must be >=1.")
 
-        if this_method is None:
-            raise Exception(f"smooth({method}): valid methods are {valid_methods}")
+        if this_kernel is None:
+            raise Exception(f"smooth({kernel}): valid kernels are {valid_methods}")
         md = np.ma.masked_array(self._data, self.mask)
         if decimate == 0:
             # Take the default decimation by `width`.
             decimate = int(abs(width))
             if not float(width).is_integer():
                 logger.info(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
-        if this_method == "gaussian":
+        if this_kernel == "gaussian":
             if width <= self._resolution:
                 raise ValueError(
                     f"`width` ({width} channels) cannot be less than the current resolution ({self._resolution} channels)."
@@ -719,7 +720,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
             new_data, new_meta = core.smooth(
                 data=md,
-                method=this_method,
+                kernel=this_kernel,
                 width=stddev,
                 ndecimate=decimate,
                 meta=self.meta,
@@ -732,7 +733,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             new_data, new_meta = core.smooth(
                 data=md,
-                method=this_method,
+                kernel=this_kernel,
                 width=width,
                 ndecimate=decimate,
                 meta=self.meta,
@@ -1703,11 +1704,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
             # Use the WCS to convert from world to pixel values.
             wcs = self.wcs
             # We need a sky location to convert incorporating velocity shifts.
-            coo = SkyCoord(
-                wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
-                wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
-                frame="fk5",
-            )
+            try:
+                coo = SkyCoord(
+                    wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
+                    wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
+                    frame=self.meta["RADESYS"].lower(),
+                )
+            except UnitTypeError:
+                # Assume spatial coordinates are in axes 1 and 2.
+                coo = SkyCoord(
+                    wcs.wcs.crval[1] * wcs.wcs.cunit[1],
+                    wcs.wcs.crval[2] * wcs.wcs.cunit[2],
+                    frame=self.meta["RADESYS"].lower(),
+                )
+
             # Same for the Stokes axis.
             sto = StokesCoord(0)
             start = item.start
