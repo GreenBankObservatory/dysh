@@ -6,6 +6,8 @@ dysh is a Python spectral line data reduction and analysis program for single di
 It is currently under development in collaboration between the `Green Bank Observatory <https:/greenbankobservatory.org>`_ and the Laboratory for Millimeter-Wave Astronomy (LMA) at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
 It is intended to replace `GBTIDL <https://gbtidl.nrao.edu/>`_, GBO's current spectral line data reduction package.
 
+Below is a "quickstart" guide with the essentials. A deeper dive into dysh's capablities can be foudn in the `Users Guide <_usersguide>`_.
+
 Installation
 ============
 
@@ -213,48 +215,12 @@ If you find a bug or something you think is in error, please report it on
 the `GitHub issue tracker <https://github.com/GreenBankObservatory/dysh/issues>`_.
 You must have a `GitHub account <https://github.com>`_ to submit an issue.
 
-
-Contents
-===============
-
-.. grid:: 1 2 2 2
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`mortar-board;3em;orange` **Users Guide**
-
-        Blah blah
-
-        .. button-link:: users_guide/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Users Guide
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`terminal;3em;green` **Modules and API**
-
-        Blah blah
-
-        .. button-link:: reference/modules/index
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Modules and APIs
-
-
 .. toctree::
    :maxdepth: 1
+   :hidden:
 
    whatsnew/CHANGES
-   index
+   index.rst
    getting_started/index
    users_guide/index
    reference/index
