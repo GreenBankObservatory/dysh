@@ -123,7 +123,7 @@ class ScanPlot(PlotBase):
         # @todo future multi-beams like argus could do 3D fits cube
         data = self.spectrogram.data
         if len(data.shape) != 2:
-            logger.error(f"spectrogram is {len(data.shape)}D, cannot only write 2D now")
+            logger.error(f"spectrogram is {len(data.shape)}D, cannot only write 2D")
             return
         if chan is not None:
             data = data[chan[0] : chan[1], :]
@@ -134,7 +134,7 @@ class ScanPlot(PlotBase):
             if ny % avechan != 0:
                 logger.info(f"{ny} not a multiple of {avechan}")
                 return
-            data = data.reshape((ny // avechan, nx, avechan)).mean(axis=2)
+            data = data.T.reshape((nx, -1, avechan)).mean(axis=2).T
             hdu = fits.PrimaryHDU(data)
         hdu.writeto(filename, overwrite=overwrite)
         logger.info(f"Wrote {filename} with size {data.shape[1]} x {data.shape[0]}")
