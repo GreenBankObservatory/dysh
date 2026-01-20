@@ -21,7 +21,7 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..spectra.core import mean_data
+from ..spectra.core import make_channel_slice, mean_data
 from ..spectra.scan import (
     FSScan,
     NodScan,
@@ -42,6 +42,7 @@ from ..util import (
     convert_array_to_mask,
     eliminate_flagged_rows,
     get_valid_channel_range,
+    inner_channel_slice,
     keycase,
     select_from,
     show_dataframe,
@@ -75,7 +76,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Header Data Unit to select from input file. Default: all HDUs
 
     skipflags: bool
-        If True, do not read any flag files associated with these data. Default:False
+        If True, do not read any flag files associated with these data. Default: True
 
     flag_vegas: bool
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
@@ -97,7 +98,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     """
 
     @log_call_to_history
-    def __init__(self, fileobj, source=None, hdu=None, skipflags=False, flag_vegas=True, **kwargs):
+    def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=True, **kwargs):
         kwargs_opts = {
             "index": True,
             "verbose": False,
@@ -108,7 +109,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         path = Path(fileobj)
         self._sdf = []
         self._selection = None
-        self._tpnocal = None  # should become True or False once known
         self._flag = None
 
         self.GBT = Observatory["GBT"]
@@ -989,7 +989,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             flag_channel(((1,10), [47,56], 75))
 
 
-        See `~dysh.util.selection.Flag`.
+        .. note::
+
+            If 80% of more of the inner channels in an integration are flagged, the rest of the channels will be flagged.
+            This is because the system temperature calculation uses the inner 80% of channels.
+
+        For a further description of flagging, see `~dysh.util.selection.Flag`.
 
         Parameters
         ----------
@@ -1069,10 +1074,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
 
     @log_call_to_history
-    def apply_flags(self):
+    def apply_flags(self, flag_outer=True):
         """
         Set the channel flags according to the rules specified in the `flags` attribute.
         This sets numpy masks in the underlying `SDFITSLoad` objects.
+
+        Parameters
+        ----------
+
+        flag_outer : bool
+            If the inner 80% of channels has been flagged, flag the rest.  This defaults to `True` because the
+            system temperature calculation uses the inner 80% of channels.
 
         Returns
         -------
@@ -1083,6 +1095,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # have the same key as the flag rules.
         # For all SDFs in each flag rule, set the flag mask(s)
         # for their rows.  The index of the sdf._flagmask array is the bintable index
+
         for key, chan in self._flag._flag_channel_selection.items():
             selection = self._flag.get(key)
             # chan will be a list or a list of lists
@@ -1095,15 +1108,66 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 rows = g["ROW"].to_numpy()
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
+                if flag_outer:
+                    nchan = np.shape(self._sdf[fi]._flagmask[bi])[1]
+                    nedge = int(nchan * 0.1)
+                    # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
+                    # Therefore we have to add a channel to the upper edge of the range
+                    # below in order to reproduce exactly what GBTIDL gets for Tsys.
+                    chrng = slice(nedge, -(nedge - 1), 1)
+                    if np.all(chan_mask[chrng]):
+                        chan_mask[:] = True
                 self._sdf[fi]._flagmask[bi][rows] |= chan_mask
         # now any additional channel flags, i.e. VEGAS flags
         self._apply_additional_flags()
 
     def _apply_additional_flags(self):
-        """apply the additional channel flags created by, e.g., flag_vegas"""
+        """Apply the additional channel flags created by, e.g., flag_vegas"""
         for k in self._sdf:
             if k._additional_channel_mask is not None and k._flagmask is not None:
                 k._flagmask |= k._additional_channel_mask
+
+    def _check_no_data_to_calibrate(
+        self,
+        sig: dict,
+        cal: dict,
+        chanrange: list | None,
+        bintable: int | None,
+        fitsindex: int | None,
+    ) -> bool:
+        """
+        Check that the combination of channel selection and channel flagging leaves enough
+        channels to calibrate, taking into account the 80% rule for Tsys calculation.
+
+        Parameters
+        ----------
+        chanrange : None
+            The normalized channel range `_channel` current to the getXX call.
+        bintable : None or int
+            The index of the `bintable` attribute, None means all bintables.
+        fitsindex : None or int
+            The index of the FITS file contained in this `GBTFITSLoad`.
+            None returns one index over all files.
+
+        Returns
+        -------
+            True if there's enough data left to calibrate, False if there isn't.
+        """
+        # all the rows currently under consideration
+        rows = []
+        for k in sig:
+            rows.extend(sig[k])
+            rows.extend(cal[k])
+        rows = uniq(rows)
+        # Now if all of the flags in the inner 80% of the selected data
+        # are True, then there is no data left to determine the system temperature.
+        flags = self._sdf[fitsindex]._flagmask[bintable][rows, make_channel_slice(chanrange)]
+        tsys_channel_slice = inner_channel_slice(flags.shape[1])
+        if np.all(flags[:, tsys_channel_slice]):
+            enough = False
+        else:
+            enough = True
+        return enough
 
     @log_call_to_history
     def clear_flags(self):
@@ -1311,7 +1375,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if apply_flags:
             _sf = eliminate_flagged_rows(_sf, self.flags.final)
         if len(_sf) == 0:
-            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
         # Don't apply flags until we are sure that selection succeeded
         if apply_flags:
             self.apply_flags()
@@ -1439,6 +1503,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 raise ValueError(
                     f"More than one TSCALE value in the previously-calibrated input file {tscale}; can't create a TPScan."
                 )
+            if not self._check_no_data_to_calibrate(
+                {"OFF": tprows}, calrows, _channel, _bintable, _sifdf["FITSINDEX"].iloc[0]
+            ):
+                logger.warning(f"No data left to calibrate scan {scan}. 80% or more of the channels are flagged.")
+                continue
+
             g = TPScan(
                 self._sdf[_sifdf["FITSINDEX"].iloc[0]],
                 scan,
@@ -1468,7 +1538,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             _tcal = t_cal
             _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
         scanblock.merge_commentary(self)
         return scanblock
         # end of gettp()
@@ -1926,6 +1996,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 d = {"ON": on, "OFF": off}
                 if _bintable is None:
                     _bintable = self._get_bintable(_ondf)
+                if not self._check_no_data_to_calibrate(rows, calrows, _channel, _bintable, i):
+                    logger.warning(f"No data left to calibrate scan {on}. 80% or more of the channels are flagged.")
+                    continue
                 g = PSScan(
                     self._sdf[i],
                     scan=d,
@@ -1959,7 +2032,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 _nocal = nocal
                 _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
         scanblock.merge_commentary(self)
         return scanblock
         # end of getps()
@@ -2180,6 +2253,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
                     logger.debug(f"{i, f} SCANROWS {rows}")
                     logger.debug(f"BEAM1 {beam1_selected}")
+
+                    if not self._check_no_data_to_calibrate(rows, calrows, _channel, _bintable, i):
+                        logger.warning(f"No data left to calibrate scan {on}. 80% or more of the channels are flagged.")
+                        continue
+
                     g = NodScan(
                         self._sdf[i],
                         scan=d,
@@ -2214,7 +2292,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     _nocal = nocal
                     _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
         if len(scanblock) % 2 == 1:
             raise Exception("Odd number of scans for getnod, check that your feeds are valid")
         # note the two nods are not merged, but added to the pool as two "independant" PS scans
@@ -2411,6 +2489,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if tsys is not None:
                     _tsys = tsys[scan][0]
 
+                if not self._check_no_data_to_calibrate(sigrows, calrows, _channel, _bintable, i):
+                    logger.warning(f"No data left to calibrate scan {scan}. 80% or more of the channels are flagged.")
+                    continue
+
                 g = FSScan(
                     self._sdf[i],
                     scan=scan,
@@ -2447,7 +2529,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 _nocal = nocal
                 _bintable = kwargs.get("bintable", None)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
         scanblock.merge_commentary(self)
         return scanblock
         # end of getfs()
@@ -2813,6 +2895,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         # TODO: use gettp instead of TPScan.
                         calrows = {"ON": rgon, "OFF": rgoff}
                         tprows = np.sort(np.hstack((rgon, rgoff)))
+                        if not self._check_no_data_to_calibrate(calrows, calrows, _channel, _bintable, sdfi):
+                            logger.warning(
+                                f"No data left to calibrate scan {scan}. 80% or more of the channels are flagged."
+                            )
+                            continue
+
                         _reftp = TPScan(
                             self._sdf[sdfi],
                             scan,
@@ -2834,6 +2922,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         reftp.append(_reftp)
                         calrows = {"ON": sgon, "OFF": sgoff}
                         tprows = np.sort(np.hstack((sgon, sgoff)))
+                        if not self._check_no_data_to_calibrate(calrows, calrows, _channel, _bintable, sdfi):
+                            logger.warning(
+                                f"No data left to calibrate scan {scan}. 80% or more of the channels are flagged."
+                            )
+                            continue
+
                         sigtp.append(
                             TPScan(
                                 self._sdf[sdfi],
@@ -2852,6 +2946,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                                 channel=_channel,
                             )
                         )
+                    if len(sigtp) == 0 and len(reftp) == 0:
+                        logger.warning("No unflagged data on and off source.")
+                        continue
+                    elif len(sigtp) == 0:
+                        logger.warning("No unflagged data on source.")
+                        continue
+                    elif len(reftp) == 0:
+                        logger.warning("No unflagged data off source.")
+                        continue
                     sb = SubBeamNodScan(
                         sigtp,
                         reftp,
@@ -2936,7 +3039,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 sb.merge_commentary(self)
                 scanblock.append(sb)
         if len(scanblock) == 0:
-            raise Exception("Didn't find any unflagged scans matching the input selection criteria.")
+            raise Exception("Didn't find any unflagged data matching the input selection criteria.")
         scanblock.merge_commentary(self)
         return scanblock
 
