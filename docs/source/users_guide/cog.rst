@@ -7,7 +7,7 @@ Curve of Growth
 The curve of growth method (CoG) is described in `Yu et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_.
 ``dysh`` tries to follow the description given by `Yu et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_, but there are some differences.
 Here we describe the ``dysh`` implementation of the CoG method, which is available through the :py:meth:`Spectrum.cog <dysh.spectra.spectrum.Spectrum.cog>` method or through the :py:func:`dysh.spectra.core.curve_of_growth`.
-An example of how to use :py:meth:`Spectrum.cog <dysh.spectra.spectrum.Spectrum.cog>` is provided in the :doc:`HI survey tutorial </tutorials/examples/hi_survey>`.
+An example of how to use :py:meth:`Spectrum.cog <dysh.spectra.spectrum.Spectrum.cog>` is provided in the :doc:`HI survey tutorial <users_guide/hi_survey>`.
 
 Central Velocity
 ================

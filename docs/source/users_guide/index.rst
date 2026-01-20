@@ -1,4 +1,4 @@
-
+.. _usersguide:
 
 ***********
 Users Guide
@@ -8,36 +8,34 @@ Users Guide
    - dysh data reduction philosophy
 
 .. toctree::
-   :maxdepth: 2 
+   :maxdepth: 3 
    :hidden:
  
    data_structures
    loading_data
-   ../tutorials/examples/iplotter
-   ../tutorials/how-tos/examples/velocity_frames
-   ../tutorials/examples/selection
-   ../how-tos/examples/flagging
-   ../tutorials/examples/frequencyswitch
-   ../tutorials/examples/nodding
-   ../tutorials/examples/positionswitch
-   ../tutorials/examples/subbeamnod
-   ../tutorials/examples/calseq
-   ../tutorials/examples/vane
-   ../how-tos/examples/baseline
-   ../how-tos/examples/apeff_surf_error
-   ../tutorials/examples/on_the_fly
-   ../how-tos/examples/repeated_scans
-   averaging_data
-   ../how-tos/examples/using_spectral_weights
-   ../how-tos/examples/smoothing
-   ../how-tos/examples/align_spectra
-   ../explanations/gauss_fit
-   ../explanations/cog
-   ../how-tos/examples/quality
-   ../how-tos/examples/line_search
-   ../how-tos/examples/metadata_management
-   ../how-tos/examples/dataIO
-   ../how-tos/examples/merge_sdfits
-   ../explanations/sdfits
-   ../tutorials/examples/hi_survey
+   selection
+   flagging
+   frequencyswitch
+   nodding
+   positionswitch
+   subbeamnod
+   calseq
+   vane
+   iplotter
+   custom_baseline
+   velocity_frames
+   apeff_surf_error
+   on_the_fly
+   repeated_scans
+   using_spectral_weights
+   smoothing
+   align_spectra
+   gauss_fit
+   cog
+   quality
+   line_search
+   metadata_management
+   dataIO
+   merge_sdfits
+   hi_survey
 

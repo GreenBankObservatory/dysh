@@ -1,6 +1,6 @@
-*********************************
-dysh Interactive Plotter Tutorial
-*********************************
+*******************
+Interactive Plotter 
+*******************
 
 In this tutorial, we will walk through the features of the interactive plotter offered by dysh.
 There are two types of interactive plots: waterfall/spectrogram plots, and 1-dimensional spectrum plots.
