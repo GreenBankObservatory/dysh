@@ -40,7 +40,7 @@ Installing ``dysh``
 ===================
 
 ``dysh`` requires a Python version between |pymin| and |pymax| (``dysh`` has not been tested in Python versions newer than |pymax|) and recent versions of
-`astropy <https://astropy.org>`_,
+`astropy <https://www.astropy.org>`_,
 `numpy <https://numpy.org>`_,
 `scipy <https://scipy.org>`_,
 `pandas <https://pandas.pydata.org>`_,
@@ -200,7 +200,9 @@ If you want to install the latest stable version of ``dysh``, then it is not nec
 
 #. The first step is to download and install Anaconda and ``git``.
    Anaconda comes in two flavors, as Anaconda distribution or as Miniconda.
-   The Anaconda documentation provides details on the differences between both (`link <https://www.anaconda.com/docs/getting-started/getting-started#should-i-use-anaconda-distribution-or-miniconda%3F>`_), but the short story is that Anaconda has a graphical user interface (GUI), it comes with more packages pre-installed, but it uses more disk space.
+   The Anaconda documentation provides details on the differences between both 
+   (`link <https://www.anaconda.com/docs/getting-started/miniconda/main#should-i-install-miniconda-or-anaconda-distribution>`_ ), 
+   but the short story is that Anaconda has a graphical user interface (GUI), it comes with more packages pre-installed, but it uses more disk space.
    Miniconda does not have a GUI and it comes with less packages pre-installed. Both provide access to ``conda``, which is the tool we will use to create a new virtual environment.
    You can find the downloads for Anaconda distribution and Miniconda `here <https://www.anaconda.com/download/success>`_.
    ``git`` can be downloaded `here <https://git-scm.com/downloads>`_.

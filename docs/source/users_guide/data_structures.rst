@@ -79,7 +79,7 @@ frames supported by `astropy.coordinates.BaseCoordinateFrame` ('itrs' [topograph
 Spectra can be displayed with  `~dysh.spectra.spectrum.Spectrum.plot`, which opens up an interactive plot window.
 The frequency/velocity locations of spectral lines within the spectral window can be listed `~dysh.spectra.spectrum.Spectrum.query_lines`.
 
-Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog` (`Curve of Growth < The Notes section is out of data>`_).  Spectrum arithmetic is supported with common operators, e.g.:
+Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog` (:ref:`Curve of Growth <cog>`).  Spectrum arithmetic is supported with common operators, e.g.:
 
 .. code:: Python
 
