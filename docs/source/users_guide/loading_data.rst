@@ -106,8 +106,11 @@ Columns can be renamed:
 .. code:: Python
 
    sdfits.rename_column("PI","PIE")
+   
 
-For more information on setting metadata, see `Metadata Management <https://dysh.readthedocs.io/en/latest/how-tos/examples/metadata_management.html>`_
+.. tip::
+
+    For more information on setting metadata, see `Metadata Management <https://dysh.readthedocs.io/en/latest/how-tos/examples/metadata_management.html>`_
 
 .. _usersguide-examining-raw-spectral-data:
 

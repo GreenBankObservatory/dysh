@@ -37,28 +37,28 @@ pandas with which many astronomers are comfortable.
    data_structures
    launching
    loading_data
+   dataIO
    selection
    flagging
-   frequencyswitch
-   nodding
    positionswitch
-   subbeamnod
    calseq
+   nodding
+   subbeamnod
+   frequencyswitch
+   on_the_fly
    vane
    iplotter
-   custom_baseline
    velocity_frames
    apeff_surf_error
-   on_the_fly
    repeated_scans
    using_spectral_weights
    smoothing
    align_spectra
    gauss_fit
+   custom_baseline
    cog
    quality
    line_search
    metadata_management
-   dataIO
    merge_sdfits
    hi_survey
