@@ -735,3 +735,27 @@ def replace_col_astype(t: Table, colname: str, astype, fill_value):
     t.replace_column(colname, q)
     if hasattr(t, "mask"):
         t[colname].mask = savemask
+
+
+def inner_channel_slice(nchan: int, fedge: float = 0.1) -> slice:
+    """
+    Return a slice cropping `fedge` channels at each end.
+    This is inclusive on the upper end to reproduce GBTIDL results.
+
+    Parameters
+    ----------
+    nchan : int
+        Number of channels.
+    fedge : float
+        Fraction of edges to crop on each end.
+        For example, `fedge=0.1` will crop 10% of the channels on each end.
+
+    Returns
+    -------
+    channel_slice : slice
+        Slice that will select the inner `1-fedge` channels.
+    """
+
+    start = round(nchan * fedge)
+    stop = -(start - 1)
+    return slice(start, stop, 1)
