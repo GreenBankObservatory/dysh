@@ -34,31 +34,7 @@ pandas with which many astronomers are comfortable.
    :maxdepth: 2
    :hidden:
 
-   data_structures
-   launching
-   loading_data
-   dataIO
-   selection
-   flagging
-   positionswitch
-   calseq
-   nodding
-   subbeamnod
-   frequencyswitch
-   on_the_fly
-   vane
+   basic
+   procedures
    iplotter
-   velocity_frames
-   apeff_surf_error
-   repeated_scans
-   using_spectral_weights
-   smoothing
-   align_spectra
-   gauss_fit
-   custom_baseline
-   cog
-   quality
-   line_search
-   metadata_management
-   merge_sdfits
-   hi_survey
+   advanced
