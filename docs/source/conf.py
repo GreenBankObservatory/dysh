@@ -218,7 +218,7 @@ texinfo_documents = [
         "dysh Documentation",
         author,
         "dysh",
-        "One line description of project.",
+        "Single-dish radio astronomy data reduction",
         "Miscellaneous",
     )
 ]
