@@ -10,7 +10,7 @@ Installation Guide
 Using ``dysh`` at GBO
 =====================
 
-You do not need to install `dysh` if you have access to a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier, thales, etc.). 
+You do not need to install `dysh` if you have access to a `GBO data reduction host <https://greenbankobservatory.org/portal/gbt/processing/#data-reduction-machines>`_ (e.g., fourier, thales, etc.).
 At GBO, you can launch the latest version of ``dysh`` from a terminal by typing
 
 .. code:: bash

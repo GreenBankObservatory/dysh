@@ -5,23 +5,23 @@ Data Structures Explained
 
 .. _usersguide-gbtfitsload:
 
-GBTFITSLoad 
+GBTFITSLoad
 ===========
 
-The main data object in dysh is 
+The main data object in dysh is
 `~dysh.fits.gbtfitsload.GBTFITSLoad`
 which represents one or more :ref:`SDFITS files. <sdfits-explanation>`
 in the :ref:`GBT SDFITS format <sdfits-reference>`.  (A more generic
-SDFITS loader is  `~dysh.fits.gbtfitsload.SDFITSLoad`).  
+SDFITS loader is  `~dysh.fits.gbtfitsload.SDFITSLoad`).
 The data are represented is as one contiguous block even if multiple
-files were loaded.  
+files were loaded.
 
 .. code:: Python
 
    sdfits = GBTFITSLoad(path)
    sdfits.summary()   # A tabular summary of all the data
 
-where ``path`` is a `path.Path` to a directory containing SDFITS files or a single SDFITS file.  
+where ``path`` is a `path.Path` to a directory containing SDFITS files or a single SDFITS file.
 
 Once loaded, the columns of the binary table, except the DATA and FLAGS columns, are stored as a `~pandas.DataFrame`, and are accessible via the Python `[]` notation, e.g.:
 
@@ -29,7 +29,7 @@ Once loaded, the columns of the binary table, except the DATA and FLAGS columns,
 
    sdfits["OBJECT"]         # The entire OBJECT column
    sdfits.udata("OBJECT")   # The unique set of OBJECTS
-   sdfits.selection         # The entire DataFrame  
+   sdfits.selection         # The entire DataFrame
 
 This mechanism can be used to :ref:`select data <data-selection>` for calibration.
 
@@ -37,7 +37,7 @@ Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfi
 
 .. code:: Python
 
-   array = sdfits.rawspectrum(10) #  get data array for row 10 
+   array = sdfits.rawspectrum(10) #  get data array for row 10
    spectrum = sdfits.getspec(10)  #  get a Spectrum for row 10 data and metadata
 
 .. warning::
@@ -60,7 +60,7 @@ For users at GBO, `~dysh.fits.gbtfitsload.GBTOnline` connects directly to the SD
 .. code:: Python
 
    # load data from project id AGBT_22A_325_33
-   sdfits = GBTOnline('AGBT_22A_325_33') 
+   sdfits = GBTOnline('AGBT_22A_325_33')
    sdfits.summary()
 
 .. _usersguide-spectrum:
@@ -97,8 +97,8 @@ A useful method for creating dummy spectra is `~dysh.spectra.spectrum.Spectrum.f
 Scan
 ====
 
-Scans are represented by subclasses of `~dysh.spectra.scan.ScanBase` specific to their observation type.  For instance  
-`~dysh.spectra.scan.PSScan` is position-switched, 
+Scans are represented by subclasses of `~dysh.spectra.scan.ScanBase` specific to their observation type.  For instance
+`~dysh.spectra.scan.PSScan` is position-switched,
 `~dysh.spectra.scan.FSScan` is frequency-switched,
 `~dysh.spectra.scan.TPScan` is total power,
 `~dysh.spectra.scan.NodScan` is nodding.
@@ -111,7 +111,7 @@ and collected into a common :ref:`usersguide-scanblock`.  Users generally will n
    sdfits = GBTFITSLoad(path)
 
    # get a ScanBlock containing some PSScans calibrated to Janskys
-   sb = sdfits.getps(scan=[23,25,27] ifnum=0,plnum=0,fdnum=0, units='flux', zenith_opacity=0.05) 
+   sb = sdfits.getps(scan=[23,25,27] ifnum=0,plnum=0,fdnum=0, units='flux', zenith_opacity=0.05)
 
    # Look at the scale factors and weights of all the Scans in the ScanBlock
    for s in sb:
@@ -195,6 +195,3 @@ For example, you can do the following:
     sb1 = sdfits.getps(scan=1, ifnum=0, plnum=1, fdnum=0)
     sb0.extend(sb1)
     pol_avg_spectrum = sb0.timeaverage()
-
-
-

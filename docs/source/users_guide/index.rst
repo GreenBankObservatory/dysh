@@ -31,9 +31,9 @@ Furthermore, the package is built on astropy, numpy, matplotlib, and
 pandas with which many astronomers are comfortable.
 
 .. toctree::
-   :maxdepth: 2 
+   :maxdepth: 2
    :hidden:
- 
+
    data_structures
    launching
    loading_data
@@ -62,4 +62,3 @@ pandas with which many astronomers are comfortable.
    dataIO
    merge_sdfits
    hi_survey
-
