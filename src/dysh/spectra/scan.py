@@ -1482,11 +1482,11 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:  # [1:]:
             # check data shapes are the same
             thisshape = np.shape(scan._calibrated)
-            if thisshape != datashape:
+            if thisshape[1] != datashape[1]:
                 # @todo Variable length arrays? https://docs.astropy.org/en/stable/io/fits/usage/unfamiliar.html#variable-length-array-tables
                 # or write to separate bintables.
                 raise Exception(
-                    f"Data shapes of scans are not equal {thisshape}!={datashape}. Can't combine Scans into single"
+                    f"Number of channels in scans are not equal {thisshape[1]}!={datashape[1]}. Can't combine Scans into single"
                     " BinTableHDU"
                 )
             # check that the header keywords are the same
