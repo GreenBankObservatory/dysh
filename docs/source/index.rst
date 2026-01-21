@@ -3,7 +3,7 @@ dysh Documentation
 **********************
 
 dysh is a Python spectral line data reduction and analysis program for single dish data with specific emphasis on data from the Green Bank Telescope.
-It is currently under development in collaboration between the `Green Bank Observatory <https:/greenbankobservatory.org>`_ and the Laboratory for Millimeter-Wave Astronomy (LMA) at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
+It is currently under development in collaboration between the `Green Bank Observatory <https://greenbankobservatory.org>`_ and the Laboratory for Millimeter-Wave Astronomy (LMA) at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
 It is intended to replace `GBTIDL <https://gbtidl.nrao.edu/>`_, GBO's current spectral line data reduction package.
 
 Below is a "quickstart" guide with the essentials. A deeper dive into dysh's capablities can be foudn in the `Users Guide <_usersguide>`_.
