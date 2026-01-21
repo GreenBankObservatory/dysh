@@ -35,6 +35,7 @@ pandas with which many astronomers are comfortable.
    :hidden:
  
    data_structures
+   launching
    loading_data
    selection
    flagging
