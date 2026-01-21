@@ -13,14 +13,14 @@ The basics of reading in SDFITS files was explained in :ref:`the previous sectio
 
    from dysh.fits import GBTFITSLoad
    import numpy as np
-   
+
    # Load a single SDFITS file. Don't read the .flag file if it exists.
    sdfits = GBTFITSLoad("/path/to/mydata.fits",skipflags=True)
 
    # Load all files with .fits extension in a specfic directory
    sdfits = GBTFITSLoad("/path/to/datafiles")
    # Print out the files that were loaded
-   sdfits.filenames()  
+   sdfits.filenames()
    # or as Paths instead of strings
    sdfits
 
@@ -114,17 +114,17 @@ For more information on setting metadata, see `Metadata Management <https://dysh
 Examining the Raw Spectral Data
 --------------------------------
 
-GBTFITSLoad, GBTOnline, and GBTOffline have two methods to look at the uncalibrated integration, `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` returns a `~numpy.ndarray` for a given integration, while `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec` returns the data in a `~dysh.spectra.spectrum.Spectrum` object. 
+GBTFITSLoad, GBTOnline, and GBTOffline have two methods to look at the uncalibrated integration, `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` returns a `~numpy.ndarray` for a given integration, while `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec` returns the data in a `~dysh.spectra.spectrum.Spectrum` object.
 By default these retrieve the the record from the first FITS file; other files can be accessed with the `fitsindex` parameter (equivalent to, e.g.,  `sdfits.sdf[2].rawspectrum()`.
 
 .. code:: Python
 
-   array = sdfits.rawspectrum(10) #  get data array for row 10 from the first FITS file 
-   array = sdfits.rawspectrum(10, fitsindex=2) #  get data array for row 10 from the third FITS file 
+   array = sdfits.rawspectrum(10) #  get data array for row 10 from the first FITS file
+   array = sdfits.rawspectrum(10, fitsindex=2) #  get data array for row 10 from the third FITS file
    spectrum = sdfits.getspec(10)  #  get a Spectrum for row 10 data and metadata
    spectrum.plot()                #  Spectrum objects can always be plotted.
 
-The entire raw data array can be retrieved using the "DATA" keyword.  
+The entire raw data array can be retrieved using the "DATA" keyword.
 
    allthedata = sdfits["DATA"]
 

@@ -1,5 +1,5 @@
 *******************
-Interactive Plotter 
+Interactive Plotter
 *******************
 
 In this tutorial, we will walk through the features of the interactive plotter offered by dysh.
