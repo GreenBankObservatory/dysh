@@ -17,4 +17,3 @@ These sections review the common calibration procedures for GBT data.
    frequencyswitch
    on_the_fly
    vane
-
