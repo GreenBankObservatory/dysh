@@ -139,7 +139,7 @@ def find_blanks(data):
     return np.where(integration_isnan(data))
 
 
-def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
+def find_nonblank_ints(cycle1, cycle2=None, cycle3=None, cycle4=None):
     """
     Find the indices of integrations that are not blanked.
 
@@ -149,6 +149,7 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
         Data for cycle 1. For example, signal with the noise diode off.
     cycle2 : `~numpy.ndarray`
         Data for cycle 2. For example, reference with the noise diode off.
+        Default is `None`.
     cycle3 : `~numpy.ndarray`
         Data for cycle 3. For example, signal with the noise diode on.
         Default is `None`.
@@ -163,7 +164,10 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     """
 
     nb1 = find_non_blanks(cycle1)
-    nb2 = find_non_blanks(cycle2)
+    if cycle2 is not None:
+        nb2 = find_non_blanks(cycle2)
+    else:
+        nb2 = nb1
     if cycle3 is not None:
         nb3 = find_non_blanks(cycle3)
     else:
@@ -171,7 +175,7 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     if cycle4 is not None:
         nb4 = find_non_blanks(cycle4)
     else:
-        nb4 = nb2
+        nb4 = nb1
     goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
 
     if len(goodrows) != len(cycle1):
@@ -671,21 +675,23 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     # Define the channel range once.
     chrng = slice(nedge, -(nedge - 1), 1)
 
-    # Make them doubles. Probably not worth it.
-    caloff = caloff.astype("d")
-    calon = calon.astype("d")
+    calon = np.ma.masked_array(calon, keep_mask=True, dtype=np.float64)
+    calon.mask |= np.isnan(calon)
+    caloff = np.ma.masked_array(caloff, keep_mask=True, dtype=np.float64)
+    caloff.mask |= np.isnan(caloff)
 
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
-        meanoff = np.nanmean(caloff[chrng])
-        meandiff = np.nanmean(calon[chrng] - caloff[chrng])
+        meanoff = np.ma.mean(caloff[chrng])
+        meandiff = np.ma.mean(calon[chrng] - caloff[chrng])
         meanTsys = meanoff / meandiff * tcal + tcal / 2.0
     else:
-        meanTsys = np.nanmean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
+        meanTsys = np.ma.mean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
         meanTsys = meanTsys * tcal + tcal / 2.0
 
     # meandiff can sometimes be negative, which makes Tsys negative!
     # GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)
-    return np.abs(meanTsys)
+    # return np.ma.abs(meanTsys)
+    return meanTsys
 
 
 def sq_weighted_avg(a, axis=0, weights=None):
@@ -988,11 +994,10 @@ def decimate(data, n, meta=None):
 # @todo it would be nice if this could take a 2-D array of N spectra. astropy.convolve can handle it.
 def smooth(
     data,
-    method="hanning",
+    kernel="hanning",
     width=1,
     ndecimate=0,
     meta=None,
-    kernel=None,
     mask=None,
     boundary="extend",
     nan_treatment="fill",
@@ -1011,8 +1016,8 @@ def smooth(
     data : `~numpy.ndarray`
         Input data array to smooth. Note smoothing array does not need a
         WCS since it is channel based.
-    method : string, optional
-        Smoothing method. Valid are: 'hanning', 'boxcar' and
+    kernel : {"hanning", "boxcar", "gaussian"}, optional
+        Smoothing kernel. Valid are: 'hanning', 'boxcar' and
         'gaussian'. Minimum match applies.
         The default is 'hanning'.
     width : int or float, optional
@@ -1029,13 +1034,6 @@ def smooth(
         Decimation factor of the spectrum by returning every `ndecimate`-th channel.
     meta: dict
          metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
-    kernel : `~numpy.ndarray`, optional
-        A numpy array which is the kernel by which the signal is convolved.
-        Use with caution, as it is assumed the kernel is normalized to
-        one, and is symmetric. Since width is ill-defined here, the user
-        should supply an appropriate number manually.
-        NOTE: not implemented yet.
-        The default is None.
     mask : None or `~numpy.ndarray`, optional
         A "mask" array.  Shape must match ``array``, and anything that is masked
         (i.e., not 0/`False`) will be set to NaN for the convolution.  If
@@ -1080,18 +1078,15 @@ def smooth(
         The new convolved spectrum.
 
     """
-    if kernel is not None:
-        raise NotImplementedError("Custom kernels are not yet implemented.")
-
     asm = available_smooth_methods()
-    method = minimum_string_match(method, asm)
-    if method is None:
-        raise ValueError(f"Unrecognized input method {method}. Must be one of {asm}")
+    kernel_name = minimum_string_match(kernel, asm)
+    if kernel_name is None:
+        raise ValueError(f"Unrecognized input kernel ({kernel}). Must be one of {asm}")
 
     if not float(ndecimate).is_integer():
         raise ValueError("`decimate ({ndecimate})` must be an integer.")
 
-    kernel = _available_smooth_methods[method](width)
+    kernel = _available_smooth_methods[kernel_name](width)
     # Notes:
     # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
     # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
@@ -1116,7 +1111,7 @@ def smooth(
     new_data = np.ma.masked_array(new_data, mask)
     new_meta = deepcopy(meta)
     if new_meta is not None:
-        if method == "gaussian":
+        if kernel_name == "gaussian":
             width = width * FWHM_TO_STDDEV
         new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
     if ndecimate > 0:
@@ -1532,3 +1527,24 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     }
 
     return results
+
+
+def make_channel_slice(channel: list | None):
+    """
+    Create a slice object from a [first,last] channel list.  If `channel` is None, then slice(0,None) is returned.
+
+    Parameters
+    ----------
+    channel : list|None
+        A length 2 list containing the first and last channel numbers
+
+    Returns
+    -------
+    slice
+        a slice object representing [first:last]
+
+    """
+    if channel is not None:
+        return slice(channel[0], channel[1])
+    else:
+        return slice(0, None)

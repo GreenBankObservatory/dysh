@@ -11,12 +11,14 @@ from astropy.utils.masked import Masked
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, SpanSelector
 
+from dysh.log import logger
+
 from ..coordinates import (
     decode_veldef,
     frame_to_label,
 )
 from ..util.docstring_manip import docstring_parameter
-from . import PlotBase, check_kwargs
+from . import PlotBase, check_kwargs, parse_html
 
 _KMS = u.km / u.s
 
@@ -37,6 +39,10 @@ xlabel : str
     x-axis label.
 ylabel : str
     y-axis label.
+label : str
+    Label for legend.
+alpha : float
+    Alpha value for the plot. Between 0 and 1.
 grid : bool
     Show a plot grid or not.
 figsize : tuple
@@ -109,6 +115,8 @@ class SpectrumPlot(PlotBase):
             "xaxis_unit": None,
             "yaxis_unit": None,
             "grid": False,
+            "label": None,
+            "alpha": 1.0,
             "figsize": None,
             "linewidth": 2.0,
             "drawstyle": "default",
@@ -123,7 +131,7 @@ class SpectrumPlot(PlotBase):
         self._plot_kwargs = self.default_plot_kwargs()
 
     @docstring_parameter(kwargs_docstring)
-    def plot(self, show_header=True, select=True, oshow=None, **kwargs):
+    def plot(self, show_header=True, select=True, oshow=None, oshow_kwargs=None, **kwargs):
         """
         Plot the spectrum.
 
@@ -135,6 +143,9 @@ class SpectrumPlot(PlotBase):
             Allow selecting regions via click and drag.
         oshow : list or `~dysh.spectra.spectrum.Spectrum`
             Spectra to overlay in the plot.
+        oshow_kwargs : dict
+            Dictionary with parameters for `SpectrumPlot.oshow`.
+            These include color, linestyle, label, and alpha.
 
         Other Parameters
         ----------------
@@ -197,9 +208,18 @@ class SpectrumPlot(PlotBase):
         sf = Masked(sf, s.mask)
 
         lines = self._axis.plot(
-            self._sa, sf, color=this_plot_kwargs["color"], lw=lw, drawstyle=this_plot_kwargs["drawstyle"]
+            self._sa,
+            sf,
+            color=this_plot_kwargs["color"],
+            lw=lw,
+            drawstyle=this_plot_kwargs["drawstyle"],
+            label=this_plot_kwargs["label"],
+            alpha=this_plot_kwargs["alpha"],
         )
         self._line = lines[0]
+
+        if this_plot_kwargs["label"] is not None:
+            self._axis.legend()
 
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
             self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
@@ -234,7 +254,9 @@ class SpectrumPlot(PlotBase):
             for i, sp in enumerate(oshow):
                 if not isinstance(sp, type(self._spectrum)):
                     raise TypeError(f"Element {i} of oshow ({oshow}) is not a Spectrum")
-                self._oshow(sp)
+            if oshow_kwargs is None:
+                oshow_kwargs = {}
+            self.oshow(oshow, **oshow_kwargs)
 
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
@@ -297,7 +319,25 @@ class SpectrumPlot(PlotBase):
             self.axis.set_ylabel(ylabel)
         else:
             # @todo It would be nice if yunit could be latex. e.g. T_A^* instead of Ta*
-            self.axis.set_ylabel(f"{self.spectrum.meta['TSCALE']} ({yunit})")
+            # @todo If other routines need TSCALE this code should be a self.spectrum._fix()
+            if "TSCALE" in self.spectrum.meta:
+                ylabel = self.spectrum.meta["TSCALE"]
+            elif "TUNIT7" in self.spectrum.meta:
+                tunit7 = self.spectrum.meta["TUNIT7"]
+                if tunit7 == "Ta":  # what about Ta*
+                    ylabel = "Ta"
+                    yunit = "K"
+                elif tunit7 == "Ta*":
+                    ylabel = "Ta*"
+                    yunit = "K"
+                elif tunit7 == "Jy":
+                    ylabel = "Flux"
+                    yunit = "Jy"
+                else:
+                    ylabel = "Unknown"
+                    yunit = "()"
+                logger.info(f"Missing TSCALE: patching Y-axis as '{ylabel} ({yunit})'")
+            self.axis.set_ylabel(f"{ylabel} ({yunit})")
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
@@ -336,34 +376,50 @@ class SpectrumPlot(PlotBase):
         self.freex()
         self.freey()
 
-    def clear_overlays(self, blines=True, oshows=True):
+    def clear_overlays(self, blines=True, oshows=True, catalog=True):
         """Clear Overlays from the plot.
 
         Parameters
         ----------
         blines : bool
-            Remove only baseline models overlaid on the plot. Default: True
+            Remove baseline models overlaid on the plot. Default: True
+        oshows : bool
+            Remove other spectra overlaid on the plot. Default: True
+        catalog : bool
+            Remove catalog spectral lines overlaid on the plot. Default: True
         """
         if blines:
-            self.clear_lines("baseline")
+            self._clear_overlay_objects("lines", "baseline")
         if oshows:
-            self.clear_lines("oshow")
+            self._clear_overlay_objects("lines", "oshow")
+        if catalog:
+            self._clear_overlay_objects("lines", "catalogline")
+            self._clear_overlay_objects("texts", "catalogtext")
 
     def clear_lines(self, gid):
+        self._clear_overlay_objects("lines", gid)
+
+    def _clear_overlay_objects(self, otype, gid):
         """
         Clears lines with `gid` from the plot.
 
         Parameters
         ----------
+        otype : str
+            Type of overlay. Can be "lines" or "texts".
         gid : str
             Group id for the lines to be cleared.
         """
+        if otype == "lines":
+            tgt_list = self._axis.lines
+        elif otype == "texts":
+            tgt_list = self._axis.texts
 
-        for b in self._axis.lines:
+        for b in tgt_list:
             if b.get_gid() == gid:
                 b.remove()
 
-    def oshow(self, spectra, color=None, linestyle=None):
+    def oshow(self, spectra, color=None, linestyle=None, label=None, alpha=None):
         """
         Add `spectra` to the current plot.
 
@@ -375,6 +431,10 @@ class SpectrumPlot(PlotBase):
             Colors for the spectra. There must be one element per spectra.
         linestyle : list of valid `matplotlib` linestyles or `matplotlib` linestyle
             Linestyles for the spectra. There must be one element per spectra.
+        label : list of str
+            Labels for the spectra. There must be one element per spectra.
+        alpha : list of float
+            Alpha values for the spectra, between 0 and 1. There must be one element per spectra.
         """
 
         # If a single Spectrum is the input, make everything a list.
@@ -384,6 +444,10 @@ class SpectrumPlot(PlotBase):
                 color = [color]
             if linestyle is not None:
                 linestyle = [linestyle]
+            if label is not None:
+                label = [label]
+            if alpha is not None:
+                alpha = [alpha]
 
         for i, s in enumerate(spectra):
             if not isinstance(s, type(self._spectrum)):
@@ -405,11 +469,23 @@ class SpectrumPlot(PlotBase):
             zargs += (linestyle,)
         else:
             zargs += ([None] * len(spectra),)
+        if label is not None:
+            if len(label) != len(spectra):
+                raise ValueError(f"How do I label {len(spectra)} spectra with {len(label)} labels?")
+            zargs += (label,)
+        else:
+            zargs += ([None] * len(spectra),)
+        if alpha is not None:
+            if len(alpha) != len(spectra):
+                raise ValueError(f"How do I set alpha for {len(spectra)} spectra with {len(label)} alpha values?")
+            zargs += (alpha,)
+        else:
+            zargs += ([None] * len(spectra),)
 
-        for s, c, ls in zip(*zargs, strict=True):
-            self._oshow(s, color=c, linestyle=ls)
+        for s, c, ls, l, a in zip(*zargs, strict=True):
+            self._oshow(s, color=c, linestyle=ls, label=l, alpha=a)
 
-    def _oshow(self, oshow_spectrum, color=None, linestyle=None):
+    def _oshow(self, oshow_spectrum, color=None, linestyle=None, label=None, alpha=None):
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         sf = oshow_spectrum.flux.to(self._spectrum.unit)
         sa = oshow_spectrum.velocity_axis_to(
@@ -418,9 +494,70 @@ class SpectrumPlot(PlotBase):
             doppler_convention=this_plot_kwargs["doppler_convention"],
         )
 
-        self._axis.plot(sa, sf, color=color, linestyle=linestyle, gid="oshow")
-
+        self._axis.plot(sa, sf, color=color, linestyle=linestyle, label=label, alpha=alpha, gid="oshow")
+        if label is not None:
+            self._axis.legend()
         self.freexy()
+
+    def show_catalog_lines(self, rotation=0, **kwargs):
+        """
+        Overlay spectral lines from various catalogs on the plot, with annotations.
+
+        Parameters
+        ----------
+        rotation : float, degrees
+            Rotate the annotation text CCW to aid in readability. Default 0.
+        **kwargs
+            All other kwargs get passed to `dysh.line.query_lines`.
+        """
+
+        self.sl_tbl = self._spectrum.query_lines(**kwargs)
+
+        fsize = 9  # font size
+        num_vsteps = 7  # number of vertical steps of annotations
+        rot_factor = (rotation / 90) * 0.3 / num_vsteps  # adjust ylocs to avoid rotated text running into each other
+        fracstep = 0.04 + rot_factor
+        ystart = 0.86 - (num_vsteps * fracstep)
+
+        for i, line in enumerate(self.sl_tbl):
+            line_name = parse_html(line["name"])
+            line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit, equivalencies=self.spectrum.equivalencies).value
+
+            vloc = ystart + (i % num_vsteps) * fracstep
+
+            self._axis.axvline(line_freq, c="k", linewidth=1, gid="catalogline")
+            self._axis.annotate(
+                line_name,
+                (line_freq, vloc),
+                xycoords=("data", "axes fraction"),
+                size=fsize,
+                gid="catalogtext",
+                rotation=rotation,
+            )
+
+    def annotate_vline(self, xval, text="", rotation=0):
+        """
+        Add a single annotated vline to the plot. Can be cleared with the "catalog" gid.
+
+        Parameters
+        ----------
+        xval : float
+            X value of the line, in the same units as the plot.
+        text : str
+            Associated text for the vline. Defaults to an empty string.
+        rotation : float
+            Rotate the text CCW degrees. Default 0.
+        """
+        fsize = 9
+        self._axis.axvline(xval, c="k", linewidth=1, gid="catalogline")
+        self._axis.annotate(
+            text,
+            (xval, 0.7),
+            xycoords=("data", "axes fraction"),
+            size=fsize,
+            gid="catalogtext",
+            rotation=rotation,
+        )
 
 
 class InteractiveSpanSelector:
@@ -449,12 +586,12 @@ class InteractiveSpanSelector:
         )
 
         # Button to clear all selections.
-        self.region_clear_button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04])
+        self.region_clear_button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04], gid="button")
         self.region_clear_button = Button(self.region_clear_button_ax, "Clear Regions")
         self.region_clear_button.on_clicked(self.clear_regions)
 
         # Button to clear a single region.
-        self.region_del_button_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04])
+        self.region_del_button_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04], gid="button")
         self.region_del_button = Button(self.region_del_button_ax, "Delete Region")
         self.region_del_button.on_clicked(self.clear_region)
 

@@ -27,6 +27,7 @@ from .core import (
     available_smooth_methods,
     find_non_blanks,
     find_nonblank_ints,
+    make_channel_slice,
     mean_tsys,
     smooth,
     sq_weighted_avg,
@@ -38,39 +39,33 @@ from .vane import VaneSpectrum
 
 class SpectralAverageMixin:
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, decimate=0):
+    def smooth(self, kernel="hanning", width=1, decimate=0):
         """
         Smooth or convolve the underlying calibrated data array, optionally decimating the data.
 
-        A number of methods from astropy.convolution can be selected
-        with the `method` keyword.
-
-        Default smoothing is hanning.
+        A number of kernels from `astropy.convolution` can be selected
+        with the `kernel` keyword.
 
         Note: Any previously computed/removed baseline will remain unchanged.
 
         Parameters
         ----------.
-        method : {'hanning', 'boxcar', 'gaussian'}, optional
-            Smoothing method. Valid are: 'hanning', 'boxcar' and
-            'gaussian'. Minimum match applies.
+        kernel : {'hanning', 'boxcar', 'gaussian'}, optional
+            Smoothing kernel. Minimum match applies.
             The default is 'hanning'.
         width : int, optional
-            Effective width of the convolving kernel.  Should ideally be an
-            odd number.
+            Width of the convolving kernel.  Should ideally be an odd number.
             For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
-            signal at the edges, and will thus not reproduce GBTIDL.
-            For 'gaussian' this is the FWHM of the final beam. We normally
-            assume the input beam has FWHM=1, pending resolution on cases
-            where CDELT1 is not the same as FREQRES.
+            signal at the edges.
+            For 'gaussian' this is the FWHM of the desired spectral resolution.
             The default is 1.
         decimate : int, optional
-            Decimation factor of the spectrum by returning every decimate channel.
+            Decimation factor of the spectrum by returning every `decimate` channel.
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-            The default is 0, meaning decimation is by `width`
+            The default is 0, meaning decimation is by `width`.
 
         Returns
         -------
@@ -79,16 +74,16 @@ class SpectralAverageMixin:
         Raises
         ------
         ValueError
-            If no valid smoothing method is given.
+            If no valid smoothing `kernel` is given or if `width` is less than 1.
         """
 
         valid_methods = available_smooth_methods()
-        this_method = minimum_string_match(method, valid_methods)
+        this_kernel = minimum_string_match(kernel, valid_methods)
         if width < 1:
             raise ValueError(f"`width` ({width}) must be >=1.")
 
-        if this_method is None:
-            raise ValueError(f"Unrecognized method ({method}). Valid methods are {valid_methods}")
+        if this_kernel is None:
+            raise ValueError(f"Unrecognized kernel ({kernel}). Valid kernels are {valid_methods}")
         if decimate == 0:
             # Take the default decimation by `width`.
             decimate = int(abs(width))
@@ -102,10 +97,9 @@ class SpectralAverageMixin:
             c = self._calibrated[i]
             newdata, newmeta = smooth(
                 data=c,
-                method=method,
+                kernel=this_kernel,
                 width=width,
                 ndecimate=decimate,
-                kernel=None,
                 meta=self.meta[i],
             )
             if hasattr(newdata, "mask"):
@@ -293,10 +287,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         self._apply_flags = apply_flags
         self._observer_location = observer_location
         self._tscale_to_unit = {"ta": u.K, "ta*": u.K, "flux": u.Jy, "raw": u.ct, "counts": u.ct, "count": u.ct}
-        if channel is not None:
-            self._channel_slice = slice(channel[0], channel[1])
-        else:
-            self._channel_slice = slice(0, None)
+        self._channel_slice = make_channel_slice(channel)
         # @todo Baseline fitting of scanblock. See issue (RFE) #607 https://github.com/GreenBankObservatory/dysh/issues/607
         self._baseline_model = None
         self._subtracted = False  # This is False if and only if baseline_model is None so we technically don't need a separate boolean.
@@ -318,7 +309,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             if v == -1:
                 unset.append(k)
         if len(unset) > 0:
-            raise Exception(
+            raise AttributeError(
                 f"The following required Scan attributes were not set by the derived class {self.__class__.__name__}:"
                 f" {unset}"
             )
@@ -363,7 +354,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     ):
         if len(meta_rows) == 0:
             raise Exception(
-                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection."
+                f"In Scan {self.scan}, no data left to calibrate. Check blank integrations, flags, and selection. If the inner 80% of channels has been flagged, the system temperature cannot be calculated."
             )
         self._calibrate = calibrate
 
@@ -909,7 +900,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
     def _add_calibration_meta(self):
         """Add metadata that are computed after calibration."""
         if not self.is_calibrated:
-            raise Exception("Data have to be calibrated first to add calibration metadata")
+            raise AttributeError("Data have to be calibrated first to add calibration metadata")
         for i in range(len(self._meta)):
             self._meta[i]["TSYS"] = self._tsys[i]
             self._meta[i]["TCAL"] = self._tcal[i]
@@ -1019,7 +1010,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         # to figure it out oneself (which I spent far too much time trying to do before I
         # discovered this!)
         if self._calibrated is None:
-            raise Exception("Data must be calibrated before writing.")
+            raise AttributeError("Data must be calibrated before writing.")
         # Table metadata aren't preserved in BinTableHDU, so we
         # have to grab them here and add them
         # data_table = self._meta_as_table()
@@ -1267,50 +1258,36 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             scan.calibrate(**kwargs)
 
     @log_call_to_history
-    def smooth(self, method="hanning", width=1, decimate=0, kernel=None):  # ScanBlock
+    def smooth(self, kernel="hanning", width=1, decimate=0):  # ScanBlock
         """
         Smooth all scans in this ScanBlock.
-        Smooth or convolve the  calibrated data arrays in contained Scans, optionally decimating the data.
-        A number of methods from astropy.convolution can be selected
-        with the `method` keyword.
+        Smooth or convolve the calibrated data arrays in the contained scans,
+        optionally decimating the data.
+        A number of kernels from `astropy.convolution` can be selected
+        with the `kernel` keyword.
 
-        Default smoothing is hanning.
+        Default smoothing kernel is hanning.
 
         Note: Any previously computed/removed baseline will remain unchanged.
 
         Parameters
-        ----------.
-        method : string, optional
-            Smoothing method. Valid are: 'hanning', 'boxcar' and
-            'gaussian'. Minimum match applies.
+        ----------
+        kernel : {'hanning', 'boxcar', 'gaussian'}, optional
+            Smoothing kernel. Minimum match applies.
             The default is 'hanning'.
         width : int, optional
-            Effective width of the convolving kernel.  Should ideally be an
-            odd number.
+            Width of the convolving kernel. Should ideally be an odd number.
             For 'hanning' this should be 1, with a 0.25,0.5,0.25 kernel.
             For 'boxcar' an even value triggers an odd one with half the
-            signal at the edges, and will thus not reproduce GBTIDL.
-            For 'gaussian' this is the FWHM of the final beam. We normally
-            assume the input beam has FWHM=1, pending resolution on cases
-            where CDELT1 is not the same as FREQRES.
+            signal at the edges.
+            For 'gaussian' this is the FWHM of the final spectral resolution.
             The default is 1.
         decimate : int, optional
-            Decimation factor of the spectrum by returning every decimate channel.
+            Decimation factor of the spectrum by returning every `decimate` channel.
             -1:   no decimation
             0:    use the width parameter
             >1:   user supplied decimation (use with caution)
-            The default is 0, meaning decimation is by `width`
-        kernel : `~numpy.ndarray`, optional
-            A numpy array which is the kernel by which the signal is convolved.
-            Use with caution, as it is assumed the kernel is normalized to
-            one, and is symmetric. Since width is ill-defined here, the user
-            should supply an appropriate number manually.
-            NOTE: not implemented yet.
-            The default is None.
-        Raises
-        ------
-        Exception
-            If no valid smoothing method is given.
+            The default is 0, meaning decimation is by `width`.
 
         Returns
         -------
@@ -1318,7 +1295,7 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         """
         for scan in self.data:
-            scan.smooth(method, width, decimate, kernel)
+            scan.smooth(kernel, width, decimate)
 
     @log_call_to_history
     @copy_docstring(SpectralAverageMixin.timeaverage)
@@ -1505,11 +1482,11 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
         for scan in self.data:  # [1:]:
             # check data shapes are the same
             thisshape = np.shape(scan._calibrated)
-            if thisshape != datashape:
+            if thisshape[1] != datashape[1]:
                 # @todo Variable length arrays? https://docs.astropy.org/en/stable/io/fits/usage/unfamiliar.html#variable-length-array-tables
                 # or write to separate bintables.
                 raise Exception(
-                    f"Data shapes of scans are not equal {thisshape}!={datashape}. Can't combine Scans into single"
+                    f"Number of channels in scans are not equal {thisshape[1]}!={datashape[1]}. Can't combine Scans into single"
                     " BinTableHDU"
                 )
             # check that the header keywords are the same
@@ -1607,7 +1584,7 @@ class TPScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     Notes
     -----
     How the total power and system temperature are calculated, depending on signal and reference state parameters:
@@ -1736,7 +1713,7 @@ class TPScan(ScanBase):
         elif self.calstate == False:  # noqa: E712
             self._calibrated = self._refcaloff.astype(float)
         else:
-            raise Exception(f"Unrecognized cal state {self.calstate}")  # should never happen
+            raise AttributeError(f"Unrecognized cal state {self.calstate}")  # should never happen
         if np.all(np.isnan(self._tsys)):
             self._calc_tsys()
 
@@ -1774,7 +1751,7 @@ class TPScan(ScanBase):
             nspect = len(self._tcal)
             self._tsys = np.empty(nspect, dtype=float)  # should be same as len(calon)
             if len(self._tcal) != nspect:
-                raise Exception(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
+                raise AttributeError(f"TCAL length {len(self._tcal)} and number of spectra {nspect} don't match")
             for i in range(nspect):
                 tsys = mean_tsys(calon=self._refcalon[i], caloff=self._refcaloff[i], tcal=self._tcal[i])
                 self._tsys[i] = tsys
@@ -1856,7 +1833,7 @@ class TPScan(ScanBase):
 
         Returns
         -------
-        spectrum : `~spectra.spectrum.Spectrum`
+        spectrum : `~dysh.spectra.spectrum.Spectrum`
         """
         return self.getspec(i)
 
@@ -1902,18 +1879,18 @@ class PSScan(ScanBase):
         If 'ta*' or 'flux' the zenith opacity must also be given. Default: 'ta'
     zenith_opacity: float, optional
         The zenith opacity to use in calculating the scale factors for the integrations. Default: None
-    refspec : int or `~spectra.spectrum.Spectrum`, optional
+    refspec : int or `~dysh.spectra.spectrum.Spectrum`, optional
         If given, the Spectrum will be used as the reference rather than using scan data.
     tsys : float or `~numpy.ndarray`
         If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
-        scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+        scan and the noise diode. If not given, and the reference is a `~dysh.spectra.spectrum.Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
         If `vane` is provided, `tsys` will be ignored.
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -1923,7 +1900,7 @@ class PSScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
         If provided, `tsys` will be ignored.
@@ -2013,7 +1990,17 @@ class PSScan(ScanBase):
             self._refcalon = None
             self._refcaloff = None
             # Catch blank integrations.
-            goodrows = find_nonblank_ints(self._sigcaloff, self._sigcalon)
+            if not self._nocal:
+                goodrows = find_nonblank_ints(self._sigcaloff, self._sigcalon)
+                self._sigcalon = self._sigcalon[goodrows]
+                self._sigcaloff = self._sigcaloff[goodrows]
+                self._sigonrows = [self._sigonrows[i] for i in goodrows]
+                self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            else:
+                goodrows = find_nonblank_ints(self._sigcaloff)
+                self._sigcaloff = self._sigcaloff[goodrows]
+                self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            self._nrows = len(self._sigoffrows)
         else:
             # noise diode on, reference position
             self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
@@ -2133,7 +2120,7 @@ class PSScan(ScanBase):
         else:
             tcal = self._tcal
             if len(tcal) != nspect:
-                raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+                raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
             if not self._nocal:
                 for i in range(nspect):
                     if not np.isnan(self._tsys[i]):
@@ -2306,7 +2293,7 @@ class NodScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -2323,7 +2310,7 @@ class NodScan(ScanBase):
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
         If provided, `tsys` will be ignored.
@@ -2463,7 +2450,7 @@ class NodScan(ScanBase):
             self._tcal[:] = self.get_vane_tcal()
         tcal = self._tcal
         if len(tcal) != nspect:
-            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+            raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
         if not self._nocal:
             for i in range(nspect):
                 if not np.isnan(self._tsys[i]):
@@ -2605,7 +2592,7 @@ class FSScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency to be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the
@@ -2620,13 +2607,13 @@ class FSScan(ScanBase):
     tsys : float or `~numpy.ndarray`
         If given, this is the system temperature in Kelvin. It overrides the values calculated using the noise diodes.
         If not given, and signal and reference are scan numbers, the system temperature will be calculated from the reference
-        scan and the noise diode. If not given, and the reference is a `Spectrum`, the reference system temperature as given
+        scan and the noise diode. If not given, and the reference is a `~dysh.spectra.spectrum.Spectrum`, the reference system temperature as given
         in the metadata header will be used. The default is to use the noise diode or the metadata, as appropriate.
     channel: list or None
         An inclusive list of `[firstchan, lastchan]` to use in the calibration. The channel list is zero-based. If provided,
         only data channels in the inclusive range `[firstchan,lastchan]` will be used. If a reference spectrum has been given, it will also be
         trimmed to `[firstchan,lastchan]`. If channels have already been selected through
-        :meth:`GBTFITSLoad.select_channel`, a ValueError will be raised.
+        :meth:`~dysh.fits.gbtfitsload.GBTFITSLoad.select_channel`, a ValueError will be raised.
         If `vane` is provided, `tsys` will be ignored.
     vane : `~dysh.spectra.vane.VaneSpectrum` or None
         Vane calibration spectrum. This will be used to derive the system temperature.
@@ -2881,7 +2868,7 @@ class FSScan(ScanBase):
         tcal = self._tcal
         logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
         if len(tcal) != nspect:
-            raise Exception(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
+            raise AttributeError(f"TCAL length {len(tcal)} and number of spectra {nspect} don't match")
 
         # @todo   the nspect loop could be replaced with clever numpy?
         if not self._nocal:
@@ -3054,7 +3041,7 @@ class SubBeamNodScan(ScanBase):
     ap_eff : float or None
         Aperture efficiency o be used when scaling data to brightness temperature of flux. The provided aperture
         efficiency must be a number between 0 and 1.  If None, `dysh` will calculate it as described in
-        :meth:`~GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
+        :meth:`~dysh.util.GBTGainCorrection.aperture_efficiency`. Only one of `ap_eff` or `surface_error`
         can be provided.
     surface_error: Quantity or None
         Surface rms error, in units of length (typically microns), to be used in the Ruze formula when calculating the

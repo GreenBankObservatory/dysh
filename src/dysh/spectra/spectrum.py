@@ -18,6 +18,7 @@ from astropy.modeling.fitting import LinearLSQFitter
 # from astropy.nddata.ccddata import fits_ccddata_writer
 from astropy.table import Table
 from astropy.time import Time
+from astropy.units import UnitTypeError
 from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from astropy.wcs import WCS, FITSFixedWarning
@@ -42,7 +43,7 @@ from ..coordinates import (  # is_topocentric,; topocentric_velocity_to_frame,
     veldef_to_convention,
 )
 from ..line import SpectralLineSearch
-from ..line.search import all_cats
+from ..line.search import _default_columns_to_return, all_cats
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
 from ..plot import specplot as sp
 from ..util import (
@@ -184,11 +185,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @property
     def flux(self):
         """
-        Converts the stored data and unit and mask into a `~astropy.units.Quantity` object.
+        Converts the stored data and unit and mask into a `~astropy.units.quantity.Quantity` object.
 
         Returns
         -------
-        `~astropy.units.Quantity`
+        `~astropy.units.quantity.Quantity`
             Spectral data as a quantity. Masked values are filled with NaN.
         """
         return Masked(self.data * self.unit, mask=self.mask).filled(np.nan)
@@ -208,7 +209,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         degree : int
             The degree of the polynomial series, a.k.a. baseline order
-        exclude : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        exclude : list of 2-tuples of int or `~astropy.units.quantity.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
 
             Examples:
@@ -217,13 +218,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
             Two channel-based regions: [(11,51),(99,123)].
 
-            One `~astropy.units.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
+            One `~astropy.units.quantity.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
 
             One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
             Default: no exclude region
 
-        include : list of 2-tuples of int or `~astropy.units.Quantity`, or `~specutils.SpectralRegion`
+        include : list of 2-tuples of int or `~astropy.units.quantity.Quantity`, or `~specutils.SpectralRegion`
             List of region(s) to include in the fit. The tuple(s) represent a range in the form [lower,upper], inclusive.
             See `exclude` for examples.
         color : str
@@ -301,7 +302,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        True if a baseline model has been subtracted, False otherwise
+            True if a baseline model has been subtracted, False otherwise
         """
         return self._subtracted
 
@@ -311,13 +312,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        exclude : list of 2-tuples of int or ~astropy.units.Quantity, or ~specutils.SpectralRegion
+        exclude : list of 2-tuples of int or ~astropy.units.quantity.Quantity, or ~specutils.SpectralRegion
             List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
             In channel units.
 
             Examples: One channel-based region: [11,51],
                       Two channel-based regions: [(11,51),(99,123)].
-                      One `~astropy.units.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
+                      One `~astropy.units.quantity.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
                       One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
 
         """
@@ -502,10 +503,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Signal-to-noise (S/N) ratio, measured either in channel or total flux mode.
         Make sure the spectrum has been baseline substracted, or the snr is
         meaningless.
-        See also sratio(), the signal ratio.
+        See also :meth:`~dysh.spectra.Spectrum.sratio`, the signal ratio.
 
-        Parameters:
-        -----------
+
+        Parameters
+        ----------
         peak : bool
             If True, the largest positive  deviation from the mean is compared to the rms.
             If False, the largest negative deviation from the mean is compared to the rms.
@@ -518,15 +520,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             If False, channel based snr is computed, also controlled by the value of the
             peak in the spectrum.
 
-            See also https://specutils.readthedocs.io/en/stable/analysis.html
+            See also `Specutils Analysis <https://specutils.readthedocs.io/en/stable/analysis.html>`_.
 
-        rms : None or `~astropy.units.Quantity`}
+        rms : None or `~astropy.units.quantity.Quantity`}
             If given, this is the RMS used in the S/N computations. By default it is
             determined from the `Spectrum.stats(roll=1)["rms"]` value of the `Spectrum`.
 
         Returns
         -------
-        ratio : real
+        ratio : float
             The S/N, either flux or channel based
         """
         # @todo  could check if the data has a baseline solution
@@ -612,7 +614,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @log_call_to_history
     def smooth(
         self,
-        method="hanning",
+        kernel="hanning",
         width=1,
         decimate=0,
         meta=None,
@@ -629,7 +631,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        method : string
+        kernel : {"hanning", "boxcar", "gaussian"}
             Smoothing method. Valid are: 'hanning', 'boxcar' and
             'gaussian'. Minimum match applies.
             The default is 'hanning'.
@@ -683,7 +685,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         Raises
         ------
         Exception
-            If no valid smoothing method is given.
+            If no valid smoothing kernel is given.
         ValueError
             If `width` is less than one.
             If `width` is less than the spectral resolution (in channels).
@@ -696,19 +698,19 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         valid_methods = available_smooth_methods()
-        this_method = minimum_string_match(method, valid_methods)
+        this_kernel = minimum_string_match(kernel, valid_methods)
         if width < 1:
             raise ValueError(f"`width` ({width}) must be >=1.")
 
-        if this_method is None:
-            raise Exception(f"smooth({method}): valid methods are {valid_methods}")
+        if this_kernel is None:
+            raise Exception(f"smooth({kernel}): valid kernels are {valid_methods}")
         md = np.ma.masked_array(self._data, self.mask)
         if decimate == 0:
             # Take the default decimation by `width`.
             decimate = int(abs(width))
             if not float(width).is_integer():
                 logger.info(f"Adjusting decimation factor to be a natural number. Will decimate by {decimate}")
-        if this_method == "gaussian":
+        if this_kernel == "gaussian":
             if width <= self._resolution:
                 raise ValueError(
                     f"`width` ({width} channels) cannot be less than the current resolution ({self._resolution} channels)."
@@ -718,7 +720,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
             new_data, new_meta = core.smooth(
                 data=md,
-                method=this_method,
+                kernel=this_kernel,
                 width=stddev,
                 ndecimate=decimate,
                 meta=self.meta,
@@ -731,7 +733,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             new_data, new_meta = core.smooth(
                 data=md,
-                method=this_method,
+                kernel=this_kernel,
                 width=width,
                 ndecimate=decimate,
                 meta=self.meta,
@@ -798,7 +800,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         other : `Spectrum`
             Target `Spectrum` to align to.
-        units : {None, `astropy.units.Quantity`}
+        units : {None, `astropy.units.quantity.Quantity`}
             Find the shift to align the two `Spectra` in these units.
             If `None`, the `Spectra` will be aligned using the units of
             `other`.
@@ -845,7 +847,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         ----------
         other : `Spectrum`
             Target `Spectrum` to align to.
-        units : {None, `astropy.units.Quantity`}
+        units : {None, `astropy.units.quantity.Quantity`}
             Find the shift to align the two `Spectra` in these units.
             If `None`, the `Spectra` will be aligned using the units of
             `other`.
@@ -937,25 +939,40 @@ class Spectrum(Spectrum1D, HistoricalBase):
         return self._observer
 
     @property
-    def velocity_frame(self):
+    def velocity_frame(self) -> str:
         """String representation of the velocity frame"""
         return self._velocity_frame
 
     @property
-    def doppler_convention(self):
+    def doppler_convention(self) -> str:
         """String representation of the velocity (Doppler) convention"""
         return self.velocity_convention
 
     @property
-    def doppler_rest(self):
-        """Rest frequency used in velocity conversions."""
+    def rest_value(self) -> Quantity:
+        """Rest frequency used in velocity conversions.
+
+        Returns
+        -------
+        ~astropy.units.quantity.Quantity.Quantity
+            The rest frequency as a Quantity object
+        """
         return self.spectral_axis.doppler_rest
 
-    @doppler_rest.setter
-    def doppler_rest(self, value):
-        """Set the `doppler_rest` property."""
+    @rest_value.setter
+    def rest_value(self, value: Quantity):
+        """
+        "Set the rest frequency property and update the `Spectrum` metadata.
+
+        Parameters
+        ----------
+        value : ~astropy.units.quanityt.Quantity
+            A frequency-like quantity.
+
+        """
         self._spectral_axis._doppler_rest = value
         self.meta["RESTFREQ"] = value.to("Hz").value
+        self.meta["RESTFRQ"] = value.to("Hz").value
 
     def axis_velocity(self, unit=KMS):
         """Get the spectral axis in velocity units.
@@ -963,11 +980,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        unit : `~astropy.units.Quantity` or str that can be converted to Quantity
+        unit : `~astropy.units.quantity.Quantity` or str that can be converted to Quantity
                 The unit to which the axis is to be converted
         Returns
         -------
-        velocity : `~astropy.units.Quantity`
+        velocity : `~astropy.units.quantity.Quantity.Quantity`
                 The converted spectral axis velocity
         """
         return self._spectral_axis.to(unit)
@@ -979,7 +996,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        unit : `~astropy.units.Quantity` or str that can be converted to `~astropy.units.Quantity`
+        unit : `~astropy.units.quantity.Quantity` or str that can be converted to `~astropy.units.quantity.Quantity`
             The unit to which the spectral axis is to be converted.
         toframe : str
             The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
@@ -989,7 +1006,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        velocity : `~astropy.units.Quantity`
+        velocity : `~astropy.units.quantity.Quantity`
             The converted spectral axis in units of `unit`.
         """
         if toframe is not None and toframe != self.velocity_frame:
@@ -1001,7 +1018,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
         else:
             return s.axis_velocity(unit)
 
-    def get_velocity_shift_to(self, toframe):
+    def get_velocity_in_frame(self, toframe: str) -> Quantity:
+        """Compute the radial velocity of the `Spectrum.target` in a new velocity frame.
+        See :meth:`~dysh.coordinates.core.get_velocity_in_frame`.
+
+        Parameters
+        ----------
+        toframe : str
+            The coordinate frame to convert to, e.g. 'hcrs', 'icrs'.
+
+        Returns
+        -------
+        radial_velocity : `~astropy.units.quantity.Quantity`
+            The radial velocity of the source in `toframe`
+        """
         if self._target is None:
             raise Exception("Can't calculate velocity because Spectrum.target is None")
         return get_velocity_in_frame(self._target, toframe, self._observer, self._obstime)
@@ -1014,9 +1044,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        toframe - str, or ~astropy.coordinates.BaseCoordinateFrame, or ~astropy.coordinates.SkyCoord
-            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
-            or an actual coordinate system instance
+        toframe : str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.sky_coordinate.SkyCoord`
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs',
+            an actual coordinate system instance, or a sky coordinate instance.
         """
 
         tfl = toframe
@@ -1048,9 +1078,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        toframe - str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.SkyCoord`
-            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs', etc.,
-            or an actual coordinate system instance.   The supported
+        toframe : str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.sky_coordinate.SkyCoord`
+            The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs',
+            an actual coordinate system instance, or a sky coordinate instance.
 
         Returns
         -------
@@ -1068,11 +1098,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
         with a new spectral axis with the input velocity convention.  The header 'VELDEF' value will
         be changed accordingly.
 
-        To make a copy of this `Spectrum` with a new velocity convention instead, use `with_velocity_convention`.
+        To make a copy of this `Spectrum` with a new velocity convention instead, use `Spectrum.with_velocity_convention`.
 
         Parameters
         ----------
-        doppler_convention - str
+        doppler_convention : str
             The velocity convention, one of 'radio', 'optical', 'relativistic'
 
         """
@@ -1088,7 +1118,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        doppler_convention - str
+        doppler_convention : str
             The velocity convention, one of 'radio', 'optical', 'relativistic'
 
         Returns
@@ -1674,11 +1704,20 @@ class Spectrum(Spectrum1D, HistoricalBase):
             # Use the WCS to convert from world to pixel values.
             wcs = self.wcs
             # We need a sky location to convert incorporating velocity shifts.
-            coo = SkyCoord(
-                wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
-                wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
-                frame="fk5",
-            )
+            try:
+                coo = SkyCoord(
+                    wcs.wcs.crval[wcs.wcs.lng] * wcs.wcs.cunit[wcs.wcs.lng],
+                    wcs.wcs.crval[wcs.wcs.lat] * wcs.wcs.cunit[wcs.wcs.lat],
+                    frame=self.meta["RADESYS"].lower(),
+                )
+            except UnitTypeError:
+                # Assume spatial coordinates are in axes 1 and 2.
+                coo = SkyCoord(
+                    wcs.wcs.crval[1] * wcs.wcs.cunit[1],
+                    wcs.wcs.crval[2] * wcs.wcs.cunit[2],
+                    frame=self.meta["RADESYS"].lower(),
+                )
+
             # Same for the Stokes axis.
             sto = StokesCoord(0)
             start = item.start
@@ -1811,7 +1850,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             The curve of growth will be considered flat when it's slope is within `flat_tol` times the standard deviation of the slope from zero.
         fw : float
             When estimating the line-free range, use `fw` times the largest width.
-        xunit : str or `~astropy.units.quantity`
+        xunit : str or `~astropy.units.quantity.Quantity`
             Units for the x axis when computing the CoG.
         vframe : None or str
             Velocity frame to use.
@@ -1852,13 +1891,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
         end_freq = self.spectral_axis.quantity[-1].to("Hz", equivalencies=u.spectral())
         return Quantity(np.sort([start_freq.value, end_freq.value]), unit=start_freq.unit)
 
-    @docstring_parameter(str(all_cats()))
+    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
     def query_lines(
-        self, chemical_name: str | None = None, intensity_lower_limit: float | None = None, cat: str = "gbtlines"
+        self,
+        chemical_name: str | None = None,
+        intensity_lower_limit: float | None = None,
+        cat: str = "gbtlines",
+        columns: str | list | None = None,
     ) -> Table:
         """
         Query locally or remotely for lines and return a table object. The query returns lines
-        with rest frequencies in the range of this Spectrum's spectral_axis.
+        with rest frequencies in the range of this Spectrum's spectral_axis.  The redshift value in the attribute `Spectrum.redshift` will be applied.
 
         **Note:** If the search parameters result in no matches, a zero-length Table will be returned.
 
@@ -1890,10 +1933,12 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
@@ -1903,13 +1948,15 @@ class Spectrum(Spectrum1D, HistoricalBase):
             max_frequency=maxf,
             intensity_lower_limit=intensity_lower_limit,
             cat=cat,
+            columns=columns,
             intensity_type="CDMS/JPL (log)",
+            redshift=self.redshift,
         )
 
-    @docstring_parameter(str(all_cats()))
-    def recomb(self, line, cat: str = "gbtrecomb") -> Table:
+    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
+    def recomb(self, line, cat: str = "gbtrecomb", columns: str | list | None = None) -> Table:
         """
-        Search for recombination lines of H, He, and C in the frequency range of this Spectrum.
+        Search for recombination lines of H, He, and C in the frequency range of this Spectrum. The redshift value in the attribute `Spectrum.redshift` will be applied.
 
         Parameters
         ----------
@@ -1923,25 +1970,24 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
         minf, maxf = self._min_max_freq()
         return SpectralLineSearch.recomb(
-            min_frequency=minf,
-            max_frequency=maxf,
-            line=line,
-            cat=cat,
+            min_frequency=minf, max_frequency=maxf, line=line, cat=cat, columns=columns, redshift=self.redshift
         )
 
-    @docstring_parameter(str(all_cats()))
-    def recomball(self, cat: str = "gbtrecomb") -> Table:
+    @docstring_parameter(str(all_cats()), str(_default_columns_to_return))
+    def recomball(self, cat: str = "gbtrecomb", columns: str | list | None = None) -> Table:
         """
-        Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog.
+        Fetch all recombination lines of H, He, C in the frequency range of this Spectrum from the catalog. The redshift value in the attribute `Spectrum.redshift` will be applied.
 
         Parameters
         ----------
@@ -1952,15 +1998,17 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
 
         Returns
         -------
-        ~astropy.table.Table
+        `~astropy.table.Table`
             An astropy table containing the results of the search
 
         """
         minf, maxf = self._min_max_freq()
-        return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat)
+        return SpectralLineSearch.recomball(min_frequency=minf, max_frequency=maxf, cat=cat, redshift=self.redshift)
 
     def meta_as_table(self):
         """
