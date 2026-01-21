@@ -1020,13 +1020,13 @@ class TestScanBlock:
 
             mean = np.nanmean(sb[0]._calibrated)
             std = np.std(sb[0]._calibrated)
-            sb[0].smooth(method="box", width=width, decimate=-1)
+            sb[0].smooth(kernel="box", width=width, decimate=-1)
             hmean = np.nanmean(sb[0]._calibrated)
             hstd = np.std(sb[0]._calibrated)
             assert hmean == pytest.approx(mean, rel=1e-5)
             assert std / hstd == pytest.approx(np.sqrt(width), abs=1e-2)
             sb[0]._calibrated = np.ma.masked_array(rdata, rmask)
-            sb[0].smooth(method="box", width=width, decimate=0)
+            sb[0].smooth(kernel="box", width=width, decimate=0)
             assert all(sb[0].delta_freq == np.array([x["CDELT1"] for x in sb[0].meta]))
 
     def test_tsys_weight(self, data_dir):
@@ -1062,3 +1062,18 @@ class TestScanBlock:
         assert np.all(sb1[0]._get_all_meta("QD_XEL") == [1])
         sb0.append(sb1[0])
         sb0.write(tmp_path / "test.fits", overwrite=True)
+
+    def test_write_different_intnums(slef, data_dir, tmp_path):
+        """Test that we can write a ScanBlock with scans of different lengths."""
+        sdf_file = f"{data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        sb1 = sdf.gettp(scan=51, ifnum=0, plnum=0, fdnum=0)
+        sb2 = sdf.gettp(scan=52, ifnum=0, plnum=0, fdnum=0, intnum=[0, 1, 2])
+        sb1.extend(sb2)
+        o = tmp_path / "test_write.fits"
+        sb1.write(o, overwrite=True)
+        sdf2 = gbtfitsload.GBTFITSLoad(o)
+        sb1_ = sdf2.gettp(scan=51, ifnum=0, plnum=0, fdnum=0)
+        assert np.all(sb1.data[0].calibrated == sb1_.data[0].calibrated)
+        sb2_ = sdf2.gettp(scan=52, ifnum=0, plnum=0, fdnum=0)
+        assert np.all(sb2.data[0].calibrated == sb2_.data[0].calibrated)
