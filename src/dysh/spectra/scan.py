@@ -1990,7 +1990,17 @@ class PSScan(ScanBase):
             self._refcalon = None
             self._refcaloff = None
             # Catch blank integrations.
-            goodrows = find_nonblank_ints(self._sigcaloff, self._sigcalon)
+            if not self._nocal:
+                goodrows = find_nonblank_ints(self._sigcaloff, self._sigcalon)
+                self._sigcalon = self._sigcalon[goodrows]
+                self._sigcaloff = self._sigcaloff[goodrows]
+                self._sigonrows = [self._sigonrows[i] for i in goodrows]
+                self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            else:
+                goodrows = find_nonblank_ints(self._sigcaloff)
+                self._sigcaloff = self._sigcaloff[goodrows]
+                self._sigoffrows = [self._sigoffrows[i] for i in goodrows]
+            self._nrows = len(self._sigoffrows)
         else:
             # noise diode on, reference position
             self._refonrows = sorted(list(set(self._calrows["ON"]).intersection(set(self._scanrows["OFF"]))))
