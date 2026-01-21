@@ -106,7 +106,7 @@ Columns can be renamed:
 .. code:: Python
 
    sdfits.rename_column("PI","PIE")
-   
+
 
 .. tip::
 
