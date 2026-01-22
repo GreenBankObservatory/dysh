@@ -211,9 +211,6 @@ def check_kwargs(known_kwargs, kwargs):
 
 def parse_html(s):
     """Turn html-styled text from spectral line search to matplotlib mathtext"""
-    # try astroquery.splatalogue.utils.clean_columns instead
-    print("=====================")
-    print(s)
 
     # handle subscripts and superscripts
     s = s.replace("<sub>", "$_{")
@@ -236,7 +233,5 @@ def parse_html(s):
 
     s = s.replace("<b>", "").replace("</b>", "")
     s = s.replace(" (TopModel)", "")
-
-    print(s)
 
     return s
