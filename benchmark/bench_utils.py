@@ -30,6 +30,7 @@ def setup_logging(verbose=False):
 
     # Also configure dysh's logger to same level
     from dysh.log import init_logging
+
     verbosity = 3 if verbose else 2  # 3=DEBUG, 2=INFO
     init_logging(verbosity=verbosity)
 
@@ -45,12 +46,12 @@ def get_process_memory_mb():
 def get_git_info():
     """Get current git commit hash and branch."""
     try:
-        commit = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
-        branch = subprocess.check_output(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
+        branch = (
+            subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL)
+            .decode()
+            .strip()
+        )
         return {"commit": commit[:12], "branch": branch}
     except Exception:
         return {"commit": "unknown", "branch": "unknown"}
@@ -89,9 +90,9 @@ def time_operation(func, n_iterations=5, warmup=1, silent_errors=False, track_me
         gc.collect()
         try:
             func()
-            logger.debug(f"    [{op_name}] warmup {i+1}/{warmup} complete")
+            logger.debug(f"    [{op_name}] warmup {i + 1}/{warmup} complete")
         except Exception as e:
-            logger.debug(f"    [{op_name}] warmup {i+1}/{warmup} error: {e}")
+            logger.debug(f"    [{op_name}] warmup {i + 1}/{warmup} error: {e}")
             if not silent_errors:
                 raise
 
@@ -121,7 +122,9 @@ def time_operation(func, n_iterations=5, warmup=1, silent_errors=False, track_me
 
         elapsed_ms = elapsed * 1000
         times.append(elapsed_ms)
-        logger.debug(f"    [{op_name}] iter {i+1}/{n_iterations}: {elapsed_ms:.1f} ms, peak={peak_memory_allocs[-1] if track_memory else 0:.1f} MB")
+        logger.debug(
+            f"    [{op_name}] iter {i + 1}/{n_iterations}: {elapsed_ms:.1f} ms, peak={peak_memory_allocs[-1] if track_memory else 0:.1f} MB"
+        )
         del result
 
     stats = {

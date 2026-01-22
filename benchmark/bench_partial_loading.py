@@ -123,7 +123,7 @@ def benchmark_gbtfitsload_init(filepath, n_iterations=3, use_index_file=True):
 
     kwargs = {}
     if not use_index_file:
-        kwargs["index_file_threshold"] = float('inf')
+        kwargs["index_file_threshold"] = float("inf")
 
     def load_file():
         sdf = GBTFITSLoad(filepath, **kwargs)
@@ -144,7 +144,7 @@ def benchmark_getps(dataset, n_iterations=3, use_index_file=True):
 
     kwargs = {}
     if not use_index_file:
-        kwargs["index_file_threshold"] = float('inf')
+        kwargs["index_file_threshold"] = float("inf")
 
     sdf = GBTFITSLoad(filepath, **kwargs)
 
@@ -172,7 +172,7 @@ def benchmark_gettp(dataset, n_iterations=5, use_index_file=True):
 
     kwargs = {}
     if not use_index_file:
-        kwargs["index_file_threshold"] = float('inf')
+        kwargs["index_file_threshold"] = float("inf")
 
     sdf = GBTFITSLoad(filepath, **kwargs)
 
@@ -198,7 +198,7 @@ def benchmark_getfs(dataset, n_iterations=3, use_index_file=True):
 
     kwargs = {}
     if not use_index_file:
-        kwargs["index_file_threshold"] = float('inf')
+        kwargs["index_file_threshold"] = float("inf")
 
     sdf = GBTFITSLoad(filepath, **kwargs)
 
@@ -227,7 +227,7 @@ def benchmark_getnod(dataset, n_iterations=3, use_index_file=True):
 
     kwargs = {}
     if not use_index_file:
-        kwargs["index_file_threshold"] = float('inf')
+        kwargs["index_file_threshold"] = float("inf")
 
     sdf = GBTFITSLoad(filepath, **kwargs)
 
@@ -251,7 +251,7 @@ def benchmark_rawspectra_full(filepath, n_iterations=3, use_index_file=True):
 
     kwargs = {}
     if not use_index_file:
-        kwargs["index_file_threshold"] = float('inf')
+        kwargs["index_file_threshold"] = float("inf")
 
     sdf = GBTFITSLoad(filepath, **kwargs)
     total_rows = len(sdf._index)
@@ -340,39 +340,20 @@ def run_benchmarks(datasets, quick=False, use_index_file=True):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Benchmark dysh operations",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        description="Benchmark dysh operations", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__
     )
-    parser.add_argument(
-        "-o", "--output",
-        help="Output JSON file for results"
-    )
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="Run quick benchmark with fewer iterations"
-    )
+    parser.add_argument("-o", "--output", help="Output JSON file for results")
+    parser.add_argument("--quick", action="store_true", help="Run quick benchmark with fewer iterations")
     parser.add_argument(
         "--compare",
         nargs=2,
         metavar=("BASELINE", "CANDIDATE"),
-        help="Compare two result files instead of running benchmarks"
+        help="Compare two result files instead of running benchmarks",
     )
+    parser.add_argument("--list-datasets", action="store_true", help="List available test datasets and exit")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument(
-        "--list-datasets",
-        action="store_true",
-        help="List available test datasets and exit"
-    )
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
-    parser.add_argument(
-        "--no-index-file",
-        action="store_true",
-        help="Disable .index file usage (force reading from FITS)"
+        "--no-index-file", action="store_true", help="Disable .index file usage (force reading from FITS)"
     )
 
     args = parser.parse_args()
