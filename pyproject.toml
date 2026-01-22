@@ -48,13 +48,13 @@ nb = [
   "jupyter-app-launcher>=0.3.1",
   "jupyterlab-lsp>=5.2.0",
 ]
-fast = [
-  "rsdfits>=0.1.0",
-]
+#fast = [
+#  "rsdfits>=0.1.0",
+#]
 all = ["dysh[nb]"]
 
-[tool.uv.sources]
-rsdfits = { path = "../rsdfits", editable = true }
+#[tool.uv.sources]
+#rsdfits = { path = "../rsdfits", editable = true }
 
 [dependency-groups]
 dev = [
