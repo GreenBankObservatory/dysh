@@ -139,7 +139,7 @@ def find_blanks(data):
     return np.where(integration_isnan(data))
 
 
-def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
+def find_nonblank_ints(cycle1, cycle2=None, cycle3=None, cycle4=None):
     """
     Find the indices of integrations that are not blanked.
 
@@ -149,6 +149,7 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
         Data for cycle 1. For example, signal with the noise diode off.
     cycle2 : `~numpy.ndarray`
         Data for cycle 2. For example, reference with the noise diode off.
+        Default is `None`.
     cycle3 : `~numpy.ndarray`
         Data for cycle 3. For example, signal with the noise diode on.
         Default is `None`.
@@ -163,7 +164,10 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     """
 
     nb1 = find_non_blanks(cycle1)
-    nb2 = find_non_blanks(cycle2)
+    if cycle2 is not None:
+        nb2 = find_non_blanks(cycle2)
+    else:
+        nb2 = nb1
     if cycle3 is not None:
         nb3 = find_non_blanks(cycle3)
     else:
@@ -171,7 +175,7 @@ def find_nonblank_ints(cycle1, cycle2, cycle3=None, cycle4=None):
     if cycle4 is not None:
         nb4 = find_non_blanks(cycle4)
     else:
-        nb4 = nb2
+        nb4 = nb1
     goodrows = reduce(np.intersect1d, (nb1, nb2, nb3, nb4))
 
     if len(goodrows) != len(cycle1):
@@ -671,21 +675,23 @@ def mean_tsys(calon, caloff, tcal, mode=0, fedge=0.1, nedge=None):
     # Define the channel range once.
     chrng = slice(nedge, -(nedge - 1), 1)
 
-    # Make them doubles. Probably not worth it.
-    caloff = caloff.astype("d")
-    calon = calon.astype("d")
+    calon = np.ma.masked_array(calon, keep_mask=True, dtype=np.float64)
+    calon.mask |= np.isnan(calon)
+    caloff = np.ma.masked_array(caloff, keep_mask=True, dtype=np.float64)
+    caloff.mask |= np.isnan(caloff)
 
     if mode == 0:  # mode = 0 matches GBTIDL output for Tsys values
-        meanoff = np.nanmean(caloff[chrng])
-        meandiff = np.nanmean(calon[chrng] - caloff[chrng])
+        meanoff = np.ma.mean(caloff[chrng])
+        meandiff = np.ma.mean(calon[chrng] - caloff[chrng])
         meanTsys = meanoff / meandiff * tcal + tcal / 2.0
     else:
-        meanTsys = np.nanmean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
+        meanTsys = np.ma.mean(caloff[chrng] / (calon[chrng] - caloff[chrng]))
         meanTsys = meanTsys * tcal + tcal / 2.0
 
     # meandiff can sometimes be negative, which makes Tsys negative!
     # GBTIDL also takes abs(Tsys) because it does sqrt(Tsys^2)
-    return np.abs(meanTsys)
+    # return np.ma.abs(meanTsys)
+    return meanTsys
 
 
 def sq_weighted_avg(a, axis=0, weights=None):
@@ -839,7 +845,7 @@ def fft_pad(y):
     npad = newsize - nch
     nskip = npad // 2
     padded[nskip : nskip + nch] = y
-    padded[nskip : nskip + nch].mask = y.mask
+    padded.mask[nskip : nskip + nch] = y.mask
     padded[0:nskip] = padded[nskip]
     padded[nskip + nch :] = padded[nskip + nch]
 
@@ -891,14 +897,14 @@ def fft_shift(
     if pad:
         padded, nskip = fft_pad(y)
     else:
-        padded, nskip = y.copy(), 0
+        padded, nskip = deepcopy(y), 0
 
     new_len = len(padded)
 
     phase_shift = 2.0 * np.pi * shift / new_len
 
     yf = padded.copy()
-    nan_mask = np.isnan(padded)
+    nan_mask = np.isnan(padded.data) | padded.mask
 
     if nan_treatment == "fill":
         yf[nan_mask] = fill_value
@@ -931,12 +937,16 @@ def fft_shift(
     new_y = np.ma.masked_invalid(shifted_y.real[nskip : nskip + nch])
     new_nan_mask = nan_mask[nskip : nskip + nch]
 
-    # Shift NaN elements.
+    # Shift NaN elements and mask.
     if keep_nan:
         if abs(shift) < 1:
+            new_nan_mask = mask_fshift(new_nan_mask, shift)
             new_y[new_nan_mask] = np.nan
+            new_y.mask[new_nan_mask] = True
         else:
-            new_y[np.roll(new_nan_mask, int(shift))] = np.nan
+            new_nan_mask = np.roll(new_nan_mask, int(shift))
+            new_y[new_nan_mask] = np.nan
+            new_y.mask[new_nan_mask] = True
 
     return new_y
 
@@ -984,11 +994,10 @@ def decimate(data, n, meta=None):
 # @todo it would be nice if this could take a 2-D array of N spectra. astropy.convolve can handle it.
 def smooth(
     data,
-    method="hanning",
+    kernel="hanning",
     width=1,
     ndecimate=0,
     meta=None,
-    kernel=None,
     mask=None,
     boundary="extend",
     nan_treatment="fill",
@@ -1007,8 +1016,8 @@ def smooth(
     data : `~numpy.ndarray`
         Input data array to smooth. Note smoothing array does not need a
         WCS since it is channel based.
-    method : string, optional
-        Smoothing method. Valid are: 'hanning', 'boxcar' and
+    kernel : {"hanning", "boxcar", "gaussian"}, optional
+        Smoothing kernel. Valid are: 'hanning', 'boxcar' and
         'gaussian'. Minimum match applies.
         The default is 'hanning'.
     width : int or float, optional
@@ -1025,13 +1034,6 @@ def smooth(
         Decimation factor of the spectrum by returning every `ndecimate`-th channel.
     meta: dict
          metadata dictionary with CDELT1, CRVAL1, CRPIX1, NAXIS1, and FREQRES which will be recalculated if necessary
-    kernel : `~numpy.ndarray`, optional
-        A numpy array which is the kernel by which the signal is convolved.
-        Use with caution, as it is assumed the kernel is normalized to
-        one, and is symmetric. Since width is ill-defined here, the user
-        should supply an appropriate number manually.
-        NOTE: not implemented yet.
-        The default is None.
     mask : None or `~numpy.ndarray`, optional
         A "mask" array.  Shape must match ``array``, and anything that is masked
         (i.e., not 0/`False`) will be set to NaN for the convolution.  If
@@ -1076,18 +1078,15 @@ def smooth(
         The new convolved spectrum.
 
     """
-    if kernel is not None:
-        raise NotImplementedError("Custom kernels are not yet implemented.")
-
     asm = available_smooth_methods()
-    method = minimum_string_match(method, asm)
-    if method is None:
-        raise ValueError(f"Unrecognized input method {method}. Must be one of {asm}")
+    kernel_name = minimum_string_match(kernel, asm)
+    if kernel_name is None:
+        raise ValueError(f"Unrecognized input kernel ({kernel}). Must be one of {asm}")
 
     if not float(ndecimate).is_integer():
         raise ValueError("`decimate ({ndecimate})` must be an integer.")
 
-    kernel = _available_smooth_methods[method](width)
+    kernel = _available_smooth_methods[kernel_name](width)
     # Notes:
     # 1. the boundary='extend' matches  GBTIDL's  /edge_truncate CONVOL() method
     # 2. no need to pass along a mask to convolve if the data have a mask already. astropy will obey the data mask
@@ -1112,7 +1111,7 @@ def smooth(
     new_data = np.ma.masked_array(new_data, mask)
     new_meta = deepcopy(meta)
     if new_meta is not None:
-        if method == "gaussian":
+        if kernel_name == "gaussian":
             width = width * FWHM_TO_STDDEV
         new_meta["FREQRES"] = np.sqrt((width * new_meta["CDELT1"]) ** 2 + new_meta["FREQRES"] ** 2)
     if ndecimate > 0:
@@ -1178,13 +1177,15 @@ def data_fshift(y, fshift, method="fft", pad=False, window=True):
         Only used if `method="fft"`.
     """
 
-    if abs(fshift) > 1:
+    if abs(fshift) >= 1:
         raise ValueError("abs(fshift) must be less than one: {fshift}")
 
     if method == "fft":
         new_y = fft_shift(y, fshift, pad=pad, window=window)
     elif method == "interpolate":
         new_y = ndimage.shift(y.filled(0.0), [fshift])
+        mask = mask_fshift(y.mask, fshift)
+        new_y = np.ma.masked_where(mask, new_y)
 
     return new_y
 
@@ -1233,6 +1234,43 @@ def data_shift(y, s, axis=-1, remove_wrap=True, fill_value=np.nan, method="fft",
         y_new = data_fshift(y_new, fshift, method=method, pad=pad, window=window)
 
     return y_new
+
+
+def mask_fshift(mask, fshift):
+    """
+    Shift `mask` by `fshift` channels.
+    This should only be used when `abs(fshift)<1`.
+    It expands the mask using binary dilation
+    to account for the spread of the masked values when
+    they are shifted by a fractional number of channels.
+
+    Parameters
+    ----------
+    mask : array_like
+        Array with masked values. Either ones and zeros or True and False.
+    fshift : float
+        Amount to shift by.
+
+    Returns
+    -------
+    new_mask : array_like
+        `mask` shifted by `fshift` channels.
+
+    Raises
+    ------
+    ValueError
+        If `abs(fshift)` is greather than 1.
+    """
+    if abs(fshift) >= 1:
+        raise ValueError(f"abs(fshift) greater than 1 ({fshift=})")
+    if fshift < 0:
+        structure = np.array([1, 1, 0], dtype=bool)
+    elif fshift > 0:
+        structure = np.array([0, 1, 1], dtype=bool)
+    else:
+        structure = np.array([0, 1, 0], dtype=bool)
+    new_mask = ndimage.binary_dilation(mask, structure=structure)
+    return new_mask
 
 
 def cog_slope(c, flat_tol=0.1):
@@ -1292,13 +1330,13 @@ def cog_flux(c, flat_tol=0.1):
         The median value of the slope for the curve of growth before it becomes flat.
     """
     slope, _slope_rms, flat_idx0 = cog_slope(c, flat_tol)
-    flux = np.nanmedian(c[flat_idx0:])
+    flux = np.nanmedian(c.filled(np.nan)[flat_idx0:])
     flux_std = np.nanstd(c[flat_idx0:])
-    slope = np.nanmedian(slope[:flat_idx0])
+    slope = np.nanmedian(slope.filled(np.nan)[:flat_idx0])
     return flux, flux_std, slope
 
 
-def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=1):
+def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat_tol=0.1, fw=1) -> dict:
     """
     Curve of growth analysis based on Yu et al. (2020) [1]_.
 
@@ -1315,10 +1353,10 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
         List of fractions of the total flux at which to compute the line width.
         If 0.25 and 0.85 are not included, they will be added to estimate the concentration
         as defined in [1]_.
-    bchan : int
+    bchan : None or int
         Beginning channel where there is signal.
         If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
-    echan : int
+    echan : None or int
         End channel where there is signal.
         If not provided it will be estimated using `fw` times the width of the line at the largest `width_frac`.
     flat_tol : float
@@ -1337,14 +1375,22 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     .. [1] `N. Yu, L. Ho & J. Wang, "On the Determination of Rotation Velocity and Dynamical Mass of Galaxies Based on Integrated H I Spectra"
        <https://ui.adsabs.harvard.edu/abs/2020ApJ...898..102Y/abstract>`_.
     """
+
+    # Save units for latter.
+    # These will be stripped,
+    # as quantities and masked arrays are not compatible.
+    y_unit = y.unit
+    x_unit = x.unit
+
     if width_frac is None:
         width_frac = [0.25, 0.65, 0.75, 0.85, 0.95]
     # Sort data values.
     p = 1
     if x[0] > x[1]:
         p = -1
-    _x = x[::p]
-    _y = y[::p]
+    # Strip units.
+    _x = x[::p].value
+    _y = np.ma.masked_invalid(y[::p].value)
     # Use channel ranges if provided.
     # Slice the end first to keep the meaning of bchan.
     if echan is not None:
@@ -1357,16 +1403,17 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     ydx = _y[:-1] * dx
 
     # Find initial guess for central velocity.
-    _vc = vc
-    if _vc is None:
+    if vc is not None:
+        _vc = vc.to(x_unit).value
+    else:
         _vc = (_x * _y).sum() / _y.sum()
     vc_idx = np.argmin(abs(_x - _vc))
 
     # Compute curve of growth.
-    b = np.cumsum(ydx[:vc_idx][::-1])  # Blue.
-    bp = np.cumsum(ydx[: vc_idx + 1][::-1])
-    r = np.cumsum(ydx[vc_idx:])  # Red.
-    rp = np.cumsum(ydx[vc_idx + 1 :])
+    b = np.ma.cumsum(ydx[:vc_idx][::-1])  # Blue.
+    bp = np.ma.cumsum(ydx[: vc_idx + 1][::-1])
+    r = np.ma.cumsum(ydx[vc_idx:])  # Red.
+    rp = np.ma.cumsum(ydx[vc_idx + 1 :])
     s = min(len(b), len(r))
     t = b[:s] + r[:s]
     dx = dx[:s]
@@ -1402,18 +1449,18 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     _, _, flat_idx0 = cog_slope(t, flat_tol)
     nt = t[:flat_idx0] / flux
     for f in width_frac:
-        idx = np.argmin(abs(nt - f))
+        idx = np.nanargmin(abs(nt - f))
         widths[f] = xt[idx]
 
     # Estimate rms from line-free channels.
     if bchan is None:
-        _bchan = np.argmin(abs(x - (_vc - fw * widths[max(width_frac)])))
+        _bchan = np.nanargmin(abs(x.value - (_vc - fw * widths[max(width_frac)])))
         if _bchan <= 0:
             _bchan = 0
     else:
         _bchan = bchan
     if echan is None:
-        _echan = np.argmin(abs(x - (_vc + fw * widths[max(width_frac)])))
+        _echan = np.nanargmin(abs(x.value - (_vc + fw * widths[max(width_frac)])))
         if _echan >= len(x):
             _echan = len(x)
     else:
@@ -1421,10 +1468,10 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     _bchan, _echan = np.sort([_bchan, _echan])
 
     # Use y values without channel crop.
-    rms = np.nanstd(np.hstack((y[:_bchan], y[_echan:])))
+    rms = np.nanstd(np.hstack((y.value[:_bchan], y.value[_echan:])))
 
     # Estimate error on line centroid.
-    vc_std = 0 * x.unit
+    vc_std = 0
     if vc is None:
         fac1 = _vc / (_y * _x).sum() * np.sqrt(np.sum((_x * rms) ** 2))
         fac2 = np.sqrt(len(_x)) * rms * _vc / _y.sum()
@@ -1434,13 +1481,13 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     nt_std = np.sqrt((nt / t[:flat_idx0] * rms * dx[:flat_idx0]) ** 2 + (nt / flux * flux_std) ** 2)
     widths_std = dict.fromkeys(width_frac)
     for f in width_frac:
-        idx = np.argmin(abs(nt - f))
+        idx = np.nanargmin(abs(nt - f))
         std = nt_std[idx]
-        idx_m = np.argmin(abs(nt - std - f))
-        idx_p = np.argmin(abs(nt + std - f))
+        idx_m = np.nanargmin(abs(nt - std - f))
+        idx_p = np.nanargmin(abs(nt + std - f))
         std_m = xt[idx_m] - xt[idx]
         std_p = xt[idx] - xt[idx_p]
-        widths_std[f] = np.nanmax((std_m.value, std_p.value, dx[idx].value)) * dx.unit
+        widths_std[f] = np.nanmax((std_m, std_p, dx[idx]))
         widths_std[f] = np.sqrt(
             widths_std[f] ** 2 + (widths[f] * 0.01) ** 2
         )  # Empirically, the widths are in error by <1%.
@@ -1458,23 +1505,46 @@ def curve_of_growth(x, y, vc=None, width_frac=None, bchan=None, echan=None, flat
     # Concentration.
     c_v = widths[0.85] / widths[0.25]
 
+    flux_unit = y_unit * x_unit
+
     results = {
-        "flux": flux,
-        "flux_std": flux_std,
-        "flux_r": flux_r,
-        "flux_r_std": flux_r_std,
-        "flux_b": flux_b,
-        "flux_b_std": flux_b_std,
-        "width": widths,
-        "width_std": widths_std,
-        "A_F": a_f.value,
-        "A_C": a_c.value,
-        "C_V": c_v.value,
-        "rms": rms,
+        "flux": flux * flux_unit,
+        "flux_std": flux_std * flux_unit,
+        "flux_r": flux_r * flux_unit,
+        "flux_r_std": flux_r_std * flux_unit,
+        "flux_b": flux_b * flux_unit,
+        "flux_b_std": flux_b_std * flux_unit,
+        "width": {k: v * x_unit for k, v in widths.items()},
+        "width_std": {k: v * x_unit for k, v in widths_std.items()},
+        "A_F": a_f,
+        "A_C": a_c,
+        "C_V": c_v,
+        "rms": rms * y_unit,
         "bchan": _bchan,
         "echan": _echan,
-        "vel": _vc,
-        "vel_std": vc_std,
+        "vel": _vc * x_unit,
+        "vel_std": vc_std * x_unit,
     }
 
     return results
+
+
+def make_channel_slice(channel: list | None):
+    """
+    Create a slice object from a [first,last] channel list.  If `channel` is None, then slice(0,None) is returned.
+
+    Parameters
+    ----------
+    channel : list|None
+        A length 2 list containing the first and last channel numbers
+
+    Returns
+    -------
+    slice
+        a slice object representing [first:last]
+
+    """
+    if channel is not None:
+        return slice(channel[0], channel[1])
+    else:
+        return slice(0, None)

@@ -477,7 +477,7 @@ class SelectionBase(DataFrame):
             tag = self._table.loc[_id]["TAG"]
             if s.equals(df):
                 tag = self._table.loc[_id]["TAG"]
-                warnings.warn(  # noqa: B028
+                logger.warning(
                     f"A rule that results in an identical selection has already been added: ID: {_id}, TAG:{tag}."
                     " Ignoring."
                 )
@@ -647,11 +647,11 @@ class SelectionBase(DataFrame):
         elif multi_value_queries is not None and single_value_queries is None:
             query = multi_value_queries
         else:
-            warnings.warn("There was no data selection")  # should never happen  # noqa: B028
+            logger.warning("There was no data selection")  # should never happen
             return False
         df = df.query(query)
         if df.empty:
-            warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
+            logger.warning("Your selection rule resulted in no data being selected. Ignoring.")
             return False
         df.loc[:, "CHAN"] = proposed_channel_rule  # this column is normally None so no need to check if None first.
         self._addrow(row, df, tag, check=check)
@@ -719,7 +719,7 @@ class SelectionBase(DataFrame):
             elif len(v) == 1:  # lower limit given
                 df = pd.merge(df, df[(df[ku] >= v[0])], how="inner")
             else:
-                raise Exception(f"Couldn't parse value tuple {v} for key {k} as a range.")
+                raise ValueError(f"Couldn't parse value tuple {v} for key {k} as a range.")
         if df.empty:
             warnings.warn("Your selection rule resulted in no data being selected. Ignoring.")  # noqa: B028
             return
@@ -763,38 +763,46 @@ class SelectionBase(DataFrame):
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
         flagging. Single arrays/tuples will be treated as channel lists;
-        nested arrays will be treated as  *inclusive* ranges. For instance:
-
-        ``
-        # select channel 24
-        select_channel(24)
-        # selects channels 1 and 10
-        select_channel([1,10])
-        # selects channels 1 thru 10 inclusive
-        select_channel([[1,10]])
-        # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
-        select_channel([[1,10], [47,56], 75)])
-        # tuples also work, though can be harder for a human to read
-        select_channel(((1,10), [47,56], 75))
-        ``
-
-        *Note* : channel numbers start at zero.
+        nested arrays will be treated as *inclusive* ranges. Channel numbers start at zero.
 
         Parameters
         ----------
         channel : number, or array-like
             The channels to select
+
         Returns
         -------
-        None.
+        None
 
+        Examples
+        --------
+
+        Select channel 24.
+
+        >>> select_channel(24)
+
+        Select channels 1 and 10.
+
+        >>> select_channel([1,10])
+
+        Select channels 1 thru 10 inclusive.
+
+        >>> select_channel([[1,10]])
+
+        Select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75.
+
+        >>> select_channel([[1,10], [47,56], 75)])
+
+        Tuples also work. To select the same as above.
+
+        >>> select_channel(((1,10), [47,56], 75))
         """
         # We don't want to get into trying to merge
         # different, possibly exclusive, channel selections.
         # This also avoids the side effect of using self to
         # compute "# Selected" in _addrow
         if self._channel_selection is not None:
-            raise Exception(
+            raise ValueError(
                 "You can only have one channel selection rule. Remove the old rule before creating a new one."
             )
         self._check_numbers(chan=channel)
@@ -826,9 +834,9 @@ class SelectionBase(DataFrame):
                 An identifying tag by which the rule may be referred to later.
         """
         if id is not None and tag is not None:
-            raise Exception("You can only specify one of id or tag")
+            raise ValueError("You can only specify one of id or tag")
         if id is None and tag is None:
-            raise Exception("You must specify either id or tag")
+            raise ValueError("You must specify either id or tag")
         if id is not None:
             if id in self._selection_rules:
                 # We will assume that selection_rules and table
@@ -912,7 +920,6 @@ class SelectionBase(DataFrame):
 
         """
         if len(self._selection_rules.values()) == 0:
-            # warnings.warn("Selection.merge(): upselecting now")
             return DataFrame()
         final = None
         for df in self._selection_rules.values():
@@ -1085,39 +1092,47 @@ class Selection(SelectionBase):
         """
         self._base_select_within(tag, **kwargs)
 
-    def select_channel(self, chan, tag=None):
+    def select_channel(self, channel, tag=None):
         """
         Select channels and/or channel ranges. These are NOT used in :meth:`final`
         but rather will be used to create a mask for calibration or
         flagging. Single arrays/tuples will be treated as channel lists;
-        nested arrays will be treated as  *inclusive* ranges. For instance:
-
-        ``
-        # select channel 24
-        select_channel(24)
-        # selects channels 1 and 10
-        select_channel([1,10])
-        # selects channels 1 thru 10 inclusive
-        select_channel([[1,10]])
-        # select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75
-        select_channel([[1,10], [47,56], 75)])
-        # tuples also work, though can be harder for a human to read
-        select_channel(((1,10), [47,56], 75))
-        ``
-
-        *Note* : channel numbers start at zero.
+        nested arrays will be treated as *inclusive* ranges. Channel numbers start at zero.
 
         Parameters
         ----------
-        chan : number, or array-like
+        channel : number, or array-like
             The channels to select
 
         Returns
         -------
-        None.
+        None
 
+        Examples
+        --------
+
+        Select channel 24.
+
+        >>> select_channel(24)
+
+        Select channels 1 and 10.
+
+        >>> select_channel([1,10])
+
+        Select channels 1 thru 10 inclusive.
+
+        >>> select_channel([[1,10]])
+
+        Select channel ranges 1 thru 10 and 47 thru 56 inclusive, and channel 75.
+
+        >>> select_channel([[1,10], [47,56], 75)])
+
+        Tuples also work. To select the same as above.
+
+        >>> select_channel(((1,10), [47,56], 75))
         """
-        self._base_select_channel(chan, tag)
+
+        self._base_select_channel(channel, tag)
 
 
 class Flag(SelectionBase):
@@ -1149,6 +1164,21 @@ class Flag(SelectionBase):
 
     GBTIDL Flags can be read in with :meth:`read`.
     """
+
+    @property
+    def final(self):
+        """
+        Create the final flag selection. This is done by a logical OR of each
+        of the flag rules (specifically `pandas.merge(how='outer')`).
+        Unlike Selection which uses AND logic to progressively narrow down data,
+        Flag uses OR logic to cumulatively flag any data matching any rule.
+
+        Returns
+        -------
+        final : DataFrame
+            The resultant flagged rows from all the rules.
+        """
+        return self.merge(how="outer")
 
     def flag(self, tag=None, check=False, **kwargs):
         """Add one or more exact flag rules, e.g., `key1 = value1, key2 = value2, ...`
@@ -1386,7 +1416,7 @@ class Flag(SelectionBase):
                     # its the header
                     colnames = l[1:].split(",")
                     if colnames != header:
-                        raise Exception(f"Column names {colnames} do not match expectated {header}")
+                        raise ValueError(f"Column names {colnames} in {fileobj} do not match expected {header}")
                     found_header = True
             else:
                 values = l.split("|")

@@ -8,7 +8,6 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.coordinates import SkyCoord
-from astropy.time import Time
 
 from dysh.log import logger
 
@@ -74,7 +73,7 @@ class PlotBase:
                 s.meta["CRVAL3"],
                 unit="deg",
                 frame=s.meta["RADESYS"].lower(),
-                obstime=Time(s.meta["DATE-OBS"]),
+                obstime=s._obstime,
                 location=Observatory.get_earth_location(s.meta["SITELONG"], s.meta["SITELAT"], s.meta["SITEELEV"]),
             )
             out_str = sc.transform_to("fk5").to_string("hmsdms", sep=" ", precision=2)[:-1]
@@ -110,7 +109,7 @@ class PlotBase:
         # TODO: need to understand frequencies to assign correct title
         # instead of just forcing to GHz with 5 decimal points
         ljust = 5
-        f0 = np.around(s.meta["RESTFREQ"] * 1e-9, 5) * u.GHz
+        f0 = np.around(s.rest_value.to(u.GHz), 5)
         self._axis.annotate(f"{'F0':<{ljust}}:  {f0}", (hcoords[2], vcoords[0]), xycoords=xyc, size=fsize_small)
         fsky = np.around(s.meta["OBSFREQ"] * 1e-9, 5) * u.GHz  # or CRVAL1?
         self._axis.annotate(f"{'Fsky':<{ljust}}:  {fsky}", (hcoords[2], vcoords[1]), xycoords=xyc, size=fsize_small)
@@ -192,13 +191,15 @@ class PlotBase:
         # TODO: put buttons in a sub/different axes so we only have to hide the axes object instead of
         # a list of all the buttons and plots
         if hidebuttons:
-            for button in self.figure._localaxes[1:]:
-                button.set_visible(False)
-            self.figure.savefig(file, *kwargs)
-            for button in self.figure._localaxes[1:]:
-                button.set_visible(True)
+            for button in self.figure._localaxes:
+                if button.get_gid() == "button":
+                    button.set_visible(False)
+            self.figure.savefig(file, **kwargs)
+            for button in self.figure._localaxes:
+                if button.get_gid() == "button":
+                    button.set_visible(True)
         else:
-            self.figure.savefig(file, *kwargs)
+            self.figure.savefig(file, **kwargs)
 
 
 def check_kwargs(known_kwargs, kwargs):
@@ -206,3 +207,30 @@ def check_kwargs(known_kwargs, kwargs):
     diff = set(kwargs) - set(known_kwargs)
     if len(diff) > 0:
         logger.warning(f"Unknown kwargs: {', '.join(diff)}")
+
+
+def parse_html(s):
+    """Turn html-styled text from spectral line search to matplotlib mathtext"""
+    # try astroquery.splatalogue.utils.clean_columns instead
+
+    # handle subscripts and superscripts
+    s = s.replace("<sub>", "$_{")
+    s = s.replace("</sub>", "}$")
+
+    s = s.replace("<sup>", "$^{")
+    s = s.replace("</sup>", "}$")
+
+    # other formatting
+    s = s.replace("<i>", "$").replace("</i>", "$")  # italics
+    s = s.replace("&", "$\\").replace(";", "$")  # greek letters
+
+    # strip everything else, maybe
+    s = s.replace('<font color="red">', "").replace("</font>", "")
+    s = s.replace("<font face=monospace>", "")
+
+    s = s.replace("<b>", "").replace("</b>", "")
+    s = s.replace(" (TopModel)", "")
+
+    # print(s)
+
+    return s

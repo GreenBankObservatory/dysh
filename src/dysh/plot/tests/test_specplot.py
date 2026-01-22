@@ -51,6 +51,19 @@ class TestSpecplot:
         self.tpplot = self.tp.plot(oshow=tp1)
         self.tpplot.oshow(tp2, color="r", linestyle="--")
 
+    def test_kwargs(self):
+        self.tp.plot(vel_frame="lsrk", doppler_convention="radio")
+        self.tp.plot(title="testing")
+
+    def test_cataloglines(self):
+        tp_plt = self.tp.plot()
+        tp_plt.show_catalog_lines()
+        tp_plt.clear_overlays()
+
+    def test_annotations(self):
+        tp_plt = self.tp.plot()
+        tp_plt.annotate_vline(1.42e9, "HI is coooool", rotation=30)
+
 
 class TestScanplot:
     def setup_method(self):

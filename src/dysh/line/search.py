@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -7,12 +7,14 @@ from astropy.table import Table
 from astropy.units.quantity import Quantity
 from astroquery.splatalogue import Splatalogue
 
+from ..coordinates import obsfreq, restfreq
 from ..util import (
     append_docstr_nosections,
     docstring_parameter,
     get_project_data,
     minimum_list_match,
     minimum_string_match,
+    replace_col_astype,
 )
 
 _VALID_EXCLUDE = ("potential", "atmospheric", "probable", "known", "none")
@@ -33,7 +35,8 @@ _default_columns_to_return = [
     "aij",
     "intintensity",
     "Lovas_NRAO",
-    "orderedfreq",
+    "rest_frequency",
+    "obs_frequency",
     "lower_state_energy_K",
     "upper_state_energy_K",
     #    "orderedFreq",
@@ -56,6 +59,7 @@ _default_columns_to_return = [
     #'requestnumber']
 ]
 
+
 _allowable_remote_cats = ["splatalogue"]
 _allowable_local_cats = [
     "gbtlines",  # note gbtlines does not include recombination lines
@@ -75,6 +79,12 @@ _all_cats = _allowable_remote_cats + _allowable_local_cats
 # Grab splatalogue keywords from its query method so we are always in sync with it.
 # Remove description and first two frequency parameters since we have our own.
 __splatdoc__ = Splatalogue.query_lines.__doc__
+
+
+def all_cats():
+    # needed to access dunder variable from outside this module
+    return _all_cats
+
 
 # Remove the first part of splatalogue doc in favor of our own
 i = __splatdoc__.index("chemical_name")
@@ -132,13 +142,14 @@ class SpectralLineSearchClass:
         max_frequency: Quantity,
         # cat: Literal[*_all_cats] | Path = "splatalogue",  # * in index allowed in Python 3.11+
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
-        columns: str | list = _default_columns_to_return,
+        columns: str | list | None = None,
+        redshift: float = 0.0,
         asynchronous: bool = False,
         cache: bool = True,
         format: str = "ascii.ecsv",
         only_NRAO_recommended=True,
         **kwargs,
-    ) -> Table:  # @todo should we return pandas DataFrame instead?
+    ) -> Table:
         """Query locally or remotely for lines and return a table object. The query returns lines
         with rest frequencies in the range [`min_frequency`,`max_frequency`].
 
@@ -159,8 +170,11 @@ class SpectralLineSearchClass:
                 - `'gbtlines'` is a local catalog of spectral lines between 300 MHz and 120 GHz with CDMS/JP log(intensity) > -9.
 
                 - `'gbtrecomb'` is a local catalog of H, He, and C recombination lnes between 300 MHz and 120 GHz.
-            columns: str or list
-            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
+        redshift: float
+            Search for redshifted lines.  The given redshift will used find lines that would be redshifted into the range `[min_frequency, max_frequency]`.  This option is
+            not available if `cat='splatalogue'.
         cache: bool
             For a local file query, make an in-memory copy of the input catalog to be used in subsequent queries to this catalog.
         asynchronous: bool
@@ -172,30 +186,42 @@ class SpectralLineSearchClass:
         # we are overlaying this kwarg with a parameter to expose that we are changing the default.
         kwargs.update({"only_NRAO_recommended": only_NRAO_recommended})
         # user-friendly keywords
-        if "line_lists" in kwargs:
+        if kwargs.get("line_lists", None) is not None:
             kwargs["line_lists"] = minimum_list_match(kwargs["line_lists"], Splatalogue.ALL_LINE_LISTS, casefold=True)
-        if "line_strengths" in kwargs:
+        if kwargs.get("line_strengths", None) is not None:
             kwargs["line_strengths"] = minimum_list_match(
                 kwargs["line_strengths"], Splatalogue.VALID_LINE_STRENGTHS, casefold=True
             )
-        if "intensity_type" in kwargs:
+        if kwargs.get("intensity_type", None) is not None:
             kwargs["intensity_type"] = minimum_string_match(
                 kwargs["intensity_type"], Splatalogue.VALID_INTENSITY_TYPES, casefold=True
             )
+        minfreq = restfreq(min_frequency, redshift)
+        maxfreq = restfreq(max_frequency, redshift)
         if mc == "splatalogue":
             if asynchronous:
                 table = Splatalogue._parse_result(
                     Splatalogue.query_lines_async(
-                        min_frequency,
-                        max_frequency,
+                        minfreq,
+                        maxfreq,
                         **kwargs,
                     )
                 )
             else:
-                table = Splatalogue.query_lines(min_frequency, max_frequency, **kwargs)
+                table = Splatalogue.query_lines(minfreq, maxfreq, **kwargs)
+            table.rename_column("orderedfreq", "rest_frequency")
+            # add a rest frequency column if an online query.
+            # localquery() will add this itself, so keep in this if clause.
+            if len(table) > 0:
+                obscol = obsfreq(table["rest_frequency"], redshift)
+                table.add_column(obscol, name="obs_frequency")
         else:
             # search a local table
-            return self.localquery(min_frequency, max_frequency, cat=mc, columns=columns, cache=cache, **kwargs)
+            table = self.localquery(
+                min_frequency, max_frequency, cat=mc, columns=columns, redshift=redshift, cache=cache, **kwargs
+            )
+        if "intintensity" in table.colnames:
+            replace_col_astype(table, "intintensity", float, -1e20)
 
         if columns is not None and len(table) != 0:
             return table[columns]
@@ -210,9 +236,10 @@ class SpectralLineSearchClass:
         min_frequency: Quantity,
         max_frequency: Quantity,
         cat: Literal[(x for x in _allowable_local_cats)] | Path = "gbtlines",
-        columns: str | list = _default_columns_to_return,
+        columns: str | list | None = None,
+        redshift: float = 0.0,
         chemical_name: str | None = None,
-        chem_re_flags: int = 0,
+        chem_re_flags: int = re.I,
         energy_min: float | None = None,
         energy_max: float | None = None,
         energy_type: Literal[(x for x in Splatalogue.VALID_ENERGY_TYPES)] | None = None,
@@ -239,8 +266,11 @@ class SpectralLineSearchClass:
         cat : str
             The catalog to use.  One of: {0}  (minimum string match) or a valid local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter.  The default is a GBT-specific line catalog, 'gbtlines'.
-        columns: str or list
-            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
+        redshift: float
+            Search for redshifted lines.  The given redshift will used find lines that would be redshifted into the range `[min_frequency, max_frequency]`.  This option is
+            not available if `cat='splatalogue'.
         chemical_name : str
             Name of the chemical to search for. Treated as a regular
             expression.  An empty set will match *any*
@@ -298,19 +328,21 @@ class SpectralLineSearchClass:
         # The easiest way to do this through pandas; using the Table interface
         # is too cumbersome.
         if chemical_name is not None:
-            species = self.get_species_ids(species_regex=chemical_name)
+            species = self.get_species_ids(species_regex=chemical_name, reflags=chem_re_flags)
             if len(species) == 0:
                 raise ValueError(f"Unable to find species matching {chemical_name}")
             # get species id returns string but 'species_id' column in tables returned by splatalogue is int!
             splist = list(map(int, species.values()))
         df = _table.to_pandas()
+        minfreq = restfreq(min_frequency, redshift)
+        maxfreq = restfreq(max_frequency, redshift)
 
         # Select the frequency range
         # fmt: off
         df = df[
             (
-                (df["orderedfreq"] >= min_frequency.to("MHz").value) &
-                (df["orderedfreq"] <= max_frequency.to("MHz").value)
+                (df["orderedfreq"] >= minfreq.to("MHz").value) &
+                (df["orderedfreq"] <= maxfreq.to("MHz").value)
             )
         ]
         # fmt: on
@@ -334,25 +366,30 @@ class SpectralLineSearchClass:
         # line lists
         if line_lists is not None:
             if (line_lists := minimum_list_match(line_lists, Splatalogue.ALL_LINE_LISTS, casefold=True)) is None:
-                raise ValueError(f"list_lists must be one or more of {Splatalogue.ALL_LINE_LISTS} (case insensitive).")
+                raise ValueError(
+                    f"list_lists must be one or more of {Splatalogue.ALL_LINE_LISTS} (case insensitive, minimum match)."
+                )
             line_lists = self._patch_line_lists(line_lists)
             df = df[df["linelist"].isin(line_lists)]
         # line strengths
         if intensity_lower_limit is not None:
             if intensity_type is None:
                 raise ValueError(
-                    "If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                    f"If you specify an intensity lower limit, you must also specify its intensity_type. One of  {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive, minimum_match)."
                 )
             elif (
                 intensity_type := minimum_string_match(intensity_type, Splatalogue.VALID_INTENSITY_TYPES, casefold=True)
             ) is None:
                 raise ValueError(
-                    f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive)."
+                    f"intensity_type must be one of {Splatalogue.VALID_INTENSITY_TYPES} (case insensitive, minimum match ."
                 )
             else:
-                df = df[df["intensity_type"] >= intensity_lower_limit]
+                df = df[df["intintensity"] >= intensity_lower_limit]
         table = Table.from_pandas(df)
-        # @todo Should we add units to the table?
+        table.rename_column("orderedfreq", "rest_frequency")
+        if len(table) > 0:
+            obscol = obsfreq(table["rest_frequency"], redshift)
+            table.add_column(obscol, name="obs_frequency")
         if columns is not None:
             return table[columns]
         else:
@@ -439,14 +476,16 @@ class SpectralLineSearchClass:
             "helium": "Helium",
         }
 
+    @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
     def recomb(
         self,
         min_frequency: Quantity,
         max_frequency: Quantity,
-        line: str,  # @todo let this be a list? simillar to 'recomball"
+        line: str,
         # cat: Literal[*_all_cats] | Path = "splatalogue",  # allowed in Python 3.11+
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
-        columns: str | list = _default_columns_to_return,
+        columns: str | list | None = None,
+        redshift: float = 0.0,
         convert_to_unicode: bool = True,
         only_NRAO_recommended: bool = True,
         **kwargs,
@@ -465,8 +504,11 @@ class SpectralLineSearchClass:
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
-        columns: str or list
-            The query result columns to include in the returned table.  Any of {1}. The default is all columns.
+        columns: str or list or None
+            The query result columns to include in the returned table.  Any of {1}. The default is None which means all columns.
+        redshift: float
+            Search for redshifted lines.  The given redshift will used find lines that would be redshifted into the range `[min_frequency, max_frequency]`.  This option is
+            not available if `cat='splatalogue'.
         convert_to_unicode : bool, optional
             Splatalogue stores line names using the unicode characters for Greek symbols, e.g. `\u03b1` for 'alpha'.  dysh will convert for you, if you put in e.g., 'Halpha'.
             You should only change this if a) you are inputing unicode or b) you are searching a local file that you know doesn't use unicode. The default is True.
@@ -492,16 +534,20 @@ class SpectralLineSearchClass:
             cat=cat,
             line_lists=["Recomb"],
             columns=columns,
+            redshift=redshift,
             only_NRAO_recommended=only_NRAO_recommended,
+            chem_re_flags=re.I,
             **kwargs,
         )
 
+    @docstring_parameter(str(_all_cats), str(_default_columns_to_return))
     def recomball(
         self,
         min_frequency: Quantity,
         max_frequency: Quantity,
         cat: Literal[(x for x in _all_cats)] | Path = "splatalogue",
-        columns: str | list = _default_columns_to_return,
+        columns: str | list | None = None,
+        redshift=0.0,
         cache: bool = False,
         only_NRAO_recommended: bool = True,
         **kwargs,
@@ -518,8 +564,11 @@ class SpectralLineSearchClass:
         cat : str or Path
             The catalog to use.  One of: {0}  (minimum string match) or a valid Path to a local astropy-compatible table.  The local table
             must have all the columns listed in the `columns` parameter. Default is 'splatalogue'.
-        columns: str or list
+        columns: str or list or None
             The query result columns to include in the returned table.  Any of {1}. The default is all columns.
+        redshift: float
+            Search for redshifted lines.  The given redshift will used find lines that would be redshifted into the range `[min_frequency, max_frequency]`.  This option is
+            not available if `cat='splatalogue'.
         cache: bool
             For a local file query, make an in-memory copy of the input table to be used in subsequent queries to this catalog.
         \\*\\*kwargs : dict
@@ -536,8 +585,9 @@ class SpectralLineSearchClass:
             max_frequency=max_frequency,
             cat=cat,
             line=None,
-            cache=cache,
             columns=columns,
+            redshift=redshift,
+            cache=cache,
             only_NRAO_recommended=only_NRAO_recommended,
             **kwargs,
         )

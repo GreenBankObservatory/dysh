@@ -108,6 +108,22 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
         :shadow: md
         :margin: 2 2 0 0
 
+        :material-outlined:`balance;3em;green` **Spectral Weights**
+
+        How to set and use spectral weights
+
+
+        .. button-link:: examples/using_spectral_weights.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Spectral Weights
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
         :material-outlined:`123;3em;green` **Repeated Scan Numbers**
 
         How to work with repeated scan numbers
@@ -135,6 +151,22 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
             :click-parent:
 
             Gaussian Fitting
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`timeline;3em;green` **Custom Baseline Fitting**
+
+        How to fit a custom baseline model
+
+
+        .. button-link:: examples/custom_baseline.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            Custom Baseline Fitting
 
     .. grid-item-card::
         :shadow: md
@@ -169,6 +201,39 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
             How to provide aperture efficiency or surface error
 
 
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`query_stats;3em;green` **Data Quality Checks**
+
+        How to use data quality functions
+
+
+        .. button-link:: examples/quality.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            How to use data quality functions
+
+    .. grid-item-card::
+        :shadow: md
+        :margin: 2 2 0 0
+
+        :material-outlined:`align_vertical_bottom;3em;green` **Spectral Line Search**
+
+        Search for potential spectral lines
+
+
+        .. button-link:: examples/line_search.html
+            :color: primary
+            :outline:
+            :click-parent:
+
+            How to use search for potential spectral lines, including within
+            a given Spectrum.
+
 .. toctree::
    :maxdepth: 4
    :hidden:
@@ -179,7 +244,11 @@ Practical step-by-step guides to help you achieve a specific goal. Most useful w
    examples/dataIO
    examples/align_spectra
    examples/flagging
+   examples/using_spectral_weights
    examples/repeated_scans
    examples/gauss_fit
+   examples/custom_baseline
    examples/merge_sdfits
    examples/apeff_surferr
+   examples/quality
+   examples/line_search

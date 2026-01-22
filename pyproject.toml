@@ -132,10 +132,6 @@ exclude = [
   "/notebooks",
 ]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/dysh/lab_templates" = "dysh/lab_templates"
-
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/dysh"]
 

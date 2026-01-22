@@ -11,6 +11,8 @@ from itertools import zip_longest
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
+from astropy.table import Table
 from astropy.time import Time
 from astropy.units.quantity import Quantity
 from IPython.display import HTML, display
@@ -670,3 +672,90 @@ def calc_vegas_spurs(
     # the input VSP values, so mask instead of dropping rows.
     a = np.ma.masked_array(a, mask=np.logical_or(a < 0, a > maxchan))
     return a.T
+
+
+def get_valid_channel_range(channel: list | np.ndarray) -> list:
+    """
+    Check that a channel range (e.g., that was given to Selection) defines a contiguous range of channels and
+    return a list of length 2 if valid.  The returned list can be used in data calibration.
+    Unlike :meth:`~dysh.util.selection.Selection.select_channel`,
+    if the input `channel` list has
+    two elements, it will be assumed that channel[0] is the first chan and channel[1] is the last channel.
+    However, channel ranges specified identically to :meth:`~dysh.util.selection.Selection.select_channel` can also
+    be used as input.
+
+    Parameters
+    ----------
+    channel : list|np.ndarray
+        List of beginning and end channel
+
+    Raises
+    ------
+    ValueError
+        If the input channel list cannot be converted to [first,last]
+
+    Returns
+    -------
+    list
+        An inclusive list of [first_channel, last_channel]
+    """
+    try:
+        a = np.array(channel)
+    except ValueError as ve:
+        # it was some sort of compound list like [1,4,(30,40)]
+        raise ValueError(f"Could not parse {channel} into a valid,contiguous channel range.") from ve
+    ash = a.shape
+    if ash == (1, 2):
+        first = a[0][0]
+        last = a[0][1]
+    elif ash == (2,):
+        first = a[0]
+        last = a[1]
+    if first > last:
+        raise ValueError(f"In channel range {channel}, first channel is greater than last channel.")
+    return [int(first), int(last)]
+
+
+def isot_to_mjd(isot):
+    """
+    Convert an ISOT string to MJD.
+    """
+    EPOCH_MJD = 40587
+    MSEC_IN_A_DAY = 86400e3
+    return np.array(isot, dtype="datetime64[ms]").astype("int64") / MSEC_IN_A_DAY + EPOCH_MJD
+
+
+def replace_col_astype(t: Table, colname: str, astype, fill_value):
+    if hasattr(t[colname], "mask"):
+        savemask = t[colname].mask.copy()
+    else:
+        savemask = False
+    q = np.ma.masked_array(pd.to_numeric(t[colname]), savemask, fill_value=fill_value, dtype=astype)
+    t[colname].fill_value = fill_value
+    t.replace_column(colname, q)
+    if hasattr(t, "mask"):
+        t[colname].mask = savemask
+
+
+def inner_channel_slice(nchan: int, fedge: float = 0.1) -> slice:
+    """
+    Return a slice cropping `fedge` channels at each end.
+    This is inclusive on the upper end to reproduce GBTIDL results.
+
+    Parameters
+    ----------
+    nchan : int
+        Number of channels.
+    fedge : float
+        Fraction of edges to crop on each end.
+        For example, `fedge=0.1` will crop 10% of the channels on each end.
+
+    Returns
+    -------
+    channel_slice : slice
+        Slice that will select the inner `1-fedge` channels.
+    """
+
+    start = round(nchan * fedge)
+    stop = -(start - 1)
+    return slice(start, stop, 1)
