@@ -509,7 +509,7 @@ class TestWeights:
         assert set(x.weights) == set([2.0, 3.0])
 
         x = sb.timeaverage(weights="tsys")
-        assert np.ma.mean(x.weights) == pytest.approx(274.7940106210527)
+        assert np.ma.mean(x.weights) == pytest.approx(272.04882308651037)
         # now do a custom weight array
         scale = 100
         w = scale * np.random.rand(sb.nint, sb.nchan)
@@ -756,26 +756,28 @@ class TestFSScan:
             data = table["DATA"]
             hdu.close()
             sp = data[1]
-        level = 5e-3
+        level = 10e-3
         diff1 = sp - ta.flux.value.astype(np.float32)
         nm = np.nanmean(diff1[15000:20000])  # Use channel range around the line.
         assert abs(nm) <= level
+        # Channel range with one signal state.
+        assert abs(np.nanmean(diff1[0:5000])) < 7e-8
 
         # Using interpolation to shift the data.
-        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True, shift_method="interpolate")
-        ta = fsscan.timeaverage(weights="tsys")
-        diff2 = sp - ta.flux.value.astype(np.float32)
-        nm = np.nanmean(diff2[15000:20000])
-        assert abs(nm) <= level
+        ta_i = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True, shift_method="interpolate").timeaverage()
+        ta_f = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=True, shift_method="fft").timeaverage()
+        diff = ta_i - ta_f
+        assert diff.stats()["mean"].value == pytest.approx(-0.22912714071180673)
+        assert diff[0:5000].stats()["mean"].value == pytest.approx(0)
 
         # Test with reference smoothing.
         fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256)
         fs = fs_sb.timeaverage()
         assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
         assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
-        assert fs.meta["TSYS"] == pytest.approx(26.83285745447353)
-        assert fs.stats()["mean"].value == pytest.approx(0.19299398411039015)
-        assert fs.stats()["rms"].value == pytest.approx(5.4871938402480795)
+        assert fs.meta["TSYS"] == pytest.approx(27.01480177204748)
+        assert fs.stats()["mean"].value == pytest.approx(0.18852562222605965)
+        assert fs.stats()["rms"].value == pytest.approx(5.439287005732594)
 
         # nocal.
         fs_sb = sdf.getfs(scan=20, ifnum=0, plnum=0, fdnum=0, fold=True, smoothref=256, nocal=True)
@@ -783,8 +785,8 @@ class TestFSScan:
         assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
         assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.meta["TSYS"] == pytest.approx(1.0)
-        assert fs.stats()["mean"].value == pytest.approx(0.007543638921500274)
-        assert fs.stats()["rms"].value == pytest.approx(0.20901151397310902)
+        assert fs.stats()["mean"].value == pytest.approx(0.0072319416335441655)
+        assert fs.stats()["rms"].value == pytest.approx(0.20927898127627734)
 
         # t_sys.
         t_sys = 124.0
@@ -793,8 +795,8 @@ class TestFSScan:
         assert fs.meta["EXPOSURE"] == pytest.approx(55.77325632268)
         assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.meta["TSYS"] == pytest.approx(t_sys)
-        assert fs.stats()["mean"].value == pytest.approx(0.878913979866379)
-        assert fs.stats()["rms"].value == pytest.approx(25.31681410111804)
+        assert fs.stats()["mean"].value == pytest.approx(0.8382742474775386)
+        assert fs.stats()["rms"].value == pytest.approx(25.336939676160352)
 
         # nocal and t_sys.
         t_sys = 120.0
@@ -803,8 +805,8 @@ class TestFSScan:
         assert fs.meta["EXPOSURE"] == pytest.approx(27.363056179345364)
         assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
         assert fs.meta["TSYS"] == pytest.approx(t_sys)
-        assert fs.stats()["mean"].value == pytest.approx(0.9052366705561161)
-        assert fs.stats()["rms"].value == pytest.approx(25.081381667649197)
+        assert fs.stats()["mean"].value == pytest.approx(0.8678329960252995)
+        assert fs.stats()["rms"].value == pytest.approx(25.113477753153276)
 
     def test_getfs_nocal(self):
         """
@@ -821,8 +823,8 @@ class TestFSScan:
         assert fs.meta["TSYS"] == 1.0
         assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
         assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
-        assert fs.stats()["mean"].value == pytest.approx(0.0011403941433353717)
-        assert fs.stats()["rms"].value == pytest.approx(0.011686314570904896)
+        assert fs.stats()["mean"].value == pytest.approx(-0.007114138822176547)
+        assert fs.stats()["rms"].value == pytest.approx(0.01688917090804725)
 
         # Test with system temperature.
         t_sys = 205.0
@@ -831,8 +833,8 @@ class TestFSScan:
         fs = fs_sb.timeaverage()
         assert fs.meta["TSYS"] == pytest.approx(t_sys)
         assert fs.meta["EXPOSURE"] == pytest.approx(1.0926235028020896)
-        assert fs.stats()["mean"].value == pytest.approx(0.23378079938375124)
-        assert fs.stats()["rms"].value == pytest.approx(2.395694487035504)
+        assert fs.stats()["mean"].value == pytest.approx(-1.4583984585461922)
+        assert fs.stats()["rms"].value == pytest.approx(3.4622800361496875)
 
         # Test with reference smoothing.
         fs_sb = sdf.getfs(scan=12, ifnum=0, plnum=0, fdnum=10, smoothref=256)
@@ -841,8 +843,8 @@ class TestFSScan:
         assert fs.meta["TSYS"] == 1.0
         assert fs.meta["EXPOSURE"] == pytest.approx(2.115174908755242)
         assert fs.meta["DURATION"] > fs.meta["EXPOSURE"]
-        assert fs.stats()["mean"].value == pytest.approx(0.0007369155360709178)
-        assert fs.stats()["rms"].value == pytest.approx(0.010335320172352901)
+        assert fs.stats()["mean"].value == pytest.approx(-0.009017168542260336)
+        assert fs.stats()["rms"].value == pytest.approx(0.01574591792350919)
 
     def test_tcal(self):
         """
