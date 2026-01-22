@@ -11,7 +11,6 @@ either at a fixed rate or respecting the original observation timing.
 from __future__ import annotations
 
 import logging
-import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -19,7 +18,6 @@ from pathlib import Path
 from typing import Literal
 
 import fitsio
-import numpy as np
 import pandas as pd
 
 from dysh.fits.index_file import parse_sdfits_index_file
@@ -218,7 +216,7 @@ def _simulate_single_file(
             rows_written += len(scan_rows)
 
             logger.info(
-                f"  [{i+1}/{len(unique_scans)}] Scan {scan_num}: "
+                f"  [{i + 1}/{len(unique_scans)}] Scan {scan_num}: "
                 f"{len(scan_rows)} rows ({rows_written}/{total_rows} total) -> {output_file.name}"
             )
 
@@ -320,15 +318,14 @@ def _check_disk_space(fits_files: list[Path], output_dir: Path) -> None:
                 size_bytes /= 1024
             return f"{size_bytes:.1f} PB"
 
-        raise IOError(
+        raise OSError(
             f"Insufficient disk space in {output_dir}. "
             f"Need {format_size(required_space)}, but only {format_size(available_space)} available. "
             f"Free up space or use a different output directory."
         )
 
     logger.debug(
-        f"Disk space check passed: need {total_source_size / 1e9:.1f} GB, "
-        f"have {available_space / 1e9:.1f} GB available"
+        f"Disk space check passed: need {total_source_size / 1e9:.1f} GB, have {available_space / 1e9:.1f} GB available"
     )
 
 
@@ -370,10 +367,7 @@ def _update_status_file(
 
     # Format: backend,project,scan,timestamp,datetime,file,index
     # Use only the filename, not full path (like GBTIDL does)
-    entry = (
-        f"{backend},{project},{scan},{iso_timestamp},{datetime_str},"
-        f"{fits_file.name},{index_file.name}\n"
-    )
+    entry = f"{backend},{project},{scan},{iso_timestamp},{datetime_str},{fits_file.name},{index_file.name}\n"
 
     # For now, overwrite with latest (could extend to track all files A,B,C,D)
     # In reality, each FITS file would have its own line, but for simplicity

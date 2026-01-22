@@ -51,7 +51,7 @@ def benchmark_gbtoffline_init(project, n_iterations=3, use_index_file=True):
 
     kwargs = {}
     if not use_index_file:
-        kwargs["index_file_threshold"] = float('inf')
+        kwargs["index_file_threshold"] = float("inf")
 
     def init_offline():
         sdf = GBTOffline(project, **kwargs)
@@ -62,6 +62,7 @@ def benchmark_gbtoffline_init(project, n_iterations=3, use_index_file=True):
 
 def benchmark_gettp(sdf, scan, ifnum, plnum, fdnum, n_iterations=5):
     """Benchmark gettp operation."""
+
     def do_gettp():
         return sdf.gettp(scan=scan, ifnum=ifnum, plnum=plnum, fdnum=fdnum)
 
@@ -70,6 +71,7 @@ def benchmark_gettp(sdf, scan, ifnum, plnum, fdnum, n_iterations=5):
 
 def benchmark_timeaverage(scanblock, n_iterations=5):
     """Benchmark timeaverage operation on a ScanBlock."""
+
     def do_timeaverage():
         return scanblock.timeaverage()
 
@@ -78,6 +80,7 @@ def benchmark_timeaverage(scanblock, n_iterations=5):
 
 def benchmark_spectrum_average(spec1, spec2, n_iterations=10):
     """Benchmark averaging two spectra."""
+
     def do_average():
         return spec1.average(spec2)
 
@@ -86,6 +89,7 @@ def benchmark_spectrum_average(spec1, spec2, n_iterations=10):
 
 def benchmark_getsigref(sdf, scans, ref, ifnum, plnum, fdnum, n_iterations=3):
     """Benchmark getsigref operation."""
+
     def do_getsigref():
         return sdf.getsigref(scan=scans, ref=ref, ifnum=ifnum, plnum=plnum, fdnum=fdnum)
 
@@ -94,6 +98,7 @@ def benchmark_getsigref(sdf, scans, ref, ifnum, plnum, fdnum, n_iterations=3):
 
 def benchmark_scanblock_write(scanblock, output_path, n_iterations=3):
     """Benchmark ScanBlock write operation."""
+
     def do_write():
         scanblock.write(output_path)
         return True
@@ -102,6 +107,7 @@ def benchmark_scanblock_write(scanblock, output_path, n_iterations=3):
 
     # Clean up test files
     import os
+
     if os.path.exists(output_path):
         os.remove(output_path)
 
@@ -118,6 +124,7 @@ def benchmark_full_mapreduce_pipeline(sdf, off_scans, signal_scans, ifnum, plnum
     3. average the off spectra
     4. getsigref with signal scans
     """
+
     def do_pipeline():
         # Get off scans and average them
         off_specs = []
@@ -140,8 +147,7 @@ def benchmark_full_mapreduce_pipeline(sdf, off_scans, signal_scans, ifnum, plnum
 def run_benchmarks(project, quick=False, use_index_file=True):
     """Run MapReduce benchmarks."""
     results = create_results_dict(
-        quick_mode=quick,
-        extra_metadata={"project": project, "use_index_file": use_index_file}
+        quick_mode=quick, extra_metadata={"project": project, "use_index_file": use_index_file}
     )
 
     n_iter = 2 if quick else 5
@@ -158,13 +164,15 @@ def run_benchmarks(project, quick=False, use_index_file=True):
 
     kwargs = {}
     if not use_index_file:
-        kwargs["index_file_threshold"] = float('inf')
+        kwargs["index_file_threshold"] = float("inf")
 
-    logger.info(f"\n=== GBTOffline Initialization ===")
+    logger.info("\n=== GBTOffline Initialization ===")
     logger.info(f"  - Loading project {project}...")
 
     try:
-        results["benchmarks"]["init"] = benchmark_gbtoffline_init(project, n_iterations=n_iter_slow, use_index_file=use_index_file)
+        results["benchmarks"]["init"] = benchmark_gbtoffline_init(
+            project, n_iterations=n_iter_slow, use_index_file=use_index_file
+        )
     except Exception as e:
         logger.error(f"  ERROR: {e}")
         results["benchmarks"]["init"] = {"error": str(e)}
@@ -173,7 +181,7 @@ def run_benchmarks(project, quick=False, use_index_file=True):
     # Load once for subsequent benchmarks
     sdf = GBTOffline(project, **kwargs)
     results["metadata"]["n_rows"] = len(sdf._index)
-    results["metadata"]["n_files"] = len(sdf._sdf) if hasattr(sdf, '_sdf') else 1
+    results["metadata"]["n_files"] = len(sdf._sdf) if hasattr(sdf, "_sdf") else 1
 
     logger.info(f"  Loaded {results['metadata']['n_rows']} rows from {results['metadata']['n_files']} file(s)")
 
@@ -199,7 +207,9 @@ def run_benchmarks(project, quick=False, use_index_file=True):
         signal_scans = [s for s in available_scans if s not in off_scans][:10]
 
     logger.info(f"  Using off scans: {off_scans}")
-    logger.info(f"  Using signal scans: {signal_scans[:5]}{'...' if len(signal_scans) > 5 else ''} ({len(signal_scans)} total)")
+    logger.info(
+        f"  Using signal scans: {signal_scans[:5]}{'...' if len(signal_scans) > 5 else ''} ({len(signal_scans)} total)"
+    )
 
     # Get available ifnum, plnum, fdnum
     ifnums = sorted(sdf._index["IFNUM"].unique())
@@ -213,7 +223,7 @@ def run_benchmarks(project, quick=False, use_index_file=True):
     logger.info(f"  Using ifnum={ifnum}, plnum={plnum}, fdnum={fdnum}")
 
     # Benchmark individual operations
-    logger.info(f"\n=== Individual Operation Benchmarks ===")
+    logger.info("\n=== Individual Operation Benchmarks ===")
 
     if off_scans:
         logger.info(f"  - gettp (scan {off_scans[0]})...")
@@ -225,7 +235,7 @@ def run_benchmarks(project, quick=False, use_index_file=True):
             results["benchmarks"]["gettp"] = {"error": str(e)}
 
         # Get a ScanBlock for timeaverage benchmark
-        logger.info(f"  - timeaverage...")
+        logger.info("  - timeaverage...")
         try:
             test_sb = sdf.gettp(scan=off_scans[0], ifnum=ifnum, plnum=plnum, fdnum=fdnum)
             results["benchmarks"]["timeaverage"] = benchmark_timeaverage(test_sb, n_iterations=n_iter)
@@ -234,7 +244,7 @@ def run_benchmarks(project, quick=False, use_index_file=True):
 
         # Benchmark spectrum averaging
         if len(off_scans) >= 2:
-            logger.info(f"  - spectrum average...")
+            logger.info("  - spectrum average...")
             try:
                 spec1 = sdf.gettp(scan=off_scans[0], ifnum=ifnum, plnum=plnum, fdnum=fdnum).timeaverage()
                 spec2 = sdf.gettp(scan=off_scans[1], ifnum=ifnum, plnum=plnum, fdnum=fdnum).timeaverage()
@@ -263,8 +273,8 @@ def run_benchmarks(project, quick=False, use_index_file=True):
 
     # Benchmark full pipeline
     if off_scans and signal_scans:
-        logger.info(f"\n=== Full Pipeline Benchmark ===")
-        logger.info(f"  - Full MapReduce pipeline (1 beam, 1 pol)...")
+        logger.info("\n=== Full Pipeline Benchmark ===")
+        logger.info("  - Full MapReduce pipeline (1 beam, 1 pol)...")
         try:
             results["benchmarks"]["full_pipeline"] = benchmark_full_mapreduce_pipeline(
                 sdf, off_scans, signal_scans, ifnum, plnum, fdnum, n_iterations=n_iter_slow
@@ -279,8 +289,10 @@ def run_benchmarks(project, quick=False, use_index_file=True):
         logger.info(f"\n=== Multi-beam Pipeline Benchmark ({len(fdnums)} beams) ===")
         logger.info(f"  - Processing all {len(fdnums)} beams...")
         try:
+
             def do_all_beams():
                 from dysh.spectra import ScanBlock
+
                 all_results = ScanBlock()
                 for fd in fdnums:
                     # Get off reference
@@ -309,37 +321,20 @@ def main():
     parser = argparse.ArgumentParser(
         description="Benchmark MapReduce-style operations in dysh",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
-    parser.add_argument(
-        "-o", "--output",
-        help="Output JSON file for results"
-    )
-    parser.add_argument(
-        "--project",
-        default="TGBT25B_608_07",
-        help="GBT project name (default: TGBT25B_608_07)"
-    )
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="Run quick benchmark with fewer iterations"
-    )
+    parser.add_argument("-o", "--output", help="Output JSON file for results")
+    parser.add_argument("--project", default="TGBT25B_608_07", help="GBT project name (default: TGBT25B_608_07)")
+    parser.add_argument("--quick", action="store_true", help="Run quick benchmark with fewer iterations")
     parser.add_argument(
         "--compare",
         nargs=2,
         metavar=("BASELINE", "CANDIDATE"),
-        help="Compare two result files instead of running benchmarks"
+        help="Compare two result files instead of running benchmarks",
     )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
-    parser.add_argument(
-        "--no-index-file",
-        action="store_true",
-        help="Disable .index file usage (force reading from FITS)"
+        "--no-index-file", action="store_true", help="Disable .index file usage (force reading from FITS)"
     )
 
     args = parser.parse_args()

@@ -9,7 +9,7 @@ import dysh
 from dysh import util
 from dysh.fits import gbtfitsload
 from dysh.util.files import dysh_data
-from dysh.util.selection import Selection, Flag
+from dysh.util.selection import Flag, Selection
 
 dysh_root = pathlib.Path(dysh.__file__).parent.resolve()
 
@@ -79,7 +79,12 @@ class TestSelectionWithPartialData:
                 "OBJECT": ["NGC1", "NGC1", "NGC2", "NGC2"],
                 "ELEVATIO": [30.0, 35.0, 40.0, 45.0],
                 "PLNUM": [0, 1, 0, 1],
-                "DATE-OBS": ["2024-01-01T00:00:00", "2024-01-01T00:01:00", "2024-01-01T00:02:00", "2024-01-01T00:03:00"],
+                "DATE-OBS": [
+                    "2024-01-01T00:00:00",
+                    "2024-01-01T00:01:00",
+                    "2024-01-01T00:02:00",
+                    "2024-01-01T00:03:00",
+                ],
             }
         )
 

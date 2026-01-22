@@ -10,7 +10,7 @@ from pstats import SortKey
 import numpy as np
 from astropy.table import Table, vstack
 
-__all__ = ["DTime", "Benchmark"]
+__all__ = ["Benchmark", "DTime"]
 
 __ostype__ = None
 
