@@ -61,6 +61,7 @@ def parse_args():
     parser.add_argument("-q", "--quiet", help="Silence DEBUG- and INFO-level logs to stderr", action="store_true")
     parser.add_argument("--version", help="Print version and exit", action="store_true")
     parser.add_argument("--skip-config", help="Skip creating a configuration file", action="store_true")
+    parser.add_argument("--hide-tb", help="Hide traceback", action="store_true")
     return parser.parse_known_args()
 
 
@@ -70,12 +71,11 @@ def init_shell(
     profile: str | Path = "DEFAULT_PROFILE",
     sdfits_files=None,
     skip_config=False,
+    hide_tb=False,
 ):
     c = Config()
     import numpy as np
     import pandas as pd
-    from astropy.io import fits
-    from astropy.table import Table
 
     from dysh.fits.gbtfitsload import GBTFITSLoad, GBTOffline, GBTOnline
     from dysh.util.files import dysh_data
@@ -87,19 +87,22 @@ def init_shell(
         "GBTOnline": GBTOnline,
         "GBTOffline": GBTOffline,
         "dysh_data": dysh_data,
-        "Table": Table,
-        "fits": fits,
     }
+
+    user_ns_origin = [
+        f"{' ' * 8}{k} (from {v.__module__})" if hasattr(v, "__module__") else f"{' ' * 8}{k} (from {v.__name__})"
+        for k, v in user_ns.items()
+    ]
 
     c.BaseIPythonApplication.profile = profile
     c.InteractiveShell.colors = colors
-    c.InteractiveShell.banner2 = BANNER.format(
-        user_ns_str="\n".join(f"{' ' * 8}{k} (from {v.__name__})" for k, v in user_ns.items())
-    )
+    c.InteractiveShell.banner2 = BANNER.format(user_ns_str="\n".join(user_ns_origin))
     if sdfits_files:
         user_ns["sdfits_files"] = sdfits_files
     if not skip_config:
         create_config_file("dysh", rootname="dysh")
+    if hide_tb:
+        c.InteractiveShell.xmode = "Minimal"
     IPython.start_ipython(ipython_args, config=c, user_ns=user_ns)
 
 
@@ -143,6 +146,7 @@ def main():
             profile=args.profile,
             sdfits_files=sdfits_files,
             skip_config=args.skip_config,
+            hide_tb=args.hide_tb,
         )
     except SystemExit as e:
         exit_reason = f"SystemExit {e.code}"
