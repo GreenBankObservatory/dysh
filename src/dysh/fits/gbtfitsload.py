@@ -1541,6 +1541,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scans = uniq(_final["SCAN"])
         elif isinstance(scans, int):
             scans = list([scans])
+        else:
+            scans = list(scans)
         if "REF" in kwargs:
             scans.append(kwargs.pop("REF"))
             scans = uniq(scans)
