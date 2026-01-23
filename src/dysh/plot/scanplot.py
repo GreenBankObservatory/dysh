@@ -7,8 +7,12 @@ from copy import deepcopy
 
 import astropy.units as u
 import numpy as np
+from astropy.io import fits
 from matplotlib.text import OffsetFrom
 from matplotlib.ticker import AutoLocator, MaxNLocator
+
+# from dysh.log import init_logging
+from dysh.log import logger
 
 from . import PlotBase
 
@@ -91,6 +95,49 @@ class ScanPlot(PlotBase):
             "cmap": "inferno",
             "interpolation": "nearest",
         }
+
+    def write(self, filename, avechan=1, chan=None, overwrite=False):
+        r"""
+        Write the current spectrogram as a FITS image. No WCS is maintained yet.
+        The current version uses the first axis for the integrations,
+        the second axis for the channels.
+
+        Parameters
+        ----------
+        filename : str
+           Filename of FITS file to be saved.  No default
+
+        avechan : int
+           Averaging number of channels.  Default: 1
+
+        chan : [int,int]
+           If given, it will select this channel range for output.
+           Default: all channels will be selected
+
+        overwrite : boolean
+           Overwrite existing file. Default: False
+
+        """
+        # skip mask for now
+        # add the dysh history?   not available here
+        # @todo future multi-beams like argus could do 3D fits cube
+        data = self.spectrogram.data
+        if len(data.shape) != 2:
+            logger.error(f"spectrogram is {len(data.shape)}D, cannot only write 2D")
+            return
+        if chan is not None:
+            data = data[chan[0] : chan[1], :]
+        if avechan == 1:
+            hdu = fits.PrimaryHDU(data)
+        else:
+            (ny, nx) = data.shape
+            if ny % avechan != 0:
+                logger.info(f"{ny} not a multiple of {avechan}")
+                return
+            data = data.T.reshape((nx, -1, avechan)).mean(axis=2).T
+            hdu = fits.PrimaryHDU(data)
+        hdu.writeto(filename, overwrite=overwrite)
+        logger.info(f"Wrote {filename} with size {data.shape[1]} x {data.shape[0]}")
 
     def plot(self, spectral_unit=None, **kwargs):
         r"""
