@@ -101,7 +101,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Header Data Unit to select from input file. Default: all HDUs
 
     skipflags: bool
-        If True, do not read any flag files associated with these data. Default: True
+        If True, do not read any flag files associated with these data. If it exists, the FLAGS column of the binary
+        table will always be read in regardless of `skipflags` value. Default: True
 
     flag_vegas: bool
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
@@ -109,17 +110,17 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         controls only the reading of the flag file.  If you want no flags at all, use `skipflags=True, flag_vegas=False`.
 
 
-        +---------+-----------+--------------------------------------------------------------------------------------------+
-        |skipflags|flag_vegas | behavior                                                                                   |
-        +=========+===========+============================================================================================+
-        |False    | False     | VEGAS and other flags are created based on the flags file                                  |
-        +---------+-----------+--------------------------------------------------------------------------------------------+
-        |True     | False     | No flags are created                                                                       |
-        +---------+-----------+--------------------------------------------------------------------------------------------+
-        |True     | True      | VEGAS flags are created based on the FITS header                                           |
-        +---------+-----------+--------------------------------------------------------------------------------------------+
-        |False    | True      | VEGAS flags are created based on the FITS header.  Other flags are read from the flags file|
-        +---------+-----------+--------------------------------------------------------------------------------------------+
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
+        |skipflags|flag_vegas | behavior                                                                                                     |
+        +=========+===========+==============================================================================================================+
+        |False    | False     | VEGAS and other flags are created based on the flags file and the FLAGS column.                              |
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
+        |True     | False     | No flags are read file the flag file.  Flags are read in from the FLAGS column.                              |                                                                       |
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
+        |True     | True      | VEGAS flags are created based on the FITS header. Flags are read from the FLAGS column.                      |
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
+        |False    | True      | VEGAS flags are created based on the FITS header. Other flags are read from the flags file and FLAGS column. |
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
     """
 
     @log_call_to_history
@@ -129,7 +130,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "verbose": False,
             "fix_ka": True,
             "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
-            "flags": not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
+            # skipflags only means skip reading the flag file, NOT don't alllocate an array for flags nor read them
+            # from the binary table.
+            "flags": True,# not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
         }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
@@ -186,7 +189,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # ushow/udata depend on the index being present, so check that index is created.
         if kwargs.get("verbose", None) and kwargs_opts["index"]:
-            print(f"==GBTLoad {fileobj}")
+            print(f"=={self.__class__.__name__} {fileobj}")
             self.ushow("OBJECT", 0)
             self.ushow("SCAN", 0)
             self.ushow("SAMPLER", 0)
@@ -603,7 +606,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "SCAN",
                     "OBJECT",
                     "VELOCITY",
-                    "PROC",
+                    "PROCS",
                     "PROCSEQN",
                     "PROCSIZE",
                     "RESTFREQ",
@@ -624,7 +627,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "SCAN",
                     "OBJECT",
                     "VELOCITY",
-                    "PROC",
+                    "PROCS",
                     "PROCSEQN",
                     "RESTFREQ",
                     "DOPFREQ",
@@ -1445,14 +1448,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return
         df = self["OBSMODE"].str.split(":", expand=True)
         for obj in [self._index, self._flag]:
-            obj["PROC"] = df[0]
+            obj["PROCS"] = df[0]
             # Assign these to something that might be useful later,
             # since we have them
             obj["OBSTYPE"] = df[1]
             obj["SUBOBSMODE"] = df[2]
         for sdf in self._sdf:  # Note: sdf._index is a Dataframe, not a Selection
             df = sdf._index["OBSMODE"].str.split(":", expand=True)
-            sdf._index["PROC"] = df[0]
+            sdf._index["PROCS"] = df[0]
             sdf._index["OBSTYPE"] = df[1]
             sdf._index["SUBOBSMODE"] = df[2]
 
@@ -2427,7 +2430,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"FEED {f} {beam1_selected} {_fdnum[0]}")
                     logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
                     logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                    logger.debug(f"and PROC {set(_df['PROC'])}")
+                    logger.debug(f"and PROCS {set(_df['PROCS'])}")
 
                     rows = {}
                     _ondf = select_from("SCAN", on, _df)
@@ -2890,7 +2893,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             name = _sf["OBJECT"].unique()[0]
         target = Calibrator.from_name(name, scale=fluxscale)
 
-        proc = _sf["PROC"].unique()[0]
+        proc = _sf["PROCS"].unique()[0]
 
         if method is None:
             method = valid_procs[proc]
@@ -3276,7 +3279,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         }
         scan_selection = {"ON": [], "OFF": []}
         df = selection[selection["SCAN"].isin(scans)]
-        procset = df["PROC"].unique()
+        procset = df["PROCS"].unique()
         lenprocset = len(procset)
         if lenprocset == 0:
             # This is ok since not all files in a set have all the polarizations, feeds, or IFs
@@ -3287,8 +3290,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if proc not in proc_dict.keys():
                 continue
 
-            _proc_on = df.loc[(df["PROC"] == proc) & (df["PROCSEQN"] == proc_dict[proc][0])]["SCAN"]
-            _proc_off = df.loc[(df["PROC"] == proc) & (df["PROCSEQN"] == sum(proc_dict[proc]))]["SCAN"]
+            _proc_on = df.loc[(df["PROCS"] == proc) & (df["PROCSEQN"] == proc_dict[proc][0])]["SCAN"]
+            _proc_off = df.loc[(df["PROCS"] == proc) & (df["PROCSEQN"] == sum(proc_dict[proc]))]["SCAN"]
             proc_on = list(set(_proc_on)) + list(set(_proc_off - proc_dict[proc][1]))
             proc_off = list(set(_proc_off)) + list(set(_proc_on + proc_dict[proc][1]))
 

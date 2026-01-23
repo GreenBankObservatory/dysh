@@ -52,7 +52,7 @@ class TestGBTFITSLoad:
 
         for fnm in self._file_list:
             filename = os.path.basename(fnm)
-            sdf = gbtfitsload.GBTFITSLoad(fnm)
+            sdf = gbtfitsload.GBTFITSLoad(fnm,flags=True,flag_vegas=False)
             assert len(sdf.index(bintable=0)) == expected[filename]
 
     def test_names(self):
@@ -527,7 +527,7 @@ class TestGBTFITSLoad:
         assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=0).timeaverage().flux) == 2**14
         assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=1).timeaverage().flux) == 2**17
 
-    def test_load_multifits(self):
+    def test_multifits_load(self):
         """
         Loading multiple SDFITS files under a directory.
         It checks that
