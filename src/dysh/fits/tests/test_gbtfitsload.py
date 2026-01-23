@@ -52,7 +52,7 @@ class TestGBTFITSLoad:
 
         for fnm in self._file_list:
             filename = os.path.basename(fnm)
-            sdf = gbtfitsload.GBTFITSLoad(fnm,flags=True,flag_vegas=False)
+            sdf = gbtfitsload.GBTFITSLoad(fnm, flags=True, flag_vegas=False)
             assert len(sdf.index(bintable=0)) == expected[filename]
 
     def test_names(self):

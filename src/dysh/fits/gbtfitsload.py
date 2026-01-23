@@ -132,7 +132,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
             # skipflags only means skip reading the flag file, NOT don't alllocate an array for flags nor read them
             # from the binary table.
-            "flags": True,# not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
+            "flags": True,  # not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
         }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
