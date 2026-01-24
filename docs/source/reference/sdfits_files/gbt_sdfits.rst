@@ -420,6 +420,8 @@ These are the fields (columns) of the BINTABLE.
 Index Files
 ===========
 
+An index file is a tabular ASCII representation of a subset of the SDFITS binary table column (except the DATA column) written by GBTIDL.  It is used as a faster way to some load binary table data without having to read the FITS file(s). Its structure is described below.
+
 .. list-table:: Header
    :widths: 25 25 50
    :header-rows: 1
@@ -590,7 +592,7 @@ Index Files
 Flag Files
 ==========
 
-Flag files indicate the data that should be ignored. For example, these flags can include the locations of VEGAS spurs. `GBTIDL` sometimes auto-masks data that is flagged in these files immediately upon start.
+Flag files indicate the data that should be ignored. For example, these flags can include the locations of VEGAS spurs. `GBTIDL` sometimes auto-masks data that is flagged in these files immediately upon start.  dysh will read flag files in `~dysh.fits.gbtfitsload.GBTFITSLoad` is instantiated with `skip_flags=False`. dysh calculates the location of VEGAS spurs and flags them (regardless of the `skip_flags` value). This is controlled separately by the `flag_vegas` parameter.
 
 .. list-table:: Header
    :widths: 25 25 50

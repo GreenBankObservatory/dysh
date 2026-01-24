@@ -1,17 +1,30 @@
-**********************
-dysh Documentation
-**********************
+.. _quickstartguide:
+
+****************
+Quickstart Guide
+****************
 
 dysh is a Python spectral line data reduction and analysis program for single dish data with specific emphasis on data from the Green Bank Telescope.
-It is currently under development in collaboration between the `Green Bank Observatory <https:/greenbankobservatory.org>`_ and the Laboratory for Millimeter-Wave Astronomy (LMA) at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
+It is currently under development in collaboration between the `Green Bank Observatory <https://greenbankobservatory.org>`_ and the Laboratory for Millimeter-Wave Astronomy (LMA) at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
 It is intended to replace `GBTIDL <https://gbtidl.nrao.edu/>`_, GBO's current spectral line data reduction package.
+
+Below is a "quickstart" guide with the essentials. A deeper dive into dysh's capablities can be foudn in the `Users Guide <usersguide>`_.
 
 Installation
 ============
 
+Directly from github:
+
 .. code:: bash
 
     pip install "dysh[nb] @ git+https://github.com/GreenBankObservatory/dysh"
+
+Latest stable release on PyPI:
+
+.. code:: bash
+
+    pip install dysh
+
 
 Read on for a brief overview.
 
@@ -204,99 +217,17 @@ If you find a bug or something you think is in error, please report it on
 the `GitHub issue tracker <https://github.com/GreenBankObservatory/dysh/issues>`_.
 You must have a `GitHub account <https://github.com>`_ to submit an issue.
 
-
-Contents
-===============
-
-.. grid:: 1 2 2 2
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`mortar-board;3em;orange` **Tutorials**
-
-        Learning-oriented lessons take you through a series
-        of steps to complete a project.
-
-        Most useful when you want to get started reducing your data.
-
-        .. button-link:: tutorials/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Tutorials
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`terminal;3em;green` **Recipes**
-
-        Practical step-by-step guides to help you achieve a specific goal.
-
-        Most useful when you're trying to get something done.
-
-
-        .. button-link:: how-tos/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Recipes
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`repo;3em;purple` **Explanation**
-
-        Big-picture explanations of higher-level concepts.
-
-        Most useful for building understanding of a particular topic.
-
-
-        .. button-link:: explanations/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Explanation Material
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`tools;3em;sd-text-primary` **References**
-
-        Nitty-gritty technical descriptions of how `dysh` works.
-
-        Most useful when you need detailed information about the API or how to
-        contribute.
-
-
-        .. button-link:: reference/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Reference Material
-
-
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :hidden:
 
-   whatsnew/CHANGES.rst
+   self
+   whatsnew/CHANGES
    getting_started/index
-   tutorials/index
-   how-tos/index
-   explanations/index
+   users_guide/index
    reference/index
    for_beta_testers/index
    for_developers/index
-   reference/glossary
 
 
 Credits
