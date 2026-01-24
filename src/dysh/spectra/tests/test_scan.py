@@ -270,11 +270,11 @@ class TestPSScan:
         srta = srsb.timeaverage()
         stats = srta.stats()
         result = {
-            "mean":  -1.14097115,
-            "median":  -1.1354125,
-            "rms":  0.46437655,
-            "min":  -7.79211042,
-            "max":  10.65451653,
+            "mean": -1.14097115,
+            "median": -1.1354125,
+            "rms": 0.46437655,
+            "min": -7.79211042,
+            "max": 10.65451653,
         }
         for k in result:
             assert stats[k].value == pytest.approx(result[k])
