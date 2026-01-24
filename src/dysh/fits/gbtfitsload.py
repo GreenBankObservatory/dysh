@@ -82,7 +82,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
         and ignore VEGAS_SPUR flag rules in flag files. Note this parameter is independent of 'skip_flags', which
         controls only the reading of the flag file.  If you want no flags at all, use `skipflags=True, flag_vegas=False`.
-
+        Default: True
 
         +---------+-----------+--------------------------------------------------------------------------------------------+
         |skipflags|flag_vegas | behavior                                                                                   |
