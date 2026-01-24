@@ -1619,7 +1619,7 @@ class TestGBTFITSLoad:
         x = gdf.getspec(0)
         x.meta["MEANTSYS"] = x.meta["TSYS"]
         #assert np.all(np.abs(y.data - x.data) < 2e-6)
-        assert np.all(np.abs(y.data - x.data) < 2e-2)
+        assert np.all(np.abs(y.data - x.data) < 2e-3)
 
         # 4. Scan is an int, ref is a Spectrum
         # should give same answer as above since refspec is created if ref=int given
@@ -1628,7 +1628,7 @@ class TestGBTFITSLoad:
         sigref = sdf.getsigref(scan=53, ref=refspec, fdnum=0, ifnum=0, plnum=0)
         ta = sigref.timeaverage()
         #assert np.abs(np.max(ta.data - x.data)) < 2e-6
-        assert np.abs(np.max(ta.data - x.data)) < 2e-2
+        assert np.abs(np.max(ta.data - x.data)) < 2e-3
 
         # 5.  Input tsys should overrride whatever is in the header.  Scale difference should be ratio of
         # sytem temperatures.
