@@ -66,8 +66,8 @@ valid_dysh_example = {
     "nod3"       : "nod-W/data/AGBT15B_244_07.raw.vegas.trim.fits",        # calseq notebook
     "align"      : "mixed-fs-ps/data/TGBT24B_613_04.raw.vegas.trim.fits",  #   MESSIER32  example/align_spectra
     "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",                     # tar.gz not yet supported?     A123606  example/flagging
-    "survey"     : "hi-survey/data/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.fits",   # example/hi-survey
-    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas/",      # OTF L-band NGC6946
+    "survey"     : "hi-survey/data/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.fits",        # example/hi-survey
+    "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas/TGBT17A_506_11.raw.vegas.A.fits",  # OTF L-band NGC6946
     "otf2"       : "AGBT21B_024_01",                                # OTF Argus  NGC0001 (EDGE)
     "otf3"       : "AGBT21B_024_20",                                # OTF Argus  NGC5954 (EDGE)
     "otf4"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas/",  # OTF Argus  DR21
