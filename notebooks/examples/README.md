@@ -17,16 +17,16 @@ However, if you want to skip directly into the notebooks, start with `README.ipy
 | dataIO               | How to read and save data                                                 |
 | flagging             | Data flagging                                                             |
 | frequencyswitch      | Calibration of frequency switched observations                            |
-| gauss\_fit           | |
+| gauss\_fit           | Gaussian Fitting                                                          |
 | hi\_survey           | Calibration of L-Band observations using position switching               |
 | line\_search         | How to search for potential spectral lines                                |
-| merge\_sdfits        | |
+| merge\_sdfits        | Merging SDFITS Files                                                      |
 | metadata\_management | How to access and modify metadata for an SDFITS                           |
 | nodding              | Calibration of nod observations                                           |
 | on\_the\_fly         | Calibration of on-the-fly observations using position switching at L-Band |
 | positionswitch       | Calibration of position switched observations                             |
-| quality              | |
-| repeated\_scans      | |
+| quality              | Data Quality                                                              |
+| repeated\_scans      | Working With Repeated Scan Numbers                                        |
 | selection            | How to select data                                                        |
 | smoothing            | How to smooth spectra                                                     |
 | subbeamnod           | Calibration of subreflector beam nodding observations                     |
