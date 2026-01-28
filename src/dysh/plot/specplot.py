@@ -5,11 +5,10 @@ Plot a spectrum using matplotlib
 from copy import deepcopy
 
 import astropy.units as u
-import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
 from astropy.utils.masked import Masked
-from matplotlib.patches import Rectangle
-from matplotlib.widgets import Button, SpanSelector
+from matplotlib.widgets import SpanSelector
 
 from dysh.log import logger
 
@@ -18,7 +17,8 @@ from ..coordinates import (
     frame_to_label,
 )
 from ..util.docstring_manip import docstring_parameter
-from . import PlotBase, check_kwargs, parse_html
+from . import check_kwargs, parse_html
+from .plotbase import PlotBase
 
 _KMS = u.km / u.s
 
@@ -82,12 +82,13 @@ class SpectrumPlot(PlotBase):
 
     def __init__(self, spectrum, **kwargs):
         super().__init__()
+        self.reset()
         self._spectrum = spectrum
         self._sa = spectrum._spectral_axis
         self._set_xaxis_info()
         self._plot_kwargs.update(kwargs)
         self._title = self._plot_kwargs["title"]
-        self._selector: InteractiveSpanSelector = None
+        self._selector: MultiSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
         self._scan_numbers = np.array([self._spectrum.meta["SCAN"]])
@@ -160,18 +161,13 @@ class SpectrumPlot(PlotBase):
         this_plot_kwargs.update(kwargs)
 
         # Clean up old resources before creating new figure/selector
-        # This prevents accumulation of event handlers and figures in pyplot's registry
         if self._selector is not None:
             self._selector.disconnect()
             self._selector = None
 
-        if self._figure is not None:
-            self._plt.close(self._figure)
-            self._figure = None
-            self._axis = None
-
-        if True:  # @todo deal with plot reuse (notebook vs script)
-            self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
+        if self.figure is not None:
+            self.figure = mpl.figure.Figure(figsize=(10, 6))
+            self.axes = self.figure.subplots(nrows=1, ncols=1)
 
         # TODO: procedurally generate subplot params based on show header/buttons args.
         # ideally place left/right params right here, then top gets determined below.
@@ -207,7 +203,7 @@ class SpectrumPlot(PlotBase):
             sf = s.flux.to(self._yunit)
         sf = Masked(sf, s.mask)
 
-        lines = self._axis.plot(
+        lines = self.axes.plot(
             self._sa,
             sf,
             color=this_plot_kwargs["color"],
@@ -219,32 +215,32 @@ class SpectrumPlot(PlotBase):
         self._line = lines[0]
 
         if this_plot_kwargs["label"] is not None:
-            self._axis.legend()
+            self.axes.legend()
 
         if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
-            self._axis.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
+            self.axes.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
         else:
-            self._axis.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
+            self.axes.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
 
         if self._freezey:
-            self._axis.autoscale(enable=False)
+            self.axes.autoscale(enable=False)
         else:
-            self._axis.autoscale(axis="y", enable=True)
-        self._axis.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
+            self.axes.autoscale(axis="y", enable=True)
+        self.axes.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
 
-        self._axis.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
+        self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
         if this_plot_kwargs["grid"]:
-            self._axis.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
-            self._axis.grid(visible=True, which="minor", axis="both", lw=lw / 2, color="k", alpha=0.22, linestyle="--")
+            self.axes.grid(visible=True, which="major", axis="both", lw=lw / 2, color="k", alpha=0.33)
+            self.axes.grid(visible=True, which="minor", axis="both", lw=lw / 2, color="k", alpha=0.22, linestyle="--")
         self._set_labels(**this_plot_kwargs)
         if self._title is not None:
-            self._axis.set_title(self._title)
+            self.axes.set_title(self._title)
 
         if show_header:
-            self._figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
+            self.figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
             self._set_header(s)
         if select:
-            self._selector = InteractiveSpanSelector(self._axis)
+            self._selector = MultiSpanSelector(self.axes, minspan=abs(self._sa[0].value - self._sa[1].value))
             self._spectrum._selection = self._selector.get_selected_regions()
         if oshow is not None:
             if isinstance(oshow, type(self._spectrum)):
@@ -314,12 +310,10 @@ class SpectrumPlot(PlotBase):
             yunit = u.Unit(kwargs["yaxis_unit"])
         else:
             yunit = self.spectrum.unit
-        self.axis.set_xlabel(self._compose_xlabel(**kwargs))
+        self.axes.set_xlabel(self._compose_xlabel(**kwargs))
         if ylabel is not None:
-            self.axis.set_ylabel(ylabel)
+            self.axes.set_ylabel(ylabel)
         else:
-            # @todo It would be nice if yunit could be latex. e.g. T_A^* instead of Ta*
-            # @todo If other routines need TSCALE this code should be a self.spectrum._fix()
             if "TSCALE" in self.spectrum.meta:
                 ylabel = self.spectrum.meta["TSCALE"]
             elif "TUNIT7" in self.spectrum.meta:
@@ -337,7 +331,7 @@ class SpectrumPlot(PlotBase):
                     ylabel = "Unknown"
                     yunit = "()"
                 logger.info(f"Missing TSCALE: patching Y-axis as '{ylabel} ({yunit})'")
-            self.axis.set_ylabel(f"{ylabel} ({yunit})")
+            self.axes.set_ylabel(f"{ylabel} ({yunit})")
 
     def _show_exclude(self, **kwargs):
         """TODO: Method to show the exclude array on the plot"""
@@ -346,8 +340,6 @@ class SpectrumPlot(PlotBase):
             "color": "silver",
         }
         kwargs_opts.update(kwargs)
-        # if kwargs_opts['loc'] == 'bottom':
-        #    self._ax.axhline
 
     def get_selected_regions(self):
         """ """
@@ -359,17 +351,17 @@ class SpectrumPlot(PlotBase):
         self._freezex = False
         mins = []
         maxs = []
-        for line in self._axis.lines:
+        for line in self.axes.lines:
             mins.append(line._x.min())
             maxs.append(line._x.max())
-        self._axis.set_xlim((min(mins), max(maxs)))
+        self.axes.set_xlim((min(mins), max(maxs)))
 
     def freey(self):
         """Free the Y-axis if limits have been set. Autoscales the Y-axis according to your matplotlib configuration."""
         self._freezey = False
-        self._axis.relim()
-        self._axis.autoscale(axis="y", enable=True)
-        self._axis.autoscale_view()
+        self.axes.relim()
+        self.axes.autoscale(axis="y", enable=True)
+        self.axes.autoscale_view()
 
     def freexy(self):
         r"""Free the X and Y axes simultaneously. See `freex` and `freey` for more details."""
@@ -411,9 +403,9 @@ class SpectrumPlot(PlotBase):
             Group id for the lines to be cleared.
         """
         if otype == "lines":
-            tgt_list = self._axis.lines
+            tgt_list = self.axes.lines
         elif otype == "texts":
-            tgt_list = self._axis.texts
+            tgt_list = self.axes.texts
 
         for b in tgt_list:
             if b.get_gid() == gid:
@@ -494,10 +486,11 @@ class SpectrumPlot(PlotBase):
             doppler_convention=this_plot_kwargs["doppler_convention"],
         )
 
-        self._axis.plot(sa, sf, color=color, linestyle=linestyle, label=label, alpha=alpha, gid="oshow")
+        self.axes.plot(sa, sf, color=color, linestyle=linestyle, label=label, alpha=alpha, gid="oshow")
         if label is not None:
-            self._axis.legend()
+            self.axes.legend()
         self.freexy()
+        self.figure.canvas.draw_idle()
 
     def show_catalog_lines(self, rotation=0, **kwargs):
         """
@@ -525,8 +518,8 @@ class SpectrumPlot(PlotBase):
 
             vloc = ystart + (i % num_vsteps) * fracstep
 
-            self._axis.axvline(line_freq, c="k", linewidth=1, gid="catalogline")
-            self._axis.annotate(
+            self.axes.axvline(line_freq, c="k", linewidth=1, gid="catalogline")
+            self.axes.annotate(
                 line_name,
                 (line_freq, vloc),
                 xycoords=("data", "axes fraction"),
@@ -534,6 +527,8 @@ class SpectrumPlot(PlotBase):
                 gid="catalogtext",
                 rotation=rotation,
             )
+
+        self.figure.canvas.draw_idle()
 
     def annotate_vline(self, xval, text="", rotation=0):
         """
@@ -549,8 +544,8 @@ class SpectrumPlot(PlotBase):
             Rotate the text CCW degrees. Default 0.
         """
         fsize = 9
-        self._axis.axvline(xval, c="k", linewidth=1, gid="catalogline")
-        self._axis.annotate(
+        self.axes.axvline(xval, c="k", linewidth=1, gid="catalogline")
+        self.axes.annotate(
             text,
             (xval, 0.7),
             xycoords=("data", "axes fraction"),
@@ -558,152 +553,130 @@ class SpectrumPlot(PlotBase):
             gid="catalogtext",
             rotation=rotation,
         )
+        self.figure.canvas.draw_idle()
 
-
-class InteractiveSpanSelector:
-    def __init__(self, ax):
+class MultiSpanSelector:
+    def __init__(self, ax, minspan):
         self.ax = ax
         self.canvas = ax.figure.canvas
-        self.regions = []
-        self.active_patch = None
-        self.press = None
-        self.dragging_edge = None
-        self.edge_threshold = 0.03  # in axes fraction
+        self.spans = []
+        self.minspan = minspan
         self.colors = {
             "edge": (0, 0, 0, 1),
             "face": (0, 0, 0, 0.3),
-            "edge_selected": plt.matplotlib.colors.to_rgb("#6c3483") + (1.0,),  # noqa: RUF005
+            "edge_selected": (*mpl.colors.to_rgb("#6c3483"), 1.0),
         }
-
-        # SpanSelector for creating new regions.
-        self.span = SpanSelector(
-            ax,
-            self.onselect,
-            direction="horizontal",
-            useblit=True,
-            interactive=False,
-            props=dict(facecolor=self.colors["face"], alpha=0.3),
-        )
-
-        # Button to clear all selections.
-        self.region_clear_button_ax = self.canvas.figure.add_axes([0.1, 0.025, 0.12, 0.04], gid="button")
-        self.region_clear_button = Button(self.region_clear_button_ax, "Clear Regions")
-        self.region_clear_button.on_clicked(self.clear_regions)
-
-        # Button to clear a single region.
-        self.region_del_button_ax = self.canvas.figure.add_axes([0.24, 0.025, 0.12, 0.04], gid="button")
-        self.region_del_button = Button(self.region_del_button_ax, "Delete Region")
-        self.region_del_button.on_clicked(self.clear_region)
-
-        # Connect interaction events for dragging/resizing
+        # Register callbacks before creating any spans.
         self.cid_press = self.canvas.mpl_connect("button_press_event", self.on_press)
-        self.cid_release = self.canvas.mpl_connect("button_release_event", self.on_release)
-        self.cid_motion = self.canvas.mpl_connect("motion_notify_event", self.on_motion)
-        self.cid_key = self.canvas.mpl_connect("key_press_event", self.on_key_press)
 
-    def onselect(self, vmin, vmax):
-        if abs(vmax - vmin) < 1e-6:
-            return  # ignore tiny selections
-        rect = Rectangle(
-            (vmin, 0),
-            vmax - vmin,
-            1,
-            transform=self.ax.get_xaxis_transform(),
-            facecolor=self.colors["face"],
-            edgecolor=self.colors["edge"],
+        self.spans.extend(self.init_selector())
+        self.active_span = self.spans[0]
+        self.selected_span = None
+
+    def init_selector(self):
+        span = SpanSelector(
+            self.ax,
+            self.on_select,
+            direction="horizontal",
+            useblit=False,  # blitting causes spans to blink on press.
+            interactive=True,
+            drag_from_anywhere=True,
+            ignore_event_outside=True,
+            props=dict(facecolor=self.colors["face"], alpha=0.3),
+            minspan=self.minspan,
         )
-        self.ax.add_patch(rect)
-        self.regions.append(rect)
-        self.canvas.draw_idle()
+        return [span]
+
+    def on_select(self, vmin, vmax):
+        span = vmax - vmin
+        if span > self.minspan and np.all(np.diff(self.get_selected_regions(False)) > self.minspan):
+            if self.active_span is not None:
+                self.active_span.set_active(False)
+                self.active_span = None
+            self.spans.extend(self.init_selector())
+            self.active_span = self.spans[-1]
+        elif self.active_span is not None:
+            self.active_span.set_active(False)
+            self.active_span = None
+        return
 
     def on_press(self, event):
+        # Do nothing if outside the axes.
         if event.inaxes != self.ax:
             return
+
         # Do nothing if another widget is enabled.
         if self.ax.get_navigate_mode() is not None:
             return
-        got_one = False
-        for patch in self.regions:
-            contains, _attr = patch.contains(event)
-            if contains and not got_one:
-                self.span.set_active(False)
-                x0 = patch.get_x()
-                x1 = x0 + patch.get_width()
-                xtol = self.edge_threshold * (self.ax.get_xlim()[1] - self.ax.get_xlim()[0])
-                if abs(event.xdata - x0) <= xtol or abs(event.xdata + x0) <= xtol:
-                    self.dragging_edge = "left"
-                elif abs(event.xdata - x1) <= xtol or abs(event.xdata + x1) <= xtol:
-                    self.dragging_edge = "right"
+
+        # Determine if the event is in a span.
+        if len(self.spans) > 1:
+            got_one = False
+            for span in self.spans:
+                # Select only a single span at a time.
+                if span._contains(event) and not got_one and np.diff(span.extents) > self.minspan:
+                    got_one = True
+                    self.active_span = span
+                    self.active_span.set_active(True)
+                    self.active_span.set_props(**{"linewidth": 20, "edgecolor": self.colors["edge_selected"]})
+                    self.selected_span = span
                 else:
-                    self.dragging_edge = "move"
-                self.active_patch = patch
-                self.press = event.xdata, x0, x1
-                self.active_patch.set_edgecolor(self.colors["edge_selected"])
-                self.active_patch.set_linewidth(2.0)
-                got_one = True
-            else:
-                patch.set_edgecolor(self.colors["edge"])
-                patch.set_linewidth(1.0)
+                    span.set_active(False)
+                    props = {"linewidth": 1, "edgecolor": self.colors["edge"]}
+                    span.set_props(**props)
 
-    def on_motion(self, event):
-        if not self.active_patch or event.inaxes != self.ax or self.press is None:
-            return
-        xdata, x0, x1 = self.press
-        dx = event.xdata - xdata
-        if self.dragging_edge == "move":
-            new_x = x0 + dx
-            self.active_patch.set_x(new_x)
-        elif self.dragging_edge == "left":
-            new_x0 = x0 + dx
-            if new_x0 < x1:
-                self.active_patch.set_x(new_x0)
-                self.active_patch.set_width(x1 - new_x0)
-        elif self.dragging_edge == "right":
-            new_x1 = x1 + dx
-            if new_x1 > x0:
-                self.active_patch.set_width(new_x1 - x0)
-        self.canvas.draw_idle()
-
-    def on_release(self, event):
-        self.press = None
-        self.dragging_edge = None
-        self.span.set_active(True)
-
-    def on_key_press(self, event):
-        if event.key == "d":
-            self.clear_region(event)
-        if event.key == "D":
-            self.clear_regions(event)
-
-    def clear_regions(self, event=None):
-        for patch in self.regions:
-            patch.remove()
-        self.regions.clear()
-        self.canvas.draw_idle()
-
-    def clear_region(self, event=None):
-        if not self.active_patch:
-            return
-        idx = self.regions.index(self.active_patch)  # noqa: F841
-        self.regions.remove(self.active_patch)
-        self.active_patch.remove()
-        self.active_patch = None
-        self.canvas.draw_idle()
-
-    def get_selected_regions(self):
-        return [(patch.get_x(), patch.get_x() + patch.get_width()) for patch in self.regions]
+            if not got_one:
+                self.active_span = None
+                self.selected_span = None
+                for span in self.spans:
+                    # Determine if there's a span that needs to be completed
+                    # and activate it.
+                    if np.diff(span.extents) <= self.minspan:
+                        self.active_span = span
+                        self.active_span.set_active(True)
 
     def disconnect(self):
         """Disconnect all event handlers to prevent memory leaks and dangling references."""
         if hasattr(self, "cid_press") and self.cid_press is not None:
             self.canvas.mpl_disconnect(self.cid_press)
             self.cid_press = None
-        if hasattr(self, "cid_release") and self.cid_release is not None:
-            self.canvas.mpl_disconnect(self.cid_release)
-            self.cid_release = None
-        if hasattr(self, "cid_motion") and self.cid_motion is not None:
-            self.canvas.mpl_disconnect(self.cid_motion)
-            self.cid_motion = None
-        if hasattr(self, "cid_key") and self.cid_key is not None:
-            self.canvas.mpl_disconnect(self.cid_key)
-            self.cid_key = None
+
+    def clear_region(self, event=None):
+        if not self.selected_span:
+            return
+        self.selected_span.clear()
+        self.selected_span.disconnect_events()
+        self.spans.remove(self.selected_span)
+        del self.selected_span
+        self.selected_span = None
+        self.active_span = None
+
+    def clear_regions(self, event=None):
+        for span in self.spans:
+            span.clear()
+            span.disconnect_events()
+            del span
+        self.spans.clear()
+        self.selected_span = None
+        self.active_span = None
+        # Add a new span.
+        self.spans.extend(self.init_selector())
+        self.active_span = self.spans[-1]
+
+    def get_selected_regions(self, ignore_incomplete=True):
+        """
+        Parameters
+        ----------
+        ignore_complete : bool
+            If True ignore spans that are smaller than `self.minspan`.
+
+        Returns
+        -------
+        regions : list of tuples
+            List with edges of the spans as tuples.
+        """
+        if ignore_incomplete:
+            regions = [span.extents for span in self.spans if np.diff(span.extents) > self.minspan]
+        else:
+            regions = [span.extents for span in self.spans]
+        return regions

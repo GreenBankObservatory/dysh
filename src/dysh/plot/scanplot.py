@@ -6,15 +6,14 @@ import warnings
 from copy import deepcopy
 
 import astropy.units as u
+import matplotlib as mpl
 import numpy as np
 from astropy.io import fits
 from matplotlib.text import OffsetFrom
 from matplotlib.ticker import AutoLocator, MaxNLocator
 
-# from dysh.log import init_logging
 from dysh.log import logger
-
-from . import PlotBase
+from .plotbase import PlotBase
 
 _KMS = u.km / u.s
 
@@ -41,6 +40,7 @@ class ScanPlot(PlotBase):
 
     def __init__(self, scanblock_or_scan, **kwargs):
         super().__init__()
+        self.reset()
         self._scanblock_or_scan = scanblock_or_scan
         self._plot_kwargs.update(kwargs)
         self._axis2 = None
@@ -99,31 +99,27 @@ class ScanPlot(PlotBase):
     def write(self, filename, avechan=1, chan=None, overwrite=False):
         r"""
         Write the current spectrogram as a FITS image. No WCS is maintained yet.
-        The current version uses the first axis for the integrations,
-        the second axis for the channels.
+        The integrations are in the first axis and the channels in the second.
 
         Parameters
         ----------
         filename : str
-           Filename of FITS file to be saved.  No default
-
+           Filename of FITS file to be saved. No default
         avechan : int
-           Averaging number of channels.  Default: 1
-
+           Averaging number of channels. Only supports averaging by a multiple 
+           of the number of channels. Default: 1
         chan : [int,int]
            If given, it will select this channel range for output.
            Default: all channels will be selected
-
         overwrite : boolean
            Overwrite existing file. Default: False
-
         """
         # skip mask for now
         # add the dysh history?   not available here
         # @todo future multi-beams like argus could do 3D fits cube
         data = self.spectrogram.data
         if len(data.shape) != 2:
-            logger.error(f"spectrogram is {len(data.shape)}D, cannot only write 2D")
+            logger.error(f"spectrogram is {len(data.shape)}D, can only write 2D")
             return
         if chan is not None:
             data = data[chan[0] : chan[1], :]
@@ -139,7 +135,7 @@ class ScanPlot(PlotBase):
         hdu.writeto(filename, overwrite=overwrite)
         logger.info(f"Wrote {filename} with size {data.shape[1]} x {data.shape[0]}")
 
-    def plot(self, spectral_unit=None, **kwargs):
+    def plot(self, show_header=True, spectral_unit=None, **kwargs):
         r"""
         Plot the scan.
 
@@ -162,24 +158,27 @@ class ScanPlot(PlotBase):
         norm = kwargs.get("norm", None)
 
         if True:
-            self._figure, self._axis = self._plt.subplots(figsize=(10, 6))
-            self._axis2 = self._axis.twinx()
-            self._axis3 = self._axis.twiny()
+            self.figure = mpl.figure.Figure(figsize=(10, 6), dpi=100)
+            self.axes = self.figure.subplots(nrows=1, ncols=1)
+            self._axis2 = self.axes.twinx()
+            self._axis3 = self.axes.twiny()
 
-        self._figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
-        self._set_header(self._spectrum)
+        if show_header:
+            # This has to be set before drawing the image and adding the colorbar.
+            self.figure.subplots_adjust(top=0.79, left=0.1, right=1.05)
+            self._set_header(self._spectrum)
 
-        self.im = self._axis.imshow(
+        self.im = self.axes.imshow(
             self.spectrogram, aspect="auto", cmap=cmap, interpolation=interpolation, vmin=vmin, vmax=vmax, norm=norm
         )
 
         # address intnum labelling for len(scanblock) > 1
-        self._axis.set_xticks(np.arange(self.spectrogram.shape[1]), self._xtick_labels)
+        self.axes.set_xticks(np.arange(self.spectrogram.shape[1]), self._xtick_labels)
         if len(self._xtick_labels) == 1:
             locator = MaxNLocator(nbins=len(self._xtick_labels), integer=True, min_n_ticks=1)
         else:
             locator = AutoLocator()
-        self._axis.xaxis.set_major_locator(locator)
+        self.axes.xaxis.set_major_locator(locator)
 
         # second "plot" to get different scales on x2, y2 axes
         if spectral_unit is not None:
@@ -204,7 +203,7 @@ class ScanPlot(PlotBase):
         self._axis3.set_xticks(tick_locs)
         self._axis3.set_xticklabels(self._scan_numbers)
         fsize = 15
-        x1_alt_padding = self._plt.rcParams["axes.labelpad"] + fsize
+        x1_alt_padding = mpl.rcParams["axes.labelpad"] + fsize
         self._axis3.tick_params(
             axis="x",
             width=0,
@@ -216,7 +215,7 @@ class ScanPlot(PlotBase):
             labeltop=False,
         )
 
-        self._axis.set_xlim(0, stop - 0.5)
+        self.axes.set_xlim(0, stop - 0.5)
         self._set_labels()
 
     def _set_labels(self):
@@ -227,14 +226,14 @@ class ScanPlot(PlotBase):
         # z: colorbar
 
         x1_label = "Integration"
-        self._axis.set_xlabel(x1_label)
+        self.axes.set_xlabel(x1_label)
 
         x1_alt_label = "Scan"
         off = OffsetFrom(self._axis3.get_xticklabels()[0], (0.0, 0.0))
         self._axis3.annotate(x1_alt_label, xy=(0.5, 0.5), xytext=(-10, 0.0), textcoords=off, va="bottom", ha="right")
 
         y1_label = "Channel"
-        self._axis.set_ylabel(y1_label)
+        self.axes.set_ylabel(y1_label)
 
         y2_unit = self._sa.unit
         if y2_unit.is_equivalent(u.Hz):
@@ -253,9 +252,9 @@ class ScanPlot(PlotBase):
         else:
             warnings.warn("Flux units are unknown", stacklevel=2)
             z_label = ""
-        self._colorbar = self._figure.colorbar(self.im, label=z_label, pad=0.1)
+        self._colorbar = self.figure.colorbar(self.im, label=z_label, pad=0.1)
         # matplotlib won't set this before the Figure is drawn.
-        self._figure.draw_without_rendering()
+        self.figure.draw_without_rendering()
         # If there's an offset, add it to the label and make the offset invisible.
         if self._colorbar.ax.yaxis.offsetText.get_text() != "":
             off = self._colorbar.ax.yaxis.offsetText.get_text()

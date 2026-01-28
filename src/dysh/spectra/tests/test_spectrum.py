@@ -976,8 +976,9 @@ class TestSpectrum:
         import matplotlib.pyplot as plt
 
         plt.ioff()
-        s.plot(xaxis_unit="MHz")
-        s._plotter._selector.onselect(saq[ch_low].to("MHz").value, saq[ch_upp].to("MHz").value)
+        p = s.plot(xaxis_unit="MHz")
+        p._selector.spans[0]._set_extents((saq[ch_low].to("MHz").value, saq[ch_upp].to("MHz").value))
+
         r = s.get_selected_regions()
         assert r == [(ch_low, ch_upp)]
 
