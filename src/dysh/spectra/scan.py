@@ -1066,6 +1066,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if self._plotter is None:
             self._plotter = sp.ScanPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
+        g = self._plotter._frontend(self._plotter.figure)
+        g.show()
         return self._plotter
 
     def __len__(self):

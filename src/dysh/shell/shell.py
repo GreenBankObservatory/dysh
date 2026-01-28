@@ -33,6 +33,7 @@ BANNER = f"""-------------------------------------------------------------------
 
 DEFAULT_PROFILE = "dysh"
 DEFAULT_COLORS = "Linux"
+DEFAULT_GUI = "tk"
 
 
 def parse_args():
@@ -69,6 +70,7 @@ def init_shell(
     *ipython_args,
     colors=DEFAULT_COLORS,
     profile: str | Path = "DEFAULT_PROFILE",
+    gui=DEFAULT_GUI,
     sdfits_files=None,
     skip_config=False,
     hide_tb=False,
@@ -79,10 +81,12 @@ def init_shell(
 
     from dysh.fits.gbtfitsload import GBTFITSLoad, GBTOffline, GBTOnline
     from dysh.util.files import dysh_data
+    from astropy import units as u
 
     user_ns = {
         "pd": pd,
         "np": np,
+        "u": u,
         "GBTFITSLoad": GBTFITSLoad,
         "GBTOnline": GBTOnline,
         "GBTOffline": GBTOffline,
@@ -97,6 +101,7 @@ def init_shell(
     c.BaseIPythonApplication.profile = profile
     c.InteractiveShell.colors = colors
     c.InteractiveShell.banner2 = BANNER.format(user_ns_str="\n".join(user_ns_origin))
+    c.TerminalIPythonApp.gui = gui
     if sdfits_files:
         user_ns["sdfits_files"] = sdfits_files
     if not skip_config:
