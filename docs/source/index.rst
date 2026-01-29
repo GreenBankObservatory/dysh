@@ -55,7 +55,7 @@ Downloading this data set is only required to follow this quick start as is.
     sdfits = GBTFITSLoad(filename) # This will load the SDFITS file(s) at `filename`.
 
 In the above code, you can replace ``filename`` with a path to your own data.
-Either a single SDFITS file or a directory containing multiple SDFITS files.
+Either a single SDFITS file or a directory containing multiple SDFITS files will work.
 
 The contents of the loaded data can be inspected using the `GBTFITSLoad.summary <dysh.fits.gbtfitsload.GBTFITSLoad.summary>` method, as:
 
@@ -104,7 +104,7 @@ Time averaging the calibrated data into a single spectrum can be done using the 
 
     spectrum = scan_block.timeaverage()
 
-The return from this method is a `~dysh.spectra.spectrum.Spectrum` object.
+This method returns a `~dysh.spectra.spectrum.Spectrum` object.
 
 Plot the spectrum using the `Spectrum.plot <dysh.spectra.spectrum.Spectrum.plot>` method:
 
@@ -138,6 +138,8 @@ To fit and remove a Chebyshev polynomial of degree 17, ignoring regions with spe
     spectrum.baseline(model="chebyshev", degree=17, remove=True, exclude=exclude)
 
 The spectrum has been baseline removed.
+The `spectrum plot guide <iplotter>`_ shows how to interactively include/exclude portions by clicking and dragging on the plot itself (without typing out all the tuples of 5-digit channel ranges)
+
 Plot again, but focus on the line-free regions:
 
 .. code:: Python
@@ -164,18 +166,17 @@ Now we proceed to average the spectra with the two polarizations, ``spectrum`` a
 
 .. code:: Python
 
-    average = spectrum.average(spectrum1)
+    sp_avg =  spectrum.average(spectrum1)
 
 Slicing a Spectrum
 ==================
 
 The brightest line is the OH maser at 1665.4018 MHz.
 To crop the spectrum around this line we use a `slice`.
-We will use `astropy.units` to define the frequency range:
+We will use `astropy.units` (imported automatically as `u`) to define the frequency range:
 
 .. code:: Python
 
-    from astropy import units as u
     oh_bright_spec = spectrum[1665.3*u.GHz:1665.9*u.MHz]
 
 Change the rest frequency to that of the 1665.4018 MHz line:
