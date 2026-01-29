@@ -555,6 +555,7 @@ class SpectrumPlot(PlotBase):
         )
         self.figure.canvas.draw_idle()
 
+
 class MultiSpanSelector:
     def __init__(self, ax, minspan):
         self.ax = ax
