@@ -13,6 +13,7 @@ from matplotlib.text import OffsetFrom
 from matplotlib.ticker import AutoLocator, MaxNLocator
 
 from dysh.log import logger
+
 from .plotbase import PlotBase
 
 _KMS = u.km / u.s
@@ -106,7 +107,7 @@ class ScanPlot(PlotBase):
         filename : str
            Filename of FITS file to be saved. No default
         avechan : int
-           Averaging number of channels. Only supports averaging by a multiple 
+           Averaging number of channels. Only supports averaging by a multiple
            of the number of channels. Default: 1
         chan : [int,int]
            If given, it will select this channel range for output.
