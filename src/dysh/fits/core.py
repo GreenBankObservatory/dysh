@@ -106,7 +106,7 @@ def default_sdfits_columns():
         "HDU",
         "BINTABLE",
         "ROW",
-        "PROCS",
+        "PROC",
         "OBSTYPE",
         "SUBOBSMODE",
     ]
@@ -154,7 +154,7 @@ def summary_column_definitions():
     col_defs = {
         "OBJECT": ColDef("first", object),
         "VELOCITY": ColDef("mean", float, scale=1e-3, post=lambda x: round(x, 3)),
-        "PROCS": ColDef("first", object),
+        "PROC": ColDef("first", object),
         "PROCSEQN": ColDef("mean", int),
         "PROCSIZE": ColDef("mean", int),
         "RESTFREQ": ColDef("mean", float, scale=1e-9),

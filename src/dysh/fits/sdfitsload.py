@@ -72,8 +72,16 @@ class SDFITSLoad:
             "fix": False,  # fix non-standard header elements
             "verbose": False,
             "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
+            "fitsbackend" : None, # choose a default FITSBackend
         }
         kwargs_opts.update(kwargs)
+        print(kwargs)
+        fb = kwargs.get("fitsbackend")
+        if fb is None:
+            self._fits_backend = None
+        else:
+            self._fits_backend = FITSBackend(kwargs.get("fitsbackend"))
+
         if kwargs_opts["verbose"]:
             print(f"==SDFITSLoad {filename}")
         # We cannot use this to get mmHg as it will disable all default astropy units!
@@ -256,8 +264,10 @@ class SDFITSLoad:
                     "Index loaded from .index file (44/93 columns). "
                     "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
                     "from FITS file when first accessed."
-                )
-
+                        )
+                if "PROCS" in self._index.columns:
+                    print("RENAMING PROCS TO PROCSEQN")
+                    self._index.rename(columns={"PROCS":"PROCSEQN"},inplace=True)
                 logger.info(f"   Loaded {len(self._index)} rows, {len(self._index.columns)} columns from .index file")
                 self._index_source = "index_file"
                 return
@@ -304,6 +314,7 @@ class SDFITSLoad:
                     self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
         self._index_source = "fits"
+
 
     def _add_primary_hdu(self):
         """
@@ -535,6 +546,8 @@ class SDFITSLoad:
         rawspectra : ~numpy.ma.MaskedArray
             The DATA column of the input bintable, masked according to `setmask`
         """
+        if self._fits_backend is not None:  # performance testing only!
+            fits_backend = self._fits_backend
         # Auto-select backend if not specified
         if fits_backend is None:
             # Check if data is already loaded in memory via astropy
@@ -1400,8 +1413,12 @@ class SDFITSLoad:
             missing_keys = [k for k in items if k not in self._index.columns]
 
         if missing_keys and self._index_source == "index_file":
+            print(
+                f"Column(s) {missing_keys} not available in .index file. "
+                f"Triggering full FITS index load to access all columns..."
+                )
             logger.info(
-                f"🔄 Column(s) {missing_keys} not available in .index file. "
+                f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."
             )
             # Force full reload from FITS (skip .index file)

@@ -115,7 +115,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         +=========+===========+==============================================================================================================+
         |False    | False     | VEGAS and other flags are created based on the flags file and the FLAGS column.                              |
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
-        |True     | False     | No flags are read file the flag file.  Flags are read in from the FLAGS column.                              |                                                                       |
+        |True     | False     | No flags are read file the flag file.  Flags are read in from the FLAGS column.                              |
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
         |True     | True      | VEGAS flags are created based on the FITS header. Flags are read from the FLAGS column.                      |
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
@@ -133,6 +133,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # skipflags only means skip reading the flag file, NOT don't alllocate an array for flags nor read them
             # from the binary table.
             "flags": True,  # not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
+            "fitsbackend" : None, # choose a default FITSBackend
         }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
@@ -183,9 +184,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # This only works if the index was created.
             if kwargs_opts["fix_ka"]:
                 self._fix_ka_rx_if_needed()
-        # We cannot use this to get mmHg as it will disable all default astropy units!
-        # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
-        # cds.enable()  # to get mmHg
 
         # ushow/udata depend on the index being present, so check that index is created.
         if kwargs.get("verbose", None) and kwargs_opts["index"]:
@@ -606,11 +604,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "SCAN",
                     "OBJECT",
                     "VELOCITY",
-                    "PROCS",
+                    "PROC",
                     "PROCSEQN",
                     "PROCSIZE",
                     "RESTFREQ",
-                    "DOPFREQ",
+#                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "FDNUM",
@@ -627,10 +625,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "SCAN",
                     "OBJECT",
                     "VELOCITY",
-                    "PROCS",
+                    "PROC",
                     "PROCSEQN",
                     "RESTFREQ",
-                    "DOPFREQ",
+#                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "INTNUM",
@@ -1440,22 +1438,22 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         OnOff:PSWITCHON:TPWCAL.
 
         """
-        if self._selection is None:
-            warnings.warn("Couldn't construct procedure string: index is not yet created.")  # noqa: B028
+        if self._selection is None or "OBSMODE" not in self._selection:
+            logger.warning("Couldn't construct procedure string")  # noqa: B028
             return
-        if "OBSMODE" not in self._index:
-            warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")  # noqa: B028
+        has_index_loaded = any(getattr(s, "_index_source", None) in ("index_file", "hybrid") for s in self._sdf)
+        if has_index_loaded:
             return
         df = self["OBSMODE"].str.split(":", expand=True)
         for obj in [self._index, self._flag]:
-            obj["PROCS"] = df[0]
+            obj["PROC"] = df[0]
             # Assign these to something that might be useful later,
             # since we have them
             obj["OBSTYPE"] = df[1]
             obj["SUBOBSMODE"] = df[2]
         for sdf in self._sdf:  # Note: sdf._index is a Dataframe, not a Selection
             df = sdf._index["OBSMODE"].str.split(":", expand=True)
-            sdf._index["PROCS"] = df[0]
+            sdf._index["PROC"] = df[0]
             sdf._index["OBSTYPE"] = df[1]
             sdf._index["SUBOBSMODE"] = df[2]
 
@@ -2432,7 +2430,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"FEED {f} {beam1_selected} {_fdnum[0]}")
                     logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
                     logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                    logger.debug(f"and PROCS {set(_df['PROCS'])}")
+                    logger.debug(f"and PROCS {set(_df['PROC'])}")
 
                     rows = {}
                     _ondf = select_from("SCAN", on, _df)
@@ -2895,7 +2893,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             name = _sf["OBJECT"].unique()[0]
         target = Calibrator.from_name(name, scale=fluxscale)
 
-        proc = _sf["PROCS"].unique()[0]
+        proc = _sf["PROC"].unique()[0]
 
         if method is None:
             method = valid_procs[proc]
@@ -3281,7 +3279,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         }
         scan_selection = {"ON": [], "OFF": []}
         df = selection[selection["SCAN"].isin(scans)]
-        procset = df["PROCS"].unique()
+        procset = df["PROC"].unique()
         lenprocset = len(procset)
         if lenprocset == 0:
             # This is ok since not all files in a set have all the polarizations, feeds, or IFs
@@ -3292,8 +3290,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if proc not in proc_dict.keys():
                 continue
 
-            _proc_on = df.loc[(df["PROCS"] == proc) & (df["PROCSEQN"] == proc_dict[proc][0])]["SCAN"]
-            _proc_off = df.loc[(df["PROCS"] == proc) & (df["PROCSEQN"] == sum(proc_dict[proc]))]["SCAN"]
+            _proc_on = df.loc[(df["PROC"] == proc) & (df["PROCSEQN"] == proc_dict[proc][0])]["SCAN"]
+            _proc_off = df.loc[(df["PROC"] == proc) & (df["PROCSEQN"] == sum(proc_dict[proc]))]["SCAN"]
             proc_on = list(set(_proc_on)) + list(set(_proc_off - proc_dict[proc][1]))
             proc_off = list(set(_proc_off)) + list(set(_proc_on + proc_dict[proc][1]))
 

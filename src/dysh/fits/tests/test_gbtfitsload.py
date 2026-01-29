@@ -2382,7 +2382,7 @@ class TestIndexFileLazyLoading:
 
         # First: gettp for scan1 (triggers lazy load for scan1's rows)
         off_sb = sdf.gettp(scan=scan1, ifnum=0, plnum=0, fdnum=0)
-        ref = off_sb.timeaverage()
+        ref = off_sb.timeaverage(use_wcs=False)
 
         # Second: getsigref for scan2 (should trigger lazy load for scan2's rows)
         # This would fail with KeyError: 'DATE' before the fix
