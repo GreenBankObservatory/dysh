@@ -59,7 +59,7 @@ class PlotBase:
         return csl
 
     def _set_header(self, s):
-        move_vcoords_bool = 0.1 * 1#(self._plot_type() == "ScanPlot")
+        move_vcoords_bool = 0.1 * 1  # (self._plot_type() == "ScanPlot")
         fsize_small = 9
         fsize_large = 14
         xyc = "figure fraction"
