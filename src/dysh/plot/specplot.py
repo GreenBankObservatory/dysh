@@ -237,7 +237,7 @@ class SpectrumPlot(PlotBase):
             self.axes.set_title(self._title)
 
         if show_header:
-            self.figure.subplots_adjust(top=0.7, left=0.09, right=0.95)
+            self.figure.subplots_adjust(top=0.79, left=0.09, right=0.95)
             self._set_header(s)
         if select:
             self._selector = MultiSpanSelector(self.axes, minspan=abs(self._sa[0].value - self._sa[1].value))

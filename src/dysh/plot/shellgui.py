@@ -17,15 +17,15 @@ if not in_notebook():
 class ShellGUI:
     def __init__(self, plotbase):
         self.root = tk.Toplevel()
-        self.root.geometry("1000x800")
+        self.root.geometry("1000x600")
         self.root.title("dysh")
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         self.root.rowconfigure(1, weight=1)
         self.frame = ttk.Frame(self.root, width=1000, height=500)
-        self.frame.pack(expand=True, fill=tk.BOTH, side=tk.TOP)
-        self.frame.columnconfigure(0, weight=1)
-        self.frame.columnconfigure(1, weight=1)
+        self.frame.pack(expand=True, fill=tk.BOTH, side=tk.LEFT)
+        #self.frame.columnconfigure(0, weight=1)
+        #self.frame.columnconfigure(1, weight=1)
         self.frame.rowconfigure(0, weight=1)
         self.frame.rowconfigure(1, weight=1)
         self.canvas = FigureCanvasTkAgg(plotbase.figure, master=self.frame)
@@ -35,7 +35,7 @@ class ShellGUI:
         self.toolbar.update()
         self.canvas.draw()
         self.toolbar.pack(side=tk.BOTTOM, fill=tk.X, expand=True)
-        self.canvas.get_tk_widget().grid(column=0, row=1, columnspan=2, sticky="nsew")
+        self.canvas.get_tk_widget().grid(column=0, row=1, columnspan=10, sticky="nsew")
 
         if hasattr(plotbase, "_selector"):
             self.button_clear = ttk.Button(
