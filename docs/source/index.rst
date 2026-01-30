@@ -23,7 +23,7 @@ Latest stable release on PyPI:
 
 .. code:: bash
 
-    pip install dysh
+    pip install dysh[nb]
 
 
 Read on for a brief overview.

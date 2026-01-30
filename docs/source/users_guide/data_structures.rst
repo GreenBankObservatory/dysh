@@ -31,7 +31,7 @@ Once loaded, the columns of the binary table, except the DATA and FLAGS columns,
    sdfits.udata("OBJECT")   # The unique set of OBJECTS
    sdfits.selection         # The entire DataFrame
 
-This mechanism can be used to :ref:`select data <data-selection>` for calibration.
+This mechanism can be used to :doc:`select data <users_guide/selection.html>` for calibration.
 
 Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfitsload.GBTFITSLoad` is directly accessible as a `~numpy.ndarray` with ``sdfits["DATA"]``.  More commonly, to look at the raw data you would access a single integration (row) as a numpy array or as a `~dysh.spectrum.Spectrum`, which would include the metadata.
 

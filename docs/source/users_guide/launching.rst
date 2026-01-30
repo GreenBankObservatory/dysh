@@ -59,4 +59,4 @@ There is also a custom Jupyter lab interface, `dysh-lab`, which will start a Jup
    options:
      -h, --help    show this help message and exit
      --version     Print version and exit
-     --no-browser  Don't open browser automatically
+     --no-browser  Do not open browser automatically

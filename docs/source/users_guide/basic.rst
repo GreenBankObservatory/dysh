@@ -10,8 +10,9 @@ These sections review concepts to be familiar with before moving on to calibrati
    :maxdepth: 1
    :hidden:
 
-   data_structures
    launching
+   logging
+   data_structures
    loading_data
    dataIO
    selection
