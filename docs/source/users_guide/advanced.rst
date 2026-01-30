@@ -11,7 +11,7 @@ These sections cover more advanced data analysis function of dysh.
    :hidden:
 
    velocity_frames
-   apeff_surf_error
+   apeff_surferr
    repeated_scans
    using_spectral_weights
    smoothing
