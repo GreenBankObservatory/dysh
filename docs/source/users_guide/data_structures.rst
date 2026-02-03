@@ -44,8 +44,8 @@ Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfi
 GBTOnline and GBTOffline
 ========================
 
-For users at GBO, `~dysh.fits.gbtfitsload.GBTOnline` connects directly to the SDFITS file(s) 
-currently being observed/written at the GBT.  It functions exactly 
+For users at GBO, `~dysh.fits.gbtfitsload.GBTOnline` connects directly to the SDFITS file(s)
+currently being observed/written at the GBT.  It functions exactly
 like  `~dysh.fits.gbtfitsload.GBTFITSLoad` and updates its contents automatically as new data are written.
 
 .. code:: Python
@@ -54,8 +54,8 @@ like  `~dysh.fits.gbtfitsload.GBTFITSLoad` and updates its contents automaticall
    sdfits.summary()   # A tabular summary of the current data
 
 
-`~dysh.fits.gbtfitsload.GBTOffline` connects to a given project on disk, 
-by default in ``/home/sdfits`` (where project data live a GBO).  
+`~dysh.fits.gbtfitsload.GBTOffline` connects to a given project on disk,
+by default in ``/home/sdfits`` (where project data live a GBO).
 You can set the SDFITS_DATA environment variable to point to a different location.
 
 .. code:: Python
