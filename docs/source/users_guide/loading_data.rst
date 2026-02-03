@@ -8,30 +8,57 @@ Loading and Examining data
 .. _usersguide-loading-sdfits:
 
 The basics classes for reading in SDFITS files were explained 
-in :ref:`the previous section <usersguide-gbtfitsload>`.  Here we describe how to inspect data 
-after loading it.
+in :ref:`the previous section <usersguide-gbtfitsload>`.  Here we describe some of 
+their keywords and how to inspect data  after loading it.
+
+Header Data Units
+-----------------
+
+By default `~dysh.fits.gbtfitsload.GBTFITSLoad` will load all `Header Data Units (HDUs) <https://docs.astropy.org/en/stable/io/fits/api/hdus.html>`_ 
+from the input file(s).  In SDFITS format, the HDUs are `binary tables <https://docs.astropy.org/en/stable/io/fits/api/tables.html#astropy.io.fits.BinTableHDU>`_.
+For files with multiple HDUs, you can load a specific HDU with the `hdu` keyword, which can speed up data loading if you are only interested in one binary table.
 
 .. code:: Python
 
-   from dysh.fits import GBTFITSLoad
-   import numpy as np
+    # Load the second binary table from the input FITS files.  
+    # Note binary tables start at index 1, since HDU 0 is the 
+    # Primary HDU contains only metadata.
+    sdfits = GBTFITSLoad("/path/to/data",hdu=2)
+    sdfits.info()
 
-   # Load a single SDFITS file. Don't read the .flag file if it exists.
-   sdfits = GBTFITSLoad("/path/to/mydata.fits", skipflags=True)
+You can also limit 
+Flags and Flag Files
+--------------------
 
-   # Load all files with .fits extension in a specfic directory
-   sdfits = GBTFITSLoad("/path/to/datafiles")
+Data may come with flag files (with extension ".flag").  By default dysh does 
+not read these files because primarily the contain VEGAS spur channels which are more quickly
+flagged algorithmically based on information in the SDFITS header.  You can control 
+flagging on input with the `skipflags` and `flag_vegas` keywords, both of which default to True.
+
+.. code:: Python
+
+   # Load a single SDFITS file. Read in .flag file if it exists.
+   # VEGAS spurs are still flagged algorithmically.
+   sdfits = GBTFITSLoad("/path/to/mydata.fits", skipflags=False)
+   
+   # Load multiple SDFITS files from a given directory. 
+   # Do not read in any .flag files and do not flag VEGAS spurs.
+   sdfits = GBTFITSLoad("/path/to/data/", flag_vegas=False)
+
+.. tip::
+
+    See the `flagging chapter <flagging.html>`_ for more details on setting and applying flags.
+ 
+One you have loaded data, you can see what files were read in:
+
+.. code:: Python
+
    # Print out the files that were loaded
    sdfits.filenames()
+   
    # or as Paths instead of strings
    sdfits
-
-   # Load all data from a specific project. This assumes
-   # /home/sdfits exists or environment variable $SDFITS_DATA is
-   # a directory containing projects.
-   sdfits = GBTOffline("myproject_id")
-
-
+   
 The most basic description of the data is from `~dysh.fits.gbtfitsload.GBTFITSLoad.summary`, the output of which is customizable.
 
 .. code:: Python
