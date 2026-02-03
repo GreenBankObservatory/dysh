@@ -69,7 +69,7 @@ if __name__ == "__main__":
     else:
         ift = args.indexthreshold*1024*1024 # convert to bytes
     print(f"Using {ift=}")
-    f1 = dysh_data(accept=args.key)  # 'getps' = position switch example from notebooks/examples
+    f1 = dysh_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
     print("Loading ", f1)
     if args.backend == "None":
         args.backend = None
