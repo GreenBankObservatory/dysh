@@ -5,6 +5,8 @@ Data Structures Explained
 
 .. _usersguide-gbtfitsload:
 
+==========
+
 GBTFITSLoad
 ===========
 
@@ -12,8 +14,8 @@ The main data object in dysh is
 `~dysh.fits.gbtfitsload.GBTFITSLoad`
 which represents one or more :ref:`SDFITS files. <sdfits-explanation>`
 in the :ref:`GBT SDFITS format <sdfits-reference>`.  (A more generic
-SDFITS loader is  `~dysh.fits.gbtfitsload.SDFITSLoad`).
-The data are represented is as one contiguous block even if multiple
+SDFITS loader is  `~dysh.fits.sdfitsload.SDFITSLoad`, described below).
+The data are represented as one contiguous block even if multiple
 files were loaded.
 
 .. code:: Python
@@ -31,7 +33,7 @@ Once loaded, the columns of the binary table, except the DATA and FLAGS columns,
    sdfits.udata("OBJECT")   # The unique set of OBJECTS
    sdfits.selection         # The entire DataFrame
 
-This mechanism can be used to :doc:`select data <users_guide/selection.html>` for calibration.
+This mechanism can be used to `select data <selection.html>`_ for calibration.
 
 Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfitsload.GBTFITSLoad` is directly accessible as a `~numpy.ndarray` with ``sdfits["DATA"]``.  More commonly, to look at the raw data you would access a single integration (row) as a numpy array or as a `~dysh.spectrum.Spectrum`, which would include the metadata.
 
@@ -40,9 +42,6 @@ Although not in the  `~pandas.DataFrame`, The DATA column of a `~dysh.fits.gbtfi
    array = sdfits.rawspectrum(10) #  get data array for row 10
    spectrum = sdfits.getspec(10)  #  get a Spectrum for row 10 data and metadata
 
-.. warning::
-
-   Be careful accessing the data with the "DATA" key!  You could overwrite the data with `sdfits["DATA"] = ...`
 
 GBTOnline and GBTOffline
 ========================
@@ -60,9 +59,69 @@ For users at GBO, `~dysh.fits.gbtfitsload.GBTOnline` connects directly to the SD
 .. code:: Python
 
    # load data from project id AGBT_22A_325_33
-   sdfits = GBTOnline('AGBT_22A_325_33')
+   sdfits = GBTOffline('AGBT_22A_325_33')
    sdfits.summary()
 
+.. _usersguide-sdfitsload:
+
+SDFITSLoad
+==========
+
+A generic class for loading single SDFITS files is `~dysh.fits.sdfitsload.SDFITSLoad`. 
+(Underneath the hood, `~dysh.fits.gbtfitsload.GBTFITSLoad` contains one `~dysh.fits.sdfitsload.SDFITSLoad` for each file within).
+GBT users will not likely instantiate one of these objects directly. However, they can
+be used to read in a SDFITS file that came from a different telescope.  It has basic methods to inspect data, such as
+`~dysh.fits.sdfitsload.SDFITSLoad.summary`
+`~dysh.fits.sdfitsload.SDFITSLoad.info`, 
+`~dysh.fits.sdfitsload.SDFITSLoad.getspec`,
+`~dysh.fits.sdfitsload.SDFITSLoad.rawspectrum`,
+`~dysh.fits.sdfitsload.SDFITSLoad.rawspectra`,  as well as the `[]` style accessor for column data.
+
+.. code:: Python
+
+    from dysh.fits import SDFITSLoad
+
+    sdfits = SDFITSLoad('AGBT05B_047_01.raw.acs.fits')
+    sdfits.summary()
+    
+    File:    AGBT05B_047_01.raw.acs.fits
+    i= 0
+    HDU       1
+    BINTABLE: 352 rows x 70 cols with 32768 chans
+    Selected  352/352 rows
+    Sources:  ['NGC5291']
+    RESTFREQ: [1.420405] GHz
+    Scans:    [51, 52, 53, 54, 55, 56, 57, 58]
+    Npol:     2
+    Nint:     176
+    
+    sdf.info()
+    
+    Filename: AGBT05B_047_01.raw.acs.fits
+    No.    Name      Ver    Type      Cards   Dimensions   Format
+    0  PRIMARY       1 PrimaryHDU      12   ()      
+    1  SINGLE DISH    1 BinTableHDU    229   352R x 70C   ['32A', '1D', '22A', '1D', '1D', '1D', '32768E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']     
+ 
+    sdfits["IFNUM"]
+
+    0      0
+    1      0
+    2      0
+    3      0
+    4      0
+          ..
+    347    0
+    348    0
+    349    0
+    350    0
+    351    0
+    Name: IFNUM, Length: 352, dtype: int16    
+
+.. warning::
+
+   Be careful accessing the data of an `~dysh.fits.sdfitsload.SDFITSLoad` with the "DATA" key! It is a reference
+   to the underlying data, not a copy. You could overwrite the data with `sdfits["DATA"] = ...`
+    
 .. _usersguide-spectrum:
 
 Spectrum
@@ -75,11 +134,11 @@ spectral axis in frequency or velocity units.  The data are accesible as a (unit
 `~astropy.units.quantity.Quantity` (`~dysh.spectra.spectrum.Spectrum.flux`).  Spectrum objects have a `~dysh.spectra.spectrum.Spectrum.mask` array which can be set with
 `flagging operations <https://dysh.readthedocs.io/en/latest/how-tos/examples/flagging.html>`_. It is based on specutils
 `~specutils.Spectrum` class.  It supports most common velocity reference
-frames supported by `astropy.coordinates.BaseCoordinateFrame` ('itrs' [topographic], 'lsrk','icrs','hcrs', etc).
+frames supported by `astropy.coordinates.BaseCoordinateFrame` ('itrs','topo', 'lsrk','icrs','hcrs', etc).  'topo' is a synonym for 'itrs'.
 Spectra can be displayed with  `~dysh.spectra.spectrum.Spectrum.plot`, which opens up an interactive plot window.
-The frequency/velocity locations of spectral lines within the spectral window can be listed `~dysh.spectra.spectrum.Spectrum.query_lines`.
+The frequency/velocity locations of spectral lines within the spectral window can be listed using `~dysh.spectra.spectrum.Spectrum.query_lines`.
 
-Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog` (:ref:`Curve of Growth <cog>`).  Spectrum arithmetic is supported with common operators, e.g.:
+Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.Spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog` (:ref:`Curve of Growth <cog>`).  Spectrum arithmetic is supported with common operators, e.g.:
 
 .. code:: Python
 
@@ -107,22 +166,22 @@ and collected into a common :ref:`usersguide-scanblock`.  Users generally will n
 
 .. code:: Python
 
-   # load data from project id AGBT_22A_325_33
+   # Load data from project id AGBT_22A_325_33
    sdfits = GBTFITSLoad(path)
 
-   # get a ScanBlock containing some PSScans calibrated to Janskys
-   sb = sdfits.getps(scan=[23,25,27] ifnum=0,plnum=0,fdnum=0, units='flux', zenith_opacity=0.05)
+   # Get a ScanBlock containing some PSScans calibrated to Janskys
+   sb = sdfits.getps(scan=[23,25,27], ifnum=0,plnum=0,fdnum=0, units='flux', zenith_opacity=0.05)
 
    # Look at the scale factors and weights of all the Scans in the ScanBlock
    for s in sb:
        print(f"Scale factors for PSScan {s.scan} = {s.tscale_fac}")
        print(f"Weights for PSScan {s.scan} = {s.weights}")
 
-   # get the weighted average of the integrations for the first PSScan
+   # Get the weighted average of the integrations for the first PSScan
    ta = sb[0].timeaverage()
    ta.plot()
 
-   # examine the integrations in the first PSScan
+   # Examine the integrations in the first PSScan
    for i in range(len(sb[0]):
         sb[0].getspec(i).plot()
 

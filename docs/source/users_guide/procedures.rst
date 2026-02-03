@@ -8,12 +8,11 @@ These sections review the common calibration procedures for GBT data.
 
 .. toctree::
    :maxdepth: 1
-   :hidden:
 
    positionswitch
-   calseq
+   frequencyswitch
    nodding
    subbeamnod
-   frequencyswitch
    on_the_fly
+   calseq
    vane

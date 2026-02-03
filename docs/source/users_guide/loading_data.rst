@@ -7,7 +7,9 @@ Loading and Examining data
 
 .. _usersguide-loading-sdfits:
 
-The basics of reading in SDFITS files was explained in :ref:`the previous section <usersguide-gbtfitsload>`.  Below are a few more examples.
+The basics classes for reading in SDFITS files were explained 
+in :ref:`the previous section <usersguide-gbtfitsload>`.  Here we describe how to inspect data 
+after loading it.
 
 .. code:: Python
 
@@ -15,7 +17,7 @@ The basics of reading in SDFITS files was explained in :ref:`the previous sectio
    import numpy as np
 
    # Load a single SDFITS file. Don't read the .flag file if it exists.
-   sdfits = GBTFITSLoad("/path/to/mydata.fits",skipflags=True)
+   sdfits = GBTFITSLoad("/path/to/mydata.fits", skipflags=True)
 
    # Load all files with .fits extension in a specfic directory
    sdfits = GBTFITSLoad("/path/to/datafiles")
@@ -37,8 +39,8 @@ The most basic description of the data is from `~dysh.fits.gbtfitsload.GBTFITSLo
    # The default, compact view
    sdfits.summary()
 
-   # Show every record
-   sdfits.summary(verbose=True)
+   # Show every record for a set of scans
+   sdfits.summary(scan=[19,20,21],verbose=True)
 
    # List specific columns
    sdfits.summary(columns=["OBJECT","LST","DATE-OBS"]))
@@ -46,9 +48,9 @@ The most basic description of the data is from `~dysh.fits.gbtfitsload.GBTFITSLo
    # List the default columns plus additional ones
    sdfits.summary(add_columns=["TAMBIENT","VELDEF"])
 
-Data in the individual FITS files are accessible via the
+Data in the individual SDFITS files are accessible via the
 `~dysh.fits.gbtfitsload.GBTFITSLoad.sdf` attribute, a list
-`~dysh.fits.sdfitsload.SDFITSLoad` with length equal to the number of files.
+of `~dysh.fits.sdfitsload.SDFITSLoad` with length equal to the number of files.
 
 .. code:: Python
 
@@ -82,15 +84,15 @@ A powerful mechanism for examining and modifying the metadata columns is the `[]
    sdfits.udata["backend"]
 
 
-Assignment also works. Assigned values will be used in any subsequent calibration commands. The underlying FITS files are not affected unless you actually overwrite them with `sdfits.write(overwrite=True)`.
+Assignment also works. Assigned values will be used in any subsequent calibration commands. The underlying FITS files are not affected unless you actually overwrite them with ``sdfits.write(overwrite=True)``.
 
 .. code:: Python
 
-   # Assign one value to all rows.
+   # Assign one value to all rows
    sdfits["TCAL"] = 1.5
 
-   # Assign an array with lengths equal to number of rows.
-   # A silly example.
+   # Assign an array with lengths equal to number of rows
+   # (a silly example)
    tcal = np.arange(sdfits.stats()['nrows'])
    sdfits["TCAL"] = tcal
 
@@ -118,20 +120,34 @@ Examining the Raw Spectral Data
 --------------------------------
 
 GBTFITSLoad, GBTOnline, and GBTOffline have two methods to look at the uncalibrated integration, `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` returns a `~numpy.ndarray` for a given integration, while `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec` returns the data in a `~dysh.spectra.spectrum.Spectrum` object.
-By default these retrieve the the record from the first FITS file; other files can be accessed with the `fitsindex` parameter (equivalent to, e.g.,  `sdfits.sdf[2].rawspectrum()`.
+By default these retrieve the the record from the first SDFITS file; other files can be accessed with the ``fitsindex`` parameter (equivalent to, e.g.,  ``sdfits.sdf[2].rawspectrum()``.
 
 .. code:: Python
 
-   array = sdfits.rawspectrum(10) #  get data array for row 10 from the first FITS file
-   array = sdfits.rawspectrum(10, fitsindex=2) #  get data array for row 10 from the third FITS file
+   array = sdfits.rawspectrum(10) #  get data array for row 10 from the first SDFITS file
+   array = sdfits.rawspectrum(10, fitsindex=2) #  get data array for row 10 from the third SDFITS file
    spectrum = sdfits.getspec(10)  #  get a Spectrum for row 10 data and metadata
    spectrum.plot()                #  Spectrum objects can always be plotted.
 
-The entire raw data array can be retrieved using the "DATA" keyword.
+The full raw data array for any binary table from one of the underlying SDFITS files can be retrieved 
+with `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectra`.
+
+.. code:: Python
+
+    # get the data array from the second binary table of the third SDFITS file
+    array = sdfits.rawspectra(bintable=1, fitsindex=2) 
+     
+.. warning::
+   
+   `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` and `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectra` return references to the actual binary table data.  
+   If you alter the result, you alter the data!  It is safer to use the "DATA" keyword.
+
+If there is a single binary table, the entire raw data array can be retrieved using the "DATA" keyword.
 
    allthedata = sdfits["DATA"]
 
-Note this is copy of the data not a reference to it, modifying `allthedata` does not affect the binary table data.
+Note this is copy of the data not a reference to it, modifying ``allthedata`` does not affect the binary table data.
+
 
 .. _usersguide-adding-comments:
 

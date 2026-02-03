@@ -1,5 +1,5 @@
 
-.. _usersguide-logging
+.. _usersguide-logging:
 
 **********************
 Using the dysh logger
@@ -19,25 +19,30 @@ a file and/or the screen.   The command line arguments that control logging are
      --log LOG                           Specify log path
      -q, --quiet                         Silence DEBUG- and INFO-level logs to stderr
 
-The log verbosity level is set either on the command line with `-v` or `--verbosity`, or can be set in the Python session itself with `init_logging()`. The numeric values correspond to log levels as follows
+The log verbosity level is set either on the command line with `-v`
+or `--verbosity` or can be set in the Python session itself with `~dysh.log.init_logging`.  You can think of 
+verbosity as the complement of the
+traditional `log severity level <https://docs.python.org/3/howto/logging.html#logging-basic-tutorial>`_. 
+The values of verbosity and severity levels are as follows:
 
 .. list-table:: Log Levels
    :header-rows: 1
 
-   * - Value
-     - Level
-   * - 0
-     - DEBUG
-   * - 1
-     - INFO
-   * - 2
-     - WARNING
+   * - Verbosity
+     - Log Severity Level
    * - 3
-     - CRITICAL
+     - DEBUG
+   * - 2
+     - INFO
+   * - 1
+     - ERROR
+   * - 0
+     - WARNING
 
 
-Setting the log level interactively while in dysh:
+Setting the log verbosity level interactively while in dysh:
 
 .. code:: Python
 
-   init_logging(2)
+   from dysh.log import init_logging
+   init_logging(2)  # Log only ERROR or higher 
