@@ -69,12 +69,12 @@ You can set the SDFITS_DATA environment variable to point to a different locatio
 SDFITSLoad
 ==========
 
-A generic class for loading single SDFITS files is `~dysh.fits.sdfitsload.SDFITSLoad`. 
+A generic class for loading single SDFITS files is `~dysh.fits.sdfitsload.SDFITSLoad`.
 (Underneath the hood, `~dysh.fits.gbtfitsload.GBTFITSLoad` contains one `~dysh.fits.sdfitsload.SDFITSLoad` for each file within).
 GBT users will not likely instantiate one of these objects directly. However, they can
 be used to read in a SDFITS file that came from a different telescope.  It has basic methods to inspect data, such as
 `~dysh.fits.sdfitsload.SDFITSLoad.summary`
-`~dysh.fits.sdfitsload.SDFITSLoad.info`, 
+`~dysh.fits.sdfitsload.SDFITSLoad.info`,
 `~dysh.fits.sdfitsload.SDFITSLoad.getspec`,
 `~dysh.fits.sdfitsload.SDFITSLoad.rawspectrum`,
 `~dysh.fits.sdfitsload.SDFITSLoad.rawspectra`,  as well as the `[]` style accessor for column data.
@@ -85,7 +85,7 @@ be used to read in a SDFITS file that came from a different telescope.  It has b
 
     sdfits = SDFITSLoad('AGBT05B_047_01.raw.acs.fits')
     sdfits.summary()
-    
+
     File:    AGBT05B_047_01.raw.acs.fits
     i= 0
     HDU       1
@@ -96,14 +96,14 @@ be used to read in a SDFITS file that came from a different telescope.  It has b
     Scans:    [51, 52, 53, 54, 55, 56, 57, 58]
     Npol:     2
     Nint:     176
-    
+
     sdf.info()
-    
+
     Filename: AGBT05B_047_01.raw.acs.fits
     No.    Name      Ver    Type      Cards   Dimensions   Format
-    0  PRIMARY       1 PrimaryHDU      12   ()      
-    1  SINGLE DISH    1 BinTableHDU    229   352R x 70C   ['32A', '1D', '22A', '1D', '1D', '1D', '32768E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']     
- 
+    0  PRIMARY       1 PrimaryHDU      12   ()
+    1  SINGLE DISH    1 BinTableHDU    229   352R x 70C   ['32A', '1D', '22A', '1D', '1D', '1D', '32768E', '16A', '6A', '8A', '1D', '1D', '1D', '4A', '1D', '4A', '1D', '1I', '32A', '32A', '1J', '32A', '16A', '1E', '8A', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '1D', '8A', '1D', '1D', '12A', '1I', '1I', '1D', '1D', '1I', '1A', '1I', '1I', '16A', '16A', '1J', '1J', '22A', '1D', '1D', '1I', '1A', '1D', '1E', '1D', '1A', '1A', '8A', '1E', '1E', '16A', '1I', '1I', '1I']
+
     sdfits["IFNUM"]
 
     0      0
@@ -117,13 +117,13 @@ be used to read in a SDFITS file that came from a different telescope.  It has b
     349    0
     350    0
     351    0
-    Name: IFNUM, Length: 352, dtype: int16    
+    Name: IFNUM, Length: 352, dtype: int16
 
 .. warning::
 
    Be careful accessing the data of an `~dysh.fits.sdfitsload.SDFITSLoad` with the "DATA" key! It is a reference
    to the underlying data, not a copy. You could overwrite the data with `sdfits["DATA"] = ...`
-    
+
 .. _usersguide-spectrum:
 
 Spectrum
