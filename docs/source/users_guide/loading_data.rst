@@ -7,8 +7,8 @@ Loading and Examining data
 
 .. _usersguide-loading-sdfits:
 
-The basics classes for reading in SDFITS files were explained 
-in :ref:`the previous section <usersguide-gbtfitsload>`.  Here we describe how to inspect data 
+The basics classes for reading in SDFITS files were explained
+in :ref:`the previous section <usersguide-gbtfitsload>`.  Here we describe how to inspect data
 after loading it.
 
 .. code:: Python
@@ -129,17 +129,17 @@ By default these retrieve the the record from the first SDFITS file; other files
    spectrum = sdfits.getspec(10)  #  get a Spectrum for row 10 data and metadata
    spectrum.plot()                #  Spectrum objects can always be plotted.
 
-The full raw data array for any binary table from one of the underlying SDFITS files can be retrieved 
+The full raw data array for any binary table from one of the underlying SDFITS files can be retrieved
 with `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectra`.
 
 .. code:: Python
 
     # get the data array from the second binary table of the third SDFITS file
-    array = sdfits.rawspectra(bintable=1, fitsindex=2) 
-     
+    array = sdfits.rawspectra(bintable=1, fitsindex=2)
+
 .. warning::
-   
-   `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` and `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectra` return references to the actual binary table data.  
+
+   `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` and `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectra` return references to the actual binary table data.
    If you alter the result, you alter the data!  It is safer to use the "DATA" keyword.
 
 If there is a single binary table, the entire raw data array can be retrieved using the "DATA" keyword.
