@@ -34,7 +34,13 @@ def filestats(path):
          tuple of (# FITS files, FITS size in MB, number of lines)
     """
     if path.is_file():
-        pass
+        fstats = os.stat(path)
+        nsize = fstats.st_size
+        nlines =0 
+        with open(path, "rb") as fp:
+            nlines = sum(1 for _ in fp)
+        meandata = nsize * u.byte
+        return (nsize, meandata.to(u.megabyte).value, nlines)
     if path.is_dir():
         # get the FITS size
         nsize = []
@@ -59,6 +65,7 @@ benchname = "GBTFITSLoad"
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=progname)
     parser.add_argument("--key", "-k", action="store", help="input dysh_data key", default="multismallsmall")
+    parser.add_argument("--example", action="store_true", help="use example instead of accept for dyshdata")
     parser.add_argument(
         "--numfiles", "-n", action="store", help="number of SDFITS files to load for multifile data", default=1
     )
@@ -101,10 +108,13 @@ if __name__ == "__main__":
     data_types = [int, float, int, float, int, int, int, int, int, int, bool]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
-    f1 = dysh_data(accept=args.key)
+    if args.example:
+        f1 = dysh_data(example=args.key)
+    else:
+        f1 = dysh_data(accept=args.key)
     # use secret GBTFITSLOAD nfiles kwarg to limit number of files loaded.
     nfiles = int(args.numfiles)
-    print(f"Loading not more than {nfiles} from {f1}")
+    print(f"Loading not more than {nfiles} from {f1} {filestats(f1)}")
     trueNfiles, size_b, nflags = filestats(f1)
     nload = min(nfiles, trueNfiles)
     size_mb = np.round(size_b, 2)
