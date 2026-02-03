@@ -262,7 +262,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is not None:
             if kwargs_opts["remove"]:
                 self._plotter._line.set_ydata(self._data)
-                self._plotter.clear_overlays(blines=True)
+                self._plotter.clear_overlays(blines=True, oshows=False, catalog=False)
                 if not self._plotter._freezey:
                     self._plotter.freey()
             else:
@@ -271,8 +271,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 else:
                     xval = self._plotter._sa
                 bline_data = self._baseline_model(self.spectral_axis).to(self._plotter._yunit)
-                self._plotter._axis.plot(xval, bline_data, c=color, gid="baseline")
-                self._plotter.refresh()
+                self._plotter.axes.plot(xval, bline_data, c=color, gid="baseline")
+            self._plotter.refresh()
 
     # baseline
     @log_call_to_history
@@ -340,6 +340,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is None:
             self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
+        g = self._plotter._frontend(self._plotter)
+        g.show()
         return self._plotter
 
     def get_selected_regions(self, unit=None):
