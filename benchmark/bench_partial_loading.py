@@ -117,7 +117,7 @@ def get_test_datasets():
     return datasets
 
 
-def benchmark_gbtfitsload_init(filepath, n_iterations=3, use_index_file=True):
+def benchmark_gbtfitsload_init(filepath, n_iterations=3, use_index_file=True, backend=None):
     """Benchmark GBTFITSLoad initialization."""
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
@@ -126,13 +126,13 @@ def benchmark_gbtfitsload_init(filepath, n_iterations=3, use_index_file=True):
         kwargs["index_file_threshold"] = float("inf")
 
     def load_file():
-        sdf = GBTFITSLoad(filepath, **kwargs)
+        sdf = GBTFITSLoad(filepath, fitsbackend=backend, **kwargs)
         return sdf
 
     return time_operation(load_file, n_iterations=n_iterations, warmup=1)
 
 
-def benchmark_getps(dataset, n_iterations=3, use_index_file=True):
+def benchmark_getps(dataset, n_iterations=3, use_index_file=True,backend=None):
     """Benchmark getps operation (position-switched calibration)."""
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
@@ -146,7 +146,7 @@ def benchmark_getps(dataset, n_iterations=3, use_index_file=True):
     if not use_index_file:
         kwargs["index_file_threshold"] = float("inf")
 
-    sdf = GBTFITSLoad(filepath, **kwargs)
+    sdf = GBTFITSLoad(filepath, fitsbackend=backend, **kwargs)
 
     def do_getps():
         return sdf.getps(scan=scans, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True)
@@ -159,7 +159,7 @@ def benchmark_getps(dataset, n_iterations=3, use_index_file=True):
     return result
 
 
-def benchmark_gettp(dataset, n_iterations=5, use_index_file=True):
+def benchmark_gettp(dataset, n_iterations=5, use_index_file=True, backend=None):
     """Benchmark gettp operation (total power)."""
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
@@ -174,7 +174,7 @@ def benchmark_gettp(dataset, n_iterations=5, use_index_file=True):
     if not use_index_file:
         kwargs["index_file_threshold"] = float("inf")
 
-    sdf = GBTFITSLoad(filepath, **kwargs)
+    sdf = GBTFITSLoad(filepath,fitsbackend=backend, **kwargs)
 
     def do_gettp():
         return sdf.gettp(scan=scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True)
@@ -186,7 +186,7 @@ def benchmark_gettp(dataset, n_iterations=5, use_index_file=True):
     return result
 
 
-def benchmark_getfs(dataset, n_iterations=3, use_index_file=True):
+def benchmark_getfs(dataset, n_iterations=3, use_index_file=True,backend=None):
     """Benchmark getfs operation (frequency-switched calibration)."""
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
@@ -200,7 +200,7 @@ def benchmark_getfs(dataset, n_iterations=3, use_index_file=True):
     if not use_index_file:
         kwargs["index_file_threshold"] = float("inf")
 
-    sdf = GBTFITSLoad(filepath, **kwargs)
+    sdf = GBTFITSLoad(filepath,fitsbackend=backend, **kwargs)
 
     def do_getfs():
         return sdf.getfs(scan=scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True)
@@ -216,7 +216,7 @@ def benchmark_getfs(dataset, n_iterations=3, use_index_file=True):
     return result
 
 
-def benchmark_getnod(dataset, n_iterations=3, use_index_file=True):
+def benchmark_getnod(dataset, n_iterations=3, use_index_file=True,backend=None):
     """Benchmark getnod operation (nodding calibration)."""
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
@@ -229,7 +229,7 @@ def benchmark_getnod(dataset, n_iterations=3, use_index_file=True):
     if not use_index_file:
         kwargs["index_file_threshold"] = float("inf")
 
-    sdf = GBTFITSLoad(filepath, **kwargs)
+    sdf = GBTFITSLoad(filepath,fitsbackend=backend, **kwargs)
 
     def do_getnod():
         return sdf.getnod(scan=scan, ifnum=ifnum, plnum=plnum)
@@ -245,7 +245,7 @@ def benchmark_getnod(dataset, n_iterations=3, use_index_file=True):
     return result
 
 
-def benchmark_rawspectra_full(filepath, n_iterations=3, use_index_file=True):
+def benchmark_rawspectra_full(filepath, n_iterations=3, use_index_file=True,backend=None):
     """Benchmark rawspectra loading all rows."""
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
@@ -253,7 +253,7 @@ def benchmark_rawspectra_full(filepath, n_iterations=3, use_index_file=True):
     if not use_index_file:
         kwargs["index_file_threshold"] = float("inf")
 
-    sdf = GBTFITSLoad(filepath, **kwargs)
+    sdf = GBTFITSLoad(filepath, fitsbackend=backend,**kwargs)
     total_rows = len(sdf._index)
 
     # Check API signature for compatibility
@@ -273,9 +273,9 @@ def benchmark_rawspectra_full(filepath, n_iterations=3, use_index_file=True):
     return result
 
 
-def run_benchmarks(datasets, quick=False, use_index_file=True):
+def run_benchmarks(datasets, quick=False, use_index_file=True, backend=None):
     """Run all benchmarks and return results."""
-    results = create_results_dict(quick_mode=quick, extra_metadata={"use_index_file": use_index_file})
+    results = create_results_dict(quick_mode=quick, extra_metadata={"use_index_file": use_index_file, "FITSBackend":backend})
     results["datasets"] = {k: {"path": v["path"], "size_mb": v["size_mb"]} for k, v in datasets.items()}
 
     n_iter = 2 if quick else 5
@@ -290,18 +290,18 @@ def run_benchmarks(datasets, quick=False, use_index_file=True):
 
         logger.info("  init...")
         results["benchmarks"]["init"] = benchmark_gbtfitsload_init(
-            ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file
+            ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend
         )
 
         logger.info("  getps...")
-        results["benchmarks"]["getps"] = benchmark_getps(ds, n_iterations=n_iter_slow, use_index_file=use_index_file)
+        results["benchmarks"]["getps"] = benchmark_getps(ds, n_iterations=n_iter_slow, use_index_file=use_index_file,backend=backend)
 
         logger.info("  gettp...")
-        results["benchmarks"]["gettp"] = benchmark_gettp(ds, n_iterations=n_iter, use_index_file=use_index_file)
+        results["benchmarks"]["gettp"] = benchmark_gettp(ds, n_iterations=n_iter, use_index_file=use_index_file,backend=backend)
 
         logger.info("  rawspectra_full...")
         results["benchmarks"]["rawspectra_full"] = benchmark_rawspectra_full(
-            ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file
+            ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file,backend=backend
         )
 
     # Benchmark getfs (frequency switch)
@@ -310,7 +310,7 @@ def run_benchmarks(datasets, quick=False, use_index_file=True):
         logger.info(f"\n=== Frequency Switch Benchmarks ({ds['size_mb']} MB) ===")
 
         logger.info("  getfs...")
-        results["benchmarks"]["getfs"] = benchmark_getfs(ds, n_iterations=n_iter_slow, use_index_file=use_index_file)
+        results["benchmarks"]["getfs"] = benchmark_getfs(ds, n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend)
 
     # Benchmark getnod (nodding)
     if "getnod" in datasets:
@@ -355,8 +355,10 @@ def main():
     parser.add_argument(
         "--no-index-file", action="store_true", help="Disable .index file usage (force reading from FITS)"
     )
+    parser.add_argument("--backend",     "-b", action="store",       help="FITSBackend to use for getting raw spectra. either 'fitsio', 'astropy', or None", default=None)
 
     args = parser.parse_args()
+    fbe = str(args.backend)
 
     setup_logging(verbose=args.verbose)
 
@@ -383,9 +385,10 @@ def main():
     print(f"Git: {get_git_info()['branch']} @ {get_git_info()['commit']}")
     print(f"Quick mode: {args.quick}")
     print(f"Use .index file: {use_index_file}")
+    print(f"FITS Backend: {fbe}")
     print(f"Datasets found: {list(datasets.keys())}")
 
-    results = run_benchmarks(datasets, quick=args.quick, use_index_file=use_index_file)
+    results = run_benchmarks(datasets, quick=args.quick, use_index_file=use_index_file, backend=args.backend)
 
     print_summary(results)
 
