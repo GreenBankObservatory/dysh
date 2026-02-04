@@ -583,17 +583,32 @@ def grouper(iterable, n, *, incomplete="fill", fillvalue=None):
 def in_notebook() -> bool:
     """
     Check if the code is being run inside a notebook.
+
+    This returns False for Spyder and other IPython-based IDEs that are not
+    Jupyter environments, even though they may have IPKernelApp.
     """
     try:
         from IPython import get_ipython
 
-        if "IPKernelApp" not in get_ipython().config:  # pragma: no cover
+        ipython = get_ipython()
+
+        if "IPKernelApp" not in ipython.config:  # pragma: no cover
             return False
+
+        # Distinguish between Jupyter and Spyder/other IPython IDEs
+        # In Jupyter: 'ZMQInteractiveShell'
+        # In Spyder: 'SpyderShell' or similar
+        # In IPython terminal: 'TerminalInteractiveShell'
+        shell_class = ipython.__class__.__name__
+
+        # Only return True for actual Jupyter environments
+        # ZMQInteractiveShell is used by both Jupyter Notebook and JupyterLab
+        return shell_class == "ZMQInteractiveShell"
+
     except ImportError:
         return False
     except AttributeError:
         return False
-    return True
 
 
 def show_dataframe(df, show_index=False, max_rows=None, max_cols=None):
