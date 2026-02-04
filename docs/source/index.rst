@@ -83,7 +83,7 @@ That's it, now ``scan_block`` contains all the calibrated data.
 
 .. tip::
 
-    More details about the different calibration routines can be 
+    More details about the different calibration routines can be
     found on the `calibration section of the users guide <users_guide/procedures.html>`_.
 
 The calibrated data can be plotted as a waterfall using `ScanBlock.plot <dysh.spectra.scan.ScanBlock.plot>`.
