@@ -10,7 +10,7 @@ GBTFITSLoad
 
 The main data object in dysh is
 `~dysh.fits.gbtfitsload.GBTFITSLoad`
-which represents one or more :ref:`SDFITS files. <sdfits-explanation>`
+which represents one or more :ref:`SDFITS files <sdfits-explanation>`
 in the :ref:`GBT SDFITS format <sdfits-reference>`.  (A more generic
 SDFITS loader is  `~dysh.fits.sdfitsload.SDFITSLoad`, described below).
 The data are represented as one contiguous block even if multiple
@@ -60,7 +60,7 @@ You can set the SDFITS_DATA environment variable to point to a different locatio
 
 .. code:: Python
 
-   # load data from project id AGBT_22A_325_33
+   # Load data from project id AGBT_22A_325_33
    sdfits = GBTOffline('AGBT_22A_325_33')
    sdfits.summary()
 
@@ -122,7 +122,7 @@ be used to read in a SDFITS file that came from a different telescope.  It has b
 .. warning::
 
    Be careful accessing the data of an `~dysh.fits.sdfitsload.SDFITSLoad` with the "DATA" key! It is a reference
-   to the underlying data, not a copy. You could overwrite the data with `sdfits["DATA"] = ...`
+   to the underlying data, not a copy. You could overwrite the data with ``sdfits["DATA"] = ...``
 
 .. _usersguide-spectrum:
 
@@ -131,20 +131,23 @@ Spectrum
 
 A `~dysh.spectra.spectrum.Spectrum` is a container representing a
 spectrum and its attributes, with data in a brightness unit (e.g.,
-`astropy.units.ct`, `astropy.units.K`, `astropy.units.Jy`) and a
-spectral axis in frequency or velocity units.  The data are accesible as a (unitless) `~numpy.ndarray` (`~specutils.Spectrum.data`) or as a
-`~astropy.units.quantity.Quantity` (`~dysh.spectra.spectrum.Spectrum.flux`).  Spectrum objects have a `~dysh.spectra.spectrum.Spectrum.mask` array which can be set with
-`flagging operations <https://dysh.readthedocs.io/en/latest/how-tos/examples/flagging.html>`_. It is based on specutils
-`~specutils.Spectrum` class.  It supports most common velocity reference
-frames supported by `astropy.coordinates.BaseCoordinateFrame` ('itrs','topo', 'lsrk','icrs','hcrs', etc).  'topo' is a synonym for 'itrs'.
-Spectra can be displayed with  `~dysh.spectra.spectrum.Spectrum.plot`, which opens up an interactive plot window.
+`~astropy.units.astrophys.ct`, `~astropy.units.si.K`, `~astropy.units.astrophys.Jy`) and a
+spectral axis in frequency or velocity units.
+The data are accesible as a (unitless) `~numpy.ndarray` (`~specutils.Spectrum.data`) or as a
+`~astropy.units.quantity.Quantity` (`~dysh.spectra.spectrum.Spectrum.flux`).
+`~dysh.spectra.spectrum.Spectrum` objects have a `~dysh.spectra.spectrum.Spectrum.mask` array which can be set with
+`flagging operations <https://dysh.readthedocs.io/en/latest/users_guide/flagging.html>`_.
+It is based on specutils `~specutils.Spectrum` class.
+It supports most common velocity reference frames supported by `astropy.coordinates.BaseCoordinateFrame` ('itrs', 'topo', 'lsrk', 'icrs', 'hcrs', etc.).
+'topo' is a synonym for 'itrs'.
+Spectra can be displayed with  `~dysh.spectra.spectrum.Spectrum.plot`, which opens up an :ref:`interactive plot <iplotter>`.
 The frequency/velocity locations of spectral lines within the spectral window can be listed using `~dysh.spectra.spectrum.Spectrum.query_lines`.
 
 Standard operations such as `~dysh.spectra.spectrum.Spectrum.baseline` removal,  `~dysh.spectra.spectrum.Spectrum.smooth`, and `~dysh.spectra.spectrum.Spectrum.average` are supported, as well as analysis functions like  `~dysh.spectra.spectrum.Spectrum.stats`,  `~dysh.spectra.spectrum.Spectrum.roll` ,  `~dysh.spectra.spectrum.Spectrum.radiometer`, `~dysh.spectra.spectrum.Spectrum.normalness`, and  `~dysh.spectra.spectrum.Spectrum.cog` (:ref:`Curve of Growth <cog>`).  Spectrum arithmetic is supported with common operators, e.g.:
 
 .. code:: Python
 
-    s1 = Spectrum.fake_spectrum(nchan=2048)   # default unit is K
+    s1 = Spectrum.fake_spectrum(nchan=2048)   # Default unit is K
     s2 = Spectrum.fake_spectrum(nchan=2048)
     s3 = s1+s2      # Sum of two spectra
     ratio = s2/s1   # Unitless ratio
@@ -172,7 +175,7 @@ and collected into a common :ref:`usersguide-scanblock`.  Users generally will n
    sdfits = GBTFITSLoad(path)
 
    # Get a ScanBlock containing some PSScans calibrated to Janskys
-   sb = sdfits.getps(scan=[23,25,27], ifnum=0,plnum=0,fdnum=0, units='flux', zenith_opacity=0.05)
+   sb = sdfits.getps(scan=[23,25,27], ifnum=0, plnum=0, fdnum=0, units='flux', zenith_opacity=0.05)
 
    # Look at the scale factors and weights of all the Scans in the ScanBlock
    for s in sb:

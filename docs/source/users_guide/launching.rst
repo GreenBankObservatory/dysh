@@ -1,16 +1,16 @@
 
-.. _usersguide-launching
+.. _usersguide-launching:
 
 **************
 Starting dysh
 **************
 
 dysh comes with two pre-configured interfaces that can be started from the
-command line. The first, `dysh`, will start an iPython shell with common
+command line. The first, ``dysh``, will start an iPython shell with common
 dysh classes, and astropy, numpy, and pandas modules already imported.
-`dysh` has a number of command line options, viewable with `--help`
+``dysh`` has a number of command line options, viewable with ``--help``
 
-.. _usersguide-launching-dysh
+.. _usersguide-launching-dysh:
 
 .. code:: bash
 
@@ -44,9 +44,9 @@ dysh classes, and astropy, numpy, and pandas modules already imported.
      --version             Print version and exit
      --skip-config         Skip creating a configuration file
 
-.. _usersguide-launching-dysh-lab
+.. _usersguide-launching-dysh-lab:
 
-There is also a custom Jupyter lab interface, `dysh-lab`, which will start a Jupyter lab server and open a launcher in your browser.
+There is also a custom Jupyter lab interface, ``dysh-lab``, which will start a Jupyter lab server and open a launcher in your browser.
 
 .. code:: bash
 

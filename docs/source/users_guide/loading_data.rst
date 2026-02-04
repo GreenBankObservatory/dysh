@@ -20,14 +20,14 @@ will load all `Header Data Units (HDUs) <https://docs.astropy.org/en/stable/io/f
 from the input file(s).  In SDFITS format, the HDUs are
 `binary tables <https://docs.astropy.org/en/stable/io/fits/api/tables.html#astropy.io.fits.BinTableHDU>`_.
 For files with multiple HDUs, you can load a specific HDU
-with the `hdu` keyword, which can speed up data loading if you are only interested in one binary table.
+with the ``hdu`` keyword, which can speed up data loading if you are only interested in one binary table.
 
 .. code:: Python
 
-    # Load the second binary table from the input FITS files.
+    # Load the second binary table from the input SDFITS files.
     # Note binary tables start at index 1, since HDU 0 is the
     # Primary HDU contains only metadata.
-    sdfits = GBTFITSLoad("/path/to/data",hdu=2)
+    sdfits = GBTFITSLoad("/path/to/data", hdu=2)
     sdfits.info()
 
 You can also limit
@@ -37,7 +37,7 @@ Flags and Flag Files
 Data may come with flag files (with extension ".flag").  By default dysh does
 not read these files because primarily the contain VEGAS spur channels which are more quickly
 flagged algorithmically based on information in the SDFITS header.  You can control
-flagging on input with the `skipflags` and `flag_vegas` keywords, both of which default to True.
+flagging on input with the ``skipflags`` and ``flag_vegas`` keywords, both of which default to True.
 
 .. code:: Python
 
@@ -71,13 +71,13 @@ The most basic description of the data is from `~dysh.fits.gbtfitsload.GBTFITSLo
    sdfits.summary()
 
    # Show every record for a set of scans
-   sdfits.summary(scan=[19,20,21],verbose=True)
+   sdfits.summary(scan=[19,20,21], verbose=True)
 
    # List specific columns
-   sdfits.summary(columns=["OBJECT","LST","DATE-OBS"]))
+   sdfits.summary(columns=["OBJECT", "LST", "DATE-OBS"]))
 
    # List the default columns plus additional ones
-   sdfits.summary(add_columns=["TAMBIENT","VELDEF"])
+   sdfits.summary(add_columns=["TAMBIENT", "VELDEF"])
 
 Data in the individual SDFITS files are accessible via the
 `~dysh.fits.gbtfitsload.GBTFITSLoad.sdf` attribute, a list
@@ -86,7 +86,7 @@ of `~dysh.fits.sdfitsload.SDFITSLoad` with length equal to the number of files.
 .. code:: Python
 
    sdfits.sdf[0]
-   # get array of data from first FITS file, row 3
+   # Get array of data from first SDFITS file, row 3
    array = sdfits.sdf[0].rawspectrum(3)
 
 .. _usersguide-examining-metadata:
@@ -108,14 +108,16 @@ A powerful mechanism for examining and modifying the metadata columns is the `[]
    sdfits["data"].shape
 
    # Examine multiple columns at once
-   mylist = ["object","backend","intnum"]
+   mylist = ["object", "backend", "intnum"]
    sdfits[mylist]
 
    # The unique set of values in a column
    sdfits.udata["backend"]
 
 
-Assignment also works. Assigned values will be used in any subsequent calibration commands. The underlying FITS files are not affected unless you actually overwrite them with ``sdfits.write(overwrite=True)``.
+Assignment also works.
+Assigned values will be used in any subsequent calibration commands.
+The underlying SDFITS files are not affected unless you actually overwrite them with ``sdfits.write(overwrite=True)``.
 
 .. code:: Python
 
@@ -143,15 +145,15 @@ Columns can be renamed:
 
 .. tip::
 
-    For more information on setting metadata, see `Metadata Management <https://dysh.readthedocs.io/en/latest/how-tos/examples/metadata_management.html>`_
+    For more information on setting metadata, see `Metadata Management <https://dysh.readthedocs.io/en/latest/users_guide/metadata_management.html>`_
 
 .. _usersguide-examining-raw-spectral-data:
 
 Examining the Raw Spectral Data
 --------------------------------
 
-GBTFITSLoad, GBTOnline, and GBTOffline have two methods to look at the uncalibrated integration, `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` returns a `~numpy.ndarray` for a given integration, while `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec` returns the data in a `~dysh.spectra.spectrum.Spectrum` object.
-By default these retrieve the the record from the first SDFITS file; other files can be accessed with the ``fitsindex`` parameter (equivalent to, e.g.,  ``sdfits.sdf[2].rawspectrum()``.
+`~dysh.fits.gbtfitsload.GBTFITSLoad`, `~dysh.fits.gbtfitsload.GBTOnline`, and `~dysh.fits.gbtfitsload.GBTOffline` have two methods to look at the raw integrations, `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectrum` returns a `~numpy.ndarray` for a given integration, while `~dysh.fits.gbtfitsload.GBTFITSLoad.getspec` returns the data as a `~dysh.spectra.spectrum.Spectrum` object.
+By default these retrieve the record from the first SDFITS file; other files can be accessed with the ``fitsindex`` parameter (equivalent to, e.g.,  ``sdfits.sdf[2].rawspectrum()``.
 
 .. code:: Python
 
@@ -165,7 +167,7 @@ with `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectra`.
 
 .. code:: Python
 
-    # get the data array from the second binary table of the third SDFITS file
+    # Get the data array from the second binary table of the third SDFITS file
     array = sdfits.rawspectra(bintable=1, fitsindex=2)
 
 .. warning::
@@ -175,7 +177,9 @@ with `~dysh.fits.gbtfitsload.GBTFITSLoad.rawspectra`.
 
 If there is a single binary table, the entire raw data array can be retrieved using the "DATA" keyword.
 
-   allthedata = sdfits["DATA"]
+.. code:: Python
+
+    allthedata = sdfits["DATA"]
 
 Note this is copy of the data not a reference to it, modifying ``allthedata`` does not affect the binary table data.
 

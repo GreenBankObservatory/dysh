@@ -8,7 +8,7 @@ dysh is a Python spectral line data reduction and analysis program for single di
 It is currently under development in collaboration between the `Green Bank Observatory <https://greenbankobservatory.org>`_ and the Laboratory for Millimeter-Wave Astronomy (LMA) at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
 It is intended to replace `GBTIDL <https://gbtidl.nrao.edu/>`_, GBO's current spectral line data reduction package.
 
-Below is a "quickstart" guide with the essentials. A deeper dive into dysh's capablities can be foudn in the `Users Guide <usersguide>`_.
+Below is a "quickstart" guide with the essentials. A deeper dive into dysh's capablities can be found in the `Users Guide <usersguide>`_.
 
 Installation
 ============
@@ -36,7 +36,7 @@ Launching dysh
 ==============
 
 After being installed, the ``dysh`` command will be available through the command line.
-This will launch an iPython session with some modules and classes pre-loaded (e.g., `~dysh.fits.gbtfitsload.GBTFITSLoad`), and with logging.
+This will launch an `iPython <https://ipython.readthedocs.io/en/stable/>`_ session with some modules and classes pre-loaded (e.g., `~dysh.fits.gbtfitsload.GBTFITSLoad`), and with logging.
 We refer to this interface as the dysh shell.
 
 Loading Data
@@ -94,6 +94,8 @@ To plot the data as a waterfall saturating the color scale at 10 K use:
 
 This method returns a `~dysh.plot.scanplot.ScanPlot` object, which can be used to modify the plot.
 See the :ref:`waterfall plot guide <scanblock-plots>` for more details.
+
+More details about the different calibration routines can be found on :ref:`the calibration section of the users guide <usersguide-procedures>`.
 
 Time Averaging Data
 ===================
@@ -173,7 +175,7 @@ Slicing a Spectrum
 
 The brightest line is the OH maser at 1665.4018 MHz.
 To crop the spectrum around this line we use a `slice`.
-We will use `astropy.units` (imported automatically as `u`) to define the frequency range:
+We will use `astropy.units` (imported automatically as ``u``) to define the frequency range:
 
 .. code:: Python
 
