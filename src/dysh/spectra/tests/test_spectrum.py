@@ -279,11 +279,6 @@ class TestSpectrum:
         For units we only consider frequencies for now.
         """
 
-        # Disable interactive plotting.
-        import matplotlib.pyplot as plt
-
-        plt.ioff()
-
         # General variables.
         meta_ignore = ["CRPIX1", "CRVAL1", "BANDWID"]
         spec_pars = ["_target", "_velocity_frame", "_observer", "_obstime"]
@@ -972,10 +967,6 @@ class TestSpectrum:
             s.get_selected_regions()
         assert excinfo.type is TypeError
 
-        # Plot and add a region.
-        import matplotlib.pyplot as plt
-
-        plt.ioff()
         p = s.plot(xaxis_unit="MHz")
         p._selector.spans[0]._set_extents((saq[ch_low].to("MHz").value, saq[ch_upp].to("MHz").value))
 

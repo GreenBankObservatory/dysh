@@ -19,6 +19,20 @@ sys.path.insert(0, os.path.abspath("."))
 
 from dysh import __version__
 
+# -- Edit notebooks ----------------------------------------------------------
+
+# Inject a code cell to use a static rendered when
+# working in Read the Docs.
+on_rtd = os.environ.get("READTHEDOCS") == "True"
+if on_rtd:
+    import prepare_nb
+
+    for root, _dirs, files in os.walk("."):
+        for file in files:
+            if file.endswith(".ipynb"):
+                filename = f"{root}/{file}"
+                prepare_nb.inject_static_gui(filename)
+
 # -- Project information -----------------------------------------------------
 
 
@@ -284,6 +298,13 @@ myst_enable_extensions = [
 ]
 myst_dmath_double_inline = True
 myst_links_external_new_tab = True
+
+nb_ipywidgets_js = {
+    "https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@1.0.14/dist/embed-amd.min.js": {
+        "data-jupyter-widgets-cdn": "https://cdn.jsdelivr.net/npm/",
+        "crossorigin": "anonymous",
+    }
+}
 
 # -- sphinx-copybutton config -------------------------------------
 copybutton_exclude = ".linenos, .gp"

@@ -27,23 +27,56 @@ else:
 
 _KMS = u.km / u.s
 
+mpl.rcParams["font.family"] = "monospace"
+
 
 class PlotBase:
     """This class describes describes the common interface to all Plot classes."""
 
-    def __init__(self, **kwargs):
-        self.figure = mpl.figure.Figure()
-        self.axes = self.figure.subplots(nrows=1, ncols=1)
-        self._set_frontend()
-        mpl.rcParams["font.family"] = "monospace"
+    def __init__(self):
+        self._init_plot()
         self._scan_numbers = None
 
     def _set_frontend(self):
-        self._frontend = GUI
+        self._frontend = GUI(self)
+        self._connect()
+        self._frontend.connect_buttons(self)
+
+    def _connect(self):
+        if self.figure.canvas is not None:
+            self.figure.canvas.mpl_connect("close_event", self._close)
+        else:
+            return
+
+    def _close(self, event=None):
+        if self.has_selector():
+            self._selector.close()
+            self._selector = None
+        self.figure = None
+        self.axes = None
+
+    def _init_plot(self):
+        if not self.has_figure():
+            self.figure = mpl.figure.Figure(figsize=(10, 6), dpi=100)
+        else:
+            self.figure.clear()
+        self.axes = self.figure.subplots(nrows=1, ncols=1)
+
+    def has_axes(self):
+        return hasattr(self, "axes") and self.axes is not None
+
+    def has_figure(self):
+        return hasattr(self, "figure") and self.figure is not None
+
+    def has_selector(self):
+        return hasattr(self, "_selector") and self._selector is not None
 
     def _plot_type(self):
         """The plot object"""
         return self.__class__.__name__
+
+    def show(self):
+        self._frontend.show()
 
     @property
     def axis(self):
