@@ -1771,7 +1771,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         new_spectrum = self.make_spectrum(
             Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
-            observer_location=Observatory[meta["TELESCOP"]],
+            observer_location=Observatory[meta.get("TELESCOP","GBT")],
         )
         new_spectrum._weights = self._weights[start_idx:stop_idx]
         return new_spectrum
