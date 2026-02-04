@@ -266,7 +266,6 @@ class SDFITSLoad:
                     "from FITS file when first accessed."
                         )
                 if "PROCS" in self._index.columns:
-                    print("RENAMING PROCS TO PROCSEQN")
                     self._index.rename(columns={"PROCS":"PROCSEQN"},inplace=True)
                 logger.info(f"   Loaded {len(self._index)} rows, {len(self._index.columns)} columns from .index file")
                 self._index_source = "index_file"
