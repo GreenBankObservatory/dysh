@@ -181,17 +181,16 @@ def generate_tag(values, hashlen, add_time=True):
     Parameters
     ----------
     values : array-like
-        The values to use in creating the hash object
+        The values to use in creating the hash object.
     hashlen : int, optional
         The length of the returned hash string.
-    add_time: bool
+    add_time : bool
         Add the time of the call to the values for hash generation.
 
     Returns
     -------
     tag : str
-        The hash string
-
+        The hash string.
     """
     if add_time:
         values.append(Time.now().value)
@@ -202,7 +201,8 @@ def generate_tag(values, hashlen, add_time=True):
 
 
 def consecutive(data, stepsize=1):
-    """Returns the indices of elements in `data`
+    """
+    Returns the indices of elements in `data`
     separated by less than stepsize separated into
     groups.
 
@@ -433,34 +433,39 @@ def convert_array_to_mask(a, length, value=True):
     """
     This method interprets a simple or compound array and returns a numpy mask
     of length `length`. Single arrays/tuples will be treated as element index lists;
-    nested arrays will be treated as *inclusive* ranges, for instance:
-
-    ``
-    # mask elements 1 and 10
-    convert_array_to_mask([1,10])
-    # mask elements 1 thru 10 inclusive
-    convert_array_to_mask([[1,10]])
-    # mask ranges 1 thru 10 and 47 thru 56 inclusive, and element 75
-    convert_array_to_mask([[1,10], [47,56], 75)])
-    # tuples also work, though can be harder for a human to read
-    convert_array_to_mask(((1,10), [47,56], 75))
-    ``
+    nested arrays will be treated as *inclusive* ranges.
 
     Parameters
     ----------
     a : number or array-like
-        The
+        The channels to mask. See the examples for use.
     length : int
         The length of the mask to return, e.g. the number of channels in a spectrum.
-
     value : bool
         The value to fill the mask with.  True to mask data, False to unmask.
 
     Returns
     -------
-    mask : ~np.ndarray
-        A numpy array where the mask is True according to the rules above.
+    mask : `~numpy.ndarray`
+        A numpy array where the mask is `value`.
 
+    Examples
+    --------
+    Mask elements 1 and 10.
+
+    >>> convert_array_to_mask([1,10])
+
+    Mask elements 1 thru 10 inclusive.
+
+    >>> convert_array_to_mask([[1,10]])
+
+    Mask ranges 1 thru 10 and 47 thru 56 inclusive, and element 75.
+
+    >>> convert_array_to_mask([[1,10], [47,56], 75)])
+
+    Tuples also work. To do the same as above.
+
+    >>> convert_array_to_mask(((1,10), [47,56], 75))
     """
 
     if str(a) == ALL_CHANNELS:
@@ -632,11 +637,11 @@ def calc_vegas_spurs(
 
     Parameters
     ----------
-    vsprval : float or ~numpy.ndarray
-        VEGAS spur channel offset
-    vspdelt : float or ~numpy.ndarray
+    vsprval : float or `~numpy.ndarray`
+        VEGAS spur channel offset.
+    vspdelt : float or `~numpy.ndarray`
         VEGAS spur separation width in channels.
-    vsprpix : float or ~numpy.ndarray
+    vsprpix : float or `~numpy.ndarray`
         VEGAS spur reference pixel.
     maxchan : float
         Maximum channel number (counting from zero), above which calculated spurs are masked.
@@ -645,9 +650,9 @@ def calc_vegas_spurs(
         The GBO SDFITS writer by default replaces the value at the central SPUR with the average of the
         two adjacent channels, and hence the central channel is not typically flagged.
 
-    Note
-    ----
-    All input arrays must have the same shape
+    Notes
+    -----
+    All input arrays must have the same shape.
 
     Returns
     -------

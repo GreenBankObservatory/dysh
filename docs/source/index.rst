@@ -1,17 +1,30 @@
-**********************
-dysh Documentation
-**********************
+.. _quickstartguide:
+
+****************
+Quickstart Guide
+****************
 
 dysh is a Python spectral line data reduction and analysis program for single dish data with specific emphasis on data from the Green Bank Telescope.
-It is currently under development in collaboration between the `Green Bank Observatory <https:/greenbankobservatory.org>`_ and the Laboratory for Millimeter-Wave Astronomy (LMA) at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
+It is currently under development in collaboration between the `Green Bank Observatory <https://greenbankobservatory.org>`_ and the Laboratory for Millimeter-Wave Astronomy (LMA) at the `University of Maryland (UMD) <https://www.astro.umd.edu>`_.
 It is intended to replace `GBTIDL <https://gbtidl.nrao.edu/>`_, GBO's current spectral line data reduction package.
+
+Below is a "quickstart" guide with the essentials. A deeper dive into dysh's capablities can be found in the `Users Guide <usersguide>`_.
 
 Installation
 ============
 
+Directly from github:
+
 .. code:: bash
 
     pip install "dysh[nb] @ git+https://github.com/GreenBankObservatory/dysh"
+
+Latest stable release on PyPI:
+
+.. code:: bash
+
+    pip install dysh[nb]
+
 
 Read on for a brief overview.
 
@@ -23,7 +36,7 @@ Launching dysh
 ==============
 
 After being installed, the ``dysh`` command will be available through the command line.
-This will launch an iPython session with some modules and classes pre-loaded (e.g., `~dysh.fits.gbtfitsload.GBTFITSLoad`), and with logging.
+This will launch an `iPython <https://ipython.readthedocs.io/en/stable/>`_ session with some modules and classes pre-loaded (e.g., `~dysh.fits.gbtfitsload.GBTFITSLoad`), and with logging.
 We refer to this interface as the dysh shell.
 
 Loading Data
@@ -42,7 +55,7 @@ Downloading this data set is only required to follow this quick start as is.
     sdfits = GBTFITSLoad(filename) # This will load the SDFITS file(s) at `filename`.
 
 In the above code, you can replace ``filename`` with a path to your own data.
-Either a single SDFITS file or a directory containing multiple SDFITS files.
+Either a single SDFITS file or a directory containing multiple SDFITS files will work.
 
 The contents of the loaded data can be inspected using the `GBTFITSLoad.summary <dysh.fits.gbtfitsload.GBTFITSLoad.summary>` method, as:
 
@@ -68,6 +81,10 @@ This method requires the :term:`fdnum`, :term:`ifnum` and :term:`plnum` paramete
 
 That's it, now ``scan_block`` contains all the calibrated data.
 
+.. tip::
+
+    More details about the different calibration routines can be
+    found on the `calibration section of the users guide <users_guide/procedures.html>`_.
 
 The calibrated data can be plotted as a waterfall using `ScanBlock.plot <dysh.spectra.scan.ScanBlock.plot>`.
 To plot the data as a waterfall saturating the color scale at 10 K use:
@@ -82,6 +99,8 @@ To plot the data as a waterfall saturating the color scale at 10 K use:
 This method returns a `~dysh.plot.scanplot.ScanPlot` object, which can be used to modify the plot.
 See the :ref:`waterfall plot guide <scanblock-plots>` for more details.
 
+More details about the different calibration routines can be found on :ref:`the calibration section of the users guide <usersguide-procedures>`.
+
 Time Averaging Data
 ===================
 
@@ -91,7 +110,7 @@ Time averaging the calibrated data into a single spectrum can be done using the 
 
     spectrum = scan_block.timeaverage()
 
-The return from this method is a `~dysh.spectra.spectrum.Spectrum` object.
+This method returns a `~dysh.spectra.spectrum.Spectrum` object.
 
 Plot the spectrum using the `Spectrum.plot <dysh.spectra.spectrum.Spectrum.plot>` method:
 
@@ -125,6 +144,8 @@ To fit and remove a Chebyshev polynomial of degree 17, ignoring regions with spe
     spectrum.baseline(model="chebyshev", degree=17, remove=True, exclude=exclude)
 
 The spectrum has been baseline removed.
+The `spectrum plot guide <iplotter>`_ shows how to interactively include/exclude portions by clicking and dragging on the plot itself (without typing out all the tuples of 5-digit channel ranges)
+
 Plot again, but focus on the line-free regions:
 
 .. code:: Python
@@ -151,18 +172,17 @@ Now we proceed to average the spectra with the two polarizations, ``spectrum`` a
 
 .. code:: Python
 
-    average = spectrum.average(spectrum1)
+    sp_avg =  spectrum.average(spectrum1)
 
 Slicing a Spectrum
 ==================
 
 The brightest line is the OH maser at 1665.4018 MHz.
 To crop the spectrum around this line we use a `slice`.
-We will use `astropy.units` to define the frequency range:
+We will use `astropy.units` (imported automatically as ``u``) to define the frequency range:
 
 .. code:: Python
 
-    from astropy import units as u
     oh_bright_spec = spectrum[1665.3*u.GHz:1665.9*u.MHz]
 
 Change the rest frequency to that of the 1665.4018 MHz line:
@@ -204,99 +224,17 @@ If you find a bug or something you think is in error, please report it on
 the `GitHub issue tracker <https://github.com/GreenBankObservatory/dysh/issues>`_.
 You must have a `GitHub account <https://github.com>`_ to submit an issue.
 
-
-Contents
-===============
-
-.. grid:: 1 2 2 2
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`mortar-board;3em;orange` **Tutorials**
-
-        Learning-oriented lessons take you through a series
-        of steps to complete a project.
-
-        Most useful when you want to get started reducing your data.
-
-        .. button-link:: tutorials/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Tutorials
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`terminal;3em;green` **Recipes**
-
-        Practical step-by-step guides to help you achieve a specific goal.
-
-        Most useful when you're trying to get something done.
-
-
-        .. button-link:: how-tos/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Recipes
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`repo;3em;purple` **Explanation**
-
-        Big-picture explanations of higher-level concepts.
-
-        Most useful for building understanding of a particular topic.
-
-
-        .. button-link:: explanations/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Explanation Material
-
-    .. grid-item-card::
-        :shadow: md
-        :margin: 2 2 0 0
-
-        :octicon:`tools;3em;sd-text-primary` **References**
-
-        Nitty-gritty technical descriptions of how `dysh` works.
-
-        Most useful when you need detailed information about the API or how to
-        contribute.
-
-
-        .. button-link:: reference/index.html
-            :color: primary
-            :outline:
-            :click-parent:
-
-            Go to Reference Material
-
-
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :hidden:
 
-   whatsnew/CHANGES.rst
+   self
+   whatsnew/CHANGES
    getting_started/index
-   tutorials/index
-   how-tos/index
-   explanations/index
+   users_guide/index
    reference/index
    for_beta_testers/index
    for_developers/index
-   reference/glossary
 
 
 Credits

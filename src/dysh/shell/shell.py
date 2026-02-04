@@ -76,9 +76,9 @@ def init_shell(
     hide_tb=False,
 ):
     c = Config()
+    import astropy.units as u
     import numpy as np
     import pandas as pd
-    from astropy import units as u
 
     from dysh.fits.gbtfitsload import GBTFITSLoad, GBTOffline, GBTOnline
     from dysh.util.files import dysh_data
