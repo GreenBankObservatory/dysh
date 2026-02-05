@@ -1,0 +1,86 @@
+# Weekly CI with latest (unpinned) dependency versions.
+# Catches compatibility issues before users hit them via `pip install dysh`.
+name: CI (Latest Deps)
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Monday 06:00 UTC
+  workflow_dispatch:
+env:
+  FORCE_COLOR: '1'
+  MPLBACKEND: Agg
+  QT_QPA_PLATFORM: offscreen
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: '3.10'
+          - os: ubuntu-latest
+            python-version: '3.13'
+          - os: ubuntu-latest
+            python-version: '3.14'
+          - os: macos-latest
+            python-version: '3.13'
+          - os: windows-latest
+            python-version: '3.13'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: 0.9.17
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install with latest deps
+        run: uv sync -U --all-extras --dev
+      - name: Log resolved dependency versions
+        run: uv pip list
+      - name: Test with pytest
+        run: |
+          uv run pytest --numprocesses auto -m "not gbo_only" --timeout=0
+  notify-on-failure:
+    needs: tests
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create or update failure issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'CI (Latest Deps) is failing';
+            const label = 'ci:latest-deps-failure';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = `The weekly latest-deps CI run failed.\n\nSee: ${runUrl}`;
+
+            // Check for existing open issue with this label
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: label,
+              state: 'open',
+              per_page: 1,
+            });
+
+            if (issues.length > 0) {
+              // Comment on existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: body,
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: [label],
+              });
+            }
