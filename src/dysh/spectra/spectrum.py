@@ -773,7 +773,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         new_spec = self._copy()
-        data = np.ma.masked_where(new_spec.mask, new_spec.data)
+        data = np.ma.masked_array(new_spec.data, mask=new_spec.mask)
         new_data = core.data_shift(data, s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
 
         # Update data values.
