@@ -235,6 +235,17 @@ class SpectralAverageMixin:
         """
         return self._weights
 
+    def plot(self, **kwargs):
+        """
+        Plot the data as a waterfall.
+        """
+        if self._plotter is None:
+            self._plotter = sp.ScanPlot(self, **kwargs)
+        self._plotter.plot(**kwargs)
+        g = self._plotter._frontend(self._plotter)
+        g.show()
+        return self._plotter
+
 
 class ScanBase(HistoricalBase, SpectralAverageMixin):
     """This class describes the common interface to all Scan classes.
@@ -1062,12 +1073,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum
         )
 
-    def plot(self, **kwargs):
-        if self._plotter is None:
-            self._plotter = sp.ScanPlot(self, **kwargs)
-        self._plotter.plot(**kwargs)
-        return self._plotter
-
     def __len__(self):
         return self._nint
 
@@ -1528,12 +1533,6 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
 
         logger.debug(f"Saving {nrows} scans in {fileobj} from ScanBlock.")
         b.writeto(name=fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
-
-    def plot(self, **kwargs):
-        if self._plotter is None:
-            self._plotter = sp.ScanPlot(self, **kwargs)
-        self._plotter.plot(**kwargs)
-        return self._plotter
 
 
 class TPScan(ScanBase):

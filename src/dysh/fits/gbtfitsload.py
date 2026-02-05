@@ -191,6 +191,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return self._selection
 
     @property
+    def sdf(self):
+        """
+        The list of `~dysh.fits.sdfitsload.SDFITSLoad` objects (one per
+        SDFITS file) inside this `~dysh.fits.gbtfitsload.GBTFITSLoad`.
+        """
+        return self._sdf
+
+    @property
     def projectID(self):
         """
         The project identification
