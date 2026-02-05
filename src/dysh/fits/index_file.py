@@ -92,8 +92,9 @@ SDFITS_INDEX_TO_DYSH_MAP = {
     "DATEOBS": "DATE-OBS",
     "EXT": "HDU",  # EXT in .index = HDU in dysh (both are HDU number, 1-based)
     "SOURCE": "OBJECT",  # .index calls it SOURCE, dysh calls it OBJECT
-    "PROCEDURE": "PROC",  # .index has full name, dysh uses abbreviation
-    "ELEVATION": "ELEVATIO",  # .index has correct spelling, dysh has typo
+    "PROCEDURE": "PROC",  # .index has full name (too long for FITS convention), dysh uses abbreviation
+    "PROCS": "PROCSEQN",  # .index has abbreviation, dysh uses full name
+    "ELEVATION": "ELEVATIO",  # .index name is too long for FITS
     "LONGITUDE": "CRVAL2",  # .index LONGITUDE = FITS CRVAL2 (lon-like coordinate)
     "LATITUDE": "CRVAL3",  # .index LATITUDE = FITS CRVAL3 (lat-like coordinate)
     "CENTFREQ": "CRVAL1",  # .index CENTFREQ = FITS CRVAL1 (center frequency)
