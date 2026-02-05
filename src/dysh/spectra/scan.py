@@ -2807,9 +2807,11 @@ class FSScan(ScanBase):
 
             if ndim == 2:
                 crval1 = crval1.to_numpy()
-                crpix1 = crpix1.to_numpy()
+                crpix1 = crpix1.to_numpy().copy()  # copy needed for in-place modification
                 cdelt1 = cdelt1.to_numpy()
                 vframe = vframe.to_numpy()
+            else:
+                crpix1 = crpix1.to_numpy().copy()  # copy needed for in-place modification
             crpix1 -= self._channel_slice.start
             freq = channel_to_frequency(crval1, crpix1, cdelt1, vframe, nchan[0], nint, ndim=ndim)
 
