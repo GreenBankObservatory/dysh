@@ -135,7 +135,7 @@ class PlotBase:
         self._axis.annotate(
             f"Tcal   :  {np.around(s.meta['TCAL'], 2)}", (hcoords[4], vcoords[1]), xycoords=xyc, size=fsize_small
         )
-        self._axis.annotate(f"{s.meta['PROCS']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
+        self._axis.annotate(f"{s.meta['PROCSEQN']}", (hcoords[4], vcoords[2]), xycoords=xyc, size=fsize_small)
 
         # bottom row
         vcoord_bot = 0.72 + move_vcoords_bool
