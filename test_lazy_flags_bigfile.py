@@ -12,7 +12,9 @@ import tracemalloc
 
 import psutil
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
+from dysh.log import init_console_log
+
+init_console_log("INFO")
 
 
 def mem_gb():
