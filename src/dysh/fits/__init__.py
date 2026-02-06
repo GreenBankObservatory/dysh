@@ -1,5 +1,12 @@
 """Classes and functions for importing SDFITS files"""
 
+try:
+    import fitsio  # noqa: F401
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
+
 # Configuration options follow.
 # These need to come after the global config variables, as some of the
 # submodules use them.

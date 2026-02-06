@@ -6,7 +6,6 @@ import warnings
 from collections.abc import Sequence
 
 import astropy.units as u
-import fitsio as fitsio_lib
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -88,12 +87,22 @@ class SDFITSLoad:
         # bintable, which may have been mutated by _update_column).
         if not hasattr(self, "_file_has_flags"):
             self._file_has_flags = {}
-            with fitsio_lib.FITS(self._filename) as f:
-                for i in range(len(self._bintable)):
-                    hdu_index = i + 1
-                    if hdu_index < len(f):
-                        col_names = [c.upper() for c in f[hdu_index].get_colnames()]
-                        self._file_has_flags[i] = "FLAGS" in col_names
+            try:
+                import fitsio as fitsio_lib
+
+                with fitsio_lib.FITS(self._filename) as f:
+                    for i in range(len(self._bintable)):
+                        hdu_index = i + 1
+                        if hdu_index < len(f):
+                            col_names = [c.upper() for c in f[hdu_index].get_colnames()]
+                            self._file_has_flags[i] = "FLAGS" in col_names
+            except ImportError:
+                with fits.open(self._filename, memmap=True) as hdul:
+                    for i in range(len(self._bintable)):
+                        hdu_index = i + 1
+                        if hdu_index < len(hdul):
+                            col_names = [c.upper() for c in hdul[hdu_index].columns.names]
+                            self._file_has_flags[i] = "FLAGS" in col_names
 
         for i in range(len(self._flagmask)):
             nc = self.nchan(i)

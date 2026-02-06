@@ -11,10 +11,10 @@ import warnings
 from collections.abc import Sequence
 from pathlib import Path
 
-import fitsio
 import numpy as np
 import pandas as pd
 from astropy import units as u
+from astropy.io import fits
 from astropy.units.quantity import Quantity
 
 from dysh.log import logger
@@ -55,6 +55,13 @@ from ..util.selection import Flag, Selection  # noqa: F811
 from ..util.weatherforecast import GBTWeatherForecast
 from . import conf, core
 from .sdfitsload import SDFITSLoad
+
+try:
+    import fitsio
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
@@ -3417,9 +3424,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
         """
-        if output_verify != "exception" or checksum:
-            logger.debug("write: output_verify and checksum parameters are ignored in the fitsio write path")
+        if HAS_FITSIO:
+            self._write_fitsio(fileobj, multifile, flags, verbose, overwrite, **kwargs)
+        else:
+            self._write_astropy(fileobj, multifile, flags, verbose, output_verify, overwrite, checksum, **kwargs)
 
+    def _write_fitsio(self, fileobj, multifile, flags, verbose, overwrite, **kwargs):
+        """Write using the fitsio chunked path (memory-efficient for large files)."""
         chunk_size = kwargs.pop("chunk_size", 5000)
         logger.debug(kwargs)
         selection = Selection(self._index)
@@ -3485,6 +3496,91 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             )
             if verbose:
                 logger.info(f"Writing {total_rows_written} to {fileobj}")
+
+    def _write_astropy(self, fileobj, multifile, flags, verbose, output_verify, overwrite, checksum, **kwargs):
+        """Write using the astropy path (fallback when fitsio is unavailable)."""
+        logger.debug(kwargs)
+        selection = Selection(self._index)
+        if len(kwargs) > 0:
+            selection._select_from_mixed_kwargs(**kwargs)
+            logger.debug(selection.show())
+            _final = selection.final
+        else:
+            _final = selection
+        if len(_final) == 0:
+            raise Exception("Your selection resulted in no rows to be written")
+        fi = _final["FITSINDEX"].unique()
+        logger.debug(f"fitsindex {fi} ")
+        total_rows_written = 0
+        if multifile:
+            count = 0
+            for k in fi:
+                this_rows_written = 0
+                hdu = self._sdf[k]._hdu[0].copy()
+                outhdu = fits.HDUList(hdu)
+                df = select_from("FITSINDEX", k, _final)
+                bintables = df.BINTABLE.unique()
+                for b in bintables:
+                    rows = df.ROW[df.BINTABLE == b].unique()
+                    rows.sort()
+                    lr = len(rows)
+                    if lr > 0:
+                        if flags:
+                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
+                            dim1 = np.shape(flagval)[1]
+                            form = f"{dim1}B"
+                            c = fits.Column(name="FLAGS", format=form, array=flagval)
+                            self._sdf[k]._update_column({"FLAGS": c}, b)
+                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        if len(ob.data) > 0:
+                            outhdu.append(ob)
+                        total_rows_written += lr
+                        this_rows_written += lr
+                if len(fi) > 1:
+                    p = Path(fileobj)
+                    outfile = p.parent / (p.stem + str(count) + p.suffix)
+                    count += 1
+                else:
+                    outfile = fileobj
+                for h in self.history:
+                    outhdu[0].header["HISTORY"] = h
+                for c in self.comments:
+                    outhdu[0].header["COMMENT"] = c
+                if verbose:
+                    logger.info(f"Writing {this_rows_written} rows to {outfile}.")
+                outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            if verbose:
+                logger.info(f"Total of {total_rows_written} rows written to files.")
+        else:
+            hdu = self._sdf[fi[0]]._hdu[0].copy()
+            outhdu = fits.HDUList(hdu)
+            for k in fi:
+                df = select_from("FITSINDEX", k, _final)
+                bintables = df.BINTABLE.unique()
+                for b in bintables:
+                    rows = df.ROW[df.BINTABLE == b].unique()
+                    rows.sort()
+                    lr = len(rows)
+                    if lr > 0:
+                        if flags:
+                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
+                            dim1 = np.shape(flagval)[1]
+                            form = f"{dim1}B"
+                            c = fits.Column(name="FLAGS", format=form, array=flagval)
+                            self._sdf[k]._update_column({"FLAGS": c}, b)
+                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        if len(ob.data) > 0:
+                            outhdu.append(ob)
+                        total_rows_written += lr
+            for h in self.history:
+                outhdu[0].header["HISTORY"] = h
+            for c in self.comments:
+                outhdu[0].header["COMMENT"] = c
+            if total_rows_written == 0:
+                raise Exception("Your selection resulted in no rows to be written")
+            if verbose:
+                logger.info(f"Writing {total_rows_written} to {fileobj}")
+            outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
 
     def _update_radesys(self):
         """

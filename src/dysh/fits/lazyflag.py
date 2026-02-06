@@ -8,10 +8,17 @@ from ~40GB to a few MB (proportional to flagged rows only).
 
 import tempfile
 
-import fitsio
 import numpy as np
+from astropy.io import fits
 
 from ..log import logger
+
+try:
+    import fitsio
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
 
 # Number of rows to process at a time when materializing large arrays
 CHUNK_SIZE = 10_000
@@ -97,8 +104,12 @@ class LazyFlagArray:
             return np.zeros((len(rows), self._nchan), dtype=bool)
 
         rows_array = np.asarray(rows)
-        with fitsio.FITS(self._filename) as f:
-            flags_data = f[self._hdu_index].read(columns=["FLAGS"], rows=rows_array)["FLAGS"]
+        if HAS_FITSIO:
+            with fitsio.FITS(self._filename) as f:
+                flags_data = f[self._hdu_index].read(columns=["FLAGS"], rows=rows_array)["FLAGS"]
+        else:
+            with fits.open(self._filename, memmap=True) as hdul:
+                flags_data = hdul[self._hdu_index].data["FLAGS"][rows_array]
         return flags_data.astype(bool)
 
     def _dedup_mask(self, mask_row):

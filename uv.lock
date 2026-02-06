@@ -1157,7 +1157,7 @@ dependencies = [
     { name = "astropy", version = "6.1.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "astropy", version = "7.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "astroquery" },
-    { name = "fitsio" },
+    { name = "fitsio", marker = "sys_platform != 'win32'" },
     { name = "httpx" },
     { name = "ipython", version = "8.37.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "ipython", version = "9.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -1226,7 +1226,7 @@ dev = [
 requires-dist = [
     { name = "astropy", specifier = ">=6.1" },
     { name = "astroquery" },
-    { name = "fitsio" },
+    { name = "fitsio", marker = "sys_platform != 'win32'" },
     { name = "httpx" },
     { name = "ipympl", marker = "extra == 'all'" },
     { name = "ipympl", marker = "extra == 'nb'" },
