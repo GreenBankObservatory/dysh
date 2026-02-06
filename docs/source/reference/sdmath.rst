@@ -99,7 +99,7 @@ For purely thermal noise this would reduce the noise in the calibrated spectrum 
    \sqrt{\frac{N+1}{2N}}
 
 where :math:`N` is the width, in channels, of the smoothing kernel.
-So, if using ``smoothref=3`` the noise should be reduced by :math:`\sqrt{4/6}`.
+So, if using ``smoothref=3`` the noise should be reduced by :math:`\sqrt{4/6}`, or 0.82.
 
 Exposure Time
 -------------
@@ -109,6 +109,15 @@ Effective exposure time after calibrating using a noisy reference power
 .. math:: :label: eq_sdmath6
 
    \Delta t=\frac{t_{\rm{sig}}t_{\rm{ref}}}{t_{\rm{sig}}+t_{\rm{ref}}}.
+
+but this is assuming the reference was not smoothed, as from the previous section. The correct equation
+for a smoothed reference (with  :math:`N` the number of channels to smooth with) would be
+
+.. math:: :label: eq_sdmath7
+
+   \Delta t= t_{\rm{sig}}  \frac{N.t_{\rm{ref}}}{t_{\rm{sig}}+N.t_{\rm{ref}}}.
+
+
 
 Ruze Equation
 -------------

@@ -2199,8 +2199,19 @@ class PSScan(ScanBase):
             nsmooth = self._smoothref
         else:
             nsmooth = 1.0
-        self._exposure = exp_sig * exp_ref * nsmooth / (exp_sig + exp_ref * nsmooth)
-        self._duration = dur_sig * dur_ref * nsmooth / (dur_sig + dur_ref * nsmooth)
+
+        if np.isscalar(exp_ref):
+            _exp_ref = np.full_like(exp_sig, exp_ref / len(exp_sig))
+        else:
+            _exp_ref = exp_ref
+
+        if np.isscalar(dur_ref):
+            _dur_ref = np.full_like(dur_sig, dur_ref / len(dur_sig))
+        else:
+            _dur_ref = dur_ref
+
+        self._exposure = exp_sig * _exp_ref * nsmooth / (exp_sig + _exp_ref * nsmooth)
+        self._duration = dur_sig * _dur_ref * nsmooth / (dur_sig + _dur_ref * nsmooth)
 
     def _calc_delta_freq(self):
         """calculate the channel width

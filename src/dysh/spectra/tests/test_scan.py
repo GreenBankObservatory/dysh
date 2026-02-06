@@ -270,17 +270,17 @@ class TestPSScan:
         srta = srsb.timeaverage()
         stats = srta.stats()
         result = {
-            "mean": -1.14103931,
-            "median": -1.13494246,
-            "rms": 0.46420984,
-            "min": -7.71431927,
-            "max": 10.70582089,
+            "mean": -1.14097115,
+            "median": -1.1354125,
+            "rms": 0.46437655,
+            "min": -7.79211042,
+            "max": 10.65451653,
         }
         for k in result:
             assert stats[k].value == pytest.approx(result[k])
         assert stats["nan"] == 31
         assert srta.meta["TSYS"] == pytest.approx(362.0670888626437)
-        assert srta.meta["EXPOSURE"] == 58.5011952833595
+        assert srta.meta["EXPOSURE"] == pytest.approx(29.681763274942497)
         assert srta.meta["DURATION"] > srta.meta["EXPOSURE"]
 
 
