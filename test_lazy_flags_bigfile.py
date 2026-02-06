@@ -5,11 +5,14 @@ Usage:
     uv run python test_lazy_flags_bigfile.py /path/to/directory/
 """
 
+import logging
 import os
 import sys
 import tracemalloc
 
 import psutil
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
 
 
 def mem_gb():
