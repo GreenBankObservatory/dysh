@@ -2816,26 +2816,31 @@ class FSScan(ScanBase):
             # Apply units.
             try:
                 cunit1 = u.Unit(df["CUNIT1"])
-                # if ndim == 2:
-                #   cunit1 = cunit[0]  #  @todo undefined cunit[]
             except KeyError:
                 cunit1 = u.Hz
 
             return freq * cunit1
 
-        def do_sig_ref(sig, ref, tsys, smooth=False):
-            """
-            smooth=True would implement smoothing the reference (or something)
-            """
+        def do_sig_ref(sig, ref, tsys):
             return (sig - ref) / ref * tsys
 
-        def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=False, shift_method="fft"):
+        def do_fold(sig, ref, sig_freq, ref_freq, remove_wrap=True, shift_method="fft", sig_weight=1, ref_weight=1):
             """ """
             chan_shift = (ref_freq[0] - sig_freq[0]) / np.diff(sig_freq).mean()
             logger.debug(f"do_fold: sig_freq0={sig_freq[0]}, ref_freq0={ref_freq[0]}, chan_shift={chan_shift}")
             ref_shift = core.data_shift(ref, chan_shift, remove_wrap=remove_wrap, method=shift_method)
-            # @todo weights
-            avg = (sig + ref_shift) / 2
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                weight_sum = np.nansum(
+                    ((~np.isnan(sig.filled(np.nan))) * sig_weight, (~np.isnan(ref_shift.filled(np.nan))) * ref_weight),
+                    axis=0,
+                )
+                avg = (
+                    np.nansum((sig.filled(np.nan) * sig_weight, ref_shift.filled(np.nan) * ref_weight), axis=0)
+                    / weight_sum
+                )
+                # avg = np.nanmean((sig.filled(np.nan), ref_shift.filled(np.nan)), axis=0)
+            avg = np.ma.masked_array(avg, mask=sig.mask | ref_shift.mask)
             return avg
 
         kwargs_opts = {"verbose": False}
@@ -2852,7 +2857,7 @@ class FSScan(ScanBase):
         if self._vane is not None:
             self._tcal[:] = self.get_vane_tcal()
 
-        #  tcal is the same for REF and SIG, and the same for all integrations actually.
+        # tcal is the same for REF and SIG, and the same for all integrations actually.
         tcal = self._tcal
         logger.debug(f"TCAL: {len(tcal)} {tcal[0]}")
         if len(tcal) != nspect:
@@ -2880,19 +2885,36 @@ class FSScan(ScanBase):
                 cal_sig = do_sig_ref(tp_sig, tp_ref, tsys_ref)
                 cal_ref = do_sig_ref(tp_ref, tp_sig, tsys_sig)
                 if _fold:
+                    # Fold the system temperatures.
+                    tsys_ref_w = tsys_weight(df_ref["EXPOSURE"].iloc[i], df_ref["CDELT1"].iloc[i], tsys_ref)
+                    tsys_sig_w = tsys_weight(df_sig["EXPOSURE"].iloc[i], df_sig["CDELT1"].iloc[i], tsys_sig)
+                    self._tsys[i] = np.sqrt(
+                        (tsys_ref**2 * tsys_ref_w + tsys_sig**2 * tsys_sig_w) / (tsys_ref_w + tsys_sig_w)
+                    )
+                    # Folde the spectra.
                     cal_sig_fold = do_fold(
-                        cal_sig, cal_ref, sig_freq[i], ref_freq[i], shift_method=kwargs["shift_method"]
+                        cal_sig,
+                        cal_ref,
+                        sig_freq[i],
+                        ref_freq[i],
+                        shift_method=kwargs["shift_method"],
+                        sig_weight=tsys_sig_w,
+                        ref_weight=tsys_ref_w,
                     )
                     cal_ref_fold = do_fold(
-                        cal_ref, cal_sig, ref_freq[i], sig_freq[i], shift_method=kwargs["shift_method"]
+                        cal_ref,
+                        cal_sig,
+                        ref_freq[i],
+                        sig_freq[i],
+                        shift_method=kwargs["shift_method"],
+                        sig_weight=tsys_sig_w,
+                        ref_weight=tsys_ref_w,
                     )
                     self._folded = True
                     if self._use_sig:
                         self._calibrated[i] = cal_sig_fold
-                        self._tsys[i] = tsys_ref
                     else:
                         self._calibrated[i] = cal_ref_fold
-                        self._tsys[i] = tsys_sig
 
                 elif self._use_sig:
                     self._calibrated[i] = cal_sig
