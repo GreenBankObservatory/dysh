@@ -11,10 +11,10 @@ import warnings
 from collections.abc import Sequence
 from pathlib import Path
 
+import fitsio
 import numpy as np
 import pandas as pd
 from astropy import units as u
-from astropy.io import fits
 from astropy.units.quantity import Quantity
 
 from dysh.log import logger
@@ -59,6 +59,163 @@ from .sdfitsload import SDFITSLoad
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
+
+# ---- fitsio write-path helpers ----
+
+_FITSIO_STRUCTURAL_KEYWORDS = frozenset(
+    [
+        "SIMPLE",
+        "BITPIX",
+        "EXTEND",
+        "XTENSION",
+        "TFIELDS",
+        "PCOUNT",
+        "GCOUNT",
+        "END",
+    ]
+)
+
+_FITSIO_COLUMN_PREFIXES = ("NAXIS", "TTYPE", "TFORM", "TDIM", "TUNIT", "TNULL", "TSCAL", "TZERO", "TDISP")
+
+
+def _astropy_header_to_fitsio_records(astropy_header):
+    """Convert an astropy FITS Header to a list of dicts for fitsio's ``header=`` parameter.
+
+    Skips structural keywords that fitsio manages itself (SIMPLE, BITPIX, NAXIS*, TTYPE*, etc.).
+    Converts HISTORY and COMMENT cards to the ``{'name': ..., 'value': ...}`` format fitsio expects.
+
+    Parameters
+    ----------
+    astropy_header : `~astropy.io.fits.Header`
+        The astropy header to convert.
+
+    Returns
+    -------
+    list of dict
+        Each dict has keys ``'name'``, ``'value'``, and optionally ``'comment'``.
+    """
+    records = []
+    for card in astropy_header.cards:
+        key = card.keyword.upper().strip()
+        # Skip blank cards
+        if not key:
+            continue
+        # Skip structural keywords
+        if key in _FITSIO_STRUCTURAL_KEYWORDS:
+            continue
+        # Skip column-descriptor keywords (NAXIS1, TTYPE7, TFORM7, TDIM7, etc.)
+        if any(key.startswith(prefix) for prefix in _FITSIO_COLUMN_PREFIXES):
+            continue
+        if key in ("HISTORY", "COMMENT"):
+            val = str(card.value)
+            # Skip empty COMMENT/HISTORY cards -- they are cosmetic separators and
+            # can trigger a fitsio bug that inserts a blank keyword card when
+            # combined with many column descriptors.
+            if not val.strip():
+                continue
+            records.append({"name": key, "value": val})
+        else:
+            rec = {"name": key, "value": card.value}
+            if card.comment:
+                rec["comment"] = card.comment
+            records.append(rec)
+    return records
+
+
+def _build_chunk_recarray(sdf, bintable_idx, chunk_rows, col_names, include_flags, nchan):
+    """Build a single chunk's numpy structured array for fitsio writing.
+
+    All columns are read from **disk** via fitsio by default.  If the astropy bintable's
+    ``.data`` has already been loaded (indicating possible in-memory mutations from
+    ``sdf["COLNAME"] = value``), non-DATA scalar columns are overwritten from the
+    in-memory copy.  FLAGS are regenerated from the ``LazyFlagArray``.
+
+    Parameters
+    ----------
+    sdf : `SDFITSLoad`
+        The SDFITSLoad instance to read from.
+    bintable_idx : int
+        Index into ``sdf._bintable``.
+    chunk_rows : array-like
+        Row indices (into the original bintable) to include in this chunk.
+    col_names : list of str
+        Column names to include (order preserved), excluding FLAGS.
+    include_flags : bool
+        Whether to append a FLAGS column.
+    nchan : int
+        Number of channels (used for FLAGS shape).
+
+    Returns
+    -------
+    np.ndarray
+        Structured (record) array suitable for ``fitsio.write()`` or ``hdu.append()``.
+    """
+    chunk_rows = np.asarray(chunk_rows)
+    nrows = len(chunk_rows)
+    hdu_idx = bintable_idx + 1  # fitsio HDU index (0 = primary)
+    bt = sdf._bintable[bintable_idx]
+
+    # Check if in-memory data has been loaded (implies possible mutations or renames)
+    data_loaded = getattr(bt, "_data_loaded", False)
+
+    # Determine which columns exist on disk vs only in memory (e.g. INT -> INTNUM rename)
+    rows_list = chunk_rows.tolist()
+    with fitsio.FITS(str(sdf._filename)) as ff:
+        disk_col_set = set(ff[hdu_idx].get_colnames())
+        disk_cols = [c for c in col_names if c in disk_col_set]
+        mem_only_cols = [c for c in col_names if c not in disk_col_set]
+
+        # Read disk columns from fitsio -- gives us a numpy recarray with correct dtypes
+        disk_data = ff[hdu_idx].read(columns=disk_cols, rows=rows_list)
+
+    # Build the output dtype in col_names order to preserve original column positions.
+    # Memory-only columns (e.g. INTNUM renamed from INT) need astropy .data access.
+    mem_only_set = set(mem_only_cols)
+    bt_data = bt.data if mem_only_cols else None
+    dtype_list = []
+    for name in col_names:
+        if name in mem_only_set:
+            col_data = bt_data[name]
+            if col_data.ndim > 1:
+                dtype_list.append((name, col_data.dtype.str, col_data.shape[1:]))
+            else:
+                dtype_list.append((name, col_data.dtype.str))
+        else:
+            field_dtype = disk_data.dtype[name]
+            if field_dtype.shape:
+                dtype_list.append((name, field_dtype.base.str, field_dtype.shape))
+            else:
+                dtype_list.append((name, field_dtype.str))
+
+    if include_flags:
+        dtype_list.append(("FLAGS", "u1", (nchan,)))
+
+    # Allocate and fill output array
+    chunk = np.empty(nrows, dtype=dtype_list)
+
+    for name in disk_cols:
+        chunk[name] = disk_data[name]
+    del disk_data
+
+    if mem_only_cols:
+        for name in mem_only_cols:
+            chunk[name] = bt_data[name][chunk_rows]
+
+    # If astropy .data was previously loaded, overlay scalar disk columns from memory
+    # to capture any mutations from sdf["COLNAME"] = value.
+    # DATA is never mutated so we always keep the fitsio version.
+    if data_loaded:
+        if not mem_only_cols:
+            bt_data = bt.data
+        for name in disk_cols:
+            if name == "DATA":
+                continue
+            chunk[name] = bt_data[name][chunk_rows]
+
+    if include_flags:
+        chunk["FLAGS"] = sdf._flagmask[bintable_idx].rows_as_uint8(chunk_rows)
+
+    return chunk
 
 
 class GBTFITSLoad(SDFITSLoad, HistoricalBase):
@@ -1075,7 +1232,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         mask = np.full(maxnchan + 1, False)
                         mask[a[~a.mask]] = True
                         p.append(mask)
-                    self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(p)
+                    self._sdf[fi]._additional_channel_mask[bi].or_rows(rows, np.array(p))
         except KeyError as k:
             logger.warning(
                 f"Can't determine VEGAS spur locations because one or more VSP keywords are missing from the FITS header {k}"
@@ -1125,7 +1282,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     chrng = slice(nedge, -(nedge - 1), 1)
                     if np.all(chan_mask[chrng]):
                         chan_mask[:] = True
-                self._sdf[fi]._flagmask[bi][rows] |= chan_mask
+                self._sdf[fi]._flagmask[bi].or_rows(rows, chan_mask)
         # now any additional channel flags, i.e. VEGAS flags
         self._apply_additional_flags()
 
@@ -3118,6 +3275,101 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return scan_selection
 
+    def _write_chunked_fitsio(self, outfile, fitsindex_groups, flags, overwrite, chunk_size=5000):
+        """Write SDFITS data using fitsio with chunked row processing.
+
+        Processes rows in chunks to keep memory bounded, even for very large files.
+
+        Parameters
+        ----------
+        outfile : str or `pathlib.Path`
+            Output file path.
+        fitsindex_groups : list of tuple
+            Each element is ``(fitsindex_k, [(bintable_idx, rows_array), ...])``.
+        flags : bool
+            Whether to write a FLAGS column.
+        overwrite : bool
+            Whether to overwrite an existing file.
+        chunk_size : int
+            Number of rows per chunk.
+
+        Returns
+        -------
+        int
+            Total number of rows written.
+        """
+        outfile = Path(outfile)
+        if outfile.exists():
+            if overwrite:
+                outfile.unlink()
+            else:
+                raise OSError(f"File already exists: {outfile}")
+
+        total_rows_written = 0
+
+        # Write primary HDU from the first SDFITSLoad's primary header
+        first_k = fitsindex_groups[0][0]
+        primary_header = self._sdf[first_k]._hdu[0].header
+        primary_records = _astropy_header_to_fitsio_records(primary_header)
+        # Add HISTORY and COMMENT cards
+        for h in self.history:
+            primary_records.append({"name": "HISTORY", "value": str(h)})
+        for c in self.comments:
+            primary_records.append({"name": "COMMENT", "value": str(c)})
+
+        with fitsio.FITS(str(outfile), "rw", clobber=True) as f:
+            # Write empty primary HDU with header
+            f.write(None, header=primary_records)
+
+        # Write each bintable extension
+        for fitsindex_k, bt_list in fitsindex_groups:
+            sdf = self._sdf[fitsindex_k]
+            for bintable_idx, rows in bt_list:
+                rows = np.asarray(rows)
+                if len(rows) == 0:
+                    continue
+
+                # Get column names (excluding FLAGS -- we regenerate it)
+                col_names = [n for n in sdf._bintable[bintable_idx].columns.names if n != "FLAGS"]
+                nchan = sdf.nchan(bintable_idx)
+                bt_header = sdf._binheader[bintable_idx]
+                bt_header_records = _astropy_header_to_fitsio_records(bt_header)
+
+                # Extract EXTNAME: fitsio ignores it in header records, needs extname= param
+                extname = bt_header.get("EXTNAME", None)
+                bt_header_records = [r for r in bt_header_records if r["name"] != "EXTNAME"]
+
+                nrows = len(rows)
+                nchunks = (nrows + chunk_size - 1) // chunk_size
+                logger.info(
+                    f"write: bintable {bintable_idx}: {nrows} rows, {nchan} channels, "
+                    f"{nchunks} chunk(s) of {chunk_size}"
+                )
+                first_chunk = True
+                for chunk_start in range(0, nrows, chunk_size):
+                    chunk_end = min(chunk_start + chunk_size, nrows)
+                    chunk_rows = rows[chunk_start:chunk_end]
+
+                    t0 = time.monotonic()
+                    chunk_data = _build_chunk_recarray(sdf, bintable_idx, chunk_rows, col_names, flags, nchan)
+                    logger.info(
+                        f"write: chunk [{chunk_start}:{chunk_end}] of {nrows} rows built ({time.monotonic() - t0:.1f}s)"
+                    )
+
+                    t0 = time.monotonic()
+                    with fitsio.FITS(str(outfile), "rw") as f:
+                        if first_chunk:
+                            f.write(chunk_data, header=bt_header_records, extname=extname)
+                            first_chunk = False
+                        else:
+                            f[-1].append(chunk_data)
+                    logger.info(f"write: chunk written to disk ({time.monotonic() - t0:.1f}s)")
+
+                    total_rows_written += len(chunk_rows)
+                    del chunk_data
+
+        return total_rows_written
+
     def write(
         self,
         fileobj,
@@ -3131,6 +3383,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     ):
         """
         Write all or a subset of the `GBTFITSLoad` data to a new SDFITS file(s).
+
+        Uses fitsio with chunked row processing to keep memory bounded,
+        even for very large files.
 
         Parameters
         ----------
@@ -3162,7 +3417,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
         """
-        # debug = kwargs.pop("debug", False)
+        if output_verify != "exception" or checksum:
+            logger.debug("write: output_verify and checksum parameters are ignored in the fitsio write path")
+
+        chunk_size = kwargs.pop("chunk_size", 5000)
         logger.debug(kwargs)
         selection = Selection(self._index)
         if len(kwargs) > 0:
@@ -3179,81 +3437,54 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if multifile:
             count = 0
             for k in fi:
-                this_rows_written = 0
-                # copy the primary HDU
-                hdu = self._sdf[k]._hdu[0].copy()
-                outhdu = fits.HDUList(hdu)
-                # get the bintables rows as new bintables.
+                # Build bintable groups for this FITSINDEX
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
-                for b in bintables:  # loop over the bintables in this fitsfile
-                    rows = df.ROW[df.BINTABLE == b].unique()
-                    rows.sort()
-                    lr = len(rows)
-                    if lr > 0:
-                        if flags:  # update the flags before we select rows
-                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
-                            dim1 = np.shape(flagval)[1]
-                            form = f"{dim1}B"
-                            c = fits.Column(name="FLAGS", format=form, array=flagval)
-                            self._sdf[k]._update_column({"FLAGS": c}, b)
-                        ob = self._sdf[k]._bintable_from_rows(rows, b)
-                        if len(ob.data) > 0:
-                            outhdu.append(ob)
-                        total_rows_written += lr
-                        this_rows_written += lr
+                bt_list = []
+                for b in bintables:
+                    rows = np.sort(df.ROW[df.BINTABLE == b].unique())
+                    if len(rows) > 0:
+                        bt_list.append((b, rows))
+                if not bt_list:
+                    continue
+
                 if len(fi) > 1:
                     p = Path(fileobj)
-                    # Note this will not preserve "A","B" etc suffixes in original FITS files.
                     outfile = p.parent / (p.stem + str(count) + p.suffix)
                     count += 1
                 else:
                     outfile = fileobj
-                # add comment and history cards to the primary HDU if applicable.
-                # All files get all cards.
-                for h in self.history:
-                    outhdu[0].header["HISTORY"] = h
-                for c in self.comments:
-                    outhdu[0].header["COMMENT"] = c
+
+                rows_written = self._write_chunked_fitsio(
+                    outfile, [(k, bt_list)], flags, overwrite, chunk_size=chunk_size
+                )
+                total_rows_written += rows_written
                 if verbose:
-                    logger.info(f"Writing {this_rows_written} rows to {outfile}.")
-                outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+                    logger.info(f"Writing {rows_written} rows to {outfile}.")
             if verbose:
                 logger.info(f"Total of {total_rows_written} rows written to files.")
         else:
-            hdu = self._sdf[fi[0]]._hdu[0].copy()
-            outhdu = fits.HDUList(hdu)
+            # Build all bintable groups across all FITSINDEX values
+            fitsindex_groups = []
             for k in fi:
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
+                bt_list = []
                 for b in bintables:
-                    rows = df.ROW[df.BINTABLE == b].unique()
-                    rows.sort()
-                    lr = len(rows)
-                    if lr > 0:
-                        if flags:  # update the flags before we select rows
-                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
-                            dim1 = np.shape(flagval)[1]
-                            form = f"{dim1}B"
-                            # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this
-                            c = fits.Column(name="FLAGS", format=form, array=flagval)
-                            self._sdf[k]._update_column({"FLAGS": c}, b)
-                        ob = self._sdf[k]._bintable_from_rows(rows, b)
-                        if len(ob.data) > 0:
-                            outhdu.append(ob)
-                        total_rows_written += lr
-            # add history and comment cards to primary header if applicable
-            for h in self.history:
-                outhdu[0].header["HISTORY"] = h
-            for c in self.comments:
-                outhdu[0].header["COMMENT"] = c
-            if total_rows_written == 0:  # shouldn't happen, caught earlier
+                    rows = np.sort(df.ROW[df.BINTABLE == b].unique())
+                    if len(rows) > 0:
+                        bt_list.append((b, rows))
+                if bt_list:
+                    fitsindex_groups.append((k, bt_list))
+
+            if not fitsindex_groups:
                 raise Exception("Your selection resulted in no rows to be written")
-            elif verbose:
+
+            total_rows_written = self._write_chunked_fitsio(
+                fileobj, fitsindex_groups, flags, overwrite, chunk_size=chunk_size
+            )
+            if verbose:
                 logger.info(f"Writing {total_rows_written} to {fileobj}")
-            # outhdu.update_extend()  # possibly unneeded
-            outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
-            outhdu.close()
 
     def _update_radesys(self):
         """

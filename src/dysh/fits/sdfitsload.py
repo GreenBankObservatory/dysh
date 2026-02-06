@@ -6,6 +6,7 @@ import warnings
 from collections.abc import Sequence
 
 import astropy.units as u
+import fitsio as fitsio_lib
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -16,6 +17,7 @@ from astropy.utils.masked import Masked
 from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
+from .lazyflag import LazyFlagArray, LazyFlagContainer
 
 
 class SDFITSLoad:
@@ -73,19 +75,39 @@ class SDFITSLoad:
             pass
 
     def _init_flags(self):
-        """initialize the channel masks to False"""
+        """Initialize the channel masks using lazy (sparse) flag arrays.
 
-        self._flagmask = np.empty(len(self._bintable), dtype=object)
-        self._additional_channel_mask = self._flagmask.copy()
+        Uses :class:`~lazyflag.LazyFlagArray` to avoid allocating dense
+        ``(nrows, nchan)`` boolean arrays upfront.  For large files this
+        reduces memory from tens of GB to a few MB.
+        """
+        self._flagmask = LazyFlagContainer(len(self._bintable))
+        self._additional_channel_mask = LazyFlagContainer(len(self._bintable))
+
+        # Check original file on disk for FLAGS column (not the in-memory
+        # bintable, which may have been mutated by _update_column).
+        if not hasattr(self, "_file_has_flags"):
+            self._file_has_flags = {}
+            with fitsio_lib.FITS(self._filename) as f:
+                for i in range(len(self._bintable)):
+                    hdu_index = i + 1
+                    if hdu_index < len(f):
+                        col_names = [c.upper() for c in f[hdu_index].get_colnames()]
+                        self._file_has_flags[i] = "FLAGS" in col_names
+
         for i in range(len(self._flagmask)):
             nc = self.nchan(i)
             nr = self.nrows(i)
-            if "FLAGS" in self._bintable[i].data.columns.names:
-                self._flagmask[i] = self._bintable[i].data["FLAGS"].astype(bool)
-            else:
-                logger.debug(f"flag {nr=} {nc=}")
-                self._flagmask[i] = np.full((nr, nc), fill_value=False)
-            self._additional_channel_mask[i] = np.full((nr, nc), fill_value=False)
+            has_flags = self._file_has_flags.get(i, False)
+            logger.debug(f"_init_flags bintable {i}: {nr=} {nc=} has_flags={has_flags}")
+            self._flagmask[i] = LazyFlagArray(
+                nrows=nr,
+                nchan=nc,
+                filename=self._filename,
+                hdu_index=i + 1,
+                has_flags_column=has_flags,
+            )
+            self._additional_channel_mask[i] = LazyFlagArray(nrows=nr, nchan=nc)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""

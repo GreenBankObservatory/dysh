@@ -24,6 +24,7 @@ from dysh.fits.gb20mfitsload import GB20MFITSLoad  # noqa:F401
 from dysh.fits.gbtfitsload import GBTFITSLoad  # noqa:F401
 from dysh.fits.gbtfitsload import GBTOffline  # noqa:F401
 from dysh.fits.gbtfitsload import GBTOnline  # noqa:F401
+from dysh.fits.lazyflag import LazyFlagArray, LazyFlagContainer  # noqa:F401
 from dysh.fits.sdfitsload import SDFITSLoad  # noqa:F401
 
 from . import core

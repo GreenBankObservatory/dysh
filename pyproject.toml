@@ -34,6 +34,7 @@ dependencies = [
   "specutils>=2",
   "tenacity",
   "platformdirs>=4.5.0",
+  "fitsio",
 ]
 
 [project.optional-dependencies]
