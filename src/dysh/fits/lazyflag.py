@@ -270,6 +270,53 @@ class LazyFlagArray:
 
         return result
 
+    def rows_as_uint8(self, rows):
+        """Build a uint8 flag array for specific rows, in chunks.
+
+        Avoids materializing the full (nrows, nchan) dense array.
+        Used by the write path to build the FLAGS column efficiently.
+
+        Parameters
+        ----------
+        rows : array-like
+            Row indices to materialize.
+
+        Returns
+        -------
+        np.ndarray
+            uint8 array of shape (len(rows), nchan).
+        """
+        rows_array = np.asarray(rows)
+        nrows_out = len(rows_array)
+        result = np.zeros((nrows_out, self._nchan), dtype=np.uint8)
+
+        # Precompute combined broadcast mask as uint8
+        if self._broadcasts:
+            combined_broadcast = np.zeros(self._nchan, dtype=np.uint8)
+            for bmask in self._broadcasts:
+                combined_broadcast |= bmask.astype(np.uint8)
+            result[:] = combined_broadcast
+
+        # Fill from FITS FLAGS column in chunks if it exists
+        if self._has_flags_column and self._filename is not None:
+            for chunk_start in range(0, nrows_out, CHUNK_SIZE):
+                chunk_end = min(chunk_start + CHUNK_SIZE, nrows_out)
+                chunk_row_indices = rows_array[chunk_start:chunk_end]
+                flags_data = self._read_flags_rows(chunk_row_indices)
+                result[chunk_start:chunk_end] |= flags_data.astype(np.uint8)
+
+        # Apply sparse overlay
+        # Build a reverse lookup: original row index -> position in rows_array
+        if self._modified:
+            row_to_pos = {}
+            for i, r in enumerate(rows_array):
+                row_to_pos[int(r)] = i
+            for row_idx, row_mask in self._modified.items():
+                if row_idx in row_to_pos:
+                    result[row_to_pos[row_idx]] |= row_mask.astype(np.uint8)
+
+        return result
+
     def astype(self, dtype):
         """Convert to dense array with the given dtype.
 

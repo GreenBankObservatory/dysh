@@ -3411,7 +3411,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if lr > 0:
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if flags:  # add flags only for selected rows
-                            flagval = self._sdf[k]._flagmask[b][rows].astype(np.uint8)
+                            flagval = self._sdf[k]._flagmask[b].rows_as_uint8(rows)
                             dim1 = flagval.shape[1]
                             form = f"{dim1}B"
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
@@ -3454,7 +3454,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     if lr > 0:
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if flags:  # add flags only for selected rows
-                            flagval = self._sdf[k]._flagmask[b][rows].astype(np.uint8)
+                            flagval = self._sdf[k]._flagmask[b].rows_as_uint8(rows)
                             dim1 = flagval.shape[1]
                             form = f"{dim1}B"
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
