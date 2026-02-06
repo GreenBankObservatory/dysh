@@ -94,6 +94,18 @@ print(f"Slice shape: {result.shape}")
 print(f"Slice alloc: {slice_alloc / 1024:.1f} KB")
 print(f"RSS: {rss_before:.2f} -> {mem_gb():.2f} GB")
 
+# --- Test write ---
+import tempfile
+
+print("\n--- Testing write (with flags) ---")
+rss_before = mem_gb()
+with tempfile.TemporaryDirectory() as tmpdir:
+    outpath = os.path.join(tmpdir, "test_output.fits")
+    sdf.write(outpath)
+    outsize = os.path.getsize(outpath)
+    print(f"Wrote {outsize / 1024**3:.2f} GB to {outpath}")
+print(f"RSS: {rss_before:.2f} -> {mem_gb():.2f} GB")
+
 # --- Summary ---
 print("\n" + "=" * 50)
 print("SUMMARY")
