@@ -59,6 +59,8 @@ class LazyFlagArray:
         self._memmap_threshold = memmap_threshold
         # Sparse overlay: row_index -> 1D bool array of length nchan
         self._modified = {}
+        # Broadcast masks: 1D masks that apply to ALL rows (avoids per-row copies)
+        self._broadcasts = []
 
     @property
     def shape(self):
@@ -129,7 +131,11 @@ class LazyFlagArray:
         # Build dense result for these rows
         result = self._read_flags_rows(row_indices)
 
-        # Apply sparse overlay
+        # Apply broadcast masks (same mask for all rows)
+        for bmask in self._broadcasts:
+            result |= bmask
+
+        # Apply sparse overlay (per-row modifications)
         for i, row_idx in enumerate(row_indices):
             row_idx_int = int(row_idx)
             if row_idx_int in self._modified:
@@ -161,7 +167,11 @@ class LazyFlagArray:
         mask = np.asarray(mask, dtype=bool)
 
         if mask.ndim == 1:
-            # 1D mask: broadcast to all rows
+            # 1D mask: if applied to all rows, store as a broadcast
+            if len(rows_array) == self._nrows:
+                self._broadcasts.append(mask.copy())
+                return
+            # Otherwise store per-row
             for row_idx in rows_array:
                 row_idx_int = int(row_idx)
                 if row_idx_int in self._modified:
@@ -193,6 +203,9 @@ class LazyFlagArray:
         """
         if not isinstance(other, LazyFlagArray):
             raise TypeError(f"Expected LazyFlagArray, got {type(other)}")
+
+        # Merge broadcast masks
+        self._broadcasts.extend(bmask.copy() for bmask in other._broadcasts)
 
         # If other has a FLAGS column backing and no modifications, nothing to merge
         # unless it has a flags column (which means base data that should be OR'd in)
@@ -247,6 +260,10 @@ class LazyFlagArray:
                 flags_data = self._read_flags_rows(chunk_rows)
                 result[chunk_start:chunk_end] = flags_data
 
+        # Apply broadcast masks
+        for bmask in self._broadcasts:
+            result |= bmask
+
         # Apply sparse overlay
         for row_idx, row_mask in self._modified.items():
             result[row_idx] |= row_mask
@@ -286,6 +303,7 @@ class LazyFlagArray:
             memmap_threshold=self._memmap_threshold,
         )
         new._modified = {k: v.copy() for k, v in self._modified.items()}
+        new._broadcasts = [b.copy() for b in self._broadcasts]
         return new
 
     def __eq__(self, other):
@@ -321,8 +339,12 @@ class LazyFlagArray:
 
     def __repr__(self):
         n_modified = len(self._modified)
+        n_broadcasts = len(self._broadcasts)
         backing = "FITS-backed" if self._has_flags_column else "zero-backed"
-        return f"LazyFlagArray(nrows={self._nrows}, nchan={self._nchan}, {backing}, {n_modified} modified rows)"
+        parts = f"LazyFlagArray(nrows={self._nrows}, nchan={self._nchan}, {backing}, {n_modified} modified rows"
+        if n_broadcasts:
+            parts += f", {n_broadcasts} broadcasts"
+        return parts + ")"
 
 
 class LazyFlagContainer:

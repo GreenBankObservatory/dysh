@@ -188,6 +188,51 @@ class TestLazyFlagArray:
         with pytest.raises(ValueError, match="mask rows"):
             arr.or_rows([0, 1], np.array([[True, False, False]]))
 
+    def test_broadcast_all_rows(self):
+        """1D mask applied to ALL rows stores as broadcast, not per-row."""
+        arr = LazyFlagArray(1000, 8)
+        mask = np.array([True, False, True, False, False, False, False, True])
+        arr.or_rows(np.arange(1000), mask)
+
+        # Should be stored as broadcast, not 1000 per-row copies
+        assert len(arr._broadcasts) == 1
+        assert len(arr._modified) == 0
+
+        # Values should still be correct
+        np.testing.assert_array_equal(arr[0], mask)
+        np.testing.assert_array_equal(arr[999], mask)
+        assert not np.any(arr[500, 1:2])  # channel 1 is False
+
+    def test_broadcast_memory(self):
+        """Broadcast mask for all rows should use ~nchan bytes, not nrows*nchan."""
+        arr = LazyFlagArray(142_000, 32768)
+        mask = np.zeros(32768, dtype=bool)
+        mask[:10] = True
+        arr.or_rows(np.arange(142_000), mask)
+
+        # One 32KB broadcast, not 142K * 32KB = 4.3GB of per-row copies
+        total = sum(b.nbytes for b in arr._broadcasts)
+        assert total == 32768, f"Broadcast storage: {total} bytes"
+        assert len(arr._modified) == 0
+
+    def test_broadcast_combines_with_per_row(self):
+        """Broadcast + per-row modifications combine correctly."""
+        arr = LazyFlagArray(5, 4)
+        # Broadcast: channels 0,1 flagged for all rows
+        arr.or_rows(np.arange(5), np.array([True, True, False, False]))
+        # Per-row: row 2 also flags channel 3
+        arr.or_rows([2], np.array([False, False, False, True]))
+
+        np.testing.assert_array_equal(arr[0], [True, True, False, False])
+        np.testing.assert_array_equal(arr[2], [True, True, False, True])
+
+    def test_broadcast_subset_not_broadcast(self):
+        """1D mask applied to a subset of rows should NOT broadcast."""
+        arr = LazyFlagArray(10, 4)
+        arr.or_rows([0, 1, 2], np.array([True, False, False, False]))
+        assert len(arr._broadcasts) == 0
+        assert len(arr._modified) == 3
+
     def test_memory_efficiency(self):
         """Verify no large allocation when unflagged."""
         import sys

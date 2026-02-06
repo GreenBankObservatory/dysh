@@ -102,7 +102,14 @@ print(f"File size:        {file_size / 1024**3:.1f} GB")
 print(f"Final RSS:        {mem_gb():.2f} GB")
 total_dense = sum(2 * s.nrows(bi) * s.nchan(bi) for s in sdf._sdf for bi in range(len(s._bintable)))
 print(f"Dense flags would be: {total_dense / 1024**3:.1f} GB")
-total_sparse = sum(
+total_per_row = sum(
     sum(v.nbytes for v in s._flagmask[bi]._modified.values()) for s in sdf._sdf for bi in range(len(s._bintable))
 )
-print(f"Lazy flags actual:    {total_sparse / 1024**2:.1f} MB")
+total_broadcast = sum(
+    sum(b.nbytes for b in s._flagmask[bi]._broadcasts) for s in sdf._sdf for bi in range(len(s._bintable))
+)
+n_modified = sum(len(s._flagmask[bi]._modified) for s in sdf._sdf for bi in range(len(s._bintable)))
+n_broadcasts = sum(len(s._flagmask[bi]._broadcasts) for s in sdf._sdf for bi in range(len(s._bintable)))
+print(f"Lazy flags actual:    {(total_per_row + total_broadcast) / 1024**2:.1f} MB")
+print(f"  per-row:   {total_per_row / 1024**2:.1f} MB ({n_modified} rows)")
+print(f"  broadcast: {total_broadcast / 1024:.1f} KB ({n_broadcasts} masks)")
