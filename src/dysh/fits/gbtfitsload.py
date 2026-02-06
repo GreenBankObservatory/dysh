@@ -133,7 +133,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # skipflags only means skip reading the flag file, NOT don't alllocate an array for flags nor read them
             # from the binary table.
             "flags": True,  # not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
-            "fitsbackend" : None, # choose a default FITSBackend
+            "fitsbackend": None,  # choose a default FITSBackend
         }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
@@ -608,7 +608,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "PROCSEQN",
                     "PROCSIZE",
                     "RESTFREQ",
-#                    "DOPFREQ",
+                    #                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "FDNUM",
@@ -628,7 +628,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "PROC",
                     "PROCSEQN",
                     "RESTFREQ",
-#                    "DOPFREQ",
+                    #                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "INTNUM",
@@ -1115,7 +1115,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         mask = np.full(maxnchan + 1, False)
                         mask[a[~a.mask]] = True
                         p.append(mask)
-                    self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(p)
+                    self._sdf[fi]._additional_channel_mask[bi].or_rows(rows, np.array(p))
         except KeyError as k:
             logger.warning(
                 f"Can't determine VEGAS spur locations because one or more VSP keywords are missing from the FITS header {k}"
@@ -1157,7 +1157,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 logger.debug(f"Applying {chan} to {rows=}")
                 logger.debug(f"{np.where(chan_mask)}")
                 if flag_outer:
-                    nchan = np.shape(self._sdf[fi]._flagmask[bi])[1]
+                    nchan = self._sdf[fi]._flagmask[bi].shape[1]
                     nedge = int(nchan * 0.1)
                     # Python uses exclusive array ranges while GBTIDL uses inclusive ones.
                     # Therefore we have to add a channel to the upper edge of the range
@@ -1165,7 +1165,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     chrng = slice(nedge, -(nedge - 1), 1)
                     if np.all(chan_mask[chrng]):
                         chan_mask[:] = True
-                self._sdf[fi]._flagmask[bi][rows] |= chan_mask
+                self._sdf[fi]._flagmask[bi].or_rows(rows, chan_mask)
         # now any additional channel flags, i.e. VEGAS flags
         self._apply_additional_flags()
 
@@ -1176,7 +1176,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             if not hasattr(k, "_additional_channel_mask") or not hasattr(k, "_flagmask"):
                 continue
             if k._additional_channel_mask is not None and k._flagmask is not None:
-                k._flagmask |= k._additional_channel_mask
+                for bi in range(len(k._flagmask)):
+                    if k._additional_channel_mask[bi] is not None:
+                        k._flagmask[bi].merge_from(k._additional_channel_mask[bi])
 
     def _check_no_data_to_calibrate(
         self,
@@ -1439,7 +1441,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         if self._selection is None or "OBSMODE" not in self._selection:
-            logger.warning("Couldn't construct procedure string")  # noqa: B028
+            logger.warning("Couldn't construct procedure string")
             return
         has_index_loaded = any(getattr(s, "_index_source", None) in ("index_file", "hybrid") for s in self._sdf)
         if has_index_loaded:
@@ -3451,7 +3453,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
                             dim1 = np.shape(flagval)[1]
                             form = f"{dim1}B"
-                            # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
                             self._sdf[k]._update_column({"FLAGS": c}, b)
                         ob = self._sdf[k]._bintable_from_rows(rows, b)

@@ -23,6 +23,7 @@ from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 from ..util.timers import Benchmark
+from .lazyflag import LazyFlagArray, LazyFlagContainer
 
 
 # Memory logging utility
@@ -72,7 +73,7 @@ class SDFITSLoad:
             "fix": False,  # fix non-standard header elements
             "verbose": False,
             "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
-            "fitsbackend" : None, # choose a default FITSBackend
+            "fitsbackend": None,  # choose a default FITSBackend
         }
         kwargs_opts.update(kwargs)
         print(kwargs)
@@ -122,23 +123,42 @@ class SDFITSLoad:
             pass
 
     def _init_flags(self):
-        """initialize the channel masks to False"""
+        """initialize the channel masks to False (lazy: no large allocations)"""
 
-        self._flagmask = np.empty(len(self._bintable), dtype=object)
-        self._additional_channel_mask = self._flagmask.copy()
+        # On first call, record which bintables have FLAGS in the original file.
+        # This prevents confusion if _update_column later adds FLAGS to the
+        # in-memory bintable (the on-disk file still won't have it).
+        if not hasattr(self, "_file_has_flags"):
+            self._file_has_flags = {}
+            try:
+                with fitsio.FITS(self._filename) as f:
+                    for i in range(len(self._bintable)):
+                        hdu_index = i + 1
+                        if hdu_index < len(f):
+                            col_names = [c.upper() for c in f[hdu_index].get_colnames()]
+                            self._file_has_flags[i] = "FLAGS" in col_names
+                        else:
+                            self._file_has_flags[i] = False
+            except Exception:
+                # Fallback: assume no FLAGS column in file
+                for i in range(len(self._bintable)):
+                    self._file_has_flags[i] = False
+
+        self._flagmask = LazyFlagContainer(len(self._bintable))
+        self._additional_channel_mask = LazyFlagContainer(len(self._bintable))
         for i in range(len(self._flagmask)):
             nc = self.nchan(i)
             nr = self.nrows(i)
-            array_size_mb = (nr * nc) / (1024**2)  # bool = 1 byte
-            _log_mem(
-                f"_init_flags bintable {i}: allocating 2x ({nr} rows x {nc} channels) = {2 * array_size_mb:.1f} MB"
+            has_flags = self._file_has_flags.get(i, False)
+            _log_mem(f"_init_flags bintable {i}: lazy init ({nr} rows x {nc} channels), has_flags={has_flags}")
+            self._flagmask[i] = LazyFlagArray(
+                nr,
+                nc,
+                filename=self._filename,
+                hdu_index=i + 1,
+                has_flags_column=has_flags,
             )
-            if "FLAGS" in self._bintable[i].data.columns.names:
-                self._flagmask[i] = self._bintable[i].data["FLAGS"].astype(bool)
-            else:
-                logger.debug(f"flag {nr=} {nc=}")
-                self._flagmask[i] = np.full((nr, nc), fill_value=False)
-            self._additional_channel_mask[i] = np.full((nr, nc), fill_value=False)
+            self._additional_channel_mask[i] = LazyFlagArray(nr, nc)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
@@ -264,10 +284,10 @@ class SDFITSLoad:
                     "Index loaded from .index file (44/93 columns). "
                     "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
                     "from FITS file when first accessed."
-                        )
+                )
                 if "PROCS" in self._index.columns:
                     print("RENAMING PROCS TO PROCSEQN")
-                    self._index.rename(columns={"PROCS":"PROCSEQN"},inplace=True)
+                    self._index.rename(columns={"PROCS": "PROCSEQN"}, inplace=True)
                 logger.info(f"   Loaded {len(self._index)} rows, {len(self._index.columns)} columns from .index file")
                 self._index_source = "index_file"
                 return
@@ -314,7 +334,6 @@ class SDFITSLoad:
                     self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
         self._index_source = "fits"
-
 
     def _add_primary_hdu(self):
         """
@@ -1416,7 +1435,7 @@ class SDFITSLoad:
             print(
                 f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."
-                )
+            )
             logger.info(
                 f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."
