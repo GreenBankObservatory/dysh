@@ -1472,7 +1472,8 @@ class TestGBTFITSLoad:
         # Reset flags.
         sdf.clear_flags()
         for b in sdf._sdf[0]._bintable:
-            b.data["FLAGS"][:] = 0
+            if "FLAGS" in b.columns.names:
+                b.data["FLAGS"][:] = 0
 
         # Flag some more.
         channels = {0: 40, 1: 50}

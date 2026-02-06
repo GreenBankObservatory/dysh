@@ -3409,13 +3409,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
-                        if flags:  # update the flags before we select rows
-                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
-                            dim1 = np.shape(flagval)[1]
+                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        if flags:  # add flags only for selected rows
+                            flagval = self._sdf[k]._flagmask[b][rows].astype(np.uint8)
+                            dim1 = flagval.shape[1]
                             form = f"{dim1}B"
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
-                            self._sdf[k]._update_column({"FLAGS": c}, b)
-                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                            if "FLAGS" in ob.columns.names:
+                                ob.data["FLAGS"][:] = flagval
+                            else:
+                                ob = fits.BinTableHDU.from_columns(ob.columns + fits.ColDefs([c]), header=ob.header)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
@@ -3449,13 +3452,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
-                        if flags:  # update the flags before we select rows
-                            flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
-                            dim1 = np.shape(flagval)[1]
+                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        if flags:  # add flags only for selected rows
+                            flagval = self._sdf[k]._flagmask[b][rows].astype(np.uint8)
+                            dim1 = flagval.shape[1]
                             form = f"{dim1}B"
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
-                            self._sdf[k]._update_column({"FLAGS": c}, b)
-                        ob = self._sdf[k]._bintable_from_rows(rows, b)
+                            if "FLAGS" in ob.columns.names:
+                                ob.data["FLAGS"][:] = flagval
+                            else:
+                                ob = fits.BinTableHDU.from_columns(ob.columns + fits.ColDefs([c]), header=ob.header)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
