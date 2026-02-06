@@ -3404,13 +3404,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # get the bintables rows as new bintables.
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
+                import time as _time
+
                 for b in bintables:  # loop over the bintables in this fitsfile
                     rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
+                        _t0 = _time.monotonic()
+                        logger.info(f"write: selecting {lr} rows from bintable {b}...")
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        logger.info(f"write: row selection done ({_time.monotonic() - _t0:.1f}s)")
                         if flags:  # add flags only for selected rows
+                            _t0 = _time.monotonic()
+                            logger.info(f"write: building FLAGS column ({lr} rows)...")
                             flagval = self._sdf[k]._flagmask[b].rows_as_uint8(rows)
                             dim1 = flagval.shape[1]
                             form = f"{dim1}B"
@@ -3418,7 +3425,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             if "FLAGS" in ob.columns.names:
                                 ob.data["FLAGS"][:] = flagval
                             else:
+                                logger.info(f"write: adding FLAGS column to output bintable...")
                                 ob = fits.BinTableHDU.from_columns(ob.columns + fits.ColDefs([c]), header=ob.header)
+                            logger.info(f"write: FLAGS done ({_time.monotonic() - _t0:.1f}s)")
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
@@ -3438,7 +3447,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     outhdu[0].header["COMMENT"] = c
                 if verbose:
                     logger.info(f"Writing {this_rows_written} rows to {outfile}.")
+                logger.info(f"write: writing {this_rows_written} rows to disk...")
+                _t0 = _time.monotonic()
                 outhdu.writeto(outfile, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+                logger.info(f"write: writeto done ({_time.monotonic() - _t0:.1f}s)")
             if verbose:
                 logger.info(f"Total of {total_rows_written} rows written to files.")
         else:
@@ -3447,13 +3459,20 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             for k in fi:
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
+                import time as _time
+
                 for b in bintables:
                     rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
+                        _t0 = _time.monotonic()
+                        logger.info(f"write: selecting {lr} rows from bintable {b}...")
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
+                        logger.info(f"write: row selection done ({_time.monotonic() - _t0:.1f}s)")
                         if flags:  # add flags only for selected rows
+                            _t0 = _time.monotonic()
+                            logger.info(f"write: building FLAGS column ({lr} rows)...")
                             flagval = self._sdf[k]._flagmask[b].rows_as_uint8(rows)
                             dim1 = flagval.shape[1]
                             form = f"{dim1}B"
@@ -3461,7 +3480,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             if "FLAGS" in ob.columns.names:
                                 ob.data["FLAGS"][:] = flagval
                             else:
+                                logger.info("write: adding FLAGS column to output bintable...")
                                 ob = fits.BinTableHDU.from_columns(ob.columns + fits.ColDefs([c]), header=ob.header)
+                            logger.info(f"write: FLAGS done ({_time.monotonic() - _t0:.1f}s)")
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
@@ -3474,8 +3495,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 raise Exception("Your selection resulted in no rows to be written")
             elif verbose:
                 logger.info(f"Writing {total_rows_written} to {fileobj}")
-            # outhdu.update_extend()  # possibly unneeded
+            logger.info(f"write: writing {total_rows_written} rows to disk...")
+            _t0 = _time.monotonic()
             outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
+            logger.info(f"write: writeto done ({_time.monotonic() - _t0:.1f}s)")
             outhdu.close()
 
     def _update_radesys(self):
