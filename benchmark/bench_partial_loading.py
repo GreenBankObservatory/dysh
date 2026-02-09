@@ -56,6 +56,8 @@ def find_testdata_root():
 
 def get_test_datasets():
     """Get available test datasets with proper operation mappings."""
+
+    from dysh.util.files import dysh_data
     testdata = find_testdata_root()
     if testdata is None:
         return {}
@@ -82,6 +84,16 @@ def get_test_datasets():
             "path": str(large_file),
             "size_mb": round(large_file.stat().st_size / (1024 * 1024), 1),
         }
+
+    # Huge file for all benchmarks except nod
+    huge_file = dysh_data(example="mixed")
+    if huge_file.exists():
+        datasets["huge"] = {
+            "path": str(medium_file),
+            "size_mb": round(medium_file.stat().st_size / (1024 * 1024), 1),
+            "huge" : True
+        }
+
 
     # Medium file
     medium_file = testdata / "AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits"
@@ -137,7 +149,10 @@ def benchmark_getps(dataset, n_iterations=3, use_index_file=True,backend=None):
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
     filepath = dataset["path"]
-    scans = dataset.get("scans", [51])
+    if "huge" in dataset:
+        scans = dataset.get("scans", [51])
+    else:
+        scans = dataset.get("scans", [51])
     ifnum = dataset.get("ifnum", 0)
     plnum = dataset.get("plnum", 0)
     fdnum = dataset.get("fdnum", 0)
@@ -164,7 +179,10 @@ def benchmark_gettp(dataset, n_iterations=5, use_index_file=True, backend=None):
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
     filepath = dataset["path"]
-    scans = dataset.get("scans", [51])
+    if "huge" in dataset:
+        scans = dataset.get("scans", [51])
+    else:
+        scans = dataset.get("scans", [51])
     scan = scans[0] if isinstance(scans, list) else scans
     ifnum = dataset.get("ifnum", 0)
     plnum = dataset.get("plnum", 0)
@@ -191,7 +209,10 @@ def benchmark_getfs(dataset, n_iterations=3, use_index_file=True,backend=None):
     from dysh.fits.gbtfitsload import GBTFITSLoad
 
     filepath = dataset["path"]
-    scan = dataset.get("scan", 20)
+    if "huge" in dataset:
+        scan = dataset.get("scan", 20)
+    else:
+        scan = dataset.get("scan", 20)
     ifnum = dataset.get("ifnum", 0)
     plnum = dataset.get("plnum", 0)
     fdnum = dataset.get("fdnum", 0)
@@ -273,7 +294,7 @@ def benchmark_rawspectra_full(filepath, n_iterations=3, use_index_file=True,back
     return result
 
 
-def run_benchmarks(datasets, quick=False, use_index_file=True, backend=None):
+def run_benchmarks(datasets, quick=False, use_index_file=True, backend=None, huge=False):
     """Run all benchmarks and return results."""
     results = create_results_dict(quick_mode=quick, extra_metadata={"use_index_file": use_index_file, "FITSBackend":backend})
     results["datasets"] = {k: {"path": v["path"], "size_mb": v["size_mb"]} for k, v in datasets.items()}
@@ -283,34 +304,61 @@ def run_benchmarks(datasets, quick=False, use_index_file=True, backend=None):
 
     suppress_warnings()
 
-    # Benchmark getps (position switch) - the most common operation
-    if "getps" in datasets:
-        ds = datasets["getps"]
-        logger.info(f"\n=== Position Switch Benchmarks ({ds['size_mb']} MB) ===")
+    if not huge:
+        # Benchmark getps (position switch) - the most common operation
+        if "getps" in datasets:
+            ds = datasets["getps"]
+            logger.info(f"\n=== Position Switch Benchmarks ({ds['size_mb']} MB) ===")
 
-        logger.info("  init...")
-        results["benchmarks"]["init"] = benchmark_gbtfitsload_init(
-            ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend
-        )
+            logger.info("  init...")
+            results["benchmarks"]["init"] = benchmark_gbtfitsload_init(
+                ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend
+            )
 
-        logger.info("  getps...")
-        results["benchmarks"]["getps"] = benchmark_getps(ds, n_iterations=n_iter_slow, use_index_file=use_index_file,backend=backend)
+            logger.info("  getps...")
+            results["benchmarks"]["getps"] = benchmark_getps(ds, n_iterations=n_iter_slow, use_index_file=use_index_file,backend=backend)
 
-        logger.info("  gettp...")
-        results["benchmarks"]["gettp"] = benchmark_gettp(ds, n_iterations=n_iter, use_index_file=use_index_file,backend=backend)
+            logger.info("  gettp...")
+            results["benchmarks"]["gettp"] = benchmark_gettp(ds, n_iterations=n_iter, use_index_file=use_index_file,backend=backend)
 
-        logger.info("  rawspectra_full...")
-        results["benchmarks"]["rawspectra_full"] = benchmark_rawspectra_full(
-            ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file,backend=backend
-        )
+            logger.info("  rawspectra_full...")
+            results["benchmarks"]["rawspectra_full"] = benchmark_rawspectra_full(
+                ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file,backend=backend
+            )
 
-    # Benchmark getfs (frequency switch)
-    if "getfs" in datasets:
-        ds = datasets["getfs"]
-        logger.info(f"\n=== Frequency Switch Benchmarks ({ds['size_mb']} MB) ===")
+        # Benchmark getfs (frequency switch)
+        if "getfs" in datasets:
+            ds = datasets["getfs"]
+            logger.info(f"\n=== Frequency Switch Benchmarks ({ds['size_mb']} MB) ===")
 
-        logger.info("  getfs...")
-        results["benchmarks"]["getfs"] = benchmark_getfs(ds, n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend)
+            logger.info("  getfs...")
+            results["benchmarks"]["getfs"] = benchmark_getfs(ds, n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend)
+    else:
+        if "huge" in datasets:
+            ds = datasets["huge"]
+            logger.info(f"\n=== Position Switch Benchmarks ({ds['size_mb']} MB) ===")
+
+            logger.info("  init...")
+            results["benchmarks"]["init"] = benchmark_gbtfitsload_init(
+                ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend
+            )
+
+            logger.info("  getps...")
+            results["benchmarks"]["getps"] = benchmark_getps(ds, n_iterations=n_iter_slow, use_index_file=use_index_file,backend=backend)
+
+            logger.info("  gettp...")
+            results["benchmarks"]["gettp"] = benchmark_gettp(ds, n_iterations=n_iter, use_index_file=use_index_file,backend=backend)
+
+            logger.info("  rawspectra_full...")
+            results["benchmarks"]["rawspectra_full"] = benchmark_rawspectra_full(
+                ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file,backend=backend
+            )
+
+            # Benchmark getfs (frequency switch)
+            logger.info(f"\n=== Frequency Switch Benchmarks ({ds['size_mb']} MB) ===")
+
+            logger.info("  getfs...")
+            results["benchmarks"]["getfs"] = benchmark_getfs(ds, n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend)
 
     # Benchmark getnod (nodding)
     if "getnod" in datasets:
@@ -332,6 +380,20 @@ def run_benchmarks(datasets, quick=False, use_index_file=True, backend=None):
 
         logger.info("  rawspectra_full_large...")
         results["benchmarks"]["rawspectra_full_large"] = benchmark_rawspectra_full(
+            ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file
+        )
+    # Huge file benchmarks (if available and not quick mode)
+    if "huge" in datasets and huge:
+        ds = datasets["huge"]
+        logger.info(f"\n=== Huge File Benchmarks ({ds['size_mb']} MB) ===")
+
+        logger.info("  init_huge...")
+        results["benchmarks"]["init_huge"] = benchmark_gbtfitsload_init(
+            ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file
+        )
+
+        logger.info("  rawspectra_full_huge...")
+        results["benchmarks"]["rawspectra_full_huge"] = benchmark_rawspectra_full(
             ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file
         )
 
@@ -356,8 +418,13 @@ def main():
         "--no-index-file", action="store_true", help="Disable .index file usage (force reading from FITS)"
     )
     parser.add_argument("--backend",     "-b", action="store",       help="FITSBackend to use for getting raw spectra. either 'fitsio', 'astropy', or None", default=None)
+    parser.add_argument("--huge", action="store_true",       help="Use huge file (77GB) for getps, getfs, and gettp instead of regular files.  Cannot be used with --quick", default=False)
 
     args = parser.parse_args()
+    if args.quick and args.huge:
+        print("ERROR: Options --quick and --huge are mutually exclusive")
+        sys.exit(1)
+
     fbe = str(args.backend)
 
     setup_logging(verbose=args.verbose)
@@ -384,11 +451,12 @@ def main():
     print("=" * 50)
     print(f"Git: {get_git_info()['branch']} @ {get_git_info()['commit']}")
     print(f"Quick mode: {args.quick}")
+    print(f"Huge mode: {args.huge}")
     print(f"Use .index file: {use_index_file}")
     print(f"FITS Backend: {fbe}")
     print(f"Datasets found: {list(datasets.keys())}")
 
-    results = run_benchmarks(datasets, quick=args.quick, use_index_file=use_index_file, backend=args.backend)
+    results = run_benchmarks(datasets, quick=args.quick, use_index_file=use_index_file, backend=args.backend, huge=args.huge)
 
     print_summary(results)
 
