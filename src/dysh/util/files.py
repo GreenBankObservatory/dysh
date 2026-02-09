@@ -381,7 +381,7 @@ def dysh_data(sdfits=None, test=None, example=None, accept=None, dysh_data=None,
         return Path(filename)
 
     print("You have not given one of:   sdfits=, test=, example=, accept=")
-    print("or use =? as argument to get a list of valid shortcuts")
+    print("or use ='?' as argument to get a list of valid shortcuts")
     print(f"DYSH_DATA = {dysh_data}")
     return None
 

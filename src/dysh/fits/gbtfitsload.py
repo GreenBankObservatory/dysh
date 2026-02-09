@@ -224,6 +224,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return self._selection
 
     @property
+    def sdf(self):
+        """
+        The list of `~dysh.fits.sdfitsload.SDFITSLoad` objects (one per
+        SDFITS file) inside this `~dysh.fits.gbtfitsload.GBTFITSLoad`.
+        """
+        return self._sdf
+
+    @property
     def projectID(self):
         """
         The project identification
@@ -3661,8 +3669,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise TypeError("Only a single coordinate system per observation is supported for now.")
         frame = frame[0]
 
-        lon = self["CRVAL2"].to_numpy()
-        lat = self["CRVAL3"].to_numpy()
+        lon = self["CRVAL2"].to_numpy().copy()
+        lat = self["CRVAL3"].to_numpy().copy()
         time = self["DATE-OBS"].to_numpy().astype(str)
         location = self.GBT
 

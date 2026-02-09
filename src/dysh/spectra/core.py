@@ -904,7 +904,7 @@ def fft_shift(
     phase_shift = 2.0 * np.pi * shift / new_len
 
     yf = padded.copy()
-    nan_mask = np.isnan(padded.data) | padded.mask
+    nan_mask = np.isnan(padded.data)
 
     if nan_treatment == "fill":
         yf[nan_mask] = fill_value
@@ -934,17 +934,18 @@ def fft_shift(
     shifted_y = np.fft.fft(shifted_ifft)
 
     # Remove padding and take the real part.
-    new_y = np.ma.masked_invalid(shifted_y.real[nskip : nskip + nch])
-    new_nan_mask = nan_mask[nskip : nskip + nch]
+    new_y = np.ma.masked_array(shifted_y.real[nskip : nskip + nch], mask=y.mask)
+    # Place NaN values.
+    new_y[np.isnan(y)] = np.nan
 
     # Shift NaN elements and mask.
     if keep_nan:
         if abs(shift) < 1:
-            new_nan_mask = mask_fshift(new_nan_mask, shift)
+            new_nan_mask = mask_fshift(new_y.mask, shift)
             new_y[new_nan_mask] = np.nan
             new_y.mask[new_nan_mask] = True
         else:
-            new_nan_mask = np.roll(new_nan_mask, int(shift))
+            new_nan_mask = np.roll(new_y.mask, int(shift))
             new_y[new_nan_mask] = np.nan
             new_y.mask[new_nan_mask] = True
 
@@ -1206,7 +1207,7 @@ def data_shift(y, s, axis=-1, remove_wrap=True, fill_value=np.nan, method="fft",
         Replace channels that wrap around with `fill_value`.
     fill_value : float
         Value used to replace the data in channels that wrap around after the shift.
-    method : "fft" | "interpolate"
+    method : {"fft", "interpolate"}
         Method to use for shifting.
         "fft" uses a phase shift.
         "interpolate" uses `scipy.ndimage.shift`.

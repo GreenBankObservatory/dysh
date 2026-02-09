@@ -87,6 +87,9 @@ def generate_config(pkgname="dysh", filename=None, verbose=False):
             if mod.name.split(".")[-1].startswith("_"):
                 # Skip private modules
                 continue
+            if mod.name.split(".")[-1] == "shellgui":
+                # Skip shellgui due to use of Tk.
+                continue
 
             with contextlib.suppress(ImportError):
                 importlib.import_module(mod.name)
@@ -173,7 +176,7 @@ def create_config_file(pkg: str = "dysh", rootname: str = "dysh", overwrite: boo
 
     # generate the default config template
     template_content = io.StringIO()
-    generate_config(pkg, template_content)
+    generate_config(pkg, template_content, verbose=False)
     template_content.seek(0)
     template_content = template_content.read()
 
