@@ -3263,10 +3263,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
         warning_msg = (  # noqa: E731
-            lambda scans,
-            a,
-            coord,
-            limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            lambda scans, a, coord, limit: (
+                f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            )
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.
