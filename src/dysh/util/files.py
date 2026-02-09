@@ -63,6 +63,7 @@ valid_dysh_example = {
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas          # FS example in data_reduction (scan 64)
     "align"      : "mixed-fs-ps/data/TGBT24B_613_04.raw.vegas.trim.fits",  #   MESSIER32  example/align_spectra
+    "mixed"      : "mixed-fs-ps/data/AGBT16B_225_05/AGBT16B_225_05.raw.vegas", # 77GB of mixed FS and PS data
     "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",                     # tar.gz not yet supported?     A123606  example/flagging
     "survey"     : "hi-survey/data/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.fits",   # example/hi-survey
     "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas/",      # OTF L-band NGC6946
