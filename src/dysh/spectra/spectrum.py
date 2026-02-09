@@ -1477,7 +1477,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     "CUNIT3",
 # Data from 2005 have CRVAL4 but not CTYPE4
 # src/dysh/testdata/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits'
-#                    "CTYPE4",
+                    "CTYPE4",
                     "CRVAL4",
                     "DATE-OBS",
                 ]
