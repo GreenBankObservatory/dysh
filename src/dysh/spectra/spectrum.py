@@ -1362,7 +1362,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             "SITEELEV": 824.595,
             "EXTNAME": "SINGLE DISH",
             "FITSINDEX": 0,
-            "PROCS": "OnOff",
+            "PROC": "OnOff",
             "OBSTYPE": "PSWITCHON",
             "SUBOBSMODE": "TPWCAL",
             "INTNUM": 0,
