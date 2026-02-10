@@ -66,5 +66,3 @@ load4 3031.7 27268.2 9212.1      5   3713.27     0 18566.35 131072 35370   5   1
        20    0.092    0.005    0.147    0.007 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/python_parser.py:1001(_rows_to_cols)
    141672    0.036    0.000    0.146    0.000 {built-in method builtins.any}
    283040    0.098    0.000    0.135    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/python_parser.py:1351(<genexpr>)
-
-

@@ -36,7 +36,7 @@ def filestats(path):
     if path.is_file():
         fstats = os.stat(path)
         nsize = fstats.st_size
-        nlines =0 
+        nlines = 0
         with open(path, "rb") as fp:
             nlines = sum(1 for _ in fp)
         meandata = nsize * u.byte
@@ -69,7 +69,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--numfiles", "-n", action="store", help="number of SDFITS files to load for multifile data", default=1
     )
-    parser.add_argument("--indexthreshold", "-i", action="store", help="index file threshold, MB. Zero means always use the index. -1 means never use the index", default=100, type=int)
+    parser.add_argument(
+        "--indexthreshold",
+        "-i",
+        action="store",
+        help="index file threshold, MB. Zero means always use the index. -1 means never use the index",
+        default=100,
+        type=int,
+    )
     parser.add_argument("--loop", "-l", action="store", help="number of times to loop", default=4, type=int)
     parser.add_argument("--skipflags", "-s", action="store_true", help="skip reading flags")
     parser.add_argument("--out", "-o", action="store", help="output filename (astropy Table)", required=False)
@@ -119,10 +126,10 @@ if __name__ == "__main__":
     nload = min(nfiles, trueNfiles)
     size_mb = np.round(size_b, 2)
     print(f"Will load {nload} of {trueNfiles} files. FITS size per file {size_mb}MB, Flag lines {nflags}")
-    if args.indexthreshold== -1:
+    if args.indexthreshold == -1:
         ift = float("inf")
     else:
-        ift = args.indexthreshold*1024*1024 # convert to bytes
+        ift = args.indexthreshold * 1024 * 1024  # convert to bytes
     print(f"Using {ift=}")
     for i in range(1, int(args.loop) + 1):
         sdf = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nload, index_file_threshold=ift)

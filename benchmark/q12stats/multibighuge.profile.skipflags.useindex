@@ -66,5 +66,3 @@ load4 1224.4 3967.4 1421.3      3    768.09     0 2304.27 32768 17496   3   2   
         8    0.000    0.000    0.092    0.012 /bigdisk/src/dysh/src/dysh/util/selection.py:117(_make_table)
        25    0.000    0.000    0.089    0.004 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/table/table.py:708(__init__)
        25    0.001    0.000    0.087    0.003 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/table/table.py:1262(_init_from_list)
-
-

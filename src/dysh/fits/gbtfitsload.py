@@ -133,7 +133,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # skipflags only means skip reading the flag file, NOT don't alllocate an array for flags nor read them
             # from the binary table.
             "flags": True,  # not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
-            "fitsbackend" : None, # choose a default FITSBackend
+            "fitsbackend": None,  # choose a default FITSBackend
         }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
@@ -616,7 +616,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "PROCSEQN",
                     "PROCSIZE",
                     "RESTFREQ",
-#                    "DOPFREQ",
+                    #                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "FDNUM",
@@ -636,7 +636,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "PROC",
                     "PROCSEQN",
                     "RESTFREQ",
-#                    "DOPFREQ",
+                    #                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "INTNUM",
@@ -1447,7 +1447,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         if self._selection is None or "OBSMODE" not in self._selection:
-            logger.warning("Couldn't construct procedure string")  # noqa: B028
+            logger.warning("Couldn't construct procedure string")
             return
         has_index_loaded = any(getattr(s, "_index_source", None) in ("index_file", "hybrid") for s in self._sdf)
         if has_index_loaded:

@@ -93,7 +93,7 @@ valid_dysh_accept = {
     "multismallsmall" : "AGBT20B_336_01/AGBT20B_336_01.raw.vegas",  # multiple small FITS files (54M each), small flags files (7 lines), RALongMap, gettp
     "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5G each), small flags files (6 lines), PointMap, getsigref
     "multismallbig"   : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas",  # multiple small FITS files (64M each), large flag files (20 lines), getnod fdnum=[0,1]
-    "multibighuge"    : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines), getnod 
+    "multibighuge"    : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines), getnod
 
 }
 

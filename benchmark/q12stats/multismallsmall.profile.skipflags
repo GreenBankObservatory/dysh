@@ -66,5 +66,3 @@ load4 24347.8 2086.0 1309.1      8     56.18    -1  449.44  1024 95136   4   2  
      2244    0.395    0.000    1.356    0.001 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/strings/accessor.py:258(_wrap_result)
        32    0.041    0.001    1.252    0.039 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/internals/construction.py:161(rec_array_to_mgr)
        68    0.041    0.001    1.229    0.018 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/internals/construction.py:96(arrays_to_mgr)
-
-
