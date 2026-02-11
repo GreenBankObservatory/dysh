@@ -9,8 +9,9 @@ import platform
 import time
 import warnings
 from collections.abc import Sequence
+
 try:
-    from enum import StrEnum # Requires python 3.11+
+    from enum import StrEnum  # Requires python 3.11+
 except ImportError:
     from ..util.strenum import StrEnum
 from pathlib import Path
