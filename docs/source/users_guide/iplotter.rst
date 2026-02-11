@@ -85,7 +85,7 @@ As before, we grab some data to illustrate the functionality.
 
 .. code-block::
 
-    filename = dysh_data(example="rfi-L/data/AGBT17A_404_01.raw.vegas/AGBT17A_404_01.raw.vegas.A.fits")   
+    filename = dysh_data(example="rfi-L/data/AGBT17A_404_01.raw.vegas/AGBT17A_404_01.raw.vegas.A.fits")
     sdfits = GBTFITSLoad(filename)
 
 
