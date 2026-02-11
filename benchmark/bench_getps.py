@@ -37,7 +37,6 @@ if __name__ == "__main__":
     # fmt: on
     args = parser.parse_args()
     print(f"using {args}")
-    
 
     if args.quit:
         sys.exit(0)
@@ -46,47 +45,47 @@ if __name__ == "__main__":
         raise Exception("You must calibrate if you want to time average")
 
     data_cols = ["skipflags", "ift", "FITS backend"]
-    data_units = ["","MB", ""]
-    data_types = [str,int,str]
+    data_units = ["", "MB", ""]
+    data_types = [str, int, str]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
     sk = str(args.skipflags)
     fbe = str(args.backend)
     iftk = args.indexthreshold
-    dt.tag("init", [sk,iftk,fbe])
+    dt.tag("init", [sk, iftk, fbe])
 
     if False:
         # lazy loading. By adding this section, first getps w/ timeaver loop is as fast as next ones
         from dysh.spectra.spectrum import Spectrum
 
         s = Spectrum.fake_spectrum()
-        dt.tag("fake", [sk,iftk,fbe])
+        dt.tag("fake", [sk, iftk, fbe])
 
     # reading dataset-1
 
-    if args.indexthreshold== -1:
+    if args.indexthreshold == -1:
         ift = float("inf")
     else:
-        ift = args.indexthreshold*1024*1024 # convert to bytes
+        ift = args.indexthreshold * 1024 * 1024  # convert to bytes
     print(f"Using {ift=}")
     f1 = dysh_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
     print("Loading ", f1)
     if args.backend == "None":
         args.backend = None
-    sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags,index_file_threshold=ift, fitsbackend=args.backend)
+    sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags, index_file_threshold=ift, fitsbackend=args.backend)
     print("STATS:", sdf1.stats())
-    dt.tag("load", [sk,iftk,fbe])
+    dt.tag("load", [sk, iftk, fbe])
     calibrate = not args.nocalibrate
     scans = [51, 53, 55, 57]
     # scans = [51]
     for i in range(1, int(args.loop) + 1):
         if not args.timeaverage:
             sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
-            dt.tag(f"getps{i}s", [sk, iftk,fbe])
+            dt.tag(f"getps{i}s", [sk, iftk, fbe])
             # ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
         else:
             ps = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate).timeaverage()
-            dt.tag(f"getps{i}t", [sk, iftk,fbe])
+            dt.tag(f"getps{i}t", [sk, iftk, fbe])
 
     # close data, do some other silly work
     if False:

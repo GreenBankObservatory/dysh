@@ -66,5 +66,3 @@ load4 3136.2 1473.6 616.2      8     66.72    -1  533.76 16384 8064   4   2    2
       736    0.003    0.000    0.588    0.001 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/strings/accessor.py:2141(strip)
     35856    0.266    0.000    0.577    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/array_algos/take.py:120(_take_nd_ndarray)
    741888    0.335    0.000    0.554    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/strings/object_array.py:305(f)
-
-

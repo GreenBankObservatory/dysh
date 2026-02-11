@@ -66,5 +66,3 @@ load4 1107.7 1667.9 809.8      8     66.72     0  533.76 16384 8064   4   2    2
       152    0.001    0.000    0.142    0.001 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/hdu/hdulist.py:1294(_read_next_hdu)
      4736    0.020    0.000    0.140    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:305(value)
        36    0.000    0.000    0.138    0.004 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/fitsio/fitslib.py:1593(__getitem__)
-
-

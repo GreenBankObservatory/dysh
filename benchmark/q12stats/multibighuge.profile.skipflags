@@ -66,5 +66,3 @@ load4  4542.7 4202.2 1656.4      3    768.09    -1 2304.27 32768 17496   3   2  
     18276    0.375    0.000    0.419    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/indexes/base.py:5437(_getitem_slice)
   1609651    0.402    0.000    0.402    0.000 {method 'decode' of 'bytes' objects}
       576    0.001    0.000    0.399    0.001 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/groupby/groupby.py:807(groups)
-
-

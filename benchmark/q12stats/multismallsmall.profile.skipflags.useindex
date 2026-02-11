@@ -66,5 +66,3 @@ load4 6041.5 1636.8 858.5      8     56.18     0  449.44  1024 95136   4   2    
        28    0.280    0.010    0.281    0.010 /bigdisk/src/dysh/src/dysh/util/core.py:379(uniq)
        44    0.001    0.000    0.276    0.006 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/frame.py:698(__init__)
        32    0.002    0.000    0.274    0.009 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/internals/construction.py:423(dict_to_mgr)
-
-

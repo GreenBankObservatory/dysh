@@ -66,5 +66,3 @@ load4 13362.6 27432.0 9377.2      5   3713.27    -1 18566.35 131072 35370   5   
         4    0.001    0.000    1.141    0.285 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/frame.py:3677(memory_usage)
       368    0.000    0.000    1.118    0.003 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/series.py:5451(memory_usage)
       368    1.110    0.003    1.118    0.003 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/core/base.py:1139(_memory_usage)
-
-

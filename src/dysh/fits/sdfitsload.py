@@ -72,7 +72,7 @@ class SDFITSLoad:
             "fix": False,  # fix non-standard header elements
             "verbose": False,
             "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
-            "fitsbackend" : None, # choose a default FITSBackend
+            "fitsbackend": None,  # choose a default FITSBackend
         }
         kwargs_opts.update(kwargs)
         print(kwargs)
@@ -264,8 +264,8 @@ class SDFITSLoad:
                     "Index loaded from .index file (44/93 columns). "
                     "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
                     "from FITS file when first accessed."
-                        )
-                #if "PROCS" in self._index.columns:
+                )
+                # if "PROCS" in self._index.columns:
                 #    self._index.rename(columns={"PROCS":"PROCSEQN"},inplace=True)
                 logger.info(f"   Loaded {len(self._index)} rows, {len(self._index.columns)} columns from .index file")
                 self._index_source = "index_file"
@@ -313,7 +313,6 @@ class SDFITSLoad:
                     self._index = pd.concat([self._index, df], axis=0, ignore_index=True)
         self._add_primary_hdu()
         self._index_source = "fits"
-
 
     def _add_primary_hdu(self):
         """
@@ -1416,7 +1415,7 @@ class SDFITSLoad:
             print(
                 f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."
-                )
+            )
             logger.info(
                 f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."
