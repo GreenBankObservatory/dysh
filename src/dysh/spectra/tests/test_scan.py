@@ -808,6 +808,17 @@ class TestFSScan:
         assert fs.stats()["mean"].value == pytest.approx(0.8678329960252995)
         assert fs.stats()["rms"].value == pytest.approx(25.113477753153276)
 
+    def test_getfs_channel_trim(self, data_dir):
+        """Test that getfs works with channel trimming (exercises ndim==2 path in index_frequency)."""
+        sdf_file = f"{data_dir}/TGBT21A_504_01/TGBT21A_504_01.raw.vegas/TGBT21A_504_01.raw.vegas.A.fits"
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+
+        channel = [100, 200]
+        fsscan = sdf.getfs(scan=20, ifnum=0, plnum=1, fdnum=0, fold=False, channel=channel)
+        ta = fsscan.timeaverage(weights="tsys")
+        assert ta.flux.shape[0] == channel[1] - channel[0]
+        assert np.all(np.isfinite(ta.flux.value))
+
     def test_getfs_nocal(self):
         """
         Test for getfs without noise diode.
