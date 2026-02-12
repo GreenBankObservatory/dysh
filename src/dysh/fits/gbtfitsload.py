@@ -4429,7 +4429,7 @@ class GBTOnline(GBTFITSLoad):
             logger.debug(f"{status_info=}")
             if status_info:
                 project_dir = os.path.join(sdfits_root, status_info["project"])
-                project_dir += (f"/{status_info['project']}.raw.{status_info['backend']}")
+                project_dir += f"/{status_info['project']}.raw.{status_info['backend']}"
                 logger.debug(f"{project_dir=}")
                 self._online = project_dir
                 logger.info(f"Found active session via status file: {status_info['project']}")
@@ -4686,7 +4686,7 @@ def _parse_sdfits_status_file(
 
                 # Parse timestamp and calculate age
                 try:
-                    dt = datetime.strptime(datetime_str, '%a %b %d %H:%M:%S %Y')
+                    dt = datetime.strptime(datetime_str, "%a %b %d %H:%M:%S %Y")
                     # Get timestamp (seconds since epoch)
                     age_minutes = (datetime.now() - dt).total_seconds() / 60.0
                 except ValueError:
