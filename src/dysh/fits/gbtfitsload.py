@@ -4425,8 +4425,11 @@ class GBTOnline(GBTFITSLoad):
             # 1. Fast path: try sdfitsStatus.txt file
             status_file_path = os.path.join(sdfits_root, "sdfitsStatus.txt")
             status_info = _parse_sdfits_status_file(status_file_path, backend=self._backend)
+            logger.debug(f"{status_info=}")
             if status_info:
                 project_dir = os.path.join(sdfits_root, status_info["project"])
+                project_dir += (f"/{status_info['project']}.raw.{status_info['backend']}")
+                logger.debug(f"{project_dir=}")
                 self._online = project_dir
                 logger.info(f"Found active session via status file: {status_info['project']}")
                 GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
@@ -4665,7 +4668,7 @@ def _parse_sdfits_status_file(
                 if len(parts) < 7:
                     continue
 
-                backend_str, project, scan, timestamp, _datetime_str, file, index = parts[:7]
+                backend_str, project, scan, timestamp, datetime_str, file, index = parts[:7]
 
                 # Parse backend
                 entry_backend = GBTBackend.from_string(backend_str)
@@ -4682,8 +4685,9 @@ def _parse_sdfits_status_file(
 
                 # Parse timestamp and calculate age
                 try:
-                    ts = datetime.fromisoformat(timestamp)
-                    age_minutes = (datetime.now() - ts).total_seconds() / 60.0
+                    dt = datetime.strptime(datetime_str, '%a %b %d %H:%M:%S %Y')
+                    # Get timestamp (seconds since epoch)
+                    age_minutes = (datetime.now() - dt).total_seconds() / 60.0
                 except ValueError:
                     age_minutes = float("inf")
 
