@@ -573,8 +573,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         for i in range(len(self._meta)):
             self._meta[i]["TSCALFAC"] = self.tscale_fac[i]
 
-
-
     def _check_model(self, model, c0, sa, tol):
         # make sure flux units match
         if model.return_units != c0.unit:
@@ -867,36 +865,35 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         if len(self.comments) != 0:
             d["COMMENT"] = self.comments
         return Table(self._meta, meta=d)
-    
+
     def _required_but_may_be_missing(self):
-        """Certain header keywords are required downstream but are missing from 
+        """Certain header keywords are required downstream but are missing from
         older data (early 2000s).  Add them to the index here.
         Be circumspect when adding new keywords to the required list.  Only add
         if there is a known failure for valid, presumably older, GBT SDFITS files.
         Do not add keywords here just to fix a different problem!
         """
         # Key is the header keyword, value is the default value to be inserted
-        # in the index.   
-        return {"CTYPE4":"STOKES", "TELESCOP":"NRAO_GBT"}
+        # in the index.
+        return {"CTYPE4": "STOKES", "TELESCOP": "NRAO_GBT"}
 
-    def _add_missing_but_required(self,df=None):
-
+    def _add_missing_but_required(self, df=None):
         if not self._meta:
             return
-       
+
         _reqkey = self._required_but_may_be_missing()
-        for k,v in _reqkey.items():
-            #if not in the first, assume missing from all
-            if k not in self._meta[0]: 
-                self._set_all_meta(k,v)
-                
+        for k, v in _reqkey.items():
+            # if not in the first, assume missing from all
+            if k not in self._meta[0]:
+                self._set_all_meta(k, v)
+
     def _set_all_meta(self, key, value):
         for i in range(len(self._meta)):
             self._meta[i][key] = value
 
     def _get_all_meta(self, key):
-        return [x[key] for x in self._meta]    
-           
+        return [x[key] for x in self._meta]
+
     def _make_meta(self, rowindices):
         """
         Create the metadata for a Scan.  The metadata is a list of dictionaries, the length of which is
