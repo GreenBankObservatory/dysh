@@ -1,0 +1,68 @@
+Loading not more than 8 from /bigdisk/data/gbt/dysh_data/acceptance_testing/data/AGBT23A_432_03/AGBT23A_432_03.raw.vegas
+Will load 8 of 8 files. FITS size per file 66.72MB, Flag lines 20
+Using ift=0
+Found ostype= linux
+# Dysh Benchmark: GBTFITSLoad
+ name  time  VmSize VmRSS #files file_size  ift  totsize nchan nrow nIF nFd nPol #flags skipflags
+        ms   Mbyte  Mbyte          Mbyte   Mbyte  Mbyte                                          
+----- ------ ------ ----- ------ --------- ----- ------- ----- ---- --- --- ---- ------ ---------
+load1 1182.3 1405.5 547.5      8     66.72     0  533.76 16384 8064   4   2    2      0      True
+load2 1054.5 1416.4 558.1      8     66.72     0  533.76 16384 8064   4   2    2      0      True
+load3 1043.2 1416.9 558.6      8     66.72     0  533.76 16384 8064   4   2    2      0      True
+load4 1107.7 1667.9 809.8      8     66.72     0  533.76 16384 8064   4   2    2      0      True
+         5505061 function calls (5304626 primitive calls) in 4.389 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1714 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        4    0.000    0.000    4.309    1.077 /bigdisk/src/dysh/src/dysh/log.py:351(wrapper)
+        4    0.001    0.000    4.307    1.077 /bigdisk/src/dysh/src/dysh/fits/gbtfitsload.py:126(__init__)
+       32    0.001    0.000    3.967    0.124 /bigdisk/src/dysh/src/dysh/fits/sdfitsload.py:70(__init__)
+       32    0.001    0.000    2.053    0.064 /bigdisk/src/dysh/src/dysh/fits/sdfitsload.py:116(_init_flags)
+24192/160    0.029    0.000    1.769    0.011 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/utils/decorators.py:940(__get__)
+       32    0.000    0.000    1.769    0.055 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/hdu/table.py:381(data)
+       32    0.000    0.000    1.747    0.055 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/hdu/table.py:174(_get_tbdata)
+       32    0.001    0.000    1.738    0.054 /bigdisk/src/dysh/src/dysh/fits/sdfitsload.py:197(create_index)
+       32    0.000    0.000    1.708    0.053 /bigdisk/src/dysh/src/dysh/fits/index_file.py:159(parse_sdfits_index_file)
+       32    0.003    0.000    1.708    0.053 /bigdisk/src/dysh/src/dysh/fits/index_file.py:210(_parse_with_python)
+       64    0.002    0.000    1.639    0.026 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/column.py:1467(__init__)
+       32    0.000    0.000    1.582    0.049 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py:1453(read_fwf)
+       32    0.011    0.000    1.582    0.049 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py:583(_read)
+       32    0.008    0.000    1.558    0.049 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py:1907(read)
+       32    0.000    0.000    1.462    0.046 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/python_parser.py:246(read)
+       32    0.000    0.000    1.000    0.031 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/hdu/table.py:372(columns)
+     4736    0.089    0.000    1.000    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/column.py:561(__init__)
+       32    0.032    0.001    0.910    0.028 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/column.py:1581(_init_from_table)
+       32    0.022    0.001    0.870    0.027 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/python_parser.py:1087(_get_lines)
+64759/32471    0.110    0.000    0.850    0.000 {built-in method builtins.next}
+    32288    0.013    0.000    0.787    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/python_parser.py:789(_next_iter_line)
+    32288    0.414    0.000    0.760    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/python_parser.py:1304(__next__)
+6515/3411    0.006    0.000    0.684    0.000 {method 'view' of 'numpy.ndarray' objects}
+       32    0.002    0.000    0.664    0.021 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/fitsrec.py:230(__array_finalize__)
+151537/80491    0.045    0.000    0.644    0.000 {built-in method builtins.setattr}
+       32    0.020    0.001    0.624    0.019 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/column.py:1525(_init_from_array)
+    75776    0.079    0.000    0.610    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/column.py:532(__set__)
+       32    0.000    0.000    0.561    0.018 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/python_parser.py:336(_convert_data)
+       32    0.008    0.000    0.561    0.018 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/base_parser.py:523(_convert_to_ndarrays)
+     1376    0.494    0.000    0.516    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/pandas/io/parsers/base_parser.py:679(_infer_types)
+    40087    0.028    0.000    0.494    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/config/configuration.py:343(__get__)
+     4736    0.016    0.000    0.487    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/column.py:871(name)
+    17568    0.028    0.000    0.481    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:284(value)
+    40087    0.115    0.000    0.465    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/config/configuration.py:452(__call__)
+     7840    0.024    0.000    0.410    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/header.py:151(__getitem__)
+  1465054    0.338    0.000    0.338    0.000 {method 'strip' of 'str' objects}
+        4    0.003    0.001    0.298    0.075 /bigdisk/src/dysh/src/dysh/fits/gbtfitsload.py:1232(_create_index_if_needed)
+    13280    0.012    0.000    0.282    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:161(__init__)
+    12160    0.025    0.000    0.258    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:607(_check_if_rvkc)
+     7904    0.029    0.000    0.255    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:750(_parse_value)
+     4736    0.002    0.000    0.186    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:212(__str__)
+     4736    0.004    0.000    0.184    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:520(image)
+     4736    0.017    0.000    0.180    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:994(_format_image)
+    53043    0.082    0.000    0.165    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/config/configuration.py:557(get_config)
+       36    0.000    0.000    0.157    0.004 /bigdisk/src/dysh/src/dysh/fits/sdfitsload.py:853(nchan)
+264963/219405    0.038    0.000    0.150    0.000 {built-in method builtins.len}
+     1160    0.141    0.000    0.145    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/numpy/_core/numeric.py:324(full)
+      152    0.001    0.000    0.142    0.001 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/hdu/hdulist.py:1294(_read_next_hdu)
+     4736    0.020    0.000    0.140    0.000 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/astropy/io/fits/card.py:305(value)
+       36    0.000    0.000    0.138    0.004 /bigdisk/src/dysh/.venv/lib/python3.12/site-packages/fitsio/fitslib.py:1593(__getitem__)

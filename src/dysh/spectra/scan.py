@@ -573,13 +573,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         for i in range(len(self._meta)):
             self._meta[i]["TSCALFAC"] = self.tscale_fac[i]
 
-    def _set_all_meta(self, key, value):
-        for i in range(len(self._meta)):
-            self._meta[i][key] = value
-
-    def _get_all_meta(self, key):
-        return [x[key] for x in self._meta]
-
     def _check_model(self, model, c0, sa, tol):
         # make sure flux units match
         if model.return_units != c0.unit:
@@ -873,6 +866,34 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
             d["COMMENT"] = self.comments
         return Table(self._meta, meta=d)
 
+    def _required_but_may_be_missing(self):
+        """Certain header keywords are required downstream but are missing from
+        older data (early 2000s).  Add them to the index here.
+        Be circumspect when adding new keywords to the required list.  Only add
+        if there is a known failure for valid, presumably older, GBT SDFITS files.
+        Do not add keywords here just to fix a different problem!
+        """
+        # Key is the header keyword, value is the default value to be inserted
+        # in the index.
+        return {"CTYPE4": "STOKES", "TELESCOP": "NRAO_GBT"}
+
+    def _add_missing_but_required(self, df=None):
+        if not self._meta:
+            return
+
+        _reqkey = self._required_but_may_be_missing()
+        for k, v in _reqkey.items():
+            # if not in the first, assume missing from all
+            if k not in self._meta[0]:
+                self._set_all_meta(k, v)
+
+    def _set_all_meta(self, key, value):
+        for i in range(len(self._meta)):
+            self._meta[i][key] = value
+
+    def _get_all_meta(self, key):
+        return [x[key] for x in self._meta]
+
     def _make_meta(self, rowindices):
         """
         Create the metadata for a Scan.  The metadata is a list of dictionaries, the length of which is
@@ -892,6 +913,8 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         """
         df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices]
         self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
+        self._add_missing_but_required()
+        print(f"{('CTYPE4' in self._meta)=}")
         for i in range(len(self._meta)):
             if "CUNIT1" not in self._meta[i]:
                 self._meta[i]["CUNIT1"] = (
@@ -1506,7 +1529,9 @@ class ScanBlock(UserList, HistoricalBase, SpectralAverageMixin):
             nrows = nrows + thisshape[0]
         # now do the same trick as in Scan.write() of adding "DATA" to the coldefs
         # astropy Tables can be concatenated with vstack thankfully.
-        table = vstack(tablelist, join_type="exact")
+        # Use join_type="outer" to handle scans with slightly different columns
+        # (e.g., from blanked integrations or different calibration states)
+        table = vstack(tablelist, join_type="outer")
         # need to preserve table.meta because it gets lost in created of "cd" ColDefs
         table_meta = table.meta
         cd = BinTableHDU(table, name="SINGLE DISH").columns

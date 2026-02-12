@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=sys.argv[0])
     # fmt: off
     # parser.add_argument("--file",        "-f", action="store",       help="input filename", required=True)
-    parser.add_argument("--dobench",     "-d", action="store_true",  help="do the benchmark test")
+    parser.add_argument("--indexthreshold", "-i", action="store", help="index file threshold, MB. Zero means always use the index. -1 means never use the index", default=100, type=int)
     parser.add_argument("--key",         "-k", action="store",       help="input dysh_data key", default="getps")
     parser.add_argument("--timeaverage", "-t", action="store_true",  help="time average the Scanblocks to make a Spectrum")
     parser.add_argument("--nocalibrate", "-n", action="store_true",  help="DON'T calibrate the data", default=False)
@@ -26,6 +26,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--out",         "-o", action="store",       help="output filename (astropy Table)", required=False)
     parser.add_argument("--append",      "-a", action="store_true",  help="append to previous output file (astropy Table)", required=False)
+    parser.add_argument("--backend",     "-b", action="store",       help="FITSBackend to use for getting raw spectra. either 'fitsio', 'astropy', or None", default=None)
     parser.add_argument("--overwrite",   "-w", action="store_true",  help="overwrite a previous output file (astropy Table)", required=False)
     parser.add_argument("--profile",     "-p", action="store_true",  help="run the profiler")
     parser.add_argument("--statslines",  "-e", action="store",       help="number of profiler statistics lines to print", default=25)
@@ -43,40 +44,48 @@ if __name__ == "__main__":
     if args.nocalibrate and args.timeaverage:
         raise Exception("You must calibrate if you want to time average")
 
-    data_cols = ["skipflags"]
-    data_units = [""]
-    data_types = [str]
+    data_cols = ["skipflags", "ift", "FITS backend"]
+    data_units = ["", "MB", ""]
+    data_types = [str, int, str]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
     sk = str(args.skipflags)
-    dt.tag("init", [sk])
+    fbe = str(args.backend)
+    iftk = args.indexthreshold
+    dt.tag("init", [sk, iftk, fbe])
 
     if False:
         # lazy loading. By adding this section, first getps w/ timeaver loop is as fast as next ones
         from dysh.spectra.spectrum import Spectrum
 
         s = Spectrum.fake_spectrum()
-        dt.tag("fake", [sk])
+        dt.tag("fake", [sk, iftk, fbe])
 
     # reading dataset-1
 
+    if args.indexthreshold == -1:
+        ift = float("inf")
+    else:
+        ift = args.indexthreshold * 1024 * 1024  # convert to bytes
+    print(f"Using {ift=}")
     f1 = dysh_data(example=args.key)  # 'getps' = position switch example from notebooks/examples
     print("Loading ", f1)
-    sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
+    if args.backend == "None":
+        args.backend = None
+    sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags, index_file_threshold=ift, fitsbackend=args.backend)
     print("STATS:", sdf1.stats())
-    dt.tag("load", [sk])
+    dt.tag("load", [sk, iftk, fbe])
     calibrate = not args.nocalibrate
-    if args.dobench:
-        scans = [51, 53, 55, 57]
-        # scans = [51]
-        for i in range(1, int(args.loop) + 1):
-            if not args.timeaverage:
-                sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
-                dt.tag(f"getps{i}s", [sk])
-                # ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
-            else:
-                ps = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate).timeaverage()
-                dt.tag(f"getps{i}t", [sk])
+    scans = [51, 53, 55, 57]
+    # scans = [51]
+    for i in range(1, int(args.loop) + 1):
+        if not args.timeaverage:
+            sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
+            dt.tag(f"getps{i}s", [sk, iftk, fbe])
+            # ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
+        else:
+            ps = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate).timeaverage()
+            dt.tag(f"getps{i}t", [sk, iftk, fbe])
 
     # close data, do some other silly work
     if False:
@@ -99,20 +108,19 @@ if __name__ == "__main__":
         sdf1 = GBTFITSLoad(f1, skipflags=args.skipflags)
         dt.tag("load", [sk])
         calibrate = not args.nocalibrate
-        if args.dobench:
-            # scans = [51,53,55,57]
-            scans = [51]
-            # sb = list(range(int(args.loop)+1))
-            for i in range(1, int(args.loop) + 1):
-                if not args.timeaverage:
-                    sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
-                    dt.tag(f"getps{i}s", [sk])
-                    # ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
-                else:
-                    ps = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate).timeaverage()
-                    dt.tag(f"getps{i}t", [sk])
+        # scans = [51,53,55,57]
+        scans = [51]
+        # sb = list(range(int(args.loop)+1))
+        for i in range(1, int(args.loop) + 1):
+            if not args.timeaverage:
+                sb = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate)
+                dt.tag(f"getps{i}s", [sk])
+                # ps1 = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0).timeaverage()
+            else:
+                ps = sdf1.getps(scan=scans, fdnum=0, ifnum=0, plnum=0, calibrate=calibrate).timeaverage()
+                dt.tag(f"getps{i}t", [sk])
 
-    dt.tag("report", [sk])
+    dt.tag("report", [sk, iftk, fbe])
     dt.close()
     dt.report()
 

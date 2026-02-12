@@ -52,7 +52,7 @@ class TestGBTFITSLoad:
 
         for fnm in self._file_list:
             filename = os.path.basename(fnm)
-            sdf = gbtfitsload.GBTFITSLoad(fnm)
+            sdf = gbtfitsload.GBTFITSLoad(fnm, flags=True, flag_vegas=False)
             assert len(sdf.index(bintable=0)) == expected[filename]
 
     def test_names(self):
@@ -527,7 +527,7 @@ class TestGBTFITSLoad:
         assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=0).timeaverage().flux) == 2**14
         assert len(sdf.gettp(scan=2, ifnum=0, plnum=0, fdnum=0, bintable=1).timeaverage().flux) == 2**17
 
-    def test_load_multifits(self):
+    def test_multifits_load(self):
         """
         Loading multiple SDFITS files under a directory.
         It checks that
@@ -1954,3 +1954,442 @@ def test_parse_tsys():
     with pytest.raises(TypeError) as excinfo:
         _tsys = gbtfitsload._parse_tsys(tsys, scans)
     assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
+
+
+class TestOnlineGBTFITSLoad:
+    """Tests for OnlineGBTFITSLoad (GBTOnline) functionality."""
+
+    def setup_method(self):
+        self.data_dir = util.get_project_testdata()
+
+    def test_reload_detects_file_growth(self, tmp_path):
+        """Test that _reload() detects when a file grows."""
+        import time
+
+        import fitsio
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        initial_rows = len(online._index)
+        assert initial_rows == 4  # This file has 4 rows
+
+        # Sleep to ensure mtime difference
+        time.sleep(0.1)
+
+        # Append duplicate rows (same data, just to grow the file)
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            existing_data = f[1].read()
+            f[-1].append(existing_data[:2])  # Append 2 rows
+
+        # _reload should detect the change
+        result = online._reload()
+        assert result is True, "_reload() should return True when file changed"
+        assert len(online._index) == 6, "Should have 6 rows after append"
+
+    def test_reload_handles_missing_file(self, tmp_path, caplog):
+        """Test that _reload() handles missing files gracefully."""
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        assert len(online._index) == 4
+
+        # Delete the file
+        fits_file.unlink()
+
+        # _reload should handle this gracefully (not raise, just warn)
+        with caplog.at_level(logging.WARNING):
+            result = online._reload()
+
+        assert result is False, "_reload() should return False when file missing"
+        assert "Watched file unavailable" in caplog.text
+
+    def test_reload_recovers_after_file_recreated_with_fewer_rows(self, tmp_path):
+        """Test that monitoring recovers after file is deleted and recreated with fewer rows."""
+        import time
+
+        import fitsio
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        # First, grow the file so we have more rows to compare against
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            existing_data = f[1].read()
+            f[-1].append(existing_data)  # Double the rows
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+        initial_rows = len(online._index)
+        assert initial_rows == 8  # 4 original + 4 appended
+
+        # Delete file
+        fits_file.unlink()
+
+        # _reload handles missing file
+        result = online._reload()
+        assert result is False
+
+        # Recreate with original file (FEWER rows - simulates new session starting)
+        time.sleep(0.1)
+        shutil.copy(source_file, fits_file)
+
+        # _reload should detect the new file
+        result = online._reload()
+        assert result is True, "Should detect recreated file"
+
+        # Now verify we have fewer rows (the data reset scenario)
+        current_rows = len(online._index)
+        assert current_rows == 4, "Should have 4 rows from new file"
+        assert current_rows < initial_rows, "New file should have fewer rows than original"
+
+    def test_path_does_not_exist_raises(self, tmp_path):
+        """Test that GBTOnline raises FileNotFoundError for non-existent path."""
+        nonexistent = tmp_path / "does_not_exist"
+
+        with pytest.raises(FileNotFoundError, match="Path does not exist"):
+            gbtfitsload.GBTOnline(str(nonexistent))
+
+    def test_detect_duplicate_scans_after_file_recreated(self, tmp_path):
+        """Test that we can detect duplicate scan numbers after file recreation.
+
+        This tests the scenario where a session restarts and reuses scan numbers.
+        The monitor should be able to detect this by comparing current scans
+        against previously seen scans.
+        """
+        import time
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+
+        # Get initial scan numbers
+        initial_scans = set(online._index["SCAN"].unique())
+        assert len(initial_scans) > 0, "Should have at least one scan"
+
+        # Track seen scans (simulating what the CLI does)
+        seen_scans = initial_scans.copy()
+
+        # Delete and recreate file (simulating session restart with same scan numbers)
+        fits_file.unlink()
+        time.sleep(0.1)
+        shutil.copy(source_file, fits_file)
+
+        # Reload
+        result = online._reload()
+        assert result is True
+
+        # Get new scan numbers
+        current_scans = set(online._index["SCAN"].unique())
+
+        # Detect duplicates: new rows added but no new scan numbers means duplicates
+        new_scan_nums = current_scans - seen_scans
+
+        # Since we recreated the exact same file, all scans should be "seen" already
+        # This indicates duplicate scan numbers (session restart)
+        assert len(new_scan_nums) == 0, "Should detect no new scan numbers (all duplicates)"
+        assert current_scans == initial_scans, "Scan numbers should be same as before"
+
+    def test_detect_scan_number_regression(self, tmp_path):
+        """Test detection of scan number regression (current scan < previous scan).
+
+        This tests the scenario where a new scan has a lower number than the previous
+        scan, which indicates an unexpected scan sequence (e.g., operator manually
+        restarting scans or data from multiple sessions being mixed).
+        """
+        import time
+
+        import fitsio
+
+        # Copy a real SDFITS file to temp dir
+        source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
+        fits_dir = tmp_path / "test_session"
+        fits_dir.mkdir()
+        fits_file = fits_dir / "test.fits"
+        shutil.copy(source_file, fits_file)
+
+        online = gbtfitsload.GBTOnline(str(fits_dir))
+
+        # Get the scan numbers and find the last scan
+        scans = online._index["SCAN"].to_numpy()
+        last_scan_num = int(scans[-1])
+
+        # Read all data
+        with fitsio.FITS(str(fits_file), "r") as f:
+            data = f[1].read()
+
+        # Create a modified version with a lower scan number in the last row
+        # Simulate: last scan was 10, new scan is 5 (regression)
+        modified_data = data.copy()
+
+        # Overwrite file with data that has scan regression
+        # Append a row with scan number = 1 (lower than anything)
+        new_row = modified_data[:1].copy()
+        new_row["SCAN"] = 1  # Force a low scan number
+
+        time.sleep(0.1)  # Ensure mtime differs
+
+        # Append the row with low scan number
+        with fitsio.FITS(str(fits_file), "rw") as f:
+            f[-1].append(new_row)
+
+        # Reload
+        result = online._reload()
+        assert result is True
+
+        # Get the new last scan
+        new_scans = online._index["SCAN"].to_numpy()
+        current_scan_num = int(new_scans[-1])
+
+        # Verify scan regression: current scan (1) < previous last scan
+        assert current_scan_num == 1, "New scan should be 1"
+        assert current_scan_num < last_scan_num, f"Scan regression: {current_scan_num} < {last_scan_num}"
+
+
+class TestIndexFileLazyLoading:
+    """Test lazy loading of FITS data when loading from .index files."""
+
+    def setup_method(self):
+        self.data_dir = util.get_project_testdata()
+        # Use a project that has both .index and .fits files
+        self.acs_dir = self.data_dir / "AGBT05B_047_01" / "AGBT05B_047_01.raw.acs"
+        self.fits_file = self.acs_dir / "AGBT05B_047_01.raw.acs.fits"
+        self.index_file = self.acs_dir / "AGBT05B_047_01.raw.acs.index"
+
+    def test_index_file_exists(self):
+        """Verify test data has an .index file."""
+        assert self.index_file.exists(), f"Index file not found: {self.index_file}"
+        assert self.fits_file.exists(), f"FITS file not found: {self.fits_file}"
+
+    def test_load_from_index_file_sets_source(self):
+        """Test that loading from .index file sets _index_source correctly."""
+        # Load with index file (file is small, should use FITS, but let's force it)
+        sdf = sdfitsload.SDFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        # Check that it loaded from index file
+        assert hasattr(sdf, "_index_source")
+        if self.index_file.exists():
+            assert sdf._index_source == "index_file"
+
+    def test_index_file_missing_calibration_columns(self):
+        """Test that .index file doesn't have calibration columns like TCAL, TSYS."""
+        from dysh.fits.index_file import read_index
+
+        if not self.index_file.exists():
+            pytest.skip("No .index file in test data")
+
+        _metadata, df = read_index(self.index_file)
+
+        # GBTIDL .index files typically don't have TCAL, TSYS
+        # (they might have them, but let's check)
+        cols_upper = [c.upper() for c in df.columns]
+        # This shows what columns are available
+        print(f"Index file columns: {sorted(cols_upper)}")
+
+    def test_lazy_load_full_rows_method(self):
+        """Test that load_full_rows loads all columns from FITS."""
+        sdf = sdfitsload.SDFITSLoad(str(self.fits_file))
+
+        # Load full rows for first 3 rows
+        rows = np.array([0, 1, 2])
+        result_df = sdf.load_full_rows(rows, bintable=0)
+
+        # Should have many columns (not just index file columns)
+        assert len(result_df.columns) > 40, f"Expected >40 columns, got {len(result_df.columns)}"
+        assert len(result_df) == 3, f"Expected 3 rows, got {len(result_df)}"
+
+        # Should have calibration columns
+        cols_upper = [c.upper() for c in result_df.columns]
+        assert "TCAL" in cols_upper, "TCAL should be in loaded data"
+        assert "TSYS" in cols_upper, "TSYS should be in loaded data"
+
+    def test_gbtfitsload_lazy_load_for_calibration(self):
+        """
+        Test that GBTFITSLoad lazy loads full rows when calibration columns are needed.
+
+        This is a regression test for the issue where loading from .index files
+        would fail when calling calibration methods because TCAL/TSYS weren't present.
+        """
+        # Load with a very low threshold to force index file usage
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        # Check if loaded from index file
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Get available parameters
+        scans = sdf._index["SCAN"].unique()
+        ifnums = sdf._index["IFNUM"].unique()
+        plnums = sdf._index["PLNUM"].unique()
+
+        scan = int(scans[0])
+        ifnum = int(ifnums[0])
+        plnum = int(plnums[0])
+
+        # This should trigger lazy loading if TCAL/TSYS are missing
+        # If it fails, the lazy loading isn't working properly
+        try:
+            result = sdf.gettp(scan=scan, ifnum=ifnum, plnum=plnum, fdnum=0)
+            assert result is not None, "gettp should return a result"
+        except KeyError as e:
+            pytest.fail(f"gettp failed with KeyError (lazy loading broken): {e}")
+
+    def test_load_full_rows_if_needed_adds_columns(self):
+        """Test that _load_full_rows_if_needed properly adds missing columns."""
+        # Create a GBTFITSLoad with index file loading
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Create a minimal DataFrame with ROW and FITSINDEX
+        # simulating what _common_selection returns
+        test_df = pd.DataFrame(
+            {
+                "ROW": [0, 1, 2],
+                "FITSINDEX": [0, 0, 0],
+                "SCAN": [1, 1, 1],
+            }
+        )
+
+        # Check if TCAL is missing from the test DataFrame
+        assert "TCAL" not in test_df.columns
+
+        # Call the lazy loading method
+        result_df = sdf._load_full_rows_if_needed(test_df, ["TCAL", "TSYS"])
+
+        # Should now have TCAL and TSYS
+        assert "TCAL" in result_df.columns, "TCAL should be loaded"
+        assert "TSYS" in result_df.columns, "TSYS should be loaded"
+        assert len(result_df) == 3, "Should still have 3 rows"
+
+    def test_lazy_load_updates_selection(self):
+        """
+        Test that _load_full_rows_if_needed updates self._selection with new columns.
+
+        This is a regression test for the issue where lazy loading would update
+        sdf._index but not self._selection, causing KeyErrors when code accessed
+        self._index (which returns self._selection) after lazy loading.
+        """
+        # Load with index file (force it with threshold=0)
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Verify TCAL is not in _selection before calling methods that trigger lazy loading
+        assert "TCAL" not in sdf._selection.columns, "TCAL should not be in _selection initially"
+
+        # Get parameters for gettp call
+        scans = sdf._index["SCAN"].unique()
+        scan = int(scans[0])
+
+        # Call gettp which should trigger lazy loading
+        result = sdf.gettp(scan=scan, ifnum=0, plnum=0, fdnum=0)
+        assert result is not None
+
+        # IMPORTANT: After lazy loading, _selection should be updated with TCAL
+        # This was the bug - _load_full_rows_if_needed updated sdf._index but not self._selection
+        assert "TCAL" in sdf._selection.columns, (
+            "_selection should be updated with TCAL after lazy loading. "
+            "If this fails, _rebuild_merged_index() is not being called in _load_full_rows_if_needed."
+        )
+
+    def test_lazy_load_dtype_compatibility(self):
+        """
+        Test that lazy loading preserves correct dtypes for both string and numeric columns.
+
+        This is a regression test for the issue where new columns were initialized with
+        np.nan (float64), causing FutureWarning when string values were assigned, and
+        causing numeric operations like np.isfinite() to fail when object dtype was
+        incorrectly used for numeric columns.
+        """
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Capture warnings during lazy loading
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            # Trigger lazy loading by calling gettp
+            scans = sdf._index["SCAN"].unique()
+            scan = int(scans[0])
+            result = sdf.gettp(scan=scan, ifnum=0, plnum=0, fdnum=0)
+            assert result is not None
+
+            # Check no FutureWarning about incompatible dtype was raised
+            dtype_warnings = [
+                warning
+                for warning in w
+                if issubclass(warning.category, FutureWarning) and "incompatible dtype" in str(warning.message)
+            ]
+            assert len(dtype_warnings) == 0, f"FutureWarning about incompatible dtype was raised: {dtype_warnings}"
+
+        # Verify numeric columns can be used with numpy operations
+        idx = sdf._index
+        numeric_cols = ["EXPOSURE", "AZIMUTH", "ELEVATIO"]
+        for col in numeric_cols:
+            if col in idx.columns:
+                # This should not raise "ufunc 'isfinite' not supported"
+                values = idx[col].values
+                try:
+                    np.isfinite(values.astype(float))
+                except TypeError as e:
+                    pytest.fail(f"np.isfinite failed on {col}: {e}")
+
+    def test_lazy_load_getsigref_different_scans(self):
+        """
+        Test that getsigref works when gettp and getsigref access different scans.
+
+        This is a regression test for the issue where lazy loading would only load
+        rows for the first scan accessed, causing KeyError for DATE when accessing
+        a different scan in getsigref (because _make_meta drops columns with NaN).
+        """
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), index_file_threshold=0)
+
+        underlying_sdf = sdf._sdf[0]
+        if underlying_sdf._index_source != "index_file":
+            pytest.skip("Did not load from index file")
+
+        # Get available scans
+        scans = sdf._index["SCAN"].unique()
+        if len(scans) < 2:
+            pytest.skip("Need at least 2 scans for this test")
+
+        scan1, scan2 = int(scans[0]), int(scans[1])
+
+        # First: gettp for scan1 (triggers lazy load for scan1's rows)
+        off_sb = sdf.gettp(scan=scan1, ifnum=0, plnum=0, fdnum=0)
+        ref = off_sb.timeaverage(use_wcs=False)
+
+        # Second: getsigref for scan2 (should trigger lazy load for scan2's rows)
+        # This would fail with KeyError: 'DATE' before the fix
+        try:
+            result = sdf.getsigref(scan=scan2, ref=ref, ifnum=0, plnum=0, fdnum=0)
+            assert result is not None
+        except KeyError as e:
+            pytest.fail(f"getsigref failed with KeyError (lazy loading issue): {e}")

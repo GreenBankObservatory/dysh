@@ -34,7 +34,13 @@ def filestats(path):
          tuple of (# FITS files, FITS size in MB, number of lines)
     """
     if path.is_file():
-        pass
+        fstats = os.stat(path)
+        nsize = fstats.st_size
+        nlines = 0
+        with open(path, "rb") as fp:
+            nlines = sum(1 for _ in fp)
+        meandata = nsize * u.byte
+        return (nsize, meandata.to(u.megabyte).value, nlines)
     if path.is_dir():
         # get the FITS size
         nsize = []
@@ -58,12 +64,20 @@ benchname = "GBTFITSLoad"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog=progname)
-    parser.add_argument("--dobench", "-d", action="store_true", help="do the benchmark test")
     parser.add_argument("--key", "-k", action="store", help="input dysh_data key", default="multismallsmall")
+    parser.add_argument("--example", action="store_true", help="use example instead of accept for dyshdata")
     parser.add_argument(
         "--numfiles", "-n", action="store", help="number of SDFITS files to load for multifile data", default=1
     )
-    parser.add_argument("--loop", "-l", action="store", help="number of times to loop", default=4)
+    parser.add_argument(
+        "--indexthreshold",
+        "-i",
+        action="store",
+        help="index file threshold, MB. Zero means always use the index. -1 means never use the index",
+        default=100,
+        type=int,
+    )
+    parser.add_argument("--loop", "-l", action="store", help="number of times to loop", default=4, type=int)
     parser.add_argument("--skipflags", "-s", action="store_true", help="skip reading flags")
     parser.add_argument("--out", "-o", action="store", help="output filename (astropy Table)", required=False)
     parser.add_argument(
@@ -89,7 +103,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--memory", "-m", action="store_true", help="track memory usage")
     parser.add_argument("--quit", "-q", action="store_true", help="quit early")
-    # parser.add_argument("--noindex",     "-n", action="store_true",  help="do not create dysh index table (pandas)")
     args = parser.parse_args()
 
     if args.quit:
@@ -97,42 +110,50 @@ if __name__ == "__main__":
 
     # output table colnames, units, and dtypes
     # DTime automatically handles name and time, so just the additional columns go here.
-    data_cols = ["#files", "file_size", "totsize", "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
-    data_units = ["", "MB", "MB", "", "", "", "", "", "", ""]
-    data_types = [int, float, float, int, int, int, int, int, int, bool]
+    data_cols = ["#files", "file_size", "ift", "totsize", "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]
+    data_units = ["", "MB", "MB", "MB", "", "", "", "", "", "", ""]
+    data_types = [int, float, int, float, int, int, int, int, int, int, bool]
     dt = DTime(benchname=benchname, data_cols=data_cols, data_units=data_units, data_types=data_types, args=vars(args))
 
-    f1 = dysh_data(accept=args.key)
+    if args.example:
+        f1 = dysh_data(example=args.key)
+    else:
+        f1 = dysh_data(accept=args.key)
     # use secret GBTFITSLOAD nfiles kwarg to limit number of files loaded.
     nfiles = int(args.numfiles)
-    print(f"Loading not more than {nfiles} from {f1}")
+    print(f"Loading not more than {nfiles} from {f1} {filestats(f1)}")
     trueNfiles, size_b, nflags = filestats(f1)
     nload = min(nfiles, trueNfiles)
     size_mb = np.round(size_b, 2)
     print(f"Will load {nload} of {trueNfiles} files. FITS size per file {size_mb}MB, Flag lines {nflags}")
-    if args.dobench:
-        for i in range(1, int(args.loop) + 1):
-            sdf = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nload)
-            s = sdf.stats()
-            if args.skipflags:
-                nf = 0
-            else:
-                nf = nflags
-            dt.tag(
-                f"load{i}",
-                [
-                    s["nfiles"],
-                    size_mb,
-                    size_mb * s["nfiles"],
-                    s["nchan"],
-                    s["nrows"],
-                    s["ifnum"],
-                    s["fdnum"],
-                    s["plnum"],
-                    nf,
-                    args.skipflags,
-                ],
-            )
+    if args.indexthreshold == -1:
+        ift = float("inf")
+    else:
+        ift = args.indexthreshold * 1024 * 1024  # convert to bytes
+    print(f"Using {ift=}")
+    for i in range(1, int(args.loop) + 1):
+        sdf = GBTFITSLoad(f1, skipflags=args.skipflags, nfiles=nload, index_file_threshold=ift)
+        s = sdf.stats()
+        if args.skipflags:
+            nf = 0
+        else:
+            nf = nflags
+        dt.tag(
+            f"load{i}",
+            [
+                s["nfiles"],
+                size_mb,
+                args.indexthreshold,
+                size_mb * s["nfiles"],
+                s["nchan"],
+                s["nrows"],
+                s["ifnum"],
+                s["fdnum"],
+                s["plnum"],
+                nf,
+                args.skipflags,
+            ],
+        )
 
     dt.close()
     dt.report()

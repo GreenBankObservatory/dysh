@@ -1475,6 +1475,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
                     "CRVAL3",
                     "CTYPE3",
                     "CUNIT3",
+                    # Data from 2005 have CRVAL4 but not CTYPE4
+                    # src/dysh/testdata/AGBT05B_047_01/AGBT05B_047_01.raw.acs/AGBT05B_047_01.raw.acs.fits'
                     "CTYPE4",
                     "CRVAL4",
                     "DATE-OBS",
@@ -1771,7 +1773,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         new_spectrum = self.make_spectrum(
             Masked(new_flux, self.mask[start_idx:stop_idx]),
             meta=meta,
-            observer_location=Observatory[meta["TELESCOP"]],
+            observer_location=Observatory[meta.get("TELESCOP", "GBT")],
         )
         new_spectrum._weights = self._weights[start_idx:stop_idx]
         return new_spectrum
