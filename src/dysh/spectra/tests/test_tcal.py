@@ -25,9 +25,6 @@ class TestTCal:
 
     def test_plot(self):
         # Test that we can plot the TCal object.
-        import matplotlib.pyplot as plt
-
-        plt.ioff()
         self.tcal.plot()
 
     def test_get_tcal(self):

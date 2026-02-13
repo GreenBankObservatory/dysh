@@ -16,6 +16,8 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 sys.path.insert(0, os.path.abspath("."))
+os.environ["READTHEDOCS"] = "True"  # Fool dysh to use StaticLabGUI.
+print(f"Are we fooling anyone? {os.environ['READTHEDOCS']}")
 
 from dysh import __version__
 
@@ -86,11 +88,12 @@ mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:true});"
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
-# The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = [".rst", ".md"]
-source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
+# The suffix(es) of source filenames and the rendering tool.
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "myst-nb",
+    ".ipynb": "myst-nb",
+}
 
 # The master toctree document.
 master_doc = "index"
