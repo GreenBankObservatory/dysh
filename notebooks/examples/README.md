@@ -23,9 +23,14 @@ Each notebook has a specific layout that should be followed:
    visually during runtime.
 9. See Also - references to related and relevant notebooks. Optional.   
 
-Embedded links should be on start of a new line (they are long, easier to find and change this way). E.g.
+Also:
+
+1. Embedded links should be on start of a new line (they are long, easier to find and change this way). E.g.
 
     [Spectrum](https://dysh.readthedocs.io/en/latest/modules/dysh.spectra.html#module-dysh.spectra.spectrum)
+
+2. If the last statement in a cell is a `plot()`, it should become `plot();` to prevent an ugly looking
+   and useless return object printed to the file.
 
 
 
