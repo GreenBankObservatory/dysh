@@ -72,6 +72,7 @@ valid_dysh_example = {
     "otf3"       : "AGBT21B_024_20",                                # OTF Argus  NGC5954 (EDGE)
     "otf4"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas/",  # OTF Argus  DR21
     "vane"       : "fs-Argus/data/AGBT20B_295_02.raw.vegas/AGBT20B_295_02.raw.vegas.A.fits",
+    "repeated"   : "repeated-scans/data/TRFI_090125_S1.raw.vegas/TRFI_090125_S1.raw.vegas.testtrim.fits",
 }
 
 
