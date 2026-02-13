@@ -73,8 +73,8 @@ valid_dysh_example = {
     "otf4"       : "mapping-Argus/data/TGBT22A_603_05.raw.vegas/",  # OTF Argus  DR21
     "vane"       : "fs-Argus/data/AGBT20B_295_02.raw.vegas/AGBT20B_295_02.raw.vegas.A.fits",
     "repeated"   : "repeated-scans/data/TRFI_090125_S1.raw.vegas/TRFI_090125_S1.raw.vegas.testtrim.fits",
+    "gaussfit"   : "nod-W/outputs/M82_ifnum_3_polavg.fits",
 }
-
 
 # /home/dysh/acceptance_testing or $DYSH_DATA/acceptance_testing
 # in acceptance_testing/data
