@@ -1,13 +1,9 @@
 """Tests for specplot."""
 
-import matplotlib.pyplot as plt
 import pytest
 
 from dysh.fits import GBTFITSLoad
 from dysh.util import get_project_testdata
-
-# Disable interactive plotting.
-plt.ioff()
 
 
 class TestSpecplot:

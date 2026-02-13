@@ -17,7 +17,7 @@ from ..coordinates import (
     frame_to_label,
 )
 from ..util.docstring_manip import docstring_parameter
-from . import check_kwargs, parse_html
+from .core import check_kwargs, parse_html
 from .plotbase import PlotBase
 
 _KMS = u.km / u.s
@@ -80,7 +80,7 @@ class SpectrumPlot(PlotBase):
     {0}
     """
 
-    def __init__(self, spectrum, **kwargs):
+    def __init__(self, spectrum, select=True, **kwargs):
         super().__init__()
         self.reset()
         self._spectrum = spectrum
@@ -88,10 +88,29 @@ class SpectrumPlot(PlotBase):
         self._set_xaxis_info()
         self._plot_kwargs.update(kwargs)
         self._title = self._plot_kwargs["title"]
+        self._select = select
         self._selector: MultiSpanSelector = None
         self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
         self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
         self._scan_numbers = np.array([self._spectrum.meta["SCAN"]])
+
+        self._init_selector()
+
+        self._set_frontend()
+
+    def _init_plot(self):
+        super()._init_plot()
+
+    def _init_selector(self):
+        if self._select:
+            if not hasattr(self, "_selector") or self._selector is None:
+                self._selector = MultiSpanSelector(self.axes, minspan=1)
+            elif hasattr(self, "_selector"):
+                self._selector.clear()
+        # If select is False, and there is a selector, close it.
+        elif self.has_selector():
+            self._selector.close()
+            self._selector = None
 
     def _set_xaxis_info(self):
         """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
@@ -155,19 +174,25 @@ class SpectrumPlot(PlotBase):
 
         check_kwargs(self.default_plot_kwargs(), kwargs)
 
+        self._select = select
+
         self._set_xaxis_info()
         # Plot arguments for this call of plot(). i.e. non-sticky plot attributes
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
 
-        # Clean up old resources before creating new figure/selector
-        if self._selector is not None:
-            self._selector.disconnect()
-            self._selector = None
+        if not self.has_figure():
+            self._init_plot()
 
-        if self.figure is not None:
-            self.figure = mpl.figure.Figure(figsize=(10, 6))
-            self.axes = self.figure.subplots(nrows=1, ncols=1)
+        if self.has_axes():
+            self.axes.clear()
+            self._init_selector()
+
+        if not self._frontend.is_window_alive():
+            self._set_frontend()
+
+        if self._select:
+            self._frontend.connect_buttons(self)
 
         # TODO: procedurally generate subplot params based on show header/buttons args.
         # ideally place left/right params right here, then top gets determined below.
@@ -239,8 +264,9 @@ class SpectrumPlot(PlotBase):
         if show_header:
             self.figure.subplots_adjust(top=0.79, left=0.09, right=0.95)
             self._set_header(s)
-        if select:
-            self._selector = MultiSpanSelector(self.axes, minspan=abs(self._sa[0].value - self._sa[1].value))
+        if self._select:
+            self._selector.set_minspan(abs(self._sa[0].value - self._sa[1].value))
+            self._selector.init_first_span()
             self._spectrum._selection = self._selector.get_selected_regions()
         if oshow is not None:
             if isinstance(oshow, type(self._spectrum)):
@@ -253,6 +279,9 @@ class SpectrumPlot(PlotBase):
             if oshow_kwargs is None:
                 oshow_kwargs = {}
             self.oshow(oshow, **oshow_kwargs)
+
+        self.show()
+        self.figure.canvas.draw_idle()
 
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
@@ -559,7 +588,7 @@ class SpectrumPlot(PlotBase):
 
 
 class MultiSpanSelector:
-    def __init__(self, ax, minspan):
+    def __init__(self, ax, minspan=1):
         self.ax = ax
         self.canvas = ax.figure.canvas
         self.spans = []
@@ -572,11 +601,20 @@ class MultiSpanSelector:
         # Register callbacks before creating any spans.
         self.cid_press = self.canvas.mpl_connect("button_press_event", self.on_press)
 
-        self.spans.extend(self.init_selector())
-        self.active_span = self.spans[0]
+        self.active_span = None
         self.selected_span = None
 
-    def init_selector(self):
+    def init_first_span(self):
+        """
+        Add the first span selector to this object.
+        """
+        if len(self.spans) > 0:
+            return
+        else:
+            self.spans.extend(self.init_span())
+            self.active_span = self.spans[0]
+
+    def init_span(self):
         span = SpanSelector(
             self.ax,
             self.on_select,
@@ -596,7 +634,7 @@ class MultiSpanSelector:
             if self.active_span is not None:
                 self.active_span.set_active(False)
                 self.active_span = None
-            self.spans.extend(self.init_selector())
+            self.spans.extend(self.init_span())
             self.active_span = self.spans[-1]
         elif self.active_span is not None:
             self.active_span.set_active(False)
@@ -644,6 +682,17 @@ class MultiSpanSelector:
             self.canvas.mpl_disconnect(self.cid_press)
             self.cid_press = None
 
+    def clear(self):
+        """Clear all regions."""
+        for span in self.spans:
+            span.clear()
+            span.disconnect_events()
+            del span
+        self.spans.clear()
+        self.spans = []
+        self.selected_span = None
+        self.active_span = None
+
     def clear_region(self, event=None):
         if not self.selected_span:
             return
@@ -660,16 +709,17 @@ class MultiSpanSelector:
             self.active_span = self.spans[0]
 
     def clear_regions(self, event=None):
-        for span in self.spans:
-            span.clear()
-            span.disconnect_events()
-            del span
-        self.spans.clear()
-        self.selected_span = None
-        self.active_span = None
+        self.clear()
         # Add a new span.
-        self.spans.extend(self.init_selector())
-        self.active_span = self.spans[-1]
+        if self.ax is not None:
+            self.spans.extend(self.init_span())
+            self.active_span = self.spans[-1]
+
+    def close(self):
+        self.disconnect()
+        self.clear()
+        self.ax = None
+        self.canvas = None
 
     def get_selected_regions(self, ignore_incomplete=True):
         """
@@ -688,3 +738,9 @@ class MultiSpanSelector:
         else:
             regions = [span.extents for span in self.spans]
         return regions
+
+    def set_minspan(self, minspan):
+        """Set the minimum span in data units for the spans."""
+        self.minspan = minspan
+        for span in self.spans:
+            span.minspan = minspan

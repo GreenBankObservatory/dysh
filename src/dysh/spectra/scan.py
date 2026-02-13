@@ -239,11 +239,8 @@ class SpectralAverageMixin:
         """
         Plot the data as a waterfall.
         """
-        if self._plotter is None:
-            self._plotter = sp.ScanPlot(self, **kwargs)
+        self._plotter = sp.ScanPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
-        g = self._plotter._frontend(self._plotter)
-        g.show()
         return self._plotter
 
 
