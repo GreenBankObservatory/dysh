@@ -16,7 +16,7 @@ Each notebook has a specific layout that should be followed:
 2. Optional Background (nodding has a good example)
 3. Dysh Commands gives summary of commands (re)introduces here. Generally function arguments can be skipped, but the
    `velocity_frames`  notebook has an counter example
-3. Loading Modules loaded and setup for logging/file I/O
+3. Loading Modules loaded and setup for logging/file I/O (no more ipympl required)
 4. Data Retrievel, data should be obtained via 	`dysh_data()`
 5. 
 9. Final Stats at the end should take a spectrum and the `stats()` -  RMS be recorded so it can be compared
