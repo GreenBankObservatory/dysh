@@ -1,12 +1,9 @@
 """Classes and functions for plotting spectra and SDFITS data"""
 
-# Interactive plotting.
-import matplotlib.pyplot as plt
+__all__ = ["core", "specplot", "scanplot", "vegasplot"]
 
-plt.ion()
 
-__all__ = ["specplot"]
-from .core import *
-from .specplot import *
-from .scanplot import *
-from .vegasplot import *
+def switch_frontend(frontend):
+    from dysh.plot import plotbase
+
+    plotbase.GUI = frontend
