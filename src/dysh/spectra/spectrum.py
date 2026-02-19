@@ -545,9 +545,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def normalness(self):
         """
-        Compute the p-value if the noise in a spectrum is gaussian
-        using the Anderson-Darling statistic
-        The p-value gives the probability that the spectrum is gaussian.
+        Compute the p-value to check if the noise in a spectrum is gaussian
+        using the Anderson-Darling statistic.
         If p>0.05, the spectrum can be considered gaussian.
         See also "D'Agostino, R. B., & Stephens, M. A. (Eds.). (1986)
         Goodness-of-fit techniques" , table 4.9
