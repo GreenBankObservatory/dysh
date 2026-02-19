@@ -227,7 +227,7 @@ Overlaying Catalog Lines
 ------------------------
 
 You can overlay the molecular spectral lines found from the
-`spectral line search feature <https://dysh.readthedocs.io/en/latest/how-tos/examples/line_search.html>`_
+:doc:`spectral line search feature </users_guide/line_search>`
 on your plot with the following command:
 
 .. code-block::
@@ -236,15 +236,15 @@ on your plot with the following command:
 
 .. image:: files/specplot_cataloglines.png
 
-You can add kwargs that pass to `dysh.line.SpectralLineSearchClass.query_lines <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.line.html#dysh.line.SpectralLineSearchClass.query_lines>`_,
-such as ``chemical_name`` and ``intensity_lower_limit``. However, the minimum and maximum frequencies are taken from the underlying spectrum.
+You can add kwargs that pass to `~dysh.line.SpectralLineSearchClass.query_lines`, such as ``chemical_name`` and ``intensity_lower_limit``.
+However, the minimum and maximum frequencies are taken from the underlying spectrum.
 Just like any other overlays, you can clear these with:
 
 .. code-block::
 
     ps_plot.clear_overlays()
 
-You can also add your own custom vline with `annotate_vline <https://dysh.readthedocs.io/en/latest/reference/modules/dysh.plot.html#dysh.plot.specplot.SpectrumPlot.annotate_vline>`_ to denote a single spectral line,
+You can also add your own custom vline with `~dysh.plot.specplot.SpectrumPlot.annotate_vline` to denote a single spectral line,
 or just anything of interest on the plot.
 
 .. code-block::
@@ -252,3 +252,26 @@ or just anything of interest on the plot.
     ps_plot.annotate_vline(1.381e9, 'GPS-L3')
 
 .. image:: files/annotate_vline.png
+
+
+=======
+Scripts
+=======
+
+If you are running a script that uses dysh and would like to use the interactive plotter, then you must be running the script with a display available, and you must include calls to ``PlotBase.show(block=True)`` in your script when you want to show the plotter:
+
+.. code-block:: python
+
+    p = spectrum.plot()
+    p.show(block=True)
+
+This will halt the script until the plotter window is closed.
+After the plotter window is closed, calling ``PlotBase.show(block=True)`` will not bring back a plotter window.
+To get a new plotter window, one has to plot and show again, like:
+
+.. code-block:: python
+
+    p.plot()
+    p.show(block=True)
+
+Note that using ``PlotBase.show(block=False)`` will not do anything.

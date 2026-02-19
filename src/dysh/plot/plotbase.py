@@ -85,6 +85,7 @@ class PlotBase:
             self._selector = None
         self.figure = None
         self.axes = None
+        self._frontend.root.quit()
 
     def _init_plot(self):
         if not self.has_figure():
@@ -106,8 +107,8 @@ class PlotBase:
         """The plot object"""
         return self.__class__.__name__
 
-    def show(self):
-        self._frontend.show()
+    def show(self, *args, **kwargs):
+        self._frontend.show(*args, **kwargs)
 
     @property
     def axis(self):
