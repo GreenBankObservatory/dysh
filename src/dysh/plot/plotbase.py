@@ -73,8 +73,6 @@ class PlotBase:
         self._frontend = GUI(self)
         self._connect()
 
-    #        self._frontend.connect_buttons(self)
-
     def _connect(self):
         if self.figure.canvas is not None:
             self.figure.canvas.mpl_connect("close_event", self._close)
