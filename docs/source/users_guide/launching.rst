@@ -5,8 +5,11 @@
 Starting dysh
 **************
 
+dysh shell
+==========
+
 dysh comes with two pre-configured interfaces that can be started from the
-command line. The first, ``dysh``, will start an iPython shell with common
+command line. The first, ``dysh``, will start an `IPython <https://ipython.readthedocs.io/>`_ shell with common
 dysh classes, and astropy, numpy, and pandas modules already imported.
 ``dysh`` has a number of command line options, viewable with ``--help``
 
@@ -17,7 +20,7 @@ dysh classes, and astropy, numpy, and pandas modules already imported.
    dysh --help
 
    usage: dysh [-h] [-i] [-p PATHS [PATHS ...]] [-P PROFILE] [-L FITS_LOADER] [--colors {NoColor,Neutral,Linux,LightBG}] [-v {0,1,2,3}]
-            [--log LOG] [-q] [--version] [--skip-config]
+            [--log LOG] [-q] [--version] [--skip-config] [--hide-tb]
             [file]
 
    Dysh interactive shell. All CLI arguments other than those defined below are passed through to ipython; see $ ipython --help for more
@@ -43,10 +46,17 @@ dysh classes, and astropy, numpy, and pandas modules already imported.
      -q, --quiet           Silence DEBUG- and INFO-level logs to stderr
      --version             Print version and exit
      --skip-config         Skip creating a configuration file
+     --hide-tb             Hide traceback
 
 .. _usersguide-launching-dysh-lab:
 
-There is also a custom Jupyter lab interface, ``dysh-lab``, which will start a Jupyter lab server and open a launcher in your browser.
+dysh lab
+========
+
+There is also a custom `JupyterLab <https://jupyterlab.readthedocs.io/>`_ interface, ``dysh-lab``, which will start a JupyterLab server and open a launcher in your browser.
+
+.. note::
+    At GBO ``dysh-lab`` will not launch a web browser. You must direct your web browser to the appropriate location, and `set up a tunnel <https://gbtdocs.readthedocs.io/en/latest/how-tos/infrastructure/remote-connection.html#vnc-connection>`_ if working through ssh.
 
 .. code:: bash
 
