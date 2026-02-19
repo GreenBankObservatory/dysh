@@ -12,7 +12,8 @@ However, if you want to skip directly into the notebooks, start with `AAAREADME.
 
 Each notebook has a specific layout that should be followed:
 
-1. Title with small description what the notebook covers
+1. Title with small description what the notebook covers. If you start with "this notebook..." 
+   it will be more obvious when reading notebooks in the users guide
 2. Optional Background (nodding has a good example)
 3. Dysh Commands gives summary of commands (re)introduces here. Generally function arguments can be skipped, but the
    `velocity_frames`  notebook has an counter example
