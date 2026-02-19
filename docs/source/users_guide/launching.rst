@@ -48,6 +48,39 @@ dysh classes, and astropy, numpy, and pandas modules already imported.
      --skip-config         Skip creating a configuration file
      --hide-tb             Hide traceback
 
+IPython Tips
+------------
+
+IPython is rich, and dysh shell inherits most of it.
+Describing the IPython options and features is beyond the scope of this documentation, but here we provide a few selected tips.
+
+IPython startup
+^^^^^^^^^^^^^^^
+
+When IPython starts it will look for files under ``~/.ipython/`` (the default, unless the system variable ``IPYTHONDIR`` is set).
+In there, you will find a ``profile_dysh/startup`` directory.
+Any scripts located under that directory will be run on the startup of dysh shell.
+
+IPython magics
+^^^^^^^^^^^^^^
+
+These are convenience functions invoked with a ``%`` at the start.
+Some useful ones are:
+
+* `history <https://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-history>`_
+
+  For example, to save the current session history of commands to a file:
+
+  .. code-block:: python
+
+     %history -f dysh-session.log
+
+* `run <https://ipython.readthedocs.io/en/stable/interactive/magics.html#magic-run>`_
+
+  To run a script from inside dysh shell.
+
+A list of built in magic commands can be found in `this link <https://ipython.readthedocs.io/en/stable/interactive/magics.html>`_.
+
 .. _usersguide-launching-dysh-lab:
 
 dysh lab
