@@ -58,7 +58,8 @@ else:
 
 _KMS = u.km / u.s
 
-mpl.rcParams["font.family"] = "monospace"
+# Use dysh stylesheet.
+mpl.style.use("dysh.data.dysh")
 
 
 class PlotBase:
