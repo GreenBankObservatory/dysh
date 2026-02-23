@@ -438,6 +438,28 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         return out
 
+    def check_stats(self, rms, rtol=1e-05):
+        """
+        Check statistics of a spectrum compared to pre-set value(s)
+        to a relative tolerance. Currently only the RMS is compared.
+
+        Parameters
+        ----------
+        rms : `~astropy.units.quantity.Quantity`
+            Value of the expected RMS value.
+
+        rtol : float
+            Relative tolerance with which the value is compared.
+            See also np.isclose().
+            Default:  1e-05
+        """
+        s = self.stats()
+        rms0 = s["rms"]
+        if np.isclose(rms, rms0, rtol=rtol):
+            print("rms is OK")
+        else:
+            print(f"Found rms={rms0}, but expected {rms}.")
+
     def radiometer(self, roll=0):
         """
         Check the radiometer equation, and return the dimensionless ratio of the
