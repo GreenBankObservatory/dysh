@@ -431,14 +431,14 @@ class Spectrum(Spectrum1D, HistoricalBase):
         s = self.stats()
         rms0 = s["rms"]
         if type(rms) is not Quantity:
-            mesg = " (no unit was given)"
+            mesg = f" (no unit was given, assumed {rms0.unit})"
             rms0 = rms0.value
         else:
             mesg = ""
         if np.isclose(rms, rms0, rtol=rtol):
-            print(f"rms is OK {mesg}")
+            logger.info(f"rms is OK {mesg}")
         else:
-            print(f"Found rms={rms0}, but expected {rms}.")
+            logger.warning(f"Found rms={rms0}, but expected {rms}.")
 
     def radiometer(self, roll=0):
         """
