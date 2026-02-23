@@ -4,11 +4,14 @@ Plot a spectrum using matplotlib
 
 import datetime as dt
 import os
+import sys
 
 import astropy.units as u
 import matplotlib as mpl
 import numpy as np
 from astropy.coordinates import SkyCoord
+
+from dysh.log import logger
 
 from ..coordinates import (
     Observatory,
@@ -18,32 +21,93 @@ from ..coordinates import (
 from ..util.core import abbreviate_to, in_notebook
 
 # Only import the appropriate GUI to avoid errors.
-if in_notebook():
+on_rtd = os.environ.get("READTHEDOCS") == "True"
+if in_notebook() and on_rtd:
+    from IPython import get_ipython
+
+    get_ipython().run_line_magic("matplotlib", "inline")
+    from .labgui import StaticLabGUI as GUI
+elif in_notebook():
     from .labgui import LabGUI as GUI
 elif os.environ.get("DISPLAY", "") == "":
     from .staticgui import StaticGUI as GUI
 else:
+    from IPython import get_ipython
+
+    ipython = get_ipython()
+    try:
+        if ipython.active_eventloop != "tk":
+            msg = (
+                "tk event loop not started. Plotting may not work as expected.\nTo start the tk event loop use: %gui tk"
+            )
+            if logger._configured:
+                logger.warning(msg)
+            else:
+                print(msg)
+    except AttributeError:
+        # Do not show this message if this line is encountered while loading
+        # modules as part of the dysh shell startup.
+        if "bin/dysh" not in sys.argv[0]:
+            msg = "Not running on IPython and trying to use the ShellGUI may result in unexpected behavior."
+            if logger._configured:
+                logger.warning(msg)
+            else:
+                print(msg)
     from .shellgui import ShellGUI as GUI
 
+
 _KMS = u.km / u.s
+
+mpl.rcParams["font.family"] = "monospace"
 
 
 class PlotBase:
     """This class describes describes the common interface to all Plot classes."""
 
-    def __init__(self, **kwargs):
-        self.figure = mpl.figure.Figure()
-        self.axes = self.figure.subplots(nrows=1, ncols=1)
-        self._set_frontend()
-        mpl.rcParams["font.family"] = "monospace"
+    def __init__(self):
+        self._init_plot()
         self._scan_numbers = None
 
     def _set_frontend(self):
-        self._frontend = GUI
+        self._frontend = GUI(self)
+        self._connect()
+        self._frontend.connect_buttons(self)
+
+    def _connect(self):
+        if self.figure.canvas is not None:
+            self.figure.canvas.mpl_connect("close_event", self._close)
+        else:
+            return
+
+    def _close(self, event=None):
+        if self.has_selector():
+            self._selector.close()
+            self._selector = None
+        self.figure = None
+        self.axes = None
+
+    def _init_plot(self):
+        if not self.has_figure():
+            self.figure = mpl.figure.Figure(figsize=(10, 6), dpi=100)
+        else:
+            self.figure.clear()
+        self.axes = self.figure.subplots(nrows=1, ncols=1)
+
+    def has_axes(self):
+        return hasattr(self, "axes") and self.axes is not None
+
+    def has_figure(self):
+        return hasattr(self, "figure") and self.figure is not None
+
+    def has_selector(self):
+        return hasattr(self, "_selector") and self._selector is not None
 
     def _plot_type(self):
         """The plot object"""
         return self.__class__.__name__
+
+    def show(self):
+        self._frontend.show()
 
     @property
     def axis(self):

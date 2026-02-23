@@ -89,6 +89,8 @@ class ScanPlot(PlotBase):
         self._xtick_labels = xtick_labels
         self.spectrogram = self.spectrogram.T
 
+        self._set_frontend()
+
     def reset(self):
         """Reset the plot keyword arguments to their defaults."""
         self._plot_kwargs = {
@@ -158,11 +160,17 @@ class ScanPlot(PlotBase):
         vmax = kwargs.get("vmax", None)
         norm = kwargs.get("norm", None)
 
-        if True:
-            self.figure = mpl.figure.Figure(figsize=(10, 6), dpi=100)
-            self.axes = self.figure.subplots(nrows=1, ncols=1)
+        self.im = None
+
+        self._init_plot()
+
+        if self.has_axes():
+            self.axes.clear()
             self._axis2 = self.axes.twinx()
             self._axis3 = self.axes.twiny()
+
+        if not self._frontend.is_window_alive():
+            self._set_frontend()
 
         if show_header:
             # This has to be set before drawing the image and adding the colorbar.
@@ -218,6 +226,9 @@ class ScanPlot(PlotBase):
 
         self.axes.set_xlim(0, stop - 0.5)
         self._set_labels()
+
+        self.show()
+        self.figure.canvas.draw_idle()
 
     def _set_labels(self):
         # x1: bottom
@@ -275,6 +286,7 @@ class ScanPlot(PlotBase):
             The maximum value of the color scale. Default None; to autoscale.
         """
         self.im.set_clim(vmin=vmin, vmax=vmax)
+        self.figure.canvas.draw_idle()
 
     def set_interpolation(self, interpolation="nearest"):
         """
@@ -286,6 +298,7 @@ class ScanPlot(PlotBase):
             Interpolation method. Default: "nearest".
         """
         self.im.set_interpolation(interpolation)
+        self.figure.canvas.draw_idle()
 
     def set_cmap(self, cmap="inferno"):
         """
@@ -297,6 +310,7 @@ class ScanPlot(PlotBase):
             cmap used for the color scale. Default: "inferno".
         """
         self.im.set_cmap(cmap)
+        self.figure.canvas.draw_idle()
 
     def set_norm(self, norm=None):
         """
@@ -310,3 +324,4 @@ class ScanPlot(PlotBase):
             norm used for the color scale. Default: "None", for linear scaling.
         """
         self.im.set_norm(norm)
+        self.figure.canvas.draw_idle()
