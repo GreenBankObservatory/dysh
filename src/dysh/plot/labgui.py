@@ -2,6 +2,8 @@
 dysh lab (Jupyter) plotting interface.
 """
 
+import warnings
+
 from ipympl.backend_nbagg import Canvas, FigureManager
 from IPython.display import display
 from ipywidgets import Button, HBox, VBox
@@ -17,9 +19,14 @@ class LabGUI(BaseGUI):
     """
 
     def __init__(self, plotbase):
-        self.canvas = Canvas(plotbase.figure)
-        self.canvas.manager = FigureManager(self.canvas, 0)
-        self.canvas.header_visible = False  # Remove canvas header.
+        # Suppress traitlets DeprecationWarning from ipympl Toolbar MRO issue (ipympl#488).
+        # warnings.filterwarnings alone is unreliable in Jupyter kernels, so use
+        # catch_warnings for a guaranteed local suppression.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning, module="traitlets")
+            self.canvas = Canvas(plotbase.figure)
+            self.canvas.manager = FigureManager(self.canvas, 0)
+        plotbase.figure.canvas.header_visible = False  # Remove canvas header.
 
         self.button_clear = Button(
             description="Clear All Regions",
