@@ -445,8 +445,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        rms : `~astropy.units.quantity.Quantity`
-            Value of the expected RMS value.
+        rms : float or `~astropy.units.quantity.Quantity`
+            Value of the expected RMS value.   If a float is given
+            the comparison is only done on the value of the Quantity.
 
         rtol : float
             Relative tolerance with which the value is compared.
@@ -455,8 +456,13 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         s = self.stats()
         rms0 = s["rms"]
+        if type(rms) is not Quantity:
+            mesg = " (no unit was given)"
+            rms0 = rms0.value
+        else:
+            mesg = ""
         if np.isclose(rms, rms0, rtol=rtol):
-            print("rms is OK")
+            print(f"rms is OK {mesg}")
         else:
             print(f"Found rms={rms0}, but expected {rms}.")
 
