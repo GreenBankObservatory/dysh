@@ -2,38 +2,70 @@
 dysh lab (Jupyter) plotting interface.
 """
 
+import warnings
+
 from ipympl.backend_nbagg import Canvas, FigureManager
 from IPython.display import display
 from ipywidgets import Button, HBox, VBox
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+from .basegui import BaseGUI
 
 
-class LabGUI:
+class LabGUI(BaseGUI):
+    """
+    NBAgg based GUI.
+    Used for jupyter.
+    """
+
     def __init__(self, plotbase):
-        # figure.set_dpi(100)
-        plotbase.figure.set_figwidth(10)
-        plotbase.figure.set_figheight(6)
-        self.canvas = Canvas(plotbase.figure)
-        self.canvas.manager = FigureManager(self.canvas, 0)
+        # Suppress traitlets DeprecationWarning from ipympl Toolbar MRO issue (ipympl#488).
+        # warnings.filterwarnings alone is unreliable in Jupyter kernels, so use
+        # catch_warnings for a guaranteed local suppression.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning, module="traitlets")
+            self.canvas = Canvas(plotbase.figure)
+            self.canvas.manager = FigureManager(self.canvas, 0)
         plotbase.figure.canvas.header_visible = False  # Remove canvas header.
 
-        if hasattr(plotbase, "_selector"):
-            self.button_clear = Button(
-                description="Clear All Regions",
-                disabled=False,
-                tooltip="Clear all regions from plot",
-            )
+        self.button_clear = Button(
+            description="Clear All Regions",
+            disabled=False,
+            tooltip="Clear all regions from plot",
+        )
+        self.button_clear_one = Button(
+            description="Clear Region",
+            disabled=False,
+            tooltip="Clear selected region from plot",
+        )
+
+        self.ui = VBox([HBox([self.button_clear, self.button_clear_one]), self.canvas])
+
+    def connect_buttons(self, plotbase):
+        if plotbase.has_selector():
+            # Button widget takes care of not registering the same callback twice.
             self.button_clear.on_click(plotbase._selector.clear_regions)
-            self.button_clear_one = Button(
-                description="Clear Region",
-                disabled=False,
-                tooltip="Clear selected region from plot",
-            )
             self.button_clear_one.on_click(plotbase._selector.clear_region)
 
-            self.ui = VBox([HBox([self.button_clear, self.button_clear_one]), plotbase.figure.canvas])
+    def disconnect_buttons(self):
+        self.button_clear.on_click(self.button_clear._click_handlers.callbacks[0], remove=True)
+        self.button_clear_one.on_click(self.button_clear_one._click_handlers.callbacks[0], remove=True)
 
-        else:
-            self.ui = VBox([plotbase.figure.canvas])
+    def is_window_alive(self):
+        return True
 
     def show(self):
         display(self.ui)
+
+
+class StaticLabGUI(BaseGUI):
+    """
+    Agg based GUI, i.e., no GUI at all.
+    Used for jupyter rendering in documentation.
+    """
+
+    def __init__(self, plotbase):
+        self.canvas = FigureCanvasAgg(plotbase.figure)
+
+    def show(self):
+        display(self.canvas.figure)
