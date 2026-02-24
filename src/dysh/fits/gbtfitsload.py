@@ -130,10 +130,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     @log_call_to_history
     def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=True, **kwargs):
         kwargs_opts = {
-            "index": True,
-            "verbose": False,
             "fix_ka": True,
-            "index_file_threshold": 100 * 1024 * 1024,  # 100 MB default
+            "index_file_threshold": 0,#100 * 1024 * 1024,  # 100 MB default
             # skipflags only means skip reading the flag file, NOT don't alllocate an array for flags nor read them
             # from the binary table.
             "flags": True,  # not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
@@ -162,9 +160,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             fits_files = sorted(path.glob("*.fits"))
             _log_mem(f"GBTFITSLoad: found {len(fits_files)} FITS files in directory")
             for f in fits_files:
-                logger.debug(f"Selecting {f} to load")
-                if kwargs.get("verbose", None):
-                    logger.debug(f"Loading {f}")
+                logger.debug(f"Loading {f}")
                 if nf < kwargs.get("nfiles", 99999):  # performance testing limit number of files loaded
                     self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
                     nf += 1
@@ -182,37 +178,15 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_history(h.header.get("HISTORY", []))
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
-        if kwargs_opts["index"]:
-            self._create_index_if_needed(skipflags, flag_vegas)
-            self._update_radesys()
-            # This only works if the index was created.
-            if kwargs_opts["fix_ka"]:
-                self._fix_ka_rx_if_needed()
-
-        # ushow/udata depend on the index being present, so check that index is created.
-        if kwargs.get("verbose", None) and kwargs_opts["index"]:
-            print(f"=={self.__class__.__name__} {fileobj}")
-            self.ushow("OBJECT", 0)
-            self.ushow("SCAN", 0)
-            self.ushow("SAMPLER", 0)
-            self.ushow("PLNUM")
-            self.ushow("IFNUM")
-            self.ushow("FDNUM")
-            self.ushow("SIG", 0)
-            self.ushow("CAL", 0)
-            self.ushow("PROCSEQN", 0)
-            self.ushow("PROCSIZE", 0)
-            self.ushow("OBSMODE", 0)
-            self.ushow("SIDEBAND", 0)
-
+        self._create_index_if_needed(skipflags, flag_vegas)
+        self._update_radesys()
+        # This only works if the index was created.
+        if kwargs_opts["fix_ka"]:
+            self._fix_ka_rx_if_needed()
         lsdf = len(self._sdf)
         if lsdf > 1:
             logger.info(f"Loaded {lsdf} FITS files")
-        if kwargs_opts["index"]:
-            self.add_history(f"Project ID: {self.projectID}", add_time=True)
-        else:
-            logger.warning("Reminder: No index created; many functions won't work.")
-
+        self.add_history(f"Project ID: {self.projectID}", add_time=True)
         self._qd_corrected = False
 
     def __repr__(self):
@@ -1274,6 +1248,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
+        self._construct_sitelonglat_if_needed()
 
         if flag_vegas and self.is_vegas():
             self.flag_vegas_spurs()
@@ -1460,7 +1435,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if has_index_loaded:
             return
         df = self["OBSMODE"].str.split(":", expand=True)
-        for obj in [self._index, self._flag]:
+        for obj in [self._selection, self._flag]:
             obj["PROC"] = df[0]
             # Assign these to something that might be useful later,
             # since we have them
@@ -1477,19 +1452,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Integration number starts at zero and is incremented when the DATE-OBS changes. It resets to
         zero when the scan number changes.
         """
-        if self._index is None:
-            warnings.warn("Couldn't construct integration number: index is not yet created.", stacklevel=2)
+        if self._selection is None:
+            logger.warning("Couldn't construct integration number: index is not yet created.")
             return
 
         # check it hasn't been constructed before.
-        if "INTNUM" in self._index:
+        if "INTNUM" in self._selection:
             return
         # check that GBTIDL didn't write it out at some point.
-        if "INT" in self._index:
+        if "INT" in self._selection:
             # This is faster than using
             # self._selection = Selection(self._selection.rename(columns={"INT": "INTNUM"}))
             # Keep, unless we find a faster way.
-            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)  # noqa: PD002
+            self._selection.rename(columns={"INT": "INTNUM"}, inplace=True)  # noqa: PD002
             for s in self._sdf:
                 s._rename_binary_table_column("int", "intnum")
             return
@@ -1508,7 +1483,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     intnumarray[idx] = intnums[i]
         self._selection["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
-
+        
+    def _construct_sitelonglat_if_needed(self):
+        """If this object was created using the pure index file, then SITELONG and SITELAT are
+        not defined. However, we can create them by getting the 'TELESCOP' value and looking up
+        its longitude and latitude. TELESCOP will always be present since it is added in 
+        SDFITSLoad._add_primary_hdu
+        """
+        if "SITELONG" not in self.selection.columns or "SITELAT" not in self.selection.columns:
+            s = uniq(self.selection['TELESCOP'])[0]
+            o = Observatory[s]
+            self.selection.loc[:,"SITELONG"] = o.lon.value
+            self.selection.loc[:,"SITELAT"] = o.lat.value
+            
     def _normalize_channel_range(self, channel: list) -> list | None:
         """Ensure channel range is [first,last] for calibration"""
         if channel is None and self._selection._channel_selection is None:
@@ -1548,7 +1535,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
-            _final = self._index
+            _final = self._selection
         scans = kwargs.get("SCAN", None)
         if scans is None:
             scans = uniq(_final["SCAN"])
@@ -3576,11 +3563,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if missing_keys:
             # Check if any underlying SDFITSLoad was loaded from .index file
             index_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "index_file"]
-            if index_loaded_sdfs:
+            if len(index_loaded_sdfs)>0:
                 logger.info(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
                 for sdf in index_loaded_sdfs:
-                    # Access the column through SDFITSLoad which has lazy loading
-                    # This will trigger the full index load for that file
+                    # Access the first missing column through SDFITSLoad which has lazy loading
+                    # This will trigger the full index load for that file and will
+                    # get any missing columns
                     try:
                         _ = sdf[missing_keys[0]]
                     except KeyError:
@@ -3588,8 +3576,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
                 # Rebuild merged index from updated SDFITSLoad indexes
                 self._rebuild_merged_index()
+                
                 logger.info(f"   Loaded missing columns. Index now has {len(self._index.columns)} columns.")
-
+                
+                self._construct_procedure()
+                self._construct_integration_number()
+                self._construct_sitelonglat_if_needed()
         return self._selection[items]
 
     @log_call_to_history

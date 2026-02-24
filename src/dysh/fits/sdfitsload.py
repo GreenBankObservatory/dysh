@@ -75,7 +75,6 @@ class SDFITSLoad:
             "fitsbackend": None,  # choose a default FITSBackend
         }
         kwargs_opts.update(kwargs)
-        print(kwargs)
         fb = kwargs.get("fitsbackend")
         if fb is None:
             self._fits_backend = None
@@ -344,6 +343,8 @@ class SDFITSLoad:
         for h in self._hdu:
             c = dict(filter(lambda item: not any(sub in item[0] for sub in ignore), h.header.items()))
             cols.update(c)
+            
+        logger.debug(f"_add_primary_hdu: ADDING COLUMNS {cols}")
         for k, v in cols.items():
             if k not in self._index.columns:
                 self._index[k] = v
@@ -453,7 +454,7 @@ class SDFITSLoad:
                 The index of the `bintable` attribute, None means all bintables
 
         """
-        print(f"{bintable} {key}: {self.udata(key, bintable)}")
+        print(f"BINTABLE: {bintable} {key}: {self.udata(key, bintable)}")
 
     def naxis(self, naxis, bintable):
         """
@@ -1413,10 +1414,6 @@ class SDFITSLoad:
             missing_keys = [k for k in items if k not in self._index.columns]
 
         if missing_keys and self._index_source == "index_file":
-            print(
-                f"Column(s) {missing_keys} not available in .index file. "
-                f"Triggering full FITS index load to access all columns..."
-            )
             logger.info(
                 f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."

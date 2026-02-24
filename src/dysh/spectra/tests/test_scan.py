@@ -501,7 +501,11 @@ class TestWeights:
         x = sb.timeaverage(weights="tsys")
         assert np.all(x.weights - (sb._timeaveraged[0].weights + sb._timeaveraged[1].weights) == 0)
         sdf_file = f"{data_dir}/AGBT20B_014_03.raw.vegas"
-        sdf = gbtfitsload.GBTFITSLoad(sdf_file)
+        # The index file does not define BACKEND or INSTRUME, even though BACKEND is VEGAS
+        # for all rows in the SDFITS File.  Using the index file would cause flag_vegas() to do nothing
+        # because is_vegas() can't determine if it is vegas or not.  So weights will be different
+        # using index file or SDFITS file.  See https://github.com/GreenBankObservatory/dysh/issues/1023
+        sdf = gbtfitsload.GBTFITSLoad(sdf_file,index_file_threshold=100000000)
         sb = sdf.getfs(scan=6, fdnum=0, plnum=0, ifnum=0)
         w = np.ones((3, sb.nchan))
         x = sb.timeaverage(weights=w)

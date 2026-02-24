@@ -842,7 +842,10 @@ class TestGBTFITSLoad:
         """Test that we can write a loaded SDFITS file without any changes"""
         p = util.get_project_testdata() / "AGBT20B_014_03.raw.vegas"
         data_file = p / "AGBT20B_014_03.raw.vegas.A6.fits"
-        org_sdf = gbtfitsload.GBTFITSLoad(data_file)
+        # in this test we need to ignore the index file because
+        # GBTFITSLoad.write does not write an index file and it won't
+        # be an apples to apples comparison.
+        org_sdf = gbtfitsload.GBTFITSLoad(data_file, index_file_threshold=1000000000)
         d = tmp_path / "sub"
         d.mkdir()
         output = d / "test_write_all.fits"
@@ -901,8 +904,10 @@ class TestGBTFITSLoad:
         o.mkdir()
 
         i = 0
+        # Because these tests involve GBTFITSLoad.write, loading must be
+        # ignoring the index file
         for f in files:
-            g = gbtfitsload.GBTFITSLoad(f)
+            g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
                 with pytest.warns(UserWarning):
@@ -918,10 +923,10 @@ class TestGBTFITSLoad:
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
-                g = gbtfitsload.GBTFITSLoad(out)
+                g = gbtfitsload.GBTFITSLoad(out, index_file_threshold=100000000)
             else:
                 with pytest.warns(UserWarning):
-                    g = gbtfitsload.GBTFITSLoad(o)
+                    g = gbtfitsload.GBTFITSLoad(o, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
                 with pytest.warns(UserWarning):
@@ -934,7 +939,7 @@ class TestGBTFITSLoad:
 
         # now test array of numbers or strings
         for f in files:
-            g = gbtfitsload.GBTFITSLoad(f)
+            g = gbtfitsload.GBTFITSLoad(f,index_file_threshold=100000000)
             for key, val in keyval.items():
                 array = [val] * g.total_rows
                 _set = set([val])
@@ -950,10 +955,9 @@ class TestGBTFITSLoad:
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
-                g = gbtfitsload.GBTFITSLoad(out)
+                g = gbtfitsload.GBTFITSLoad(out,index_file_threshold=100000000)
             else:
-                with pytest.warns(UserWarning):
-                    g = gbtfitsload.GBTFITSLoad(o)
+                g = gbtfitsload.GBTFITSLoad(o,index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
                 with pytest.warns(UserWarning):
@@ -966,7 +970,7 @@ class TestGBTFITSLoad:
 
         # check that exception is handled for incorrect length
         for f in files:
-            g = gbtfitsload.GBTFITSLoad(f)
+            g = gbtfitsload.GBTFITSLoad(f,index_file_threshold=100000000)
             for key, val in keyval.items():
                 array = [val] * 2 * g.total_rows
                 # This will warn and raise an error.
@@ -975,7 +979,7 @@ class TestGBTFITSLoad:
                         g[key] = array
 
         # test that changed a previously selection column results in a warning
-        g = gbtfitsload.GBTFITSLoad(files[0])
+        g = gbtfitsload.GBTFITSLoad(files[0],index_file_threshold=100000000)
         g.select(ifnum=2)
         with pytest.warns(UserWarning):
             g["ifnum"] = 3
