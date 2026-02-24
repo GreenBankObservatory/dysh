@@ -560,7 +560,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         gc = GBTGainCorrection()
         elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
         freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
-        date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
+        date = Time([x["DATE-OBS"] for x in self._meta], scale="utc", format="isot")
         factor = gc.scale_ta_to(
             tscale, freq, elev, date, zenith_opacity, zd=False, surface_error=self._surface_error, ap_eff=self._ap_eff
         )
@@ -699,7 +699,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 gc = GBTGainCorrection()
                 elev = np.array([x["ELEVATIO"] for x in self._meta]) * u.degree
                 freq = np.array([x["CRVAL1"] for x in self._meta]) * u.Hz
-                date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
+                date = Time([x["DATE-OBS"] for x in self._meta], scale="utc", format="isot")
                 self._ap_eff_array = gc.aperture_efficiency(
                     specval=freq, angle=elev, date=date, zd=False, surface_error=self.surface_error
                 )
@@ -724,7 +724,7 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
                 )
             else:
                 gc = GBTGainCorrection()
-                date = Time([x["DATE"] for x in self._meta], scale="utc", format="isot")
+                date = Time([x["DATE-OBS"] for x in self._meta], scale="utc", format="isot")
                 # While any Quantity with dimensions length is fine; be nice and convert to
                 # traditional micron units
                 self._surface_error_array = gc._surface_error_array(date).to(u.micron)
@@ -914,7 +914,6 @@ class ScanBase(HistoricalBase, SpectralAverageMixin):
         df = self._sdfits.index(bintable=self._bintable_index).iloc[rowindices]
         self._meta = df.to_dict("records")  # returns dict(s) with key = row number.
         self._add_missing_but_required()
-        print(f"{('CTYPE4' in self._meta)=}")
         for i in range(len(self._meta)):
             if "CUNIT1" not in self._meta[i]:
                 self._meta[i]["CUNIT1"] = (
