@@ -131,7 +131,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=True, **kwargs):
         kwargs_opts = {
             "fix_ka": True,
-            "index_file_threshold": 0,#100 * 1024 * 1024,  # 100 MB default
+            "index_file_threshold": 0,  # 100 * 1024 * 1024,  # 100 MB default
             # skipflags only means skip reading the flag file, NOT don't alllocate an array for flags nor read them
             # from the binary table.
             "flags": True,  # not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
@@ -1332,7 +1332,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
             # Load full rows from FITS
             fits_df = sdf.load_full_rows(rows, bintable)
-    
+
             if len(fits_df) == 0:
                 result_dfs.append(group)
                 continue
@@ -1359,8 +1359,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # Note Index is not always equal to ROW if there are multiple binary tables,
                 # so we need to isolate the DataFrame Index for the specific rows.
                 dfrows = sdf._index["ROW"].isin(rows)
-                indices=sdf._index[dfrows].index
-                sdf._index.loc[indices,col] = fits_df[col].values
+                indices = sdf._index[dfrows].index
+                sdf._index.loc[indices, col] = fits_df[col].values
             # Mark that we've started loading from FITS (hybrid mode)
             sdf._index_source = "hybrid"
 
@@ -1483,19 +1483,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     intnumarray[idx] = intnums[i]
         self._selection["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
-        
+
     def _construct_sitelonglat_if_needed(self):
         """If this object was created using the pure index file, then SITELONG and SITELAT are
         not defined. However, we can create them by getting the 'TELESCOP' value and looking up
-        its longitude and latitude. TELESCOP will always be present since it is added in 
+        its longitude and latitude. TELESCOP will always be present since it is added in
         SDFITSLoad._add_primary_hdu
         """
         if "SITELONG" not in self.selection.columns or "SITELAT" not in self.selection.columns:
-            s = uniq(self.selection['TELESCOP'])[0]
+            s = uniq(self.selection["TELESCOP"])[0]
             o = Observatory[s]
-            self.selection.loc[:,"SITELONG"] = o.lon.value
-            self.selection.loc[:,"SITELAT"] = o.lat.value
-            
+            self.selection.loc[:, "SITELONG"] = o.lon.value
+            self.selection.loc[:, "SITELAT"] = o.lat.value
+
     def _normalize_channel_range(self, channel: list) -> list | None:
         """Ensure channel range is [first,last] for calibration"""
         if channel is None and self._selection._channel_selection is None:
@@ -3500,7 +3500,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         # Galactic coordinates.
         self._fix_column("RADESYS", radesys["Galactic"], {"CTYPE2": "GLON"})
-        
 
     def _fix_column(self, column, new_val, mask_dict):
         """
@@ -3562,7 +3561,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if missing_keys:
             # Check if any underlying SDFITSLoad was loaded from .index file
             index_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "index_file"]
-            if len(index_loaded_sdfs)>0:
+            if len(index_loaded_sdfs) > 0:
                 logger.info(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
                 for sdf in index_loaded_sdfs:
                     # Access the first missing column through SDFITSLoad which has lazy loading
@@ -3575,9 +3574,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
                 # Rebuild merged index from updated SDFITSLoad indexes
                 self._rebuild_merged_index()
-                
+
                 logger.info(f"   Loaded missing columns. Index now has {len(self._index.columns)} columns.")
-                
+
                 self._construct_procedure()
                 self._construct_integration_number()
                 self._construct_sitelonglat_if_needed()
