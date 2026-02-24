@@ -1385,7 +1385,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # so we need to isolate the DataFrame Index for the specific rows.
                 dfrows = sdf._index["ROW"].isin(rows)
                 indices=sdf._index[dfrows].index
-                sdf._index.loreate[indices,col] = fits_df[col].values
+                sdf._index.loc[indices,col] = fits_df[col].values
             # Mark that we've started loading from FITS (hybrid mode)
             sdf._index_source = "hybrid"
 
