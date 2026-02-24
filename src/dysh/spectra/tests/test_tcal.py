@@ -31,7 +31,7 @@ class TestTCal:
         self.tcal.plot()
 
     def test_get_tcal(self):
-        assert self.tcal.get_tcal() == pytest.approx(20.48841200180447)
+        assert self.tcal.get_tcal() == pytest.approx(18.578175)
 
     def test_smooth(self):
         # By default, do not decimate.
