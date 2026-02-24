@@ -18,12 +18,13 @@ from dysh.fits.index_file import (
     validate_index,
     write_index,
 )
+from dysh.util import get_project_testdata
 
 
 @pytest.fixture
 def testdata_dir():
     """Return path to testdata directory."""
-    return Path(__file__).parent.parent.parent.parent.parent / "testdata"
+    return get_project_testdata()
 
 
 @pytest.fixture
