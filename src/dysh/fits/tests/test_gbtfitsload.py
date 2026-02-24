@@ -2269,6 +2269,7 @@ class TestIndexFileLazyLoading:
                 "ROW": [0, 1, 2],
                 "FITSINDEX": [0, 0, 0],
                 "SCAN": [1, 1, 1],
+                "BINTABLE": [0,0,0],
             }
         )
 
