@@ -538,7 +538,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN, OBJECT,
             VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH,
             and ELEVATIO (ELEVATION).
-            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
+            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN,  RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
             If a string, multiple column names must be comma separated.
         add_columns : list
@@ -592,9 +592,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "VELOCITY",
                     "PROC",
                     "PROCSEQN",
-                    "PROCSIZE",
                     "RESTFREQ",
-                    #                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "FDNUM",
@@ -614,7 +612,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "PROC",
                     "PROCSEQN",
                     "RESTFREQ",
-                    #                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "INTNUM",
@@ -647,9 +644,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
         if selected:
-            df = self.selection.final[cols].copy().astype(col_dtypes)
+            df = self.selection.final[cols].copy().astype(col_dtypes,errors='ignore')
         else:
-            df = self[cols].copy().astype(col_dtypes)
+            df = self[cols].copy().astype(col_dtypes,errors='ignore')
 
         # Scale columns.
         for cn in columns:
@@ -672,7 +669,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # Set column operations for aggregation.
             col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns}
             # We have to reset the index and column types.
-            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes)
+            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes,errors='ignore')
             # Post operations.
             col_post_ops = {k: v.post for k, v in col_defs.items() if k in _columns and v.post is not None}
             if len(col_post_ops) > 0:
@@ -721,7 +718,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN,
             OBJECT, VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED),
             AZIMUTH, and ELEVATIO (ELEVATION).
-            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
+            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN,  RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
             If a string, multiple column names must be comma separated.
         add_columns : list or str
@@ -3561,6 +3558,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if missing_keys:
             # Check if any underlying SDFITSLoad was loaded from .index file
             index_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "index_file"]
+            hyrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "hybrid"]
             if len(index_loaded_sdfs) > 0:
                 logger.info(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
                 for sdf in index_loaded_sdfs:
