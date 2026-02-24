@@ -19,16 +19,28 @@ Each notebook has a specific layout that should be followed:
    `velocity_frames`  notebook has an counter example
 3. Loading Modules loaded and setup for logging/file I/O (no more ipympl required)
 4. Data Retrievel, data should be obtained via 	`dysh_data()`
-5. 
-9. Final Stats at the end should take a spectrum and the `stats()` -  RMS be recorded so it can be compared
-   visually during runtime.
+5. Functions and methods in the text should not have parenthesis at the end (mainly for consistency)
+6. dysh, not `dysh` nor ``dysh``, unless talking about the command line command
+7. add links when talking about other sections in the docs/notebooks
+8. markdown cells should describe what the next code cell is doing, and every code
+   cell should have a description of what it is doing
+
+
+9. Final Stats at the end should take a spectrum and the `check_stats()` -  RMS be recorded so it can be compared
+   visually during runtime. Units would be nice, but are optional.
 9. See Also - references to related and relevant notebooks. Optional.   
 
 Also:
 
-1. Embedded links should be on start of a new line (they are long, easier to find and change this way). E.g.
+1. Embedded links should be on start of a new line (they are long, easier to find and change this way). Here are
+   some example of API links and links to other notebooks:
 
+```
     [Spectrum](https://dysh.readthedocs.io/en/latest/modules/dysh.spectra.html#module-dysh.spectra.spectrum)
+    [dysh_data()](https://dysh.readthedocs.io/en/latest/reference/modules/dysh.util.html#dysh.util.files.dysh_data)
+
+    [Merging SDFITS Files](https://dysh.readthedocs.io/en/latest/users_guide/merge_sdfits.html)
+```    
 
 2. If the last statement in a cell is a `plot()`, it should become `plot();` to prevent an ugly looking
    and useless return object printed to the file.
