@@ -108,6 +108,6 @@ staff_training                          --  KeyError: 'TSCALE'
 
 subbeamnod
 using_spectral_weights
-vane                                  -- W Warning: 0 != 4: inconsistency counters in mask usage
+vane                                  -- W Warning: 0 != 4: inconsistency counters in mask usage ; new check_stats very different
 velocity_frames
 ```
