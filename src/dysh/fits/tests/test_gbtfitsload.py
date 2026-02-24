@@ -939,7 +939,7 @@ class TestGBTFITSLoad:
 
         # now test array of numbers or strings
         for f in files:
-            g = gbtfitsload.GBTFITSLoad(f,index_file_threshold=100000000)
+            g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 array = [val] * g.total_rows
                 _set = set([val])
@@ -955,9 +955,9 @@ class TestGBTFITSLoad:
             g.write(out, overwrite=True, flags=False)
             i += 1
             if "A6" in f.name:
-                g = gbtfitsload.GBTFITSLoad(out,index_file_threshold=100000000)
+                g = gbtfitsload.GBTFITSLoad(out, index_file_threshold=100000000)
             else:
-                g = gbtfitsload.GBTFITSLoad(o,index_file_threshold=100000000)
+                g = gbtfitsload.GBTFITSLoad(o, index_file_threshold=100000000)
             for key, val in keyval.items():
                 _set = set([val])
                 with pytest.warns(UserWarning):
@@ -970,7 +970,7 @@ class TestGBTFITSLoad:
 
         # check that exception is handled for incorrect length
         for f in files:
-            g = gbtfitsload.GBTFITSLoad(f,index_file_threshold=100000000)
+            g = gbtfitsload.GBTFITSLoad(f, index_file_threshold=100000000)
             for key, val in keyval.items():
                 array = [val] * 2 * g.total_rows
                 # This will warn and raise an error.
@@ -979,7 +979,7 @@ class TestGBTFITSLoad:
                         g[key] = array
 
         # test that changed a previously selection column results in a warning
-        g = gbtfitsload.GBTFITSLoad(files[0],index_file_threshold=100000000)
+        g = gbtfitsload.GBTFITSLoad(files[0], index_file_threshold=100000000)
         g.select(ifnum=2)
         with pytest.warns(UserWarning):
             g["ifnum"] = 3
@@ -2273,7 +2273,7 @@ class TestIndexFileLazyLoading:
                 "ROW": [0, 1, 2],
                 "FITSINDEX": [0, 0, 0],
                 "SCAN": [1, 1, 1],
-                "BINTABLE": [0,0,0],
+                "BINTABLE": [0, 0, 0],
             }
         )
 

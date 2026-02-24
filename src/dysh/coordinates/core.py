@@ -286,7 +286,9 @@ def sanitize_skycoord(target):
     except Exception:
         _rv = _VELZERO
 
-    logger.debug(f"{type(target.distance)}, [{target.distance.unit}], {target.distance.unit == u.dimensionless_unscaled}")
+    logger.debug(
+        f"{type(target.distance)}, [{target.distance.unit}], {target.distance.unit == u.dimensionless_unscaled}"
+    )
     if target.distance.unit == u.dimensionless_unscaled and round(target.distance.value) == 1:
         # distance was unset and astropy set it to 1 with a dimensionless composite unit
         newdistance = _DEFAULT_DISTANCE
@@ -332,7 +334,7 @@ def sanitize_skycoord(target):
         logger.debug(
             f"_target = SkyCoord( {lon}, {lat}, frame={target.frame}, distance={newdistance},"
             f" pm_l_cosb={pm_lon}, pm_b={pm_lat}, radial_velocity={_rv})"
-         )
+        )
         _target = coord.SkyCoord(
             lon,
             lat,

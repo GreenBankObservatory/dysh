@@ -258,7 +258,7 @@ class SDFITSLoad:
                     else:
                         logger.warning(".index file missing HDU column - cannot reconstruct BINTABLE")
                 with Benchmark("   adding primary HDU", logger=logger.debug):
-                        self._add_primary_hdu()
+                    self._add_primary_hdu()
                 # Log info about lazy loading
                 logger.info(
                     "Index loaded from .index file (44/93 columns). "
@@ -343,7 +343,7 @@ class SDFITSLoad:
         for h in self._hdu:
             c = dict(filter(lambda item: not any(sub in item[0] for sub in ignore), h.header.items()))
             cols.update(c)
-            
+
         logger.debug(f"_add_primary_hdu: ADDING COLUMNS {cols}")
         for k, v in cols.items():
             if k not in self._index.columns:
