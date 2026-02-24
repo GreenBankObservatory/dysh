@@ -644,9 +644,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
         if selected:
-            df = self.selection.final[cols].copy().astype(col_dtypes,errors='ignore')
+            df = self.selection.final[cols].copy().astype(col_dtypes, errors="ignore")
         else:
-            df = self[cols].copy().astype(col_dtypes,errors='ignore')
+            df = self[cols].copy().astype(col_dtypes, errors="ignore")
 
         # Scale columns.
         for cn in columns:
@@ -669,7 +669,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # Set column operations for aggregation.
             col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns}
             # We have to reset the index and column types.
-            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes,errors='ignore')
+            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes, errors="ignore")
             # Post operations.
             col_post_ops = {k: v.post for k, v in col_defs.items() if k in _columns and v.post is not None}
             if len(col_post_ops) > 0:
