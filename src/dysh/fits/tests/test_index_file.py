@@ -20,6 +20,7 @@ from dysh.fits.index_file import (
 )
 from dysh.util import get_project_testdata
 
+
 @pytest.fixture
 def testdata_dir():
     """Return path to testdata directory."""
