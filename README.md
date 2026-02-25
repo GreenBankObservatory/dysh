@@ -107,7 +107,7 @@ Or you can source the uv virtual environment just like any other:
 $ source .venv/bin/activate
 ```
 
-after which the command prefix `uv run` is not needed anymore. 
+after which the command prefix `uv run` is not needed anymore.
 
 
 #### Classic workflow
