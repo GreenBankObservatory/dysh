@@ -18,7 +18,7 @@ Example use case: you want to quickly install and use dysh on a non-GBO computer
 
 #### Via uv
 
-This will install a persistent global version of dysh via uv:
+This will install a persistent global version of dysh via [uv](https://docs.astral.sh/uv/):
 
 ```sh
 # Install dysh
@@ -107,17 +107,12 @@ Or you can source the uv virtual environment just like any other:
 $ source .venv/bin/activate
 ```
 
-#### Via Hatch
+after which the command prefix `uv run` is not needed anymore. 
 
-Another workflow is to use [hatch](https://hatch.pypa.io/latest/tutorials/environment/basic-usage/). After installing hatch, this will look something like:
 
-```sh
-$ hatch shell
-```
+#### Classic workflow
 
-#### Without Hatch
-
-If you do not want to use Hatch, it is possible to develop using a "classic" workflow. From the root of the dysh repo:
+It is possible to develop using a "classic" workflow. From the root of the dysh repo:
 
 ```sh
 $ # Create your virtual environment
