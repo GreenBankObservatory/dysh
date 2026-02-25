@@ -77,7 +77,10 @@ the [GitHub issue tracker](https://github.com/GreenBankObservatory/dysh/issues).
 
 ## Development
 
-See the [For Developers](https://dysh.readthedocs.io/en/latest/for_developers/index.html) documentation for more detailed instructions on setting up a development environment, since this is where you will grab the source code of dysh:
+See the [For Developers](https://dysh.readthedocs.io/en/latest/for_developers/index.html)
+documentation for more detailed instructions on setting up a
+development environment. This is where you will need the full source
+code of dysh.
 
 ### Clone the Repo
 
@@ -120,7 +123,7 @@ $ python -m venv /path/to/venv
 $ # Activate your virtual environment
 $ source /path/to/venv/bin/activate
 $ # Install dysh and its development dependencies
-$ pip install -e .[all]
+$ pip install --group dev -e .[all]
 ```
 
 ### Testing
