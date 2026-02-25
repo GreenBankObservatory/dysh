@@ -77,7 +77,7 @@ the [GitHub issue tracker](https://github.com/GreenBankObservatory/dysh/issues).
 
 ## Development
 
-See the [For Developers](https://dysh.readthedocs.io/en/latest/for_developers/index.html) documentation for more detailed instructions on setting up a development environment.
+See the [For Developers](https://dysh.readthedocs.io/en/latest/for_developers/index.html) documentation for more detailed instructions on setting up a development environment, since this is where you will grab the source code of dysh:
 
 ### Clone the Repo
 
