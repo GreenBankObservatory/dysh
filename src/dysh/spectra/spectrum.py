@@ -306,29 +306,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         return self._subtracted
 
-    def _set_exclude_regions(self, exclude):
-        """
-        Set the mask for the regions to exclude.
-
-        Parameters
-        ----------
-        exclude : list of 2-tuples of int or ~astropy.units.quantity.Quantity, or ~specutils.SpectralRegion
-            List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
-            In channel units.
-
-            Examples: One channel-based region: [11,51],
-                      Two channel-based regions: [(11,51),(99,123)].
-                      One `~astropy.units.quantity.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
-                      One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
-
-        """
-        pass
-
-    def list_to_spectral_region(self, inlist):
-        # @todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit.
-        # This could go in core.py combine this with _set_exclude_regions
-        pass
-
     def bshow(self):
         """Show the baseline model"""
         print(f"baseline model {self._baseline_model}")
@@ -337,11 +314,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def plot(self, **kwargs):
         """ """
 
-        if self._plotter is None:
-            self._plotter = sp.SpectrumPlot(self, **kwargs)
+        self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
-        g = self._plotter._frontend(self._plotter)
-        g.show()
         return self._plotter
 
     def get_selected_regions(self, unit=None):
