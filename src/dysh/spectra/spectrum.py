@@ -1013,9 +1013,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @log_call_to_history
     def set_frame(self, toframe):
-        """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
+        """Set the sky coordinate and doppler tracking reference frame of this Spectrum.
+        The header 'CTYPE1' will be changed accordingly.
 
-        To make a copy of this Spectrum with new coordinate referece frmae instead, use `with_frame`.
+        To make a copy of this Spectrum with new coordinate reference frame instead, use `with_frame`.
 
         Parameters
         ----------
