@@ -257,21 +257,6 @@ class SDFITSLoad:
             self._nrows.append(self._binheader[j]["NAXIS2"])
             logger.debug(f"Loading HDU {i} from {self._filename}")
 
-    def fix_meta(self, meta):
-        """
-        Do any repair to the meta/header for peculariaties in definitions
-        from a particular observatory
-        The passed-in dictionary will be repaired in place.
-        At minimum this method must populate meta['VELDEF'] and meta['VELFRAME']
-
-        Parameters
-        ----------
-            meta : dict
-                The header of the `~Spectrum` to be fixed, corresponding to the `meta` attribute of the Spectrum.
-
-        """
-        pass
-
     def velocity_convention(self, veldef, velframe):
         """
         Compute the velocity convention string use for velocity conversions,
@@ -446,7 +431,7 @@ class SDFITSLoad:
 
     def getrow(self, i, bintable=0):
         """
-        Get a FITS_record from the input bintable
+        Get a :class:`~astropy.io.fits.fitsrec.FITS_record` from the input bintable
 
         Parameters
         ----------
@@ -648,9 +633,6 @@ class SDFITSLoad:
         for i in range(len(self._bintable)):
             print("i=", i)
             self._summary(i)
-
-    # def __len__(self):  # this has no meaning for multiple bintables
-    #    return self._nrows
 
     def _column_mask(self, column_dict):
         """

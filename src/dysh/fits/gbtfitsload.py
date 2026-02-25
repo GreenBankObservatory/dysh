@@ -214,7 +214,79 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def total_rows(self):
         """Returns the total number of rows summed over all files and binary table HDUs"""
         return sum([s.total_rows for s in self._sdf])
+      
+    def nrows(self,bintable:int=0,fitsindex:int=0)->int:
+        """The number of rows an the underlying SDFITSLoad object. 
+        
+        Parameters
+        ----------
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+            
+        Returns
+        -------
+            nrows : int
+                Number of rows, i.e., the length of the input bintable and fitsindex.
+        """
 
+        return self.sdf[fitsindex].nrows(bintable)
+
+    def bintable(self, fitsindex:int=0) -> list :
+        """The list of bintables in a given underlying SDFITSLoad object.
+        
+        Parameters
+        ----------
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+             
+        Returns
+        -------
+        bintable: list
+            A list of all the :class:`~astropy.io.fits.hdu.table.BinTableHDU`s in the 
+            input fitsindex. 
+        """
+        return self.sdf[fitsindex]._bintable
+
+    def binheader(self, fitsindex:int=0) -> list :
+        """The list of bintable headers in a given underlying SDFITSLoad object
+
+        Parameters
+        ----------
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+             
+        Returns
+        -------
+        binheader: list
+            A list of all the :class:`~astropy.io.fits.header.Header`s in the 
+            input fitsindex.      
+        
+        """
+        return self.sdf[fitsindex]._binheader    
+    
+    def naxis(self, naxis, bintable:int=0, fitsindex:int=0):
+        """
+        The NAXISn value of the input bintable.
+
+        Parameters
+        ----------
+        naxis : int
+            The NAXIS whose length is requested
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+ 
+        Returns
+        -------
+            naxis : the length of the NAXIS
+
+        """
+        nax = f"NAXIS{naxis}"
+        return self.binheader(fitsindex)[bintable][nax]   
+                              
     @property
     def columns(self):
         """The column names in the binary table, minus the DATA column
@@ -450,7 +522,28 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
+    
+    def getrow(self,i:int,bintable:int=0,fitsindex:int=0) -> int:
+        """
+        Get a :class:`~astropy.io.fits.fitsrec.FITS_record` from the input bintable
 
+        Parameters
+        ----------
+        i :  int
+            The record (row) index to retrieve
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.
+            
+        Returns
+        -------
+        row : :class:`~astropy.io.fits.fitsrec.FITS_record`
+            The i-th record  of the input bintable and fitsindex
+
+        """
+        return self._sdf[fitsindex].getrow(i, bintable)
+    
     def _validate_summary_columns(self, columns, col_defs, needed=None, verbose=False):
         """
         Sanitize `columns` for `~dysh.fits.gbtfitsload.GBTFITSLoad.get_summary`.
