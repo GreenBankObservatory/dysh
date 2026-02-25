@@ -3263,10 +3263,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
         warning_msg = (  # noqa: E731
-            lambda scans,
-            a,
-            coord,
-            limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            lambda scans, a, coord, limit: (
+                f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            )
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.
@@ -3412,8 +3411,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise TypeError("Only a single coordinate system per observation is supported for now.")
         frame = frame[0]
 
-        lon = self["CRVAL2"].to_numpy()
-        lat = self["CRVAL3"].to_numpy()
+        lon = self["CRVAL2"].to_numpy().copy()
+        lat = self["CRVAL3"].to_numpy().copy()
         time = self["DATE-OBS"].to_numpy().astype(str)
         location = self.GBT
 

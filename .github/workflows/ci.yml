@@ -30,7 +30,7 @@ jobs:
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@v5
         with:
-          version: 0.8.19 # Update this occasionally to stay up to date!
+          version: 0.9.17 # Update this occasionally to stay up to date!
           python-version: ${{ matrix.python-version }}
           enable-cache: true
       - name: Install the project
@@ -49,6 +49,25 @@ jobs:
         with:
           name: coverage.${{ matrix.os }}.${{ matrix.python-version }}
           path: coverage.ubuntu-latest*
+  test-latest-deps:
+    # Canary: runs with unpinned (latest) deps. Non-blocking — never fails the build.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: 0.9.17
+          python-version: '3.13'
+          enable-cache: true
+      - name: Install with latest deps
+        run: uv sync -U --all-extras --dev
+      - name: Log resolved dependency versions
+        run: uv pip list
+      - name: Test with pytest
+        run: |
+          uv run pytest --numprocesses auto -m "not gbo_only" --timeout=0
   coverage:
     needs: tests
     runs-on: ubuntu-latest
@@ -57,7 +76,7 @@ jobs:
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@v5
         with:
-          version: 0.8.19 # Update this occasionally to stay up to date!
+          version: 0.9.17 # Update this occasionally to stay up to date!
           enable-cache: true
       - name: Install the project
         run: uv sync --all-extras --dev
