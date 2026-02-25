@@ -4378,7 +4378,7 @@ class GBTOnline(GBTFITSLoad):
         self._online = fileobj
         self._args = args
         # Disable index file loading for online mode - we need all columns for Selection
-        kwargs.setdefault("index_file_threshold", float("inf"))
+        kwargs.setdefault("index_file_threshold", 0)
         self._kwargs = kwargs
         self._platform = platform.system()  # cannot update in "Windows", see #447
 
