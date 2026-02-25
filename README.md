@@ -126,6 +126,8 @@ $ # Install dysh and its development dependencies
 $ pip install --group dev -e .[all]
 ```
 
+Make sure you have a recent version of pip (>25.1).
+
 ### Testing
 We use [pytest](https://docs.pytest.org/en/stable/index.html) for unit and integration testing. From the top-level dysh directory, run:
 
