@@ -96,7 +96,7 @@ line_search
 
 merge_sdfits
 metadata_management
-nodding                          logger,   radiometer is bad
+nodding
 on_the_fly
 positionswitch
 
