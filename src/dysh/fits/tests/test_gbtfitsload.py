@@ -1331,6 +1331,16 @@ class TestGBTFITSLoad:
         tsys = sdf.vanecal(10, fdnum=2)
         assert tsys == pytest.approx(228.08768944375487)
         
+    def test_getsigref_partial_load(self):
+        scans = list(range(24,27))
+        ifnum = 0
+        plnum=  0
+        fdnum = 0
+        ref=27
+        sdfitsA = gbtfitsload.GBTFITSLoad(util.get_project_testdata()/"TGBT17A_506_11/TGBT17A_506_11.raw.vegas.A_scan24_28.fits")
+        sb0 = sdfitsA.getsigref(scan=scans, ref=ref, fdnum=fdnum, ifnum=ifnum, plnum=plnum)
+        assert len(sb0) == 3
+        
     def test_subbeamnod(self):
         """simple check of subbeamnod for two different cases. This mimics the notebook example"""
         sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
