@@ -29,7 +29,7 @@ class TestGBTFITSLoad:
         sdfits = gbtfitsload.GBTFITSLoad(self._file_list[0])
         for name, prop in properties:
             try:
-                getattr(sdfits,name)
+                getattr(sdfits, name)
             except Exception as exc:
                 pytest.fail(f"Could not access property {name}: {exc}")
 
