@@ -1354,9 +1354,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                             other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
                 # Update the specific rows we loaded in the current SDFITSLoad
                 # Note Index is not always equal to ROW if there are multiple binary tables,
-                # so we need to isolate the DataFrame Index for the specific rows.
-                dfrows = sdf._index["ROW"].isin(rows)
-                indices = sdf._index[dfrows].index
+                # so we need to isolate the DataFrame Index for the specific rows and binary table.
+                dfbin = sdf.index(bintable=bintable)
+                dfrows = dfbin["ROW"].isin(rows)
+                indices = dfbin[dfrows].index
                 sdf._index.loc[indices, col] = fits_df[col].values
             # Mark that we've started loading from FITS (hybrid mode)
             sdf._index_source = "hybrid"
