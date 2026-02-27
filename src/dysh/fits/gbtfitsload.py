@@ -1384,6 +1384,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Update self._selection with the newly loaded columns so that other code
         # paths that access self._index (which returns self._selection) will see them
         self._rebuild_merged_index()
+        self._update_radesys()
 
         return result
 
