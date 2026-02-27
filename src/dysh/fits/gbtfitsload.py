@@ -372,7 +372,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         return self._sdf[fitsindex].nchan(bintable)
-    
+
     def stats(self, bintable=0):
         """
         Return some basic statistics of the GBTFITSLoad.
