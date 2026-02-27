@@ -1325,6 +1325,12 @@ class TestGBTFITSLoad:
             warnings.simplefilter("ignore")
             assert np.all(data_ratio == pytest.approx(tsys_ratio))
 
+    def test_vane_partial_load(self):
+        fits_path = util.get_project_testdata() /"TGBT22A_603_05/TGBT22A_603_05.raw.vegas"
+        sdf = gbtfitsload.GBTFITSLoad(fits_path)
+        tsys = sdf.vanecal(10, fdnum=2)
+        assert tsys == pytest.approx(228.08768944375487)
+        
     def test_subbeamnod(self):
         """simple check of subbeamnod for two different cases. This mimics the notebook example"""
         sdf_file = f"{self.data_dir}/AGBT13A_124_06/AGBT13A_124_06.raw.acs/AGBT13A_124_06.raw.acs.fits"
