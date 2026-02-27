@@ -355,6 +355,24 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             df = df[df["BINTABLE"] == bintable]
         return df
 
+    def nchan(self, bintable: int = 0, fitsindex: int = 0) -> int:
+        """
+        The number of channels per row of the input bintable. Assumes all rows have same length.
+
+        Parameters
+        ----------
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+        Returns
+        -------
+        nchan : int
+            Number channels in the first spectrum of the input bintable
+
+        """
+        return self._sdf[fitsindex].nchan(bintable)
+    
     def stats(self, bintable=0):
         """
         Return some basic statistics of the GBTFITSLoad.
