@@ -1326,7 +1326,7 @@ class TestGBTFITSLoad:
             assert np.all(data_ratio == pytest.approx(tsys_ratio))
 
     def test_vane_partial_load(self):
-        fits_path = util.get_project_testdata() /"TGBT22A_603_05/TGBT22A_603_05.raw.vegas"
+        fits_path = util.get_project_testdata() / "TGBT22A_603_05/TGBT22A_603_05.raw.vegas"
         sdf = gbtfitsload.GBTFITSLoad(fits_path)
         tsys = sdf.vanecal(10, fdnum=2)
         assert tsys == pytest.approx(228.08768944375487)
