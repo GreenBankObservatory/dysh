@@ -37,6 +37,7 @@ def _mem_gb():
 
 def _log_mem(msg):
     """Log memory usage with a message"""
+    pass
     #logger.info(f"[MEM {_mem_gb():.2f} GB] {msg}")
 
 
