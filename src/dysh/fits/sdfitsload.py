@@ -72,7 +72,7 @@ class SDFITSLoad:
         kwargs_opts = {
             "fix": False,  # fix non-standard header elements
             "verbose": False,
-            "index_file_threshold": 0,  
+            "index_file_threshold": 0,
             "fitsbackend": None,  # choose a default FITSBackend
         }
         kwargs_opts.update(kwargs)
