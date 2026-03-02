@@ -27,7 +27,7 @@ class TestGBTFITSLoad:
     def test_property_access(self):
         properties = inspect.getmembers(gbtfitsload.GBTFITSLoad, lambda o: isinstance(o, property))
         sdfits = gbtfitsload.GBTFITSLoad(self._file_list[0])
-        for name, prop in properties:
+        for name, _prop in properties:
             try:
                 getattr(sdfits, name)
             except Exception as exc:
