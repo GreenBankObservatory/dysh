@@ -244,7 +244,7 @@ class SDFITSLoad:
         self._bintable = []
         self._binheader = []
         self._nrows = []
-        # fix = kwargs.get("fix")
+        self._ncols = []
 
         if hdu is not None:
             ldu = list([hdu])
@@ -255,6 +255,7 @@ class SDFITSLoad:
             self._bintable.append(self._hdu[i])
             self._binheader.append(self._hdu[i].header)
             self._nrows.append(self._binheader[j]["NAXIS2"])
+            self._ncols.append(self._binheader[j]["TFIELDS"])
             logger.debug(f"Loading HDU {i} from {self._filename}")
 
     def velocity_convention(self, veldef, velframe):
@@ -529,7 +530,7 @@ class SDFITSLoad:
         s = Spectrum.make_spectrum(masked_data, meta, observer_location=observer_location)
         return s
 
-    def nrows(self, bintable):
+    def nrows(self, bintable: int = 0) -> int:
         """
         The number of rows of the input bintable
 
@@ -545,6 +546,23 @@ class SDFITSLoad:
 
         """
         return self._nrows[bintable]
+
+    def ncols(self, bintable: int = 0) -> int:
+        """
+        The number of columns of the input bintable
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            ncols : int
+                Number of columns, i.e., the width of the input bintable
+
+        """
+        return self._ncols[bintable]
 
     def nchan(self, bintable: int = 0) -> int:
         """
@@ -613,7 +631,7 @@ class SDFITSLoad:
         """
         return self.udata(key="SCAN", bintable=bintable)
 
-    def _summary(self, bintable):
+    def _summary(self, bintable: int = 0):
         j = bintable
         nrows = self.naxis(bintable=j, naxis=2)
         nflds = self._binheader[j]["TFIELDS"]

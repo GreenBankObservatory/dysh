@@ -233,6 +233,24 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return self.sdf[fitsindex].nrows(bintable)
 
+    def ncolss(self, bintable: int = 0, fitsindex: int = 0) -> int:
+        """The number of columns an the underlying SDFITSLoad object.
+
+        Parameters
+        ----------
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+
+        Returns
+        -------
+            ncols : int
+                Number of columns, i.e., the width of the input bintable and fitsindex.
+        """
+
+        return self.sdf[fitsindex].ncols(bintable)
+
     def bintable(self, fitsindex: int = 0) -> list:
         """The list of bintables in a given underlying SDFITSLoad object.
 
@@ -4156,7 +4174,7 @@ class GBTOffline(GBTFITSLoad):
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
 _skip_functions = ["velocity_convention", "velocity_frame"]
-_need_functions = 56
+_need_functions = 58
 
 
 def _check_functions(verbose=False):
