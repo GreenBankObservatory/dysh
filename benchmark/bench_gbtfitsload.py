@@ -9,9 +9,9 @@ import astropy.units as u
 import numpy as np
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.log import init_logging
 from dysh.util.files import dysh_data
 from dysh.util.timers import DTime
-from dysh.log import init_logging
 
 
 def mkdir(name, clean=True):
