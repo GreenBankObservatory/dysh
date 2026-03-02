@@ -546,7 +546,7 @@ class SDFITSLoad:
         """
         return self._nrows[bintable]
 
-    def nchan(self, bintable):
+    def nchan(self, bintable: int = 0) -> int:
         """
         The number of channels per row of the input bintable. Assumes all rows have same length.
 
@@ -563,7 +563,7 @@ class SDFITSLoad:
         """
         return np.shape(self.rawspectrum(0, bintable))[0]
 
-    def npol(self, bintable):
+    def npol(self, bintable: int = 0) -> int:
         """
         The number of polarizations present in the input bintable.
 
@@ -580,7 +580,7 @@ class SDFITSLoad:
         """
         return len(self.udata(key="CRVAL4", bintable=bintable))
 
-    def sources(self, bintable):
+    def nsources(self, bintable: int = 0) -> int:
         """
         The number of sources present in the input bintable.
 
@@ -591,13 +591,13 @@ class SDFITSLoad:
 
         Returns
         -------
-            sources: int
+            nsources: int
                 Number of sources as given by `OBJECT` FITS header keyword.
 
         """
         return self.udata(bintable=bintable, key="OBJECT")
 
-    def scans(self, bintable):
+    def nscans(self, bintable: int = 0) -> int:
         """
         The number of scans present in the input bintable.
 
@@ -608,7 +608,7 @@ class SDFITSLoad:
 
         Returns
         -------
-            scans: int
+            nscans: int
                 Number of scans as given by `SCAN` FITS header keyword.
         """
         return self.udata(key="SCAN", bintable=bintable)
@@ -621,9 +621,9 @@ class SDFITSLoad:
         print(f"HDU       {j + 1}")
         print(f"BINTABLE: {self._nrows[j]} rows x {nflds} cols with {self.nchan(j)} chans")
         print(f"Selected  {self._nrows[j]}/{nrows} rows")
-        print("Sources: ", self.sources(j))
+        print("Sources: ", self.nsources(j))
         print("RESTFREQ:", restfreq, "GHz")
-        print("Scans:   ", self.scans(j))
+        print("Scans:   ", self.nscans(j))
         print("Npol:    ", self.npol(j))
         print("Nint:    ", self.nintegrations(j))
 
