@@ -18,10 +18,10 @@ Usage:
 """
 
 import argparse
-import inspect
 import sys
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 # Add benchmark directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -39,6 +39,7 @@ from bench_utils import (
 )
 
 global_sdf = None
+
 
 def find_testdata_root():
     """Find the testdata directory."""
@@ -99,7 +100,7 @@ def get_test_datasets():
             "size_mb": round(huge_file.stat().st_size / (1024 * 1024), 1),
             "huge": True,
             "multi": True,
-            "scans":np.arange(6,42).tolist(),
+            "scans": np.arange(6, 42).tolist(),
         }
 
     # Medium file
@@ -108,7 +109,7 @@ def get_test_datasets():
         datasets["medium"] = {
             "path": str(medium_file),
             "size_mb": round(medium_file.stat().st_size / (1024 * 1024), 1),
-            "scans": [51,52,53,54,55,56,57,58],
+            "scans": [51, 52, 53, 54, 55, 56, 57, 58],
             "multi": False,
         }
 
@@ -118,7 +119,7 @@ def get_test_datasets():
         datasets["getnod"] = {
             "path": str(nod_file),
             "size_mb": round(nod_file.stat().st_size / (1024 * 1024), 1),
-            "scans": [62,63],
+            "scans": [62, 63],
             "ifnum": 0,
             "plnum": 0,
             "multi": False,
@@ -140,7 +141,6 @@ def get_test_datasets():
     return datasets
 
 
-
 def benchmark_gbtfitsload_init(filepath, n_iterations=3, use_index_file=False, backend=None):
     """Benchmark GBTFITSLoad initialization."""
     from dysh.fits.gbtfitsload import GBTFITSLoad
@@ -151,24 +151,28 @@ def benchmark_gbtfitsload_init(filepath, n_iterations=3, use_index_file=False, b
 
     def load_file():
         global global_sdf
-        global_sdf = GBTFITSLoad(filepath,skipflags=True, flag_vegas=False, fitsbackend=backend, **kwargs)
+        global_sdf = GBTFITSLoad(filepath, skipflags=True, flag_vegas=False, fitsbackend=backend, **kwargs)
         return global_sdf
 
     return time_operation(load_file, n_iterations=n_iterations, warmup=1)
 
+
 def benchmark_write_flag(dataset, sdf, out, n_iterations=3, multi=False):
     """Benchmark flag operation ."""
+
     def do_write():
         sdf.write(out, overwrite=True, flags=True, multifile=multi)
+
     result = time_operation(do_write, n_iterations=n_iterations, warmup=1)
     result["scans"] = dataset.get("scans")
     result["file_size_mb"] = dataset["size_mb"]
     return result
 
+
 def benchmark_flag(dataset, n_iterations=3, use_index_file=False, backend=None):
     """Benchmark flag operation ."""
 
-    scans = dataset.get("scans") # should error out if scans not defined
+    scans = dataset.get("scans")  # should error out if scans not defined
 
     kwargs = {}
     if not use_index_file:
@@ -177,8 +181,8 @@ def benchmark_flag(dataset, n_iterations=3, use_index_file=False, backend=None):
     def do_flag():
         global global_sdf
         chans = global_sdf.nchan(0)
-        global_sdf.flag_channel(channel=[[0,100],[chans-100,chans-1]])
-        global_sdf.flag(scan=scans[0],channel=np.arange(0,chans,11).tolist())
+        global_sdf.flag_channel(channel=[[0, 100], [chans - 100, chans - 1]])
+        global_sdf.flag(scan=scans[0], channel=np.arange(0, chans, 11).tolist())
         global_sdf.apply_flags()
 
     result = time_operation(do_flag, n_iterations=n_iterations, warmup=1)
@@ -187,8 +191,7 @@ def benchmark_flag(dataset, n_iterations=3, use_index_file=False, backend=None):
     return result
 
 
-def run_benchmarks(datasets, fits, quick=False, use_index_file=False, backend=None, huge=False, 
-                   multifile=False):
+def run_benchmarks(datasets, fits, quick=False, use_index_file=False, backend=None, huge=False, multifile=False):
     """Run all benchmarks and return results."""
     results = create_results_dict(
         quick_mode=quick, extra_metadata={"use_index_file": use_index_file, "FITSBackend": backend}
@@ -208,19 +211,22 @@ def run_benchmarks(datasets, fits, quick=False, use_index_file=False, backend=No
         logger.info(f"\n=== {k} Flag Benchmarks ({ds['size_mb']} MB) ===")
 
         logger.info("  init...")
-        results["benchmarks"][k+" init"] = benchmark_gbtfitsload_init(
+        results["benchmarks"][k + " init"] = benchmark_gbtfitsload_init(
             ds["path"], n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend
         )
 
         logger.info("  flag...")
-        results["benchmarks"][k+" flag"] = benchmark_flag(
+        results["benchmarks"][k + " flag"] = benchmark_flag(
             ds, n_iterations=n_iter_slow, use_index_file=use_index_file, backend=backend
         )
         logger.info("  write flag...")
-        results["benchmarks"][k+" write"] = benchmark_write_flag(ds,
-            global_sdf,fits, n_iterations=n_iter_slow, multi=multifile, 
+        results["benchmarks"][k + " write"] = benchmark_write_flag(
+            ds,
+            global_sdf,
+            fits,
+            n_iterations=n_iter_slow,
+            multi=multifile,
         )
-
 
     return results
 
@@ -253,22 +259,22 @@ def main():
         "--huge",
         action="store_true",
         help="Include huge file (77GB) in testing.  Cannot be used with --quick",
-        default=False
-    )  
+        default=False,
+    )
     parser.add_argument(
         "--multifile",
         "-m",
         action="store_true",
         help="When writing an SDF that has multiple input files, write multiple output files",
-        default=False
-    ) 
+        default=False,
+    )
     parser.add_argument(
         "--fits",
         "-f",
         action="store",
         help="Output SDFITS file(s). If 'multifile=True', outputs will be e.g., file1.fits, file2.fits, etc.",
-        required=True
-    ) 
+        required=True,
+    )
     args = parser.parse_args()
     if args.quick and args.huge:
         print("ERROR: Options --quick and --huge are mutually exclusive")
@@ -309,8 +315,13 @@ def main():
     print(f"Datasets found: {list(datasets.keys())}")
 
     results = run_benchmarks(
-        datasets, args.fits, quick=args.quick, use_index_file=use_index_file, 
-        backend=args.backend, huge=args.huge, multifile=args.multifile
+        datasets,
+        args.fits,
+        quick=args.quick,
+        use_index_file=use_index_file,
+        backend=args.backend,
+        huge=args.huge,
+        multifile=args.multifile,
     )
 
     if args.verbose:
