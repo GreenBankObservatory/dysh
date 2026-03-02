@@ -1,4 +1,5 @@
 import glob
+import inspect
 import logging
 import os
 import shutil
@@ -22,6 +23,15 @@ class TestGBTFITSLoad:
     def setup_method(self):
         self.data_dir = util.get_project_testdata()
         self._file_list = glob.glob(f"{self.data_dir}/TGBT21A_501_11/*.fits")
+
+    def test_property_access(self):
+        properties = inspect.getmembers(gbtfitsload.GBTFITSLoad, lambda o: isinstance(o, property))
+        sdfits = gbtfitsload.GBTFITSLoad(self._file_list[0])
+        for name, _prop in properties:
+            try:
+                getattr(sdfits, name)
+            except Exception as exc:
+                pytest.fail(f"Could not access property {name}: {exc}")
 
     def test_load(self):
         """
@@ -114,6 +124,17 @@ class TestGBTFITSLoad:
         sdf_load = gbtfitsload.GBTFITSLoad(out_file)
         pss = sdf_load.getspec(0)
         assert pss.flux.unit == "K"
+
+    def test_access_sdfits_attributes(self):
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        nrows = sdf.nrows()
+        row = sdf.getrow(nrows - 1)
+        assert row["OBJECT"] == "NGC2415"
+        assert row["PLNUM"] == 0
+        assert len(sdf.bintable()) == 1
+        bh = sdf.binheader()[0]
+        assert bh["NAXIS1"] == sdf.naxis(1)
 
     def test_data_column(self, tmp_path):
         """
@@ -1434,13 +1455,15 @@ class TestGBTFITSLoad:
         assert len(sdf.flags.final.index.values) == 0
 
         # Add a pointing error so it gets flagged.
-        qd_el = sdf["QD_EL"].to_numpy()
+        qd_el = sdf["QD_EL"].to_numpy().copy()
         qd_el[10] += 100
+        sdf["QD_EL"] = qd_el
         sdf.qd_flag()
         assert np.all(sdf.flags.final.index.values == 10)  # noqa: PD011
         sdf.flags.clear()
 
         qd_el[11:15] += 100
+        sdf["QD_EL"] = qd_el
         sdf.qd_flag()
         np.testing.assert_array_equal(sdf.flags.final.index.values, [10, 11, 12, 13, 14])
 
@@ -1678,7 +1701,7 @@ class TestGBTFITSLoad:
 
         # Change one.
         mask = (sdf["SCAN"] == 331) & (sdf["FEEDXOFF"] == 0) & (sdf["FEEDEOFF"] == 0)
-        fdnums = sdf["FDNUM"].to_numpy()
+        fdnums = sdf["FDNUM"].to_numpy().copy()
         fdnums[mask] = 10
         with pytest.warns(UserWarning):
             sdf["FDNUM"] = fdnums

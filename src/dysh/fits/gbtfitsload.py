@@ -379,6 +379,96 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """Returns the total number of rows summed over all files and binary table HDUs"""
         return sum([s.total_rows for s in self._sdf])
 
+    def nrows(self, bintable: int = 0, fitsindex: int = 0) -> int:
+        """The number of rows an the underlying SDFITSLoad object.
+
+        Parameters
+        ----------
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+
+        Returns
+        -------
+            nrows : int
+                Number of rows, i.e., the length of the input bintable and fitsindex.
+        """
+
+        return self.sdf[fitsindex].nrows(bintable)
+
+    def ncolss(self, bintable: int = 0, fitsindex: int = 0) -> int:
+        """The number of columns an the underlying SDFITSLoad object.
+
+        Parameters
+        ----------
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+
+        Returns
+        -------
+            ncols : int
+                Number of columns, i.e., the width of the input bintable and fitsindex.
+        """
+
+        return self.sdf[fitsindex].ncols(bintable)
+
+    def bintable(self, fitsindex: int = 0) -> list:
+        """The list of bintables in a given underlying SDFITSLoad object.
+
+        Parameters
+        ----------
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+
+        Returns
+        -------
+        bintable: list
+            A list of all the :class:`~astropy.io.fits.hdu.table.BinTableHDU`s in the
+            input fitsindex.
+        """
+        return self.sdf[fitsindex]._bintable
+
+    def binheader(self, fitsindex: int = 0) -> list:
+        """The list of bintable headers in a given underlying SDFITSLoad object
+
+        Parameters
+        ----------
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+
+        Returns
+        -------
+        binheader: list
+            A list of all the :class:`~astropy.io.fits.header.Header`s in the
+            input fitsindex.
+
+        """
+        return self.sdf[fitsindex]._binheader
+
+    def naxis(self, naxis, bintable: int = 0, fitsindex: int = 0):
+        """
+        The NAXISn value of the input bintable.
+
+        Parameters
+        ----------
+        naxis : int
+            The NAXIS whose length is requested
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+
+        Returns
+        -------
+            naxis : the length of the NAXIS
+
+        """
+        nax = f"NAXIS{naxis}"
+        return self.binheader(fitsindex)[bintable][nax]
+
     @property
     def columns(self):
         """The column names in the binary table, minus the DATA column
@@ -614,6 +704,27 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         """
         return self._sdf[fitsindex].getspec(i, bintable, observer_location, setmask=setmask)
+
+    def getrow(self, i: int, bintable: int = 0, fitsindex: int = 0) -> int:
+        """
+        Get a :class:`~astropy.io.fits.fitsrec.FITS_record` from the input bintable
+
+        Parameters
+        ----------
+        i :  int
+            The record (row) index to retrieve
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+            the index of the FITS file contained in this GBTFITSLoad.
+
+        Returns
+        -------
+        row : :class:`~astropy.io.fits.fitsrec.FITS_record`
+            The i-th record  of the input bintable and fitsindex
+
+        """
+        return self._sdf[fitsindex].getrow(i, bintable)
 
     def _validate_summary_columns(self, columns, col_defs, needed=None, verbose=False):
         """
@@ -3590,10 +3701,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         radesys = {"AzEl": "AltAz", "HADec": "hadec", "Galactic": "galactic"}
 
         warning_msg = (  # noqa: E731
-            lambda scans,
-            a,
-            coord,
-            limit: f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            lambda scans, a, coord, limit: (
+                f"""Scan(s) {scans} have {a} {coord} below {limit}. The GBT does not go that low. Any operations that rely on the sky coordinates are likely to be inaccurate (e.g., switching velocity frames)."""
+            )
         )
 
         # Elevation below the GBT elevation limit (5 degrees) warning.
@@ -3739,8 +3849,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise TypeError("Only a single coordinate system per observation is supported for now.")
         frame = frame[0]
 
-        lon = self["CRVAL2"].to_numpy()
-        lat = self["CRVAL3"].to_numpy()
+        lon = self["CRVAL2"].to_numpy().copy()
+        lat = self["CRVAL3"].to_numpy().copy()
         time = self["DATE-OBS"].to_numpy().astype(str)
         location = self.GBT
 
@@ -4391,7 +4501,7 @@ class GBTOffline(GBTFITSLoad):
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
 _skip_functions = ["velocity_convention", "velocity_frame"]
-_need_functions = 55
+_need_functions = 58
 
 
 def _check_functions(verbose=False):
