@@ -195,7 +195,6 @@ def run_benchmarks(datasets, fits, quick=False, use_index_file=False, backend=No
     )
     results["datasets"] = {k: {"path": v["path"], "size_mb": v["size_mb"]} for k, v in datasets.items()}
 
-    n_iter = 2 if quick else 5
     n_iter_slow = 1 if quick else 3
 
     suppress_warnings()
