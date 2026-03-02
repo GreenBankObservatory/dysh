@@ -4448,7 +4448,7 @@ class GBTOffline(GBTFITSLoad):
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
 _skip_functions = ["velocity_convention", "velocity_frame"]
-_need_functions = 58
+_need_functions = 59
 
 def _check_functions(verbose=False):
     """
