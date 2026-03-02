@@ -1408,6 +1408,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """Apply the additional channel flags created by, e.g., flag_vegas"""
         for k in self._sdf:
             if k._additional_channel_mask is not None and k._flagmask is not None:
+                # this is ok because LazyFlag defines __ior__
                 k._flagmask |= k._additional_channel_mask
 
     def _check_no_data_to_calibrate(
