@@ -1899,18 +1899,17 @@ class TestGBTFITSLoad:
         assert str(exc.value) == exp_exc
         sdf.clear_flags()
 
-    def test_lazy_flags_on_input(self,tmp_path):
+    def test_lazy_flags_on_input(self, tmp_path):
         # make sure flags that are written are read back in with lazy flags
         fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
         sdf = gbtfitsload.GBTFITSLoad(fnm)
         sdf.flag(scan=153)
-        sdf.write(tmp_path/"lazyflag.fits",flags=True,overwrite=True)
-        sdfin = gbtfitsload.GBTFITSLoad(tmp_path/"lazyflag.fits")
+        sdf.write(tmp_path / "lazyflag.fits", flags=True, overwrite=True)
+        sdfin = gbtfitsload.GBTFITSLoad(tmp_path / "lazyflag.fits")
         assert sdfin._sdf[0]._flagmask[0] == sdf._sdf[0]._flagmask[0]
         x1 = sdf._sdf[0]._flagmask[0].to_dense()
         x2 = sdfin._sdf[0]._flagmask[0].to_dense()
-        assert np.all(x1==x2)
-
+        assert np.all(x1 == x2)
 
 
 def test_parse_tsys():
@@ -1989,5 +1988,3 @@ def test_parse_tsys():
     with pytest.raises(TypeError) as excinfo:
         _tsys = gbtfitsload._parse_tsys(tsys, scans)
     assert "Missing system temperature for scan(s): 2,3" in str(excinfo.value)
-
-
