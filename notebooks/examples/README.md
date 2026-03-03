@@ -111,3 +111,26 @@ using_spectral_weights
 vane                                  -- W Warning: 0 != 4: inconsistency counters in mask usage ; new check_stats very different
 velocity_frames
 ```
+
+
+## data created
+
+When $DYSH_DATA is not available, some data will be downloaded locally. Arguably these could be placed somewhere else.
+Here's the tally:
+
+```
+AGBT04A_008_02.raw.acs.fits
+AGBT13A_124_06.raw.acs.fits
+AGBT15B_244_07.raw.vegas.trim.fits
+AGBT17A_404_01.tar.gz
+AGBT20B_295_02.raw.vegas.A.fits
+M82_ifnum_3_polavg.fits
+onoff-L_getps_152_RADI-HEL.ascii.gz
+onoff-L_gettp_156_intnum_0_HEL.ascii
+otf_cube.fits
+TGBT17A_506_11.raw.vegas.A.fits
+TGBT22A_503_02.raw.vegas.trim.fits
+TGBT24B_613_04.raw.vegas.trim.fits
+TREG_050627.raw.acs.fits
+TRFI_090125_S1.raw.vegas.testtrim.fits
+```
