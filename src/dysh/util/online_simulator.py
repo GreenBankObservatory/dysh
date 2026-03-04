@@ -212,7 +212,7 @@ def _simulate_single_file(
     try:
         for i, scan_num in enumerate(unique_scans):
             # Get row indices for this scan
-            scan_rows = scan_metadata[scan_metadata["SCAN"] == scan_num]["ROW"].values
+            scan_rows = scan_metadata[scan_metadata["SCAN"] == scan_num]["ROW"].values.to_numpy()
             rows_written += len(scan_rows)
 
             logger.info(

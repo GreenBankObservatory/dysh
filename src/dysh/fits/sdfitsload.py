@@ -23,7 +23,8 @@ from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
 from ..util.timers import Benchmark
-
+# Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
+from . import fitsio_unicode_patch, index_file  # noqa: F401
 
 # Memory logging utility
 def _mem_gb():
@@ -41,8 +42,6 @@ def _log_mem(msg):
     # logger.info(f"[MEM {_mem_gb():.2f} GB] {msg}")
 
 
-# Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
-from . import fitsio_unicode_patch, index_file  # noqa: F401
 
 
 class FITSBackend(Enum):

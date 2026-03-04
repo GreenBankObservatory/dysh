@@ -1480,7 +1480,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 result_dfs.append(group)
                 continue
 
-            rows = group["ROW"].values
+            rows = group["ROW"].values.to_numpy()
             bintable = self._get_bintable(group)
 
             # Load full rows from FITS
