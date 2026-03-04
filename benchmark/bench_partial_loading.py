@@ -90,8 +90,8 @@ def get_test_datasets():
     huge_file = dysh_data(example="mixed")
     if huge_file.exists():
         datasets["huge"] = {
-            "path": str(medium_file),
-            "size_mb": round(medium_file.stat().st_size / (1024 * 1024), 1),
+            "path": str(huge_file),
+            "size_mb": round(huge_file.stat().st_size / (1024 * 1024), 1),
             "huge": True,
         }
 
