@@ -138,6 +138,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         self._exclude_regions = None
         self._include_regions = None  # do we really need this?
         self._plotter = None
+        self.regions = None
         # `self._resolution` is the spectral resolution in channels.
         # This will be 1 for VEGAS, and >1 for the ACS.
         if "FREQRES" in self.meta and "CDELT1" in self.meta:
