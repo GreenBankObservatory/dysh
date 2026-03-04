@@ -395,7 +395,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # these two should be the same
         nan1 = np.isnan(self.data).sum()
         nan2 = self.mask.sum()
-        if nan1 != nan2:
+        # @todo see https://github.com/GreenBankObservatory/dysh/issues/1038
+        if False and nan1 != nan2:
             logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
         elif nan1 > 0:
             logger.info(f"Note: found {nan1} NaN (masked) values")
