@@ -3704,7 +3704,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # Rebuild merged index from updated SDFITSLoad indexes
                 self._rebuild_merged_index()
 
-                logger.info(f"   Loaded missing columns. Index now has {len(self._index.columns)} columns.")
+                logger.debug(f"   Loaded missing columns. Index now has {len(self._index.columns)} columns.")
 
                 self._construct_procedure()
                 self._construct_integration_number()
