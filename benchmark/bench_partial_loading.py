@@ -164,7 +164,7 @@ def benchmark_getps(dataset, n_iterations=3, use_index_file=True, backend=None):
     sdf = GBTFITSLoad(filepath, fitsbackend=backend, **kwargs)
 
     def do_getps():
-        return sdf.getps(scan=scans, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True) # noqa: F821
+        return sdf.getps(scan=scans, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True)  # noqa: F821
 
     result = time_operation(do_getps, n_iterations=n_iterations, warmup=1)
     result["scans"] = scans
@@ -195,7 +195,7 @@ def benchmark_gettp(dataset, n_iterations=5, use_index_file=True, backend=None):
     sdf = GBTFITSLoad(filepath, fitsbackend=backend, **kwargs)
 
     def do_gettp():
-        return sdf.gettp(scan=scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True) # noqa: F821
+        return sdf.gettp(scan=scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True)  # noqa: F821
 
     result = time_operation(do_gettp, n_iterations=n_iterations, warmup=1)
     result["scan"] = scan
@@ -224,7 +224,7 @@ def benchmark_getfs(dataset, n_iterations=3, use_index_file=True, backend=None):
     sdf = GBTFITSLoad(filepath, fitsbackend=backend, **kwargs)
 
     def do_getfs():
-        return sdf.getfs(scan=scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True) # noqa: F821
+        return sdf.getfs(scan=scan, fdnum=fdnum, ifnum=ifnum, plnum=plnum, calibrate=True)  # noqa: F821
 
     try:
         result = time_operation(do_getfs, n_iterations=n_iterations, warmup=1)
@@ -253,7 +253,7 @@ def benchmark_getnod(dataset, n_iterations=3, use_index_file=True, backend=None)
     sdf = GBTFITSLoad(filepath, fitsbackend=backend, **kwargs)
 
     def do_getnod():
-        return sdf.getnod(scan=scan, ifnum=ifnum, plnum=plnum) # noqa: F821
+        return sdf.getnod(scan=scan, ifnum=ifnum, plnum=plnum)  # noqa: F821
 
     try:
         result = time_operation(do_getnod, n_iterations=n_iterations, warmup=1)
@@ -283,9 +283,9 @@ def benchmark_rawspectra_full(filepath, n_iterations=3, use_index_file=True, bac
 
     def full_load():
         if has_fitsindex:
-            return sdf.rawspectra(bintable=0, fitsindex=0) # noqa: F821
+            return sdf.rawspectra(bintable=0, fitsindex=0)  # noqa: F821
         else:
-            return sdf.rawspectra(bintable=0) # noqa: F821
+            return sdf.rawspectra(bintable=0)  # noqa: F821
 
     result = time_operation(full_load, n_iterations=n_iterations, warmup=1)
     result["total_rows"] = total_rows
