@@ -9,6 +9,7 @@ import astropy.units as u
 import numpy as np
 
 from dysh.fits.gbtfitsload import GBTFITSLoad
+from dysh.log import init_logging
 from dysh.util.files import dysh_data
 from dysh.util.timers import DTime
 
@@ -94,7 +95,7 @@ if __name__ == "__main__":
 
     if args.quit:
         sys.exit(0)
-
+    init_logging(3)
     # output table colnames, units, and dtypes
     # DTime automatically handles name and time, so just the additional columns go here.
     data_cols = ["#files", "file_size", "totsize", "nchan", "nrow", "nIF", "nFd", "nPol", "#flags", "skipflags"]

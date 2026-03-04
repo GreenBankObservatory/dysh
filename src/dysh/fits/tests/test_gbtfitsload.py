@@ -1495,7 +1495,8 @@ class TestGBTFITSLoad:
         # Reset flags.
         sdf.clear_flags()
         for b in sdf._sdf[0]._bintable:
-            b.data["FLAGS"][:] = 0
+            if "FLAGS" in b.columns.names:
+                b.data["FLAGS"][:] = 0
 
         # Flag some more.
         channels = {0: 40, 1: 50}
@@ -1897,6 +1898,18 @@ class TestGBTFITSLoad:
             sb = sdf.subbeamnod(scan=44, fdnum=1, ifnum=0, plnum=0, channel=chan_range)
         assert str(exc.value) == exp_exc
         sdf.clear_flags()
+
+    def test_lazy_flags_on_input(self, tmp_path):
+        # make sure flags that are written are read back in with lazy flags
+        fnm = util.get_project_testdata() / "TGBT21A_501_11/TGBT21A_501_11.raw.vegas.fits"
+        sdf = gbtfitsload.GBTFITSLoad(fnm)
+        sdf.flag(scan=153)
+        sdf.write(tmp_path / "lazyflag.fits", flags=True, overwrite=True)
+        sdfin = gbtfitsload.GBTFITSLoad(tmp_path / "lazyflag.fits")
+        assert sdfin._sdf[0]._flagmask[0] == sdf._sdf[0]._flagmask[0]
+        x1 = sdf._sdf[0]._flagmask[0].to_dense()
+        x2 = sdfin._sdf[0]._flagmask[0].to_dense()
+        assert np.all(x1 == x2)
 
 
 def test_parse_tsys():
