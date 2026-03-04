@@ -3686,13 +3686,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Lazy loading: if column(s) missing and any SDFITSLoad was loaded from .index file,
         # trigger full load for those files to get the missing columns
         missing_keys = [k for k in items_list if k not in self._index.columns]
+        # we want if missing_keys or hybrid_loaded_sdfs to avoid NaN in columns for rows not loaded.
+        #hybrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) =="hybrid"]
         if missing_keys:
             # Check if any underlying SDFITSLoad was loaded from .index file
-            index_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "index_file"]
-            # hyrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "hybrid"]
-            if len(index_loaded_sdfs) > 0:
+            index_or_hybrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) in ("index_file","hybrid")]
+            if len(index_or_hybrid_loaded_sdfs) > 0:
                 logger.debug(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
-                for sdf in index_loaded_sdfs:
+                for sdf in index_or_hybrid_loaded_sdfs:
                     # Access the first missing column through SDFITSLoad which has lazy loading
                     # This will trigger the full index load for that file and will
                     # get any missing columns
