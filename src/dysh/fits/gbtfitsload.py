@@ -3689,7 +3689,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if missing_keys:
             # Check if any underlying SDFITSLoad was loaded from .index file
             index_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "index_file"]
-            #hyrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "hybrid"]
+            # hyrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "hybrid"]
             if len(index_loaded_sdfs) > 0:
                 logger.debug(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
                 for sdf in index_loaded_sdfs:
