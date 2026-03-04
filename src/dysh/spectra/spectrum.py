@@ -981,6 +981,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = self.with_frame(toframe)
         else:
             s = self
+        if isinstance(unit, str) and "ch" in unit.lower():
+            return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
+        elif isinstance(unit, u.UnitBase) and unit.physical_type in ["dimensionless", "unknown"]:
+            return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
         if doppler_convention is not None:
             return s._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
         else:
