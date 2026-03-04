@@ -1514,7 +1514,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 dfbin = sdf.index(bintable=bintable)
                 dfrows = dfbin["ROW"].isin(rows)
                 indices = dfbin[dfrows].index
-                sdf._index.loc[indices, col] = fits_df[col].values # noqa: PD011
+                sdf._index.loc[indices, col] = fits_df[col].values  # noqa: PD011
             # Mark that we've started loading from FITS (hybrid mode)
             sdf._index_source = "hybrid"
 
@@ -1528,7 +1528,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # Add columns from .index that aren't in FITS (like FITSINDEX, ROW)
             for col in group.columns:
                 if col not in merged.columns:
-                    merged[col] = group[col].values # noqa: PD011
+                    merged[col] = group[col].values  # noqa: PD011
 
             result_dfs.append(merged)
 
