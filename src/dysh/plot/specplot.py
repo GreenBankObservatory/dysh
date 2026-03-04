@@ -7,6 +7,7 @@ from copy import deepcopy
 import astropy.units as u
 import matplotlib as mpl
 import numpy as np
+from astropy.units.quantity import Quantity
 from astropy.utils.masked import Masked
 from matplotlib.widgets import SpanSelector
 
@@ -90,8 +91,6 @@ class SpectrumPlot(PlotBase):
         self._title = self._plot_kwargs["title"]
         self._select = select
         self._selector: MultiSpanSelector = None
-        self._freezey = (self._plot_kwargs["ymin"] is not None) or (self._plot_kwargs["ymax"] is not None)
-        self._freezex = (self._plot_kwargs["xmin"] is not None) or (self._plot_kwargs["xmax"] is not None)
         self._scan_numbers = np.array([self._spectrum.meta["SCAN"]])
 
         self._init_selector()
@@ -132,7 +131,7 @@ class SpectrumPlot(PlotBase):
             "ymax": None,
             "xlabel": None,
             "ylabel": None,
-            "xaxis_unit": None,
+            "xaxis_unit": u.GHz,
             "yaxis_unit": None,
             "grid": False,
             "label": None,
@@ -200,32 +199,28 @@ class SpectrumPlot(PlotBase):
         s = self._spectrum
 
         lw = this_plot_kwargs["linewidth"]
-        self._xunit = this_plot_kwargs["xaxis_unit"]  # need to kick back a ref to xunit for baseline overlays
-        self._yunit = this_plot_kwargs["yaxis_unit"]
-        if self._xunit is None:
-            self._xunit = str(sa.unit)  # noqa: F821
         if "vel_frame" not in this_plot_kwargs:
-            if u.Unit(self._xunit).is_equivalent("km/s") and "VELDEF" in s.meta:
+            if u.Unit(self._plot_kwargs["xaxis_unit"]).is_equivalent("km/s") and "VELDEF" in s.meta:
                 # If the user specified velocity units, default to
                 # the velframe the data were taken in.  This we can
                 # get from VELDEF keyword.  See issue #303
                 this_plot_kwargs["vel_frame"] = decode_veldef(s.meta["VELDEF"])[1].lower()
             else:
                 this_plot_kwargs["vel_frame"] = s.velocity_frame
-        if "chan" in str(self._xunit).lower():
+        if "chan" in str(this_plot_kwargs["xaxis_unit"]).lower():
             self._sa = u.Quantity(np.arange(len(self._sa)))
             this_plot_kwargs["xlabel"] = "Channel"
         else:
             # convert the x axis to the requested velocity frame and Doppler convention.
             self._sa = s.velocity_axis_to(
-                unit=self._xunit,
+                unit=this_plot_kwargs["xaxis_unit"],
                 toframe=this_plot_kwargs["vel_frame"],
                 doppler_convention=this_plot_kwargs["doppler_convention"],
             )
 
         sf = s.flux
-        if self._yunit is not None:
-            sf = s.flux.to(self._yunit)
+        if this_plot_kwargs["yaxis_unit"] is not None:
+            sf = s.flux.to(this_plot_kwargs["yaxis_unit"])
         sf = Masked(sf, s.mask)
 
         lines = self.axes.plot(
@@ -242,16 +237,10 @@ class SpectrumPlot(PlotBase):
         if this_plot_kwargs["label"] is not None:
             self.axes.legend()
 
-        if not this_plot_kwargs["xmin"] and not this_plot_kwargs["xmax"]:
-            self.axes.set_xlim(np.min(self._sa).value, np.max(self._sa).value)
-        else:
+        if this_plot_kwargs["xmin"] is not None or this_plot_kwargs["xmax"] is not None:
             self.axes.set_xlim(this_plot_kwargs["xmin"], this_plot_kwargs["xmax"])
-
-        if self._freezey:
-            self.axes.autoscale(enable=False)
-        else:
-            self.axes.autoscale(axis="y", enable=True)
-        self.axes.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
+        if this_plot_kwargs["ymin"] is not None or this_plot_kwargs["ymax"] is not None:
+            self.axes.set_ylim(this_plot_kwargs["ymin"], this_plot_kwargs["ymax"])
 
         self.axes.tick_params(axis="both", which="both", bottom=True, top=True, left=True, right=True, direction="in")
         if this_plot_kwargs["grid"]:
@@ -265,7 +254,8 @@ class SpectrumPlot(PlotBase):
             self.figure.subplots_adjust(top=0.79, left=0.09, right=0.95)
             self._set_header(s)
         if self._select:
-            self._selector.set_minspan(abs(self._sa[0].value - self._sa[1].value))
+            self._selector.set_minspan(self._get_dx())
+            self._selector.set_xy0((self._sa.value.mean(), 0))
             self._selector.init_first_span()
             self._spectrum._selection = self._selector.get_selected_regions()
         if oshow is not None:
@@ -282,6 +272,10 @@ class SpectrumPlot(PlotBase):
 
         self.show()
         self.figure.canvas.draw_idle()
+
+    def _get_dx(self) -> float:
+        """Return the channel separation as a float."""
+        return abs(self._sa[0].value - self._sa[1].value)
 
     def _compose_xlabel(self, **kwargs):
         """Create a sensible spectral axis label given units, velframe, and doppler convention"""
@@ -374,28 +368,6 @@ class SpectrumPlot(PlotBase):
         """ """
         regions = self._selector.get_selected_regions()
         return [tuple(np.sort([np.argmin(abs(p - self._sa.value)) for p in r])) for r in regions]
-
-    def freex(self):
-        """Free the X-axis if limits have been set. Resets the limits to be the span of the spectrum."""
-        self._freezex = False
-        mins = []
-        maxs = []
-        for line in self.axes.lines:
-            mins.append(line._x.min())
-            maxs.append(line._x.max())
-        self.axes.set_xlim((min(mins), max(maxs)))
-
-    def freey(self):
-        """Free the Y-axis if limits have been set. Autoscales the Y-axis according to your matplotlib configuration."""
-        self._freezey = False
-        self.axes.relim()
-        self.axes.autoscale(axis="y", enable=True)
-        self.axes.autoscale_view()
-
-    def freexy(self):
-        r"""Free the X and Y axes simultaneously. See `freex` and `freey` for more details."""
-        self.freex()
-        self.freey()
 
     def clear_overlays(self, blines=True, oshows=True, catalog=True):
         """Clear Overlays from the plot.
@@ -509,18 +481,17 @@ class SpectrumPlot(PlotBase):
             self._oshow(s, color=c, linestyle=ls, label=l, alpha=a)
 
     def _oshow(self, oshow_spectrum, color=None, linestyle=None, label=None, alpha=None):
-        this_plot_kwargs = deepcopy(self._plot_kwargs)
         sf = oshow_spectrum.flux.to(self._spectrum.unit)
         sa = oshow_spectrum.velocity_axis_to(
-            unit=self._xunit,
-            toframe=this_plot_kwargs["vel_frame"],
-            doppler_convention=this_plot_kwargs["doppler_convention"],
+            unit=self._plot_kwargs["xaxis_unit"],
+            toframe=self._plot_kwargs["vel_frame"],
+            doppler_convention=self._plot_kwargs["doppler_convention"],
         )
 
         self.axes.plot(sa, sf, color=color, linestyle=linestyle, label=label, alpha=alpha, gid="oshow")
         if label is not None:
             self.axes.legend()
-        self.freexy()
+        self.update_limits()
         self.figure.canvas.draw_idle()
 
     def show_catalog_lines(self, rotation=0, **kwargs):
@@ -545,7 +516,11 @@ class SpectrumPlot(PlotBase):
 
         for i, line in enumerate(self.sl_tbl):
             line_name = parse_html(line["name"])
-            line_freq = (line["obs_frequency"] * u.MHz).to(self._xunit, equivalencies=self.spectrum.equivalencies).value
+            line_freq = (
+                (line["obs_frequency"] * u.MHz)
+                .to(self._plot_kwargs["xaxis_unit"], equivalencies=self.spectrum.equivalencies)
+                .value
+            )
 
             vloc = ystart + (i % num_vsteps) * fracstep
 
@@ -586,13 +561,183 @@ class SpectrumPlot(PlotBase):
         )
         self.figure.canvas.draw_idle()
 
+    def update_limits(self):
+        """
+        Recompute the data limits based on the current artists (`~matplotlib.axes.Axes.relim`),
+        and then autoscale the view limits using the data limits (`~matplotlib.axes.Axes.autoscale_view`).
+        """
+        self.axes.relim(visible_only=True)
+        self.axes.autoscale_view()
+        self.figure.canvas.draw_idle()
+
+    def set_yaxis_unit(self, yunit: str | Quantity) -> None:
+        """
+        Set the units of the ordinate axis of the plot.
+
+        Parameters
+        ----------
+        yunit : str or `~astropy.units.quantity.Quantity`
+            New units for the y-axis. It must be a valid unit for the data.
+        """
+
+        if isinstance(yunit, str):
+            yunit = u.Unit(yunit)
+
+        y_valid_physical_types = [
+            "spectral flux density",  # Flux
+            "temperature",  # Kelvin
+            "unknown",  # counts
+        ]
+
+        if u.get_physical_type(yunit) not in y_valid_physical_types:
+            # This would be an error downstream anyway.
+            pass
+
+        ## Define the equivalency between K and Jy.
+        ## Won't use for now, as we require the beam information.
+        # freq = self._spectrum.spectral_axis.to("Hz").mean()
+        # lmbd = ac.c/freq
+        # beam = 1.06*lmbd/(100*u.m)*u.rad # 100m hardcoded...
+        # beam_area = np.pi*(beam)**2/(4*np.log(2))
+        # equiv = u.brightness_temperature(freq, beam_area=beam_area)
+        ## Then use the equivalency with: self._spectrum.flux.to(yunit, equivalencies=equiv)
+        # Here we could use one of our own exceptions, but we have none.
+        try:
+            yvals = self._spectrum.flux.to(yunit)
+        except u.errors.UnitConversionError as e:
+            raise (e)
+        yvals = Masked(yvals, self._spectrum.mask)
+
+        self.set_ydata(yvals, keep_unit=True)
+
+        self._plot_kwargs["yaxis_unit"] = yunit
+        self._set_labels(**self._plot_kwargs)
+
+        self.update_limits()
+
+    def set_xaxis_unit(self, xunit: str | Quantity) -> None:
+        """
+        Set the units of the abscissa axis of the plot.
+
+        Parameters
+        ----------
+        xunit : str or `~astropy.units.quantity.Quantity`
+            New units for the x-axis. It must be a valid unit for the data.
+        """
+
+        if isinstance(xunit, str) and "ch" not in xunit:
+            xunit = u.Unit(xunit)
+
+        x_valid_physical_types = [
+            "speed",
+            "length",
+            "frequency",
+            "dimensionless",  # channels
+        ]
+
+        if isinstance(xunit, Quantity):
+            if u.get_physical_type(xunit) not in x_valid_physical_types:
+                # This would be an error downstream anyway.
+                pass
+
+        if isinstance(xunit, str) and "ch" in xunit:
+            self._sa = u.Quantity(np.arange(len(self._spectrum.data)))
+            self._plot_kwargs["xlabel"] = "Channels"
+        else:
+            self._sa = self._spectrum.velocity_axis_to(
+                unit=xunit,
+                toframe=self._plot_kwargs["vel_frame"],
+                doppler_convention=self._plot_kwargs["doppler_convention"],
+            )
+            self._plot_kwargs["xlabel"] = None
+
+        self._line.set_xdata(self._sa.value)
+
+        if self._selector is not None:
+            self._selector.set_xy0((self._sa.value.mean(), 0))
+            self._selector.set_minspan(self._get_dx())
+            # For now, just clear any selected regions.
+            # In the future, these should be transformed to the new
+            # coordinates.
+            self._selector.clear()
+            # Can't add another region selector until the bounds have been
+            # updated, because the ToolLineHandles uses the axes limits
+            # as starting positions.
+
+        self._plot_kwargs["xaxis_unit"] = xunit
+        self._set_labels(**self._plot_kwargs)
+
+        self.update_limits()
+
+        # Now it should be safe to add a blank span.
+        if self._selector is not None:
+            self._selector.init_first_span()
+
+    def set_ydata(self, ydata, keep_unit=False) -> None:
+        """
+        Set the ordinate data values for the plot line.
+        That is the line that representes the underlying Spectrum.
+
+        Parameters
+        ----------
+        ydata : array
+            Ordinate axes values to display.
+            These can be floats or quantities.
+        keep_unit : bool
+            Only used if `ydata` is a `~astropy.units.quantity.Quantity`.
+            If True, keep the units of `ydata`.
+            If False, scale to the units of the current plot line.
+
+        """
+
+        if isinstance(ydata, Quantity):
+            if not keep_unit:
+                ydata = ydata.to(self._plot_kwargs["yaxis_unit"])
+
+        self._line.set_ydata(ydata)
+
+        self.update_limits()
+
+    def show_baseline(self, y, color="k") -> None:
+        """
+        Show a baseline model with values `y`.
+
+        Parameters
+        ----------
+        y : array
+            Ordinate axes values of the baseline model.
+        color :
+            Color for the baseline data.
+        """
+
+        self.axes.plot(self._sa, y.to(self._plot_kwargs["yaxis_unit"]), c=color, gid="baseline")
+
+        self.figure.canvas.draw_idle()
+
+    def _xaxis_unit_options(self):
+        return ["GHz", "MHz", "kHz", "Hz", "km/s", "m/s", "channels"]
+
+    def _yaxis_unit_options(self):
+        yunit = self._spectrum.flux.unit
+        yunit_type = u.get_physical_type(yunit)
+        if yunit_type in ["spectral flux density"]:
+            opts = ["Jy", "mJy"]
+        elif yunit_type in ["temperature"]:
+            opts = ["K", "mK"]
+        elif yunit_type == "unknown":
+            opts = ["counts"]
+        else:
+            raise ValueError(f"Can't handle this type of units ({yunit} with physical type: {yunit_type}).")
+        return opts
+
 
 class MultiSpanSelector:
-    def __init__(self, ax, minspan=1):
+    def __init__(self, ax, minspan=1, xy0=(0, 0)):
         self.ax = ax
         self.canvas = ax.figure.canvas
         self.spans = []
         self.minspan = minspan
+        self.xy0 = xy0
         self.colors = {
             "edge": (0, 0, 0, 1),
             "face": (0, 0, 0, 0.3),
@@ -623,7 +768,7 @@ class MultiSpanSelector:
             interactive=True,
             drag_from_anywhere=True,
             ignore_event_outside=True,
-            props=dict(facecolor=self.colors["face"], alpha=0.3),
+            props=dict(facecolor=self.colors["face"], alpha=0.3, xy=self.xy0),
             minspan=self.minspan,
         )
         return [span]
@@ -694,6 +839,7 @@ class MultiSpanSelector:
         self.active_span = None
 
     def clear_region(self, event=None):
+        """Clear a single region."""
         if not self.selected_span:
             return
         self.selected_span.clear()
@@ -709,6 +855,7 @@ class MultiSpanSelector:
             self.active_span = self.spans[0]
 
     def clear_regions(self, event=None):
+        """Clear all regions and start a new empty region."""
         self.clear()
         # Add a new span.
         if self.ax is not None:
@@ -739,8 +886,16 @@ class MultiSpanSelector:
             regions = [span.extents for span in self.spans]
         return regions
 
-    def set_minspan(self, minspan):
+    def set_minspan(self, minspan: float) -> None:
         """Set the minimum span in data units for the spans."""
         self.minspan = minspan
         for span in self.spans:
             span.minspan = minspan
+
+    def set_xy0(self, xy0: tuple) -> None:
+        """Set the bottom left coordinates in data units for the spans and their handles."""
+        self.xy0 = xy0
+        for span in self.spans:
+            if np.diff(span.extents) < self.minspan:
+                span._selection_artist.update({"xy": self.xy0})
+                span._edge_handles.set_data([self.xy0[0], self.xy0[0]])
