@@ -114,7 +114,7 @@ def time_operation(func, n_iterations=5, warmup=1, silent_errors=False, track_me
         elapsed = time.perf_counter() - start
 
         if track_memory:
-            current, peak = tracemalloc.get_traced_memory()
+            _current, peak = tracemalloc.get_traced_memory()
             tracemalloc.stop()
             mem_after = get_process_memory_mb()
             memory_deltas.append(mem_after - mem_before)
