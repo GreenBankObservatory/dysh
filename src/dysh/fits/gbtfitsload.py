@@ -1439,7 +1439,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return df  # All required columns already present with data
 
         _log_mem(f"_load_full_rows_if_needed: lazy loading {len(df)} rows (missing cols: {missing_cols})")
-        logger.info(f"Lazy loading full rows for {len(df)} selected rows (missing: {missing_cols})...")
+        logger.debug(f"Lazy loading full rows for {len(df)} selected rows (missing: {missing_cols})...")
 
         # Group rows by FITSINDEX (which SDFITSLoad they belong to)
         # and load full rows from FITS
@@ -1509,7 +1509,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Restore original row order
         result = result.loc[df.index]
 
-        logger.info(f"   Loaded full rows. DataFrame now has {len(result.columns)} columns")
+        logger.debug(f"   Loaded full rows. DataFrame now has {len(result.columns)} columns")
 
         # Update self._selection with the newly loaded columns so that other code
         # paths that access self._index (which returns self._selection) will see them
@@ -2895,7 +2895,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Currently, many "fix" functions assume full FITS data is available, but .index
         # files only contain a subset of columns. See: FRONTEND, CTYPE2/3, OBSMODE, etc.
         if "FRONTEND" not in self._index.columns:
-            logger.warning("Skipping Ka receiver fix: FRONTEND column not in index (loaded from .index file?)")
+            logger.debug("Skipping Ka receiver fix: FRONTEND column not in index (loaded from .index file?)")
             return
 
         # Check if we are dealing with Ka data before the beam switch.
@@ -3651,7 +3651,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # This can happen when loading from .index files which don't have all columns.
         for col in mask_dict.keys():
             if col.upper() not in self._index.columns:
-                logger.warning(
+                logger.debug(
                     f"Skipping _fix_column for {column}: mask column {col} not in index (loaded from .index file?)"
                 )
                 return
@@ -3689,9 +3689,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if missing_keys:
             # Check if any underlying SDFITSLoad was loaded from .index file
             index_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "index_file"]
-            hyrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "hybrid"]
+            #hyrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) == "hybrid"]
             if len(index_loaded_sdfs) > 0:
-                logger.info(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
+                logger.debug(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
                 for sdf in index_loaded_sdfs:
                     # Access the first missing column through SDFITSLoad which has lazy loading
                     # This will trigger the full index load for that file and will

@@ -232,14 +232,14 @@ class SDFITSLoad:
         use_index_file = fits_size >= self._index_file_threshold and not force_fits
 
         if use_index_file:
-            logger.info(
+            logger.debug(
                 f"FITS file size: {fits_size_mb:.1f} MB >= {threshold_mb:.1f} MB threshold. "
                 f"Will attempt to use .index file for faster loading."
             )
         elif force_fits:
             logger.debug(f"force_fits=True: Loading directly from FITS file ({fits_size_mb:.1f} MB)")
         else:
-            logger.info(
+            logger.debug(
                 f"FITS file size: {fits_size_mb:.1f} MB < {threshold_mb:.1f} MB threshold. "
                 f"Loading directly from FITS file (no .index file needed for small files)."
             )
@@ -266,9 +266,7 @@ class SDFITSLoad:
                     "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
                     "from FITS file when first accessed."
                 )
-                # if "PROCS" in self._index.columns:
-                #    self._index.rename(columns={"PROCS":"PROCSEQN"},inplace=True)
-                logger.info(f"   Loaded {len(self._index)} rows, {len(self._index.columns)} columns from .index file")
+                logger.debug(f"   Loaded {len(self._index)} rows, {len(self._index.columns)} columns from .index file")
                 self._index_source = "index_file"
                 return
 

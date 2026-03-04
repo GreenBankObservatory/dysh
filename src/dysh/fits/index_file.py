@@ -221,7 +221,7 @@ def _parse_with_python(path: Path) -> pd.DataFrame:
                 try:
                     key, value = line.split("=", maxsplit=1)
                 except ValueError:
-                    logger.info(f"index file {line} not useful")
+                    logger.debug(f"index file {line} not useful")
                 else:
                     header[key.strip()] = value.strip()
             else:
