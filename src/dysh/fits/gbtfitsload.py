@@ -201,27 +201,27 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def __str__(self):
         return str(self.filenames)
 
-    def _any_index_source(self)->bool:
+    def _any_index_source(self) -> bool:
         """Return True if any SDFITSLoad used the index file to create the index"""
         for s in self._sdf:
-            if s._index_source  == "index_file":
+            if s._index_source == "index_file":
                 return True
         return False
-    
-    def _any_hybrid(self)->bool:
+
+    def _any_hybrid(self) -> bool:
         """Return True if any SDFITSLoad has a hybrid index where some rows were loaded from  the FITS file"""
         for s in self._sdf:
-            if s._index_source  == "hybrid":
+            if s._index_source == "hybrid":
                 return True
-        return False   
-    
-    def _any_fits(self)->bool:
+        return False
+
+    def _any_fits(self) -> bool:
         """Return True if any SDFITSLoad has an index where that was fully loaded from the FITS file"""
         for s in self._sdf:
-            if s._index_source  == "fits":
+            if s._index_source == "fits":
                 return True
-        return False   
-    
+        return False
+
     @property
     def _index(self):
         # for backwards compatibility after removing _index
@@ -3714,10 +3714,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # trigger full load for those files to get the missing columns
         missing_keys = [k for k in items_list if k not in self._index.columns]
         # we want if missing_keys or hybrid_loaded_sdfs to avoid NaN in columns for rows not loaded.
-        #hybrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) =="hybrid"]
+        # hybrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) =="hybrid"]
         if missing_keys:
             # Check if any underlying SDFITSLoad was loaded from .index file
-            index_or_hybrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) in ("index_file","hybrid")]
+            index_or_hybrid_loaded_sdfs = [
+                s for s in self._sdf if getattr(s, "_index_source", None) in ("index_file", "hybrid")
+            ]
             if len(index_or_hybrid_loaded_sdfs) > 0:
                 logger.info(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
                 for sdf in index_or_hybrid_loaded_sdfs:
