@@ -85,8 +85,8 @@ class SpectrumPlot(PlotBase):
         super().__init__()
         self.reset()
         self._spectrum = spectrum
+        self._fa = Masked(spectrum.flux, spectrum.mask)
         self._sa = spectrum._spectral_axis
-        self._set_xaxis_info()
         self._plot_kwargs.update(kwargs)
         self._title = self._plot_kwargs["title"]
         self._select = select
@@ -96,6 +96,7 @@ class SpectrumPlot(PlotBase):
         self._init_selector()
 
         self._set_frontend()
+        self._connect_buttons()
 
     def _init_plot(self):
         super()._init_plot()
@@ -112,11 +113,10 @@ class SpectrumPlot(PlotBase):
             self._selector = None
 
     def _set_xaxis_info(self):
-        """Ensure the xaxis info is up to date if say, the spectrum frame has changed."""
+        """Ensure the x axis info is up to date if say, the spectrum frame has changed."""
         self._plot_kwargs["doppler_convention"] = self._spectrum.doppler_convention
         self._plot_kwargs["vel_frame"] = self._spectrum.velocity_frame
         self._plot_kwargs["xaxis_unit"] = self._spectrum.spectral_axis.unit
-        self._plot_kwargs["yaxis_unit"] = self._spectrum.unit
 
     @property
     def spectrum(self):
@@ -175,7 +175,6 @@ class SpectrumPlot(PlotBase):
 
         self._select = select
 
-        self._set_xaxis_info()
         # Plot arguments for this call of plot(). i.e. non-sticky plot attributes
         this_plot_kwargs = deepcopy(self._plot_kwargs)
         this_plot_kwargs.update(kwargs)
@@ -207,25 +206,18 @@ class SpectrumPlot(PlotBase):
                 this_plot_kwargs["vel_frame"] = decode_veldef(s.meta["VELDEF"])[1].lower()
             else:
                 this_plot_kwargs["vel_frame"] = s.velocity_frame
-        if "chan" in str(this_plot_kwargs["xaxis_unit"]).lower():
-            self._sa = u.Quantity(np.arange(len(self._sa)))
-            this_plot_kwargs["xlabel"] = "Channel"
-        else:
-            # convert the x axis to the requested velocity frame and Doppler convention.
-            self._sa = s.velocity_axis_to(
-                unit=this_plot_kwargs["xaxis_unit"],
-                toframe=this_plot_kwargs["vel_frame"],
-                doppler_convention=this_plot_kwargs["doppler_convention"],
-            )
+        self._sa = s.velocity_axis_to(
+            unit=this_plot_kwargs["xaxis_unit"],
+            toframe=this_plot_kwargs["vel_frame"],
+            doppler_convention=this_plot_kwargs["doppler_convention"],
+        )
 
-        sf = s.flux
         if this_plot_kwargs["yaxis_unit"] is not None:
-            sf = s.flux.to(this_plot_kwargs["yaxis_unit"])
-        sf = Masked(sf, s.mask)
+            self._fa = Masked(s.flux.to(this_plot_kwargs["yaxis_unit"]))
 
         lines = self.axes.plot(
             self._sa,
-            sf,
+            self._fa,
             color=this_plot_kwargs["color"],
             lw=lw,
             drawstyle=this_plot_kwargs["drawstyle"],
@@ -278,33 +270,34 @@ class SpectrumPlot(PlotBase):
         return abs(self._sa[0].value - self._sa[1].value)
 
     def _compose_xlabel(self, **kwargs):
-        """Create a sensible spectral axis label given units, velframe, and doppler convention"""
+        """Create a sensible spectral axis label given units, vel_frame, and doppler convention"""
         xlabel = kwargs.get("xlabel", None)
         if xlabel is not None:
             return xlabel
-        if kwargs["doppler_convention"] == "radio":
+        doppler_convention = self._sa.doppler_convention
+        if doppler_convention == "radio":
             subscript = "_{rad}"
-        elif kwargs["doppler_convention"] == "optical":
+        elif doppler_convention == "optical":
             subscript = "_{opt}"
-        elif kwargs["doppler_convention"] == "relativistic":
+        elif doppler_convention == "relativistic":
             subscript = "_{rel}"
         else:  # should never happen
             subscript = ""
-        if kwargs.get("xaxis_unit", None) is not None:
-            xunit = u.Unit(kwargs["xaxis_unit"])
-        else:
-            xunit = self.spectrum.spectral_axis.unit
+        xunit = self._sa.unit
         if xunit.is_equivalent(u.Hz):
             xname = r"\nu"
         elif xunit.is_equivalent(_KMS):
             xname = r"V" + subscript
         elif xunit.is_equivalent(u.angstrom):
             xname = r"\lambda"
-        # Channel is handled in plot() with kwargs['xlabel']
+        elif xunit.is_equivalent(u.pix):
+            xname = r"Channel"
+            return "Channel"
         else:
             raise ValueError(f"Unrecognized spectral axis unit: {xunit}")
         _xunit = xunit.to_string(format="latex_inline")
-        xlabel = f"{frame_to_label[kwargs['vel_frame']]} ${xname}$ ({_xunit})"
+        vel_frame = self._sa.observer.name
+        xlabel = f"{frame_to_label[vel_frame]} ${xname}$ ({_xunit})"
         return xlabel
 
     def _set_labels(self, **kwargs):
@@ -329,11 +322,10 @@ class SpectrumPlot(PlotBase):
         ylabel = kwargs.get("ylabel", None)
         if title is not None:
             self._title = title
-        if kwargs.get("yaxis_unit", None) is not None:
-            yunit = u.Unit(kwargs["yaxis_unit"])
-        else:
-            yunit = self.spectrum.unit
+
         self.axes.set_xlabel(self._compose_xlabel(**kwargs))
+
+        yunit = self._fa.unit
         if ylabel is not None:
             self.axes.set_ylabel(ylabel)
         else:
@@ -341,7 +333,7 @@ class SpectrumPlot(PlotBase):
                 ylabel = self.spectrum.meta["TSCALE"]
             elif "TUNIT7" in self.spectrum.meta:
                 tunit7 = self.spectrum.meta["TUNIT7"]
-                if tunit7 == "Ta":  # what about Ta*
+                if tunit7 == "Ta":
                     ylabel = "Ta"
                     yunit = "K"
                 elif tunit7 == "Ta*":
@@ -481,11 +473,9 @@ class SpectrumPlot(PlotBase):
             self._oshow(s, color=c, linestyle=ls, label=l, alpha=a)
 
     def _oshow(self, oshow_spectrum, color=None, linestyle=None, label=None, alpha=None):
-        sf = oshow_spectrum.flux.to(self._spectrum.unit)
+        sf = oshow_spectrum.flux.to(self._fa.unit)
         sa = oshow_spectrum.velocity_axis_to(
-            unit=self._plot_kwargs["xaxis_unit"],
-            toframe=self._plot_kwargs["vel_frame"],
-            doppler_convention=self._plot_kwargs["doppler_convention"],
+            unit=self._sa.unit, toframe=self._sa.observer, doppler_convention=self._sa.doppler_convention
         )
 
         self.axes.plot(sa, sf, color=color, linestyle=linestyle, label=label, alpha=alpha, gid="oshow")
@@ -517,9 +507,7 @@ class SpectrumPlot(PlotBase):
         for i, line in enumerate(self.sl_tbl):
             line_name = parse_html(line["name"])
             line_freq = (
-                (line["obs_frequency"] * u.MHz)
-                .to(self._plot_kwargs["xaxis_unit"], equivalencies=self.spectrum.equivalencies)
-                .value
+                (line["obs_frequency"] * u.MHz).to(self._sa.unit, equivalencies=self.spectrum.equivalencies).value
             )
 
             vloc = ystart + (i % num_vsteps) * fracstep
@@ -607,6 +595,7 @@ class SpectrumPlot(PlotBase):
         except u.errors.UnitConversionError as e:
             raise (e)
         yvals = Masked(yvals, self._spectrum.mask)
+        self._fa = yvals
 
         self.set_ydata(yvals, keep_unit=True)
 
@@ -640,18 +629,16 @@ class SpectrumPlot(PlotBase):
                 # This would be an error downstream anyway.
                 pass
 
-        if isinstance(xunit, str) and "ch" in xunit:
-            self._sa = u.Quantity(np.arange(len(self._spectrum.data)))
-            self._plot_kwargs["xlabel"] = "Channels"
-        else:
-            self._sa = self._spectrum.velocity_axis_to(
-                unit=xunit,
-                toframe=self._plot_kwargs["vel_frame"],
-                doppler_convention=self._plot_kwargs["doppler_convention"],
-            )
-            self._plot_kwargs["xlabel"] = None
-
+        self._sa = self._spectrum.velocity_axis_to(
+            unit=xunit,
+            toframe=self._sa.observer,
+            doppler_convention=self._sa.doppler_convention,
+        )
         self._line.set_xdata(self._sa.value)
+
+        # Remove any oshows.
+        # We cannot update them since we do not keep a reference to their spectra.
+        self._clear_overlay_objects("lines", "oshow")
 
         if self._selector is not None:
             self._selector.set_xy0((self._sa.value.mean(), 0))
@@ -692,9 +679,13 @@ class SpectrumPlot(PlotBase):
 
         if isinstance(ydata, Quantity):
             if not keep_unit:
-                ydata = ydata.to(self._plot_kwargs["yaxis_unit"])
+                ydata = ydata.to(self._fa.unit)
 
         self._line.set_ydata(ydata)
+
+        # Remove any oshows.
+        # We cannot update them since we do not keep a reference to their spectra.
+        self._clear_overlay_objects("lines", "oshow")
 
         self.update_limits()
 
@@ -710,12 +701,18 @@ class SpectrumPlot(PlotBase):
             Color for the baseline data.
         """
 
-        self.axes.plot(self._sa, y.to(self._plot_kwargs["yaxis_unit"]), c=color, gid="baseline")
+        self.axes.plot(self._sa, y.to(self._fa.unit), c=color, gid="baseline")
 
         self.figure.canvas.draw_idle()
 
     def _xaxis_unit_options(self):
-        return ["GHz", "MHz", "kHz", "Hz", "km/s", "m/s", "channels"]
+        opts = ["GHz", "MHz", "kHz", "Hz", "km/s", "m/s", "channels"]
+        # Ideally, the dropdown menus would start with the unit being shown.
+        # Future work...
+        #        first = "".join(self._sa.unit.to_string().split())
+        #        opts.remove(first)
+        #        opts.insert(0, first)
+        return opts
 
     def _yaxis_unit_options(self):
         yunit = self._spectrum.flux.unit
