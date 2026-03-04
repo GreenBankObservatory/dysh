@@ -188,6 +188,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             logger.info(f"Loaded {lsdf} FITS files")
         self.add_history(f"Project ID: {self.projectID}", add_time=True)
         self._qd_corrected = False
+        if self._any_index_source():
+            logger.info(
+                "Index loaded from .index file (44/93 columns). "
+                "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
+                "from FITS file when first accessed."
+            )
 
     def __repr__(self):
         return str(self.files)
@@ -195,6 +201,27 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def __str__(self):
         return str(self.filenames)
 
+    def _any_index_source(self)->bool:
+        """Return True if any SDFITSLoad used the index file to create the index"""
+        for s in self._sdf:
+            if s._index_source  == "index_file":
+                return True
+        return False
+    
+    def _any_hybrid(self)->bool:
+        """Return True if any SDFITSLoad has a hybrid index where some rows were loaded from  the FITS file"""
+        for s in self._sdf:
+            if s._index_source  == "hybrid":
+                return True
+        return False   
+    
+    def _any_fits(self)->bool:
+        """Return True if any SDFITSLoad has an index where that was fully loaded from the FITS file"""
+        for s in self._sdf:
+            if s._index_source  == "fits":
+                return True
+        return False   
+    
     @property
     def _index(self):
         # for backwards compatibility after removing _index
@@ -3692,7 +3719,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # Check if any underlying SDFITSLoad was loaded from .index file
             index_or_hybrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) in ("index_file","hybrid")]
             if len(index_or_hybrid_loaded_sdfs) > 0:
-                logger.debug(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
+                logger.info(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
                 for sdf in index_or_hybrid_loaded_sdfs:
                     # Access the first missing column through SDFITSLoad which has lazy loading
                     # This will trigger the full index load for that file and will

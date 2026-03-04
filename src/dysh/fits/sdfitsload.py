@@ -248,7 +248,7 @@ class SDFITSLoad:
         index_path = index_file.get_index_path(self._filename)
         if index_path.exists() and use_index_file:
             try:
-                logger.info(f"Loading index from .index file: {index_path}")
+                logger.debug(f"Loading index from .index file: {index_path}")
                 with Benchmark("   parse .index file", logger=logger.debug):
                     self._index = index_file.parse_sdfits_index_file(index_path)
 
@@ -261,7 +261,7 @@ class SDFITSLoad:
                 with Benchmark("   adding primary HDU", logger=logger.debug):
                     self._add_primary_hdu()
                 # Log info about lazy loading
-                logger.info(
+                logger.debug(
                     "Index loaded from .index file (44/93 columns). "
                     "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
                     "from FITS file when first accessed."
@@ -1413,14 +1413,14 @@ class SDFITSLoad:
             missing_keys = [k for k in items if k not in self._index.columns]
 
         if missing_keys and self._index_source == "index_file":
-            logger.info(
+            logger.debug(
                 f"Column(s) {missing_keys} not available in .index file. "
                 f"Triggering full FITS index load to access all columns..."
             )
             # Force full reload from FITS (skip .index file)
             self._index_source = None  # Reset to prevent infinite loop
             self.create_index(force_fits=True)
-            logger.info(f"   ✓ Full index loaded: {len(self._index.columns)} columns now available")
+            logger.debug(f"   ✓ Full index loaded: {len(self._index.columns)} columns now available")
 
         return self._index[items]
 
