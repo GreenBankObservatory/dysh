@@ -104,7 +104,7 @@ class SpectrumPlot(PlotBase):
     def _init_selector(self):
         if self._select:
             if not hasattr(self, "_selector") or self._selector is None:
-                self._selector = MultiSpanSelector(self.axes, minspan=1)
+                self._selector = MultiSpanSelector(self.axes, self._spectrum, minspan=1)
             elif hasattr(self, "_selector"):
                 self._selector.clear()
         # If select is False, and there is a selector, close it.
@@ -588,7 +588,7 @@ class SpectrumPlot(PlotBase):
 
 
 class MultiSpanSelector:
-    def __init__(self, ax, minspan=1):
+    def __init__(self, ax, spectrum, minspan=1):
         self.ax = ax
         self.canvas = ax.figure.canvas
         self.spans = []
@@ -603,6 +603,7 @@ class MultiSpanSelector:
 
         self.active_span = None
         self.selected_span = None
+        self._spectrum = spectrum
 
     def init_first_span(self):
         """
@@ -639,6 +640,7 @@ class MultiSpanSelector:
         elif self.active_span is not None:
             self.active_span.set_active(False)
             self.active_span = None
+        self._spectrum.regions = self._spectrum.get_selected_regions()
         return
 
     def on_press(self, event):
@@ -675,6 +677,7 @@ class MultiSpanSelector:
                     if np.diff(span.extents) <= self.minspan:
                         self.active_span = span
                         self.active_span.set_active(True)
+
 
     def disconnect(self):
         """Disconnect all event handlers to prevent memory leaks and dangling references."""
