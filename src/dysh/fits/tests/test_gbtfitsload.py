@@ -2399,7 +2399,7 @@ class TestIndexFileLazyLoading:
         for col in numeric_cols:
             if col in idx.columns:
                 # This should not raise "ufunc 'isfinite' not supported"
-                values = idx[col].values.to_numpy()
+                values = idx[col].to_numpy()
                 try:
                     np.isfinite(values.astype(float))
                 except TypeError as e:

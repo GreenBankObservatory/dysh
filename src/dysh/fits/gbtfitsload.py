@@ -1480,7 +1480,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 result_dfs.append(group)
                 continue
 
-            rows = group["ROW"].values.to_numpy()
+            rows = group["ROW"].to_numpy()
             bintable = self._get_bintable(group)
 
             # Load full rows from FITS
@@ -1499,7 +1499,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 # Add column to ALL underlying SDFITSLoads if missing
                 for other_sdf in self._sdf:
                     if col not in other_sdf._index.columns:
-                        if col_dtype == object or col_dtype.kind in ("U", "S"):
+                        if col_dtype is object or col_dtype.kind in ("U", "S"):
                             # String columns: use object dtype with None
                             other_sdf._index[col] = pd.Series([None] * len(other_sdf._index), dtype=object)
                         elif col_dtype.kind in ("i", "u"):
@@ -1514,7 +1514,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 dfbin = sdf.index(bintable=bintable)
                 dfrows = dfbin["ROW"].isin(rows)
                 indices = dfbin[dfrows].index
-                sdf._index.loc[indices, col] = fits_df[col].values
+                sdf._index.loc[indices, col] = fits_df[col].values # noqa: PD011
             # Mark that we've started loading from FITS (hybrid mode)
             sdf._index_source = "hybrid"
 
@@ -1528,7 +1528,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # Add columns from .index that aren't in FITS (like FITSINDEX, ROW)
             for col in group.columns:
                 if col not in merged.columns:
-                    merged[col] = group[col].values
+                    merged[col] = group[col].values # noqa: PD011
 
             result_dfs.append(merged)
 
