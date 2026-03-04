@@ -678,7 +678,6 @@ class MultiSpanSelector:
                         self.active_span = span
                         self.active_span.set_active(True)
 
-
     def disconnect(self):
         """Disconnect all event handlers to prevent memory leaks and dangling references."""
         if hasattr(self, "cid_press") and self.cid_press is not None:
