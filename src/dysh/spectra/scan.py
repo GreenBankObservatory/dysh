@@ -2205,12 +2205,13 @@ class PSScan(ScanBase):
                 _exp_ref = np.full_like(exp_sig, exp_ref / len(exp_sig))
             else:
                 _exp_ref = exp_ref
+
+            if np.isscalar(dur_ref):
+                _dur_ref = np.full_like(dur_sig, dur_ref / len(dur_sig))
+            else:
+                _dur_ref = dur_ref
         else:
             _exp_ref = exp_ref
-
-        if np.isscalar(dur_ref):
-            _dur_ref = np.full_like(dur_sig, dur_ref / len(dur_sig))
-        else:
             _dur_ref = dur_ref
 
         self._exposure = exp_sig * _exp_ref * nsmooth / (exp_sig + _exp_ref * nsmooth)
