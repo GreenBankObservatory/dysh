@@ -10,7 +10,7 @@ from pstats import SortKey
 import numpy as np
 from astropy.table import Table, vstack
 
-__all__ = ["DTime"]
+__all__ = ["Benchmark", "DTime"]
 
 __ostype__ = None
 
@@ -272,6 +272,61 @@ class DTime:
         n = len(self.stats)
         dt = (self.stats[n - 1][1] - self.stats[0][1]) / 1e6
         return dt
+
+
+class Benchmark:
+    """Simple context manager for timing code blocks with optional memory tracking.
+
+    Parameters
+    ----------
+    description : str, optional
+        Description of the operation being timed
+    logger : callable, optional
+        Logging function to use (default: print). Can be a logger.debug, logger.info, etc.
+    track_memory : bool, optional
+        Whether to track memory usage (default: False for minimal overhead)
+
+    Examples
+    --------
+    >>> with Benchmark("Loading data", logger=logger.debug):
+    ...     data = load_data()
+    Loading data in 1.234 seconds
+
+    >>> with Benchmark("Processing", track_memory=True):
+    ...     process(data)
+    Processing in 2.345 seconds, memory delta: 150.23 MB
+    """
+
+    def __init__(self, description=None, logger=None, track_memory=False):
+        import tracemalloc
+
+        self._tracemalloc = tracemalloc
+        self._initial_time = time.perf_counter()
+        self._logger = logger if logger else print
+        self.description = "Operation" if description is None else description
+        self.track_memory = track_memory
+        self._snapshot_start = None
+
+    def __enter__(self):
+        if self.track_memory:
+            if not self._tracemalloc.is_tracing():
+                self._tracemalloc.start()
+            self._snapshot_start = self._tracemalloc.take_snapshot()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        elapsed = time.perf_counter() - self._initial_time
+
+        msg = f"{self.description} in {elapsed:.3f}s"
+
+        if self.track_memory and self._snapshot_start:
+            snapshot_end = self._tracemalloc.take_snapshot()
+            total_start = sum(stat.size for stat in self._snapshot_start.statistics("filename"))
+            total_end = sum(stat.size for stat in snapshot_end.statistics("filename"))
+            total_diff = total_end - total_start
+            msg += f", memory delta: {total_diff / 1024 / 1024:.2f} MB"
+
+        self._logger(msg)
 
 
 if __name__ == "__main__":

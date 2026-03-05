@@ -63,6 +63,7 @@ valid_dysh_example = {
     "nod"        : "nod-KFPA/data/TGBT22A_503_02.raw.vegas/",       # W3_1      example/nodding  (scan 62,63)
                    #              TGBT22A_503_02.raw.vegas          # FS example in data_reduction (scan 64)
     "align"      : "mixed-fs-ps/data/TGBT24B_613_04.raw.vegas.trim.fits",  #   MESSIER32  example/align_spectra
+    "mixed"      : "mixed-fs-ps/data/AGBT16B_225_05/AGBT16B_225_05.raw.vegas", # 77GB of mixed FS and PS data
     "flagging"   : "rfi-L/data/AGBT17A_404_01.tar.gz",                     # tar.gz not yet supported?     A123606  example/flagging
     "survey"     : "hi-survey/data/AGBT04A_008_02.raw.acs/AGBT04A_008_02.raw.acs.fits",   # example/hi-survey
     "otf1"       : "mapping-L/data/TGBT17A_506_11.raw.vegas/",      # OTF L-band NGC6946
@@ -89,10 +90,10 @@ valid_dysh_accept = {
     "nod7"            : "TGBT21A_501_10/TGBT21A_501_10.raw.vegas",
     "nod8"            : "AGBT19A_340_07/AGBT19A_340_07.raw.vegas",
     "nod9"            : "AGBT12A_076_05/AGBT12A_076_05.raw.acs",
-    "multismallsmall" : "AGBT20B_336_01/AGBT20B_336_01.raw.vegas",  # multiple small FITS files (54M each), small flags files (7 lines)
-    "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5G each), small flags files (6 lines)
-    "multismallbig"   : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas",  # multiple small FITS files (64M each), large flag files (20 lines)
-    "multibighuge"    : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines)
+    "multismallsmall" : "AGBT20B_336_01/AGBT20B_336_01.raw.vegas",  # multiple small FITS files (54M each), small flags files (7 lines), RALongMap, gettp
+    "multihugesmall"  : "AGBT14B_480_06/AGBT14B_480_06.raw.vegas",  # multiple huge FITS files (3.5G each), small flags files (6 lines), PointMap, getsigref
+    "multismallbig"   : "AGBT23A_432_03/AGBT23A_432_03.raw.vegas",  # multiple small FITS files (64M each), large flag files (20 lines), getnod fdnum=[0,1]
+    "multibighuge"    : "AGBT17B_319_06/AGBT17B_319_06.raw.vegas",  # multiple large FITS files (733M each), huge flag files (102 lines), getnod
 
 }
 
