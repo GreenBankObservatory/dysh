@@ -204,29 +204,29 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def _any_index_file(self) -> bool:
         """Return True if any SDFITSLoad used the index file to create the index"""
         for s in self._sdf:
-            if getattr(s,"_index_source",None) == "index_file":
+            if getattr(s, "_index_source", None) == "index_file":
                 return True
         return False
 
     def _any_hybrid(self) -> bool:
         """Return True if any SDFITSLoad has a hybrid index where some rows were loaded from  the FITS file"""
         for s in self._sdf:
-            if getattr(s,"_index_source",None) == "hybrid":
+            if getattr(s, "_index_source", None) == "hybrid":
                 return True
         return False
 
     def _any_fits(self) -> bool:
         """Return True if any SDFITSLoad has an index where that was fully loaded from the FITS file"""
         for s in self._sdf:
-            if getattr(s,"_index_source",None) == "fits":
+            if getattr(s, "_index_source", None) == "fits":
                 return True
         return False
 
     @property
     def _index_state(self):
         """Return a list of all index source states"""
-        return [getattr(s,"_index_source",None)  for s in self._sdf ]
-    
+        return [getattr(s, "_index_source", None) for s in self._sdf]
+
     @property
     def _index(self):
         # for backwards compatibility after removing _index
@@ -1461,7 +1461,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         # Check if any underlying SDFITSLoad was loaded from .index file (or is in hybrid mode)
         has_index_loaded = self._any_index_file() or self._any_hybrid()
-    
+
         if not has_index_loaded:
             print("we used fits returning")
             return df  # All data loaded from FITS, columns should exist if valid

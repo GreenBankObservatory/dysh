@@ -124,10 +124,10 @@ A powerful mechanism for examining and modifying the metadata columns is the `[]
 
    *Column(s) ['DOPFREQ'] not available in .index file. Loading from FITS file(s).*
 
-   For operations such as `gettp, getfs`, etc, the missing columns are 
-   loaded *only for the rows needed* (again, for performance reasons -- especially 
+   For operations such as `gettp, getfs`, etc, the missing columns are
+   loaded *only for the rows needed* (again, for performance reasons -- especially
    important for very large files). Therefore under certain circumstances you may
-   find that `sdf[column_name]` returns NaN for unloaded rows. 
+   find that `sdf[column_name]` returns NaN for unloaded rows.
 
 Assignment also works.
 Assigned values will be used in any subsequent calibration commands.
