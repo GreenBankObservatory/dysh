@@ -262,7 +262,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         if self._plotter is not None:
             if kwargs_opts["remove"]:
                 self._plotter._line.set_ydata(self._data)
-                self._plotter.clear_overlays(blines=True)
+                self._plotter.clear_overlays(blines=True, oshows=False, catalog=False)
                 if not self._plotter._freezey:
                     self._plotter.freey()
             else:
@@ -271,8 +271,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 else:
                     xval = self._plotter._sa
                 bline_data = self._baseline_model(self.spectral_axis).to(self._plotter._yunit)
-                self._plotter._axis.plot(xval, bline_data, c=color, gid="baseline")
-                self._plotter.refresh()
+                self._plotter.axes.plot(xval, bline_data, c=color, gid="baseline")
+            self._plotter.refresh()
 
     # baseline
     @log_call_to_history
@@ -306,29 +306,6 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
         return self._subtracted
 
-    def _set_exclude_regions(self, exclude):
-        """
-        Set the mask for the regions to exclude.
-
-        Parameters
-        ----------
-        exclude : list of 2-tuples of int or ~astropy.units.quantity.Quantity, or ~specutils.SpectralRegion
-            List of region(s) to exclude from the fit.  The tuple(s) represent a range in the form [lower,upper], inclusive.
-            In channel units.
-
-            Examples: One channel-based region: [11,51],
-                      Two channel-based regions: [(11,51),(99,123)].
-                      One `~astropy.units.quantity.Quantity` region: [110.198*u.GHz,110.204*u.GHz].
-                      One compound `~specutils.SpectralRegion`: SpectralRegion([(110.198*u.GHz,110.204*u.GHz),(110.196*u.GHz,110.197*u.GHz)]).
-
-        """
-        pass
-
-    def list_to_spectral_region(self, inlist):
-        # @todo utility code to convert a input list of channels or quantities to a spectral region with units of self.spectral_axis.unit.
-        # This could go in core.py combine this with _set_exclude_regions
-        pass
-
     def bshow(self):
         """Show the baseline model"""
         print(f"baseline model {self._baseline_model}")
@@ -337,8 +314,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     def plot(self, **kwargs):
         """ """
 
-        if self._plotter is None:
-            self._plotter = sp.SpectrumPlot(self, **kwargs)
+        self._plotter = sp.SpectrumPlot(self, **kwargs)
         self._plotter.plot(**kwargs)
         return self._plotter
 
@@ -771,7 +747,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
         """
 
         new_spec = self._copy()
-        data = np.ma.masked_where(new_spec.mask, new_spec.data)
+        data = np.ma.masked_array(new_spec.data, mask=new_spec.mask)
         new_data = core.data_shift(data, s, remove_wrap=remove_wrap, fill_value=fill_value, method=method)
 
         # Update data values.
@@ -954,7 +930,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Returns
         -------
-        ~astropy.units.quantity.Quantity.Quantity
+        ~astropy.units.quantity.quantity.Quantity
             The rest frequency as a Quantity object
         """
         return self.spectral_axis.doppler_rest
@@ -1044,7 +1020,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
         Parameters
         ----------
-        toframe : str, `~astropy.coordinates.BaseCoordinateFrame`, or `~astropy.coordinates.sky_coordinate.SkyCoord`
+        toframe : str or `~astropy.coordinates.BaseCoordinateFrame` or `~astropy.coordinates.sky_coordinate.SkyCoord`
             The coordinate reference frame identifying string, as used by astropy, e.g. 'hcrs', 'icrs',
             an actual coordinate system instance, or a sky coordinate instance.
         """
@@ -1057,7 +1033,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
                 if isinstance(self._observer, ITRS):
                     return  # nothing to be done, we already have the correct axis
                 raise ValueError(
-                    "For topographic or ITRS coordaintes, you must supply a full astropy Coordinate instance."
+                    "For topographic or ITRS coordinates, you must supply a full astropy Coordinate instance."
                 )
             elif self._velocity_frame == tfl:
                 return  # the frame is already the requested frame

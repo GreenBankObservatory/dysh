@@ -1082,8 +1082,9 @@ class SDFITSLoad:
                     [b.data[multikey].shape == self._bintable[0].data[multikey].shape for b in self._bintable]
                 ):
                     raise ValueError(
-                        "{multikey} columns for multiple binary tables in this SDFITSLoad have different shapes. They"
-                        " can only be accessed via _bintable.data['DATA'] attribute."
+                        f"{multikey} column has different shapes (number of channels) in the binary tables of this SDFITSLoad."
+                        "So they cannot be returned as a single array."
+                        f"They can be accessed via the _bintable.data['{multikey}'] attribute."
                     )
                 if len(self._bintable) == 1:
                     return self._bintable[0].data[multikey]

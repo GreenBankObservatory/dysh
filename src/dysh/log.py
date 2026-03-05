@@ -111,7 +111,30 @@ def init_instance_log(
     return log_path
 
 
-def init_logging(verbosity: int | None = None, level: int | None = None, path: Path | None = None, quiet=False):
+def init_logging(verbosity: int | None = None, path: Path | None = None, quiet: bool = False):
+    """
+    Initialize logging. Can be used, e.g., to change the verbosity level inside a script/shell.
+
+    Parameters
+    ----------
+    verbosity : int | None, optional
+       Verbosity level, 0 (ERRORs only) through 3 (DEBUG). The default is None.
+    path : Path | None, optional
+        An output path for the log messages. The default is None.
+    quiet : bool, optional
+        Quiet mode or not. The default is False.
+
+    Raises
+    ------
+    ValueError
+        If verbosity is not 0 to 3.
+
+    Returns
+    -------
+    None.
+
+    """
+
     # Clear existing handlers to avoid duplicates when re-initializing
     if logger._configured:
         logger.handlers.clear()

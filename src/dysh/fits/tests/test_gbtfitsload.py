@@ -1434,13 +1434,15 @@ class TestGBTFITSLoad:
         assert len(sdf.flags.final.index.values) == 0
 
         # Add a pointing error so it gets flagged.
-        qd_el = sdf["QD_EL"].to_numpy()
+        qd_el = sdf["QD_EL"].to_numpy().copy()
         qd_el[10] += 100
+        sdf["QD_EL"] = qd_el
         sdf.qd_flag()
         assert np.all(sdf.flags.final.index.values == 10)  # noqa: PD011
         sdf.flags.clear()
 
         qd_el[11:15] += 100
+        sdf["QD_EL"] = qd_el
         sdf.qd_flag()
         np.testing.assert_array_equal(sdf.flags.final.index.values, [10, 11, 12, 13, 14])
 
@@ -1581,8 +1583,8 @@ class TestGBTFITSLoad:
         assert psscan[0].sigscan == 152
         print(psscan[0]._exposure)
         print(sigref[0]._exposure)
-        assert np.max(np.abs(psscan[0]._exposure-sigref[0]._exposure)) < 1e-10
-        
+        assert np.max(np.abs(psscan[0]._exposure - sigref[0]._exposure)) < 1e-10
+
         # 2. Scan is a list, ref is an int
         sdf_file = f"{self.data_dir}/AGBT05B_047_01/AGBT05B_047_01.raw.acs"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False)
@@ -1682,7 +1684,7 @@ class TestGBTFITSLoad:
 
         # Change one.
         mask = (sdf["SCAN"] == 331) & (sdf["FEEDXOFF"] == 0) & (sdf["FEEDEOFF"] == 0)
-        fdnums = sdf["FDNUM"].to_numpy()
+        fdnums = sdf["FDNUM"].to_numpy().copy()
         fdnums[mask] = 10
         with pytest.warns(UserWarning):
             sdf["FDNUM"] = fdnums

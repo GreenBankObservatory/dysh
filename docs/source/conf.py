@@ -16,6 +16,8 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 sys.path.insert(0, os.path.abspath("."))
+os.environ["READTHEDOCS"] = "True"  # Fool dysh to use StaticLabGUI.
+print(f"Are we fooling anyone? {os.environ['READTHEDOCS']}")
 
 from dysh import __version__
 
@@ -23,7 +25,7 @@ from dysh import __version__
 
 
 project = "dysh"
-copyright = "2023-2025, Green Bank Observatory"
+copyright = "2023-2026, Green Bank Observatory"
 author = "Green Bank Observatory"
 
 # The short X.Y version
@@ -86,11 +88,12 @@ mermaid_init_js = "mermaid.initialize({startOnLoad:true, useMaxWidth:true});"
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
-# The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = [".rst", ".md"]
-source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
+# The suffix(es) of source filenames and the rendering tool.
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "myst-nb",
+    ".ipynb": "myst-nb",
+}
 
 # The master toctree document.
 master_doc = "index"
@@ -193,7 +196,7 @@ latex_documents = [
         master_doc,
         "dysh.tex",
         "dysh Documentation",
-        ["Marc Pound", "Victoria Catlett", "Peter Teuben", "Pedro Salas", "Evan Smith", "Thomas Chamberlin"],
+        ["Marc Pound", "Peter Teuben", "Pedro Salas", "Evan Smith", "Thomas Chamberlin", "Victoria Catlett"],
         "manual",
     )
 ]
@@ -218,7 +221,7 @@ texinfo_documents = [
         "dysh Documentation",
         author,
         "dysh",
-        "One line description of project.",
+        "Single-dish radio astronomy data reduction",
         "Miscellaneous",
     )
 ]
