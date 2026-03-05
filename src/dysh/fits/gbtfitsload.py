@@ -204,21 +204,21 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def _any_index_source(self) -> bool:
         """Return True if any SDFITSLoad used the index file to create the index"""
         for s in self._sdf:
-            if s._index_source == "index_file":
+            if getattr(s,"_index_source",None) == "index_file":
                 return True
         return False
 
     def _any_hybrid(self) -> bool:
         """Return True if any SDFITSLoad has a hybrid index where some rows were loaded from  the FITS file"""
         for s in self._sdf:
-            if s._index_source == "hybrid":
+            if getattr(s,"_index_source",None) == "hybrid":
                 return True
         return False
 
     def _any_fits(self) -> bool:
         """Return True if any SDFITSLoad has an index where that was fully loaded from the FITS file"""
         for s in self._sdf:
-            if s._index_source == "fits":
+            if getattr(s,"_index_source",None) == "fits":
                 return True
         return False
 
@@ -1425,7 +1425,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if found_flags and len(self.flags._table) != 0:
             logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
-    def _load_full_rows_if_needed(self, df: pd.DataFrame, required_columns: list[str]) -> pd.DataFrame:
+    def load_all_rows(self) -> None:
+        """
+        Load all rows from FITS files if any required columns are missing.
+        """
+        self._load_full_rows_if_needed(df=self.selection, required_columns=[], force=True)
+
+    def _load_full_rows_if_needed(self, df: pd.DataFrame, required_columns: list[str], force=False) -> pd.DataFrame:
         """
         Load full rows from FITS files if any required columns are missing.
 
@@ -1438,6 +1444,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             Selected rows DataFrame (from _common_selection), must have ROW and FITSINDEX columns
         required_columns : list[str]
             Column names that must be present (triggers load if any are missing)
+        force : bool
+            Always trigger loading even if required columns appear to be there. (In hybrid mode not all rows will be present even if all columns are.)
 
         Returns
         -------
@@ -1462,7 +1470,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows_need_loading = True
                     break
 
-        if not missing_cols and not rows_need_loading:
+        if not missing_cols and not rows_need_loading and not force:
             return df  # All required columns already present with data
 
         _log_mem(f"_load_full_rows_if_needed: lazy loading {len(df)} rows (missing cols: {missing_cols})")
@@ -1516,7 +1524,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 indices = dfbin[dfrows].index
                 sdf._index.loc[indices, col] = fits_df[col].values # noqa: PD011
             # Mark that we've started loading from FITS (hybrid mode)
-            sdf._index_source = "hybrid"
+            if force:
+                sdf._index_source = "fits"
+            else:
+                sdf._index_source = "hybrid"
 
             # Merge: start with FITS data, then overlay .index data for columns that exist in both
             # This ensures FITS data wins for any columns that might be different
@@ -4478,7 +4489,7 @@ class GBTOffline(GBTFITSLoad):
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
 _skip_functions = ["velocity_convention", "velocity_frame"]
-_need_functions = 59
+_need_functions = 60
 
 
 def _check_functions(verbose=False):
