@@ -114,6 +114,20 @@ A powerful mechanism for examining and modifying the metadata columns is the `[]
    # The unique set of values in a column
    sdfits.udata["backend"]
 
+.. note::
+
+   dysh uses the GBTIDL-created index file (if present) to speed up loading of SDFITS
+   files. However, the index file does not include all columns in the
+   SDFITS binary table. When dysh needs columns that that are not in the
+   index file, it loads those columns from the SDFITS file(s).  So the
+   first time you use `[]` to access such a column you will see a message such as:
+
+   *Column(s) ['DOPFREQ'] not available in .index file. Loading from FITS file(s).*
+
+   For operations such as `gettp, getfs`, etc, the missing columns are 
+   loaded *only for the rows needed* (again, for performance reasons -- especially 
+   important for very large files). Therefore under certain circumstances you may
+   find that `sdf[column_name]` returns NaN for unloaded rows. 
 
 Assignment also works.
 Assigned values will be used in any subsequent calibration commands.
