@@ -188,7 +188,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             logger.info(f"Loaded {lsdf} FITS files")
         self.add_history(f"Project ID: {self.projectID}", add_time=True)
         self._qd_corrected = False
-        if self._any_index_source():
+        if self._any_index_file():
             logger.info(
                 "Index loaded from .index file (44/93 columns). "
                 "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
@@ -201,7 +201,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     def __str__(self):
         return str(self.filenames)
 
-    def _any_index_source(self) -> bool:
+    def _any_index_file(self) -> bool:
         """Return True if any SDFITSLoad used the index file to create the index"""
         for s in self._sdf:
             if getattr(s,"_index_source",None) == "index_file":
@@ -222,6 +222,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 return True
         return False
 
+    @property
+    def _index_state(self):
+        """Return a list of all index source states"""
+        return [getattr(s,"_index_source",None)  for s in self._sdf ]
+    
     @property
     def _index(self):
         # for backwards compatibility after removing _index
@@ -1425,11 +1430,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if found_flags and len(self.flags._table) != 0:
             logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
-    def load_all_rows(self) -> None:
+    # I did not name this load_all_rows() because that is too close to
+    # the name of the inherited method SDFITSLoad.load_full_rows()
+    def load_all(self) -> None:
         """
         Load all rows from FITS files if any required columns are missing.
         """
-        self._load_full_rows_if_needed(df=self.selection, required_columns=[], force=True)
+        _df = self._load_full_rows_if_needed(df=self.selection, required_columns=[], force=True)
 
     def _load_full_rows_if_needed(self, df: pd.DataFrame, required_columns: list[str], force=False) -> pd.DataFrame:
         """
@@ -1453,8 +1460,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The input DataFrame with full row data loaded from FITS
         """
         # Check if any underlying SDFITSLoad was loaded from .index file (or is in hybrid mode)
-        has_index_loaded = any(getattr(s, "_index_source", None) in ("index_file", "hybrid") for s in self._sdf)
+        has_index_loaded = self._any_index_file() or self._any_hybrid()
+    
         if not has_index_loaded:
+            print("we used fits returning")
             return df  # All data loaded from FITS, columns should exist if valid
 
         # Check which columns are missing

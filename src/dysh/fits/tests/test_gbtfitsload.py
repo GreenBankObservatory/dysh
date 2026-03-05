@@ -1921,6 +1921,7 @@ class TestGBTFITSLoad:
         sdf.clear_flags()
 
 
+            
 def test_parse_tsys():
     """
     Test that `_parse_tsys` produces the expected results for different cases.
@@ -2263,7 +2264,29 @@ class TestIndexFileLazyLoading:
         cols_upper = [c.upper() for c in result_df.columns]
         assert "TCAL" in cols_upper, "TCAL should be in loaded data"
         assert "TSYS" in cols_upper, "TSYS should be in loaded data"
-
+        
+    def test_load_all(self):
+        """Test that we can load all rows from fits on demand if we have previously
+        loaded via index file.
+        """
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file))
+        # ensure no index sources are 'fits'
+        assert sdf._any_index_file() and not sdf._any_hybrid()
+        l1 = len(sdf.selection.columns)
+        # this will trigger hybrid mode
+        _sb = sdf.getps(scan=51,ifnum=0,plnum=0,fdnum=0)
+        assert sdf._any_hybrid()
+        # in hybrid mode, columns that are not fully loaded have NaN
+        # TCAL will have NaN except for rows 2 and 3
+        assert sdf["TCAL"].isna()[0]
+        assert not sdf["TCAL"].isna()[2:4].all()
+        sdf.load_all()
+        l2 = len(sdf.selection.columns)
+        assert l1 < l2
+        assert not sdf["TCAL"].isna()[0]
+        assert not sdf["TCAL"].isna()[2:4].all() # this should not have changed!
+        
+        
     def test_gbtfitsload_lazy_load_for_calibration(self):
         """
         Test that GBTFITSLoad lazy loads full rows when calibration columns are needed.
