@@ -286,7 +286,7 @@ In this glossary we also note overloaded terms.
       (optional) environment variable pointing to a directory where :term:`SDFITS`
       project directories and files are stored. At GBO the default would be /home/sdfits.
 
-      See also :term:`DYSH_DATA`.    
+      See also :term:`DYSH_DATA`.
 
     session
       Or Session ID. This is the number (starting at index 01) denoting the observing sessions
