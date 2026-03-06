@@ -537,9 +537,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def normalness(self):
         """
-        Compute the p-value to check if the noise in a spectrum is gaussian
+        Compute the p-value to check if the noise in a spectrum is Gaussian
         using the Anderson-Darling statistic.
-        If p>0.05, the spectrum can be considered gaussian.
+        If p>0.05, the spectrum can be considered Gaussian.
         See also "D'Agostino, R. B., & Stephens, M. A. (Eds.). (1986)
         Goodness-of-fit techniques" , table 4.9
         """
@@ -1210,7 +1210,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @classmethod
     def fake_spectrum(cls, nchan=1024, seed=None, normal=True, use_wcs=True, **kwargs):
         """
-        Create a fake spectrum with gaussian noise, useful for simple testing.
+        Create a fake spectrum with Gaussian noise, useful for simple testing.
         A default header is created, which may be modified with kwargs.
 
         Parameters
