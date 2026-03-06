@@ -244,7 +244,7 @@ class SDFITSLoad:
         self._bintable = []
         self._binheader = []
         self._nrows = []
-        # fix = kwargs.get("fix")
+        self._ncols = []
 
         if hdu is not None:
             ldu = list([hdu])
@@ -255,22 +255,8 @@ class SDFITSLoad:
             self._bintable.append(self._hdu[i])
             self._binheader.append(self._hdu[i].header)
             self._nrows.append(self._binheader[j]["NAXIS2"])
+            self._ncols.append(self._binheader[j]["TFIELDS"])
             logger.debug(f"Loading HDU {i} from {self._filename}")
-
-    def fix_meta(self, meta):
-        """
-        Do any repair to the meta/header for peculariaties in definitions
-        from a particular observatory
-        The passed-in dictionary will be repaired in place.
-        At minimum this method must populate meta['VELDEF'] and meta['VELFRAME']
-
-        Parameters
-        ----------
-            meta : dict
-                The header of the `~Spectrum` to be fixed, corresponding to the `meta` attribute of the Spectrum.
-
-        """
-        pass
 
     def velocity_convention(self, veldef, velframe):
         """
@@ -446,7 +432,7 @@ class SDFITSLoad:
 
     def getrow(self, i, bintable=0):
         """
-        Get a FITS_record from the input bintable
+        Get a :class:`~astropy.io.fits.fitsrec.FITS_record` from the input bintable
 
         Parameters
         ----------
@@ -544,7 +530,7 @@ class SDFITSLoad:
         s = Spectrum.make_spectrum(masked_data, meta, observer_location=observer_location)
         return s
 
-    def nrows(self, bintable):
+    def nrows(self, bintable: int = 0) -> int:
         """
         The number of rows of the input bintable
 
@@ -561,7 +547,24 @@ class SDFITSLoad:
         """
         return self._nrows[bintable]
 
-    def nchan(self, bintable):
+    def ncols(self, bintable: int = 0) -> int:
+        """
+        The number of columns of the input bintable
+
+        Parameters
+        ----------
+            bintable :  int
+                The index of the `bintable` attribute
+
+        Returns
+        -------
+            ncols : int
+                Number of columns, i.e., the width of the input bintable
+
+        """
+        return self._ncols[bintable]
+
+    def nchan(self, bintable: int = 0) -> int:
         """
         The number of channels per row of the input bintable. Assumes all rows have same length.
 
@@ -578,7 +581,7 @@ class SDFITSLoad:
         """
         return np.shape(self.rawspectrum(0, bintable))[0]
 
-    def npol(self, bintable):
+    def npol(self, bintable: int = 0) -> int:
         """
         The number of polarizations present in the input bintable.
 
@@ -595,7 +598,7 @@ class SDFITSLoad:
         """
         return len(self.udata(key="CRVAL4", bintable=bintable))
 
-    def sources(self, bintable):
+    def nsources(self, bintable: int = 0) -> int:
         """
         The number of sources present in the input bintable.
 
@@ -606,13 +609,13 @@ class SDFITSLoad:
 
         Returns
         -------
-            sources: int
+            nsources: int
                 Number of sources as given by `OBJECT` FITS header keyword.
 
         """
         return self.udata(bintable=bintable, key="OBJECT")
 
-    def scans(self, bintable):
+    def nscans(self, bintable: int = 0) -> int:
         """
         The number of scans present in the input bintable.
 
@@ -623,12 +626,12 @@ class SDFITSLoad:
 
         Returns
         -------
-            scans: int
+            nscans: int
                 Number of scans as given by `SCAN` FITS header keyword.
         """
         return self.udata(key="SCAN", bintable=bintable)
 
-    def _summary(self, bintable):
+    def _summary(self, bintable: int = 0):
         j = bintable
         nrows = self.naxis(bintable=j, naxis=2)
         nflds = self._binheader[j]["TFIELDS"]
@@ -636,9 +639,9 @@ class SDFITSLoad:
         print(f"HDU       {j + 1}")
         print(f"BINTABLE: {self._nrows[j]} rows x {nflds} cols with {self.nchan(j)} chans")
         print(f"Selected  {self._nrows[j]}/{nrows} rows")
-        print("Sources: ", self.sources(j))
+        print("Sources: ", self.nsources(j))
         print("RESTFREQ:", restfreq, "GHz")
-        print("Scans:   ", self.scans(j))
+        print("Scans:   ", self.nscans(j))
         print("Npol:    ", self.npol(j))
         print("Nint:    ", self.nintegrations(j))
 
@@ -648,9 +651,6 @@ class SDFITSLoad:
         for i in range(len(self._bintable)):
             print("i=", i)
             self._summary(i)
-
-    # def __len__(self):  # this has no meaning for multiple bintables
-    #    return self._nrows
 
     def _column_mask(self, column_dict):
         """

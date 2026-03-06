@@ -229,8 +229,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
             See `exclude` for examples.
         color : str
             The color to plot the baseline model, if remove=False. Can be any type accepted by matplotlib.
-        model : str
-            One of 'polynomial', 'chebyshev', 'legendre', or 'hermite'
+        model : {'chebyshev', 'polynomial', 'legendre', 'hermite'}
+            Model to describe the baseline.
             Default: 'chebyshev'
         fitter : `~astropy.modeling.fitting.Fitter`
             The fitter to use. Default: `~astropy.modeling.fitting.LinearLSQFitter` (with `calc_uncertaintes=True`).
@@ -261,17 +261,11 @@ class Spectrum(Spectrum1D, HistoricalBase):
             self._subtracted = True
         if self._plotter is not None:
             if kwargs_opts["remove"]:
-                self._plotter._line.set_ydata(self._data)
+                self._plotter.set_ydata(self.flux, keep_unit=False)
                 self._plotter.clear_overlays(blines=True, oshows=False, catalog=False)
-                if not self._plotter._freezey:
-                    self._plotter.freey()
             else:
-                if self._plotter._xunit == "chan":
-                    xval = np.arange(len(self.flux))
-                else:
-                    xval = self._plotter._sa
-                bline_data = self._baseline_model(self.spectral_axis).to(self._plotter._yunit)
-                self._plotter.axes.plot(xval, bline_data, c=color, gid="baseline")
+                baseline_data = self._baseline_model(self.spectral_axis)
+                self._plotter.show_baseline(baseline_data, color=color)
             self._plotter.refresh()
 
     # baseline
@@ -291,9 +285,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = self.add(self._baseline_model(self.spectral_axis))
             self._data = s._data
             if self._plotter is not None:
-                self._plotter._line.set_ydata(self._data)
-                if not self._plotter._freezey:
-                    self._plotter.freey()
+                self._plotter.set_ydata(self.flux, keep_unit=False)
         self._baseline_model = None
 
     @property
@@ -988,6 +980,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
             s = self.with_frame(toframe)
         else:
             s = self
+        if isinstance(unit, str) and "ch" in unit.lower():
+            return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
+        elif isinstance(unit, u.UnitBase) and unit.physical_type in ["dimensionless", "unknown"]:
+            return self.spectral_axis.replicate(np.arange(len(self.data)), unit=u.pix)
         if doppler_convention is not None:
             return s._spectral_axis.to(unit=unit, doppler_convention=doppler_convention).to(unit)
         else:
