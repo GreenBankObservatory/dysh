@@ -1628,7 +1628,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         has_index_loaded = self._any_index_file() or self._any_hybrid()
 
         if not has_index_loaded:
-            print("we used fits returning")
             return df  # All data loaded from FITS, columns should exist if valid
 
         # Check which columns are missing
