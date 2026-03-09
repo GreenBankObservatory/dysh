@@ -13,7 +13,9 @@ def test_shell_cli():
 
 def test_shell_cli_with_args():
     """Simply prove that we can launch $ dysh from CLI"""
-    subprocess.check_call(["dysh", "shell", "--colors", "Linux", "--no-banner", "--profile", "foo"])
+    # we aren't enabling cli entry points yet
+    #subprocess.check_call(["dysh", "shell", "--colors", "Linux", "--no-banner", "--profile", "foo"])
+    subprocess.check_call(["dysh", "--colors", "Linux", "--no-banner", "--profile", "foo"])
 
 
 def test_init_shell(monkeypatch):
@@ -43,4 +45,5 @@ assert len(sb) == 4"""
 
     with open(script, "w") as o:
         o.write(code)
-    subprocess.check_call(["dysh", "shell", script])
+    #subprocess.check_call(["dysh", "shell", script])
+    subprocess.check_call(["dysh", script])

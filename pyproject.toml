@@ -88,7 +88,8 @@ Source = "https://github.com/GreenBankObservatory/dysh"
 
 [project.scripts]
 fdr = "dysh.util.files:main_cli"
-dysh = "dysh.cli:main"
+#dysh = "dysh.cli:main"
+dysh = "dysh.shell:main"
 dysh-lab = "dysh.shell.lab:main"
 
 [tool.hatch.version]
