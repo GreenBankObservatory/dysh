@@ -8,7 +8,6 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 import astropy.units as u
-import fitsio
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -27,6 +26,13 @@ from ..util.timers import Benchmark
 # Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
 from . import fitsio_unicode_patch, index_file  # noqa: F401
 from .lazyflag import LazyFlagArray, LazyFlagContainer
+
+try:
+    import fitsio
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
 
 
 # Memory logging utility
@@ -135,16 +141,14 @@ class SDFITSLoad:
         # bintable, which may have been mutated by _update_column).
         if not hasattr(self, "_file_has_flags"):
             self._file_has_flags = {}
-            try:
-                import fitsio as fitsio_lib
-
-                with fitsio_lib.FITS(self._filename) as f:
+            if HAS_FITSIO:
+                with fitsio.FITS(self._filename) as f:
                     for i in range(len(self._bintable)):
                         hdu_index = i + 1
                         if hdu_index < len(f):
                             col_names = [c.upper() for c in f[hdu_index].get_colnames()]
                             self._file_has_flags[i] = "FLAGS" in col_names
-            except ImportError:
+            else:
                 with fits.open(self._filename, memmap=True) as hdul:
                     for i in range(len(self._bintable)):
                         hdu_index = i + 1
@@ -312,12 +316,15 @@ class SDFITSLoad:
             all_columns = self._hdu[i].columns.names
             columns_to_read = [col for col in all_columns if col not in skipindex]
             logger.debug(f"   Reading {len(columns_to_read)} columns from HDU {i} via fitsio...")
-            with Benchmark(f"   fitsio.read ({len(columns_to_read)} cols)", logger=logger.debug):
-                with fitsio.FITS(self._filename) as fits_file:
-                    data = fits_file[i].read(columns=columns_to_read)
-            logger.debug(f"   fitsio returned {len(data)} rows")
-            with Benchmark("   pd.DataFrame", logger=logger.debug):
-                df = pd.DataFrame(data)
+            if HAS_FITSIO:
+                with Benchmark(f"   fitsio.read ({len(columns_to_read)} cols)", logger=logger.debug):
+                    with fitsio.FITS(self._filename) as fits_file:
+                        data = fits_file[i].read(columns=columns_to_read)
+                logger.debug(f"   fitsio returned {len(data)} rows")
+                with Benchmark("   pd.DataFrame", logger=logger.debug):
+                    df = pd.DataFrame(data)
+            else:
+                df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, skipindex))
             # Select columns that are strings, decode them and remove white spaces.
             # The fitsio_unicode_patch handles latin-1 decoding automatically
             df_obj = df.select_dtypes(["object"])
@@ -567,14 +574,14 @@ class SDFITSLoad:
             if data_is_cached:
                 # Data is in memory - use astropy to slice cached data (no disk I/O)
                 fits_backend = FITSBackend.ASTROPY
-            elif rows is not None:
+            elif rows is not None and HAS_FITSIO:
                 # Data not cached and specific rows requested - use fitsio for efficient selective loading
                 fits_backend = FITSBackend.FITSIO
             else:
                 # Full load without cache - use astropy (memory-mapped)
                 fits_backend = FITSBackend.ASTROPY
 
-        if fits_backend == FITSBackend.FITSIO:
+        if fits_backend == FITSBackend.FITSIO and HAS_FITSIO:
             return self._rawspectra_fitsio(bintable, rows=rows, setmask=setmask)
         else:
             return self._rawspectra_astropy(bintable, rows=rows, setmask=setmask)
@@ -909,16 +916,17 @@ class SDFITSLoad:
         # Get nchan from FITS metadata without loading data
         # This avoids triggering astropy's data cache which would cause
         # subsequent rawspectra() calls to load the entire DATA column
-        try:
-            with fitsio.FITS(self._filename) as fits_file:
-                hdu_index = bintable + 1
-                dtype_info = fits_file[hdu_index].get_rec_dtype()[0]
-                # DATA column dtype is like ('DATA', '>f4', (16384,))
-                data_shape = dtype_info.fields["DATA"][0].shape
-                if data_shape:
-                    return data_shape[0]
-        except (KeyError, IndexError, AttributeError):
-            pass
+        if HAS_FITSIO:
+            try:
+                with fitsio.FITS(self._filename) as fits_file:
+                    hdu_index = bintable + 1
+                    dtype_info = fits_file[hdu_index].get_rec_dtype()[0]
+                    # DATA column dtype is like ('DATA', '>f4', (16384,))
+                    data_shape = dtype_info.fields["DATA"][0].shape
+                    if data_shape:
+                        return data_shape[0]
+            except (KeyError, IndexError, AttributeError):
+                pass
         # Fallback: load single row (this triggers astropy cache, but at least it works)
         return np.shape(self.rawspectrum(0, bintable))[0]
 
