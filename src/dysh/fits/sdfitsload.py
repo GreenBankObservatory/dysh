@@ -258,6 +258,9 @@ class SDFITSLoad:
         fits_size_mb = fits_size / (1024 * 1024)
         threshold_mb = self._index_file_threshold / (1024 * 1024)
 
+        if not HAS_FITSIO:
+            force_fits = True
+
         # Determine whether to use .index file based on size threshold
         use_index_file = fits_size >= self._index_file_threshold and not force_fits
 
