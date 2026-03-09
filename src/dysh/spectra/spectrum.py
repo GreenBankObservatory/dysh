@@ -395,7 +395,8 @@ class Spectrum(Spectrum1D, HistoricalBase):
         # these two should be the same
         nan1 = np.isnan(self.data).sum()
         nan2 = self.mask.sum()
-        if nan1 != nan2:
+        # @todo see https://github.com/GreenBankObservatory/dysh/issues/1038
+        if False and nan1 != nan2:
             logger.warning(f"Warning: {nan1} != {nan2}: inconsistency counters in mask usage")
         elif nan1 > 0:
             logger.info(f"Note: found {nan1} NaN (masked) values")
@@ -403,6 +404,34 @@ class Spectrum(Spectrum1D, HistoricalBase):
         out = {"mean": mean, "median": median, "rms": rms, "min": dmin, "max": dmax, "npt": npt, "nan": nan2}
 
         return out
+
+    def check_stats(self, rms, rtol=1e-05):
+        """
+        Check statistics of a spectrum compared to pre-set value(s)
+        to a relative tolerance. Currently only the RMS is compared.
+
+        Parameters
+        ----------
+        rms : float or `~astropy.units.quantity.Quantity`
+            Value of the expected RMS value.   If a float is given
+            the comparison is only done on the value of the Quantity.
+
+        rtol : float
+            Relative tolerance with which the value is compared.
+            See also np.isclose().
+            Default:  1e-05
+        """
+        s = self.stats()
+        rms0 = s["rms"]
+        if type(rms) is not Quantity:
+            mesg = f" (no unit was given, assumed {rms0.unit})"
+            rms0 = rms0.value
+        else:
+            mesg = ""
+        if np.isclose(rms, rms0, rtol=rtol):
+            logger.info(f"rms is OK {mesg}")
+        else:
+            logger.warning(f"Found rms={rms0}, but expected {rms}.")
 
     def radiometer(self, roll=0):
         """
@@ -537,10 +566,9 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     def normalness(self):
         """
-        Compute the p-value if the noise in a spectrum is gaussian
-        using the Anderson-Darling statistic
-        The p-value gives the probability that the spectrum is gaussian.
-        If p>0.05, the spectrum can be considered gaussian.
+        Compute the p-value to check if the noise in a spectrum is Gaussian
+        using the Anderson-Darling statistic.
+        If p>0.05, the spectrum can be considered Gaussian.
         See also "D'Agostino, R. B., & Stephens, M. A. (Eds.). (1986)
         Goodness-of-fit techniques" , table 4.9
         """
@@ -1010,9 +1038,10 @@ class Spectrum(Spectrum1D, HistoricalBase):
 
     @log_call_to_history
     def set_frame(self, toframe):
-        """Set the sky coordinate and doppler tracking reference frame of this Spectrum. The header 'CTYPE1' will be changed accordingly.
+        """Set the sky coordinate and doppler tracking reference frame of this Spectrum.
+        The header 'CTYPE1' will be changed accordingly.
 
-        To make a copy of this Spectrum with new coordinate referece frmae instead, use `with_frame`.
+        To make a copy of this Spectrum with new coordinate reference frame instead, use `with_frame`.
 
         Parameters
         ----------
@@ -1210,7 +1239,7 @@ class Spectrum(Spectrum1D, HistoricalBase):
     @classmethod
     def fake_spectrum(cls, nchan=1024, seed=None, normal=True, use_wcs=True, **kwargs):
         """
-        Create a fake spectrum with gaussian noise, useful for simple testing.
+        Create a fake spectrum with Gaussian noise, useful for simple testing.
         A default header is created, which may be modified with kwargs.
 
         Parameters

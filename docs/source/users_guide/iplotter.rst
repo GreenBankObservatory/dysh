@@ -19,15 +19,12 @@ First, we download data from an HI survey and open it with dysh.
 .. code-block::
 
     from dysh.fits.gbtfitsload import GBTFITSLoad
-    from pathlib import Path
-    from dysh.util.download import from_url
+    from dysh.util.files import dysh_data
 
 
 .. code-block::
 
-    url = "http://www.gb.nrao.edu/dysh/example_data/rfi-L/data/AGBT17A_404_01.raw.vegas/AGBT17A_404_01.raw.vegas.A.fits"
-    savepath = Path.cwd() / "data"
-    filename = from_url(url, savepath)
+    filename = dysh_data(example="rfi-L/data/AGBT17A_404_01.raw.vegas/AGBT17A_404_01.raw.vegas.A.fits")
     sdfits = GBTFITSLoad(filename)
 
 
@@ -83,15 +80,12 @@ As before, we grab some data to illustrate the functionality.
 .. code-block::
 
     from dysh.fits.gbtfitsload import GBTFITSLoad
-    from pathlib import Path
-    from dysh.util.download import from_url
+    from dysh.util.files import dysh_data
 
 
 .. code-block::
 
-    url = "http://www.gb.nrao.edu/dysh/example_data/rfi-L/data/AGBT17A_404_01.raw.vegas/AGBT17A_404_01.raw.vegas.A.fits"
-    savepath = Path.cwd() / "data"
-    filename = from_url(url, savepath)
+    filename = dysh_data(example="rfi-L/data/AGBT17A_404_01.raw.vegas/AGBT17A_404_01.raw.vegas.A.fits")
     sdfits = GBTFITSLoad(filename)
 
 
