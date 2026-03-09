@@ -22,11 +22,11 @@ if TYPE_CHECKING:
 from ..log import logger
 from ..spectra.spectrum import Spectrum
 from ..util import select_from, uniq
-from .lazyflag import LazyFlagArray, LazyFlagContainer
 from ..util.timers import Benchmark
 
 # Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
 from . import fitsio_unicode_patch, index_file  # noqa: F401
+from .lazyflag import LazyFlagArray, LazyFlagContainer
 
 
 # Memory logging utility
