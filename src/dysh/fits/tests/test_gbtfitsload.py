@@ -2059,6 +2059,9 @@ class TestOnlineGBTFITSLoad:
 
     def test_reload_handles_missing_file(self, tmp_path, caplog):
         """Test that _reload() handles missing files gracefully."""
+        if not HAS_FITSIO:
+            pytest.skip("Cannot reload on Windows, see issue #447")
+
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
         fits_dir = tmp_path / "test_session"
@@ -2160,10 +2163,17 @@ class TestOnlineGBTFITSLoad:
         seen_scans = initial_scans.copy()
 
         # Delete and recreate file (simulating session restart with same scan numbers)
-        try:
-            fits_file.unlink()
-        except PermissionError:
-            pass
+        max_retries = 3
+        attempt = 1
+        while attempt <= max_retries:
+            try:
+                fits_file.unlink()
+                break
+            except PermissionError:
+                time.sleep(0.1)
+                attempt += 1
+        else:
+            pytest.skip("Can't unlink the file, skipping rest of test")
 
         time.sleep(0.1)
         shutil.copy(source_file, fits_file)
