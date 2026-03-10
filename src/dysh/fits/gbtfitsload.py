@@ -1765,10 +1765,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Construct the procedure string (PROC) from OBSMODE and add it to the index (i.e., a new SDFITS column).
         OBSTYPE and SUBOBSMODE are also created here.  OBSMODE has the form like 'PROC:OBSTYPE:SUBOBSMODE', e.g.
         OnOff:PSWITCHON:TPWCAL.
+        Note PROC is in the index file so this method is only needed if
+        we are reading the index file the SDFITS file(s).
 
         """
         if self._selection is None or "OBSMODE" not in self._selection:
-            logger.warning("Couldn't construct procedure string")
             return
         has_index_loaded = any(getattr(s, "_index_source", None) in ("index_file", "hybrid") for s in self._sdf)
         if has_index_loaded:
