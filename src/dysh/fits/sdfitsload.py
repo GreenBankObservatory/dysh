@@ -330,7 +330,9 @@ class SDFITSLoad:
                 df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, skipindex))
             # Select columns that are strings, decode them and remove white spaces.
             # The fitsio_unicode_patch handles latin-1 decoding automatically
-            df_obj = df.select_dtypes(["object"])
+            # Include "string" to avoid pandas deprecation warning.
+            # See https://pandas.pydata.org/docs/user_guide/migration-3-strings.html#string-migration-select-dtypes
+            df_obj = df.select_dtypes(["object", "string"])
             with Benchmark(f"   string cleanup ({len(df_obj.columns)} cols)", logger=logger.debug):
                 # df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
                 for col in df_obj.columns:
