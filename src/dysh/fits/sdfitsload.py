@@ -336,7 +336,15 @@ class SDFITSLoad:
                 for col in df_obj.columns:
                     # FITS strings are NULL-padded, so truncate at NULL byte first
                     # Then remove any remaining control characters and strip whitespace
-                    df[col] = df[col].str.split("\x00").str[0].str.strip()
+                    # If fitsio was imported, then the fitsio_unicode_patch was applied.
+                    # If not we have to work around.
+                    if HAS_FITSIO:
+                        df[col] = df[col].str.split("\x00").str[0].str.strip()
+                    else:
+                        df[col] = df[col].str.decode("latin-1", errors="replace")
+                        df[col] = df[col].str.split("\x00").str[0]
+                        df[col] = df[col].str.strip()
+
             with Benchmark("   add columns + concat", logger=logger.debug):
                 ones = np.ones(len(df.index), dtype=int)
                 # create columns to track HDU and BINTABLE numbers and original row index
