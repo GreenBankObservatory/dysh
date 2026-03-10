@@ -332,11 +332,10 @@ class SDFITSLoad:
             # The fitsio_unicode_patch handles latin-1 decoding automatically
             df_obj = df.select_dtypes(["object"])
             with Benchmark(f"   string cleanup ({len(df_obj.columns)} cols)", logger=logger.debug):
+                # df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
                 for col in df_obj.columns:
                     # FITS strings are NULL-padded, so truncate at NULL byte first
                     # Then remove any remaining control characters and strip whitespace
-                    if df[col].dtype == object:
-                        df[col] = df[col].str.decode("utf-8")
                     df[col] = df[col].str.split("\x00").str[0].str.strip()
             with Benchmark("   add columns + concat", logger=logger.debug):
                 ones = np.ones(len(df.index), dtype=int)
