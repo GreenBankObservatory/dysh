@@ -2022,7 +2022,11 @@ class TestOnlineGBTFITSLoad:
         """Test that _reload() detects when a file grows."""
         import time
 
-        import fitsio
+        try:
+            import fitsio
+        except ImportError:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2075,6 +2079,12 @@ class TestOnlineGBTFITSLoad:
         import time
 
         import fitsio
+
+        try:
+            import fitsio
+        except ImportError:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2173,7 +2183,11 @@ class TestOnlineGBTFITSLoad:
         """
         import time
 
-        import fitsio
+        try:
+            import fitsio
+        except ImportError:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2281,6 +2295,12 @@ class TestIndexFileLazyLoading:
         """Test that we can load all rows from fits on demand if we have previously
         loaded via index file.
         """
+        try:
+            import fitsio  # noqa: F401
+        except ImportError:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
+
         sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file))
         # ensure no index sources are 'fits'
         assert sdf._any_index_file() and not sdf._any_hybrid()
