@@ -16,6 +16,13 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 from dysh import util
 from dysh.fits import gbtfitsload, sdfitsload
 
+try:
+    import fitsio
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
+
 
 class TestGBTFITSLoad:
     """ """
@@ -2020,13 +2027,11 @@ class TestOnlineGBTFITSLoad:
 
     def test_reload_detects_file_growth(self, tmp_path):
         """Test that _reload() detects when a file grows."""
-        import time
-
-        try:
-            import fitsio
-        except ImportError:
+        if not HAS_FITSIO:
             # don't test on Windows
             pytest.skip("fitsio not available on this platform")
+
+        import time
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2065,7 +2070,12 @@ class TestOnlineGBTFITSLoad:
         assert len(online._index) == 4
 
         # Delete the file
-        fits_file.unlink()
+        # Sometimes windows is sticky about permissions, so ignore
+        # a PermissionError
+        try:
+            fits_file.unlink()
+        except PermissionError:
+            pass
 
         # _reload should handle this gracefully (not raise, just warn)
         with caplog.at_level(logging.WARNING):
@@ -2076,15 +2086,10 @@ class TestOnlineGBTFITSLoad:
 
     def test_reload_recovers_after_file_recreated_with_fewer_rows(self, tmp_path):
         """Test that monitoring recovers after file is deleted and recreated with fewer rows."""
-        import time
-
-        import fitsio
-
-        try:
-            import fitsio
-        except ImportError:
+        if not HAS_FITSIO:
             # don't test on Windows
             pytest.skip("fitsio not available on this platform")
+        import time
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2155,7 +2160,11 @@ class TestOnlineGBTFITSLoad:
         seen_scans = initial_scans.copy()
 
         # Delete and recreate file (simulating session restart with same scan numbers)
-        fits_file.unlink()
+        try:
+            fits_file.unlink()
+        except PermissionError:
+            pass
+
         time.sleep(0.1)
         shutil.copy(source_file, fits_file)
 
@@ -2181,13 +2190,11 @@ class TestOnlineGBTFITSLoad:
         scan, which indicates an unexpected scan sequence (e.g., operator manually
         restarting scans or data from multiple sessions being mixed).
         """
-        import time
-
-        try:
-            import fitsio
-        except ImportError:
+        if not HAS_FITSIO:
             # don't test on Windows
             pytest.skip("fitsio not available on this platform")
+
+        import time
 
         # Copy a real SDFITS file to temp dir
         source_file = Path(self.data_dir) / "TGBT21A_501_11" / "TGBT21A_501_11.raw.vegas.fits"
@@ -2252,6 +2259,9 @@ class TestIndexFileLazyLoading:
     def test_load_from_index_file_sets_source(self):
         """Test that loading from .index file sets _index_source correctly."""
         # Load with index file (file is small, should use FITS, but let's force it)
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
         sdf = sdfitsload.SDFITSLoad(str(self.fits_file), index_file_threshold=0)
 
         # Check that it loaded from index file
@@ -2276,6 +2286,9 @@ class TestIndexFileLazyLoading:
 
     def test_lazy_load_full_rows_method(self):
         """Test that load_full_rows loads all columns from FITS."""
+        if not HAS_FITSIO:
+            # don't test on Windows
+            pytest.skip("fitsio not available on this platform")
         sdf = sdfitsload.SDFITSLoad(str(self.fits_file))
 
         # Load full rows for first 3 rows
@@ -2295,9 +2308,7 @@ class TestIndexFileLazyLoading:
         """Test that we can load all rows from fits on demand if we have previously
         loaded via index file.
         """
-        try:
-            import fitsio  # noqa: F401
-        except ImportError:
+        if not HAS_FITSIO:
             # don't test on Windows
             pytest.skip("fitsio not available on this platform")
 
