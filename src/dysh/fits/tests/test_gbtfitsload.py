@@ -2325,7 +2325,7 @@ class TestIndexFileLazyLoading:
             # don't test on Windows
             pytest.skip("fitsio not available on this platform")
 
-        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file))
+        sdf = gbtfitsload.GBTFITSLoad(str(self.fits_file), flag_vegas=False)
         # ensure no index sources are 'fits'
         assert sdf._any_index_file() and not sdf._any_hybrid()
         l1 = len(sdf.selection.columns)

@@ -276,12 +276,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
         and ignore VEGAS_SPUR flag rules in flag files. Note this parameter is independent of 'skip_flags', which
         controls only the reading of the flag file.  If you want no flags at all, use `skipflags=True, flag_vegas=False`.
-        Default: True
+        Note: Since flagging VEGAS spurs requires reading certain SDFITS binary table(s), instantiation of GBTFITSLoad will take longer,
+        commensurate with the number of rows in the binary table(s).
+        Default: False
 
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
         |skipflags|flag_vegas | behavior                                                                                                     |
         +=========+===========+==============================================================================================================+
-        |False    | False     | VEGAS and other flags are created based on the flags file and the FLAGS column.                              |
+        |False    | False     | Flags are created based on the flags file and the FLAGS column, but VEGAS spurs are not flagged.             |
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
         |True     | False     | No flags are read file the flag file.  Flags are read in from the FLAGS column.                              |
         +---------+-----------+--------------------------------------------------------------------------------------------------------------+
@@ -310,6 +312,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         self.GBT = Observatory["GBT"]
         _log_mem(f"GBTFITSLoad.__init__ start for {fileobj}")
+        if flag_vegas:
+            # force reading of binary table in this instance.
+            kwargs_opts["index_file_threshold"] = np.inf
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
             self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
@@ -1590,7 +1595,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             flagfile = p.with_suffix(".flag")
             if flagfile.exists():
                 fi = uniq(s["FITSINDEX"])[0]
-                self.flags.read(flagfile, fitsindex=fi, ignore_vegas=flag_vegas)
+                self.flags.read(flagfile, fitsindex=fi, ignore_vegas=flag_vegas) # always ignore vegas as it is too expensive.
                 found_flags = True
         if found_flags and len(self.flags._table) != 0:
             logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
