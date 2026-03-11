@@ -2122,7 +2122,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         Note that the current version may not set the exposure time correctly.
         See issue #800 https://github.com/GreenBankObservatory/dysh/issues/800
-        
+
         Parameters
         ----------
         scan : int or list or `numpy.array`
