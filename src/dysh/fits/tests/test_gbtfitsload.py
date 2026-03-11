@@ -1778,8 +1778,15 @@ class TestGBTFITSLoad:
     def test_vegas_flags(self):
         # check that algorithmically applying vegas flags
         # gives the same mask array as when reading from a flag file.
+        from dysh.util import uniq
         sdf_file = util.get_project_testdata() / "AGBT22A_325_15/"
         sdf = gbtfitsload.GBTFITSLoad(sdf_file, flag_vegas=False, skipflags=False)
+        for s in sdf._sdf:
+            p = Path(s.filename)
+            flagfile = p.with_suffix(".flag")
+            if flagfile.exists():
+                fi = uniq(s["FITSINDEX"])[0]
+                sdf.flags.read(flagfile, fitsindex=fi, ignore_vegas=False)
         sdf.apply_flags()
         saveflags0 = sdf._sdf[0]._flagmask.copy()
         saveflags1 = sdf._sdf[1]._flagmask.copy()

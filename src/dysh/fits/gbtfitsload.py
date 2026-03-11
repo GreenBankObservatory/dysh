@@ -1595,7 +1595,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             flagfile = p.with_suffix(".flag")
             if flagfile.exists():
                 fi = uniq(s["FITSINDEX"])[0]
-                self.flags.read(flagfile, fitsindex=fi, ignore_vegas=flag_vegas) # always ignore vegas as it is too expensive.
+                self.flags.read(flagfile, fitsindex=fi, ignore_vegas=True) # always ignore vegas as it is too expensive.
                 found_flags = True
         if found_flags and len(self.flags._table) != 0:
             logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
