@@ -280,7 +280,7 @@ class TestPSScan:
             assert stats[k].value == pytest.approx(result[k])
         assert stats["nan"] == 31
         assert srta.meta["TSYS"] == pytest.approx(362.0670888626437)
-        assert srta.meta["EXPOSURE"] == 58.5011952833595
+        assert srta.meta["EXPOSURE"] == pytest.approx(58.5011952833595)
         assert srta.meta["DURATION"] > srta.meta["EXPOSURE"]
 
 
