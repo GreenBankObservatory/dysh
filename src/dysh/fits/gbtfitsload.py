@@ -1407,9 +1407,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         """
         if not self.is_vegas():
             logger.warning(
-                "This does not appear to be VEGAS data. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. No channels will be flagged."
+                "This does not appear to be VEGAS data. Check if FITS Header keywords 'INSTRUME' or 'BACKEND' are present and equal 'VEGAS'. Will attempt it anyway."
             )
-            return
         try:
             df = self._selection.groupby(["FITSINDEX", "BINTABLE"])
             for _i, ((fi, bi), g) in enumerate(df):
