@@ -8,7 +8,6 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 import astropy.units as u
-import fitsio
 import numpy as np
 import pandas as pd
 from astropy.io import fits
@@ -26,6 +25,14 @@ from ..util.timers import Benchmark
 
 # Apply monkey patch for fitsio Unicode handling (must be before fitsio usage)
 from . import fitsio_unicode_patch, index_file  # noqa: F401
+from .lazyflag import LazyFlagArray, LazyFlagContainer
+
+try:
+    import fitsio
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
 
 
 # Memory logging utility
@@ -121,23 +128,47 @@ class SDFITSLoad:
             pass
 
     def _init_flags(self):
-        """initialize the channel masks to False"""
+        """Initialize the channel masks using lazy (sparse) flag arrays.
 
-        self._flagmask = np.empty(len(self._bintable), dtype=object)
-        self._additional_channel_mask = self._flagmask.copy()
+        Uses :class:`~lazyflag.LazyFlagArray` to avoid allocating dense
+        ``(nrows, nchan)`` boolean arrays upfront.  For large files this
+        reduces memory from tens of GB to a few MB.
+        """
+        self._flagmask = LazyFlagContainer(len(self._bintable))
+        self._additional_channel_mask = LazyFlagContainer(len(self._bintable))
+
+        # Check original file on disk for FLAGS column (not the in-memory
+        # bintable, which may have been mutated by _update_column).
+        if not hasattr(self, "_file_has_flags"):
+            self._file_has_flags = {}
+            if HAS_FITSIO:
+                with fitsio.FITS(self._filename) as f:
+                    for i in range(len(self._bintable)):
+                        hdu_index = i + 1
+                        if hdu_index < len(f):
+                            col_names = [c.upper() for c in f[hdu_index].get_colnames()]
+                            self._file_has_flags[i] = "FLAGS" in col_names
+            else:
+                with fits.open(self._filename, memmap=True) as hdul:
+                    for i in range(len(self._bintable)):
+                        hdu_index = i + 1
+                        if hdu_index < len(hdul):
+                            col_names = [c.upper() for c in hdul[hdu_index].columns.names]
+                            self._file_has_flags[i] = "FLAGS" in col_names
+
         for i in range(len(self._flagmask)):
             nc = self.nchan(i)
             nr = self.nrows(i)
-            array_size_mb = (nr * nc) / (1024**2)  # bool = 1 byte
-            _log_mem(
-                f"_init_flags bintable {i}: allocating 2x ({nr} rows x {nc} channels) = {2 * array_size_mb:.1f} MB"
+            has_flags = self._file_has_flags.get(i, False)
+            logger.debug(f"_init_flags bintable {i}: {nr=} {nc=} has_flags={has_flags}")
+            self._flagmask[i] = LazyFlagArray(
+                nrows=nr,
+                nchan=nc,
+                filename=self._filename,
+                hdu_index=i + 1,
+                has_flags_column=has_flags,
             )
-            if "FLAGS" in self._bintable[i].data.columns.names:
-                self._flagmask[i] = self._bintable[i].data["FLAGS"].astype(bool)
-            else:
-                logger.debug(f"flag {nr=} {nc=}")
-                self._flagmask[i] = np.full((nr, nc), fill_value=False)
-            self._additional_channel_mask[i] = np.full((nr, nc), fill_value=False)
+            self._additional_channel_mask[i] = LazyFlagArray(nrows=nr, nchan=nc)
 
     def info(self):
         """Return the `~astropy.HDUList` info()"""
@@ -227,6 +258,9 @@ class SDFITSLoad:
         fits_size_mb = fits_size / (1024 * 1024)
         threshold_mb = self._index_file_threshold / (1024 * 1024)
 
+        if not HAS_FITSIO:
+            force_fits = True
+
         # Determine whether to use .index file based on size threshold
         use_index_file = fits_size >= self._index_file_threshold and not force_fits
 
@@ -285,20 +319,34 @@ class SDFITSLoad:
             all_columns = self._hdu[i].columns.names
             columns_to_read = [col for col in all_columns if col not in skipindex]
             logger.debug(f"   Reading {len(columns_to_read)} columns from HDU {i} via fitsio...")
-            with Benchmark(f"   fitsio.read ({len(columns_to_read)} cols)", logger=logger.debug):
-                with fitsio.FITS(self._filename) as fits_file:
-                    data = fits_file[i].read(columns=columns_to_read)
-            logger.debug(f"   fitsio returned {len(data)} rows")
-            with Benchmark("   pd.DataFrame", logger=logger.debug):
-                df = pd.DataFrame(data)
+            if HAS_FITSIO:
+                with Benchmark(f"   fitsio.read ({len(columns_to_read)} cols)", logger=logger.debug):
+                    with fitsio.FITS(self._filename) as fits_file:
+                        data = fits_file[i].read(columns=columns_to_read)
+                logger.debug(f"   fitsio returned {len(data)} rows")
+                with Benchmark("   pd.DataFrame", logger=logger.debug):
+                    df = pd.DataFrame(data)
+            else:
+                df = pd.DataFrame(np.lib.recfunctions.drop_fields(self._hdu[i].data, skipindex))
             # Select columns that are strings, decode them and remove white spaces.
             # The fitsio_unicode_patch handles latin-1 decoding automatically
-            df_obj = df.select_dtypes(["object"])
+            # Include "string" to avoid pandas deprecation warning.
+            # See https://pandas.pydata.org/docs/user_guide/migration-3-strings.html#string-migration-select-dtypes
+            df_obj = df.select_dtypes(["object", "string"])
             with Benchmark(f"   string cleanup ({len(df_obj.columns)} cols)", logger=logger.debug):
+                # df[df_obj.columns] = df_obj.apply(lambda x: x.str.decode("utf-8").str.strip())
                 for col in df_obj.columns:
                     # FITS strings are NULL-padded, so truncate at NULL byte first
                     # Then remove any remaining control characters and strip whitespace
-                    df[col] = df[col].str.split("\x00").str[0].str.strip()
+                    # If fitsio was imported, then the fitsio_unicode_patch was applied.
+                    # If not we have to work around.
+                    if HAS_FITSIO:
+                        df[col] = df[col].str.split("\x00").str[0].str.strip()
+                    else:
+                        df[col] = df[col].str.decode("latin-1", errors="replace")
+                        df[col] = df[col].str.split("\x00").str[0]
+                        df[col] = df[col].str.strip()
+
             with Benchmark("   add columns + concat", logger=logger.debug):
                 ones = np.ones(len(df.index), dtype=int)
                 # create columns to track HDU and BINTABLE numbers and original row index
@@ -540,14 +588,14 @@ class SDFITSLoad:
             if data_is_cached:
                 # Data is in memory - use astropy to slice cached data (no disk I/O)
                 fits_backend = FITSBackend.ASTROPY
-            elif rows is not None:
+            elif rows is not None and HAS_FITSIO:
                 # Data not cached and specific rows requested - use fitsio for efficient selective loading
                 fits_backend = FITSBackend.FITSIO
             else:
                 # Full load without cache - use astropy (memory-mapped)
                 fits_backend = FITSBackend.ASTROPY
 
-        if fits_backend == FITSBackend.FITSIO:
+        if fits_backend == FITSBackend.FITSIO and HAS_FITSIO:
             return self._rawspectra_fitsio(bintable, rows=rows, setmask=setmask)
         else:
             return self._rawspectra_astropy(bintable, rows=rows, setmask=setmask)
@@ -882,16 +930,17 @@ class SDFITSLoad:
         # Get nchan from FITS metadata without loading data
         # This avoids triggering astropy's data cache which would cause
         # subsequent rawspectra() calls to load the entire DATA column
-        try:
-            with fitsio.FITS(self._filename) as fits_file:
-                hdu_index = bintable + 1
-                dtype_info = fits_file[hdu_index].get_rec_dtype()[0]
-                # DATA column dtype is like ('DATA', '>f4', (16384,))
-                data_shape = dtype_info.fields["DATA"][0].shape
-                if data_shape:
-                    return data_shape[0]
-        except (KeyError, IndexError, AttributeError):
-            pass
+        if HAS_FITSIO:
+            try:
+                with fitsio.FITS(self._filename) as fits_file:
+                    hdu_index = bintable + 1
+                    dtype_info = fits_file[hdu_index].get_rec_dtype()[0]
+                    # DATA column dtype is like ('DATA', '>f4', (16384,))
+                    data_shape = dtype_info.fields["DATA"][0].shape
+                    if data_shape:
+                        return data_shape[0]
+            except (KeyError, IndexError, AttributeError):
+                pass
         # Fallback: load single row (this triggers astropy cache, but at least it works)
         return np.shape(self.rawspectrum(0, bintable))[0]
 
