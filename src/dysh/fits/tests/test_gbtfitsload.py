@@ -1581,8 +1581,6 @@ class TestGBTFITSLoad:
         assert psscan[0].sigscan == sigref[0].sigscan
         assert psscan[0].refscan == 153
         assert psscan[0].sigscan == 152
-        print(psscan[0]._exposure)
-        print(sigref[0]._exposure)
         assert np.max(np.abs(psscan[0]._exposure - sigref[0]._exposure)) < 1e-10
 
         # 2. Scan is a list, ref is an int
