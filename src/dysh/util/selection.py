@@ -138,6 +138,10 @@ class SelectionBase(DataFrame):
         a single column are allowed, e.g.,
         { 'glon':'crval2', 'lon':'crval2'}
 
+        Aliases whose target columns don't exist in the DataFrame are
+        silently skipped. This allows default aliases to work with partial
+        index data (e.g., from .index files that don't include WCS columns).
+
         Parameters
         ----------
         aliases : {}
@@ -148,14 +152,17 @@ class SelectionBase(DataFrame):
         Returns
         -------
         None.
-
-        Raises
-        ------
-            ValueError if the column name is not recognized.
         """
-        self._check_keys(aliases.values())
+        # Only set up aliases for columns that exist
+        skipped = []
         for k, v in aliases.items():
-            self._alias(k, v)
+            v_upper = v.upper()
+            if v_upper in self or v_upper in self._aliases:
+                self._alias(k, v)
+            else:
+                skipped.append(f"{k}->{v}")
+        if skipped:
+            logger.debug(f"Skipped aliases for missing columns: {skipped}")
 
     def _alias(self, key, column):
         """
