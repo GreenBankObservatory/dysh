@@ -2197,14 +2197,21 @@ class PSScan(ScanBase):
         else:
             nsmooth = 1.0
 
-        if np.isscalar(exp_ref):
-            _exp_ref = np.full_like(exp_sig, exp_ref / len(exp_sig))
+        if False:
+            # this hack is debatable if it works; work this out after 2026 review
+            # it's roughly correct when simple getps() and getsigref() are doing same thing
+            # see https://github.com/GreenBankObservatory/dysh/issues/800
+            if np.isscalar(exp_ref):
+                _exp_ref = np.full_like(exp_sig, exp_ref / len(exp_sig))
+            else:
+                _exp_ref = exp_ref
+
+            if np.isscalar(dur_ref):
+                _dur_ref = np.full_like(dur_sig, dur_ref / len(dur_sig))
+            else:
+                _dur_ref = dur_ref
         else:
             _exp_ref = exp_ref
-
-        if np.isscalar(dur_ref):
-            _dur_ref = np.full_like(dur_sig, dur_ref / len(dur_sig))
-        else:
             _dur_ref = dur_ref
 
         self._exposure = exp_sig * _exp_ref * nsmooth / (exp_sig + _exp_ref * nsmooth)

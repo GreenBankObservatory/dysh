@@ -2,6 +2,7 @@
 Graphical User Interface for dysh shell.
 """
 
+import functools
 import os
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -47,10 +48,36 @@ class ShellGUI(BaseGUI):
         self.toolbar.pack(side=tk.BOTTOM, fill=tk.X, expand=True)
         self.canvas.get_tk_widget().grid(column=0, row=0, sticky="nsew")
 
+        # Buttons.
         self.button_clear = ttk.Button(master=self.bframe, text="Clear All Regions")
-        self.button_clear.grid(column=0, row=0)
+        self.button_clear.grid(column=0, row=0, sticky="NS")
         self.button_clear_one = ttk.Button(master=self.bframe, text="Clear Region")
         self.button_clear_one.grid(column=1, row=0)
+
+        # Dropdown menus.
+        if hasattr(plotbase, "set_xaxis_unit"):
+            self.xunit = tk.StringVar(self.root)
+            options = plotbase._xaxis_unit_options()
+            self.dropdown_xunit = ttk.OptionMenu(
+                self.bframe,
+                self.xunit,
+                options[0],
+                *options,
+                command=functools.partial(self._dropdown_xunit, plotbase=plotbase),
+            )
+            self.dropdown_xunit.config(width=8)
+            self.dropdown_xunit.grid(column=2, row=0, sticky="NS")
+        if hasattr(plotbase, "set_yaxis_unit"):
+            self.yunit = tk.StringVar(self.root)
+            options = plotbase._yaxis_unit_options()
+            self.dropdown_yunit = ttk.OptionMenu(
+                self.bframe,
+                self.yunit,
+                options[0],
+                *options,
+                command=functools.partial(self._dropdown_yunit, plotbase=plotbase),
+            )
+            self.dropdown_yunit.grid(column=3, row=0, sticky="NS")
 
     def connect_buttons(self, plotbase):
         if plotbase.has_selector():
@@ -66,3 +93,11 @@ class ShellGUI(BaseGUI):
 
     def show(self):
         return
+
+    def _dropdown_xunit(self, event=None, plotbase=None):
+        if hasattr(plotbase, "set_xaxis_unit"):
+            plotbase.set_xaxis_unit(self.xunit.get())
+
+    def _dropdown_yunit(self, event=None, plotbase=None):
+        if hasattr(plotbase, "set_yaxis_unit"):
+            plotbase.set_yaxis_unit(self.yunit.get())

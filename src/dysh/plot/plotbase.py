@@ -58,7 +58,8 @@ else:
 
 _KMS = u.km / u.s
 
-mpl.rcParams["font.family"] = "monospace"
+# Use dysh stylesheet.
+mpl.style.use("dysh.data.dysh")
 
 
 class PlotBase:
@@ -71,7 +72,8 @@ class PlotBase:
     def _set_frontend(self):
         self._frontend = GUI(self)
         self._connect()
-        self._frontend.connect_buttons(self)
+
+    #        self._frontend.connect_buttons(self)
 
     def _connect(self):
         if self.figure.canvas is not None:
@@ -85,6 +87,9 @@ class PlotBase:
             self._selector = None
         self.figure = None
         self.axes = None
+
+    def _connect_buttons(self):
+        self._frontend.connect_buttons(self)
 
     def _init_plot(self):
         if not self.has_figure():
