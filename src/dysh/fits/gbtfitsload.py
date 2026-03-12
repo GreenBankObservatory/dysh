@@ -1663,9 +1663,11 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             return df  # All data loaded from FITS, columns should exist if valid
 
         calibration_metadata_needed = any(col.upper() in {"TCAL", "TSYS"} for col in required_columns)
+        vane_metadata_needed = any(col.upper() in _VANE_LAZY_METADATA_COLUMNS for col in required_columns)
         columns_needed_for_rows = list(required_columns)
         if calibration_metadata_needed:
             columns_needed_for_rows.extend(_SCAN_LAZY_METADATA_COLUMNS)
+        if vane_metadata_needed:
             columns_needed_for_rows.extend(_VANE_LAZY_METADATA_COLUMNS)
 
         # Check which columns are missing. For calibration-path metadata, do not trust
@@ -1698,6 +1700,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 if col not in columns_to_load_upper:
                     columns_to_load.append(col)
                     columns_to_load_upper.add(col)
+        if vane_metadata_needed:
             for col in _VANE_LAZY_METADATA_COLUMNS:
                 if col not in columns_to_load_upper:
                     columns_to_load.append(col)
@@ -1784,7 +1787,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # Some metadata fixups, such as RADESYS normalization, happen on the merged
         # index after the FITS rows are loaded, so refresh the returned rows from the
         # rebuilt selection instead of returning the pre-fixup DataFrame.
-        self._rebuild_merged_index()
+        self._rebuild_merged_index(rebuild_flag=False)
         self._update_radesys()
         if set(df.index).issubset(self._selection.index):
             refreshed = self._selection.loc[df.index].copy()
@@ -1793,7 +1796,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return df
 
-    def _rebuild_merged_index(self):
+    def _rebuild_merged_index(self, rebuild_flag: bool = True):
         """
         Rebuild the merged index from all SDFITSLoad objects.
 
@@ -1818,11 +1821,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         old_flag_rules = self._flag._selection_rules.copy() if hasattr(self._flag, "_selection_rules") else {}
 
         self._selection = Selection(df)
-        self._flag = Flag(df)
+        if rebuild_flag:
+            self._flag = Flag(df)
 
         # Restore selection rules
         self._selection._selection_rules = old_selection_rules
-        self._flag._selection_rules = old_flag_rules
+        if rebuild_flag:
+            self._flag._selection_rules = old_flag_rules
 
     def _construct_procedure(self):
         """
