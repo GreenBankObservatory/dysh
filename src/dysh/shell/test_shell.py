@@ -8,11 +8,13 @@ from dysh.shell import init_shell
 
 def test_shell_cli():
     """Simply prove that we can launch $ dysh from CLI"""
-    subprocess.check_call(["dysh"])
+    subprocess.check_call(["dysh", "--help"])
 
 
 def test_shell_cli_with_args():
     """Simply prove that we can launch $ dysh from CLI"""
+    # we aren't enabling cli entry points yet
+    # subprocess.check_call(["dysh", "shell", "--colors", "Linux", "--no-banner", "--profile", "foo"])
     subprocess.check_call(["dysh", "--colors", "Linux", "--no-banner", "--profile", "foo"])
 
 
@@ -43,4 +45,5 @@ assert len(sb) == 4"""
 
     with open(script, "w") as o:
         o.write(code)
+    # subprocess.check_call(["dysh", "shell", script])
     subprocess.check_call(["dysh", script])

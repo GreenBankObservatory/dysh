@@ -49,9 +49,8 @@ Downloading this data set is only required to follow this quick start as is.
 
 .. code:: Python
 
-    from dysh.util.download import from_url
     # The following line will download 31 MB to the current working directory.
-    filename = from_url("http://www.gb.nrao.edu/dysh/example_data/frequencyswitch/data/TREG_050627/TREG_050627.raw.acs/TREG_050627.raw.acs.fits")
+    filename = dysh_data(example="getfs2")
     sdfits = GBTFITSLoad(filename) # This will load the SDFITS file(s) at `filename`.
 
 In the above code, you can replace ``filename`` with a path to your own data.

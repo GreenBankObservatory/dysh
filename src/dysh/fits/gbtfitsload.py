@@ -9,6 +9,11 @@ import platform
 import time
 import warnings
 from collections.abc import Sequence
+
+try:
+    from enum import StrEnum  # Requires python 3.11+
+except ImportError:
+    from ..util.strenum import StrEnum
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +21,7 @@ import pandas as pd
 from astropy import units as u
 from astropy.io import fits
 from astropy.units.quantity import Quantity
+from numpy.typing import ArrayLike
 
 from dysh.log import logger
 
@@ -54,11 +60,198 @@ from ..util.gaincorrection import GBTGainCorrection
 from ..util.selection import Flag, Selection  # noqa: F811
 from ..util.weatherforecast import GBTWeatherForecast
 from . import conf, core
-from .sdfitsload import SDFITSLoad
+from .sdfitsload import FITSBackend, SDFITSLoad, _log_mem
+
+try:
+    import fitsio
+
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
 
 # from GBT IDL users guide Table 6.7
 # @todo what about the Track/OnOffOn in e.g. AGBT15B_287_33.raw.vegas  (EDGE HI data)
 # _PROCEDURES = ["Track", "OnOff", "OffOn", "OffOnSameHA", "Nod", "SubBeamNod"]
+
+# ---- fitsio write-path helpers ----
+
+_FITSIO_STRUCTURAL_KEYWORDS = frozenset(
+    [
+        "SIMPLE",
+        "BITPIX",
+        "EXTEND",
+        "XTENSION",
+        "TFIELDS",
+        "PCOUNT",
+        "GCOUNT",
+        "END",
+    ]
+)
+
+_FITSIO_COLUMN_PREFIXES = ("NAXIS", "TTYPE", "TFORM", "TDIM", "TUNIT", "TNULL", "TSCAL", "TZERO", "TDISP")
+
+
+def _astropy_header_to_fitsio_records(astropy_header):
+    """Convert an astropy FITS Header to a list of dicts for fitsio's ``header=`` parameter.
+
+    Skips structural keywords that fitsio manages itself (SIMPLE, BITPIX, NAXIS*, TTYPE*, etc.).
+    Converts HISTORY and COMMENT cards to the ``{'name': ..., 'value': ...}`` format fitsio expects.
+
+    Parameters
+    ----------
+    astropy_header : `~astropy.io.fits.Header`
+        The astropy header to convert.
+
+    Returns
+    -------
+    list of dict
+        Each dict has keys ``'name'``, ``'value'``, and optionally ``'comment'``.
+    """
+    records = []
+    for card in astropy_header.cards:
+        key = card.keyword.upper().strip()
+        # Skip blank cards
+        if not key:
+            continue
+        # Skip structural keywords
+        if key in _FITSIO_STRUCTURAL_KEYWORDS:
+            continue
+        # Skip column-descriptor keywords (NAXIS1, TTYPE7, TFORM7, TDIM7, etc.)
+        if any(key.startswith(prefix) for prefix in _FITSIO_COLUMN_PREFIXES):
+            continue
+        if key in ("HISTORY", "COMMENT"):
+            val = str(card.value)
+            # Skip empty COMMENT/HISTORY cards -- they are cosmetic separators and
+            # can trigger a fitsio bug that inserts a blank keyword card when
+            # combined with many column descriptors.
+            if not val.strip():
+                continue
+            records.append({"name": key, "value": val})
+        else:
+            rec = {"name": key, "value": card.value}
+            if card.comment:
+                rec["comment"] = card.comment
+            records.append(rec)
+    return records
+
+
+def _build_chunk_recarray(sdf, bintable_idx, chunk_rows, col_names, include_flags, nchan):
+    """Build a single chunk's numpy structured array for fitsio writing.
+
+    All columns are read from **disk** via fitsio by default.  If the astropy bintable's
+    ``.data`` has already been loaded (indicating possible in-memory mutations from
+    ``sdf["COLNAME"] = value``), non-DATA scalar columns are overwritten from the
+    in-memory copy.  FLAGS are regenerated from the ``LazyFlagArray``.
+
+    Parameters
+    ----------
+    sdf : `SDFITSLoad`
+        The SDFITSLoad instance to read from.
+    bintable_idx : int
+        Index into ``sdf._bintable``.
+    chunk_rows : array-like
+        Row indices (into the original bintable) to include in this chunk.
+    col_names : list of str
+        Column names to include (order preserved), excluding FLAGS.
+    include_flags : bool
+        Whether to append a FLAGS column.
+    nchan : int
+        Number of channels (used for FLAGS shape).
+
+    Returns
+    -------
+    np.ndarray
+        Structured (record) array suitable for ``fitsio.write()`` or ``hdu.append()``.
+    """
+    chunk_rows = np.asarray(chunk_rows)
+    nrows = len(chunk_rows)
+    hdu_idx = bintable_idx + 1  # fitsio HDU index (0 = primary)
+    bt = sdf._bintable[bintable_idx]
+
+    # Check if in-memory data has been loaded (implies possible mutations or renames)
+    data_loaded = getattr(bt, "_data_loaded", False)
+
+    # Determine which columns exist on disk vs only in memory (e.g. INT -> INTNUM rename)
+    rows_list = chunk_rows.tolist()
+    with fitsio.FITS(str(sdf._filename)) as ff:
+        disk_col_set = set(ff[hdu_idx].get_colnames())
+        disk_cols = [c for c in col_names if c in disk_col_set]
+        mem_only_cols = [c for c in col_names if c not in disk_col_set]
+
+        # Read disk columns from fitsio -- gives us a numpy recarray with correct dtypes
+        disk_data = ff[hdu_idx].read(columns=disk_cols, rows=rows_list)
+
+    # Build the output dtype in col_names order to preserve original column positions.
+    # Memory-only columns (e.g. INTNUM renamed from INT) need astropy .data access.
+    mem_only_set = set(mem_only_cols)
+    bt_data = bt.data if mem_only_cols else None
+    dtype_list = []
+    for name in col_names:
+        if name in mem_only_set:
+            col_data = bt_data[name]
+            if col_data.ndim > 1:
+                dtype_list.append((name, col_data.dtype.str, col_data.shape[1:]))
+            else:
+                dtype_list.append((name, col_data.dtype.str))
+        else:
+            field_dtype = disk_data.dtype[name]
+            if field_dtype.shape:
+                dtype_list.append((name, field_dtype.base.str, field_dtype.shape))
+            else:
+                dtype_list.append((name, field_dtype.str))
+
+    if include_flags:
+        dtype_list.append(("FLAGS", "u1", (nchan,)))
+
+    # Allocate and fill output array
+    chunk = np.empty(nrows, dtype=dtype_list)
+
+    for name in disk_cols:
+        chunk[name] = disk_data[name]
+    del disk_data
+
+    if mem_only_cols:
+        for name in mem_only_cols:
+            chunk[name] = bt_data[name][chunk_rows]
+
+    # If astropy .data was previously loaded, overlay scalar disk columns from memory
+    # to capture any mutations from sdf["COLNAME"] = value.
+    # DATA is never mutated so we always keep the fitsio version.
+    if data_loaded:
+        if not mem_only_cols:
+            bt_data = bt.data
+        for name in disk_cols:
+            if name == "DATA":
+                continue
+            chunk[name] = bt_data[name][chunk_rows]
+
+    if include_flags:
+        chunk["FLAGS"] = sdf._flagmask[bintable_idx].rows_as_uint8(chunk_rows)
+
+    return chunk
+
+
+class GBTBackend(StrEnum):
+    """GBT spectrometer backends."""
+
+    VEGAS = "vegas"
+    ACS = "acs"
+    SP = "sp"
+    DCR = "dcr"  # continuum
+    ZPEC = "zpec"  # continuum
+
+    @classmethod
+    def spectral_line_backends(cls) -> set["GBTBackend"]:
+        """Return backends used for spectral line observations."""
+        return {cls.VEGAS, cls.ACS, cls.SP}
+
+    @classmethod
+    def from_string(cls, s: str) -> "GBTBackend | None":
+        """Parse backend from string (case-insensitive)."""
+        try:
+            return cls(s.lower())
+        except ValueError:
+            return None
 
 
 class GBTFITSLoad(SDFITSLoad, HistoricalBase):
@@ -76,33 +269,37 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Header Data Unit to select from input file. Default: all HDUs
 
     skipflags: bool
-        If True, do not read any flag files associated with these data. Default: True
+        If True, do not read any flag files associated with these data. If it exists, the FLAGS column of the binary
+        table will always be read in regardless of `skipflags` value. Default: True
 
     flag_vegas: bool
         If True, flag VEGAS spurs using the algorithm described in :meth:`~dysh.util.core.calc_vegas_spurs`
         and ignore VEGAS_SPUR flag rules in flag files. Note this parameter is independent of 'skip_flags', which
         controls only the reading of the flag file.  If you want no flags at all, use `skipflags=True, flag_vegas=False`.
+        Default: True
 
-
-        +---------+-----------+--------------------------------------------------------------------------------------------+
-        |skipflags|flag_vegas | behavior                                                                                   |
-        +=========+===========+============================================================================================+
-        |False    | False     | VEGAS and other flags are created based on the flags file                                  |
-        +---------+-----------+--------------------------------------------------------------------------------------------+
-        |True     | False     | No flags are created                                                                       |
-        +---------+-----------+--------------------------------------------------------------------------------------------+
-        |True     | True      | VEGAS flags are created based on the FITS header                                           |
-        +---------+-----------+--------------------------------------------------------------------------------------------+
-        |False    | True      | VEGAS flags are created based on the FITS header.  Other flags are read from the flags file|
-        +---------+-----------+--------------------------------------------------------------------------------------------+
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
+        |skipflags|flag_vegas | behavior                                                                                                     |
+        +=========+===========+==============================================================================================================+
+        |False    | False     | VEGAS and other flags are created based on the flags file and the FLAGS column.                              |
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
+        |True     | False     | No flags are read file the flag file.  Flags are read in from the FLAGS column.                              |
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
+        |True     | True      | VEGAS flags are created based on the FITS header. Flags are read from the FLAGS column.                      |
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
+        |False    | True      | VEGAS flags are created based on the FITS header. Other flags are read from the flags file and FLAGS column. |
+        +---------+-----------+--------------------------------------------------------------------------------------------------------------+
     """
 
     @log_call_to_history
     def __init__(self, fileobj, source=None, hdu=None, skipflags=True, flag_vegas=True, **kwargs):
         kwargs_opts = {
-            "index": True,
-            "verbose": False,
             "fix_ka": True,
+            "index_file_threshold": 0,  # 100 * 1024 * 1024,  # 100 MB default
+            # skipflags only means skip reading the flag file, NOT don't alllocate an array for flags nor read them
+            # from the binary table.
+            "flags": True,  # not skipflags,  # Pass skipflags down to SDFITSLoad to skip flag array allocation
+            "fitsbackend": None,  # choose a default FITSBackend
         }  # only set index to False for performance testing.
         HistoricalBase.__init__(self)
         kwargs_opts.update(kwargs)
@@ -112,23 +309,26 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         self._flag = None
 
         self.GBT = Observatory["GBT"]
+        _log_mem(f"GBTFITSLoad.__init__ start for {fileobj}")
         if path.is_file():
             logger.debug(f"Treating given path {path} as a file")
             self._sdf.append(SDFITSLoad(path, source, hdu, **kwargs_opts))
             if not hasattr(self, "_filename"):
                 self._filename = self._sdf[0].filename
+            _log_mem("GBTFITSLoad: loaded 1 file")
         elif path.is_dir():
             logger.debug(f"Treating given path {path} as a directory")
             # Find all the FITS files in the directory and sort alphabetically
             # because e.g., VEGAS does A,B,C,D,E
             nf = 0  # performance testing
-            for f in sorted(path.glob("*.fits")):
-                logger.debug(f"Selecting {f} to load")
-                if kwargs.get("verbose", None):
-                    logger.debug(f"Loading {f}")
+            fits_files = sorted(path.glob("*.fits"))
+            _log_mem(f"GBTFITSLoad: found {len(fits_files)} FITS files in directory")
+            for f in fits_files:
+                logger.debug(f"Loading {f}")
                 if nf < kwargs.get("nfiles", 99999):  # performance testing limit number of files loaded
                     self._sdf.append(SDFITSLoad(f, source, hdu, **kwargs_opts))
                     nf += 1
+                    _log_mem(f"GBTFITSLoad: loaded file {nf}/{len(fits_files)}: {f.name}")
             if len(self._sdf) == 0:  # fixes issue 381
                 raise Exception(f"No FITS files found in {fileobj}.")
             if not hasattr(self, "_filename"):
@@ -142,47 +342,54 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 self.add_history(h.header.get("HISTORY", []))
                 self.add_comment(h.header.get("COMMENT", []))
         self._remove_duplicates()
-        if kwargs_opts["index"]:
-            self._create_index_if_needed(skipflags, flag_vegas)
-            self._update_radesys()
-            # This only works if the index was created.
-            if kwargs_opts["fix_ka"]:
-                self._fix_ka_rx_if_needed()
-        # We cannot use this to get mmHg as it will disable all default astropy units!
-        # https://docs.astropy.org/en/stable/api/astropy.units.cds.enable.html#astropy.units.cds.enable
-        # cds.enable()  # to get mmHg
-
-        # ushow/udata depend on the index being present, so check that index is created.
-        if kwargs.get("verbose", None) and kwargs_opts["index"]:
-            print(f"==GBTLoad {fileobj}")
-            self.ushow("OBJECT", 0)
-            self.ushow("SCAN", 0)
-            self.ushow("SAMPLER", 0)
-            self.ushow("PLNUM")
-            self.ushow("IFNUM")
-            self.ushow("FDNUM")
-            self.ushow("SIG", 0)
-            self.ushow("CAL", 0)
-            self.ushow("PROCSEQN", 0)
-            self.ushow("PROCSIZE", 0)
-            self.ushow("OBSMODE", 0)
-            self.ushow("SIDEBAND", 0)
-
+        self._create_index_if_needed(skipflags, flag_vegas)
+        self._update_radesys()
+        # This only works if the index was created.
+        if kwargs_opts["fix_ka"]:
+            self._fix_ka_rx_if_needed()
         lsdf = len(self._sdf)
         if lsdf > 1:
             logger.info(f"Loaded {lsdf} FITS files")
-        if kwargs_opts["index"]:
-            self.add_history(f"Project ID: {self.projectID}", add_time=True)
-        else:
-            logger.warning("Reminder: No index created; many functions won't work.")
-
+        self.add_history(f"Project ID: {self.projectID}", add_time=True)
         self._qd_corrected = False
+        if self._any_index_file():
+            logger.info(
+                "Index loaded from .index file (44/93 columns). "
+                "Missing columns (TCAL, WCS, calibration metadata, etc.) will be automatically loaded "
+                "from FITS file when first accessed."
+            )
 
     def __repr__(self):
         return str(self.files)
 
     def __str__(self):
         return str(self.filenames)
+
+    def _any_index_file(self) -> bool:
+        """Return True if any SDFITSLoad used the index file to create the index"""
+        for s in self._sdf:
+            if getattr(s, "_index_source", None) == "index_file":
+                return True
+        return False
+
+    def _any_hybrid(self) -> bool:
+        """Return True if any SDFITSLoad has a hybrid index where some rows were loaded from  the FITS file"""
+        for s in self._sdf:
+            if getattr(s, "_index_source", None) == "hybrid":
+                return True
+        return False
+
+    def _any_fits(self) -> bool:
+        """Return True if any SDFITSLoad has an index where that was fully loaded from the FITS file"""
+        for s in self._sdf:
+            if getattr(s, "_index_source", None) == "fits":
+                return True
+        return False
+
+    @property
+    def _index_state(self):
+        """Return a list of all index source states"""
+        return [getattr(s, "_index_source", None) for s in self._sdf]
 
     @property
     def _index(self):
@@ -434,6 +641,24 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             df = df[df["BINTABLE"] == bintable]
         return df
 
+    def nchan(self, bintable: int = 0, fitsindex: int = 0) -> int:
+        """
+        The number of channels per row of the input bintable. Assumes all rows have same length.
+
+        Parameters
+        ----------
+        bintable :  int
+            The index of the `bintable` attribute
+        fitsindex: int
+             The index of the FITS file contained in this GBTFITSLoad.
+        Returns
+        -------
+        nchan : int
+            Number channels in the first spectrum of the input bintable
+
+        """
+        return self._sdf[fitsindex].nchan(bintable)
+
     def stats(self, bintable=0):
         """
         Return some basic statistics of the GBTFITSLoad.
@@ -469,7 +694,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         return s
 
     # override sdfits version
-    def rawspectra(self, bintable, fitsindex, setmask=False):
+    def rawspectra(
+        self,
+        bintable: int,
+        fitsindex: int,
+        setmask: bool = False,
+        rows: ArrayLike | None = None,
+        fits_backend: FITSBackend | None = None,
+    ) -> np.ma.MaskedArray:
         """
         Get the raw (unprocessed) spectra from the input bintable.
 
@@ -481,6 +713,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             the index of the FITS file contained in this GBTFITSLoad.  Default:0
         setmask : boolean
             If True, set the mask according to the current flags. Default:False
+        rows : array-like or None
+            If provided, load only these specific rows. If None, load all rows.
+            This is an internal parameter used by Scan classes.
+        fits_backend : FITSBackend or None
+            Backend to use for reading data. Options:
+            - None (default): auto-select (fitsio when rows specified, astropy otherwise)
+            - FITSBackend.ASTROPY: force astropy (memory-mapped, efficient for full loads)
+            - FITSBackend.FITSIO: force fitsio (efficient for selective row loading)
 
         Returns
         -------
@@ -488,7 +728,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             The DATA column of the input bintable, masked according to `setmask`
 
         """
-        return self._sdf[fitsindex].rawspectra(bintable, setmask=setmask)
+        return self._sdf[fitsindex].rawspectra(bintable, setmask=setmask, rows=rows, fits_backend=fits_backend)
 
     def rawspectrum(self, i, bintable=0, fitsindex=0, setmask=False):
         """
@@ -623,7 +863,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN, OBJECT,
             VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED), AZIMUTH,
             and ELEVATIO (ELEVATION).
-            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
+            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN,  RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
             If a string, multiple column names must be comma separated.
         add_columns : list
@@ -677,9 +917,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "VELOCITY",
                     "PROC",
                     "PROCSEQN",
-                    "PROCSIZE",
                     "RESTFREQ",
-                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "FDNUM",
@@ -699,7 +937,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     "PROC",
                     "PROCSEQN",
                     "RESTFREQ",
-                    "DOPFREQ",
                     "IFNUM",
                     "PLNUM",
                     "INTNUM",
@@ -732,9 +969,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # make a copy here because we can't guarantee if this is a
         # view or a copy without it. See https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
         if selected:
-            df = self.selection.final[cols].copy().astype(col_dtypes)
+            df = self.selection.final[cols].copy().astype(col_dtypes, errors="ignore")
         else:
-            df = self[cols].copy().astype(col_dtypes)
+            df = self[cols].copy().astype(col_dtypes, errors="ignore")
 
         # Scale columns.
         for cn in columns:
@@ -757,7 +994,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             # Set column operations for aggregation.
             col_ops = {k: v.operation for k, v in col_defs.items() if k in _columns}
             # We have to reset the index and column types.
-            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes)
+            df = df.groupby(needed).agg(col_ops).reset_index().astype(col_dtypes, errors="ignore")
             # Post operations.
             col_post_ops = {k: v.post for k, v in col_defs.items() if k in _columns and v.post is not None}
             if len(col_post_ops) > 0:
@@ -806,7 +1043,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             List of columns for the output summary. If not set and `verbose=False`, the default list will contain SCAN,
             OBJECT, VELOCITY, PROC, PROCSEQN, RESTFREQ, DOPFREQ, IFNUM (# IF), PLNUM (# POL), INTNUM (# INT), FDNUM (# FEED),
             AZIMUTH, and ELEVATIO (ELEVATION).
-            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN, PROCSIZE, RESTFREQ,
+            If not set and `verbose=True`, it will contain SCAN, OBJECT, VELOCITY, PROC, PROCSEQN,  RESTFREQ,
             DOPFREQ, IFNUM, FEED, AZIMUTH, ELEVATIO, FDNUM, INTNUM, PLNUM, SIG, CAL, and DATE-OBS.
             If a string, multiple column names must be comma separated.
         add_columns : list or str
@@ -1186,7 +1423,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         mask = np.full(maxnchan + 1, False)
                         mask[a[~a.mask]] = True
                         p.append(mask)
-                    self._sdf[fi]._additional_channel_mask[bi][rows] |= np.array(p)
+                    self._sdf[fi]._additional_channel_mask[bi].or_rows(rows, np.array(p))
         except KeyError as k:
             logger.warning(
                 f"Can't determine VEGAS spur locations because one or more VSP keywords are missing from the FITS header {k}"
@@ -1236,14 +1473,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     chrng = slice(nedge, -(nedge - 1), 1)
                     if np.all(chan_mask[chrng]):
                         chan_mask[:] = True
-                self._sdf[fi]._flagmask[bi][rows] |= chan_mask
+                self._sdf[fi]._flagmask[bi].or_rows(rows, chan_mask)
         # now any additional channel flags, i.e. VEGAS flags
         self._apply_additional_flags()
 
     def _apply_additional_flags(self):
         """Apply the additional channel flags created by, e.g., flag_vegas"""
         for k in self._sdf:
+            # Check attributes exist (they won't if skipflags=True)
+            if not hasattr(k, "_additional_channel_mask") or not hasattr(k, "_flagmask"):
+                continue
             if k._additional_channel_mask is not None and k._flagmask is not None:
+                # this is ok because LazyFlag defines __ior__
                 k._flagmask |= k._additional_channel_mask
 
     def _check_no_data_to_calibrate(
@@ -1310,6 +1551,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         if self._selection is not None:
             return
+        _log_mem("_create_index_if_needed: start")
         i = 0
         df = None
         if self._selection is None:
@@ -1323,10 +1565,13 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 else:
                     df = pd.concat([df, s._index], axis=0, ignore_index=True)
                 i = i + 1
+        index_mem_mb = df.memory_usage(deep=True).sum() / (1024**2)
+        _log_mem(f"_create_index_if_needed: combined index has {len(df)} rows, {index_mem_mb:.1f} MB")
         self._selection = Selection(df)
         self._flag = Flag(df)
         self._construct_procedure()
         self._construct_integration_number()
+        self._construct_sitelonglat_if_needed()
 
         if flag_vegas and self.is_vegas():
             self.flag_vegas_spurs()
@@ -1350,21 +1595,187 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if found_flags and len(self.flags._table) != 0:
             logger.info("Flags were created from existing flag files. Use GBTFITSLoad.flags.show() to see them.")
 
+    # I did not name this load_all_rows() because that is too close to
+    # the name of the inherited method SDFITSLoad.load_full_rows()
+    def load_all(self) -> None:
+        """
+        Load all rows from FITS files if any required columns are missing.
+        """
+        _df = self._load_full_rows_if_needed(df=self.selection, required_columns=[], force=True)
+
+    def _load_full_rows_if_needed(self, df: pd.DataFrame, required_columns: list[str], force=False) -> pd.DataFrame:
+        """
+        Load full rows from FITS files if any required columns are missing.
+
+        This is the proper lazy loading mechanism: when we need row data that
+        isn't in the .index file, load ALL columns for those rows at once.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Selected rows DataFrame (from _common_selection), must have ROW and FITSINDEX columns
+        required_columns : list[str]
+            Column names that must be present (triggers load if any are missing)
+        force : bool
+            Always trigger loading even if required columns appear to be there. (In hybrid mode not all rows will be present even if all columns are.)
+
+        Returns
+        -------
+        pd.DataFrame
+            The input DataFrame with full row data loaded from FITS
+        """
+        # Check if any underlying SDFITSLoad was loaded from .index file (or is in hybrid mode)
+        has_index_loaded = self._any_index_file() or self._any_hybrid()
+
+        if not has_index_loaded:
+            return df  # All data loaded from FITS, columns should exist if valid
+
+        # Check which columns are missing
+        missing_cols = [c for c in required_columns if c.upper() not in df.columns]
+
+        # In hybrid mode, also check if the selected rows have NaN in any required column
+        # (columns may exist but specific rows may not have been loaded yet)
+        rows_need_loading = False
+        if not missing_cols:
+            for col in required_columns:
+                col_upper = col.upper()
+                if col_upper in df.columns and df[col_upper].isna().any():
+                    rows_need_loading = True
+                    break
+
+        if not missing_cols and not rows_need_loading and not force:
+            return df  # All required columns already present with data
+
+        _log_mem(f"_load_full_rows_if_needed: lazy loading {len(df)} rows (missing cols: {missing_cols})")
+        logger.debug(f"Lazy loading full rows for {len(df)} selected rows (missing: {missing_cols})...")
+
+        # Group rows by FITSINDEX (which SDFITSLoad they belong to)
+        # and load full rows from FITS
+        result_dfs = []
+
+        for fitsindex, group in df.groupby("FITSINDEX"):
+            sdf = self._sdf[int(fitsindex)]
+
+            # Only load if this SDFITSLoad was loaded from .index file or is in hybrid mode
+            if getattr(sdf, "_index_source", None) not in ("index_file", "hybrid"):
+                result_dfs.append(group)
+                continue
+
+            rows = group["ROW"].to_numpy()
+            bintable = self._get_bintable(group)
+
+            # Load full rows from FITS
+            fits_df = sdf.load_full_rows(rows, bintable)
+
+            if len(fits_df) == 0:
+                result_dfs.append(group)
+                continue
+
+            # IMPORTANT: Also update the underlying SDFITSLoad's _index
+            # This is needed because Scan classes access sdf.index() directly
+            # We need to add new columns to ALL SDFITSLoads, not just this one,
+            # because later operations might access different SDFITSLoads
+            for col in fits_df.columns:
+                col_dtype = fits_df[col].dtype
+                # Add column to ALL underlying SDFITSLoads if missing
+                for other_sdf in self._sdf:
+                    if col not in other_sdf._index.columns:
+                        if col_dtype is object or col_dtype.kind in ("U", "S"):
+                            # String columns: use object dtype with None
+                            other_sdf._index[col] = pd.Series([None] * len(other_sdf._index), dtype=object)
+                        elif col_dtype.kind in ("i", "u"):
+                            # Integer columns: can't hold NaN, use float64
+                            other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=np.float64)
+                        else:
+                            # Float columns: use NaN with the same dtype
+                            other_sdf._index[col] = pd.Series([np.nan] * len(other_sdf._index), dtype=col_dtype)
+                # Update the specific rows we loaded in the current SDFITSLoad
+                # Note Index is not always equal to ROW if there are multiple binary tables,
+                # so we need to isolate the DataFrame Index for the specific rows and binary table.
+                dfbin = sdf.index(bintable=bintable)
+                dfrows = dfbin["ROW"].isin(rows)
+                indices = dfbin[dfrows].index
+                sdf._index.loc[indices, col] = fits_df[col].values  # noqa: PD011
+            # Mark that we've started loading from FITS (hybrid mode)
+            if force:
+                sdf._index_source = "fits"
+            else:
+                sdf._index_source = "hybrid"
+
+            # Merge: start with FITS data, then overlay .index data for columns that exist in both
+            # This ensures FITS data wins for any columns that might be different
+            merged = fits_df.copy()
+
+            # Preserve the original DataFrame index
+            merged.index = group.index
+
+            # Add columns from .index that aren't in FITS (like FITSINDEX, ROW)
+            for col in group.columns:
+                if col not in merged.columns:
+                    merged[col] = group[col].values  # noqa: PD011
+
+            result_dfs.append(merged)
+
+        result = pd.concat(result_dfs, axis=0)
+        # Restore original row order
+        result = result.loc[df.index]
+
+        logger.debug(f"   Loaded full rows. DataFrame now has {len(result.columns)} columns")
+
+        # Update self._selection with the newly loaded columns so that other code
+        # paths that access self._index (which returns self._selection) will see them
+        self._rebuild_merged_index()
+        self._update_radesys()
+
+        return result
+
+    def _rebuild_merged_index(self):
+        """
+        Rebuild the merged index from all SDFITSLoad objects.
+
+        This is called after lazy loading triggers a full index load for some files,
+        to update the merged index with the newly available columns.
+        """
+        df = None
+        for i, s in enumerate(self._sdf):
+            # Make sure FITSINDEX is set
+            if "FITSINDEX" not in s._index.columns:
+                s._index["FITSINDEX"] = i * np.ones(len(s._index), dtype=int)
+            if df is None:
+                df = s._index.copy()
+            else:
+                df = pd.concat([df, s._index], axis=0, ignore_index=True)
+
+        # Update selection and flag with the new merged data
+        # Preserve existing selection rules if any
+        old_selection_rules = (
+            self._selection._selection_rules.copy() if hasattr(self._selection, "_selection_rules") else {}
+        )
+        old_flag_rules = self._flag._selection_rules.copy() if hasattr(self._flag, "_selection_rules") else {}
+
+        self._selection = Selection(df)
+        self._flag = Flag(df)
+
+        # Restore selection rules
+        self._selection._selection_rules = old_selection_rules
+        self._flag._selection_rules = old_flag_rules
+
     def _construct_procedure(self):
         """
         Construct the procedure string (PROC) from OBSMODE and add it to the index (i.e., a new SDFITS column).
         OBSTYPE and SUBOBSMODE are also created here.  OBSMODE has the form like 'PROC:OBSTYPE:SUBOBSMODE', e.g.
         OnOff:PSWITCHON:TPWCAL.
+        Note PROC is in the index file so this method is only needed if
+        we are reading the index file the SDFITS file(s).
 
         """
-        if self._selection is None:
-            warnings.warn("Couldn't construct procedure string: index is not yet created.")  # noqa: B028
+        if self._selection is None or "OBSMODE" not in self._selection:
             return
-        if "OBSMODE" not in self._index:
-            warnings.warn("Couldn't construct procedure string: OBSMODE is not in index.")  # noqa: B028
+        has_index_loaded = any(getattr(s, "_index_source", None) in ("index_file", "hybrid") for s in self._sdf)
+        if has_index_loaded:
             return
         df = self["OBSMODE"].str.split(":", expand=True)
-        for obj in [self._index, self._flag]:
+        for obj in [self._selection, self._flag]:
             obj["PROC"] = df[0]
             # Assign these to something that might be useful later,
             # since we have them
@@ -1381,19 +1792,19 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         Integration number starts at zero and is incremented when the DATE-OBS changes. It resets to
         zero when the scan number changes.
         """
-        if self._index is None:
-            warnings.warn("Couldn't construct integration number: index is not yet created.", stacklevel=2)
+        if self._selection is None:
+            logger.warning("Couldn't construct integration number: index is not yet created.")
             return
 
         # check it hasn't been constructed before.
-        if "INTNUM" in self._index:
+        if "INTNUM" in self._selection:
             return
         # check that GBTIDL didn't write it out at some point.
-        if "INT" in self._index:
+        if "INT" in self._selection:
             # This is faster than using
             # self._selection = Selection(self._selection.rename(columns={"INT": "INTNUM"}))
             # Keep, unless we find a faster way.
-            self._index.rename(columns={"INT": "INTNUM"}, inplace=True)  # noqa: PD002
+            self._selection.rename(columns={"INT": "INTNUM"}, inplace=True)  # noqa: PD002
             for s in self._sdf:
                 s._rename_binary_table_column("int", "intnum")
             return
@@ -1412,6 +1823,18 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     intnumarray[idx] = intnums[i]
         self._selection["INTNUM"] = intnumarray
         self._flag["INTNUM"] = intnumarray
+
+    def _construct_sitelonglat_if_needed(self):
+        """If this object was created using the pure index file, then SITELONG and SITELAT are
+        not defined. However, we can create them by getting the 'TELESCOP' value and looking up
+        its longitude and latitude. TELESCOP will always be present since it is added in
+        SDFITSLoad._add_primary_hdu
+        """
+        if "SITELONG" not in self.selection.columns or "SITELAT" not in self.selection.columns:
+            s = uniq(self.selection["TELESCOP"])[0]
+            o = Observatory[s]
+            self.selection.loc[:, "SITELONG"] = o.lon.value
+            self.selection.loc[:, "SITELAT"] = o.lat.value
 
     def _normalize_channel_range(self, channel: list) -> list | None:
         """Ensure channel range is [first,last] for calibration"""
@@ -1452,7 +1875,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if len(self._selection._selection_rules) > 0:
             _final = self._selection.final
         else:
-            _final = self._index
+            _final = self._selection
         scans = kwargs.get("SCAN", None)
         if scans is None:
             scans = uniq(_final["SCAN"])
@@ -1569,8 +1992,12 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             A ScanBlock containing one or more `~dysh.spectra.scan.TPScan`
 
         """
+        _log_mem(f"gettp: start (fdnum={fdnum}, ifnum={ifnum}, plnum={plnum})")
         _channel = self._normalize_channel_range(channel)
         (scans, _sf) = self._common_selection(fdnum=fdnum, ifnum=ifnum, plnum=plnum, apply_flags=apply_flags, **kwargs)
+        _log_mem(f"gettp: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
@@ -1693,6 +2120,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         r"""
         Retrieve and calibrate position-switched data using a custom reference scan.  Also known as `Flexible Off.`
 
+        Note that the current version may not set the exposure time correctly.
+        See issue #800 https://github.com/GreenBankObservatory/dysh/issues/800
+
         Parameters
         ----------
         scan : int or list or `numpy.array`
@@ -1782,6 +2212,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~dysh.spectra.scan.PSScan`.
 
         """
+        _log_mem(
+            f"getsigref: start (fdnum={fdnum}, ifnum={ifnum}, plnum={plnum}, scan count={len(scan) if hasattr(scan, '__len__') else 1})"
+        )
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
         self._check_vane_and_t_sys_args(vane, t_sys)
@@ -1816,6 +2249,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             scan=scan,
             **kwargs,
         )
+        _log_mem(f"getsigref: after _common_selection, {len(scans)} scans, {len(_sf)} rows selected")
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
         _tcal = t_cal
@@ -2063,6 +2499,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             procvals=procvals,
             **kwargs,
         )
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
+
         tsys = _parse_tsys(t_sys, scans)
         _tsys = tsys
         _tcal = t_cal
@@ -2270,7 +2709,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more `~dysh.spectra.scan.NodScan`.
 
         """
-
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
         if units.lower() != "ta" and zenith_opacity is None and ap_eff is None:
@@ -2291,6 +2729,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             procvals=procvals,
             **kwargs,
         )
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
@@ -2335,7 +2775,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     logger.debug(f"FEED {f} {beam1_selected} {_fdnum[0]}")
                     logger.debug(f"PROCSEQN {set(_df['PROCSEQN'])}")
                     logger.debug(f"Sending dataframe with scans {set(_df['SCAN'])}")
-                    logger.debug(f"and PROC {set(_df['PROC'])}")
+                    logger.debug(f"and PROCS {set(_df['PROC'])}")
 
                     rows = {}
                     _ondf = select_from("SCAN", on, _df)
@@ -2543,7 +2983,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             ScanBlock containing one or more`~dysh.spectra.scan.FSScan`.
 
         """
-
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
         self._check_vane_and_t_sys_args(vane, t_sys)
@@ -2557,6 +2996,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             raise ValueError("Can't scale the data without a valid zenith opacity")
         _channel = self._normalize_channel_range(channel)
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
 
         tsys = _parse_tsys(t_sys, scans)
         _tsys = None
@@ -2664,6 +3105,14 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         See issue #160 https://github.com/GreenBankObservatory/dysh/issues/160
         """
+        # Check if FRONTEND column exists (may be missing when loaded from .index file)
+        # TODO: Implement lazy loading of missing columns from FITS file when accessed.
+        # Currently, many "fix" functions assume full FITS data is available, but .index
+        # files only contain a subset of columns. See: FRONTEND, CTYPE2/3, OBSMODE, etc.
+        if "FRONTEND" not in self._index.columns:
+            logger.debug("Skipping Ka receiver fix: FRONTEND column not in index (loaded from .index file?)")
+            return
+
         # Check if we are dealing with Ka data before the beam switch.
         rx = self["FRONTEND"].unique()
         if "Rcvr26_40" not in rx:
@@ -2930,7 +3379,6 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         data : `~dysh.spectra.scan.ScanBlock`
             A ScanBlock containing one or more `~dysh.spectra.scan.SubBeamNodScan`
         """
-
         ScanBase._check_tscale(units)
         ScanBase._check_gain_factors(ap_eff, surface_error)
         self._check_vane_and_t_sys_args(vane, t_sys)
@@ -2946,6 +3394,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         _bintable = kwargs.get("bintable", None)
 
         (scans, _sf) = self._common_selection(ifnum=ifnum, plnum=plnum, fdnum=fdnum, apply_flags=apply_flags, **kwargs)
+        # Lazy load full rows from FITS if needed (when loaded from .index file)
+        _sf = self._load_full_rows_if_needed(_sf, ["TCAL", "TSYS"])
 
         tsys = _parse_tsys(t_sys, scans)
         _tcal = t_cal
@@ -3229,6 +3679,101 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
 
         return scan_selection
 
+    def _write_chunked_fitsio(self, outfile, fitsindex_groups, flags, overwrite, chunk_size=5000):
+        """Write SDFITS data using fitsio with chunked row processing.
+
+        Processes rows in chunks to keep memory bounded, even for very large files.
+
+        Parameters
+        ----------
+        outfile : str or `pathlib.Path`
+            Output file path.
+        fitsindex_groups : list of tuple
+            Each element is ``(fitsindex_k, [(bintable_idx, rows_array), ...])``.
+        flags : bool
+            Whether to write a FLAGS column.
+        overwrite : bool
+            Whether to overwrite an existing file.
+        chunk_size : int
+            Number of rows per chunk.
+
+        Returns
+        -------
+        int
+            Total number of rows written.
+        """
+        outfile = Path(outfile)
+        if outfile.exists():
+            if overwrite:
+                outfile.unlink()
+            else:
+                raise OSError(f"File already exists: {outfile}")
+
+        total_rows_written = 0
+
+        # Write primary HDU from the first SDFITSLoad's primary header
+        first_k = fitsindex_groups[0][0]
+        primary_header = self._sdf[first_k]._hdu[0].header
+        primary_records = _astropy_header_to_fitsio_records(primary_header)
+        # Add HISTORY and COMMENT cards
+        for h in self.history:
+            primary_records.append({"name": "HISTORY", "value": str(h)})
+        for c in self.comments:
+            primary_records.append({"name": "COMMENT", "value": str(c)})
+
+        with fitsio.FITS(str(outfile), "rw", clobber=True) as f:
+            # Write empty primary HDU with header
+            f.write(None, header=primary_records)
+
+        # Write each bintable extension
+        for fitsindex_k, bt_list in fitsindex_groups:
+            sdf = self._sdf[fitsindex_k]
+            for bintable_idx, rows in bt_list:
+                rows = np.asarray(rows)
+                if len(rows) == 0:
+                    continue
+
+                # Get column names (excluding FLAGS -- we regenerate it)
+                col_names = [n for n in sdf._bintable[bintable_idx].columns.names if n != "FLAGS"]
+                nchan = sdf.nchan(bintable_idx)
+                bt_header = sdf._binheader[bintable_idx]
+                bt_header_records = _astropy_header_to_fitsio_records(bt_header)
+
+                # Extract EXTNAME: fitsio ignores it in header records, needs extname= param
+                extname = bt_header.get("EXTNAME", None)
+                bt_header_records = [r for r in bt_header_records if r["name"] != "EXTNAME"]
+
+                nrows = len(rows)
+                nchunks = (nrows + chunk_size - 1) // chunk_size
+                logger.info(
+                    f"write: bintable {bintable_idx}: {nrows} rows, {nchan} channels, "
+                    f"{nchunks} chunk(s) of {chunk_size}"
+                )
+                first_chunk = True
+                for chunk_start in range(0, nrows, chunk_size):
+                    chunk_end = min(chunk_start + chunk_size, nrows)
+                    chunk_rows = rows[chunk_start:chunk_end]
+
+                    t0 = time.monotonic()
+                    chunk_data = _build_chunk_recarray(sdf, bintable_idx, chunk_rows, col_names, flags, nchan)
+                    logger.info(
+                        f"write: chunk [{chunk_start}:{chunk_end}] of {nrows} rows built ({time.monotonic() - t0:.1f}s)"
+                    )
+
+                    t0 = time.monotonic()
+                    with fitsio.FITS(str(outfile), "rw") as f:
+                        if first_chunk:
+                            f.write(chunk_data, header=bt_header_records, extname=extname)
+                            first_chunk = False
+                        else:
+                            f[-1].append(chunk_data)
+                    logger.info(f"write: chunk written to disk ({time.monotonic() - t0:.1f}s)")
+
+                    total_rows_written += len(chunk_rows)
+                    del chunk_data
+
+        return total_rows_written
+
     def write(
         self,
         fileobj,
@@ -3242,6 +3787,9 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
     ):
         """
         Write all or a subset of the `GBTFITSLoad` data to a new SDFITS file(s).
+
+        Uses fitsio with chunked row processing to keep memory bounded,
+        even for very large files.
 
         Parameters
         ----------
@@ -3273,7 +3821,81 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             given as key=value, though a dictionary works too.
             e.g., `ifnum=1, plnum=[2,3]` etc.
         """
-        # debug = kwargs.pop("debug", False)
+        if HAS_FITSIO:
+            self._write_fitsio(fileobj, multifile, flags, verbose, overwrite, **kwargs)
+        else:
+            self._write_astropy(fileobj, multifile, flags, verbose, output_verify, overwrite, checksum, **kwargs)
+
+    def _write_fitsio(self, fileobj, multifile, flags, verbose, overwrite, **kwargs):
+        """Write using the fitsio chunked path (memory-efficient for large files)."""
+        chunk_size = kwargs.pop("chunk_size", 5000)
+        logger.debug(kwargs)
+        selection = Selection(self._index)
+        if len(kwargs) > 0:
+            selection._select_from_mixed_kwargs(**kwargs)
+            logger.debug(selection.show())
+            _final = selection.final
+        else:
+            _final = selection
+        if len(_final) == 0:
+            raise Exception("Your selection resulted in no rows to be written")
+        fi = _final["FITSINDEX"].unique()
+        logger.debug(f"fitsindex {fi} ")
+        total_rows_written = 0
+        if multifile:
+            count = 0
+            for k in fi:
+                # Build bintable groups for this FITSINDEX
+                df = select_from("FITSINDEX", k, _final)
+                bintables = df.BINTABLE.unique()
+                bt_list = []
+                for b in bintables:
+                    rows = np.sort(df.ROW[df.BINTABLE == b].unique())
+                    if len(rows) > 0:
+                        bt_list.append((b, rows))
+                if not bt_list:
+                    continue
+
+                if len(fi) > 1:
+                    p = Path(fileobj)
+                    outfile = p.parent / (p.stem + str(count) + p.suffix)
+                    count += 1
+                else:
+                    outfile = fileobj
+
+                rows_written = self._write_chunked_fitsio(
+                    outfile, [(k, bt_list)], flags, overwrite, chunk_size=chunk_size
+                )
+                total_rows_written += rows_written
+                if verbose:
+                    logger.info(f"Writing {rows_written} rows to {outfile}.")
+            if verbose:
+                logger.info(f"Total of {total_rows_written} rows written to files.")
+        else:
+            # Build all bintable groups across all FITSINDEX values
+            fitsindex_groups = []
+            for k in fi:
+                df = select_from("FITSINDEX", k, _final)
+                bintables = df.BINTABLE.unique()
+                bt_list = []
+                for b in bintables:
+                    rows = np.sort(df.ROW[df.BINTABLE == b].unique())
+                    if len(rows) > 0:
+                        bt_list.append((b, rows))
+                if bt_list:
+                    fitsindex_groups.append((k, bt_list))
+
+            if not fitsindex_groups:
+                raise Exception("Your selection resulted in no rows to be written")
+
+            total_rows_written = self._write_chunked_fitsio(
+                fileobj, fitsindex_groups, flags, overwrite, chunk_size=chunk_size
+            )
+            if verbose:
+                logger.info(f"Writing {total_rows_written} to {fileobj}")
+
+    def _write_astropy(self, fileobj, multifile, flags, verbose, output_verify, overwrite, checksum, **kwargs):
+        """Write using the astropy path (fallback when fitsio is unavailable)."""
         logger.debug(kwargs)
         selection = Selection(self._index)
         if len(kwargs) > 0:
@@ -3291,18 +3913,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             count = 0
             for k in fi:
                 this_rows_written = 0
-                # copy the primary HDU
                 hdu = self._sdf[k]._hdu[0].copy()
                 outhdu = fits.HDUList(hdu)
-                # get the bintables rows as new bintables.
                 df = select_from("FITSINDEX", k, _final)
                 bintables = df.BINTABLE.unique()
-                for b in bintables:  # loop over the bintables in this fitsfile
+                for b in bintables:
                     rows = df.ROW[df.BINTABLE == b].unique()
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
-                        if flags:  # update the flags before we select rows
+                        if flags:
                             flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
                             dim1 = np.shape(flagval)[1]
                             form = f"{dim1}B"
@@ -3315,13 +3935,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                         this_rows_written += lr
                 if len(fi) > 1:
                     p = Path(fileobj)
-                    # Note this will not preserve "A","B" etc suffixes in original FITS files.
                     outfile = p.parent / (p.stem + str(count) + p.suffix)
                     count += 1
                 else:
                     outfile = fileobj
-                # add comment and history cards to the primary HDU if applicable.
-                # All files get all cards.
                 for h in self.history:
                     outhdu[0].header["HISTORY"] = h
                 for c in self.comments:
@@ -3342,29 +3959,25 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                     rows.sort()
                     lr = len(rows)
                     if lr > 0:
-                        if flags:  # update the flags before we select rows
+                        if flags:
                             flagval = self._sdf[k]._flagmask[b].astype(np.uint8)
                             dim1 = np.shape(flagval)[1]
                             form = f"{dim1}B"
-                            # tdim = f"({dim1}, 1, 1, 1)" # let fitsio do this
                             c = fits.Column(name="FLAGS", format=form, array=flagval)
                             self._sdf[k]._update_column({"FLAGS": c}, b)
                         ob = self._sdf[k]._bintable_from_rows(rows, b)
                         if len(ob.data) > 0:
                             outhdu.append(ob)
                         total_rows_written += lr
-            # add history and comment cards to primary header if applicable
             for h in self.history:
                 outhdu[0].header["HISTORY"] = h
             for c in self.comments:
                 outhdu[0].header["COMMENT"] = c
-            if total_rows_written == 0:  # shouldn't happen, caught earlier
+            if total_rows_written == 0:
                 raise Exception("Your selection resulted in no rows to be written")
-            elif verbose:
+            if verbose:
                 logger.info(f"Writing {total_rows_written} to {fileobj}")
-            # outhdu.update_extend()  # possibly unneeded
             outhdu.writeto(fileobj, output_verify=output_verify, overwrite=overwrite, checksum=checksum)
-            outhdu.close()
 
     def _update_radesys(self):
         """
@@ -3411,6 +4024,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             This will be used to determine where `GBTFITSLoad[key] == value`.
             Multiple keys and values will be combined using `numpy.logical_and`.
         """
+        # Check if all required columns exist in the index
+        # TODO: Implement lazy loading of missing columns from FITS file when accessed.
+        # This can happen when loading from .index files which don't have all columns.
+        for col in mask_dict.keys():
+            if col.upper() not in self._index.columns:
+                logger.debug(
+                    f"Skipping _fix_column for {column}: mask column {col} not in index (loaded from .index file?)"
+                )
+                return
+
         _mask = self._column_mask(mask_dict)
         if _mask.sum() == 0:
             return
@@ -3429,12 +4052,44 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         # @todo deal with "DATA"
         if isinstance(items, str):
             items = items.upper()
+            items_list = [items]
         elif isinstance(items, (Sequence, np.ndarray)):
             items = [i.upper() for i in items]
+            items_list = items
         else:
             raise KeyError(f"Invalid key {items}. Keys must be str or list of str")
         if "DATA" in items:
             return np.vstack([s["DATA"] for s in self._sdf])
+
+        # Lazy loading: if column(s) missing and any SDFITSLoad was loaded from .index file,
+        # trigger full load for those files to get the missing columns
+        missing_keys = [k for k in items_list if k not in self._index.columns]
+        # we want if missing_keys or hybrid_loaded_sdfs to avoid NaN in columns for rows not loaded.
+        # hybrid_loaded_sdfs = [s for s in self._sdf if getattr(s, "_index_source", None) =="hybrid"]
+        if missing_keys:
+            # Check if any underlying SDFITSLoad was loaded from .index file
+            index_or_hybrid_loaded_sdfs = [
+                s for s in self._sdf if getattr(s, "_index_source", None) in ("index_file", "hybrid")
+            ]
+            if len(index_or_hybrid_loaded_sdfs) > 0:
+                logger.info(f"Column(s) {missing_keys} not available in .index file. Loading from FITS file(s)...")
+                for sdf in index_or_hybrid_loaded_sdfs:
+                    # Access the first missing column through SDFITSLoad which has lazy loading
+                    # This will trigger the full index load for that file and will
+                    # get any missing columns
+                    try:
+                        _ = sdf[missing_keys[0]]
+                    except KeyError:
+                        pass  # Column might truly not exist
+
+                # Rebuild merged index from updated SDFITSLoad indexes
+                self._rebuild_merged_index()
+
+                logger.debug(f"   Loaded missing columns. Index now has {len(self._index.columns)} columns.")
+
+                self._construct_procedure()
+                self._construct_integration_number()
+                self._construct_sitelonglat_if_needed()
         return self._selection[items]
 
     @log_call_to_history
@@ -4174,7 +4829,7 @@ class GBTOffline(GBTFITSLoad):
 #       these two variables with _check_functions() will warn in runtime, but fail in pytest
 #       If you add more to _skip_functions, deduct the number in _need_functions
 _skip_functions = ["velocity_convention", "velocity_frame"]
-_need_functions = 58
+_need_functions = 60
 
 
 def _check_functions(verbose=False):
@@ -4213,29 +4868,53 @@ class GBTOnline(GBTFITSLoad):
 
     Use dysh_data('?') to display all filenames in the "sdfits" area.
 
+    Parameters
+    ----------
+    fileobj : str or None
+        Project name or path to monitor. If None, auto-discovers most recent observation.
+    backend : GBTBackend, str, or None
+        Filter to specific backend (vegas, acs, sp). Only used in auto-discover mode.
+
+    Examples
+    --------
+    >>> sdf = GBTOnline()                          # Auto-discover most recent
+    >>> sdf = GBTOnline(backend=GBTBackend.VEGAS)  # Most recent VEGAS
+    >>> sdf = GBTOnline(backend='vegas')           # Same, using string
+    >>> sdf = GBTOnline('AGBT21B_024_01')          # Monitor specific project
     """
 
     @log_call_to_history
-    def __init__(self, fileobj=None, *args, **kwargs):
+    def __init__(self, fileobj=None, *args, backend: GBTBackend | str | None = None, **kwargs):
         self._online = fileobj
         self._args = args
+        # Disable index file loading for online mode - we need all columns for Selection
+        kwargs.setdefault("index_file_threshold", 0)
         self._kwargs = kwargs
         self._platform = platform.system()  # cannot update in "Windows", see #447
+
+        # Convert string backend to enum
+        if isinstance(backend, str):
+            backend = GBTBackend.from_string(backend)
+        self._backend = backend
+
         _check_functions()  # check if # functions if GBTFITSLoad didn't change
         if fileobj is not None:
             self._online_mode = 1  # monitor this file
             if os.path.isdir(fileobj):
-                GBTFITSLoad.__init__(self, fileobj, *args, **kwargs)
-            else:
+                self._online = fileobj
+                GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
+            elif os.path.exists(fileobj):
                 self._online = dysh_data(fileobj)
                 GBTFITSLoad.__init__(self, self._online, *args, **kwargs)
+            else:
+                raise FileNotFoundError(f"Path does not exist: {fileobj}")
             logger.info(f"Connecting to explicit file: {self._online} - will be monitoring this")
 
         else:
-            self._online_mode = 2  #  monitor all files?
+            self._online_mode = 2  # auto-discover mode
             logger.debug("Testing online mode, finding most recent file")
             if "SDFITS_DATA" in os.environ:
-                logger.debug("warning: using SDITS_DATA")
+                logger.debug("warning: using SDFITS_DATA")
                 sdfits_root = os.environ["SDFITS_DATA"]
             elif "DYSH_DATA" in os.environ:
                 sdfits_root = os.environ["DYSH_DATA"] + "/sdfits"
@@ -4248,30 +4927,41 @@ class GBTOnline(GBTFITSLoad):
                 logger.info(f"Cannot find {sdfits_root}")
                 return None
 
-            # 1. check the status_file ?
-            status_file = "sdfitsStatus.txt"
-            if os.path.exists(sdfits_root + "/" + status_file):
-                logger.debug(f"Found {status_file} but not using it yet")
+            # 1. Fast path: try sdfitsStatus.txt file
+            status_file_path = os.path.join(sdfits_root, "sdfitsStatus.txt")
+            status_info = _parse_sdfits_status_file(status_file_path, backend=self._backend)
+            logger.debug(f"{status_info=}")
+            if status_info:
+                project_dir = os.path.join(sdfits_root, status_info["project"])
+                project_dir += f"/{status_info['project']}.raw.{status_info['backend']}"
+                logger.debug(f"{project_dir=}")
+                self._online = project_dir
+                logger.info(f"Found active session via status file: {status_info['project']}")
+                GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
+                self._mtime = os.path.getmtime(self.filenames()[0])
+            else:
+                # 2. Fallback: directory walk to find most recent FITS file
+                if os.path.exists(status_file_path):
+                    logger.debug("Status file exists but no matching entry, falling back to directory scan")
+                n = 0
+                mtime_max = 0
+                project = None
+                for dirname, subdirs, files in os.walk(sdfits_root):
+                    if len(subdirs) == 0:
+                        n = n + 1
+                        for fname in files:
+                            if fname.split(".")[-1] == "fits":
+                                mtime = os.path.getmtime(dirname + "/" + fname)
+                                if mtime > mtime_max:
+                                    mtime_max = mtime
+                                    project = dirname
+                                break
+                if n == 0 or project is None:
+                    return None
 
-            # 2. visit each directory where the final leaf contains fits files, and find the most recent one
-            n = 0
-            mtime_max = 0
-            for dirname, subdirs, files in os.walk(sdfits_root):
-                if len(subdirs) == 0:
-                    n = n + 1
-                    for fname in files:
-                        if fname.split(".")[-1] == "fits":
-                            mtime = os.path.getmtime(dirname + "/" + fname)
-                            if mtime > mtime_max:
-                                mtime_max = mtime
-                                project = dirname
-                            break
-            if n == 0:
-                return None
-
-            self._online = project
-            GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
-            self._mtime = os.path.getmtime(self.filenames()[0])
+                self._online = project
+                GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
+                self._mtime = os.path.getmtime(self.filenames()[0])
 
         # we only test the first filename in the list, assuming they're all being written
 
@@ -4288,17 +4978,32 @@ class GBTOnline(GBTFITSLoad):
         """force a reload of the latest"""
         if self._platform == "Windows":
             logger.warning("Cannot reload on Windows, see issue #447")
-            return
+            return False
         if not force:
+            mtime = self._mtime
+            files_missing = False
             for f in self.filenames():
-                mtime = max(self._mtime, os.path.getmtime(f))
+                try:
+                    mtime = max(mtime, os.path.getmtime(f))
+                except OSError as e:
+                    # File disappeared - log warning but keep watching
+                    logger.warning(f"Watched file unavailable: {f} ({e})")
+                    files_missing = True
+            if files_missing:
+                # Can't reload if files are missing, but keep watching
+                return False
             if mtime > self._mtime:
                 self._mtime = mtime
-                logger.debug("NEW MTIME:", self._mtime)
+                logger.debug("NEW MTIME: %s", self._mtime)
                 force = True
         if force:
             logger.info(f"Reload {self._online}")
-            GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
+            try:
+                GBTFITSLoad.__init__(self, self._online, *self._args, **self._kwargs)
+            except FileNotFoundError as e:
+                # Directory came back but files not ready yet
+                logger.warning(f"Reload failed, will retry: {e}")
+                return False
         return force
 
     # examples of catchers for reloading
@@ -4419,3 +5124,96 @@ def _tsys_dict_to_dict(tsys, scans):
         else:
             tsys_dict[scan] = tsys[scan]
     return tsys_dict
+
+
+def _parse_sdfits_status_file(
+    status_file_path: str,
+    backend: GBTBackend | str | None = None,
+) -> dict | None:
+    """
+    Parse sdfitsStatus.txt file to find active observations.
+
+    Parameters
+    ----------
+    status_file_path : str
+        Path to the sdfitsStatus.txt file
+    backend : GBTBackend, str, or None
+        If provided, filter to this specific backend. Can be enum or string.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with keys: backend (GBTBackend), project, scan, timestamp, file, index, age_minutes
+        Returns None if file doesn't exist or no matching entries found.
+    """
+    from datetime import datetime
+
+    if not os.path.exists(status_file_path):
+        return None
+
+    # Convert string to enum if needed
+    if isinstance(backend, str):
+        backend = GBTBackend.from_string(backend)
+        if backend is None:
+            # Invalid backend string - no matching entries possible
+            return None
+
+    spectral_backends = GBTBackend.spectral_line_backends()
+    entries = []
+
+    try:
+        with open(status_file_path) as f:
+            for line in f:
+                line = line.strip()
+                # Skip comments and empty lines
+                if not line or line.startswith("#"):
+                    continue
+
+                parts = line.split(",")
+                if len(parts) < 7:
+                    continue
+
+                backend_str, project, scan, timestamp, datetime_str, file, index = parts[:7]
+
+                # Parse backend
+                entry_backend = GBTBackend.from_string(backend_str)
+                if entry_backend is None:
+                    continue
+
+                # Filter to spectral line backends only (unless specific backend requested)
+                if backend is None and entry_backend not in spectral_backends:
+                    continue
+
+                # Filter to specific backend if requested
+                if backend is not None and entry_backend != backend:
+                    continue
+
+                # Parse timestamp and calculate age
+                try:
+                    dt = datetime.strptime(datetime_str, "%a %b %d %H:%M:%S %Y")
+                    # Get timestamp (seconds since epoch)
+                    age_minutes = (datetime.now() - dt).total_seconds() / 60.0
+                except ValueError:
+                    age_minutes = float("inf")
+
+                entries.append(
+                    {
+                        "backend": entry_backend,
+                        "project": project,
+                        "scan": scan,
+                        "timestamp": timestamp,
+                        "file": file,
+                        "index": index,
+                        "age_minutes": age_minutes,
+                    }
+                )
+
+    except OSError as e:
+        logger.warning(f"Error reading status file {status_file_path}: {e}")
+        return None
+
+    if not entries:
+        return None
+
+    # Return most recent entry (smallest age)
+    return min(entries, key=lambda x: x["age_minutes"])

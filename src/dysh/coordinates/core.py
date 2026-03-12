@@ -286,7 +286,9 @@ def sanitize_skycoord(target):
     except Exception:
         _rv = _VELZERO
 
-    # print(f"{type(target.distance)}, [{target.distance.unit}], {target.distance.unit == u.dimensionless_unscaled}")
+    logger.debug(
+        f"{type(target.distance)}, [{target.distance.unit}], {target.distance.unit == u.dimensionless_unscaled}"
+    )
     if target.distance.unit == u.dimensionless_unscaled and round(target.distance.value) == 1:
         # distance was unset and astropy set it to 1 with a dimensionless composite unit
         newdistance = _DEFAULT_DISTANCE
@@ -329,10 +331,10 @@ def sanitize_skycoord(target):
         except:  # noqa: E722
             pm_lon = _PMZERORAD
             pm_lat = _PMZERORAD
-        # print(
-        #    f"DEBUG\n: _target = SkyCoord( {lon}, {lat}, frame={target.frame}, distance={newdistance},"
-        #    f" pm_l_cosb={pm_lon}, pm_b={pm_lat}, radial_velocity={_rv})"
-        # )
+        logger.debug(
+            f"_target = SkyCoord( {lon}, {lat}, frame={target.frame}, distance={newdistance},"
+            f" pm_l_cosb={pm_lon}, pm_b={pm_lat}, radial_velocity={_rv})"
+        )
         _target = coord.SkyCoord(
             lon,
             lat,
@@ -537,8 +539,6 @@ def make_target(header):
     # should we also require DATE-OBS or MJD-OBS?
     _required = set(["CRVAL2", "CRVAL3", "CUNIT2", "CUNIT3", "VELOCITY", "EQUINOX", "RADESYS", "DATE-OBS"])
 
-    # for k in _required:
-    #    print(f"{k} {k in header}")
     if not _required <= header.keys():
         raise ValueError(f"Header is missing one or more required keywords: {_required}")
 
@@ -552,7 +552,6 @@ def make_target(header):
         obstime=Time(header["DATE-OBS"]),
         location=gbt_location(),
     )
-    # print(f"{t1},{t1.pm_ra_cosdec},{t1.pm_dec},{t1.distance},{t1.radial_velocity}")
     target = sanitize_skycoord(t1)
     return target
 

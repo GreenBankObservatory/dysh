@@ -11,7 +11,7 @@ The Model
 
 The power being recorded by a backend can be described by
 
-.. math::
+.. math:: :label: eq_power1
 
    P=G\left(T_{\mathrm{A}}+T_{\mathrm{sys}}\right)
 
@@ -20,7 +20,7 @@ with :math:`G` the telescope gain, :math:`T_{\mathrm{A}}` the antenna temperatur
 During observations, a noise diode or a hot load can be used to determine the telescope gain or system temperature.
 When the noise diode is firing, the power becomes
 
-.. math::
+.. math:: :label: eq_power2
 
    P^{\mathrm{cal}}=G\left(T_{\mathrm{A}}+T_{\mathrm{sys}}+T_{\mathrm{cal}}\right)
 
@@ -31,7 +31,7 @@ System Temperature
 
 For observations with a noise diode or hot load the system temperature can be computed using
 
-.. math::
+.. math:: :label: eq_tsys1
 
    T_{\mathrm{sys}}=T_{\rm{cal}}\left[\frac{P_{\rm{ref}}}{P_{\rm{ref}}^{\rm{cal}}-P_{\rm{ref}}}\right]+\frac{T_{\rm{cal}}}{2}
 
@@ -40,7 +40,7 @@ The factor :math:`T_{\rm{cal}}/2` accounts for the noise diode being fired half 
 To minimize the "noise" in the computation, dysh takes the average of the numerator and the denominator over the inner 80% of the channels.
 So, in practice the system temperature is computed as
 
-.. math::
+.. math:: :label: eq_tsys2
 
    T_{\mathrm{sys}}=T_{\rm{cal}}\left[\frac{\langle P_{\rm{ref}}\rangle}{\langle P_{\rm{ref}}^{\rm{cal}}-P_{\rm{ref}}\rangle}\right]+\frac{T_{\rm{cal}}}{2}
 
@@ -75,9 +75,9 @@ Weights
 
 By default, dysh uses the inverse variance of the thermal noise as weights
 
-.. math::
+.. math:: :label: eq_weights
 
-   w=\frac{\Delta t \Delta\nu}{T_{\rm{sys}}^{2}}.
+   w=\frac{\Delta t \Delta\nu}{T_{\rm{sys}}^{2}}
 
 Brightness Scales
 =================
@@ -85,8 +85,8 @@ Brightness Scales
 The definitions of the brightness scales used by dysh are in `GBT memo #302 <https://library.nrao.edu/public/memos/gbt/GBT_302.pdf>`_.
 
 
-Misc
-====
+Miscellaneous
+=============
 
 Smoothing the Reference
 -----------------------
@@ -94,12 +94,12 @@ Smoothing the Reference
 During calibration it is possible to smooth the reference using the ``smoothref`` argument (this is an argument to the calibration routines, e.g., :py:func:`~dysh.fits.GBTFITSLoad.getps`).
 For purely thermal noise this would reduce the noise in the calibrated spectrum by a factor
 
-.. math::
+.. math::  :label: eq_smooth1
 
    \sqrt{\frac{N+1}{2N}}
 
 where :math:`N` is the width, in channels, of the smoothing kernel.
-So, if using ``smoothref=3`` the noise should be reduced by :math:`\sqrt{4/6}`.
+So, if using ``smoothref=3`` the noise should be reduced by :math:`\sqrt{4/6}`, or 0.82.
 
 Exposure Time
 -------------
@@ -108,7 +108,16 @@ Effective exposure time after calibrating using a noisy reference power
 
 .. math:: :label: eq_sdmath6
 
-   \Delta t=\frac{t_{\rm{sig}}t_{\rm{ref}}}{t_{\rm{sig}}+t_{\rm{ref}}}.
+   \Delta t=\frac{t_{\rm{sig}}t_{\rm{ref}}}{t_{\rm{sig}}+t_{\rm{ref}}}
+
+but this is assuming the reference was not smoothed, as from the previous section. The correct equation
+for a smoothed reference (with  :math:`N` the number of channels to smooth with) would be
+
+.. math:: :label: eq_sdmath7
+
+   \Delta t= t_{\rm{sig}}  \frac{N.t_{\rm{ref}}}{t_{\rm{sig}}+N.t_{\rm{ref}}}.
+
+
 
 Ruze Equation
 -------------
@@ -120,6 +129,6 @@ square (:math:`\delta`) of the antenna's random surface errors.
 
    G = G_0 \exp{ (-(4\pi\delta / \lambda)^2) }
 
-but the associated beam spreading is a different story.
+.. but the associated beam spreading is a different story.
 
 .. Something about Doppler and Velocity Frames?
