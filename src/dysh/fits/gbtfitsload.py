@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy.io import fits
+from astropy.time import Time
 from astropy.units.quantity import Quantity
 from numpy.typing import ArrayLike
 
@@ -27,7 +28,7 @@ from dysh.log import logger
 
 from ..coordinates import Observatory, decode_veldef, eq2hor, hor2eq
 from ..log import HistoricalBase, log_call_to_history, log_call_to_result
-from ..spectra.core import make_channel_slice, mean_data
+from ..spectra.core import find_non_blanks, make_channel_slice, mean_data, mean_tsys, tsys_weight
 from ..spectra.scan import (
     FSScan,
     NodScan,
@@ -1665,6 +1666,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         columns_needed_for_rows = list(required_columns)
         if calibration_metadata_needed:
             columns_needed_for_rows.extend(_SCAN_LAZY_METADATA_COLUMNS)
+            columns_needed_for_rows.extend(_VANE_LAZY_METADATA_COLUMNS)
 
         # Check which columns are missing. For calibration-path metadata, do not trust
         # the global fully-loaded shortcut because previous lazy loads may only have
@@ -1693,6 +1695,10 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         columns_to_load_upper = {c.upper() for c in columns_to_load}
         if calibration_metadata_needed:
             for col in _SCAN_LAZY_METADATA_COLUMNS:
+                if col not in columns_to_load_upper:
+                    columns_to_load.append(col)
+                    columns_to_load_upper.add(col)
+            for col in _VANE_LAZY_METADATA_COLUMNS:
                 if col not in columns_to_load_upper:
                     columns_to_load.append(col)
                     columns_to_load_upper.add(col)
@@ -4691,27 +4697,16 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
             sky_scan = scan
             vane_scan = scan - 1
 
-        vane = self.gettp(
-            scan=vane_scan,
-            fdnum=fdnum,
+        self._prefetch_vanecal_metadata(vane_scan=vane_scan, sky_scan=sky_scan, ifnum=ifnum, plnum=plnum)
+        scan_cache = self._get_vanecal_scan_cache(
+            vane_scan=vane_scan,
+            sky_scan=sky_scan,
             ifnum=ifnum,
             plnum=plnum,
-            calibrate=True,
-            cal=False,
             apply_flags=apply_flags,
-        ).timeaverage(use_wcs=False)
-        sky = self.gettp(
-            scan=sky_scan,
-            fdnum=fdnum,
-            ifnum=ifnum,
-            plnum=plnum,
-            calibrate=True,
-            cal=False,
-            apply_flags=apply_flags,
-        ).timeaverage(use_wcs=False)
-
-        if twarm is None:
-            twarm = sky.meta["TWARM"] + 273.15  # TWARM is recorded in Celsius when using RcvrArray75_115 (Argus).
+        )
+        vane = scan_cache[vane_scan][fdnum]
+        sky = scan_cache[sky_scan][fdnum]
 
         if zenith_opacity is None:
             try:
@@ -4720,8 +4715,8 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 gbwf = GBTWeatherForecast()
                 result = gbwf.fetch(
                     vartype="Opacity",
-                    specval=sky.spectral_axis.quantity.mean(),
-                    mjd=sky.obstime.mjd,
+                    specval=sky["specval"],
+                    mjd=sky["obstime_mjd"],
                 )
                 zenith_opacity = result[:, -1]
             except ValueError as e:
@@ -4732,7 +4727,7 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
                 from ..util.weatherforecast import GBTWeatherForecast
 
                 gbwf = GBTWeatherForecast()
-                result = gbwf.fetch(vartype="Tatm", specval=sky.spectral_axis.quantity.mean(), mjd=sky.obstime.mjd)
+                result = gbwf.fetch(vartype="Tatm", specval=sky["specval"], mjd=sky["obstime_mjd"])
                 tatm = result[:, -1]
             except ValueError as e:
                 logger.debug("Could not get forecasted atmospheric temperature ", e)
@@ -4740,29 +4735,157 @@ class GBTFITSLoad(SDFITSLoad, HistoricalBase):
         if tcal is None:
             logger.info("No calibration temperature provided.")
             if zenith_opacity is None:
-                tcal = sky.meta["TAMBIENT"]
+                tcal = sky["meta"]["TAMBIENT"]
                 logger.info(
                     f"No zenith opacity provided. Will approximate the calibration temperature to the ambient temperature {tcal} K."
                 )
             elif tatm is not None:
-                airmass = GBTGainCorrection().airmass(sky.meta["ELEVATIO"] * u.deg, zd=False)
+                if twarm is None:
+                    twarm = sky["meta"]["TWARM"] + 273.15
+                airmass = GBTGainCorrection().airmass(sky["meta"]["ELEVATIO"] * u.deg, zd=False)
                 tcal = (tatm - tbkg) + (twarm - tatm) * np.exp(zenith_opacity * airmass)
 
         match mode:
             case 0:
-                mean_off = mean_data(sky.data)
-                mean_dif = mean_data(vane.data - sky.data)
+                mean_off = mean_data(sky["data"])
+                mean_dif = mean_data(vane["data"] - sky["data"])
                 tsys = tcal * mean_off / mean_dif
             case 1:
-                tsys = tcal / mean_data((vane.data - sky.data) / sky.data)
+                tsys = tcal / mean_data((vane["data"] - sky["data"]) / sky["data"])
             case 2:
-                tsys = tcal / np.nanmedian((vane.data - sky.data) / sky.data)
+                tsys = tcal / np.ma.median((vane["data"] - sky["data"]) / sky["data"])
 
         logger.debug(f"TCAL={tcal} K")
         logger.debug(f"mode={mode}")
         logger.debug(f"TSYS={tsys} K")
 
         return tsys
+
+    def _prefetch_vanecal_metadata(self, vane_scan: int, sky_scan: int, ifnum: int, plnum: int) -> None:
+        """Eagerly load the metadata needed by repeated Argus vane/sky TP selections.
+
+        Argus vane calibration is typically run across every feed for the same vane/sky
+        scan pair. Preloading the scan-pair metadata once avoids repeated lazy-load and
+        merged-index rebuild work inside the 32 subsequent ``gettp()`` calls.
+        """
+        if not (self._any_index_file() or self._any_hybrid()):
+            return
+
+        cache = getattr(self, "_vanecal_prefetched", None)
+        if cache is None:
+            cache = set()
+            self._vanecal_prefetched = cache
+
+        key = (vane_scan, sky_scan, ifnum, plnum)
+        if key in cache:
+            return
+
+        df = self._index
+        rows = df[
+            df["SCAN"].isin([vane_scan, sky_scan]) & (df["IFNUM"] == ifnum) & (df["PLNUM"] == plnum)
+        ]
+        if len(rows) == 0:
+            cache.add(key)
+            return
+
+        self._load_full_rows_if_needed(rows, ["TCAL", "TSYS", "TWARM", "TAMBIENT"])
+        cache.add(key)
+
+    def _get_vanecal_scan_cache(
+        self,
+        vane_scan: int,
+        sky_scan: int,
+        ifnum: int,
+        plnum: int,
+        apply_flags: bool,
+    ) -> dict[int, dict[int, dict[str, object]]]:
+        cache = getattr(self, "_vanecal_scan_cache", None)
+        if cache is None:
+            cache = {}
+            self._vanecal_scan_cache = cache
+
+        key = (vane_scan, sky_scan, ifnum, plnum, apply_flags)
+        if key not in cache:
+            cache[key] = {
+                vane_scan: self._compute_vanecal_tp_averages(vane_scan, ifnum, plnum, apply_flags),
+                sky_scan: self._compute_vanecal_tp_averages(sky_scan, ifnum, plnum, apply_flags),
+            }
+        return cache[key]
+
+    def _compute_vanecal_tp_averages(
+        self,
+        scan: int,
+        ifnum: int,
+        plnum: int,
+        apply_flags: bool,
+    ) -> dict[int, dict[str, object]]:
+        _, selected = self._common_selection(
+            fdnum=None,
+            ifnum=ifnum,
+            plnum=plnum,
+            apply_flags=apply_flags,
+            scan=[scan],
+        )
+        selected = self._load_full_rows_if_needed(selected, ["TCAL", "TSYS", "TWARM", "TAMBIENT"])
+
+        results: dict[int, dict[str, object]] = {}
+        for fitsindex, fits_group in selected.groupby("FITSINDEX", sort=False):
+            sdf = self._sdf[int(fitsindex)]
+            for bintable, group in fits_group.groupby("BINTABLE", sort=False):
+                ordered = group.reset_index(drop=True)
+                rows = ordered["ROW"].to_numpy()
+                spectra = sdf.rawspectra(int(bintable), setmask=apply_flags, rows=rows)
+
+                for fdnum, fd_group in ordered.groupby("FDNUM", sort=False):
+                    positions = fd_group.index.to_numpy()
+                    fd_spectra = spectra[positions]
+                    cal_series = fd_group["CAL"].astype(str).str.upper()
+                    on_positions = np.flatnonzero(cal_series == "T")
+                    off_positions = np.flatnonzero(cal_series == "F")
+                    if len(off_positions) == 0:
+                        continue
+
+                    cal_off = fd_spectra[off_positions]
+                    if len(on_positions) == 0:
+                        good = find_non_blanks(cal_off)
+                        cal_on = None
+                    else:
+                        cal_on = fd_spectra[on_positions]
+                        good = np.intersect1d(find_non_blanks(cal_on), find_non_blanks(cal_off))
+                    if len(good) == 0:
+                        continue
+
+                    if cal_on is not None:
+                        cal_on = cal_on[good]
+                    cal_off = cal_off[good]
+                    off_meta = fd_group.iloc[off_positions].iloc[good]
+
+                    if cal_on is None:
+                        tsys = np.ones(len(good), dtype=float)
+                    else:
+                        tcal = off_meta["TCAL"].to_numpy(dtype=float)
+                        tsys = np.array(
+                            [mean_tsys(calon=cal_on[i], caloff=cal_off[i], tcal=tcal[i]) for i in range(len(good))]
+                        )
+                    exposure = off_meta["EXPOSURE"].to_numpy(dtype=float)
+                    duration = off_meta["DURATION"].to_numpy(dtype=float)
+                    delta_freq = off_meta["CDELT1"].to_numpy(dtype=float)
+                    weights = tsys_weight(exposure, delta_freq, tsys)
+                    data_avg = np.ma.average(cal_off, axis=0, weights=weights)
+
+                    meta = off_meta.iloc[0].to_dict()
+                    meta["EXPOSURE"] = float(np.sum(exposure))
+                    meta["DURATION"] = float(np.sum(duration))
+                    meta["TSYS"] = float(np.sqrt(np.sum(np.max(weights) * tsys**2) / np.sum(np.max(weights))))
+                    meta["WTTSYS"] = meta["TSYS"]
+                    results[int(fdnum)] = {
+                        "data": data_avg,
+                        "meta": meta,
+                        "specval": float(meta["OBSFREQ"]) * u.Hz,
+                        "obstime_mjd": Time(meta["DATE-OBS"]).mjd,
+                    }
+
+        return results
 
     def _get_bintable(self, df: pd.DataFrame) -> int:
         """
