@@ -84,6 +84,7 @@ def init_shell(
     from dysh.spectra.spectrum import Spectrum
     from dysh.util.files import dysh_data
 
+    # if you add something here, also consider doing this in lab_templates/dysh/default.ipynb
     user_ns = {
         "pd": pd,
         "np": np,
